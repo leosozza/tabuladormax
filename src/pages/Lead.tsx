@@ -68,6 +68,54 @@ export default function Lead() {
     }
   }, [id]);
 
+  // Listener para dados do Bitrix via postMessage
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const eventData = typeof event.data === 'string' 
+          ? JSON.parse(event.data) 
+          : event.data;
+
+        // Atualizar perfil com dados recebidos
+        if (eventData && typeof eventData === 'object') {
+          setRawBitrix(eventData);
+          
+          setProfile({
+            RESPONSAVEL: eventData.UF_RESPONSAVEL || eventData.RESPONSAVEL || '',
+            MODELO: eventData.NAME || eventData.MODELO || '',
+            IDADE: String(eventData.UF_IDADE || eventData.IDADE || ''),
+            LOCAL: eventData.ADDRESS || eventData.LOCAL || '',
+            SCOUTER: eventData.UF_SCOUTER || eventData.SCOUTER || '',
+            PHOTO: eventData.PHOTO || eventData.PHOTO_URL || ''
+          });
+
+          // Atualizar cache automaticamente
+          if (id) {
+            supabase.from('leads').upsert({
+              id: Number(id),
+              name: eventData.NAME || '',
+              responsible: eventData.UF_RESPONSAVEL || null,
+              age: eventData.UF_IDADE ? Number(eventData.UF_IDADE) : null,
+              address: eventData.ADDRESS || null,
+              scouter: eventData.UF_SCOUTER || null,
+              photo_url: eventData.PHOTO || null,
+              date_modify: eventData.DATE_MODIFY || null,
+              raw: eventData,
+              updated_at: new Date().toISOString()
+            }).then(() => {
+              toast.success('Dados recebidos do Bitrix!');
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao processar postMessage:', error);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [id]);
+
   const loadData = async () => {
     if (!id) return;
     

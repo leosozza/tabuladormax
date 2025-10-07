@@ -53,22 +53,21 @@ export default function Config() {
       // Deletar todos os botões existentes
       await supabase.from('button_config').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
-      // Inserir os novos
-      const { error } = await supabase.from('button_config').insert(
-        buttons.map((btn, i) => ({
-          ...btn,
-          sort: i,
-          id: undefined // Remove ID para criar novos
-        }))
-      );
+      // Inserir os novos (remover id para gerar novo UUID)
+      const buttonsToInsert = buttons.map((btn, i) => {
+        const { id, ...rest } = btn;
+        return { ...rest, sort: i };
+      });
+
+      const { error } = await supabase.from('button_config').insert(buttonsToInsert);
 
       if (error) throw error;
 
       toast.success('Configuração salva!');
       loadButtons();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar:', error);
-      toast.error('Erro ao salvar configuração');
+      toast.error(`Erro ao salvar: ${error?.message || 'Desconhecido'}`);
     }
   };
 
