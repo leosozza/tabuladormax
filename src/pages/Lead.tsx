@@ -66,6 +66,53 @@ export default function Lead() {
     if (id) {
       loadData();
     }
+
+    // Listener para dados do Bitrix via postMessage
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const eventData = typeof event.data === 'string' 
+          ? JSON.parse(event.data) 
+          : event.data;
+
+        if (eventData && eventData.result) {
+          const bxData = eventData.result;
+          
+          // Atualizar perfil com dados do Bitrix
+          setProfile({
+            RESPONSAVEL: bxData.UF_RESPONSAVEL || bxData.ASSIGNED_BY_ID || '',
+            MODELO: bxData.NAME || bxData.TITLE || '',
+            IDADE: String(bxData.UF_IDADE || bxData.AGE || ''),
+            LOCAL: bxData.ADDRESS || bxData.ADDRESS_CITY || '',
+            SCOUTER: bxData.UF_SCOUTER || '',
+            PHOTO: bxData.PHOTO || ''
+          });
+          setRawBitrix(bxData);
+
+          // Salvar no cache do Supabase
+          if (id) {
+            supabase.from('leads').upsert({
+              id: Number(id),
+              name: bxData.NAME || bxData.TITLE || '',
+              responsible: bxData.UF_RESPONSAVEL || bxData.ASSIGNED_BY_ID || '',
+              age: bxData.UF_IDADE || bxData.AGE ? Number(bxData.UF_IDADE || bxData.AGE) : null,
+              address: bxData.ADDRESS || bxData.ADDRESS_CITY || '',
+              scouter: bxData.UF_SCOUTER || '',
+              photo_url: bxData.PHOTO || '',
+              date_modify: bxData.DATE_MODIFY || new Date().toISOString(),
+              raw: bxData,
+              updated_at: new Date().toISOString()
+            }).then(() => {
+              console.log('Cache atualizado com dados do Bitrix');
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao processar postMessage:', error);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, [id]);
 
   // Listener para dados do Bitrix via postMessage
