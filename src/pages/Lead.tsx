@@ -219,89 +219,72 @@ export default function Lead() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 p-8">
+    <div className="min-h-screen bg-background">
       <HotkeyListener mapping={hotkeyMapping} disabled={editMode} />
 
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Tabulação Lead #{id}
-          </h1>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/config')}
-              className="gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              Config
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/logs')}
-              className="gap-2"
-            >
-              <BookText className="h-4 w-4" />
-              Logs
-            </Button>
-          </div>
-        </div>
+      {/* Header com botão Voltar */}
+      <div className="bg-card border-b border-border p-4">
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/')}
+          className="gap-2"
+        >
+          ← Voltar
+        </Button>
+      </div>
 
+      <div className="max-w-7xl mx-auto p-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Perfil */}
-          <Card className="p-8 shadow-[var(--shadow-card)] bg-gradient-to-br from-card to-card/80">
-            <div className="flex flex-col gap-6">
-              {/* Foto */}
-              <div className="flex justify-center">
-                <div className="relative">
-                  <img
-                    src={profile.PHOTO || '/placeholder.svg'}
-                    alt="Foto"
-                    className="w-32 h-32 rounded-full border-4 border-primary shadow-[var(--shadow-button)] object-cover"
-                  />
+          {/* Coluna Esquerda - Perfil */}
+          <Card className="p-8 bg-card">
+            <div className="flex flex-col items-center gap-6">
+              {/* Foto com borda verde */}
+              <div className="relative">
+                <div className="w-40 h-40 rounded-full border-4 border-success bg-muted flex items-center justify-center overflow-hidden">
+                  {profile.PHOTO ? (
+                    <img
+                      src={profile.PHOTO}
+                      alt="Foto"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-20 w-20 text-muted-foreground" />
+                  )}
                 </div>
               </div>
 
               {!editMode ? (
                 <>
-                  <div className="space-y-4">
-                    <h2 className="text-3xl font-bold text-center">{profile.MODELO}</h2>
-                    
-                    <div className="space-y-3 text-lg">
-                      <div className="flex items-center gap-3 text-muted-foreground">
-                        <User className="h-5 w-5 text-primary" />
-                        <span>Responsável: <strong>{profile.RESPONSAVEL}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-3 text-muted-foreground">
-                        <Cake className="h-5 w-5 text-primary" />
-                        <span>Idade: <strong>{profile.IDADE}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-3 text-muted-foreground">
-                        <MapPin className="h-5 w-5 text-primary" />
-                        <span>Local: <strong>{profile.LOCAL}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-3 text-muted-foreground">
-                        <Compass className="h-5 w-5 text-primary" />
-                        <span>Scouter: <strong>{profile.SCOUTER}</strong></span>
-                      </div>
-                    </div>
+                  {/* Nome */}
+                  <h2 className="text-2xl font-bold text-center text-foreground">
+                    {profile.MODELO || 'Lead sem nome'}
+                  </h2>
 
-                    {profile.LOCAL && (
-                      <div className="mt-6">
-                        <iframe
-                          src={`https://www.openstreetmap.org/export/embed.html?bbox=-46.66,-23.55,-46.64,-23.53&layer=mapnik&marker=-23.54,-46.65`}
-                          className="w-full h-48 rounded-xl border-2 border-border"
-                          title="Mapa"
-                        />
-                      </div>
-                    )}
+                  {/* Informações */}
+                  <div className="w-full space-y-3">
+                    <div className="flex items-center gap-2 text-foreground">
+                      <User className="h-5 w-5" />
+                      <span>Responsável: {profile.RESPONSAVEL || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-foreground">
+                      <Cake className="h-5 w-5" />
+                      <span>Idade: {profile.IDADE || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-foreground">
+                      <MapPin className="h-5 w-5" />
+                      <span>Local: {profile.LOCAL || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-foreground">
+                      <Compass className="h-5 w-5" />
+                      <span>Scouter: {profile.SCOUTER || '—'}</span>
+                    </div>
                   </div>
 
-                  <div className="flex gap-2 pt-4">
+                  {/* Botões */}
+                  <div className="w-full flex gap-2 pt-4">
                     <Button
                       onClick={() => setEditMode(true)}
-                      className="flex-1 gap-2 shadow-[var(--shadow-button)] hover:shadow-[var(--shadow-hover)]"
+                      className="flex-1 gap-2 bg-success hover:bg-success/90 text-success-foreground"
                     >
                       <Edit className="h-4 w-4" />
                       Editar Perfil
@@ -309,14 +292,13 @@ export default function Lead() {
                     <Button
                       variant="outline"
                       onClick={() => setShowHelp(!showHelp)}
-                      className="gap-2"
                     >
-                      {showHelp ? '✕' : '❓'} Atalhos
+                      Atalhos
                     </Button>
                   </div>
                 </>
               ) : (
-                <div className="space-y-4">
+                <div className="w-full space-y-4">
                   <div>
                     <Label>Responsável</Label>
                     <Input
@@ -354,7 +336,7 @@ export default function Lead() {
                   </div>
                   <Button
                     onClick={updateCache}
-                    className="w-full gap-2 shadow-[var(--shadow-button)] hover:shadow-[var(--shadow-hover)]"
+                    className="w-full gap-2"
                   >
                     <Save className="h-4 w-4" />
                     Salvar Cache
@@ -364,80 +346,83 @@ export default function Lead() {
             </div>
           </Card>
 
-          {/* Botões por Categoria */}
+          {/* Coluna Direita - Ações */}
           <div className="space-y-6">
-            {showHelp && (
-              <Card className="p-4 bg-gray-900/95 text-white">
-                <h3 className="font-bold mb-2">⌨️ Atalhos disponíveis</h3>
-                <div className="space-y-1 text-sm">
-                  {hotkeyMapping.map((hk, i) => (
-                    <div key={i}>{hk.id} — {hk.key}</div>
-                  ))}
-                </div>
-              </Card>
-            )}
+            <Card className="p-6 bg-card">
+              <div className="flex items-center gap-2 mb-6">
+                <Settings className="h-5 w-5" />
+                <h3 className="text-xl font-bold text-foreground">Ações de Tabulação</h3>
+              </div>
 
-            <div className="grid grid-cols-1 gap-6">
-              {/* Não Agendado */}
-              <Card className="p-6 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
-                <h3 className="text-lg font-bold mb-4 text-red-700 dark:text-red-300">
-                  🟥 Não Agendado
-                </h3>
-                <div className="space-y-3">
-                  {categorizedButtons.NAO_AGENDADO.map((btn) => (
+              {showHelp && (
+                <Card className="p-4 bg-muted mb-4">
+                  <h4 className="font-bold mb-2">⌨️ Atalhos disponíveis</h4>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    {hotkeyMapping.map((hk, i) => (
+                      <div key={i}>{hk.id} — {hk.key}</div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Grid de Botões 2x3 */}
+              <div className="grid grid-cols-2 gap-4">
+                {buttons.slice(0, 7).map((btn) => (
+                  <Button
+                    key={btn.id}
+                    data-btn-id={btn.id}
+                    onClick={() => handleButtonClick(btn)}
+                    style={{ backgroundColor: btn.color }}
+                    className="h-24 text-white text-base font-semibold rounded-2xl hover:scale-105 transition-all flex flex-col items-center justify-center gap-1 shadow-lg"
+                  >
+                    <span>{btn.label}</span>
+                    {btn.hotkey && (
+                      <span className="text-xs opacity-80">[{btn.hotkey}]</span>
+                    )}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Botões extras em uma linha */}
+              {buttons.length > 7 && (
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  {buttons.slice(7).map((btn) => (
                     <Button
                       key={btn.id}
                       data-btn-id={btn.id}
                       onClick={() => handleButtonClick(btn)}
                       style={{ backgroundColor: btn.color }}
-                      className="w-full text-white text-lg py-6 shadow-[var(--shadow-button)] hover:shadow-[var(--shadow-hover)] hover:scale-105 transition-all"
+                      className="h-20 text-white text-base font-semibold rounded-2xl hover:scale-105 transition-all flex flex-col items-center justify-center gap-1"
                     >
-                      {btn.label} {btn.hotkey && `[${btn.hotkey}]`}
+                      <span>{btn.label}</span>
+                      {btn.hotkey && (
+                        <span className="text-xs opacity-80">[{btn.hotkey}]</span>
+                      )}
                     </Button>
                   ))}
                 </div>
-              </Card>
+              )}
 
-              {/* Retornar */}
-              <Card className="p-6 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
-                <h3 className="text-lg font-bold mb-4 text-amber-700 dark:text-amber-300">
-                  🟨 Retornar o Contato
-                </h3>
-                <div className="space-y-3">
-                  {categorizedButtons.RETORNAR.map((btn) => (
-                    <Button
-                      key={btn.id}
-                      data-btn-id={btn.id}
-                      onClick={() => handleButtonClick(btn)}
-                      style={{ backgroundColor: btn.color }}
-                      className="w-full text-white text-lg py-6 shadow-[var(--shadow-button)] hover:shadow-[var(--shadow-hover)] hover:scale-105 transition-all"
-                    >
-                      {btn.label} {btn.hotkey && `[${btn.hotkey}]`}
-                    </Button>
-                  ))}
-                </div>
-              </Card>
-
-              {/* Agendar */}
-              <Card className="p-6 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
-                <h3 className="text-lg font-bold mb-4 text-emerald-700 dark:text-emerald-300">
-                  🟩 Agendar
-                </h3>
-                <div className="space-y-3">
-                  {categorizedButtons.AGENDAR.map((btn) => (
-                    <Button
-                      key={btn.id}
-                      data-btn-id={btn.id}
-                      onClick={() => handleButtonClick(btn)}
-                      style={{ backgroundColor: btn.color }}
-                      className="w-full text-white text-lg py-6 shadow-[var(--shadow-button)] hover:shadow-[var(--shadow-hover)] hover:scale-105 transition-all"
-                    >
-                      {btn.label} {btn.hotkey && `[${btn.hotkey}]`}
-                    </Button>
-                  ))}
-                </div>
-              </Card>
-            </div>
+              {/* Botões de navegação */}
+              <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-border">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/config')}
+                  className="gap-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  Configurar Botões
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/logs')}
+                  className="gap-2"
+                >
+                  <BookText className="h-4 w-4" />
+                  Ver Logs
+                </Button>
+              </div>
+            </Card>
           </div>
         </div>
       </div>
