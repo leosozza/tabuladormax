@@ -43,6 +43,7 @@ interface ButtonEditDialogProps {
   onUpdateSubButton: (id: string, subIndex: number, updates: Partial<SubButton>) => void;
   onFieldDrop: (event: React.DragEvent<HTMLDivElement>, buttonId: string, subIndex?: number) => void;
   onMoveButton: (id: string, category: ButtonCategory) => void;
+  onDelete: (id: string) => void;
   renderFieldValueControl: (fieldName: string, value: string, onChange: (value: string) => void) => React.ReactNode;
 }
 
@@ -58,17 +59,36 @@ export function ButtonEditDialog({
   onUpdateSubButton,
   onFieldDrop,
   onMoveButton,
+  onDelete,
   renderFieldValueControl,
 }: ButtonEditDialogProps) {
   if (!button) return null;
 
   const fieldMeta = bitrixFields.find((field) => field.name === button.field);
 
+  const handleDelete = () => {
+    if (confirm(`Tem certeza que deseja excluir o botão "${button.label}"?`)) {
+      onDelete(button.id);
+      onOpenChange(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar Botão: {button.label}</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Editar Botão: {button.label}</DialogTitle>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleDelete}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Excluir Botão
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4">
