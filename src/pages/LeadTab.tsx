@@ -280,68 +280,96 @@ const LeadTab = () => {
     loadFieldMappings();
   }, []);
 
-  // Listener do Chatwoot via window.postMessage
+  // Listener do Chatwoot via window.postMessage (compatível com múltiplos formatos)
   useEffect(() => {
     console.log("🎧 Listener de mensagens do Chatwoot ativado na página LeadTab");
     
     const handleChatwootMessage = async (event: MessageEvent) => {
-      console.log("📨 Mensagem recebida no LeadTab:", {
-        origin: event.origin,
-        dataType: typeof event.data,
-        hasConversation: !!event.data?.conversation,
-      });
-
       try {
-        let data = event.data;
+        let raw = event.data;
         
         // Parse se for string
-        if (typeof data === "string") {
+        if (typeof raw === "string") {
           try {
-            data = JSON.parse(data);
-            console.log("✅ Dados parseados:", data);
+            raw = JSON.parse(raw);
           } catch {
-            console.log("⚠️ Não é JSON válido");
             return;
           }
         }
 
-        if (data?.conversation?.meta?.sender || data?.data?.contact) {
-          console.log("👤 Dados de conversação/contato encontrados");
-          const contactData = extractChatwootData(data as ChatwootEventData);
+        // Compatibilidade: Chatwoot pode enviar como conversation.meta.sender ou data.contact
+        const sender = raw?.conversation?.meta?.sender || raw?.data?.contact;
+        const attrs = sender?.custom_attributes || {};
+        const assignee = raw?.conversation?.meta?.assignee;
+
+        if (!sender) return;
+
+        console.log("✅ Dados do Chatwoot recebidos:", {
+          nome: sender.name,
+          attrs: Object.keys(attrs),
+          foto: sender.thumbnail || attrs.foto
+        });
+
+        // Criar profile com os dados recebidos
+        const newProfile: DynamicProfile = {};
+        
+        // Usar field mappings configurados para popular o profile
+        fieldMappings.forEach(mapping => {
+          let value = "";
           
-          if (contactData) {
-            console.log("💾 Salvando contato:", contactData.bitrix_id);
-            console.log("📋 Custom Attributes capturados:", contactData.custom_attributes);
-            console.log("📋 Quantidade de custom attributes:", Object.keys(contactData.custom_attributes || {}).length);
-            console.log("🖼️ Thumbnail/Foto:", contactData.thumbnail);
-            
-            // Salvar no Supabase
-            await saveChatwootContact(contactData);
-            
-            // Atualizar o profile na interface
-            const newProfile = mapChatwootToProfile(contactData, fieldMappings);
-            setProfile(newProfile);
-            setChatwootData(contactData);
-
-            // Registrar log do evento recebido
-            await supabase.from('actions_log').insert([{
-              lead_id: Number(contactData.bitrix_id),
-              action_label: 'Evento Chatwoot Recebido',
-              payload: {
-                conversation_id: contactData.conversation_id,
-                contact_id: contactData.contact_id,
-                event_type: 'message_received'
-              } as any,
-              status: 'OK',
-            }]);
-
-            console.log("✅ Dados recebidos e salvos do Chatwoot");
-            toast.success("Lead atualizado do Chatwoot!");
+          // Buscar valor nos custom attributes ou diretamente no sender
+          if (attrs[mapping.chatwoot_field]) {
+            value = attrs[mapping.chatwoot_field];
+          } else if (sender[mapping.chatwoot_field]) {
+            value = sender[mapping.chatwoot_field];
           } else {
-            console.log("⚠️ Nenhum idbitrix encontrado nos dados");
+            // Tentar buscar valores aninhados (ex: custom_attributes.foto)
+            const parts = mapping.chatwoot_field.split('.');
+            let temp: any = sender;
+            for (const part of parts) {
+              temp = temp?.[part];
+              if (!temp) break;
+            }
+            value = temp || "";
           }
-        } else {
-          console.log("ℹ️ Mensagem sem dados de conversação");
+          
+          newProfile[mapping.profile_field] = value;
+        });
+
+        setProfile(newProfile);
+
+        // Salvar dados do contato no Supabase
+        if (attrs.idbitrix) {
+          const contactData = {
+            bitrix_id: String(attrs.idbitrix),
+            conversation_id: raw?.conversation?.id || raw?.data?.conversation?.id || 0,
+            contact_id: sender.id,
+            name: sender.name,
+            phone_number: sender.phone_number,
+            email: sender.email,
+            thumbnail: sender.thumbnail || attrs.foto,
+            custom_attributes: attrs,
+            additional_attributes: sender.additional_attributes || {},
+            last_activity_at: undefined,
+          };
+
+          setChatwootData(contactData);
+          await saveChatwootContact(contactData);
+
+          // Registrar log do evento recebido
+          await supabase.from('actions_log').insert([{
+            lead_id: Number(attrs.idbitrix),
+            action_label: 'Evento Chatwoot Recebido',
+            payload: {
+              conversation_id: contactData.conversation_id,
+              contact_id: contactData.contact_id,
+              event_type: 'message_received'
+            } as any,
+            status: 'OK',
+          }]);
+
+          console.log("✅ Dados salvos no Supabase:", attrs.idbitrix);
+          toast.success("Lead atualizado do Chatwoot!");
         }
       } catch (err) {
         console.error("❌ Erro ao processar evento do Chatwoot:", err);
