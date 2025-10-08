@@ -193,7 +193,27 @@ const LeadTab = () => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [showFieldMappingModal, setShowFieldMappingModal] = useState(false);
+  const [isManager, setIsManager] = useState(false);
   
+
+  const checkUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+
+      if (roles && roles.length > 0) {
+        const hasManagerRole = roles.some(r => r.role === 'admin' || r.role === 'manager');
+        setIsManager(hasManagerRole);
+      }
+    } catch (error) {
+      console.error('Erro ao verificar role:', error);
+    }
+  };
 
   const loadFieldMappings = async () => {
     try {
@@ -261,6 +281,7 @@ const LeadTab = () => {
   };
 
   useEffect(() => {
+    checkUserRole();
     loadButtons();
     loadFieldMappings();
   }, []);
@@ -639,23 +660,46 @@ const LeadTab = () => {
                     <HelpCircle className="w-4 h-4" />
                   </Button>
                 </div>
-                <div className="flex gap-2 w-full">
-                  <Button
-                    variant="secondary"
-                    onClick={() => navigate('/dashboard')}
-                    className="flex-1"
-                  >
-                    Dashboard
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowFieldMappingModal(true)}
-                    className="flex-1"
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Config. Campos
-                  </Button>
-                  <UserMenu />
+                <div className="flex flex-col gap-2 w-full">
+                  <div className="flex gap-2 w-full">
+                    <Button
+                      variant="secondary"
+                      onClick={() => navigate('/dashboard')}
+                      className="flex-1"
+                    >
+                      Dashboard
+                    </Button>
+                    <UserMenu />
+                  </div>
+                  
+                  {isManager && (
+                    <div className="flex flex-col gap-2 w-full">
+                      <Button
+                        variant="outline"
+                        onClick={() => navigate('/config')}
+                        className="w-full"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Configurar Campos
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => navigate('/designer')}
+                        className="w-full"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Configurar Botões
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => navigate('/logs')}
+                        className="w-full"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Ver Logs
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
