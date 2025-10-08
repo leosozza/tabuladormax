@@ -254,15 +254,20 @@ const LeadTab = () => {
     loadFieldMappings();
   }, []);
 
-  // Listener do Chatwoot - compatível com listener global + eventos customizados + postMessage
+  // Listener do Chatwoot - NÃO depende de fieldMappings para evitar recriar toda hora
   useEffect(() => {
     console.log("🎧 Listener de mensagens do Chatwoot ativado na página LeadTab");
-    console.log("🗺️ Field mappings disponíveis no momento do listener:", fieldMappings);
-    console.log("📊 Quantidade de field mappings:", fieldMappings.length);
     
     const processChatwootData = async (raw: any) => {
       console.log("🚀 processChatwootData CHAMADO com:", raw);
-      console.log("🗺️ Field mappings no momento do processamento:", fieldMappings);
+      
+      // Buscar field mappings DIRETAMENTE no momento do processamento
+      const { data: currentMappings } = await supabase
+        .from("profile_field_mapping")
+        .select("*");
+      
+      console.log("🗺️ Field mappings carregados diretamente:", currentMappings);
+      
       try {
         // Compatibilidade: Chatwoot pode enviar como conversation.meta.sender ou data.contact
         const sender = raw?.conversation?.meta?.sender || raw?.data?.contact;
@@ -279,41 +284,43 @@ const LeadTab = () => {
           foto: sender.thumbnail || attrs.foto,
           sender_completo: sender
         });
-        
-        console.log("🗺️ Field mappings configurados:", fieldMappings);
 
         // Criar profile com os dados recebidos
         const newProfile: DynamicProfile = {};
         
         // Usar field mappings configurados para popular o profile
-        fieldMappings.forEach(mapping => {
-          console.log(`\n🔍 Processando mapeamento:`, {
-            profile_field: mapping.profile_field,
-            chatwoot_field: mapping.chatwoot_field
+        if (currentMappings && currentMappings.length > 0) {
+          currentMappings.forEach((mapping: FieldMapping) => {
+            console.log(`\n🔍 Processando mapeamento:`, {
+              profile_field: mapping.profile_field,
+              chatwoot_field: mapping.chatwoot_field
+            });
+            
+            let value = "";
+            
+            // Navegar pelo caminho completo (ex: custom_attributes.idade)
+            const parts = mapping.chatwoot_field.split('.');
+            let temp: any = sender;
+            
+            console.log(`  📍 Navegando por: ${parts.join(' -> ')}`);
+            
+            for (const part of parts) {
+              console.log(`    🔹 Buscando "${part}" em:`, temp);
+              temp = temp?.[part];
+              console.log(`    ✓ Resultado:`, temp);
+              if (temp === undefined || temp === null) break;
+            }
+            
+            value = temp || "";
+            
+            console.log(`  ✅ Valor final para ${mapping.profile_field}:`, value);
+            newProfile[mapping.profile_field] = value;
           });
           
-          let value = "";
-          
-          // Navegar pelo caminho completo (ex: custom_attributes.idade)
-          const parts = mapping.chatwoot_field.split('.');
-          let temp: any = sender;
-          
-          console.log(`  📍 Navegando por: ${parts.join(' -> ')}`);
-          
-          for (const part of parts) {
-            console.log(`    🔹 Buscando "${part}" em:`, temp);
-            temp = temp?.[part];
-            console.log(`    ✓ Resultado:`, temp);
-            if (temp === undefined || temp === null) break;
-          }
-          
-          value = temp || "";
-          
-          console.log(`  ✅ Valor final para ${mapping.profile_field}:`, value);
-          newProfile[mapping.profile_field] = value;
-        });
-        
-        console.log("📦 Profile construído:", newProfile);
+          console.log("📦 Profile construído:", newProfile);
+        } else {
+          console.error("❌ Nenhum field mapping encontrado!");
+        }
 
         setProfile(newProfile);
 
@@ -335,14 +342,19 @@ const LeadTab = () => {
           setChatwootData(contactData);
           await saveChatwootContact(contactData);
 
-          // Registrar log do evento recebido
+          // Registrar log do evento recebido com TODOS os dados para debug
           await supabase.from('actions_log').insert([{
             lead_id: Number(attrs.idbitrix),
             action_label: 'Evento Chatwoot Recebido',
             payload: {
               conversation_id: contactData.conversation_id,
               contact_id: contactData.contact_id,
-              event_type: 'message_received'
+              event_type: 'message_received',
+              // Adicionar dados completos para debug
+              raw_sender: sender,
+              custom_attributes: attrs,
+              profile_construido: newProfile,
+              field_mappings_count: currentMappings?.length || 0
             } as any,
             status: 'OK',
           }]);
@@ -409,7 +421,7 @@ const LeadTab = () => {
       window.removeEventListener('chatwoot-data-ready', handleChatwootReady);
       window.removeEventListener("message", handleChatwootMessage);
     };
-  }, [fieldMappings]);
+  }, []); // SEM dependência de fieldMappings!
 
   // Debug: Log quando chatwootData mudar
   useEffect(() => {
