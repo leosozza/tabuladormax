@@ -471,6 +471,7 @@ const Config = () => {
           sort: button.sort,
           pos: button.layout as any,
           sub_buttons: button.sub_buttons as any,
+          category: button.layout.category,
         })),
       );
 
