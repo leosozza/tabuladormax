@@ -266,14 +266,14 @@ const LeadTab = () => {
       id: entry.id,
       label: entry.label,
       color: entry.color,
-      webhook_url: entry.webhook_url || DEFAULT_WEBHOOK,
+      webhook_url: (entry as any).webhook_url || DEFAULT_WEBHOOK,
       field: entry.field || "",
       value: entry.value || "",
       field_type: entry.field_type || "string",
       action_type: entry.action_type || "simple",
       hotkey: entry.hotkey || "",
       sort: entry.sort || index + 1,
-      layout: ensureButtonLayout(entry.pos, entry.sort || index),
+      layout: ensureButtonLayout(entry.pos as any, entry.sort || index),
       sub_buttons: parseSubButtons(entry.sub_buttons),
     }));
 
@@ -534,6 +534,13 @@ const LeadTab = () => {
                     Atalhos
                   </Button>
                 </div>
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate('/dashboard')}
+                  className="w-full"
+                >
+                  Dashboard
+                </Button>
               </>
             ) : (
               <div className="w-full space-y-3">
@@ -653,11 +660,11 @@ const LeadTab = () => {
                           {categoryButtons.map((btn) => {
                             const widthKey = Math.max(
                               1,
-                              Math.min(3, Math.round(btn.layout.width || 1)),
+                              Math.min(3, Math.round(btn.layout.w || 1)),
                             ) as 1 | 2 | 3;
                             const heightKey = Math.max(
                               1,
-                              Math.min(3, Math.round(btn.layout.height || 1)),
+                              Math.min(3, Math.round(btn.layout.h || 1)),
                             ) as 1 | 2 | 3;
 
                             return (

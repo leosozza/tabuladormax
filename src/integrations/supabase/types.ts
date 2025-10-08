@@ -59,6 +59,7 @@ export type Database = {
           sort: number | null
           sub_buttons: Json | null
           value: string | null
+          webhook_url: string | null
         }
         Insert: {
           action_type?: string | null
@@ -74,6 +75,7 @@ export type Database = {
           sort?: number | null
           sub_buttons?: Json | null
           value?: string | null
+          webhook_url?: string | null
         }
         Update: {
           action_type?: string | null
@@ -89,6 +91,7 @@ export type Database = {
           sort?: number | null
           sub_buttons?: Json | null
           value?: string | null
+          webhook_url?: string | null
         }
         Relationships: []
       }
