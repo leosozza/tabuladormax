@@ -608,15 +608,6 @@ const LeadTab = () => {
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="container mx-auto max-w-7xl">
-        <Button
-          variant="outline"
-          onClick={() => navigate("/")}
-          className="mb-6 gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Voltar
-        </Button>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="p-6 flex flex-col items-center gap-4 h-fit">
             <div className="relative">
