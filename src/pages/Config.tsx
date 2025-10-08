@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, type DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Save, RefreshCcw, Search, Loader2, GripVertical } from "lucide-react";
+import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -490,10 +491,13 @@ const Config = () => {
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="container mx-auto max-w-6xl">
-        <Button variant="outline" onClick={() => navigate(`/lead/1`)} className="mb-6 gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          Voltar
-        </Button>
+        <div className="flex justify-between items-center mb-6">
+          <Button variant="outline" onClick={() => navigate(`/lead/1`)} className="gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </Button>
+          <UserMenu />
+        </div>
 
         <Card className="p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, MapPin, Phone, RefreshCcw, Loader2 } from "lucide-react";
+import UserMenu from "@/components/UserMenu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -113,10 +114,13 @@ const Index = () => {
               Gerencie seus leads com eficiência
             </p>
           </div>
-          <Button onClick={syncFromBitrix} disabled={syncing} className="gap-2">
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-            {syncing ? 'Sincronizando...' : 'Sincronizar com Bitrix'}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={syncFromBitrix} disabled={syncing} className="gap-2">
+              {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+              {syncing ? 'Sincronizando...' : 'Sincronizar com Bitrix'}
+            </Button>
+            <UserMenu />
+          </div>
         </div>
       </header>
 

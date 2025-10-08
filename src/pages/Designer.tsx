@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import UserMenu from "@/components/UserMenu";
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -139,6 +140,7 @@ export default function Designer() {
               <Save className="h-4 w-4" />
               Salvar Layout
             </Button>
+            <UserMenu />
           </div>
         </div>
 

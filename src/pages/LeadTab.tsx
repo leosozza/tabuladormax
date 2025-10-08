@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Shield, ShieldOff } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings } from "lucide-react";
+import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -192,9 +193,6 @@ const LeadTab = () => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [showFieldMappingModal, setShowFieldMappingModal] = useState(false);
-  const [adminMode, setAdminMode] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
   
 
   const loadFieldMappings = async () => {
@@ -257,77 +255,6 @@ const LeadTab = () => {
     await saveFieldMapping(newFieldKey, '', 'Novo Campo');
   };
 
-  const checkAdminPassword = async (password: string): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase
-        .from("config_kv")
-        .select("value")
-        .eq("key", "admin_password")
-        .maybeSingle();
-
-      if (error) {
-        console.error("Erro ao verificar senha:", error);
-        return false;
-      }
-
-      if (!data) {
-        console.error("Senha admin não configurada no banco");
-        toast.error("Senha admin não configurada. Entre em contato com o administrador.");
-        return false;
-      }
-
-      // O valor vem como JSONB, precisa extrair a string
-      let storedPassword = data.value;
-      
-      // Se for um objeto/string JSON, extrair o valor
-      if (typeof storedPassword === 'string') {
-        try {
-          storedPassword = JSON.parse(storedPassword);
-        } catch {
-          // Já é uma string simples
-        }
-      }
-
-      console.log("Senha armazenada:", storedPassword, "Senha digitada:", password);
-      return storedPassword === password;
-    } catch (error) {
-      console.error("Erro ao verificar senha:", error);
-      return false;
-    }
-  };
-
-  const handleAdminLogin = async () => {
-    if (!adminPassword.trim()) {
-      toast.error("Digite a senha");
-      return;
-    }
-
-    const isValid = await checkAdminPassword(adminPassword);
-    
-    if (isValid) {
-      setAdminMode(true);
-      localStorage.setItem("adminMode", "true");
-      setShowAdminModal(false);
-      setAdminPassword("");
-      toast.success("Modo Admin ativado!");
-    } else {
-      toast.error("Senha incorreta");
-      setAdminPassword("");
-    }
-  };
-
-  const handleAdminLogout = () => {
-    setAdminMode(false);
-    localStorage.removeItem("adminMode");
-    toast.success("Modo Admin desativado");
-  };
-
-  useEffect(() => {
-    const savedAdminMode = localStorage.getItem("adminMode");
-    if (savedAdminMode === "true") {
-      setAdminMode(true);
-    }
-  }, []);
 
   const getNestedValue = (obj: any, path: string): string => {
     return path.split('.').reduce((current, key) => current?.[key], obj) || '';
@@ -420,7 +347,7 @@ const LeadTab = () => {
     return [...main, ...subs];
   }), [buttons]);
 
-  useHotkeys(hotkeyMapping, editMode || showAdminModal);
+  useHotkeys(hotkeyMapping, editMode);
 
   const loadButtons = async () => {
     setLoadingButtons(true);
@@ -716,33 +643,15 @@ const LeadTab = () => {
                   >
                     Dashboard
                   </Button>
-                  {adminMode ? (
-                    <>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowFieldMappingModal(true)}
-                        className="flex-1"
-                      >
-                        <Settings className="w-4 h-4 mr-2" />
-                        Config. Campos
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        onClick={handleAdminLogout}
-                        size="icon"
-                      >
-                        <ShieldOff className="w-4 h-4" />
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowAdminModal(true)}
-                      size="icon"
-                    >
-                      <Shield className="w-4 h-4" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowFieldMappingModal(true)}
+                    className="flex-1"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Config. Campos
+                  </Button>
+                  <UserMenu />
                 </div>
               </>
             ) : (
@@ -899,25 +808,6 @@ const LeadTab = () => {
                 })}
             </div>
             )}
-
-            {adminMode && (
-              <div className="mt-6 flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => navigate("/config")}
-                  className="flex-1"
-                >
-                  ⚙️ Configurar Botões
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate("/logs")}
-                  className="flex-1"
-                >
-                  📋 Ver Logs
-                </Button>
-              </div>
-            )}
           </Card>
         </div>
       </div>
@@ -1046,45 +936,6 @@ const LeadTab = () => {
             </Button>
             <Button onClick={() => setShowFieldMappingModal(false)} className="w-full sm:w-auto">
               Fechar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showAdminModal} onOpenChange={setShowAdminModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Modo Admin</DialogTitle>
-            <DialogDescription>
-              Digite a senha para acessar as configurações administrativas
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Senha Admin</Label>
-              <Input
-                type="password"
-                placeholder="Digite a senha"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAdminLogin();
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowAdminModal(false);
-              setAdminPassword("");
-            }}>
-              Cancelar
-            </Button>
-            <Button onClick={handleAdminLogin}>
-              <Shield className="w-4 h-4 mr-2" />
-              Entrar
             </Button>
           </DialogFooter>
         </DialogContent>
