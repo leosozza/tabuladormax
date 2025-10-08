@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
-import { BitrixError, BitrixLead, getLead, updateLead, updateLeadViaWebhook } from "@/lib/bitrix";
+import { saveChatwootContact, getChatwootContact, extractChatwootData, type ChatwootEventData } from "@/lib/chatwoot";
 import {
   BUTTON_CATEGORIES,
   categoryOrder,
@@ -68,14 +68,35 @@ const emptyProfile: LeadProfile = {
   PHOTO: "",
 };
 
-const mapLeadToProfile = (lead: BitrixLead | null | undefined): LeadProfile => ({
-  RESPONSAVEL: lead?.UF_RESPONSAVEL || lead?.ASSIGNED_BY_NAME || "",
-  MODELO: lead?.NAME || "",
-  IDADE: lead?.UF_IDADE || "",
-  LOCAL: lead?.UF_LOCAL || lead?.ADDRESS || "",
-  SCOUTER: lead?.UF_SCOUTER || "",
-  PHOTO: lead?.UF_PHOTO || lead?.PHOTO || "",
-});
+const mapChatwootToProfile = (contact: any, fieldMappings: FieldMapping[]): LeadProfile => {
+  const attrs = contact?.custom_attributes || {};
+  
+  const profile: LeadProfile = {
+    RESPONSAVEL: attrs.responsavel || "",
+    MODELO: attrs.nome_do_modelo || contact?.name || "",
+    IDADE: attrs.idade || "",
+    LOCAL: attrs.local_de_abordagem || attrs.local || "",
+    SCOUTER: attrs.scouter || "",
+    PHOTO: contact?.thumbnail || "",
+  };
+
+  // Aplicar mapeamentos customizados
+  fieldMappings.forEach(mapping => {
+    const value = getNestedValue({ contact, attrs }, mapping.chatwoot_field);
+    if (value) {
+      const profileKey = mapping.profile_field.toUpperCase();
+      if (profileKey in profile) {
+        (profile as any)[profileKey] = value;
+      }
+    }
+  });
+
+  return profile;
+};
+
+const getNestedValue = (obj: any, path: string): string => {
+  return path.split('.').reduce((current, key) => current?.[key], obj) || '';
+};
 
 const parseSubButtons = (value: unknown): SubButton[] => {
   if (!Array.isArray(value)) {
@@ -187,7 +208,7 @@ const LeadTab = () => {
   const [scheduleModal, setScheduleModal] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
-  const [bitrixData, setBitrixData] = useState<BitrixLead | null>(null);
+  const [chatwootData, setChatwootData] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingButtons, setLoadingButtons] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -277,10 +298,6 @@ const LeadTab = () => {
   };
 
 
-  const getNestedValue = (obj: any, path: string): string => {
-    return path.split('.').reduce((current, key) => current?.[key], obj) || '';
-  };
-
   useEffect(() => {
     checkUserRole();
     loadButtons();
@@ -288,68 +305,41 @@ const LeadTab = () => {
   }, []);
 
   useEffect(() => {
-    if (id && !bitrixData) {
+    if (id) {
       loadLeadProfile(id);
     }
-  }, [id, bitrixData]);
+  }, [id]);
 
   // Listener do Chatwoot via window.postMessage
   useEffect(() => {
-    const handleChatwootMessage = (event: MessageEvent) => {
+    const handleChatwootMessage = async (event: MessageEvent) => {
       try {
         const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
 
         if (data?.conversation?.meta?.sender) {
-          const sender = data.conversation.meta.sender;
-          const attrs = sender.custom_attributes || {};
-          const assignee = data.conversation.meta.assignee;
+          const contactData = extractChatwootData(data as ChatwootEventData);
+          
+          if (contactData) {
+            // Salvar no Supabase
+            await saveChatwootContact(contactData);
+            
+            // Atualizar o profile na interface
+            const newProfile = mapChatwootToProfile(contactData, fieldMappings);
+            setProfile(newProfile);
+            setChatwootData(contactData);
 
-          // Criar objeto com todos os dados do Chatwoot
-          const chatwootData = {
-            contact: {
-              name: sender.name,
-              phone_number: sender.phone_number,
-              email: sender.email,
-              custom_attributes: attrs
-            },
-            assignee: assignee
-          };
+            console.log("✅ Dados recebidos e salvos do Chatwoot");
+            toast.success("Lead atualizado do Chatwoot!");
 
-          // Aplicar mapeamentos configurados
-          const newProfile: LeadProfile = {
-            RESPONSAVEL: assignee?.name || attrs.responsavel || "",
-            MODELO: attrs.nome_do_modelo || sender.name || "",
-            IDADE: attrs.idade || "",
-            LOCAL: attrs.local_de_abordagem || attrs.local || "",
-            SCOUTER: attrs.scouter || "",
-            PHOTO: sender.thumbnail || "",
-          };
-
-          // Se houver mapeamentos configurados, aplicá-los
-          if (fieldMappings.length > 0) {
-            fieldMappings.forEach(mapping => {
-              const value = getNestedValue(chatwootData, mapping.chatwoot_field);
-              if (value) {
-                const profileKey = mapping.profile_field.toUpperCase();
-                if (profileKey in newProfile) {
-                  (newProfile as any)[profileKey] = value;
-                }
-              }
-            });
+            // Atualizar a URL se necessário
+            if (contactData.bitrix_id && id !== contactData.bitrix_id) {
+              navigate(`/${contactData.bitrix_id}`, { replace: true });
+            }
           }
-
-          setProfile(newProfile);
-
-          // Salvar o ID do Bitrix se disponível
-          if (attrs.idbitrix) {
-            setBitrixData({ ID: attrs.idbitrix } as BitrixLead);
-          }
-
-          console.log("✅ Dados recebidos do Chatwoot:", newProfile);
-          toast.success("Lead recebido do Chatwoot!");
         }
       } catch (err) {
         console.error("Erro ao processar evento do Chatwoot:", err);
+        toast.error("Erro ao processar dados do Chatwoot");
       }
     };
 
@@ -359,7 +349,7 @@ const LeadTab = () => {
     window.parent.postMessage({ ready: true }, "*");
 
     return () => window.removeEventListener("message", handleChatwootMessage);
-  }, []);
+  }, [fieldMappings, id, navigate]);
 
   const hotkeyMapping = useMemo(() => buttons.flatMap(btn => {
     const main = btn.hotkey ? [{ id: btn.id, key: btn.hotkey }] : [];
@@ -406,151 +396,104 @@ const LeadTab = () => {
 
   // Removido loadCustomFields e saveCustomField - tabela não existe
 
-  const loadLeadProfile = async (leadId: string) => {
+  const loadLeadProfile = async (bitrixId: string) => {
     setLoadingProfile(true);
     try {
-      const numericId = Number(leadId);
-      const { data: cached } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('id', numericId)
-        .maybeSingle();
-
-      if (cached) {
-        const raw = (cached.raw as any) || {};
-        setProfile({
-          RESPONSAVEL: cached.responsible || "",
-          MODELO: cached.name || "",
-          IDADE: cached.age !== null && cached.age !== undefined ? String(cached.age) : "",
-          LOCAL: cached.address || "",
-          SCOUTER: cached.scouter || "",
-          PHOTO: cached.photo_url || "",
-        });
-      }
-
-      const bitrix = await getLead(leadId);
-      setBitrixData(bitrix);
-      const nextProfile = mapLeadToProfile(bitrix);
-      setProfile(nextProfile);
-
-      const { error: upsertError } = await supabase.from('leads').upsert({
-        id: numericId,
-        name: nextProfile.MODELO,
-        responsible: nextProfile.RESPONSAVEL,
-        age: nextProfile.IDADE ? Number(nextProfile.IDADE) : null,
-        address: nextProfile.LOCAL,
-        scouter: nextProfile.SCOUTER,
-        photo_url: nextProfile.PHOTO || null,
-        date_modify: bitrix.DATE_MODIFY || null,
-        raw: bitrix as any,
-        updated_at: new Date().toISOString(),
-      });
-
-      if (upsertError) {
-        console.error('Erro ao salvar cache do lead:', upsertError);
+      // Buscar dados do Supabase
+      const contact = await getChatwootContact(bitrixId);
+      
+      if (contact) {
+        setChatwootData(contact);
+        const newProfile = mapChatwootToProfile(contact, fieldMappings);
+        setProfile(newProfile);
+        console.log("✅ Dados carregados do Supabase");
+      } else {
+        console.log("⚠️ Nenhum dado encontrado para este ID. Aguardando evento do Chatwoot...");
+        toast.info("Aguardando dados do Chatwoot...");
       }
     } catch (error) {
-      console.error('Erro ao buscar lead no Bitrix:', error);
-      if (error instanceof BitrixError) {
-        toast.error(`Bitrix: ${error.message}`);
-      } else {
-        toast.error('Falha ao carregar dados do lead');
-      }
+      console.error('Erro ao buscar lead:', error);
+      toast.error('Erro ao carregar dados do lead');
     } finally {
       setLoadingProfile(false);
     }
   };
 
   const updateCache = async () => {
-    if (!id) return;
-    const numericId = Number(id);
+    if (!id || !chatwootData) return;
     setSavingProfile(true);
 
     try {
-      const { error: cacheError } = await supabase
-        .from('leads')
-        .upsert({
-          id: numericId,
-          name: profile.MODELO,
-          responsible: profile.RESPONSAVEL,
-          age: profile.IDADE ? Number(profile.IDADE) : null,
-          address: profile.LOCAL,
+      // Atualizar no Supabase
+      await saveChatwootContact({
+        ...chatwootData,
+        custom_attributes: {
+          ...chatwootData.custom_attributes,
+          nome_do_modelo: profile.MODELO,
+          idade: profile.IDADE,
+          local: profile.LOCAL,
           scouter: profile.SCOUTER,
-          photo_url: profile.PHOTO || null,
-          date_modify: bitrixData?.DATE_MODIFY || null,
-          raw: { ...(bitrixData ?? {}), profile } as any,
-          updated_at: new Date().toISOString(),
-        });
-
-      if (cacheError) {
-        throw cacheError;
-      }
-
-      // Sincronizar com Bitrix em tempo real via webhook
-      const bitrixFields = {
-        NAME: profile.MODELO,
-        UF_RESPONSAVEL: profile.RESPONSAVEL,
-        UF_IDADE: profile.IDADE,
-        UF_LOCAL: profile.LOCAL,
-        UF_SCOUTER: profile.SCOUTER,
-      };
-
-      await updateLeadViaWebhook(DEFAULT_WEBHOOK, numericId, bitrixFields);
-
-      // Registrar log da ação
-      await supabase.from('actions_log').insert({
-        lead_id: numericId,
-        action_label: 'Atualização de perfil',
-        payload: { fields: bitrixFields },
-        status: 'OK',
+          responsavel: profile.RESPONSAVEL,
+        },
+        thumbnail: profile.PHOTO,
       });
 
-      toast.success("Perfil sincronizado com sucesso!");
+      // Registrar log da ação
+      await supabase.from('actions_log').insert([{
+        lead_id: Number(id),
+        action_label: 'Atualização de perfil',
+        payload: { profile } as any,
+        status: 'OK',
+      }]);
+
+      toast.success("Perfil salvo com sucesso!");
       setEditMode(false);
     } catch (error) {
       console.error('Erro ao salvar perfil:', error);
       
       // Registrar log de erro
-      await supabase.from('actions_log').insert({
-        lead_id: numericId,
+      await supabase.from('actions_log').insert([{
+        lead_id: Number(id),
         action_label: 'Atualização de perfil',
-        payload: {},
+        payload: {} as any,
         status: 'ERROR',
-        error: error instanceof BitrixError ? error.message : String(error),
-      });
+        error: String(error),
+      }]);
 
-      toast.error(error instanceof BitrixError ? error.message : 'Não foi possível salvar o perfil');
+      toast.error('Não foi possível salvar o perfil');
     } finally {
       setSavingProfile(false);
     }
   };
 
   const executeAction = async (button: ButtonConfig, subButton?: SubButton, scheduledDate?: string) => {
-    if (!id) return;
-    const numericId = Number(id);
+    if (!id || !chatwootData) return;
 
     try {
       const webhookUrl = subButton?.subWebhook || button.webhook_url;
       const field = subButton?.subField || button.field;
       const value = scheduledDate || subButton?.subValue || button.value || "";
 
-      const payloadFields = {
-        NAME: profile.MODELO,
-        UF_RESPONSAVEL: profile.RESPONSAVEL,
-        UF_IDADE: profile.IDADE,
-        UF_LOCAL: profile.LOCAL,
-        UF_SCOUTER: profile.SCOUTER,
+      // Atualizar o custom_attributes no Supabase
+      const updatedAttributes = {
+        ...chatwootData.custom_attributes,
         [field]: value,
       };
 
-      await updateLeadViaWebhook(webhookUrl, numericId, payloadFields);
-
-      const { error: logError } = await supabase.from('actions_log').insert({
-        lead_id: numericId,
-        action_label: subButton ? `${button.label} / ${subButton.subLabel}` : button.label,
-        payload: { webhook: webhookUrl, fields: payloadFields },
-        status: 'OK',
+      await saveChatwootContact({
+        ...chatwootData,
+        custom_attributes: updatedAttributes,
       });
+
+      // TODO: Aqui você pode adicionar uma chamada para um webhook do Bitrix
+      // se necessário para sincronização externa
+
+      const { error: logError } = await supabase.from('actions_log').insert([{
+        lead_id: Number(id),
+        action_label: subButton ? `${button.label} / ${subButton.subLabel}` : button.label,
+        payload: { webhook: webhookUrl, field, value } as any,
+        status: 'OK',
+      }]);
 
       if (logError) {
         console.warn('Erro ao registrar log de sucesso:', logError);
@@ -562,15 +505,15 @@ const LeadTab = () => {
       setSelectedButton(null);
     } catch (error) {
       console.error('Erro ao executar ação:', error);
-      toast.error(error instanceof BitrixError ? error.message : "Erro ao executar ação");
+      toast.error("Erro ao executar ação");
 
-      const { error: logError } = await supabase.from('actions_log').insert({
-        lead_id: numericId,
+      const { error: logError } = await supabase.from('actions_log').insert([{
+        lead_id: Number(id),
         action_label: button.label,
-        payload: {},
+        payload: {} as any,
         status: 'ERROR',
-        error: error instanceof BitrixError ? error.message : String(error),
-      });
+        error: String(error),
+      }]);
 
       if (logError) {
         console.warn('Erro ao registrar log de erro:', logError);

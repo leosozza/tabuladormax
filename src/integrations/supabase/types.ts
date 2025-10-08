@@ -131,6 +131,54 @@ export type Database = {
         }
         Relationships: []
       }
+      chatwoot_contacts: {
+        Row: {
+          additional_attributes: Json | null
+          bitrix_id: string
+          contact_id: number | null
+          conversation_id: number | null
+          created_at: string
+          custom_attributes: Json | null
+          email: string | null
+          id: string
+          last_activity_at: number | null
+          name: string | null
+          phone_number: string | null
+          thumbnail: string | null
+          updated_at: string
+        }
+        Insert: {
+          additional_attributes?: Json | null
+          bitrix_id: string
+          contact_id?: number | null
+          conversation_id?: number | null
+          created_at?: string
+          custom_attributes?: Json | null
+          email?: string | null
+          id?: string
+          last_activity_at?: number | null
+          name?: string | null
+          phone_number?: string | null
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Update: {
+          additional_attributes?: Json | null
+          bitrix_id?: string
+          contact_id?: number | null
+          conversation_id?: number | null
+          created_at?: string
+          custom_attributes?: Json | null
+          email?: string | null
+          id?: string
+          last_activity_at?: number | null
+          name?: string | null
+          phone_number?: string | null
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       config_kv: {
         Row: {
           key: string
