@@ -286,14 +286,36 @@ const LeadTab = () => {
 
   // Listener do Chatwoot via window.postMessage
   useEffect(() => {
+    console.log("🎧 Listener de mensagens do Chatwoot ativado na página LeadTab");
+    
     const handleChatwootMessage = async (event: MessageEvent) => {
+      console.log("📨 Mensagem recebida no LeadTab:", {
+        origin: event.origin,
+        dataType: typeof event.data,
+        hasConversation: !!event.data?.conversation,
+      });
+
       try {
-        const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+        let data = event.data;
+        
+        // Parse se for string
+        if (typeof data === "string") {
+          try {
+            data = JSON.parse(data);
+            console.log("✅ Dados parseados:", data);
+          } catch {
+            console.log("⚠️ Não é JSON válido");
+            return;
+          }
+        }
 
         if (data?.conversation?.meta?.sender) {
+          console.log("👤 Dados de conversação encontrados");
           const contactData = extractChatwootData(data as ChatwootEventData);
           
           if (contactData) {
+            console.log("💾 Salvando contato:", contactData.bitrix_id);
+            
             // Salvar no Supabase
             await saveChatwootContact(contactData);
             
@@ -302,27 +324,59 @@ const LeadTab = () => {
             setProfile(newProfile);
             setChatwootData(contactData);
 
+            // Registrar log do evento recebido
+            await supabase.from('actions_log').insert([{
+              lead_id: Number(contactData.bitrix_id),
+              action_label: 'Evento Chatwoot Recebido',
+              payload: {
+                conversation_id: contactData.conversation_id,
+                contact_id: contactData.contact_id,
+                event_type: 'message_received'
+              } as any,
+              status: 'OK',
+            }]);
+
             console.log("✅ Dados recebidos e salvos do Chatwoot");
             toast.success("Lead atualizado do Chatwoot!");
 
             // Atualizar a URL se necessário
             if (contactData.bitrix_id && id !== contactData.bitrix_id) {
+              console.log("🔄 Navegando para:", `/${contactData.bitrix_id}`);
               navigate(`/${contactData.bitrix_id}`, { replace: true });
             }
+          } else {
+            console.log("⚠️ Nenhum idbitrix encontrado nos dados");
           }
+        } else {
+          console.log("ℹ️ Mensagem sem dados de conversação");
         }
       } catch (err) {
-        console.error("Erro ao processar evento do Chatwoot:", err);
+        console.error("❌ Erro ao processar evento do Chatwoot:", err);
         toast.error("Erro ao processar dados do Chatwoot");
+        
+        // Registrar log de erro
+        if (id) {
+          await supabase.from('actions_log').insert([{
+            lead_id: Number(id),
+            action_label: 'Erro ao processar Chatwoot',
+            payload: {} as any,
+            status: 'ERROR',
+            error: String(err),
+          }]);
+        }
       }
     };
 
     window.addEventListener("message", handleChatwootMessage);
     
     // Avisar ao Chatwoot que está pronto
+    console.log("📤 Enviando mensagem 'ready' para o Chatwoot");
     window.parent.postMessage({ ready: true }, "*");
 
-    return () => window.removeEventListener("message", handleChatwootMessage);
+    return () => {
+      console.log("🔌 Listener de mensagens removido");
+      window.removeEventListener("message", handleChatwootMessage);
+    };
   }, [fieldMappings, id, navigate]);
 
   const hotkeyMapping = useMemo(() => buttons.flatMap(btn => {

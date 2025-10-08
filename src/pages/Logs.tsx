@@ -49,7 +49,7 @@ const Logs = () => {
         <div className="flex justify-between items-center mb-6">
           <Button
             variant="outline"
-            onClick={() => navigate(`/lead/1`)}
+            onClick={() => navigate('/dashboard')}
             className="gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
