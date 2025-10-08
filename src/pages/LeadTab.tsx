@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,11 @@ interface ButtonConfig {
   sort: number;
   layout: ButtonLayout;
   sub_buttons: SubButton[];
+}
+
+interface FieldMapping {
+  profile_field: string;
+  chatwoot_field: string;
 }
 
 const emptyProfile: LeadProfile = {
@@ -183,10 +188,51 @@ const LeadTab = () => {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingButtons, setLoadingButtons] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
+  const [showFieldMappingModal, setShowFieldMappingModal] = useState(false);
   
+
+  const loadFieldMappings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profile_field_mapping")
+        .select("*");
+
+      if (error) throw error;
+      
+      if (data) {
+        setFieldMappings(data as FieldMapping[]);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar mapeamentos:", error);
+      toast.error("Erro ao carregar configurações de campos");
+    }
+  };
+
+  const saveFieldMapping = async (profileField: string, chatwootField: string) => {
+    try {
+      const { error } = await supabase
+        .from("profile_field_mapping")
+        .upsert({ profile_field: profileField, chatwoot_field: chatwootField })
+        .eq("profile_field", profileField);
+
+      if (error) throw error;
+      
+      toast.success("Mapeamento salvo com sucesso!");
+      loadFieldMappings();
+    } catch (error) {
+      console.error("Erro ao salvar mapeamento:", error);
+      toast.error("Erro ao salvar mapeamento");
+    }
+  };
+
+  const getNestedValue = (obj: any, path: string): string => {
+    return path.split('.').reduce((current, key) => current?.[key], obj) || '';
+  };
 
   useEffect(() => {
     loadButtons();
+    loadFieldMappings();
   }, []);
 
   useEffect(() => {
@@ -206,6 +252,18 @@ const LeadTab = () => {
           const attrs = sender.custom_attributes || {};
           const assignee = data.conversation.meta.assignee;
 
+          // Criar objeto com todos os dados do Chatwoot
+          const chatwootData = {
+            contact: {
+              name: sender.name,
+              phone_number: sender.phone_number,
+              email: sender.email,
+              custom_attributes: attrs
+            },
+            assignee: assignee
+          };
+
+          // Aplicar mapeamentos configurados
           const newProfile: LeadProfile = {
             RESPONSAVEL: assignee?.name || attrs.responsavel || "",
             MODELO: attrs.nome_do_modelo || sender.name || "",
@@ -214,6 +272,19 @@ const LeadTab = () => {
             SCOUTER: attrs.scouter || "",
             PHOTO: sender.thumbnail || "",
           };
+
+          // Se houver mapeamentos configurados, aplicá-los
+          if (fieldMappings.length > 0) {
+            fieldMappings.forEach(mapping => {
+              const value = getNestedValue(chatwootData, mapping.chatwoot_field);
+              if (value) {
+                const profileKey = mapping.profile_field.toUpperCase();
+                if (profileKey in newProfile) {
+                  (newProfile as any)[profileKey] = value;
+                }
+              }
+            });
+          }
 
           setProfile(newProfile);
 
@@ -534,13 +605,23 @@ const LeadTab = () => {
                     Atalhos
                   </Button>
                 </div>
-                <Button
-                  variant="secondary"
-                  onClick={() => navigate('/dashboard')}
-                  className="w-full"
-                >
-                  Dashboard
-                </Button>
+                <div className="flex gap-2 w-full">
+                  <Button
+                    variant="secondary"
+                    onClick={() => navigate('/dashboard')}
+                    className="flex-1"
+                  >
+                    Dashboard
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowFieldMappingModal(true)}
+                    className="flex-1"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Configurar Campos
+                  </Button>
+                </div>
               </>
             ) : (
               <div className="w-full space-y-3">
@@ -769,6 +850,48 @@ const LeadTab = () => {
             </Button>
             <Button onClick={handleScheduleConfirm}>
               Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showFieldMappingModal} onOpenChange={setShowFieldMappingModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Configurar Campos do Perfil</DialogTitle>
+            <DialogDescription>
+              Defina qual campo do Chatwoot corresponde a cada campo do perfil. Use notação de ponto para campos aninhados (ex: contact.name, contact.custom_attributes.idade)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {[
+              { key: 'name', label: 'Nome (MODELO)' },
+              { key: 'responsible', label: 'Responsável (RESPONSAVEL)' },
+              { key: 'age', label: 'Idade (IDADE)' },
+              { key: 'address', label: 'Local (LOCAL)' },
+              { key: 'scouter', label: 'Scouter (SCOUTER)' },
+              { key: 'photo', label: 'Foto (PHOTO)' }
+            ].map(field => {
+              const mapping = fieldMappings.find(m => m.profile_field === field.key);
+              return (
+                <div key={field.key}>
+                  <Label>{field.label}</Label>
+                  <Input
+                    placeholder="Ex: contact.name ou contact.custom_attributes.idade"
+                    defaultValue={mapping?.chatwoot_field || ''}
+                    onBlur={(e) => {
+                      if (e.target.value) {
+                        saveFieldMapping(field.key, e.target.value);
+                      }
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowFieldMappingModal(false)}>
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>

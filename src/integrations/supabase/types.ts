@@ -188,6 +188,30 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_field_mapping: {
+        Row: {
+          chatwoot_field: string
+          created_at: string | null
+          id: string
+          profile_field: string
+          updated_at: string | null
+        }
+        Insert: {
+          chatwoot_field: string
+          created_at?: string | null
+          id?: string
+          profile_field: string
+          updated_at?: string | null
+        }
+        Update: {
+          chatwoot_field?: string
+          created_at?: string | null
+          id?: string
+          profile_field?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
