@@ -176,7 +176,7 @@ const Index = () => {
                 <Card
                   key={lead.id}
                   className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => navigate(`/lead/${lead.id}`)}
+                  onClick={() => navigate(`/${lead.id}`)}
                 >
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center overflow-hidden">
