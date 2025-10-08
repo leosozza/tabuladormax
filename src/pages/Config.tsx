@@ -166,7 +166,7 @@ const Config = () => {
   const filteredFields = useMemo(() => {
     const query = fieldSearch.toLowerCase();
     return bitrixFields.filter(
-      (field) => field.name.toLowerCase().includes(query) || field.title.toLowerCase().includes(query),
+      (field) => field?.name?.toLowerCase().includes(query) || field?.title?.toLowerCase().includes(query),
     );
   }, [bitrixFields, fieldSearch]);
 
@@ -196,7 +196,7 @@ const Config = () => {
       action_type: entry.action_type || "simple",
       hotkey: entry.hotkey || "",
       sort: entry.sort || index + 1,
-      layout: ensureButtonLayout(entry.pos, entry.sort || index),
+      layout: ensureButtonLayout(entry.pos as Partial<ButtonLayout>, entry.sort || index),
       sub_buttons: parseSubButtons(entry.sub_buttons),
     }));
 
@@ -753,10 +753,10 @@ const Config = () => {
                                           type="number"
                                           min={1}
                                           max={3}
-                                          value={button.layout.width}
+                                          value={button.layout.w}
                                           onChange={(event) =>
                                             updateButtonLayout(button.id, {
-                                              width: Number(event.target.value) || 1,
+                                              w: Number(event.target.value) || 1,
                                             })
                                           }
                                         />
@@ -768,10 +768,10 @@ const Config = () => {
                                           type="number"
                                           min={1}
                                           max={3}
-                                          value={button.layout.height}
+                                          value={button.layout.h}
                                           onChange={(event) =>
                                             updateButtonLayout(button.id, {
-                                              height: Number(event.target.value) || 1,
+                                              h: Number(event.target.value) || 1,
                                             })
                                           }
                                         />
