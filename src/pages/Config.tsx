@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, type DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Save, RefreshCcw, Search, Loader2, GripVertical } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, RefreshCcw, Search, Loader2, GripVertical, Edit } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import {
   type ButtonLayout,
 } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
+import { ButtonEditDialog } from "@/components/ButtonEditDialog";
 
 interface SubButton {
   subLabel: string;
@@ -158,6 +159,7 @@ const Config = () => {
   const [loadingButtons, setLoadingButtons] = useState(true);
   const [saving, setSaving] = useState(false);
   const [draggingButton, setDraggingButton] = useState<string | null>(null);
+  const [editingButton, setEditingButton] = useState<ButtonConfig | null>(null);
 
   useEffect(() => {
     loadButtons();
@@ -623,266 +625,50 @@ const Config = () => {
                                 >
                                   <Card
                                     className={cn(
-                                      "p-4 bg-background shadow-sm",
+                                      "p-3 bg-background shadow-sm hover:shadow-md transition-shadow cursor-pointer",
                                       draggingButton === button.id && "ring-2 ring-primary/40",
                                     )}
                                   >
-                                    <div className="flex justify-between items-start mb-4 gap-2">
-                                      <div className="flex items-center gap-2">
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="flex items-center gap-2 flex-1 min-w-0">
                                         <span
-                                          className="cursor-grab active:cursor-grabbing text-muted-foreground"
+                                          className="cursor-grab active:cursor-grabbing text-muted-foreground flex-shrink-0"
                                           draggable
                                           onDragStart={(event) => handleButtonDragStart(event, button.id)}
                                           onDragEnd={handleDragEnd}
                                         >
                                           <GripVertical className="w-4 h-4" />
                                         </span>
-                                        <h3 className="font-bold text-lg">{button.label || "Botão"}</h3>
-                                      </div>
-                                      <Button variant="ghost" size="sm" onClick={() => removeButton(button.id)}>
-                                        <Trash2 className="w-4 h-4 text-destructive" />
-                                      </Button>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                      <div>
-                                        <Label>Nome do Botão</Label>
-                                        <Input
-                                          value={button.label}
-                                          onChange={(event) => updateButton(button.id, { label: event.target.value })}
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <Label>Cor</Label>
-                                        <Input
-                                          type="color"
-                                          value={button.color}
-                                          onChange={(event) => updateButton(button.id, { color: event.target.value })}
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <Label>Categoria</Label>
-                                        <Select
-                                          value={button.layout.category}
-                                          onValueChange={(value) => {
-                                            if (value !== button.layout.category) {
-                                              moveButton(button.id, value as ButtonCategory);
-                                            }
-                                          }}
+                                        <div 
+                                          className="flex items-center gap-2 flex-1 min-w-0"
+                                          onClick={() => setEditingButton(button)}
                                         >
-                                          <SelectTrigger>
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {BUTTON_CATEGORIES.map((item) => (
-                                              <SelectItem key={item.id} value={item.id}>
-                                                {item.label}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-
-                                      <div>
-                                        <Label>URL do Webhook</Label>
-                                        <Input
-                                          value={button.webhook_url}
-                                          onChange={(event) =>
-                                            updateButton(button.id, {
-                                              webhook_url: event.target.value,
-                                            })
-                                          }
-                                          placeholder="https://..."
-                                        />
-                                      </div>
-
-                                      <div className="md:col-span-2">
-                                        <Label>Campo Bitrix</Label>
-                                        <div
-                                          onDragOver={(event) => event.preventDefault()}
-                                          onDrop={(event) => handleFieldDrop(event, button.id)}
-                                          className="rounded-lg border border-dashed bg-background px-3 py-3 text-sm"
-                                        >
-                                          {button.field ? (
-                                            <div>
-                                              <p className="font-semibold">{button.field}</p>
-                                              {fieldMeta && (
-                                                <p className="text-xs text-muted-foreground">
-                                                  {fieldMeta.title} · {fieldMeta.type}
-                                                </p>
-                                              )}
-                                            </div>
-                                          ) : (
-                                            <span className="text-muted-foreground">Solte aqui um campo do Bitrix</span>
-                                          )}
+                                          <div 
+                                            className="w-4 h-4 rounded flex-shrink-0" 
+                                            style={{ backgroundColor: button.color }}
+                                          />
+                                          <span className="font-medium truncate">{button.label || "Botão"}</span>
                                         </div>
                                       </div>
-
-                                      <div>
-                                        <Label>Valor Padrão</Label>
-                                        {renderFieldValueControl(button.field, button.value, (value) =>
-                                          updateButton(button.id, { value }),
-                                        )}
-                                      </div>
-
-                                      <div>
-                                        <Label>Tipo de Ação</Label>
-                                        <Select
-                                          value={button.action_type}
-                                          onValueChange={(value) => updateButton(button.id, { action_type: value })}
+                                      <div className="flex items-center gap-1 flex-shrink-0">
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm"
+                                          onClick={() => setEditingButton(button)}
                                         >
-                                          <SelectTrigger>
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="simple">Simples</SelectItem>
-                                            <SelectItem value="schedule">Agendamento</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-
-                                      <div>
-                                        <Label>Atalho de Teclado</Label>
-                                        <Input
-                                          value={button.hotkey}
-                                          onChange={(event) => updateButton(button.id, { hotkey: event.target.value })}
-                                          placeholder="1, 2, Ctrl+1, etc"
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <Label>Largura (1 a 3 colunas)</Label>
-                                        <Input
-                                          type="number"
-                                          min={1}
-                                          max={3}
-                                          value={button.layout.w}
-                                          onChange={(event) =>
-                                            updateButtonLayout(button.id, {
-                                              w: Number(event.target.value) || 1,
-                                            })
-                                          }
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <Label>Altura (1 a 3 níveis)</Label>
-                                        <Input
-                                          type="number"
-                                          min={1}
-                                          max={3}
-                                          value={button.layout.h}
-                                          onChange={(event) =>
-                                            updateButtonLayout(button.id, {
-                                              h: Number(event.target.value) || 1,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <div className="mt-4">
-                                      <div className="flex justify-between items-center mb-2">
-                                        <Label className="text-sm font-semibold">Sub-botões (Motivos)</Label>
-                                        <Button size="sm" variant="outline" onClick={() => addSubButton(button.id)}>
-                                          <Plus className="w-3 h-3 mr-1" />
-                                          Adicionar Motivo
+                                          <Edit className="w-4 h-4" />
+                                        </Button>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm" 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeButton(button.id);
+                                          }}
+                                        >
+                                          <Trash2 className="w-4 h-4 text-destructive" />
                                         </Button>
                                       </div>
-
-                                      {button.sub_buttons.map((sub, subIndex) => {
-                                        const subMeta = bitrixFields.find((field) => field.name === sub.subField);
-
-                                        return (
-                                          <Card key={`${button.id}-${subIndex}`} className="p-3 mb-2 bg-background">
-                                            <div className="flex justify-between items-start mb-2">
-                                              <span className="text-sm font-medium">Motivo {subIndex + 1}</span>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => removeSubButton(button.id, subIndex)}
-                                              >
-                                                <Trash2 className="w-3 h-3 text-destructive" />
-                                              </Button>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                              <div>
-                                                <Label className="text-xs">Nome</Label>
-                                                <Input
-                                                  value={sub.subLabel}
-                                                  onChange={(event) =>
-                                                    updateSubButton(button.id, subIndex, {
-                                                      subLabel: event.target.value,
-                                                    })
-                                                  }
-                                                  className="h-8"
-                                                />
-                                              </div>
-
-                                              <div>
-                                                <Label className="text-xs">Atalho</Label>
-                                                <Input
-                                                  value={sub.subHotkey || ""}
-                                                  onChange={(event) =>
-                                                    updateSubButton(button.id, subIndex, {
-                                                      subHotkey: event.target.value,
-                                                    })
-                                                  }
-                                                  placeholder="Shift+1"
-                                                  className="h-8"
-                                                />
-                                              </div>
-
-                                              <div className="md:col-span-2">
-                                                <Label className="text-xs">Campo</Label>
-                                                <div
-                                                  onDragOver={(event) => event.preventDefault()}
-                                                  onDrop={(event) => handleFieldDrop(event, button.id, subIndex)}
-                                                  className="rounded-md border border-dashed bg-muted/40 px-2 py-2"
-                                                >
-                                                  {sub.subField ? (
-                                                    <div>
-                                                      <p className="text-sm font-medium">{sub.subField}</p>
-                                                      {subMeta && (
-                                                        <p className="text-xs text-muted-foreground">{subMeta.title}</p>
-                                                      )}
-                                                    </div>
-                                                  ) : (
-                                                    <span className="text-xs text-muted-foreground">
-                                                      Solte um campo aqui
-                                                    </span>
-                                                  )}
-                                                </div>
-                                              </div>
-
-                                              <div className="md:col-span-2">
-                                                <Label className="text-xs">Valor</Label>
-                                                {renderFieldValueControl(sub.subField, sub.subValue, (value) =>
-                                                  updateSubButton(button.id, subIndex, { subValue: value }),
-                                                )}
-                                              </div>
-
-                                              <div className="md:col-span-2">
-                                                <Label className="text-xs">
-                                                  Webhook (opcional, usa o do botão se vazio)
-                                                </Label>
-                                                <Input
-                                                  value={sub.subWebhook}
-                                                  onChange={(event) =>
-                                                    updateSubButton(button.id, subIndex, {
-                                                      subWebhook: event.target.value,
-                                                    })
-                                                  }
-                                                  className="h-8"
-                                                />
-                                              </div>
-                                            </div>
-                                          </Card>
-                                        );
-                                      })}
                                     </div>
                                   </Card>
                                 </div>
@@ -898,6 +684,21 @@ const Config = () => {
             </section>
           </div>
         </Card>
+
+        <ButtonEditDialog
+          open={editingButton !== null}
+          onOpenChange={(open) => !open && setEditingButton(null)}
+          button={editingButton}
+          bitrixFields={bitrixFields}
+          onUpdate={updateButton}
+          onUpdateLayout={updateButtonLayout}
+          onAddSubButton={addSubButton}
+          onRemoveSubButton={removeSubButton}
+          onUpdateSubButton={updateSubButton}
+          onFieldDrop={handleFieldDrop}
+          onMoveButton={moveButton}
+          renderFieldValueControl={renderFieldValueControl}
+        />
       </div>
     </div>
   );
