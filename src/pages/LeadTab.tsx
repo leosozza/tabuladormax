@@ -298,8 +298,17 @@ const LeadTab = () => {
             
             let value = "";
             
-            // Navegar pelo caminho completo (ex: custom_attributes.idade)
-            const parts = mapping.chatwoot_field.split('.');
+            // Limpar prefixos desnecessários do caminho
+            // O sender já É o contact, então removemos "data.contact.", "contact.", etc.
+            let cleanPath = mapping.chatwoot_field
+              .replace(/^data\.contact\./, '')  // Remove "data.contact."
+              .replace(/^contact\./, '')         // Remove "contact."
+              .replace(/^data\./, '');           // Remove "data."
+            
+            console.log(`  🧹 Caminho limpo: ${mapping.chatwoot_field} → ${cleanPath}`);
+            
+            // Navegar pelo caminho limpo
+            const parts = cleanPath.split('.');
             let temp: any = sender;
             
             console.log(`  📍 Navegando por: ${parts.join(' -> ')}`);
