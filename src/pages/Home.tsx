@@ -1,18 +1,22 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { extractChatwootData, saveChatwootContact } from "@/lib/chatwoot";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Home() {
   const navigate = useNavigate();
   const [debugLog, setDebugLog] = useState<string[]>([]);
 
   useEffect(() => {
+    console.log("🎧 Listener de mensagens do Chatwoot ativado na Home");
+    
     const handleMessage = async (event: MessageEvent) => {
-      console.log("📨 Mensagem recebida:", event);
-      console.log("📦 Origem:", event.origin);
-      console.log("📋 Dados brutos:", event.data);
+      console.log("📨 Mensagem recebida na Home:", {
+        origin: event.origin,
+        dataType: typeof event.data,
+      });
       
-      setDebugLog(prev => [...prev, `Origem: ${event.origin}`, `Dados: ${typeof event.data}`]);
+      setDebugLog(prev => [...prev, `Origem: ${event.origin}`, `Tipo: ${typeof event.data}`]);
 
       try {
         let eventData;
@@ -21,46 +25,73 @@ export default function Home() {
         if (typeof event.data === "string") {
           try {
             eventData = JSON.parse(event.data);
-            console.log("✅ Dados parseados:", eventData);
+            console.log("✅ JSON parseado");
+            setDebugLog(prev => [...prev, "JSON parseado com sucesso"]);
           } catch (parseError) {
-            console.log("⚠️ Não é JSON válido, usando dados brutos");
+            console.log("⚠️ Não é JSON válido");
+            setDebugLog(prev => [...prev, "Não é JSON válido"]);
             return;
           }
         } else {
           eventData = event.data;
-          console.log("✅ Dados diretos (objeto):", eventData);
+          console.log("✅ Dados diretos (objeto)");
         }
 
-        const contactData = extractChatwootData(eventData);
-        console.log("👤 Dados do contato extraídos:", contactData);
-        
-        if (contactData) {
-          console.log("💾 Salvando contato no Supabase...");
-          await saveChatwootContact(contactData);
-          console.log("✅ Contato salvo, navegando para:", `/${contactData.bitrix_id}`);
-          navigate(`/${contactData.bitrix_id}`);
+        console.log("📦 eventData completo:", eventData);
+        setDebugLog(prev => [...prev, `Has conversation: ${!!eventData?.conversation}`]);
+
+        // Verificar se tem dados de conversação
+        if (eventData?.conversation?.meta?.sender) {
+          const contactData = extractChatwootData(eventData);
+          console.log("👤 Dados extraídos:", contactData);
+          
+          if (contactData && contactData.bitrix_id) {
+            console.log("💾 Salvando contato:", contactData.bitrix_id);
+            setDebugLog(prev => [...prev, `ID Bitrix encontrado: ${contactData.bitrix_id}`]);
+            
+            await saveChatwootContact(contactData);
+            
+            // Registrar log do evento
+            await supabase.from('actions_log').insert([{
+              lead_id: Number(contactData.bitrix_id),
+              action_label: 'Evento Chatwoot - Home',
+              payload: {
+                conversation_id: contactData.conversation_id,
+                contact_id: contactData.contact_id
+              } as any,
+              status: 'OK',
+            }]);
+            
+            console.log("✅ Navegando para:", `/${contactData.bitrix_id}`);
+            setDebugLog(prev => [...prev, `Navegando para /${contactData.bitrix_id}`]);
+            
+            navigate(`/${contactData.bitrix_id}`);
+          } else {
+            console.log("⚠️ Nenhum idbitrix encontrado");
+            setDebugLog(prev => [...prev, "Nenhum idbitrix nos dados"]);
+          }
         } else {
-          console.log("⚠️ Nenhum dado de contato válido encontrado");
-          setDebugLog(prev => [...prev, "Nenhum idbitrix encontrado nos dados"]);
+          console.log("ℹ️ Dados sem conversation.meta.sender");
+          setDebugLog(prev => [...prev, "Sem conversation.meta.sender"]);
         }
       } catch (error) {
-        console.error("❌ Erro ao processar evento do Chatwoot:", error);
+        console.error("❌ Erro ao processar evento:", error);
         setDebugLog(prev => [...prev, `Erro: ${error}`]);
       }
     };
 
-    console.log("🎧 Listener de mensagens ativado");
     window.addEventListener("message", handleMessage);
+    console.log("✅ Listener registrado na Home");
     
     return () => {
-      console.log("🔌 Listener de mensagens removido");
+      console.log("🔌 Listener removido da Home");
       window.removeEventListener("message", handleMessage);
     };
   }, [navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="text-center max-w-2xl">
+      <div className="text-center max-w-2xl w-full">
         <h1 className="text-2xl font-semibold text-foreground mb-2">
           Aguardando dados do Chatwoot...
         </h1>
@@ -71,7 +102,7 @@ export default function Home() {
         {/* Debug info */}
         <div className="mt-8 p-4 bg-muted rounded-lg text-left">
           <p className="text-sm font-semibold mb-2">Debug Log:</p>
-          <div className="text-xs font-mono space-y-1 max-h-64 overflow-y-auto">
+          <div className="text-xs font-mono space-y-1 max-h-96 overflow-y-auto">
             {debugLog.length === 0 ? (
               <p className="text-muted-foreground">Nenhuma mensagem recebida ainda...</p>
             ) : (
@@ -80,6 +111,21 @@ export default function Home() {
               ))
             )}
           </div>
+          <button 
+            onClick={() => setDebugLog([])} 
+            className="mt-2 text-xs text-blue-600 hover:underline"
+          >
+            Limpar log
+          </button>
+        </div>
+        
+        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg text-left">
+          <p className="text-xs font-semibold mb-2">💡 Como funciona:</p>
+          <p className="text-xs text-muted-foreground">
+            Esta página está escutando eventos via <code className="bg-muted px-1 rounded">window.postMessage</code>.
+            Quando o Chatwoot enviar dados com <code className="bg-muted px-1 rounded">conversation.meta.sender.custom_attributes.idbitrix</code>,
+            você será redirecionado automaticamente para a página do lead.
+          </p>
         </div>
       </div>
     </div>
