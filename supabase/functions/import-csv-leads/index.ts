@@ -14,15 +14,44 @@ function parseCSV(csvText: string): CSVRow[] {
   const lines = csvText.trim().split('\n');
   if (lines.length < 2) return [];
   
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  // Detectar delimitador (vírgula ou ponto e vírgula)
+  const firstLine = lines[0];
+  const delimiter = firstLine.includes(';') ? ';' : ',';
+  
+  // Parse com suporte a campos entre aspas
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === delimiter && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    result.push(current.trim());
+    return result;
+  };
+  
+  const headers = parseCSVLine(lines[0]).map(h => h.replace(/^"|"$/g, '').trim());
   const rows: CSVRow[] = [];
   
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    if (!lines[i].trim()) continue;
+    
+    const values = parseCSVLine(lines[i]);
     if (values.length === headers.length) {
       const row: CSVRow = {};
       headers.forEach((header, index) => {
-        row[header] = values[index];
+        row[header] = values[index].replace(/^"|"$/g, '');
       });
       rows.push(row);
     }
@@ -32,16 +61,16 @@ function parseCSV(csvText: string): CSVRow[] {
 }
 
 function mapCSVRowToLead(row: CSVRow): any {
-  // Mapeia campos principais
+  // Mapeia campos principais do Bitrix
   const lead: any = {
     id: row.ID ? parseInt(row.ID) : null,
-    name: row.NAME || row.TITLE || null,
-    age: row.UF_IDADE ? parseInt(row.UF_IDADE) : null,
-    address: row.UF_LOCAL || row.ADDRESS || null,
-    photo_url: row.UF_PHOTO || row.PHOTO || null,
-    responsible: row.UF_RESPONSAVEL || row.ASSIGNED_BY_NAME || null,
-    scouter: row.UF_SCOUTER || null,
-    date_modify: row.DATE_MODIFY || new Date().toISOString(),
+    name: row['Nome do Lead'] || row.NAME || row.TITLE || null,
+    age: row.Idade || row['Idade do Modelo'] || row.UF_IDADE ? parseInt(row.Idade || row['Idade do Modelo'] || row.UF_IDADE) : null,
+    address: row['Localização'] || row.UF_LOCAL || row.ADDRESS || null,
+    photo_url: row['Foto do modelo'] || row['Foto do Modelo - Link'] || row.UF_PHOTO || row.PHOTO || null,
+    responsible: row['Responsável'] || row.UF_RESPONSAVEL || row.ASSIGNED_BY_NAME || null,
+    scouter: row.Scouter || row.UF_SCOUTER || null,
+    date_modify: row.Modificado || row['Modificado'] || row.DATE_MODIFY || new Date().toISOString(),
     sync_source: 'csv_import',
     sync_status: 'synced',
     raw: row, // Armazena TODOS os campos do CSV
