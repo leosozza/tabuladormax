@@ -419,23 +419,41 @@ const LeadTab = () => {
       return;
     }
 
-    const parsed = (data || []).map((entry, index) => ({
-      id: entry.id,
-      label: entry.label,
-      color: entry.color,
-      webhook_url: (entry as any).webhook_url || DEFAULT_WEBHOOK,
-      field: entry.field || "",
-      value: entry.value || "",
-      field_type: entry.field_type || "string",
-      action_type: entry.action_type || "simple",
-      hotkey: entry.hotkey || "",
-      sort: entry.sort || index + 1,
-      pos: entry.pos,
-      sub_buttons: parseSubButtons(entry.sub_buttons),
-      category: entry.category,
-    }));
+    const parsed = (data || []).map((entry, index) => {
+      // Se category não existe, usar o valor salvo ou inferir baseado no sort
+      let category = entry.category;
+      if (!category) {
+        // Inferir categoria baseada no sort antigo
+        if (entry.sort <= 10) category = 'AGENDAMENTO';
+        else if (entry.sort <= 20) category = 'NAO_AGENDADO';
+        else if (entry.sort <= 30) category = 'QUALIFICACAO';
+        else category = 'OUTRAS';
+      }
+      
+      return {
+        id: entry.id,
+        label: entry.label,
+        color: entry.color,
+        webhook_url: (entry as any).webhook_url || DEFAULT_WEBHOOK,
+        field: entry.field || "",
+        value: entry.value || "",
+        field_type: entry.field_type || "string",
+        action_type: entry.action_type || "simple",
+        hotkey: entry.hotkey || "",
+        sort: entry.sort || index + 1,
+        pos: entry.pos,
+        sub_buttons: parseSubButtons(entry.sub_buttons),
+        category: category,
+      };
+    });
 
-    setButtons(normalizeButtonList(parsed));
+    const normalized = normalizeButtonList(parsed);
+    console.log('🔵 Botões carregados:', normalized.map(b => ({ 
+      label: b.label, 
+      category: b.category,
+      sort: b.sort 
+    })));
+    setButtons(normalized);
     setLoadingButtons(false);
   };
 
