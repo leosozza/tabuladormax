@@ -265,37 +265,47 @@ const LeadTab = () => {
           return;
         }
 
-        console.log("✅ Dados do Chatwoot processados:", {
+        console.log("✅ Dados do Chatwoot recebidos:", {
           nome: sender.name,
-          attrs: Object.keys(attrs),
-          foto: sender.thumbnail || attrs.foto
+          custom_attributes: attrs,
+          foto: sender.thumbnail || attrs.foto,
+          sender_completo: sender
         });
+        
+        console.log("🗺️ Field mappings configurados:", fieldMappings);
 
         // Criar profile com os dados recebidos
         const newProfile: DynamicProfile = {};
         
         // Usar field mappings configurados para popular o profile
         fieldMappings.forEach(mapping => {
+          console.log(`\n🔍 Processando mapeamento:`, {
+            profile_field: mapping.profile_field,
+            chatwoot_field: mapping.chatwoot_field
+          });
+          
           let value = "";
           
-          // Buscar valor nos custom attributes ou diretamente no sender
-          if (attrs[mapping.chatwoot_field]) {
-            value = attrs[mapping.chatwoot_field];
-          } else if (sender[mapping.chatwoot_field]) {
-            value = sender[mapping.chatwoot_field];
-          } else {
-            // Tentar buscar valores aninhados (ex: custom_attributes.foto)
-            const parts = mapping.chatwoot_field.split('.');
-            let temp: any = sender;
-            for (const part of parts) {
-              temp = temp?.[part];
-              if (!temp) break;
-            }
-            value = temp || "";
+          // Navegar pelo caminho completo (ex: custom_attributes.idade)
+          const parts = mapping.chatwoot_field.split('.');
+          let temp: any = sender;
+          
+          console.log(`  📍 Navegando por: ${parts.join(' -> ')}`);
+          
+          for (const part of parts) {
+            console.log(`    🔹 Buscando "${part}" em:`, temp);
+            temp = temp?.[part];
+            console.log(`    ✓ Resultado:`, temp);
+            if (temp === undefined || temp === null) break;
           }
           
+          value = temp || "";
+          
+          console.log(`  ✅ Valor final para ${mapping.profile_field}:`, value);
           newProfile[mapping.profile_field] = value;
         });
+        
+        console.log("📦 Profile construído:", newProfile);
 
         setProfile(newProfile);
 
