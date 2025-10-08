@@ -621,18 +621,22 @@ const LeadTab = () => {
                   <p>🧭 <strong>Scouter:</strong> {profile.SCOUTER || '—'}</p>
                 </div>
 
-                <div className="flex gap-2 w-full mt-4">
-                  <Button onClick={() => setEditMode(true)} className="flex-1" disabled={loadingProfile}>
-                    <Edit className="w-4 h-4 mr-2" />
-                    Editar Perfil
+                <div className="flex gap-2 w-full mt-4 justify-center">
+                  <Button 
+                    onClick={() => setEditMode(true)} 
+                    size="icon"
+                    disabled={loadingProfile}
+                    title="Editar Perfil"
+                  >
+                    <Edit className="w-4 h-4" />
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => setShowHelp(!showHelp)}
-                    className="flex-1"
+                    size="icon"
+                    title="Atalhos"
                   >
-                    <HelpCircle className="w-4 h-4 mr-2" />
-                    Atalhos
+                    <HelpCircle className="w-4 h-4" />
                   </Button>
                 </div>
                 <div className="flex gap-2 w-full">
