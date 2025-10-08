@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -194,6 +194,7 @@ const LeadTab = () => {
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [showFieldMappingModal, setShowFieldMappingModal] = useState(false);
   const [isManager, setIsManager] = useState(false);
+  const [buttonColumns, setButtonColumns] = useState(3); // 3, 4 ou 5 colunas
   
 
   const checkUserRole = async () => {
@@ -773,6 +774,32 @@ const LeadTab = () => {
               <h3 className="text-xl font-bold">⚙️ Ações de Tabulação</h3>
               <div className="flex items-center gap-2">
                 {loadingButtons && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
+                
+                {/* Controle de tamanho dos botões */}
+                <div className="flex items-center gap-1 border rounded-md">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setButtonColumns(Math.min(5, buttonColumns + 1))}
+                    disabled={buttonColumns >= 5}
+                    title="Diminuir tamanho (mais colunas)"
+                    className="h-8 w-8"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                  <span className="text-xs px-2 font-medium">{buttonColumns}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setButtonColumns(Math.max(3, buttonColumns - 1))}
+                    disabled={buttonColumns <= 3}
+                    title="Aumentar tamanho (menos colunas)"
+                    className="h-8 w-8"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                </div>
+                
                 <Button
                   variant="outline"
                   onClick={() => setShowHelp(!showHelp)}
@@ -811,31 +838,23 @@ const LeadTab = () => {
                           Nenhuma ação configurada para esta categoria.
                         </Card>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+                        <div 
+                          className="grid gap-3"
+                          style={{
+                            gridTemplateColumns: `repeat(${buttonColumns}, minmax(0, 1fr))`
+                          }}
+                        >
                           {categoryButtons.map((btn) => {
-                            const widthKey = Math.max(
-                              1,
-                              Math.min(3, Math.round(btn.layout.w || 1)),
-                            ) as 1 | 2 | 3;
-                            const heightKey = Math.max(
-                              1,
-                              Math.min(3, Math.round(btn.layout.h || 1)),
-                            ) as 1 | 2 | 3;
-
                             return (
                               <Button
                                 variant="ghost"
                                 key={btn.id}
                                 data-btn-id={btn.id}
                                 onClick={() => handleButtonClick(btn)}
-                                className={cn(
-                                  "flex flex-col items-start justify-between gap-2 rounded-2xl px-4 py-4 text-left text-base font-semibold text-white shadow-lg transition-transform duration-150 hover:scale-[1.02] focus-visible:scale-[1.02] hover:bg-white/20 hover:text-white",
-                                  widthClassMap[widthKey],
-                                  heightClassMap[heightKey],
-                                )}
+                                className="flex flex-col items-center justify-center gap-2 rounded-2xl px-4 py-6 text-center text-base font-semibold text-white shadow-lg transition-transform duration-150 hover:scale-[1.02] focus-visible:scale-[1.02] hover:bg-white/20 hover:text-white min-h-[96px]"
                                 style={{ backgroundColor: btn.color }}
                               >
-                                <span>{btn.label}</span>
+                                <span className="break-words w-full">{btn.label}</span>
                                 {btn.hotkey && (
                                   <span className="text-xs uppercase tracking-wide opacity-80">
                                     [{btn.hotkey}]
