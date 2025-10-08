@@ -8,12 +8,12 @@ export interface ButtonLayout {
 }
 
 export const BUTTON_CATEGORIES = [
-  { id: "NAO_AGENDADO" as ButtonCategory, label: "Não Agendado" },
-  { id: "RETORNAR" as ButtonCategory, label: "Retornar" },
   { id: "AGENDAR" as ButtonCategory, label: "Agendar" },
+  { id: "RETORNAR" as ButtonCategory, label: "Retornar" },
+  { id: "NAO_AGENDADO" as ButtonCategory, label: "Não Agendado" },
 ];
 
-export const categoryOrder: ButtonCategory[] = ["NAO_AGENDADO", "RETORNAR", "AGENDAR"];
+export const categoryOrder: ButtonCategory[] = ["AGENDAR", "RETORNAR", "NAO_AGENDADO"];
 
 export function createDefaultLayout(category: ButtonCategory = "NAO_AGENDADO", index: number = 0): ButtonLayout {
   return {
