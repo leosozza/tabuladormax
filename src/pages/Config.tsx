@@ -1,279 +1,965 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner';
-import { Plus, Trash2, Save, ArrowLeft, Palette } from 'lucide-react';
+import { useState, useEffect, useMemo, type DragEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Save,
+  RefreshCcw,
+  Search,
+  Loader2,
+  GripVertical,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { BitrixError, BitrixField, getLeadFields } from "@/lib/bitrix";
+import {
+  BUTTON_CATEGORIES,
+  categoryOrder,
+  createDefaultLayout,
+  ensureButtonLayout,
+  type ButtonCategory,
+  type ButtonLayout,
+} from "@/lib/button-layout";
+import { cn } from "@/lib/utils";
 
-interface ButtonConfig {
-  id?: string;
-  label: string;
-  color: string;
-  category: string;
-  hotkey?: string;
-  field: string;
-  value?: string;
-  field_type: string;
-  action_type: string;
-  sort: number;
+interface SubButton {
+  subLabel: string;
+  subWebhook: string;
+  subField: string;
+  subValue: string;
+  subHotkey?: string;
 }
 
-export default function Config() {
+interface ButtonConfig {
+  id: string;
+  label: string;
+  color: string;
+  webhook_url: string;
+  field: string;
+  value: string;
+  field_type: string;
+  action_type: string;
+  hotkey: string;
+  sort: number;
+  layout: ButtonLayout;
+  sub_buttons: SubButton[];
+}
+
+const DEFAULT_WEBHOOK = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json";
+
+const generateButtonId = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return Math.random().toString(36).slice(2, 10);
+};
+
+const cloneButtons = (buttons: ButtonConfig[]): ButtonConfig[] =>
+  buttons.map((button) => ({
+    ...button,
+    layout: { ...button.layout },
+    sub_buttons: button.sub_buttons.map((sub) => ({ ...sub })),
+  }));
+
+const normalizeButtons = (buttons: ButtonConfig[]): ButtonConfig[] => {
+  const counters = BUTTON_CATEGORIES.reduce(
+    (acc, category) => ({ ...acc, [category.id]: 0 }),
+    {} as Record<ButtonCategory, number>,
+  );
+
+  const sanitized = buttons
+    .map((button) => ({
+      ...button,
+      layout: ensureButtonLayout(
+        { ...button.layout, category: button.layout.category },
+        typeof button.layout.index === "number" ? button.layout.index : 0,
+      ),
+      sub_buttons: button.sub_buttons.map((sub) => ({
+        subLabel: sub.subLabel || "Novo motivo",
+        subWebhook: sub.subWebhook || DEFAULT_WEBHOOK,
+        subField: sub.subField || "",
+        subValue: sub.subValue || "",
+        subHotkey: sub.subHotkey || "",
+      })),
+    }))
+    .sort((a, b) => {
+      const categoryDiff =
+        categoryOrder.indexOf(a.layout.category) - categoryOrder.indexOf(b.layout.category);
+
+      if (categoryDiff !== 0) {
+        return categoryDiff;
+      }
+
+      return a.layout.index - b.layout.index;
+    });
+
+  return sanitized.map((button, index) => {
+    const currentIndex = counters[button.layout.category];
+    counters[button.layout.category] = currentIndex + 1;
+
+    return {
+      ...button,
+      sort: index + 1,
+      layout: {
+        ...button.layout,
+        index: currentIndex,
+      },
+    };
+  });
+};
+
+const parseSubButtons = (value: unknown): SubButton[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((entry) => {
+    const payload = (entry ?? {}) as Record<string, unknown>;
+
+    return {
+      subLabel:
+        typeof payload.subLabel === "string"
+          ? payload.subLabel
+          : typeof payload.label === "string"
+            ? payload.label
+            : "Novo motivo",
+      subWebhook:
+        typeof payload.subWebhook === "string" && payload.subWebhook
+          ? payload.subWebhook
+          : typeof payload.webhook === "string" && payload.webhook
+            ? payload.webhook
+            : DEFAULT_WEBHOOK,
+      subField:
+        typeof payload.subField === "string"
+          ? payload.subField
+          : typeof payload.field === "string"
+            ? payload.field
+            : "",
+      subValue:
+        typeof payload.subValue === "string"
+          ? payload.subValue
+          : typeof payload.value === "string"
+            ? payload.value
+            : "",
+      subHotkey:
+        typeof payload.subHotkey === "string"
+          ? payload.subHotkey
+          : typeof payload.hotkey === "string"
+            ? payload.hotkey
+            : "",
+    };
+  });
+};
+
+const Config = () => {
   const navigate = useNavigate();
   const [buttons, setButtons] = useState<ButtonConfig[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [bitrixFields, setBitrixFields] = useState<BitrixField[]>([]);
+  const [loadingFields, setLoadingFields] = useState(false);
+  const [fieldSearch, setFieldSearch] = useState("");
+  const [loadingButtons, setLoadingButtons] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [draggingButton, setDraggingButton] = useState<string | null>(null);
 
   useEffect(() => {
     loadButtons();
+    loadFields();
   }, []);
 
-  const loadButtons = async () => {
-    setLoading(true);
-    try {
-      const { data } = await supabase
-        .from('button_config')
-        .select('*')
-        .order('sort');
+  const filteredFields = useMemo(() => {
+    const query = fieldSearch.toLowerCase();
+    return bitrixFields.filter(
+      (field) =>
+        field.name.toLowerCase().includes(query) || field.title.toLowerCase().includes(query),
+    );
+  }, [bitrixFields, fieldSearch]);
 
-      if (data) setButtons(data);
-    } catch (error) {
-      console.error('Erro ao carregar botões:', error);
-      toast.error('Erro ao carregar configuração');
-    } finally {
-      setLoading(false);
-    }
+  const applyUpdate = (updater: (buttons: ButtonConfig[]) => ButtonConfig[]) => {
+    setButtons((prev) => normalizeButtons(updater(cloneButtons(prev))));
   };
 
-  const saveButtons = async () => {
+  const loadButtons = async () => {
+    setLoadingButtons(true);
+    const { data, error } = await supabase
+      .from("button_config")
+      .select("*")
+      .order("sort", { ascending: true });
+
+    if (error) {
+      console.error("Erro ao carregar botões:", error);
+      toast.error("Não foi possível carregar as ações");
+      setLoadingButtons(false);
+      return;
+    }
+
+    const parsed = (data || []).map((entry, index) => ({
+      id: entry.id,
+      label: entry.label,
+      color: entry.color,
+      webhook_url: entry.webhook_url || DEFAULT_WEBHOOK,
+      field: entry.field || "",
+      value: entry.value || "",
+      field_type: entry.field_type || "string",
+      action_type: entry.action_type || "simple",
+      hotkey: entry.hotkey || "",
+      sort: entry.sort || index + 1,
+      layout: ensureButtonLayout(entry.pos, entry.sort || index),
+      sub_buttons: parseSubButtons(entry.sub_buttons),
+    }));
+
+    setButtons(normalizeButtons(parsed));
+    setLoadingButtons(false);
+  };
+
+  const loadFields = async () => {
+    setLoadingFields(true);
     try {
-      // Deletar todos os botões existentes
-      await supabase.from('button_config').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-
-      // Inserir os novos (remover id para gerar novo UUID)
-      const buttonsToInsert = buttons.map((btn, i) => {
-        const { id, ...rest } = btn;
-        return { ...rest, sort: i };
-      });
-
-      const { error } = await supabase.from('button_config').insert(buttonsToInsert);
-
-      if (error) throw error;
-
-      toast.success('Configuração salva!');
-      loadButtons();
-    } catch (error: any) {
-      console.error('Erro ao salvar:', error);
-      toast.error(`Erro ao salvar: ${error?.message || 'Desconhecido'}`);
+      const fields = await getLeadFields();
+      setBitrixFields(fields.sort((a, b) => a.title.localeCompare(b.title)));
+    } catch (error) {
+      console.error("Erro ao buscar campos do Bitrix:", error);
+      toast.error(
+        error instanceof BitrixError
+          ? error.message
+          : "Não foi possível carregar os campos do Bitrix",
+      );
+    } finally {
+      setLoadingFields(false);
     }
   };
 
   const addButton = () => {
-    setButtons([
-      ...buttons,
-      {
-        label: 'Novo botão',
-        color: '#3b82f6',
-        category: 'NAO_AGENDADO',
-        field: 'STATUS_ID',
-        value: '',
-        field_type: 'string',
-        action_type: 'simple',
-        sort: buttons.length
-      }
-    ]);
-  };
-
-  const removeButton = (index: number) => {
-    setButtons(buttons.filter((_, i) => i !== index));
-  };
-
-  const updateButton = (index: number, field: string, value: any) => {
-    const updated = [...buttons];
-    updated[index] = { ...updated[index], [field]: value };
-    setButtons(updated);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-xl">Carregando...</div>
-      </div>
+    const defaultCategory = BUTTON_CATEGORIES[0].id;
+    const layout = createDefaultLayout(
+      defaultCategory,
+      buttons.filter((button) => button.layout.category === defaultCategory).length,
     );
-  }
+
+    const newButton: ButtonConfig = {
+      id: generateButtonId(),
+      label: "Novo Botão",
+      color: "#3b82f6",
+      webhook_url: DEFAULT_WEBHOOK,
+      field: "",
+      value: "",
+      field_type: "string",
+      action_type: "simple",
+      hotkey: "",
+      sort: buttons.length + 1,
+      layout,
+      sub_buttons: [],
+    };
+
+    applyUpdate((current) => [...current, newButton]);
+  };
+
+  const removeButton = (id: string) => {
+    applyUpdate((current) => current.filter((button) => button.id !== id));
+  };
+
+  const updateButton = (id: string, updates: Partial<Omit<ButtonConfig, "id" | "layout" | "sub_buttons">>) => {
+    applyUpdate((current) =>
+      current.map((button) => (button.id === id ? { ...button, ...updates } : button)),
+    );
+  };
+
+  const updateButtonLayout = (id: string, updates: Partial<ButtonLayout>) => {
+    applyUpdate((current) =>
+      current.map((button) =>
+        button.id === id
+          ? {
+              ...button,
+              layout: {
+                ...button.layout,
+                ...updates,
+              },
+            }
+          : button,
+      ),
+    );
+  };
+
+  const assignFieldToButton = (id: string, fieldName: string) => {
+    const fieldMeta = bitrixFields.find((field) => field.name === fieldName);
+    updateButton(id, {
+      field: fieldName,
+      field_type: fieldMeta?.type || "string",
+    });
+  };
+
+  const addSubButton = (id: string) => {
+    applyUpdate((current) =>
+      current.map((button) =>
+        button.id === id
+          ? {
+              ...button,
+              sub_buttons: [
+                ...button.sub_buttons,
+                {
+                  subLabel: "Novo motivo",
+                  subWebhook: DEFAULT_WEBHOOK,
+                  subField: button.field || "",
+                  subValue: "",
+                  subHotkey: "",
+                },
+              ],
+            }
+          : button,
+      ),
+    );
+  };
+
+  const removeSubButton = (id: string, subIndex: number) => {
+    applyUpdate((current) =>
+      current.map((button) =>
+        button.id === id
+          ? {
+              ...button,
+              sub_buttons: button.sub_buttons.filter((_, index) => index !== subIndex),
+            }
+          : button,
+      ),
+    );
+  };
+
+  const updateSubButton = (id: string, subIndex: number, updates: Partial<SubButton>) => {
+    applyUpdate((current) =>
+      current.map((button) =>
+        button.id === id
+          ? {
+              ...button,
+              sub_buttons: button.sub_buttons.map((sub, index) =>
+                index === subIndex ? { ...sub, ...updates } : sub,
+              ),
+            }
+          : button,
+      ),
+    );
+  };
+
+  const moveButton = (buttonId: string, category: ButtonCategory, targetIndex?: number) => {
+    applyUpdate((current) => {
+      const index = current.findIndex((button) => button.id === buttonId);
+
+      if (index === -1) {
+        return current;
+      }
+
+      const [button] = current.splice(index, 1);
+      const safeCategory = BUTTON_CATEGORIES.some((item) => item.id === category)
+        ? category
+        : BUTTON_CATEGORIES[0].id;
+
+      const buckets = BUTTON_CATEGORIES.reduce(
+        (acc, item) => ({
+          ...acc,
+          [item.id]: [] as ButtonConfig[],
+        }),
+        {} as Record<ButtonCategory, ButtonConfig[]>,
+      );
+
+      current.forEach((entry) => {
+        const entryCategory = BUTTON_CATEGORIES.some((item) => item.id === entry.layout.category)
+          ? (entry.layout.category as ButtonCategory)
+          : BUTTON_CATEGORIES[0].id;
+        buckets[entryCategory].push(entry);
+      });
+
+      const destination = buckets[safeCategory];
+      const insertionIndex =
+        targetIndex !== undefined
+          ? Math.max(0, Math.min(targetIndex, destination.length))
+          : destination.length;
+
+      destination.splice(insertionIndex, 0, {
+        ...button,
+        layout: ensureButtonLayout(
+          {
+            ...button.layout,
+            category: safeCategory,
+            index: insertionIndex,
+          },
+          insertionIndex,
+        ),
+      });
+
+      return BUTTON_CATEGORIES.flatMap((item) => buckets[item.id]);
+    });
+  };
+
+  const handleFieldDrop = (
+    event: DragEvent<HTMLDivElement>,
+    buttonId: string,
+    subIndex?: number,
+  ) => {
+    event.preventDefault();
+    const field = event.dataTransfer.getData("bitrix-field");
+
+    if (!field) {
+      return;
+    }
+
+    if (typeof subIndex === "number") {
+      updateSubButton(buttonId, subIndex, { subField: field });
+    } else {
+      assignFieldToButton(buttonId, field);
+    }
+  };
+
+  const handleButtonDragStart = (event: DragEvent<HTMLElement>, id: string) => {
+    event.dataTransfer.setData("button-id", id);
+    event.dataTransfer.effectAllowed = "move";
+    setDraggingButton(id);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingButton(null);
+  };
+
+  const handleButtonDropOnCard = (
+    event: DragEvent<HTMLDivElement>,
+    category: ButtonCategory,
+    dropIndex: number,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const id = event.dataTransfer.getData("button-id");
+
+    if (!id) {
+      return;
+    }
+
+    moveButton(id, category, dropIndex);
+    setDraggingButton(null);
+  };
+
+  const handleColumnDrop = (event: DragEvent<HTMLDivElement>, category: ButtonCategory) => {
+    event.preventDefault();
+    const id = event.dataTransfer.getData("button-id");
+
+    if (!id) {
+      return;
+    }
+
+    const categoryButtons = buttons.filter((button) => button.layout.category === category);
+    moveButton(id, category, categoryButtons.length);
+    setDraggingButton(null);
+  };
+
+  const renderFieldValueControl = (
+    fieldName: string,
+    value: string,
+    onChange: (value: string) => void,
+  ) => {
+    const meta = bitrixFields.find((field) => field.name === fieldName);
+
+    if (meta?.items?.length) {
+      return (
+        <Select value={value} onValueChange={onChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione um valor" />
+          </SelectTrigger>
+          <SelectContent>
+            {meta.items.map((option) => (
+              <SelectItem key={option.ID} value={option.VALUE}>
+                {option.VALUE}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    return (
+      <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder="Valor a enviar" />
+    );
+  };
+
+  const saveConfig = async () => {
+    const hotkeys = buttons.map((button) => button.hotkey).filter(Boolean);
+    const duplicates = hotkeys.filter((key, index) => hotkeys.indexOf(key) !== index);
+
+    if (duplicates.length > 0) {
+      toast.error(`Atalhos duplicados: ${duplicates.join(", ")}`);
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await supabase.from("button_config").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+
+      const { error } = await supabase.from("button_config").insert(
+        buttons.map((button) => ({
+          id: button.id,
+          label: button.label,
+          color: button.color,
+          webhook_url: button.webhook_url,
+          field: button.field,
+          value: button.value,
+          field_type: button.field_type,
+          action_type: button.action_type,
+          hotkey: button.hotkey,
+          sort: button.sort,
+          pos: button.layout as any,
+          sub_buttons: button.sub_buttons as any,
+        })),
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success("Configuração salva com sucesso!");
+      loadButtons();
+    } catch (error) {
+      console.error("Erro ao salvar:", error);
+      toast.error("Erro ao salvar configuração");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            ⚙️ Configuração de Botões
-          </h1>
-          <Button
-            variant="outline"
-            onClick={() => navigate(-1)}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar
-          </Button>
-        </div>
+    <div className="min-h-screen bg-background py-8 px-4">
+      <div className="container mx-auto max-w-6xl">
+        <Button variant="outline" onClick={() => navigate(`/lead/1`)} className="mb-6 gap-2">
+          <ArrowLeft className="w-4 h-4" />
+          Voltar
+        </Button>
 
-        <Card className="p-8 shadow-[var(--shadow-card)]">
-          <div className="space-y-6">
-            {buttons.map((btn, index) => (
-              <Card key={index} className="p-6 bg-muted/30">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Nome do botão</Label>
-                    <Input
-                      value={btn.label}
-                      onChange={(e) => updateButton(index, 'label', e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Cor</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={btn.color}
-                        onChange={(e) => updateButton(index, 'color', e.target.value)}
-                        className="w-20 h-10 p-1"
-                      />
-                      <Input
-                        value={btn.color}
-                        onChange={(e) => updateButton(index, 'color', e.target.value)}
-                        placeholder="#3b82f6"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Categoria</Label>
-                    <Select
-                      value={btn.category}
-                      onValueChange={(value) => updateButton(index, 'category', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NAO_AGENDADO">🟥 Não Agendado</SelectItem>
-                        <SelectItem value="RETORNAR">🟨 Retornar</SelectItem>
-                        <SelectItem value="AGENDAR">🟩 Agendar</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>Atalho (ex: 1, Space, Ctrl+1)</Label>
-                    <Input
-                      value={btn.hotkey || ''}
-                      onChange={(e) => updateButton(index, 'hotkey', e.target.value)}
-                      placeholder="1"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Campo Bitrix</Label>
-                    <Input
-                      value={btn.field}
-                      onChange={(e) => updateButton(index, 'field', e.target.value)}
-                      placeholder="STATUS_ID, UF_CRM_*"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Valor padrão</Label>
-                    <Input
-                      value={btn.value || ''}
-                      onChange={(e) => updateButton(index, 'value', e.target.value)}
-                      placeholder="Valor"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Tipo do campo</Label>
-                    <Select
-                      value={btn.field_type}
-                      onValueChange={(value) => updateButton(index, 'field_type', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="string">String</SelectItem>
-                        <SelectItem value="number">Number</SelectItem>
-                        <SelectItem value="datetime">DateTime</SelectItem>
-                        <SelectItem value="boolean">Boolean</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>Tipo de ação</Label>
-                    <Select
-                      value={btn.action_type}
-                      onValueChange={(value) => updateButton(index, 'action_type', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="simple">Simples</SelectItem>
-                        <SelectItem value="schedule">Agendamento</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-end">
-                    <Button
-                      variant="destructive"
-                      onClick={() => removeButton(index)}
-                      className="w-full gap-2"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Remover
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-
-            <div className="flex gap-4">
-              <Button
-                onClick={addButton}
-                variant="outline"
-                className="flex-1 gap-2"
-              >
-                <Plus className="h-4 w-4" />
+        <Card className="p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-bold">⚙️ Configuração de Botões</h1>
+              <p className="text-sm text-muted-foreground">
+                Arraste campos do Bitrix para vincular rapidamente cada ação e organize os botões por categoria.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={loadFields} disabled={loadingFields}>
+                <RefreshCcw className="w-4 h-4 mr-2" />
+                {loadingFields ? "Atualizando..." : "Atualizar campos"}
+              </Button>
+              <Button onClick={addButton} variant="outline">
+                <Plus className="w-4 h-4 mr-2" />
                 Adicionar Botão
               </Button>
-
-              <Button
-                onClick={saveButtons}
-                className="flex-1 gap-2 shadow-[var(--shadow-button)] hover:shadow-[var(--shadow-hover)]"
-              >
-                <Save className="h-4 w-4" />
-                Salvar Configuração
-              </Button>
-
-              <Button
-                onClick={() => navigate('/designer')}
-                variant="secondary"
-                className="flex-1 gap-2"
-              >
-                <Palette className="h-4 w-4" />
-                Designer
+              <Button onClick={saveConfig} disabled={saving}>
+                {saving ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Salvando...
+                  </span>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" /> Salvar Tudo
+                  </>
+                )}
               </Button>
             </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[280px,1fr]">
+            <aside className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="Buscar campo"
+                    value={fieldSearch}
+                    onChange={(event) => setFieldSearch(event.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="rounded-lg border bg-muted/40 h-[460px] overflow-y-auto p-3">
+                {loadingFields ? (
+                  <p className="text-sm text-muted-foreground">Carregando campos do Bitrix...</p>
+                ) : filteredFields.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum campo encontrado</p>
+                ) : (
+                  <ul className="space-y-2 text-sm">
+                    {filteredFields.map((field) => (
+                      <li
+                        key={field.name}
+                        draggable
+                        onDragStart={(event) => event.dataTransfer.setData("bitrix-field", field.name)}
+                        className="cursor-grab rounded-md border bg-background px-3 py-2 hover:bg-muted"
+                        title={field.title}
+                      >
+                        <p className="font-medium">{field.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {field.name} · {field.type}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Arraste um campo e solte na área "Campo Bitrix" do botão desejado para mapear automaticamente.
+              </p>
+            </aside>
+
+            <section className="space-y-4">
+              {loadingButtons ? (
+                <p className="text-sm text-muted-foreground">Carregando botões...</p>
+              ) : buttons.length === 0 ? (
+                <Card className="p-6 text-sm text-muted-foreground">
+                  Nenhum botão configurado ainda. Clique em "Adicionar Botão" para começar.
+                </Card>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-3">
+                  {BUTTON_CATEGORIES.map((category) => {
+                    const categoryButtons = buttons.filter(
+                      (button) => button.layout.category === category.id,
+                    );
+
+                    return (
+                      <div
+                        key={category.id}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                        }}
+                        onDrop={(event) => handleColumnDrop(event, category.id)}
+                        className={cn(
+                          "rounded-xl border bg-muted/20 p-4 transition-colors",
+                          draggingButton && "border-primary/40 bg-primary/5",
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <h2 className="font-semibold text-base">{category.label}</h2>
+                          <span className="text-xs text-muted-foreground">
+                            {categoryButtons.length} botões
+                          </span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {categoryButtons.length === 0 ? (
+                            <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-background/60 py-10 text-center text-xs text-muted-foreground">
+                              Arraste um botão para esta categoria
+                            </div>
+                          ) : (
+                            categoryButtons.map((button, index) => {
+                              const fieldMeta = bitrixFields.find(
+                                (field) => field.name === button.field,
+                              );
+
+                              return (
+                                <div
+                                  key={button.id}
+                                  onDragOver={(event) => {
+                                    event.preventDefault();
+                                    event.dataTransfer.dropEffect = "move";
+                                  }}
+                                  onDrop={(event) => handleButtonDropOnCard(event, category.id, index)}
+                                >
+                                  <Card
+                                    className={cn(
+                                      "p-4 bg-background shadow-sm",
+                                      draggingButton === button.id && "ring-2 ring-primary/40",
+                                    )}
+                                  >
+                                    <div className="flex justify-between items-start mb-4 gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className="cursor-grab active:cursor-grabbing text-muted-foreground"
+                                          draggable
+                                          onDragStart={(event) => handleButtonDragStart(event, button.id)}
+                                          onDragEnd={handleDragEnd}
+                                        >
+                                          <GripVertical className="w-4 h-4" />
+                                        </span>
+                                        <h3 className="font-bold text-lg">{button.label || "Botão"}</h3>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => removeButton(button.id)}
+                                      >
+                                        <Trash2 className="w-4 h-4 text-destructive" />
+                                      </Button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      <div>
+                                        <Label>Nome do Botão</Label>
+                                        <Input
+                                          value={button.label}
+                                          onChange={(event) =>
+                                            updateButton(button.id, { label: event.target.value })
+                                          }
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <Label>Cor</Label>
+                                        <Input
+                                          type="color"
+                                          value={button.color}
+                                          onChange={(event) =>
+                                            updateButton(button.id, { color: event.target.value })
+                                          }
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <Label>Categoria</Label>
+                                        <Select
+                                          value={button.layout.category}
+                                          onValueChange={(value) => {
+                                            if (value !== button.layout.category) {
+                                              moveButton(button.id, value as ButtonCategory);
+                                            }
+                                          }}
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {BUTTON_CATEGORIES.map((item) => (
+                                              <SelectItem key={item.id} value={item.id}>
+                                                {item.label}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+
+                                      <div>
+                                        <Label>URL do Webhook</Label>
+                                        <Input
+                                          value={button.webhook_url}
+                                          onChange={(event) =>
+                                            updateButton(button.id, {
+                                              webhook_url: event.target.value,
+                                            })
+                                          }
+                                          placeholder="https://..."
+                                        />
+                                      </div>
+
+                                      <div className="md:col-span-2">
+                                        <Label>Campo Bitrix</Label>
+                                        <div
+                                          onDragOver={(event) => event.preventDefault()}
+                                          onDrop={(event) => handleFieldDrop(event, button.id)}
+                                          className="rounded-lg border border-dashed bg-background px-3 py-3 text-sm"
+                                        >
+                                          {button.field ? (
+                                            <div>
+                                              <p className="font-semibold">{button.field}</p>
+                                              {fieldMeta && (
+                                                <p className="text-xs text-muted-foreground">
+                                                  {fieldMeta.title} · {fieldMeta.type}
+                                                </p>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <span className="text-muted-foreground">
+                                              Solte aqui um campo do Bitrix
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      <div>
+                                        <Label>Valor Padrão</Label>
+                                        {renderFieldValueControl(button.field, button.value, (value) =>
+                                          updateButton(button.id, { value }),
+                                        )}
+                                      </div>
+
+                                      <div>
+                                        <Label>Tipo de Ação</Label>
+                                        <Select
+                                          value={button.action_type}
+                                          onValueChange={(value) =>
+                                            updateButton(button.id, { action_type: value })
+                                          }
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="simple">Simples</SelectItem>
+                                            <SelectItem value="schedule">Agendamento</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+
+                                      <div>
+                                        <Label>Atalho de Teclado</Label>
+                                        <Input
+                                          value={button.hotkey}
+                                          onChange={(event) =>
+                                            updateButton(button.id, { hotkey: event.target.value })
+                                          }
+                                          placeholder="1, 2, Ctrl+1, etc"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <Label>Largura (1 a 3 colunas)</Label>
+                                        <Input
+                                          type="number"
+                                          min={1}
+                                          max={3}
+                                          value={button.layout.width}
+                                          onChange={(event) =>
+                                            updateButtonLayout(button.id, {
+                                              width: Number(event.target.value) || 1,
+                                            })
+                                          }
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <Label>Altura (1 a 3 níveis)</Label>
+                                        <Input
+                                          type="number"
+                                          min={1}
+                                          max={3}
+                                          value={button.layout.height}
+                                          onChange={(event) =>
+                                            updateButtonLayout(button.id, {
+                                              height: Number(event.target.value) || 1,
+                                            })
+                                          }
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-4">
+                                      <div className="flex justify-between items-center mb-2">
+                                        <Label className="text-sm font-semibold">Sub-botões (Motivos)</Label>
+                                        <Button size="sm" variant="outline" onClick={() => addSubButton(button.id)}>
+                                          <Plus className="w-3 h-3 mr-1" />
+                                          Adicionar Motivo
+                                        </Button>
+                                      </div>
+
+                                      {button.sub_buttons.map((sub, subIndex) => {
+                                        const subMeta = bitrixFields.find(
+                                          (field) => field.name === sub.subField,
+                                        );
+
+                                        return (
+                                          <Card key={`${button.id}-${subIndex}`} className="p-3 mb-2 bg-background">
+                                            <div className="flex justify-between items-start mb-2">
+                                              <span className="text-sm font-medium">Motivo {subIndex + 1}</span>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => removeSubButton(button.id, subIndex)}
+                                              >
+                                                <Trash2 className="w-3 h-3 text-destructive" />
+                                              </Button>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                              <div>
+                                                <Label className="text-xs">Nome</Label>
+                                                <Input
+                                                  value={sub.subLabel}
+                                                  onChange={(event) =>
+                                                    updateSubButton(button.id, subIndex, {
+                                                      subLabel: event.target.value,
+                                                    })
+                                                  }
+                                                  className="h-8"
+                                                />
+                                              </div>
+
+                                              <div>
+                                                <Label className="text-xs">Atalho</Label>
+                                                <Input
+                                                  value={sub.subHotkey || ""}
+                                                  onChange={(event) =>
+                                                    updateSubButton(button.id, subIndex, {
+                                                      subHotkey: event.target.value,
+                                                    })
+                                                  }
+                                                  placeholder="Shift+1"
+                                                  className="h-8"
+                                                />
+                                              </div>
+
+                                              <div className="md:col-span-2">
+                                                <Label className="text-xs">Campo</Label>
+                                                <div
+                                                  onDragOver={(event) => event.preventDefault()}
+                                                  onDrop={(event) => handleFieldDrop(event, button.id, subIndex)}
+                                                  className="rounded-md border border-dashed bg-muted/40 px-2 py-2"
+                                                >
+                                                  {sub.subField ? (
+                                                    <div>
+                                                      <p className="text-sm font-medium">{sub.subField}</p>
+                                                      {subMeta && (
+                                                        <p className="text-xs text-muted-foreground">
+                                                          {subMeta.title}
+                                                        </p>
+                                                      )}
+                                                    </div>
+                                                  ) : (
+                                                    <span className="text-xs text-muted-foreground">
+                                                      Solte um campo aqui
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+
+                                              <div className="md:col-span-2">
+                                                <Label className="text-xs">Valor</Label>
+                                                {renderFieldValueControl(sub.subField, sub.subValue, (value) =>
+                                                  updateSubButton(button.id, subIndex, { subValue: value }),
+                                                )}
+                                              </div>
+
+                                              <div className="md:col-span-2">
+                                                <Label className="text-xs">
+                                                  Webhook (opcional, usa o do botão se vazio)
+                                                </Label>
+                                                <Input
+                                                  value={sub.subWebhook}
+                                                  onChange={(event) =>
+                                                    updateSubButton(button.id, subIndex, {
+                                                      subWebhook: event.target.value,
+                                                    })
+                                                  }
+                                                  className="h-8"
+                                                />
+                                              </div>
+                                            </div>
+                                          </Card>
+                                        );
+                                      })}
+                                    </div>
+                                  </Card>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </div>
         </Card>
       </div>
     </div>
   );
-}
+};
+
+export default Config;
