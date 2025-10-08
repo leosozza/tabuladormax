@@ -855,56 +855,197 @@ const LeadTab = () => {
       </Dialog>
 
       <Dialog open={showFieldMappingModal} onOpenChange={setShowFieldMappingModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Configurar Campos do Perfil</DialogTitle>
             <DialogDescription>
-              Defina qual campo do Chatwoot corresponde a cada campo do perfil. Use notação de ponto para campos aninhados (ex: contact.name, contact.custom_attributes.idade)
+              Clique nos campos do Chatwoot para selecioná-los automaticamente
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {fieldMappings.map((mapping, index) => (
-              <Card key={mapping.profile_field} className="p-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="font-semibold">Campo #{index + 1}</Label>
+          <div className="grid grid-cols-2 gap-6">
+            {/* Coluna da esquerda: Campos disponíveis do Chatwoot */}
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <h3 className="font-semibold mb-3 text-sm">📋 Campos Disponíveis do Chatwoot</h3>
+              <div className="space-y-2 text-sm">
+                <div className="space-y-1">
+                  <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Contato</p>
+                  <div className="ml-4 space-y-1">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => deleteFieldMapping(mapping.profile_field)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Nome de Exibição</Label>
-                    <Input
-                      placeholder="Ex: Nome, Idade, Endereço..."
-                      defaultValue={mapping.display_name || ''}
-                      onBlur={(e) => {
-                        if (e.target.value) {
-                          saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, e.target.value);
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'contact.name';
+                          input.dispatchEvent(new Event('input', { bubbles: true }));
                         }
                       }}
-                    />
-                  </div>
-
-
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Campo do Chatwoot</Label>
-                    <Input
-                      placeholder="Ex: contact.name ou contact.custom_attributes.idade"
-                      defaultValue={mapping.chatwoot_field || ''}
-                      onBlur={(e) => {
-                        saveFieldMapping(mapping.profile_field, e.target.value, mapping.display_name);
+                    >
+                      contact.name
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'contact.email';
+                          input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
                       }}
-                    />
+                    >
+                      contact.email
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'contact.phone_number';
+                          input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                      }}
+                    >
+                      contact.phone_number
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'contact.thumbnail';
+                          input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                      }}
+                    >
+                      contact.thumbnail
+                    </Button>
                   </div>
                 </div>
-              </Card>
-            ))}
+
+                <div className="space-y-1 mt-4">
+                  <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Atributos Customizados</p>
+                  <div className="ml-4 space-y-1">
+                    {chatwootData?.custom_attributes && Object.keys(chatwootData.custom_attributes).map((key) => (
+                      <Button
+                        key={key}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                        onClick={() => {
+                          const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                          if (input) {
+                            input.value = `contact.custom_attributes.${key}`;
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                          }
+                        }}
+                      >
+                        contact.custom_attributes.{key}
+                      </Button>
+                    ))}
+                    {(!chatwootData?.custom_attributes || Object.keys(chatwootData.custom_attributes).length === 0) && (
+                      <p className="text-xs text-muted-foreground italic">Aguardando dados do Chatwoot...</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1 mt-4">
+                  <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Conversa</p>
+                  <div className="ml-4 space-y-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'conversation.id';
+                          input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                      }}
+                    >
+                      conversation.id
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'conversation.status';
+                          input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                      }}
+                    >
+                      conversation.status
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Coluna da direita: Configuração dos campos */}
+            <div className="space-y-4">
+              {fieldMappings.map((mapping, index) => (
+                <Card key={mapping.profile_field} className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-semibold">Campo #{index + 1}</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteFieldMapping(mapping.profile_field)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Nome de Exibição</Label>
+                      <Input
+                        placeholder="Ex: Nome, Idade, Endereço..."
+                        defaultValue={mapping.display_name || ''}
+                        onBlur={(e) => {
+                          if (e.target.value) {
+                            saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, e.target.value);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-xs text-muted-foreground">
+                        Campo do Chatwoot 
+                        <span className="ml-2 text-xs opacity-60">(clique nos campos à esquerda)</span>
+                      </Label>
+                      <Input
+                        data-chatwoot-field-input
+                        placeholder="Clique em um campo à esquerda"
+                        defaultValue={mapping.chatwoot_field || ''}
+                        onBlur={(e) => {
+                          saveFieldMapping(mapping.profile_field, e.target.value, mapping.display_name);
+                        }}
+                        onFocus={(e) => {
+                          // Marcar este input como ativo
+                          document.querySelectorAll('[data-chatwoot-field-input]').forEach(input => {
+                            input.removeAttribute('data-active');
+                          });
+                          e.target.setAttribute('data-active', 'true');
+                        }}
+                      />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={addNewField} className="w-full sm:w-auto">
