@@ -492,7 +492,7 @@ const Config = () => {
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="container mx-auto max-w-6xl">
         <div className="flex justify-between items-center mb-6">
-          <Button variant="outline" onClick={() => navigate(`/lead/1`)} className="gap-2">
+          <Button variant="outline" onClick={() => navigate(`/`)} className="gap-2">
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </Button>

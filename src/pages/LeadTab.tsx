@@ -662,7 +662,7 @@ const LeadTab = () => {
                     <div className="flex flex-col gap-2 w-full">
                       <Button
                         variant="outline"
-                        onClick={() => navigate('/config')}
+                        onClick={() => setShowFieldMappingModal(true)}
                         className="w-full"
                       >
                         <Settings className="w-4 h-4 mr-2" />
@@ -670,7 +670,7 @@ const LeadTab = () => {
                       </Button>
                       <Button
                         variant="outline"
-                        onClick={() => navigate('/designer')}
+                        onClick={() => navigate('/config')}
                         className="w-full"
                       >
                         <Settings className="w-4 h-4 mr-2" />
