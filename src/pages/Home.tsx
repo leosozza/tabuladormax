@@ -62,10 +62,10 @@ export default function Home() {
               status: 'OK',
             }]);
             
-            console.log("✅ Navegando para:", `/${contactData.bitrix_id}`);
-            setDebugLog(prev => [...prev, `Navegando para /${contactData.bitrix_id}`]);
+            console.log("✅ Navegando para /lead");
+            setDebugLog(prev => [...prev, "Navegando para /lead"]);
             
-            navigate(`/${contactData.bitrix_id}`);
+            navigate('/lead');
           } else {
             console.log("⚠️ Nenhum idbitrix encontrado");
             setDebugLog(prev => [...prev, "Nenhum idbitrix nos dados"]);

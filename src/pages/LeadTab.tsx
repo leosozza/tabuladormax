@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
-import { saveChatwootContact, getChatwootContact, extractChatwootData, type ChatwootEventData } from "@/lib/chatwoot";
+import { saveChatwootContact, extractChatwootData, type ChatwootEventData } from "@/lib/chatwoot";
 import {
   BUTTON_CATEGORIES,
   categoryOrder,
@@ -170,7 +170,6 @@ const heightClassMap: Record<number, string> = {
 const DEFAULT_WEBHOOK = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json";
 
 const LeadTab = () => {
-  const { id } = useParams();
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState<DynamicProfile>(emptyProfile);
@@ -278,12 +277,6 @@ const LeadTab = () => {
     loadFieldMappings();
   }, []);
 
-  useEffect(() => {
-    if (id) {
-      loadLeadProfile(id);
-    }
-  }, [id]);
-
   // Listener do Chatwoot via window.postMessage
   useEffect(() => {
     console.log("🎧 Listener de mensagens do Chatwoot ativado na página LeadTab");
@@ -338,12 +331,6 @@ const LeadTab = () => {
 
             console.log("✅ Dados recebidos e salvos do Chatwoot");
             toast.success("Lead atualizado do Chatwoot!");
-
-            // Atualizar a URL se necessário
-            if (contactData.bitrix_id && id !== contactData.bitrix_id) {
-              console.log("🔄 Navegando para:", `/${contactData.bitrix_id}`);
-              navigate(`/${contactData.bitrix_id}`, { replace: true });
-            }
           } else {
             console.log("⚠️ Nenhum idbitrix encontrado nos dados");
           }
@@ -355,9 +342,9 @@ const LeadTab = () => {
         toast.error("Erro ao processar dados do Chatwoot");
         
         // Registrar log de erro
-        if (id) {
+        if (chatwootData?.bitrix_id) {
           await supabase.from('actions_log').insert([{
-            lead_id: Number(id),
+            lead_id: Number(chatwootData.bitrix_id),
             action_label: 'Erro ao processar Chatwoot',
             payload: {} as any,
             status: 'ERROR',
@@ -377,7 +364,7 @@ const LeadTab = () => {
       console.log("🔌 Listener de mensagens removido");
       window.removeEventListener("message", handleChatwootMessage);
     };
-  }, [fieldMappings, id, navigate]);
+  }, [fieldMappings, navigate]);
 
   const hotkeyMapping = useMemo(() => buttons.flatMap(btn => {
     const main = btn.hotkey ? [{ id: btn.id, key: btn.hotkey }] : [];
@@ -422,33 +409,14 @@ const LeadTab = () => {
     setLoadingButtons(false);
   };
 
-  // Removido loadCustomFields e saveCustomField - tabela não existe
-
-  const loadLeadProfile = async (bitrixId: string) => {
-    setLoadingProfile(true);
-    try {
-      // Buscar dados do Supabase
-      const contact = await getChatwootContact(bitrixId);
-      
-      if (contact) {
-        setChatwootData(contact);
-        const newProfile = mapChatwootToProfile(contact, fieldMappings);
-        setProfile(newProfile);
-        console.log("✅ Dados carregados do Supabase");
-      } else {
-        console.log("⚠️ Nenhum dado encontrado para este ID. Aguardando evento do Chatwoot...");
-        toast.info("Aguardando dados do Chatwoot...");
-      }
-    } catch (error) {
-      console.error('Erro ao buscar lead:', error);
-      toast.error('Erro ao carregar dados do lead');
-    } finally {
-      setLoadingProfile(false);
-    }
-  };
+  // Removido loadCustomFields, saveCustomField e loadLeadProfile - não são mais necessários
+  // Os dados sempre virão via postMessage do Chatwoot
 
   const updateCache = async () => {
-    if (!id || !chatwootData) return;
+    if (!chatwootData) {
+      toast.error("Nenhum dado do Chatwoot disponível");
+      return;
+    }
     setSavingProfile(true);
 
     try {
@@ -474,7 +442,7 @@ const LeadTab = () => {
 
       // Registrar log da ação
       await supabase.from('actions_log').insert([{
-        lead_id: Number(id),
+        lead_id: Number(chatwootData.bitrix_id),
         action_label: 'Atualização de perfil',
         payload: { profile } as any,
         status: 'OK',
@@ -487,7 +455,7 @@ const LeadTab = () => {
       
       // Registrar log de erro
       await supabase.from('actions_log').insert([{
-        lead_id: Number(id),
+        lead_id: Number(chatwootData.bitrix_id),
         action_label: 'Atualização de perfil',
         payload: {} as any,
         status: 'ERROR',
@@ -501,7 +469,10 @@ const LeadTab = () => {
   };
 
   const executeAction = async (button: ButtonConfig, subButton?: SubButton, scheduledDate?: string) => {
-    if (!id || !chatwootData) return;
+    if (!chatwootData) {
+      toast.error("Nenhum dado do Chatwoot disponível");
+      return;
+    }
 
     try {
       const webhookUrl = subButton?.subWebhook || button.webhook_url;
@@ -523,7 +494,7 @@ const LeadTab = () => {
       // se necessário para sincronização externa
 
       const { error: logError } = await supabase.from('actions_log').insert([{
-        lead_id: Number(id),
+        lead_id: Number(chatwootData.bitrix_id),
         action_label: subButton ? `${button.label} / ${subButton.subLabel}` : button.label,
         payload: { webhook: webhookUrl, field, value } as any,
         status: 'OK',
@@ -542,7 +513,7 @@ const LeadTab = () => {
       toast.error("Erro ao executar ação");
 
       const { error: logError } = await supabase.from('actions_log').insert([{
-        lead_id: Number(id),
+        lead_id: Number(chatwootData.bitrix_id),
         action_label: button.label,
         payload: {} as any,
         status: 'ERROR',
