@@ -77,18 +77,7 @@ export function ButtonEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>Editar Botão: {button.label}</DialogTitle>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={handleDelete}
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Excluir Botão
-            </Button>
-          </div>
+          <DialogTitle>Editar Botão: {button.label}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -334,6 +323,17 @@ export function ButtonEditDialog({
                 );
               })}
             </div>
+          </div>
+
+          <div className="flex justify-center pt-4 border-t">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleDelete}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </DialogContent>
