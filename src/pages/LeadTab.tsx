@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -997,11 +998,12 @@ const LeadTab = () => {
               Clique nos campos do Chatwoot para selecioná-los automaticamente
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-6 h-[600px]">
             {/* Coluna da esquerda: Campos disponíveis do Chatwoot */}
-            <div className="border rounded-lg p-4 bg-muted/30">
-              <h3 className="font-semibold mb-3 text-sm">📋 Campos Disponíveis do Chatwoot</h3>
-              <div className="space-y-2 text-sm">
+            <div className="border rounded-lg bg-muted/30 flex flex-col">
+              <h3 className="font-semibold p-4 pb-3 text-sm border-b">📋 Campos Disponíveis do Chatwoot</h3>
+              <ScrollArea className="flex-1 p-4">
+                <div className="space-y-2 text-sm">
                 <div className="space-y-1">
                   <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Contato</p>
                   <div className="ml-4 space-y-1">
@@ -1154,11 +1156,13 @@ const LeadTab = () => {
                     </Button>
                   </div>
                 </div>
-              </div>
+                </div>
+              </ScrollArea>
             </div>
 
             {/* Coluna da direita: Configuração dos campos */}
-            <div className="space-y-4">
+            <ScrollArea className="border rounded-lg">
+              <div className="space-y-4 p-4">
               {fieldMappings.map((mapping, index) => (
                 <Card key={mapping.profile_field} className="p-4">
                   <div className="space-y-3">
@@ -1242,7 +1246,8 @@ const LeadTab = () => {
                   </div>
                 </Card>
               ))}
-            </div>
+              </div>
+            </ScrollArea>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={addNewField} className="w-full sm:w-auto">
