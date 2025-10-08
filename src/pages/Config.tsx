@@ -165,8 +165,10 @@ const Config = () => {
 
   const filteredFields = useMemo(() => {
     const query = fieldSearch.toLowerCase();
+    // Defensive guards: field.name and field.title might be undefined in some Bitrix field entries
+    // This prevents "Cannot read properties of undefined (reading 'toLowerCase')" errors
     return bitrixFields.filter(
-      (field) => field.name.toLowerCase().includes(query) || field.title.toLowerCase().includes(query),
+      (field) => (field.name || '').toLowerCase().includes(query) || (field.title || '').toLowerCase().includes(query),
     );
   }, [bitrixFields, fieldSearch]);
 

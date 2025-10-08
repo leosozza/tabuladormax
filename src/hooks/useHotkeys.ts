@@ -10,9 +10,15 @@ export function useHotkeys(mapping: HotkeyMapping[], disabled: boolean = false) 
     if (disabled) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      const key = event.key.toLowerCase();
+      // Defensive guard: event.key might be undefined in some edge cases
+      // This prevents "Cannot read properties of undefined (reading 'toLowerCase')" errors
+      const key = (event.key || '').toLowerCase();
       
-      const match = mapping.find(m => m.key.toLowerCase() === key);
+      // Early return if no key is pressed
+      if (!key) return;
+      
+      // Defensive guard: mapping key might be undefined or empty
+      const match = mapping.find(m => (m.key || '').toLowerCase() === key);
       
       if (match) {
         event.preventDefault();
