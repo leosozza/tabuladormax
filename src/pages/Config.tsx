@@ -1,15 +1,6 @@
 import { useState, useEffect, useMemo, type DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Plus,
-  Trash2,
-  Save,
-  RefreshCcw,
-  Search,
-  Loader2,
-  GripVertical,
-} from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, RefreshCcw, Search, Loader2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -90,8 +81,7 @@ const normalizeButtons = (buttons: ButtonConfig[]): ButtonConfig[] => {
       })),
     }))
     .sort((a, b) => {
-      const categoryDiff =
-        categoryOrder.indexOf(a.layout.category) - categoryOrder.indexOf(b.layout.category);
+      const categoryDiff = categoryOrder.indexOf(a.layout.category) - categoryOrder.indexOf(b.layout.category);
 
       if (categoryDiff !== 0) {
         return categoryDiff;
@@ -176,8 +166,7 @@ const Config = () => {
   const filteredFields = useMemo(() => {
     const query = fieldSearch.toLowerCase();
     return bitrixFields.filter(
-      (field) =>
-        field.name.toLowerCase().includes(query) || field.title.toLowerCase().includes(query),
+      (field) => field.name.toLowerCase().includes(query) || field.title.toLowerCase().includes(query),
     );
   }, [bitrixFields, fieldSearch]);
 
@@ -187,10 +176,7 @@ const Config = () => {
 
   const loadButtons = async () => {
     setLoadingButtons(true);
-    const { data, error } = await supabase
-      .from("button_config")
-      .select("*")
-      .order("sort", { ascending: true });
+    const { data, error } = await supabase.from("button_config").select("*").order("sort", { ascending: true });
 
     if (error) {
       console.error("Erro ao carregar botões:", error);
@@ -203,14 +189,14 @@ const Config = () => {
       id: entry.id,
       label: entry.label,
       color: entry.color,
-      webhook_url: (entry as any).webhook_url || DEFAULT_WEBHOOK,
+      webhook_url: entry.webhook_url || DEFAULT_WEBHOOK,
       field: entry.field || "",
       value: entry.value || "",
       field_type: entry.field_type || "string",
       action_type: entry.action_type || "simple",
       hotkey: entry.hotkey || "",
       sort: entry.sort || index + 1,
-      layout: ensureButtonLayout(entry.pos as any, entry.sort || index),
+      layout: ensureButtonLayout(entry.pos, entry.sort || index),
       sub_buttons: parseSubButtons(entry.sub_buttons),
     }));
 
@@ -225,11 +211,7 @@ const Config = () => {
       setBitrixFields(fields.sort((a, b) => a.title.localeCompare(b.title)));
     } catch (error) {
       console.error("Erro ao buscar campos do Bitrix:", error);
-      toast.error(
-        error instanceof BitrixError
-          ? error.message
-          : "Não foi possível carregar os campos do Bitrix",
-      );
+      toast.error(error instanceof BitrixError ? error.message : "Não foi possível carregar os campos do Bitrix");
     } finally {
       setLoadingFields(false);
     }
@@ -265,9 +247,7 @@ const Config = () => {
   };
 
   const updateButton = (id: string, updates: Partial<Omit<ButtonConfig, "id" | "layout" | "sub_buttons">>) => {
-    applyUpdate((current) =>
-      current.map((button) => (button.id === id ? { ...button, ...updates } : button)),
-    );
+    applyUpdate((current) => current.map((button) => (button.id === id ? { ...button, ...updates } : button)));
   };
 
   const updateButtonLayout = (id: string, updates: Partial<ButtonLayout>) => {
@@ -335,9 +315,7 @@ const Config = () => {
         button.id === id
           ? {
               ...button,
-              sub_buttons: button.sub_buttons.map((sub, index) =>
-                index === subIndex ? { ...sub, ...updates } : sub,
-              ),
+              sub_buttons: button.sub_buttons.map((sub, index) => (index === subIndex ? { ...sub, ...updates } : sub)),
             }
           : button,
       ),
@@ -353,9 +331,7 @@ const Config = () => {
       }
 
       const [button] = current.splice(index, 1);
-      const safeCategory = BUTTON_CATEGORIES.some((item) => item.id === category)
-        ? category
-        : BUTTON_CATEGORIES[0].id;
+      const safeCategory = BUTTON_CATEGORIES.some((item) => item.id === category) ? category : BUTTON_CATEGORIES[0].id;
 
       const buckets = BUTTON_CATEGORIES.reduce(
         (acc, item) => ({
@@ -374,9 +350,7 @@ const Config = () => {
 
       const destination = buckets[safeCategory];
       const insertionIndex =
-        targetIndex !== undefined
-          ? Math.max(0, Math.min(targetIndex, destination.length))
-          : destination.length;
+        targetIndex !== undefined ? Math.max(0, Math.min(targetIndex, destination.length)) : destination.length;
 
       destination.splice(insertionIndex, 0, {
         ...button,
@@ -394,11 +368,7 @@ const Config = () => {
     });
   };
 
-  const handleFieldDrop = (
-    event: DragEvent<HTMLDivElement>,
-    buttonId: string,
-    subIndex?: number,
-  ) => {
+  const handleFieldDrop = (event: DragEvent<HTMLDivElement>, buttonId: string, subIndex?: number) => {
     event.preventDefault();
     const field = event.dataTransfer.getData("bitrix-field");
 
@@ -423,11 +393,7 @@ const Config = () => {
     setDraggingButton(null);
   };
 
-  const handleButtonDropOnCard = (
-    event: DragEvent<HTMLDivElement>,
-    category: ButtonCategory,
-    dropIndex: number,
-  ) => {
+  const handleButtonDropOnCard = (event: DragEvent<HTMLDivElement>, category: ButtonCategory, dropIndex: number) => {
     event.preventDefault();
     event.stopPropagation();
     const id = event.dataTransfer.getData("button-id");
@@ -453,11 +419,7 @@ const Config = () => {
     setDraggingButton(null);
   };
 
-  const renderFieldValueControl = (
-    fieldName: string,
-    value: string,
-    onChange: (value: string) => void,
-  ) => {
+  const renderFieldValueControl = (fieldName: string, value: string, onChange: (value: string) => void) => {
     const meta = bitrixFields.find((field) => field.name === fieldName);
 
     if (meta?.items?.length) {
@@ -477,9 +439,7 @@ const Config = () => {
       );
     }
 
-    return (
-      <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder="Valor a enviar" />
-    );
+    return <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder="Valor a enviar" />;
   };
 
   const saveConfig = async () => {
@@ -618,9 +578,7 @@ const Config = () => {
               ) : (
                 <div className="grid gap-4 lg:grid-cols-3">
                   {BUTTON_CATEGORIES.map((category) => {
-                    const categoryButtons = buttons.filter(
-                      (button) => button.layout.category === category.id,
-                    );
+                    const categoryButtons = buttons.filter((button) => button.layout.category === category.id);
 
                     return (
                       <div
@@ -637,9 +595,7 @@ const Config = () => {
                       >
                         <div className="flex items-center justify-between mb-3">
                           <h2 className="font-semibold text-base">{category.label}</h2>
-                          <span className="text-xs text-muted-foreground">
-                            {categoryButtons.length} botões
-                          </span>
+                          <span className="text-xs text-muted-foreground">{categoryButtons.length} botões</span>
                         </div>
 
                         <div className="space-y-3">
@@ -649,9 +605,7 @@ const Config = () => {
                             </div>
                           ) : (
                             categoryButtons.map((button, index) => {
-                              const fieldMeta = bitrixFields.find(
-                                (field) => field.name === button.field,
-                              );
+                              const fieldMeta = bitrixFields.find((field) => field.name === button.field);
 
                               return (
                                 <div
@@ -680,11 +634,7 @@ const Config = () => {
                                         </span>
                                         <h3 className="font-bold text-lg">{button.label || "Botão"}</h3>
                                       </div>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeButton(button.id)}
-                                      >
+                                      <Button variant="ghost" size="sm" onClick={() => removeButton(button.id)}>
                                         <Trash2 className="w-4 h-4 text-destructive" />
                                       </Button>
                                     </div>
@@ -694,9 +644,7 @@ const Config = () => {
                                         <Label>Nome do Botão</Label>
                                         <Input
                                           value={button.label}
-                                          onChange={(event) =>
-                                            updateButton(button.id, { label: event.target.value })
-                                          }
+                                          onChange={(event) => updateButton(button.id, { label: event.target.value })}
                                         />
                                       </div>
 
@@ -705,9 +653,7 @@ const Config = () => {
                                         <Input
                                           type="color"
                                           value={button.color}
-                                          onChange={(event) =>
-                                            updateButton(button.id, { color: event.target.value })
-                                          }
+                                          onChange={(event) => updateButton(button.id, { color: event.target.value })}
                                         />
                                       </div>
 
@@ -764,9 +710,7 @@ const Config = () => {
                                               )}
                                             </div>
                                           ) : (
-                                            <span className="text-muted-foreground">
-                                              Solte aqui um campo do Bitrix
-                                            </span>
+                                            <span className="text-muted-foreground">Solte aqui um campo do Bitrix</span>
                                           )}
                                         </div>
                                       </div>
@@ -782,9 +726,7 @@ const Config = () => {
                                         <Label>Tipo de Ação</Label>
                                         <Select
                                           value={button.action_type}
-                                          onValueChange={(value) =>
-                                            updateButton(button.id, { action_type: value })
-                                          }
+                                          onValueChange={(value) => updateButton(button.id, { action_type: value })}
                                         >
                                           <SelectTrigger>
                                             <SelectValue />
@@ -800,9 +742,7 @@ const Config = () => {
                                         <Label>Atalho de Teclado</Label>
                                         <Input
                                           value={button.hotkey}
-                                          onChange={(event) =>
-                                            updateButton(button.id, { hotkey: event.target.value })
-                                          }
+                                          onChange={(event) => updateButton(button.id, { hotkey: event.target.value })}
                                           placeholder="1, 2, Ctrl+1, etc"
                                         />
                                       </div>
@@ -813,10 +753,10 @@ const Config = () => {
                                           type="number"
                                           min={1}
                                           max={3}
-                                          value={button.layout.w}
+                                          value={button.layout.width}
                                           onChange={(event) =>
                                             updateButtonLayout(button.id, {
-                                              w: Number(event.target.value) || 1,
+                                              width: Number(event.target.value) || 1,
                                             })
                                           }
                                         />
@@ -828,10 +768,10 @@ const Config = () => {
                                           type="number"
                                           min={1}
                                           max={3}
-                                          value={button.layout.h}
+                                          value={button.layout.height}
                                           onChange={(event) =>
                                             updateButtonLayout(button.id, {
-                                              h: Number(event.target.value) || 1,
+                                              height: Number(event.target.value) || 1,
                                             })
                                           }
                                         />
@@ -848,9 +788,7 @@ const Config = () => {
                                       </div>
 
                                       {button.sub_buttons.map((sub, subIndex) => {
-                                        const subMeta = bitrixFields.find(
-                                          (field) => field.name === sub.subField,
-                                        );
+                                        const subMeta = bitrixFields.find((field) => field.name === sub.subField);
 
                                         return (
                                           <Card key={`${button.id}-${subIndex}`} className="p-3 mb-2 bg-background">
@@ -904,9 +842,7 @@ const Config = () => {
                                                     <div>
                                                       <p className="text-sm font-medium">{sub.subField}</p>
                                                       {subMeta && (
-                                                        <p className="text-xs text-muted-foreground">
-                                                          {subMeta.title}
-                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">{subMeta.title}</p>
                                                       )}
                                                     </div>
                                                   ) : (
