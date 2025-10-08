@@ -698,14 +698,33 @@ const LeadTab = () => {
                   >
                     Dashboard
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowFieldMappingModal(true)}
-                    className="flex-1"
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Configurar Campos
-                  </Button>
+                  {adminMode ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowFieldMappingModal(true)}
+                        className="flex-1"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Config. Campos
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={handleAdminLogout}
+                        size="icon"
+                      >
+                        <ShieldOff className="w-4 h-4" />
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAdminModal(true)}
+                      size="icon"
+                    >
+                      <Shield className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               </>
             ) : (
@@ -860,25 +879,27 @@ const LeadTab = () => {
                     </div>
                   );
                 })}
-              </div>
+            </div>
             )}
 
-            <div className="mt-6 flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => navigate("/config")}
-                className="flex-1"
-              >
-                ⚙️ Configurar Botões
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => navigate("/logs")}
-                className="flex-1"
-              >
-                📋 Ver Logs
-              </Button>
-            </div>
+            {adminMode && (
+              <div className="mt-6 flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/config")}
+                  className="flex-1"
+                >
+                  ⚙️ Configurar Botões
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/logs")}
+                  className="flex-1"
+                >
+                  📋 Ver Logs
+                </Button>
+              </div>
+            )}
           </Card>
         </div>
       </div>
@@ -1007,6 +1028,45 @@ const LeadTab = () => {
             </Button>
             <Button onClick={() => setShowFieldMappingModal(false)} className="w-full sm:w-auto">
               Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAdminModal} onOpenChange={setShowAdminModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modo Admin</DialogTitle>
+            <DialogDescription>
+              Digite a senha para acessar as configurações administrativas
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Senha Admin</Label>
+              <Input
+                type="password"
+                placeholder="Digite a senha"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAdminLogin();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowAdminModal(false);
+              setAdminPassword("");
+            }}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAdminLogin}>
+              <Shield className="w-4 h-4 mr-2" />
+              Entrar
             </Button>
           </DialogFooter>
         </DialogContent>
