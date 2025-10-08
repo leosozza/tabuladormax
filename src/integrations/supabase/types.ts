@@ -192,6 +192,7 @@ export type Database = {
         Row: {
           chatwoot_field: string
           created_at: string | null
+          display_name: string | null
           id: string
           profile_field: string
           updated_at: string | null
@@ -199,6 +200,7 @@ export type Database = {
         Insert: {
           chatwoot_field: string
           created_at?: string | null
+          display_name?: string | null
           id?: string
           profile_field: string
           updated_at?: string | null
@@ -206,6 +208,7 @@ export type Database = {
         Update: {
           chatwoot_field?: string
           created_at?: string | null
+          display_name?: string | null
           id?: string
           profile_field?: string
           updated_at?: string | null

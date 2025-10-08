@@ -52,8 +52,10 @@ interface ButtonConfig {
 }
 
 interface FieldMapping {
+  id?: string;
   profile_field: string;
   chatwoot_field: string;
+  display_name?: string;
 }
 
 const emptyProfile: LeadProfile = {
@@ -209,11 +211,15 @@ const LeadTab = () => {
     }
   };
 
-  const saveFieldMapping = async (profileField: string, chatwootField: string) => {
+  const saveFieldMapping = async (profileField: string, chatwootField: string, displayName?: string) => {
     try {
       const { error } = await supabase
         .from("profile_field_mapping")
-        .upsert({ profile_field: profileField, chatwoot_field: chatwootField })
+        .upsert({ 
+          profile_field: profileField, 
+          chatwoot_field: chatwootField,
+          display_name: displayName 
+        })
         .eq("profile_field", profileField);
 
       if (error) throw error;
@@ -224,6 +230,28 @@ const LeadTab = () => {
       console.error("Erro ao salvar mapeamento:", error);
       toast.error("Erro ao salvar mapeamento");
     }
+  };
+
+  const deleteFieldMapping = async (profileField: string) => {
+    try {
+      const { error } = await supabase
+        .from("profile_field_mapping")
+        .delete()
+        .eq("profile_field", profileField);
+
+      if (error) throw error;
+      
+      toast.success("Campo removido com sucesso!");
+      loadFieldMappings();
+    } catch (error) {
+      console.error("Erro ao remover campo:", error);
+      toast.error("Erro ao remover campo");
+    }
+  };
+
+  const addNewField = async () => {
+    const newFieldKey = `custom_${Date.now()}`;
+    await saveFieldMapping(newFieldKey, '', 'Novo Campo');
   };
 
   const getNestedValue = (obj: any, path: string): string => {
@@ -864,33 +892,63 @@ const LeadTab = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {[
-              { key: 'name', label: 'Nome (MODELO)' },
-              { key: 'responsible', label: 'Responsável (RESPONSAVEL)' },
-              { key: 'age', label: 'Idade (IDADE)' },
-              { key: 'address', label: 'Local (LOCAL)' },
-              { key: 'scouter', label: 'Scouter (SCOUTER)' },
-              { key: 'photo', label: 'Foto (PHOTO)' }
-            ].map(field => {
-              const mapping = fieldMappings.find(m => m.profile_field === field.key);
-              return (
-                <div key={field.key}>
-                  <Label>{field.label}</Label>
-                  <Input
-                    placeholder="Ex: contact.name ou contact.custom_attributes.idade"
-                    defaultValue={mapping?.chatwoot_field || ''}
-                    onBlur={(e) => {
-                      if (e.target.value) {
-                        saveFieldMapping(field.key, e.target.value);
-                      }
-                    }}
-                  />
+            {fieldMappings.map((mapping, index) => (
+              <Card key={mapping.profile_field} className="p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="font-semibold">Campo #{index + 1}</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteFieldMapping(mapping.profile_field)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Nome de Exibição</Label>
+                    <Input
+                      placeholder="Ex: Nome, Idade, Endereço..."
+                      defaultValue={mapping.display_name || ''}
+                      onBlur={(e) => {
+                        if (e.target.value) {
+                          saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, e.target.value);
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Chave do Campo (identificador único)</Label>
+                    <Input
+                      placeholder="Ex: name, age, custom_field"
+                      value={mapping.profile_field}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Campo do Chatwoot</Label>
+                    <Input
+                      placeholder="Ex: contact.name ou contact.custom_attributes.idade"
+                      defaultValue={mapping.chatwoot_field || ''}
+                      onBlur={(e) => {
+                        saveFieldMapping(mapping.profile_field, e.target.value, mapping.display_name);
+                      }}
+                    />
+                  </div>
                 </div>
-              );
-            })}
+              </Card>
+            ))}
           </div>
-          <DialogFooter>
-            <Button onClick={() => setShowFieldMappingModal(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={addNewField} className="w-full sm:w-auto">
+              + Adicionar Campo
+            </Button>
+            <Button onClick={() => setShowFieldMappingModal(false)} className="w-full sm:w-auto">
               Fechar
             </Button>
           </DialogFooter>
