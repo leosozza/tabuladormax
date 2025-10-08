@@ -60,8 +60,35 @@ function parseCSV(csvText: string): CSVRow[] {
   return rows;
 }
 
+// Converte data brasileira (DD/MM/YYYY HH:MM:SS) para ISO
+function parseBrazilianDate(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  
+  try {
+    // Formato: DD/MM/YYYY HH:MM:SS
+    const match = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+    if (match) {
+      const [, day, month, year, hour, minute, second] = match;
+      return `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+    }
+    
+    // Tenta outros formatos
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error parsing date:', dateStr, error);
+    return null;
+  }
+}
+
 function mapCSVRowToLead(row: CSVRow): any {
   // Mapeia campos principais do Bitrix
+  const rawDate = row.Modificado || row['Modificado'] || row.DATE_MODIFY || row.Criado || row['Data de criação da Ficha'];
+  
   const lead: any = {
     id: row.ID ? parseInt(row.ID) : null,
     name: row['Nome do Lead'] || row.NAME || row.TITLE || null,
@@ -70,12 +97,12 @@ function mapCSVRowToLead(row: CSVRow): any {
     photo_url: row['Foto do modelo'] || row['Foto do Modelo - Link'] || row.UF_PHOTO || row.PHOTO || null,
     responsible: row['Responsável'] || row.UF_RESPONSAVEL || row.ASSIGNED_BY_NAME || null,
     scouter: row.Scouter || row.UF_SCOUTER || null,
-    date_modify: row.Modificado || row['Modificado'] || row.DATE_MODIFY || new Date().toISOString(),
+    date_modify: parseBrazilianDate(rawDate) || new Date().toISOString(),
     sync_source: 'csv_import',
     sync_status: 'synced',
     raw: row, // Armazena TODOS os campos do CSV
   };
-  
+
   return lead;
 }
 
