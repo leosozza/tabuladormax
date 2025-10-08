@@ -276,7 +276,19 @@ const LeadTab = () => {
         return false;
       }
 
-      const storedPassword = data.value as string;
+      // O valor vem como JSONB, precisa extrair a string
+      let storedPassword = data.value;
+      
+      // Se for um objeto/string JSON, extrair o valor
+      if (typeof storedPassword === 'string') {
+        try {
+          storedPassword = JSON.parse(storedPassword);
+        } catch {
+          // Já é uma string simples
+        }
+      }
+
+      console.log("Senha armazenada:", storedPassword, "Senha digitada:", password);
       return storedPassword === password;
     } catch (error) {
       console.error("Erro ao verificar senha:", error);
@@ -408,7 +420,7 @@ const LeadTab = () => {
     return [...main, ...subs];
   }), [buttons]);
 
-  useHotkeys(hotkeyMapping, editMode);
+  useHotkeys(hotkeyMapping, editMode || showAdminModal);
 
   const loadButtons = async () => {
     setLoadingButtons(true);
