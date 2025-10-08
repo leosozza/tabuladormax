@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Shield, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -192,6 +192,9 @@ const LeadTab = () => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [showFieldMappingModal, setShowFieldMappingModal] = useState(false);
+  const [adminMode, setAdminMode] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
   
 
   const loadFieldMappings = async () => {
@@ -253,6 +256,60 @@ const LeadTab = () => {
     const newFieldKey = `custom_${Date.now()}`;
     await saveFieldMapping(newFieldKey, '', 'Novo Campo');
   };
+
+  const checkAdminPassword = async (password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from("config_kv")
+        .select("value")
+        .eq("key", "admin_password")
+        .single();
+
+      if (error) {
+        console.error("Erro ao verificar senha:", error);
+        return false;
+      }
+
+      const storedPassword = data?.value as string;
+      return storedPassword === password;
+    } catch (error) {
+      console.error("Erro ao verificar senha:", error);
+      return false;
+    }
+  };
+
+  const handleAdminLogin = async () => {
+    if (!adminPassword.trim()) {
+      toast.error("Digite a senha");
+      return;
+    }
+
+    const isValid = await checkAdminPassword(adminPassword);
+    
+    if (isValid) {
+      setAdminMode(true);
+      localStorage.setItem("adminMode", "true");
+      setShowAdminModal(false);
+      setAdminPassword("");
+      toast.success("Modo Admin ativado!");
+    } else {
+      toast.error("Senha incorreta");
+      setAdminPassword("");
+    }
+  };
+
+  const handleAdminLogout = () => {
+    setAdminMode(false);
+    localStorage.removeItem("adminMode");
+    toast.success("Modo Admin desativado");
+  };
+
+  useEffect(() => {
+    const savedAdminMode = localStorage.getItem("adminMode");
+    if (savedAdminMode === "true") {
+      setAdminMode(true);
+    }
+  }, []);
 
   const getNestedValue = (obj: any, path: string): string => {
     return path.split('.').reduce((current, key) => current?.[key], obj) || '';
