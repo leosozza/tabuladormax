@@ -40,8 +40,9 @@ interface ButtonConfig {
   action_type: string;
   hotkey?: string;
   sort: number;
-  layout: ButtonLayout;
-  sub_buttons: SubButton[];
+  pos: any;
+  sub_buttons: any;
+  category?: string | null;
 }
 
 interface FieldMapping {
