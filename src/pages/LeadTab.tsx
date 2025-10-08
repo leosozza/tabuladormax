@@ -985,7 +985,11 @@ const LeadTab = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('chatwoot-field', 'contact.name');
+                      }}
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move"
                       onClick={() => {
                         const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
                         if (input) {
@@ -999,7 +1003,11 @@ const LeadTab = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('chatwoot-field', 'contact.email');
+                      }}
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move"
                       onClick={() => {
                         const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
                         if (input) {
@@ -1013,7 +1021,11 @@ const LeadTab = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('chatwoot-field', 'contact.phone_number');
+                      }}
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move"
                       onClick={() => {
                         const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
                         if (input) {
@@ -1027,7 +1039,11 @@ const LeadTab = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('chatwoot-field', 'contact.thumbnail');
+                      }}
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move"
                       onClick={() => {
                         const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
                         if (input) {
@@ -1050,7 +1066,11 @@ const LeadTab = () => {
                           key={key}
                           variant="ghost"
                           size="sm"
-                          className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('chatwoot-field', `contact.custom_attributes.${key}`);
+                          }}
+                          className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move"
                           onClick={() => {
                             const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
                             if (input) {
@@ -1076,7 +1096,11 @@ const LeadTab = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('chatwoot-field', 'conversation.id');
+                      }}
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move"
                       onClick={() => {
                         const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
                         if (input) {
@@ -1090,7 +1114,11 @@ const LeadTab = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('chatwoot-field', 'conversation.status');
+                      }}
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move"
                       onClick={() => {
                         const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
                         if (input) {
@@ -1143,7 +1171,7 @@ const LeadTab = () => {
                       </Label>
                       <Input
                         data-chatwoot-field-input
-                        placeholder="Clique em um campo à esquerda"
+                        placeholder="Arraste um campo aqui ou clique nos campos à esquerda"
                         defaultValue={mapping.chatwoot_field || ''}
                         onBlur={(e) => {
                           saveFieldMapping(mapping.profile_field, e.target.value, mapping.display_name, mapping.is_profile_photo);
@@ -1154,6 +1182,22 @@ const LeadTab = () => {
                             input.removeAttribute('data-active');
                           });
                           e.target.setAttribute('data-active', 'true');
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.classList.add('ring-2', 'ring-primary');
+                        }}
+                        onDragLeave={(e) => {
+                          e.currentTarget.classList.remove('ring-2', 'ring-primary');
+                        }}
+                        onDrop={async (e) => {
+                          e.preventDefault();
+                          e.currentTarget.classList.remove('ring-2', 'ring-primary');
+                          const fieldValue = e.dataTransfer.getData('chatwoot-field');
+                          if (fieldValue) {
+                            e.currentTarget.value = fieldValue;
+                            await saveFieldMapping(mapping.profile_field, fieldValue, mapping.display_name, mapping.is_profile_photo);
+                          }
                         }}
                       />
                     </div>
