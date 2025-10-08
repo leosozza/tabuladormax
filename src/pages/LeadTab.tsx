@@ -235,8 +235,9 @@ const LeadTab = () => {
           profile_field: profileField, 
           chatwoot_field: chatwootField,
           display_name: displayName 
-        })
-        .eq("profile_field", profileField);
+        }, { 
+          onConflict: 'profile_field' 
+        });
 
       if (error) throw error;
       
