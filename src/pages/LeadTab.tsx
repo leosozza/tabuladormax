@@ -250,31 +250,22 @@ const LeadTab = () => {
     loadFieldMappings();
   }, []);
 
-  // Listener do Chatwoot via window.postMessage (compatível com múltiplos formatos)
+  // Listener do Chatwoot - compatível com listener global + eventos customizados + postMessage
   useEffect(() => {
     console.log("🎧 Listener de mensagens do Chatwoot ativado na página LeadTab");
     
-    const handleChatwootMessage = async (event: MessageEvent) => {
+    const processChatwootData = async (raw: any) => {
       try {
-        let raw = event.data;
-        
-        // Parse se for string
-        if (typeof raw === "string") {
-          try {
-            raw = JSON.parse(raw);
-          } catch {
-            return;
-          }
-        }
-
         // Compatibilidade: Chatwoot pode enviar como conversation.meta.sender ou data.contact
         const sender = raw?.conversation?.meta?.sender || raw?.data?.contact;
         const attrs = sender?.custom_attributes || {};
-        const assignee = raw?.conversation?.meta?.assignee;
 
-        if (!sender) return;
+        if (!sender) {
+          console.log("⚠️ Nenhum sender encontrado nos dados");
+          return;
+        }
 
-        console.log("✅ Dados do Chatwoot recebidos:", {
+        console.log("✅ Dados do Chatwoot processados:", {
           nome: sender.name,
           attrs: Object.keys(attrs),
           foto: sender.thumbnail || attrs.foto
@@ -344,17 +335,45 @@ const LeadTab = () => {
       } catch (err) {
         console.error("❌ Erro ao processar evento do Chatwoot:", err);
         toast.error("Erro ao processar dados do Chatwoot");
+      }
+    };
+    
+    // 1. Verificar se já existem dados pré-carregados pelo listener global
+    if ((window as any)._CHATWOOT_DATA_) {
+      console.log("✅ [LeadTab] Dados pré-carregados encontrados!");
+      processChatwootData((window as any)._CHATWOOT_DATA_);
+    }
+
+    // 2. Escutar evento customizado 'chatwoot-data-ready'
+    const handleChatwootReady = (event: Event) => {
+      console.log("✅ [LeadTab] Evento chatwoot-data-ready recebido!");
+      const customEvent = event as CustomEvent;
+      processChatwootData(customEvent.detail);
+    };
+    
+    window.addEventListener('chatwoot-data-ready', handleChatwootReady);
+
+    // 3. Listener de postMessage (fallback)
+    const handleChatwootMessage = async (event: MessageEvent) => {
+      try {
+        let raw = event.data;
         
-        // Registrar log de erro
-        if (chatwootData?.bitrix_id) {
-          await supabase.from('actions_log').insert([{
-            lead_id: Number(chatwootData.bitrix_id),
-            action_label: 'Erro ao processar Chatwoot',
-            payload: {} as any,
-            status: 'ERROR',
-            error: String(err),
-          }]);
+        // Parse se for string
+        if (typeof raw === "string") {
+          try {
+            raw = JSON.parse(raw);
+          } catch {
+            return;
+          }
         }
+
+        // Verificar se é evento appContext
+        if (raw?.event === 'appContext' || raw?.conversation || raw?.data?.contact) {
+          console.log("✅ [LeadTab] Dados via postMessage (fallback)");
+          await processChatwootData(raw);
+        }
+      } catch (err) {
+        console.error("❌ Erro no listener de postMessage:", err);
       }
     };
 
@@ -365,10 +384,11 @@ const LeadTab = () => {
     window.parent.postMessage({ ready: true }, "*");
 
     return () => {
-      console.log("🔌 Listener de mensagens removido");
+      console.log("🔌 Listeners removidos");
+      window.removeEventListener('chatwoot-data-ready', handleChatwootReady);
       window.removeEventListener("message", handleChatwootMessage);
     };
-  }, [fieldMappings, navigate]);
+  }, [fieldMappings]);
 
   // Debug: Log quando chatwootData mudar
   useEffect(() => {

@@ -10,38 +10,13 @@ export default function Home() {
   useEffect(() => {
     console.log("🎧 Listener de mensagens do Chatwoot ativado na Home");
     
-    const handleMessage = async (event: MessageEvent) => {
-      console.log("📨 Mensagem recebida na Home:", {
-        origin: event.origin,
-        dataType: typeof event.data,
-      });
-      
-      setDebugLog(prev => [...prev, `Origem: ${event.origin}`, `Tipo: ${typeof event.data}`]);
-
+    const processChatwootData = async (eventData: any) => {
       try {
-        let eventData;
-        
-        // Tenta parsear se for string
-        if (typeof event.data === "string") {
-          try {
-            eventData = JSON.parse(event.data);
-            console.log("✅ JSON parseado");
-            setDebugLog(prev => [...prev, "JSON parseado com sucesso"]);
-          } catch (parseError) {
-            console.log("⚠️ Não é JSON válido");
-            setDebugLog(prev => [...prev, "Não é JSON válido"]);
-            return;
-          }
-        } else {
-          eventData = event.data;
-          console.log("✅ Dados diretos (objeto)");
-        }
-
         console.log("📦 eventData completo:", eventData);
         setDebugLog(prev => [...prev, `Has conversation: ${!!eventData?.conversation}`]);
 
         // Verificar se tem dados de conversação
-        if (eventData?.conversation?.meta?.sender) {
+        if (eventData?.conversation?.meta?.sender || eventData?.data?.contact) {
           const contactData = extractChatwootData(eventData);
           console.log("👤 Dados extraídos:", contactData);
           
@@ -79,12 +54,65 @@ export default function Home() {
         setDebugLog(prev => [...prev, `Erro: ${error}`]);
       }
     };
+    
+    // 1. Verificar se já existem dados pré-carregados
+    if ((window as any)._CHATWOOT_DATA_) {
+      console.log("✅ [Home] Dados pré-carregados encontrados!");
+      setDebugLog(prev => [...prev, "Dados pré-carregados encontrados"]);
+      processChatwootData((window as any)._CHATWOOT_DATA_);
+    }
+
+    // 2. Escutar evento customizado
+    const handleChatwootReady = (event: Event) => {
+      console.log("✅ [Home] Evento chatwoot-data-ready recebido!");
+      setDebugLog(prev => [...prev, "Evento customizado recebido"]);
+      const customEvent = event as CustomEvent;
+      processChatwootData(customEvent.detail);
+    };
+    
+    window.addEventListener('chatwoot-data-ready', handleChatwootReady);
+
+    // 3. Listener de postMessage (fallback)
+    const handleMessage = async (event: MessageEvent) => {
+      console.log("📨 Mensagem recebida na Home:", {
+        origin: event.origin,
+        dataType: typeof event.data,
+      });
+      
+      setDebugLog(prev => [...prev, `Origem: ${event.origin}`, `Tipo: ${typeof event.data}`]);
+
+      try {
+        let eventData;
+        
+        // Tenta parsear se for string
+        if (typeof event.data === "string") {
+          try {
+            eventData = JSON.parse(event.data);
+            console.log("✅ JSON parseado");
+            setDebugLog(prev => [...prev, "JSON parseado com sucesso"]);
+          } catch (parseError) {
+            console.log("⚠️ Não é JSON válido");
+            setDebugLog(prev => [...prev, "Não é JSON válido"]);
+            return;
+          }
+        } else {
+          eventData = event.data;
+          console.log("✅ Dados diretos (objeto)");
+        }
+
+        await processChatwootData(eventData);
+      } catch (error) {
+        console.error("❌ Erro ao processar evento:", error);
+        setDebugLog(prev => [...prev, `Erro: ${error}`]);
+      }
+    };
 
     window.addEventListener("message", handleMessage);
     console.log("✅ Listener registrado na Home");
     
     return () => {
-      console.log("🔌 Listener removido da Home");
+      console.log("🔌 Listeners removidos da Home");
+      window.removeEventListener('chatwoot-data-ready', handleChatwootReady);
       window.removeEventListener("message", handleMessage);
     };
   }, [navigate]);

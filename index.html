@@ -19,6 +19,38 @@
 
   <body>
     <div id="root"></div>
+    
+    <!-- Listener Global do Chatwoot (roda ANTES do React) -->
+    <script>
+      (function() {
+        console.log('[Global] 🎧 Listener Chatwoot iniciado');
+        
+        window.addEventListener('message', function(event) {
+          console.log('[Global] 📨 Mensagem recebida:', { origin: event.origin, type: typeof event.data });
+          
+          try {
+            let data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            
+            if (data.event === 'appContext' && data.data) {
+              console.log('[Global] ✅ Chatwoot appContext capturado!');
+              window._CHATWOOT_DATA_ = data;
+              
+              // Disparar evento customizado para o React
+              window.dispatchEvent(new CustomEvent('chatwoot-data-ready', { 
+                detail: data 
+              }));
+              
+              console.log('[Global] 🚀 Evento chatwoot-data-ready disparado');
+            }
+          } catch (e) {
+            console.error('[Global] ❌ Erro ao processar mensagem:', e);
+          }
+        });
+        
+        console.log('[Global] ✅ Listener global configurado');
+      })();
+    </script>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
