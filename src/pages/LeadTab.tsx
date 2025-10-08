@@ -20,14 +20,8 @@ import {
 } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
 
-interface LeadProfile {
-  RESPONSAVEL: string;
-  MODELO: string;
-  IDADE: string;
-  LOCAL: string;
-  SCOUTER: string;
-  PHOTO: string;
-}
+// Profile é agora dinâmico, baseado nos field mappings
+type DynamicProfile = Record<string, any>;
 
 interface SubButton {
   subLabel: string;
@@ -59,42 +53,22 @@ interface FieldMapping {
   display_name?: string;
 }
 
-const emptyProfile: LeadProfile = {
-  RESPONSAVEL: "",
-  MODELO: "",
-  IDADE: "",
-  LOCAL: "",
-  SCOUTER: "",
-  PHOTO: "",
-};
+const emptyProfile: DynamicProfile = {};
 
-const mapChatwootToProfile = (contact: any, fieldMappings: FieldMapping[]): LeadProfile => {
-  const attrs = contact?.custom_attributes || {};
+const mapChatwootToProfile = (contact: any, fieldMappings: FieldMapping[]): DynamicProfile => {
+  const profile: DynamicProfile = {};
   
-  const profile: LeadProfile = {
-    RESPONSAVEL: attrs.responsavel || "",
-    MODELO: attrs.nome_do_modelo || contact?.name || "",
-    IDADE: attrs.idade || "",
-    LOCAL: attrs.local_de_abordagem || attrs.local || "",
-    SCOUTER: attrs.scouter || "",
-    PHOTO: contact?.thumbnail || "",
-  };
-
-  // Aplicar mapeamentos customizados
+  // Mapear todos os campos configurados
   fieldMappings.forEach(mapping => {
-    const value = getNestedValue({ contact, attrs }, mapping.chatwoot_field);
-    if (value) {
-      const profileKey = mapping.profile_field.toUpperCase();
-      if (profileKey in profile) {
-        (profile as any)[profileKey] = value;
-      }
-    }
+    const value = getNestedValue(contact, mapping.chatwoot_field);
+    profile[mapping.profile_field] = value || "";
   });
 
   return profile;
 };
 
-const getNestedValue = (obj: any, path: string): string => {
+const getNestedValue = (obj: any, path: string): any => {
+  if (!path) return '';
   return path.split('.').reduce((current, key) => current?.[key], obj) || '';
 };
 
@@ -199,7 +173,7 @@ const LeadTab = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [profile, setProfile] = useState<LeadProfile>(emptyProfile);
+  const [profile, setProfile] = useState<DynamicProfile>(emptyProfile);
   const [buttons, setButtons] = useState<ButtonConfig[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -424,18 +398,24 @@ const LeadTab = () => {
     setSavingProfile(true);
 
     try {
+      // Construir custom_attributes baseado nos field mappings
+      const updatedAttributes = { ...chatwootData.custom_attributes };
+      
+      fieldMappings.forEach(mapping => {
+        const value = profile[mapping.profile_field];
+        if (value !== undefined) {
+          // Se o campo mapeia para custom_attributes.*, atualizar lá
+          if (mapping.chatwoot_field.startsWith('contact.custom_attributes.')) {
+            const attrKey = mapping.chatwoot_field.replace('contact.custom_attributes.', '');
+            updatedAttributes[attrKey] = value;
+          }
+        }
+      });
+
       // Atualizar no Supabase
       await saveChatwootContact({
         ...chatwootData,
-        custom_attributes: {
-          ...chatwootData.custom_attributes,
-          nome_do_modelo: profile.MODELO,
-          idade: profile.IDADE,
-          local: profile.LOCAL,
-          scouter: profile.SCOUTER,
-          responsavel: profile.RESPONSAVEL,
-        },
-        thumbnail: profile.PHOTO,
+        custom_attributes: updatedAttributes,
       });
 
       // Registrar log da ação
@@ -566,6 +546,7 @@ const LeadTab = () => {
               </Button>
             )}
             
+            {/* Foto do perfil */}
             <div className="relative">
               {loadingProfile && (
                 <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-full">
@@ -573,20 +554,22 @@ const LeadTab = () => {
                 </div>
               )}
               <img
-                src={profile.PHOTO || "/placeholder.svg"}
-                alt={profile.MODELO}
+                src={chatwootData?.thumbnail || profile.photo || profile.thumbnail || "/placeholder.svg"}
+                alt={chatwootData?.name || 'Lead'}
                 className="rounded-full w-40 h-40 border-4 border-green-500 shadow-lg object-cover"
               />
             </div>
 
             {!editMode ? (
               <>
-                <h2 className="text-2xl font-bold text-center">{profile.MODELO || 'Lead sem nome'}</h2>
+                <h2 className="text-2xl font-bold text-center">{chatwootData?.name || 'Lead sem nome'}</h2>
                 <div className="w-full space-y-2 text-sm">
-                  <p>👤 <strong>Responsável:</strong> {profile.RESPONSAVEL || '—'}</p>
-                  <p>🎂 <strong>Idade:</strong> {profile.IDADE || '—'}</p>
-                  <p>📍 <strong>Local:</strong> {profile.LOCAL || '—'}</p>
-                  <p>🧭 <strong>Scouter:</strong> {profile.SCOUTER || '—'}</p>
+                  {fieldMappings.map((mapping) => (
+                    <p key={mapping.profile_field}>
+                      <strong>{mapping.display_name || mapping.profile_field}:</strong>{' '}
+                      {profile[mapping.profile_field] || '—'}
+                    </p>
+                  ))}
                 </div>
 
                 <div className="flex flex-col gap-2 w-full mt-4">
@@ -633,41 +616,18 @@ const LeadTab = () => {
               </>
             ) : (
               <div className="w-full space-y-3">
-                <div>
-                  <Label>Responsável</Label>
-                  <Input
-                    value={profile.RESPONSAVEL}
-                    onChange={(e) => setProfile({ ...profile, RESPONSAVEL: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Modelo</Label>
-                  <Input
-                    value={profile.MODELO}
-                    onChange={(e) => setProfile({ ...profile, MODELO: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Idade</Label>
-                  <Input
-                    value={profile.IDADE}
-                    onChange={(e) => setProfile({ ...profile, IDADE: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Local</Label>
-                  <Input
-                    value={profile.LOCAL}
-                    onChange={(e) => setProfile({ ...profile, LOCAL: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Scouter</Label>
-                  <Input
-                    value={profile.SCOUTER}
-                    onChange={(e) => setProfile({ ...profile, SCOUTER: e.target.value })}
-                  />
-                </div>
+                {fieldMappings.map((mapping) => (
+                  <div key={mapping.profile_field}>
+                    <Label>{mapping.display_name || mapping.profile_field}</Label>
+                    <Input
+                      value={profile[mapping.profile_field] || ''}
+                      onChange={(e) => setProfile({ 
+                        ...profile, 
+                        [mapping.profile_field]: e.target.value 
+                      })}
+                    />
+                  </div>
+                ))}
 
                 <Button onClick={updateCache} className="w-full mt-4" disabled={savingProfile}>
                   {savingProfile ? (
@@ -906,15 +866,6 @@ const LeadTab = () => {
                     />
                   </div>
 
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Chave do Campo (identificador único)</Label>
-                    <Input
-                      placeholder="Ex: name, age, custom_field"
-                      value={mapping.profile_field}
-                      disabled
-                      className="bg-muted"
-                    />
-                  </div>
 
                   <div>
                     <Label className="text-xs text-muted-foreground">Campo do Chatwoot</Label>
