@@ -242,6 +242,7 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           id: string
+          is_profile_photo: boolean | null
           profile_field: string
           updated_at: string | null
         }
@@ -250,6 +251,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           id?: string
+          is_profile_photo?: boolean | null
           profile_field: string
           updated_at?: string | null
         }
@@ -258,6 +260,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           id?: string
+          is_profile_photo?: boolean | null
           profile_field?: string
           updated_at?: string | null
         }

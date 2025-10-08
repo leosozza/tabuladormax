@@ -51,6 +51,7 @@ interface FieldMapping {
   profile_field: string;
   chatwoot_field: string;
   display_name?: string;
+  is_profile_photo?: boolean;
 }
 
 const emptyProfile: DynamicProfile = {};
@@ -227,14 +228,15 @@ const LeadTab = () => {
     }
   };
 
-  const saveFieldMapping = async (profileField: string, chatwootField: string, displayName?: string) => {
+  const saveFieldMapping = async (profileField: string, chatwootField: string, displayName?: string, isProfilePhoto?: boolean) => {
     try {
       const { error } = await supabase
         .from("profile_field_mapping")
         .upsert({ 
           profile_field: profileField, 
           chatwoot_field: chatwootField,
-          display_name: displayName 
+          display_name: displayName,
+          is_profile_photo: isProfilePhoto || false
         }, { 
           onConflict: 'profile_field' 
         });
@@ -381,6 +383,18 @@ const LeadTab = () => {
       });
     }
   }, [chatwootData]);
+
+  // Função para obter a URL da foto de perfil baseada no campo marcado
+  const getProfilePhotoUrl = () => {
+    const photoField = fieldMappings.find(m => m.is_profile_photo);
+    if (!photoField) {
+      return chatwootData?.thumbnail || "/placeholder.svg";
+    }
+    
+    // Obter o valor do campo marcado como foto
+    const photoUrl = profile[photoField.profile_field];
+    return photoUrl || chatwootData?.thumbnail || "/placeholder.svg";
+  };
 
   const hotkeyMapping = useMemo(() => buttons.flatMap(btn => {
     const main = btn.hotkey ? [{ id: btn.id, key: btn.hotkey }] : [];
@@ -595,7 +609,7 @@ const LeadTab = () => {
                 </div>
               )}
               <img
-                src={chatwootData?.thumbnail || profile.photo || profile.thumbnail || "/placeholder.svg"}
+                src={getProfilePhotoUrl()}
                 alt={chatwootData?.name || 'Lead'}
                 className="rounded-full w-40 h-40 border-4 border-green-500 shadow-lg object-cover"
               />
@@ -605,12 +619,14 @@ const LeadTab = () => {
               <>
                 <h2 className="text-2xl font-bold text-center">{chatwootData?.name || 'Lead sem nome'}</h2>
                 <div className="w-full space-y-2 text-sm">
-                  {fieldMappings.map((mapping) => (
-                    <p key={mapping.profile_field}>
-                      <strong>{mapping.display_name || mapping.profile_field}:</strong>{' '}
-                      {profile[mapping.profile_field] || '—'}
-                    </p>
-                  ))}
+                  {fieldMappings
+                    .filter(mapping => !mapping.is_profile_photo) // Não exibir o campo da foto na lista
+                    .map((mapping) => (
+                      <p key={mapping.profile_field}>
+                        <strong>{mapping.display_name || mapping.profile_field}:</strong>{' '}
+                        {profile[mapping.profile_field] || '—'}
+                      </p>
+                    ))}
                 </div>
 
                 <div className="flex flex-col gap-2 w-full mt-4">
@@ -1034,7 +1050,7 @@ const LeadTab = () => {
                         defaultValue={mapping.display_name || ''}
                         onBlur={(e) => {
                           if (e.target.value) {
-                            saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, e.target.value);
+                            saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, e.target.value, mapping.is_profile_photo);
                           }
                         }}
                       />
@@ -1050,7 +1066,7 @@ const LeadTab = () => {
                         placeholder="Clique em um campo à esquerda"
                         defaultValue={mapping.chatwoot_field || ''}
                         onBlur={(e) => {
-                          saveFieldMapping(mapping.profile_field, e.target.value, mapping.display_name);
+                          saveFieldMapping(mapping.profile_field, e.target.value, mapping.display_name, mapping.is_profile_photo);
                         }}
                         onFocus={(e) => {
                           // Marcar este input como ativo
@@ -1060,6 +1076,21 @@ const LeadTab = () => {
                           e.target.setAttribute('data-active', 'true');
                         }}
                       />
+                    </div>
+
+                    <div className="flex items-center space-x-2 pt-2 border-t">
+                      <input
+                        type="checkbox"
+                        id={`photo-${mapping.profile_field}`}
+                        className="h-4 w-4 rounded border-gray-300"
+                        defaultChecked={mapping.is_profile_photo || false}
+                        onChange={(e) => {
+                          saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, mapping.display_name, e.target.checked);
+                        }}
+                      />
+                      <Label htmlFor={`photo-${mapping.profile_field}`} className="text-sm cursor-pointer">
+                        Este campo contém a foto de perfil
+                      </Label>
                     </div>
                   </div>
                 </Card>
