@@ -183,6 +183,7 @@ const LeadTab = () => {
 
   const loadFieldMappings = async () => {
     try {
+      console.log("🔄 Carregando field mappings...");
       const { data, error } = await supabase
         .from("profile_field_mapping")
         .select("*");
@@ -190,10 +191,13 @@ const LeadTab = () => {
       if (error) throw error;
       
       if (data) {
+        console.log("✅ Field mappings carregados:", data);
         setFieldMappings(data as FieldMapping[]);
+      } else {
+        console.log("⚠️ Nenhum field mapping encontrado");
       }
     } catch (error) {
-      console.error("Erro ao carregar mapeamentos:", error);
+      console.error("❌ Erro ao carregar mapeamentos:", error);
       toast.error("Erro ao carregar configurações de campos");
     }
   };
@@ -253,8 +257,12 @@ const LeadTab = () => {
   // Listener do Chatwoot - compatível com listener global + eventos customizados + postMessage
   useEffect(() => {
     console.log("🎧 Listener de mensagens do Chatwoot ativado na página LeadTab");
+    console.log("🗺️ Field mappings disponíveis no momento do listener:", fieldMappings);
+    console.log("📊 Quantidade de field mappings:", fieldMappings.length);
     
     const processChatwootData = async (raw: any) => {
+      console.log("🚀 processChatwootData CHAMADO com:", raw);
+      console.log("🗺️ Field mappings no momento do processamento:", fieldMappings);
       try {
         // Compatibilidade: Chatwoot pode enviar como conversation.meta.sender ou data.contact
         const sender = raw?.conversation?.meta?.sender || raw?.data?.contact;
@@ -351,7 +359,10 @@ const LeadTab = () => {
     // 1. Verificar se já existem dados pré-carregados pelo listener global
     if ((window as any)._CHATWOOT_DATA_) {
       console.log("✅ [LeadTab] Dados pré-carregados encontrados!");
+      console.log("📦 Dados do window._CHATWOOT_DATA_:", (window as any)._CHATWOOT_DATA_);
       processChatwootData((window as any)._CHATWOOT_DATA_);
+    } else {
+      console.log("⚠️ [LeadTab] Nenhum dado pré-carregado em window._CHATWOOT_DATA_");
     }
 
     // 2. Escutar evento customizado 'chatwoot-data-ready'
