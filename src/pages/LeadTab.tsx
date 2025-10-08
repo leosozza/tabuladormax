@@ -550,11 +550,17 @@ const LeadTab = () => {
         custom_attributes: updatedAttributes,
       });
 
+      // Atualizar chatwootData local para refletir as mudanças
+      setChatwootData({
+        ...chatwootData,
+        custom_attributes: updatedAttributes,
+      });
+
       // Registrar log da ação
       await supabase.from('actions_log').insert([{
         lead_id: Number(chatwootData.bitrix_id),
         action_label: 'Atualização de perfil',
-        payload: { profile } as any,
+        payload: { profile, updated_attributes: updatedAttributes } as any,
         status: 'OK',
       }]);
 
@@ -753,28 +759,45 @@ const LeadTab = () => {
               </>
             ) : (
               <div className="w-full space-y-3">
-                {fieldMappings.map((mapping) => (
-                  <div key={mapping.profile_field}>
-                    <Label>{mapping.display_name || mapping.profile_field}</Label>
-                    <Input
-                      value={profile[mapping.profile_field] || ''}
-                      onChange={(e) => setProfile({ 
-                        ...profile, 
-                        [mapping.profile_field]: e.target.value 
-                      })}
-                    />
-                  </div>
-                ))}
+                {fieldMappings
+                  .filter(mapping => !mapping.is_profile_photo)
+                  .map((mapping) => (
+                    <div key={mapping.profile_field}>
+                      <Label>{mapping.display_name || mapping.profile_field}</Label>
+                      <Input
+                        value={profile[mapping.profile_field] || ''}
+                        onChange={(e) => setProfile({ 
+                          ...profile, 
+                          [mapping.profile_field]: e.target.value 
+                        })}
+                        placeholder={`Digite ${mapping.display_name || mapping.profile_field}`}
+                      />
+                    </div>
+                  ))}
 
-                <Button onClick={updateCache} className="w-full mt-4" disabled={savingProfile}>
-                  {savingProfile ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Salvando...
-                    </span>
-                  ) : (
-                    "💾 Atualizar Cache"
-                  )}
-                </Button>
+                <div className="flex gap-2 mt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setEditMode(false)} 
+                    className="flex-1"
+                    disabled={savingProfile}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={updateCache} 
+                    className="flex-1" 
+                    disabled={savingProfile}
+                  >
+                    {savingProfile ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Salvando...
+                      </span>
+                    ) : (
+                      "💾 Salvar"
+                    )}
+                  </Button>
+                </div>
               </div>
             )}
           </Card>
