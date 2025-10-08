@@ -734,6 +734,16 @@ const Config = () => {
           onOpenChange={(open) => !open && setEditingButton(null)}
           button={editingButton}
           bitrixFields={bitrixFields}
+          supabaseFields={[
+            { name: 'id', title: 'ID', type: 'bigint' },
+            { name: 'name', title: 'Nome', type: 'text' },
+            { name: 'age', title: 'Idade', type: 'integer' },
+            { name: 'address', title: 'Endereço', type: 'text' },
+            { name: 'photo_url', title: 'Foto URL', type: 'text' },
+            { name: 'responsible', title: 'Responsável', type: 'text' },
+            { name: 'scouter', title: 'Scouter', type: 'text' },
+            { name: 'sync_status', title: 'Status Sync', type: 'text' },
+          ]}
           onUpdate={updateButton}
           onUpdateLayout={updateButtonLayout}
           onAddSubButton={addSubButton}

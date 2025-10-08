@@ -32,11 +32,18 @@ interface ButtonConfig {
   sync_target?: 'bitrix' | 'supabase';
 }
 
+interface SupabaseField {
+  name: string;
+  title: string;
+  type: string;
+}
+
 interface ButtonEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   button: ButtonConfig | null;
   bitrixFields: BitrixField[];
+  supabaseFields: SupabaseField[];
   onUpdate: (id: string, updates: Partial<Omit<ButtonConfig, "id" | "layout" | "sub_buttons">>) => void;
   onUpdateLayout: (id: string, updates: Partial<ButtonLayout>) => void;
   onAddSubButton: (id: string) => void;
@@ -53,6 +60,7 @@ export function ButtonEditDialog({
   onOpenChange,
   button,
   bitrixFields,
+  supabaseFields,
   onUpdate,
   onUpdateLayout,
   onAddSubButton,
@@ -162,25 +170,37 @@ export function ButtonEditDialog({
             </div>
 
             <div className="md:col-span-2">
-              <Label>Campo Bitrix</Label>
-              <div
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => onFieldDrop(event, button.id)}
-                className="rounded-lg border border-dashed bg-muted/20 px-3 py-3 text-sm"
+              <Label>
+                {button.sync_target === 'supabase' ? 'Campo Supabase' : 'Campo Bitrix'}
+              </Label>
+              <Select
+                value={button.field}
+                onValueChange={(value) => onUpdate(button.id, { field: value })}
               >
-                {button.field ? (
-                  <div>
-                    <p className="font-semibold">{button.field}</p>
-                    {fieldMeta && (
-                      <p className="text-xs text-muted-foreground">
-                        {fieldMeta.title} · {fieldMeta.type}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground">Solte aqui um campo do Bitrix</span>
-                )}
-              </div>
+                <SelectTrigger>
+                  <SelectValue placeholder={`Selecione um campo ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`} />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50 max-h-[300px]">
+                  {button.sync_target === 'supabase' 
+                    ? supabaseFields.map((field) => (
+                        <SelectItem key={field.name} value={field.name}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{field.title}</span>
+                            <span className="text-xs text-muted-foreground">{field.type}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    : bitrixFields.map((field) => (
+                        <SelectItem key={field.name} value={field.name}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{field.title}</span>
+                            <span className="text-xs text-muted-foreground">{field.type}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                  }
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -301,25 +321,33 @@ export function ButtonEditDialog({
                       </div>
 
                       <div className="md:col-span-2">
-                        <Label className="text-xs">Campo</Label>
-                        <div
-                          onDragOver={(event) => event.preventDefault()}
-                          onDrop={(event) => onFieldDrop(event, button.id, subIndex)}
-                          className="rounded-md border border-dashed bg-muted/40 px-2 py-2"
+                        <Label className="text-xs">
+                          {button.sync_target === 'supabase' ? 'Campo Supabase' : 'Campo Bitrix'}
+                        </Label>
+                        <Select
+                          value={sub.subField}
+                          onValueChange={(value) =>
+                            onUpdateSubButton(button.id, subIndex, { subField: value })
+                          }
                         >
-                          {sub.subField ? (
-                            <div>
-                              <p className="text-sm font-medium">{sub.subField}</p>
-                              {subMeta && (
-                                <p className="text-xs text-muted-foreground">{subMeta.title}</p>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">
-                              Solte aqui um campo
-                            </span>
-                          )}
-                        </div>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder={`Selecione ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`} />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background z-50 max-h-[200px]">
+                            {button.sync_target === 'supabase'
+                              ? supabaseFields.map((field) => (
+                                  <SelectItem key={field.name} value={field.name}>
+                                    <span className="text-xs">{field.title}</span>
+                                  </SelectItem>
+                                ))
+                              : bitrixFields.map((field) => (
+                                  <SelectItem key={field.name} value={field.name}>
+                                    <span className="text-xs">{field.title}</span>
+                                  </SelectItem>
+                                ))
+                            }
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div>
