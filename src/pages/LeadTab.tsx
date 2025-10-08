@@ -263,14 +263,20 @@ const LeadTab = () => {
         .from("config_kv")
         .select("value")
         .eq("key", "admin_password")
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Erro ao verificar senha:", error);
         return false;
       }
 
-      const storedPassword = data?.value as string;
+      if (!data) {
+        console.error("Senha admin não configurada no banco");
+        toast.error("Senha admin não configurada. Entre em contato com o administrador.");
+        return false;
+      }
+
+      const storedPassword = data.value as string;
       return storedPassword === password;
     } catch (error) {
       console.error("Erro ao verificar senha:", error);
