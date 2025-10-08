@@ -309,6 +309,8 @@ const LeadTab = () => {
           
           if (contactData) {
             console.log("💾 Salvando contato:", contactData.bitrix_id);
+            console.log("📋 Custom Attributes capturados:", contactData.custom_attributes);
+            console.log("📋 Quantidade de custom attributes:", Object.keys(contactData.custom_attributes || {}).length);
             
             // Salvar no Supabase
             await saveChatwootContact(contactData);
@@ -366,6 +368,19 @@ const LeadTab = () => {
       window.removeEventListener("message", handleChatwootMessage);
     };
   }, [fieldMappings, navigate]);
+
+  // Debug: Log quando chatwootData mudar
+  useEffect(() => {
+    if (chatwootData) {
+      console.log("🔍 chatwootData atualizado:", {
+        bitrix_id: chatwootData.bitrix_id,
+        hasCustomAttributes: !!chatwootData.custom_attributes,
+        customAttributesKeys: Object.keys(chatwootData.custom_attributes || {}),
+        customAttributesCount: Object.keys(chatwootData.custom_attributes || {}).length,
+        customAttributes: chatwootData.custom_attributes
+      });
+    }
+  }, [chatwootData]);
 
   const hotkeyMapping = useMemo(() => buttons.flatMap(btn => {
     const main = btn.hotkey ? [{ id: btn.id, key: btn.hotkey }] : [];
@@ -933,25 +948,28 @@ const LeadTab = () => {
                 <div className="space-y-1 mt-4">
                   <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Atributos Customizados</p>
                   <div className="ml-4 space-y-1">
-                    {chatwootData?.custom_attributes && Object.keys(chatwootData.custom_attributes).map((key) => (
-                      <Button
-                        key={key}
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
-                        onClick={() => {
-                          const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
-                          if (input) {
-                            input.value = `contact.custom_attributes.${key}`;
-                            input.dispatchEvent(new Event('input', { bubbles: true }));
-                          }
-                        }}
-                      >
-                        contact.custom_attributes.{key}
-                      </Button>
-                    ))}
-                    {(!chatwootData?.custom_attributes || Object.keys(chatwootData.custom_attributes).length === 0) && (
-                      <p className="text-xs text-muted-foreground italic">Aguardando dados do Chatwoot...</p>
+                    {chatwootData?.custom_attributes && Object.keys(chatwootData.custom_attributes).length > 0 ? (
+                      Object.keys(chatwootData.custom_attributes).map((key) => (
+                        <Button
+                          key={key}
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10"
+                          onClick={() => {
+                            const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                            if (input) {
+                              input.value = `contact.custom_attributes.${key}`;
+                              input.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
+                          }}
+                        >
+                          contact.custom_attributes.{key}
+                        </Button>
+                      ))
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">
+                        {chatwootData ? 'Nenhum atributo customizado encontrado' : 'Aguardando dados do Chatwoot...'}
+                      </p>
                     )}
                   </div>
                 </div>
