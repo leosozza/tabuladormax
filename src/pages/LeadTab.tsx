@@ -118,43 +118,12 @@ const parseSubButtons = (value: unknown): SubButton[] => {
 };
 
 const normalizeButtonList = (buttons: ButtonConfig[]): ButtonConfig[] => {
-  const counters = BUTTON_CATEGORIES.reduce(
-    (acc, category) => ({ ...acc, [category.id]: 0 }),
-    {} as Record<ButtonCategory, number>,
-  );
-
   return buttons
     .map((button) => ({
       ...button,
-      layout: ensureButtonLayout(button.layout, button.sort ?? 0),
       sub_buttons: Array.isArray(button.sub_buttons) ? button.sub_buttons : [],
     }))
-    .sort((a, b) => {
-      const categoryDiff =
-        categoryOrder.indexOf(a.layout.category) - categoryOrder.indexOf(b.layout.category);
-
-      if (categoryDiff !== 0) {
-        return categoryDiff;
-      }
-
-      return a.layout.index - b.layout.index;
-    })
-    .map((button) => {
-      const index = counters[button.layout.category];
-      counters[button.layout.category] = index + 1;
-
-      return {
-        ...button,
-        layout: {
-          ...button.layout,
-          index,
-        },
-        sub_buttons: button.sub_buttons.map((sub) => ({
-          ...sub,
-          subLabel: sub.subLabel || "Motivo",
-        })),
-      };
-    });
+    .sort((a, b) => a.sort - b.sort);
 };
 
 const widthClassMap: Record<number, string> = {
@@ -461,8 +430,9 @@ const LeadTab = () => {
       action_type: entry.action_type || "simple",
       hotkey: entry.hotkey || "",
       sort: entry.sort || index + 1,
-      layout: ensureButtonLayout(entry.pos as any, entry.sort || index),
+      pos: entry.pos,
       sub_buttons: parseSubButtons(entry.sub_buttons),
+      category: entry.category,
     }));
 
     setButtons(normalizeButtonList(parsed));
@@ -809,7 +779,7 @@ const LeadTab = () => {
               <div className="space-y-6">
                 {BUTTON_CATEGORIES.map((category) => {
                   const categoryButtons = buttons.filter(
-                    (button) => button.layout.category === category.id,
+                    (button) => button.category === category.id,
                   );
 
                   return (

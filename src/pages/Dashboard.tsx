@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BitrixError, BitrixLead, listLeads } from "@/lib/bitrix";
+import { CSVImportDialog } from "@/components/CSVImportDialog";
 
 interface LeadRow {
   id: number;
@@ -115,6 +116,7 @@ const Index = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <CSVImportDialog onImportComplete={loadLeads} />
             <Button onClick={syncFromBitrix} disabled={syncing} className="gap-2">
               {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
               {syncing ? 'Sincronizando...' : 'Sincronizar com Bitrix'}
