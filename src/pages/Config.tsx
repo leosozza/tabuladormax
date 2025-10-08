@@ -42,6 +42,7 @@ interface ButtonConfig {
   sort: number;
   layout: ButtonLayout;
   sub_buttons: SubButton[];
+  sync_target?: 'bitrix' | 'supabase';
 }
 
 const DEFAULT_WEBHOOK = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json";
@@ -160,6 +161,7 @@ const Config = () => {
   const [saving, setSaving] = useState(false);
   const [draggingButton, setDraggingButton] = useState<string | null>(null);
   const [editingButton, setEditingButton] = useState<ButtonConfig | null>(null);
+  const [fieldSource, setFieldSource] = useState<'bitrix' | 'supabase'>('bitrix');
 
   useEffect(() => {
     loadButtons();
@@ -201,6 +203,7 @@ const Config = () => {
       sort: entry.sort || index + 1,
       layout: ensureButtonLayout(entry.pos as Partial<ButtonLayout>, entry.sort || index),
       sub_buttons: parseSubButtons(entry.sub_buttons),
+      sync_target: (entry.sync_target as 'bitrix' | 'supabase') || 'bitrix',
     }));
 
     setButtons(normalizeButtons(parsed));
@@ -240,6 +243,7 @@ const Config = () => {
       sort: buttons.length + 1,
       layout,
       sub_buttons: [],
+      sync_target: 'bitrix',
     };
 
     applyUpdate((current) => [...current, newButton]);
@@ -474,6 +478,7 @@ const Config = () => {
           pos: button.layout as any,
           sub_buttons: button.sub_buttons as any,
           category: button.layout.category,
+          sync_target: button.sync_target || 'bitrix',
         })),
       );
 
@@ -546,32 +551,92 @@ const Config = () => {
                   />
                 </div>
               </div>
-              <div className="rounded-lg border bg-muted/40 h-[460px] overflow-y-auto p-3">
-                {loadingFields ? (
-                  <p className="text-sm text-muted-foreground">Carregando campos do Bitrix...</p>
-                ) : filteredFields.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum campo encontrado</p>
+
+              {/* Toggle Bitrix/Supabase */}
+              <div className="flex gap-2 p-1 rounded-lg bg-muted/40 border">
+                <Button
+                  variant={fieldSource === 'bitrix' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setFieldSource('bitrix')}
+                >
+                  🔷 Bitrix
+                </Button>
+                <Button
+                  variant={fieldSource === 'supabase' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setFieldSource('supabase')}
+                >
+                  ⚡ Supabase
+                </Button>
+              </div>
+
+              <div className="rounded-lg border bg-muted/40 h-[400px] overflow-y-auto p-3">
+                {fieldSource === 'bitrix' ? (
+                  loadingFields ? (
+                    <p className="text-sm text-muted-foreground">Carregando campos do Bitrix...</p>
+                  ) : filteredFields.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhum campo encontrado</p>
+                  ) : (
+                    <ul className="space-y-2 text-sm">
+                      {filteredFields.map((field) => (
+                        <li
+                          key={field.name}
+                          draggable
+                          onDragStart={(event) => event.dataTransfer.setData("bitrix-field", field.name)}
+                          className="cursor-grab rounded-md border bg-background px-3 py-2 hover:bg-muted"
+                          title={field.title}
+                        >
+                          <p className="font-medium">{field.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {field.name} · {field.type}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )
                 ) : (
-                  <ul className="space-y-2 text-sm">
-                    {filteredFields.map((field) => (
-                      <li
-                        key={field.name}
-                        draggable
-                        onDragStart={(event) => event.dataTransfer.setData("bitrix-field", field.name)}
-                        className="cursor-grab rounded-md border bg-background px-3 py-2 hover:bg-muted"
-                        title={field.title}
-                      >
-                        <p className="font-medium">{field.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {field.name} · {field.type}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase">Campos do Supabase (Tabela: leads)</p>
+                    <ul className="space-y-2 text-sm">
+                      {[
+                        { name: 'id', title: 'ID do Lead', type: 'bigint' },
+                        { name: 'name', title: 'Nome', type: 'text' },
+                        { name: 'age', title: 'Idade', type: 'integer' },
+                        { name: 'address', title: 'Endereço', type: 'text' },
+                        { name: 'photo_url', title: 'URL da Foto', type: 'text' },
+                        { name: 'responsible', title: 'Responsável', type: 'text' },
+                        { name: 'scouter', title: 'Olheiro', type: 'text' },
+                        { name: 'sync_status', title: 'Status de Sincronização', type: 'text' },
+                        { name: 'date_modify', title: 'Data de Modificação', type: 'timestamp' },
+                      ]
+                        .filter(field => 
+                          field.name.toLowerCase().includes(fieldSearch.toLowerCase()) ||
+                          field.title.toLowerCase().includes(fieldSearch.toLowerCase())
+                        )
+                        .map((field) => (
+                          <li
+                            key={field.name}
+                            draggable
+                            onDragStart={(event) => event.dataTransfer.setData("bitrix-field", `supabase.${field.name}`)}
+                            className="cursor-grab rounded-md border bg-background px-3 py-2 hover:bg-muted"
+                            title={field.title}
+                          >
+                            <p className="font-medium">{field.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              supabase.{field.name} · {field.type}
+                            </p>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Arraste um campo e solte na área "Campo Bitrix" do botão desejado para mapear automaticamente.
+                {fieldSource === 'bitrix' 
+                  ? 'Arraste um campo do Bitrix e solte no botão desejado'
+                  : 'Arraste um campo do Supabase e solte no botão desejado'}
               </p>
             </aside>
 

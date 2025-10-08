@@ -58,6 +58,7 @@ export type Database = {
           pos: Json | null
           sort: number | null
           sub_buttons: Json | null
+          sync_target: string | null
           value: string | null
           webhook_url: string | null
         }
@@ -74,6 +75,7 @@ export type Database = {
           pos?: Json | null
           sort?: number | null
           sub_buttons?: Json | null
+          sync_target?: string | null
           value?: string | null
           webhook_url?: string | null
         }
@@ -90,6 +92,7 @@ export type Database = {
           pos?: Json | null
           sort?: number | null
           sub_buttons?: Json | null
+          sync_target?: string | null
           value?: string | null
           webhook_url?: string | null
         }
@@ -142,8 +145,11 @@ export type Database = {
           email: string | null
           id: string
           last_activity_at: number | null
+          last_sync_at: string | null
           name: string | null
           phone_number: string | null
+          sync_source: string | null
+          sync_status: string | null
           thumbnail: string | null
           updated_at: string
         }
@@ -157,8 +163,11 @@ export type Database = {
           email?: string | null
           id?: string
           last_activity_at?: number | null
+          last_sync_at?: string | null
           name?: string | null
           phone_number?: string | null
+          sync_source?: string | null
+          sync_status?: string | null
           thumbnail?: string | null
           updated_at?: string
         }
@@ -172,8 +181,11 @@ export type Database = {
           email?: string | null
           id?: string
           last_activity_at?: number | null
+          last_sync_at?: string | null
           name?: string | null
           phone_number?: string | null
+          sync_source?: string | null
+          sync_status?: string | null
           thumbnail?: string | null
           updated_at?: string
         }
@@ -203,11 +215,14 @@ export type Database = {
           age: number | null
           date_modify: string | null
           id: number
+          last_sync_at: string | null
           name: string | null
           photo_url: string | null
           raw: Json | null
           responsible: string | null
           scouter: string | null
+          sync_source: string | null
+          sync_status: string | null
           updated_at: string | null
         }
         Insert: {
@@ -215,11 +230,14 @@ export type Database = {
           age?: number | null
           date_modify?: string | null
           id: number
+          last_sync_at?: string | null
           name?: string | null
           photo_url?: string | null
           raw?: Json | null
           responsible?: string | null
           scouter?: string | null
+          sync_source?: string | null
+          sync_status?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -227,11 +245,14 @@ export type Database = {
           age?: number | null
           date_modify?: string | null
           id?: number
+          last_sync_at?: string | null
           name?: string | null
           photo_url?: string | null
           raw?: Json | null
           responsible?: string | null
           scouter?: string | null
+          sync_source?: string | null
+          sync_status?: string | null
           updated_at?: string | null
         }
         Relationships: []

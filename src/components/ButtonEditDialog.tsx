@@ -29,6 +29,7 @@ interface ButtonConfig {
   sort: number;
   layout: ButtonLayout;
   sub_buttons: SubButton[];
+  sync_target?: 'bitrix' | 'supabase';
 }
 
 interface ButtonEditDialogProps {
@@ -120,6 +121,31 @@ export function ButtonEditDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <Label>Destino de Sincronização</Label>
+              <Select
+                value={button.sync_target || 'bitrix'}
+                onValueChange={(value: 'bitrix' | 'supabase') => onUpdate(button.id, { sync_target: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="bitrix">
+                    🔄 Bitrix → Supabase (Bitrix primeiro)
+                  </SelectItem>
+                  <SelectItem value="supabase">
+                    ⚡ Supabase → Bitrix (Mais rápido)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {button.sync_target === 'supabase' 
+                  ? 'Atualiza localmente primeiro, depois sincroniza com Bitrix'
+                  : 'Atualiza Bitrix primeiro, depois sincroniza localmente'}
+              </p>
             </div>
 
             <div>

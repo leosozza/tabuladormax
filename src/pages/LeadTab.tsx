@@ -46,6 +46,7 @@ interface ButtonConfig {
   pos: any;
   sub_buttons: any;
   category?: string | null;
+  sync_target?: 'bitrix' | 'supabase';
 }
 
 interface FieldMapping {
@@ -531,37 +532,61 @@ const LeadTab = () => {
     setSavingProfile(true);
 
     try {
-      // Construir custom_attributes baseado nos field mappings
+      // Salvar estado anterior para log
+      const profileBefore = { ...profile };
+      
+      // Construir dados atualizados baseado nos field mappings
+      const updatedChatwootData: any = { ...chatwootData };
       const updatedAttributes = { ...chatwootData.custom_attributes };
       
       fieldMappings.forEach(mapping => {
         const value = profile[mapping.profile_field];
         if (value !== undefined) {
-          // Se o campo mapeia para custom_attributes.*, atualizar lá
-          if (mapping.chatwoot_field.startsWith('contact.custom_attributes.')) {
-            const attrKey = mapping.chatwoot_field.replace('contact.custom_attributes.', '');
+          const field = mapping.chatwoot_field;
+          
+          // Atualizar custom_attributes.*
+          if (field.startsWith('contact.custom_attributes.')) {
+            const attrKey = field.replace('contact.custom_attributes.', '');
             updatedAttributes[attrKey] = value;
+          }
+          // Atualizar campos diretos do contato (nome, telefone, email, etc.)
+          else if (field.startsWith('contact.')) {
+            const contactKey = field.replace('contact.', '');
+            updatedChatwootData[contactKey] = value;
+          }
+          // Atualizar additional_attributes.*
+          else if (field.startsWith('additional_attributes.')) {
+            const attrKey = field.replace('additional_attributes.', '');
+            if (!updatedChatwootData.additional_attributes) {
+              updatedChatwootData.additional_attributes = {};
+            }
+            updatedChatwootData.additional_attributes[attrKey] = value;
           }
         }
       });
 
+      // Aplicar custom_attributes atualizados
+      updatedChatwootData.custom_attributes = updatedAttributes;
+
       // Atualizar no Supabase
-      await saveChatwootContact({
-        ...chatwootData,
-        custom_attributes: updatedAttributes,
-      });
+      await saveChatwootContact(updatedChatwootData);
 
-      // Atualizar chatwootData local para refletir as mudanças
-      setChatwootData({
-        ...chatwootData,
-        custom_attributes: updatedAttributes,
-      });
+      // Atualizar estado local com dados completos
+      setChatwootData(updatedChatwootData);
+      
+      // Reconstruir profile a partir dos dados atualizados para garantir sincronização
+      const newProfile = mapChatwootToProfile(updatedChatwootData, fieldMappings);
+      setProfile(newProfile);
 
-      // Registrar log da ação
+      // Registrar log da ação com detalhes completos
       await supabase.from('actions_log').insert([{
         lead_id: Number(chatwootData.bitrix_id),
         action_label: 'Atualização de perfil',
-        payload: { profile, updated_attributes: updatedAttributes } as any,
+        payload: { 
+          profile_before: profileBefore,
+          profile_after: newProfile,
+          updated_chatwoot_data: updatedChatwootData 
+        } as any,
         status: 'OK',
       }]);
 
@@ -574,7 +599,7 @@ const LeadTab = () => {
       await supabase.from('actions_log').insert([{
         lead_id: Number(chatwootData.bitrix_id),
         action_label: 'Atualização de perfil',
-        payload: {} as any,
+        payload: { error: String(error) } as any,
         status: 'ERROR',
         error: String(error),
       }]);
@@ -595,25 +620,79 @@ const LeadTab = () => {
       const webhookUrl = subButton?.subWebhook || button.webhook_url;
       const field = subButton?.subField || button.field;
       const value = scheduledDate || subButton?.subValue || button.value || "";
+      const syncTarget = button.sync_target || 'bitrix';
 
-      // Atualizar o custom_attributes no Supabase
-      const updatedAttributes = {
-        ...chatwootData.custom_attributes,
-        [field]: value,
-      };
+      // Determinar fluxo de sincronização baseado em sync_target
+      if (syncTarget === 'supabase') {
+        // NOVO FLUXO: Supabase → Bitrix
+        // Atualizar Supabase primeiro
+        const updatedAttributes = {
+          ...chatwootData.custom_attributes,
+          [field]: value,
+        };
 
-      await saveChatwootContact({
-        ...chatwootData,
-        custom_attributes: updatedAttributes,
-      });
+        await saveChatwootContact({
+          ...chatwootData,
+          custom_attributes: updatedAttributes,
+        });
 
-      // TODO: Aqui você pode adicionar uma chamada para um webhook do Bitrix
-      // se necessário para sincronização externa
+        // Chamar edge function para sincronizar com Bitrix
+        if (webhookUrl) {
+          const { error: syncError } = await supabase.functions.invoke('sync-to-bitrix', {
+            body: {
+              lead: {
+                id: Number(chatwootData.bitrix_id),
+                [field]: value,
+              },
+              webhook: webhookUrl,
+              source: 'supabase'
+            }
+          });
+
+          if (syncError) {
+            console.error('Erro ao sincronizar com Bitrix:', syncError);
+            toast.warning("Dados salvos localmente, mas houve erro ao sincronizar com Bitrix");
+          }
+        }
+      } else {
+        // FLUXO ATUAL: Bitrix → Supabase
+        // Atualizar Bitrix via webhook primeiro
+        if (webhookUrl) {
+          const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: Number(chatwootData.bitrix_id),
+              fields: { [field]: value }
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Erro ao atualizar Bitrix');
+          }
+        }
+
+        // Atualizar Supabase (o trigger do Bitrix também fará isso)
+        const updatedAttributes = {
+          ...chatwootData.custom_attributes,
+          [field]: value,
+        };
+
+        await saveChatwootContact({
+          ...chatwootData,
+          custom_attributes: updatedAttributes,
+        });
+      }
 
       const { error: logError } = await supabase.from('actions_log').insert([{
         lead_id: Number(chatwootData.bitrix_id),
         action_label: subButton ? `${button.label} / ${subButton.subLabel}` : button.label,
-        payload: { webhook: webhookUrl, field, value } as any,
+        payload: { 
+          webhook: webhookUrl, 
+          field, 
+          value, 
+          sync_target: syncTarget 
+        } as any,
         status: 'OK',
       }]);
 
@@ -632,7 +711,7 @@ const LeadTab = () => {
       const { error: logError } = await supabase.from('actions_log').insert([{
         lead_id: Number(chatwootData.bitrix_id),
         action_label: button.label,
-        payload: {} as any,
+        payload: { error: String(error) } as any,
         status: 'ERROR',
         error: String(error),
       }]);
