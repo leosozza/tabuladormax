@@ -811,10 +811,10 @@ const LeadTab = () => {
                                 key={btn.id}
                                 data-btn-id={btn.id}
                                 onClick={() => handleButtonClick(btn)}
-                                className="flex items-center justify-center rounded-lg px-3 py-3 text-center text-sm font-semibold text-white shadow-lg transition-transform duration-150 hover:scale-[1.02] focus-visible:scale-[1.02] hover:bg-white/20 hover:text-white h-14"
+                                className="flex items-center justify-center rounded-lg px-3 py-2 text-center text-sm font-semibold text-white shadow-lg transition-transform duration-150 hover:scale-[1.02] focus-visible:scale-[1.02] hover:bg-white/20 hover:text-white min-h-[56px]"
                                 style={{ backgroundColor: btn.color }}
                               >
-                                <span className="break-words line-clamp-2 w-full">{btn.label}</span>
+                                <span className="break-words whitespace-normal leading-tight w-full max-w-full">{btn.label}</span>
                               </Button>
                             );
                           })}
