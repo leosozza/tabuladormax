@@ -609,7 +609,19 @@ const LeadTab = () => {
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="container mx-auto max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="p-6 flex flex-col items-center gap-4 h-fit">
+          <Card className="p-6 flex flex-col items-center gap-4 h-fit relative">
+            {!editMode && (
+              <Button 
+                onClick={() => setEditMode(true)} 
+                size="icon"
+                disabled={loadingProfile}
+                title="Editar Perfil"
+                className="absolute top-4 right-4"
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+            )}
+            
             <div className="relative">
               {loadingProfile && (
                 <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-full">
@@ -633,25 +645,7 @@ const LeadTab = () => {
                   <p>🧭 <strong>Scouter:</strong> {profile.SCOUTER || '—'}</p>
                 </div>
 
-                <div className="flex gap-2 w-full mt-4 justify-center">
-                  <Button 
-                    onClick={() => setEditMode(true)} 
-                    size="icon"
-                    disabled={loadingProfile}
-                    title="Editar Perfil"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowHelp(!showHelp)}
-                    size="icon"
-                    title="Atalhos"
-                  >
-                    <HelpCircle className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-col gap-2 w-full">
+                <div className="flex flex-col gap-2 w-full mt-4">
                   <div className="flex gap-2 w-full">
                     <Button
                       variant="secondary"
@@ -777,7 +771,17 @@ const LeadTab = () => {
 
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold">⚙️ Ações de Tabulação</h3>
-              {loadingButtons && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
+              <div className="flex items-center gap-2">
+                {loadingButtons && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
+                <Button
+                  variant="outline"
+                  onClick={() => setShowHelp(!showHelp)}
+                  size="icon"
+                  title="Atalhos"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
 
             {buttons.length === 0 && !loadingButtons ? (
