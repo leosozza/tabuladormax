@@ -14,7 +14,7 @@ export interface ChatwootContact {
 }
 
 export interface ChatwootEventData {
-  conversation: {
+  conversation?: {
     id: number;
     meta: {
       sender: {
@@ -34,10 +34,19 @@ export interface ChatwootEventData {
       };
     };
   };
-  contact: {
-    id: number;
-    name: string;
-    custom_attributes: Record<string, any>;
+  data?: {
+    contact: {
+      id: number;
+      name: string;
+      phone_number?: string;
+      email?: string;
+      thumbnail?: string;
+      custom_attributes: Record<string, any>;
+      additional_attributes?: Record<string, any>;
+    };
+    conversation?: {
+      id: number;
+    };
   };
 }
 
@@ -102,18 +111,52 @@ export async function getChatwootContact(bitrixId: string): Promise<ChatwootCont
 
 /**
  * Extrai dados do evento do Chatwoot
+ * Suporta duas estruturas:
+ * 1. eventData.conversation.meta.sender (formato antigo)
+ * 2. eventData.data.contact (formato novo)
  */
 export function extractChatwootData(eventData: ChatwootEventData): ChatwootContact | null {
+  // Tentar formato novo: eventData.data.contact
+  if (eventData.data?.contact) {
+    const contact = eventData.data.contact;
+    const bitrixId = contact.custom_attributes?.idbitrix;
+    
+    if (!bitrixId) {
+      console.log("⚠️ idbitrix não encontrado em data.contact.custom_attributes");
+      return null;
+    }
+
+    console.log("✅ Usando formato data.contact - bitrix_id:", bitrixId);
+    console.log("📋 Custom attributes encontrados:", Object.keys(contact.custom_attributes || {}));
+    
+    return {
+      bitrix_id: String(bitrixId),
+      conversation_id: eventData.data.conversation?.id || 0,
+      contact_id: contact.id,
+      name: contact.name,
+      phone_number: contact.phone_number,
+      email: contact.email,
+      thumbnail: contact.custom_attributes?.foto || contact.thumbnail,
+      custom_attributes: contact.custom_attributes || {},
+      additional_attributes: contact.additional_attributes || {},
+      last_activity_at: undefined,
+    };
+  }
+
+  // Tentar formato antigo: eventData.conversation.meta.sender
   const sender = eventData.conversation?.meta?.sender;
   const bitrixId = sender?.custom_attributes?.idbitrix;
 
   if (!bitrixId || !sender) {
+    console.log("⚠️ Nenhum formato reconhecido ou idbitrix não encontrado");
     return null;
   }
 
+  console.log("✅ Usando formato conversation.meta.sender - bitrix_id:", bitrixId);
+
   return {
     bitrix_id: String(bitrixId),
-    conversation_id: eventData.conversation.id,
+    conversation_id: eventData.conversation!.id,
     contact_id: sender.id,
     name: sender.name,
     phone_number: sender.phone_number,

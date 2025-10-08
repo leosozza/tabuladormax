@@ -305,14 +305,15 @@ const LeadTab = () => {
           }
         }
 
-        if (data?.conversation?.meta?.sender) {
-          console.log("👤 Dados de conversação encontrados");
+        if (data?.conversation?.meta?.sender || data?.data?.contact) {
+          console.log("👤 Dados de conversação/contato encontrados");
           const contactData = extractChatwootData(data as ChatwootEventData);
           
           if (contactData) {
             console.log("💾 Salvando contato:", contactData.bitrix_id);
             console.log("📋 Custom Attributes capturados:", contactData.custom_attributes);
             console.log("📋 Quantidade de custom attributes:", Object.keys(contactData.custom_attributes || {}).length);
+            console.log("🖼️ Thumbnail/Foto:", contactData.thumbnail);
             
             // Salvar no Supabase
             await saveChatwootContact(contactData);
