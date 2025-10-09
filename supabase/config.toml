@@ -2,3 +2,6 @@ project_id = "gkvvtfqfggddzotxltxf"
 
 [functions.import-csv-leads]
 verify_jwt = true
+
+[functions.chatwoot-auth]
+verify_jwt = false

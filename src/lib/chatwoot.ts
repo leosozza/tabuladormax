@@ -31,6 +31,7 @@ export interface ChatwootEventData {
         id: number;
         name: string;
         email: string;
+        role?: string;
       };
     };
   };
@@ -115,6 +116,32 @@ export async function getChatwootContact(bitrixId: string): Promise<ChatwootCont
  * 1. eventData.conversation.meta.sender (formato antigo)
  * 2. eventData.data.contact (formato novo)
  */
+export interface ChatwootAssignee {
+  email: string;
+  name: string;
+  role: string;
+}
+
+/**
+ * Extrai dados do assignee do evento Chatwoot para auto-login
+ */
+export function extractAssigneeData(eventData: ChatwootEventData): ChatwootAssignee | null {
+  const assignee = eventData.conversation?.meta?.assignee;
+  
+  if (!assignee?.email || !assignee?.name) {
+    console.log("⚠️ Dados do assignee incompletos ou não encontrados");
+    return null;
+  }
+
+  console.log("✅ Dados do assignee extraídos:", { email: assignee.email, name: assignee.name });
+  
+  return {
+    email: assignee.email,
+    name: assignee.name,
+    role: assignee.role || 'agent'
+  };
+}
+
 export function extractChatwootData(eventData: ChatwootEventData): ChatwootContact | null {
   // Tentar formato novo: eventData.data.contact
   if (eventData.data?.contact) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { extractChatwootData, saveChatwootContact } from "@/lib/chatwoot";
+import { extractChatwootData, extractAssigneeData, saveChatwootContact } from "@/lib/chatwoot";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Home() {
@@ -15,7 +15,34 @@ export default function Home() {
         console.log("📦 eventData completo:", eventData);
         setDebugLog(prev => [...prev, `Has conversation: ${!!eventData?.conversation}`]);
 
-        // Verificar se tem dados de conversação
+        // 1. Tentar auto-login via assignee
+        const assigneeData = extractAssigneeData(eventData);
+        if (assigneeData) {
+          console.log("🔐 Tentando auto-login com assignee:", assigneeData.email);
+          setDebugLog(prev => [...prev, `Auto-login: ${assigneeData.email}`]);
+          
+          try {
+            const { data: loginData, error: loginError } = await supabase.functions.invoke('chatwoot-auth', {
+              body: assigneeData
+            });
+
+            if (loginError) throw loginError;
+
+            if (loginData?.success) {
+              console.log("✅ Auto-login bem-sucedido!");
+              setDebugLog(prev => [...prev, "Auto-login OK - Sessão ativa"]);
+              
+              // Aguardar um pouco para a sessão ser estabelecida
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          } catch (loginError) {
+            console.error("❌ Erro no auto-login:", loginError);
+            setDebugLog(prev => [...prev, `Erro auto-login: ${loginError}`]);
+            // Continuar mesmo se auto-login falhar
+          }
+        }
+
+        // 2. Processar dados do contato
         if (eventData?.conversation?.meta?.sender || eventData?.data?.contact) {
           const contactData = extractChatwootData(eventData);
           console.log("👤 Dados extraídos:", contactData);
