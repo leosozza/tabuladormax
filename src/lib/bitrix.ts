@@ -157,18 +157,36 @@ export async function getLeadFields(): Promise<BitrixField[]> {
     }
     
     const fields = data.result || {};
-    return Object.entries(fields).map(([key, value]: [string, any]) => ({
-      ID: key,
-      FIELD_NAME: key,
-      TITLE: value.title || value.formLabel || value.listLabel || key,
-      TYPE: value.type || 'string',
-      // Propriedades padronizadas (minúsculas)
-      name: key,
-      title: value.title || value.formLabel || value.listLabel || key,
-      type: value.type || 'string',
-      items: value.items,
-      ...value
-    }));
+    return Object.entries(fields).map(([key, value]: [string, any]) => {
+      // Para campos personalizados do Bitrix (UF_CRM_*), verificar várias propriedades possíveis
+      const displayTitle = value.formLabel || value.listLabel || value.title || 
+                           value.label || value.name || key;
+      
+      // Log para debug (remover depois)
+      if (key.startsWith('UF_CRM_')) {
+        console.log('🔍 Campo personalizado:', key, {
+          formLabel: value.formLabel,
+          listLabel: value.listLabel,
+          title: value.title,
+          label: value.label,
+          name: value.name,
+          displayTitle
+        });
+      }
+      
+      return {
+        ID: key,
+        FIELD_NAME: key,
+        TITLE: displayTitle,
+        TYPE: value.type || 'string',
+        // Propriedades padronizadas (minúsculas)
+        name: key,
+        title: displayTitle,
+        type: value.type || 'string',
+        items: value.items,
+        ...value
+      };
+    });
   } catch (error) {
     if (error instanceof BitrixError) throw error;
     throw new BitrixError('Não foi possível buscar campos do Bitrix');
