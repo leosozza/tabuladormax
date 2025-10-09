@@ -294,9 +294,23 @@ export function ButtonEditDialog({
                   const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
                   const fieldMeta = fields.find((f) => f.name === value);
                   
+                  // Mapear tipos do Bitrix/Supabase para os tipos aceitos pelo banco
+                  let mappedType = 'string';
+                  if (fieldMeta?.type) {
+                    if (fieldMeta.type === 'integer' || fieldMeta.type === 'double' || fieldMeta.type === 'bigint') {
+                      mappedType = 'number';
+                    } else if (fieldMeta.type === 'datetime' || fieldMeta.type === 'date' || fieldMeta.type === 'timestamp') {
+                      mappedType = 'datetime';
+                    } else if (fieldMeta.type === 'boolean') {
+                      mappedType = 'boolean';
+                    } else {
+                      mappedType = 'string'; // enumeration, string, text, etc.
+                    }
+                  }
+                  
                   onUpdate(button.id, { 
                     field: value,
-                    field_type: fieldMeta?.type || 'string',
+                    field_type: mappedType,
                     value: '' // Limpar valor ao mudar campo
                   });
                   setFieldSearchQuery(""); // Limpar busca

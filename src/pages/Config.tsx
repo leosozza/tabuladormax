@@ -345,9 +345,24 @@ const Config = () => {
 
   const assignFieldToButton = (id: string, fieldName: string) => {
     const fieldMeta = bitrixFields.find((field) => field.name === fieldName);
+    
+    // Mapear tipos do Bitrix para os tipos aceitos pelo banco
+    let mappedType = 'string';
+    if (fieldMeta?.type) {
+      if (fieldMeta.type === 'integer' || fieldMeta.type === 'double') {
+        mappedType = 'number';
+      } else if (fieldMeta.type === 'datetime' || fieldMeta.type === 'date') {
+        mappedType = 'datetime';
+      } else if (fieldMeta.type === 'boolean') {
+        mappedType = 'boolean';
+      } else {
+        mappedType = 'string'; // enumeration, string, etc.
+      }
+    }
+    
     updateButton(id, {
       field: fieldName,
-      field_type: fieldMeta?.type || "string",
+      field_type: mappedType,
     });
   };
 
@@ -721,41 +736,67 @@ const Config = () => {
       return;
     }
 
+    // Validar field_type antes de salvar
+    const invalidButtons = buttons.filter(button => !button.field_type || button.field_type === '');
+    if (invalidButtons.length > 0) {
+      console.error("Botões com field_type inválido:", invalidButtons);
+      toast.error("Erro: alguns botões não têm tipo de campo definido. Corrija-os antes de salvar.");
+      return;
+    }
+
     setSaving(true);
 
     try {
-      await supabase.from("button_config").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      // Preparar dados para inserção com validação
+      const buttonsToInsert = buttons.map((button) => ({
+        id: button.id,
+        label: button.label,
+        description: button.description || "",
+        color: button.color,
+        webhook_url: button.webhook_url,
+        field: button.field,
+        value: button.value,
+        field_type: button.field_type || 'string', // Garantir que sempre tem valor
+        action_type: button.action_type,
+        hotkey: button.hotkey,
+        sort: button.sort,
+        pos: button.layout as any,
+        sub_buttons: button.sub_buttons as any,
+        category: button.layout.category,
+        sync_target: button.sync_target || 'bitrix',
+        additional_fields: button.additional_fields || [],
+      }));
 
-      const { error } = await supabase.from("button_config").insert(
-        buttons.map((button) => ({
-          id: button.id,
-          label: button.label,
-          description: button.description || "",
-          color: button.color,
-          webhook_url: button.webhook_url,
-          field: button.field,
-          value: button.value,
-          field_type: button.field_type || 'string',
-          action_type: button.action_type,
-          hotkey: button.hotkey,
-          sort: button.sort,
-          pos: button.layout as any,
-          sub_buttons: button.sub_buttons as any,
-          category: button.layout.category,
-          sync_target: button.sync_target || 'bitrix',
-          additional_fields: button.additional_fields || [],
-        })),
-      );
+      // Primeiro inserir os novos dados
+      const { error: insertError } = await supabase
+        .from("button_config")
+        .insert(buttonsToInsert);
 
-      if (error) {
-        throw error;
+      if (insertError) {
+        throw insertError;
+      }
+
+      // Só depois de inserir com sucesso, deletar os antigos que não estão na lista nova
+      const currentIds = buttons.map(b => b.id);
+      const { error: deleteError } = await supabase
+        .from("button_config")
+        .delete()
+        .not('id', 'in', `(${currentIds.map(id => `'${id}'`).join(',')})`);
+
+      if (deleteError) {
+        console.warn("Aviso ao limpar botões antigos:", deleteError);
       }
 
       toast.success("Configuração salva com sucesso!");
       loadButtons();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar:", error);
-      toast.error("Erro ao salvar configuração");
+      
+      if (error.message?.includes('button_config_field_type_check')) {
+        toast.error("Erro: tipo de campo inválido. Verifique se todos os botões têm um tipo de campo válido (string, number, datetime ou boolean).");
+      } else {
+        toast.error("Erro ao salvar configuração: " + (error.message || "Erro desconhecido"));
+      }
     } finally {
       setSaving(false);
     }
