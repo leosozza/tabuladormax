@@ -999,16 +999,32 @@ const LeadTab = () => {
       const hourField = button.additional_fields?.find(f => f.field === 'UF_CRM_1740755176');
       if (hourField) {
         try {
+          console.log('🕐 Buscando opções de horário do Bitrix...');
           const fields = await getLeadFields();
-          const hourFieldData = fields.find(f => f.id === 'UF_CRM_1740755176');
+          console.log('📋 Todos os campos:', fields.length);
+          
+          // Buscar pelo campo usando diferentes variações de nome
+          const hourFieldData = fields.find(f => 
+            f.ID === 'UF_CRM_1740755176' || 
+            f.FIELD_NAME === 'UF_CRM_1740755176' ||
+            f.name === 'UF_CRM_1740755176'
+          );
+          
+          console.log('🔍 Campo de hora encontrado:', hourFieldData);
+          
           if (hourFieldData?.items) {
-            setTimeOptions(hourFieldData.items.map(item => ({
-              id: item.ID,
-              name: item.VALUE
-            })));
+            console.log('✅ Items encontrados:', hourFieldData.items);
+            const options = Object.entries(hourFieldData.items).map(([id, value]: [string, any]) => ({
+              id: id,
+              name: value.VALUE || value
+            }));
+            console.log('⏰ Opções de horário:', options);
+            setTimeOptions(options);
+          } else {
+            console.warn('⚠️ Campo de hora não tem items:', hourFieldData);
           }
         } catch (error) {
-          console.error('Erro ao carregar opções de hora:', error);
+          console.error('❌ Erro ao carregar opções de hora:', error);
         }
       }
       
