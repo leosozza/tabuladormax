@@ -163,15 +163,6 @@ export async function getLeadFields(): Promise<BitrixField[]> {
       // - Campos personalizados (UF_CRM_*): "title" tem o ID, mas "listLabel"/"formLabel" têm o nome real
       const displayTitle = value.listLabel || value.formLabel || value.filterLabel || value.title || key;
       
-      // Debug para verificar mapeamento
-      if (key.startsWith('UF_CRM_') && key.includes('1754513110746')) {
-        console.log('🔍 Mapeando campo:', key);
-        console.log('  listLabel:', value.listLabel);
-        console.log('  formLabel:', value.formLabel);
-        console.log('  title:', value.title);
-        console.log('  displayTitle final:', displayTitle);
-      }
-      
       return {
         ID: key,
         FIELD_NAME: key,
