@@ -124,7 +124,7 @@ export function ButtonEditDialog({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-50">
+                <SelectContent className="bg-background z-[9999]">
                   {BUTTON_CATEGORIES.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.label}
@@ -147,7 +147,7 @@ export function ButtonEditDialog({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-50">
+                <SelectContent className="bg-background z-[9999]">
                   <SelectItem value="bitrix">
                     🔷 Bitrix → Supabase
                   </SelectItem>
@@ -208,7 +208,7 @@ export function ButtonEditDialog({
                 <SelectTrigger>
                   <SelectValue placeholder={`Selecione um campo ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`} />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-50 max-h-[300px]">
+                <SelectContent className="bg-background z-[9999] max-h-[300px]">
                   {button.sync_target === 'supabase' 
                     ? supabaseFields.map((field) => (
                         <SelectItem key={field.name} value={field.name}>
@@ -255,7 +255,7 @@ export function ButtonEditDialog({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-50">
+                <SelectContent className="bg-background z-[9999]">
                   <SelectItem value="simple">✅ Simples</SelectItem>
                   <SelectItem value="schedule">📅 Agendamento</SelectItem>
                   <SelectItem value="text">✏️ Campo de Texto</SelectItem>
@@ -379,7 +379,7 @@ export function ButtonEditDialog({
                           <SelectTrigger className="h-8">
                             <SelectValue placeholder={`Selecione ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`} />
                           </SelectTrigger>
-                          <SelectContent className="bg-background z-50 max-h-[200px]">
+                          <SelectContent className="bg-background z-[9999] max-h-[200px]">
                             {button.sync_target === 'supabase'
                               ? supabaseFields.map((field) => (
                                   <SelectItem key={`sub-${subIndex}-${field.name}`} value={field.name}>

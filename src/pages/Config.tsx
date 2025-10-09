@@ -452,7 +452,7 @@ const Config = () => {
           <SelectTrigger>
             <SelectValue placeholder="Selecione um valor" />
           </SelectTrigger>
-          <SelectContent className="bg-background z-50">
+          <SelectContent className="bg-background z-[9999]">
             {meta.items.map((option) => (
               <SelectItem key={option.ID} value={option.VALUE}>
                 {option.VALUE}
