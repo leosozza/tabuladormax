@@ -98,10 +98,7 @@ export function ButtonEditDialog({
               <Label>Nome do Botão</Label>
               <Input
                 value={button.label}
-                onChange={(event) => {
-                  console.log("🔧 Alterando nome do botão:", event.target.value);
-                  onUpdate(button.id, { label: event.target.value });
-                }}
+                onChange={(event) => onUpdate(button.id, { label: event.target.value })}
               />
             </div>
 

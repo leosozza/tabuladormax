@@ -159,7 +159,10 @@ const Config = () => {
   const [loadingButtons, setLoadingButtons] = useState(true);
   const [saving, setSaving] = useState(false);
   const [draggingButton, setDraggingButton] = useState<string | null>(null);
-  const [editingButton, setEditingButton] = useState<ButtonConfig | null>(null);
+  const [editingButtonId, setEditingButtonId] = useState<string | null>(null);
+
+  // Buscar o botão em edição do estado atualizado
+  const editingButton = editingButtonId ? buttons.find(b => b.id === editingButtonId) || null : null;
 
   useEffect(() => {
     loadButtons();
@@ -245,7 +248,6 @@ const Config = () => {
   };
 
   const updateButton = (id: string, updates: Partial<Omit<ButtonConfig, "id" | "layout" | "sub_buttons">>) => {
-    console.log("📝 updateButton chamado:", { id, updates });
     applyUpdate((current) => current.map((button) => (button.id === id ? { ...button, ...updates } : button)));
   };
 
@@ -609,7 +611,7 @@ const Config = () => {
                                       "p-3 bg-background shadow-sm hover:shadow-md transition-shadow cursor-pointer",
                                       draggingButton === button.id && "ring-2 ring-primary/40",
                                     )}
-                                    onDoubleClick={() => setEditingButton(button)}
+                                    onDoubleClick={() => setEditingButtonId(button.id)}
                                   >
                                     <div className="flex items-center gap-3">
                                       <span
@@ -646,7 +648,7 @@ const Config = () => {
 
         <ButtonEditDialog
           open={editingButton !== null}
-          onOpenChange={(open) => !open && setEditingButton(null)}
+          onOpenChange={(open) => !open && setEditingButtonId(null)}
           button={editingButton}
           bitrixFields={bitrixFields}
           supabaseFields={[
