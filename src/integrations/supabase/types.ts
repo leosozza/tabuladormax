@@ -74,6 +74,7 @@ export type Database = {
       button_config: {
         Row: {
           action_type: string | null
+          additional_fields: Json | null
           category: string | null
           color: string
           created_at: string | null
@@ -91,6 +92,7 @@ export type Database = {
         }
         Insert: {
           action_type?: string | null
+          additional_fields?: Json | null
           category?: string | null
           color?: string
           created_at?: string | null
@@ -108,6 +110,7 @@ export type Database = {
         }
         Update: {
           action_type?: string | null
+          additional_fields?: Json | null
           category?: string | null
           color?: string
           created_at?: string | null

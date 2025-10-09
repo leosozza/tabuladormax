@@ -48,6 +48,7 @@ interface ButtonConfig {
   sub_buttons: any;
   category?: string | null;
   sync_target?: 'bitrix' | 'supabase';
+  additional_fields?: Array<{ field: string; value: string }>;
 }
 
 interface FieldMapping {
@@ -705,6 +706,7 @@ const LeadTab = () => {
         pos: entry.pos,
         sub_buttons: parseSubButtons(entry.sub_buttons),
         category: category,
+        additional_fields: (entry as any).additional_fields || [],
       };
     });
 
@@ -834,7 +836,7 @@ const LeadTab = () => {
     }
   };
 
-  const executeAction = async (button: ButtonConfig, subButton?: SubButton, scheduledDate?: string) => {
+  const executeAction = async (button: ButtonConfig, subButton?: SubButton, scheduledDate?: string, scheduledTime?: string) => {
     if (!chatwootData) {
       toast.error("Nenhum dado do Chatwoot disponível");
       return;
@@ -846,6 +848,22 @@ const LeadTab = () => {
       const value = scheduledDate || subButton?.subValue || button.value || "";
       const syncTarget = button.sync_target || 'bitrix';
       const bitrixId = Number(chatwootData.bitrix_id);
+      
+      // Preparar campos adicionais, substituindo placeholders
+      const additionalFields: Record<string, any> = {};
+      if (button.additional_fields && Array.isArray(button.additional_fields)) {
+        button.additional_fields.forEach(({ field: addField, value: addValue }) => {
+          let finalValue = addValue;
+          // Substituir placeholders
+          if (addValue === '{{horario}}' && scheduledTime) {
+            finalValue = scheduledTime;
+          }
+          if (addValue === '{{data}}' && scheduledDate) {
+            finalValue = scheduledDate;
+          }
+          additionalFields[addField] = finalValue;
+        });
+      }
 
       // Determinar fluxo de sincronização baseado em sync_target
       if (syncTarget === 'supabase') {
@@ -888,12 +906,18 @@ const LeadTab = () => {
         // FLUXO ATUAL: Bitrix como fonte da verdade
         // 1. Atualizar Bitrix via webhook primeiro
         if (webhookUrl) {
+          // Combinar campo principal com campos adicionais
+          const allFields = {
+            [field]: value,
+            ...additionalFields
+          };
+          
           const response = await fetch(webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               id: bitrixId,
-              fields: { [field]: value }
+              fields: allFields
             })
           });
 
@@ -988,16 +1012,26 @@ const LeadTab = () => {
 
     const datetime = `${scheduleDate} ${scheduleTime}:00`;
     
-    // Atualizar automaticamente o campo correspondente no profile
+    // Atualizar automaticamente os campos correspondentes no profile
     if (selectedButton.field) {
+      const updates: Record<string, any> = {
+        [selectedButton.field]: scheduleDate,
+      };
+      
+      // Se houver campo de horário nos additional_fields, atualizar também
+      const horarioField = selectedButton.additional_fields?.find(f => f.value === '{{horario}}');
+      if (horarioField) {
+        updates[horarioField.field] = scheduleTime;
+      }
+      
       setProfile((prev) => ({
         ...prev,
-        [selectedButton.field]: datetime,
+        ...updates,
       }));
-      toast.success("Data preenchida automaticamente!");
+      toast.success("Data e horário preenchidos automaticamente!");
     }
     
-    executeAction(selectedButton, undefined, datetime);
+    executeAction(selectedButton, undefined, scheduleDate, scheduleTime);
     setScheduleModal(false);
   };
 
