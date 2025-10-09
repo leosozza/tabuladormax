@@ -64,7 +64,10 @@ const cloneButtons = (buttons: ButtonConfig[]): ButtonConfig[] =>
   buttons.map((button) => ({
     ...button,
     layout: { ...button.layout },
-    sub_buttons: button.sub_buttons.map((sub) => ({ ...sub })),
+    sub_buttons: button.sub_buttons.map((sub) => ({ 
+      ...sub,
+      subAdditionalFields: sub.subAdditionalFields ? [...sub.subAdditionalFields] : []
+    })),
   }));
 
 const normalizeButtons = (buttons: ButtonConfig[]): ButtonConfig[] => {
@@ -82,10 +85,12 @@ const normalizeButtons = (buttons: ButtonConfig[]): ButtonConfig[] => {
       ),
       sub_buttons: button.sub_buttons.map((sub) => ({
         subLabel: sub.subLabel || "Novo motivo",
+        subDescription: sub.subDescription || "",
         subWebhook: sub.subWebhook || DEFAULT_WEBHOOK,
         subField: sub.subField || "",
         subValue: sub.subValue || "",
         subHotkey: sub.subHotkey || "",
+        subAdditionalFields: sub.subAdditionalFields || [],
       })),
     }))
     .sort((a, b) => {
@@ -188,10 +193,6 @@ const Config = () => {
 
   // Buscar o botão em edição do estado atualizado
   const editingButton = editingButtonId ? buttons.find(b => b.id === editingButtonId) || null : null;
-  
-  console.log('🟢 editingButtonId:', editingButtonId);
-  console.log('🟢 editingButton encontrado:', editingButton);
-  console.log('🟢 Sub-botões do editingButton:', editingButton?.sub_buttons);
 
   useEffect(() => {
     loadCategories();
@@ -421,34 +422,25 @@ const Config = () => {
   };
 
   const addSubAdditionalField = (id: string, subIndex: number) => {
-    console.log('🔧 addSubAdditionalField chamado:', { id, subIndex });
     applyUpdate((current) =>
-      current.map((button) => {
-        if (button.id === id) {
-          console.log('🔍 Botão encontrado:', button.label);
-          console.log('🔍 Sub-botão atual:', button.sub_buttons[subIndex]);
-          const updatedButton = {
-            ...button,
-            sub_buttons: button.sub_buttons.map((sub, index) => {
-              if (index === subIndex) {
-                const newFields = [
-                  ...(sub.subAdditionalFields || []),
-                  { field: "", value: "" },
-                ];
-                console.log('✅ Novos campos:', newFields);
-                return {
-                  ...sub,
-                  subAdditionalFields: newFields,
-                };
-              }
-              return sub;
-            }),
-          };
-          console.log('✅ Botão atualizado:', updatedButton);
-          return updatedButton;
-        }
-        return button;
-      }),
+      current.map((button) =>
+        button.id === id
+          ? {
+              ...button,
+              sub_buttons: button.sub_buttons.map((sub, index) => 
+                index === subIndex 
+                  ? {
+                      ...sub,
+                      subAdditionalFields: [
+                        ...(sub.subAdditionalFields || []),
+                        { field: "", value: "" },
+                      ],
+                    }
+                  : sub
+              ),
+            }
+          : button,
+      ),
     );
   };
 
