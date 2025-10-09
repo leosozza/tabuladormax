@@ -375,8 +375,10 @@ const LeadTab = () => {
     checkUserRole();
     loadButtons();
     loadFieldMappings();
+  }, []); // Executar apenas uma vez na montagem
 
-    // Sincronizar com Bitrix ao sair da página
+  // Sincronizar com Bitrix ao sair da página
+  useEffect(() => {
     const handleBeforeUnload = async () => {
       if (!chatwootData?.bitrix_id) return;
 
