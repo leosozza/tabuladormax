@@ -1455,22 +1455,54 @@ const LeadTab = () => {
               </>
             ) : (
               <div className="w-full space-y-3">
-                {fieldMappings
-                  .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-                  .filter(mapping => !mapping.is_profile_photo)
-                  .map((mapping) => (
-                    <div key={mapping.profile_field}>
-                      <Label>{mapping.display_name || mapping.profile_field}</Label>
-                      <Input
-                        value={profile[mapping.profile_field] || ''}
-                        onChange={(e) => setProfile({ 
-                          ...profile, 
-                          [mapping.profile_field]: e.target.value 
-                        })}
-                        placeholder={`Digite ${mapping.display_name || mapping.profile_field}`}
-                      />
-                    </div>
-                  ))}
+                <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext 
+                    items={fieldMappings
+                      .filter(mapping => !mapping.is_profile_photo)
+                      .map(m => m.id || m.profile_field)} 
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {fieldMappings
+                      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+                      .filter(mapping => !mapping.is_profile_photo)
+                      .map((mapping) => {
+                        const SortableFieldInput = () => {
+                          const {
+                            attributes,
+                            listeners,
+                            setNodeRef,
+                            transform,
+                            transition,
+                          } = useSortable({ id: mapping.id || mapping.profile_field });
+
+                          const style = {
+                            transform: CSS.Transform.toString(transform),
+                            transition,
+                          };
+
+                          return (
+                            <div ref={setNodeRef} style={style} key={mapping.profile_field} className="flex gap-2 items-end">
+                              <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing pb-2">
+                                <GripVertical className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1">
+                                <Label>{mapping.display_name || mapping.profile_field}</Label>
+                                <Input
+                                  value={profile[mapping.profile_field] || ''}
+                                  onChange={(e) => setProfile({ 
+                                    ...profile, 
+                                    [mapping.profile_field]: e.target.value 
+                                  })}
+                                  placeholder={`Digite ${mapping.display_name || mapping.profile_field}`}
+                                />
+                              </div>
+                            </div>
+                          );
+                        };
+                        return <SortableFieldInput key={mapping.profile_field} />;
+                      })}
+                  </SortableContext>
+                </DndContext>
 
                 <div className="flex gap-2 mt-4">
                   <Button 
