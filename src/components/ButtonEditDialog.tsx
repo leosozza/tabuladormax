@@ -664,7 +664,12 @@ export function ButtonEditDialog({
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          onClick={() => onAddSubAdditionalField(button.id, subIndex)}
+                          onClick={() => {
+                            console.log('🎯 Clicou em adicionar parâmetro no sub-botão', subIndex);
+                            console.log('🎯 Sub-botão atual:', sub);
+                            console.log('🎯 subAdditionalFields atual:', sub.subAdditionalFields);
+                            onAddSubAdditionalField(button.id, subIndex);
+                          }}
                           className="h-6 text-xs"
                         >
                           <Plus className="w-3 h-3 mr-1" />
@@ -673,78 +678,83 @@ export function ButtonEditDialog({
                       </div>
 
                       <div className="space-y-2">
-                        {(sub.subAdditionalFields || []).length > 0 ? (
-                          (sub.subAdditionalFields || []).map((addField, fieldIndex) => (
-                            <div key={`sub-${subIndex}-field-${fieldIndex}`} className="flex items-start gap-2 bg-accent/20 p-2 rounded">
-                              <div className="flex-1 grid grid-cols-2 gap-2">
-                                <div>
-                                  <Select
-                                    value={addField.field || ""}
-                                    onValueChange={(value) => {
-                                      onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, {
-                                        field: value,
-                                        value: ''
-                                      });
-                                    }}
-                                  >
-                                    <SelectTrigger className="h-7 text-xs">
-                                      <SelectValue placeholder="Campo">
-                                        {addField.field ? (
-                                          (() => {
-                                            const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
-                                            const selectedField = fields.find(f => f.name === addField.field);
-                                            return selectedField ? selectedField.title : addField.field;
-                                          })()
-                                        ) : null}
-                                      </SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-background z-[250] max-h-[150px]">
-                                      {button.sync_target === 'supabase'
-                                        ? supabaseFields.map((field) => (
-                                            <SelectItem key={`sub-add-${subIndex}-${fieldIndex}-${field.name}`} value={field.name}>
-                                              <span className="text-xs">{field.title}</span>
-                                            </SelectItem>
-                                          ))
-                                        : bitrixFields.map((field) => (
-                                            <SelectItem key={`sub-add-${subIndex}-${fieldIndex}-${field.name}`} value={field.name}>
-                                              <span className="text-xs">{field.title}</span>
-                                            </SelectItem>
-                                          ))
-                                      }
-                                    </SelectContent>
-                                  </Select>
+                        {(() => {
+                          console.log('🔍 Renderizando parâmetros do sub-botão', subIndex);
+                          console.log('🔍 sub.subAdditionalFields:', sub.subAdditionalFields);
+                          console.log('🔍 Tamanho:', (sub.subAdditionalFields || []).length);
+                          return (sub.subAdditionalFields || []).length > 0 ? (
+                            (sub.subAdditionalFields || []).map((addField, fieldIndex) => (
+                              <div key={`sub-${subIndex}-field-${fieldIndex}`} className="flex items-start gap-2 bg-accent/20 p-2 rounded">
+                                <div className="flex-1 grid grid-cols-2 gap-2">
+                                  <div>
+                                    <Select
+                                      value={addField.field || ""}
+                                      onValueChange={(value) => {
+                                        onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, {
+                                          field: value,
+                                          value: ''
+                                        });
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-7 text-xs">
+                                        <SelectValue placeholder="Campo">
+                                          {addField.field ? (
+                                            (() => {
+                                              const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
+                                              const selectedField = fields.find(f => f.name === addField.field);
+                                              return selectedField ? selectedField.title : addField.field;
+                                            })()
+                                          ) : null}
+                                        </SelectValue>
+                                      </SelectTrigger>
+                                      <SelectContent className="bg-background z-[250] max-h-[150px]">
+                                        {button.sync_target === 'supabase'
+                                          ? supabaseFields.map((field) => (
+                                              <SelectItem key={`sub-add-${subIndex}-${fieldIndex}-${field.name}`} value={field.name}>
+                                                <span className="text-xs">{field.title}</span>
+                                              </SelectItem>
+                                            ))
+                                          : bitrixFields.map((field) => (
+                                              <SelectItem key={`sub-add-${subIndex}-${fieldIndex}-${field.name}`} value={field.name}>
+                                                <span className="text-xs">{field.title}</span>
+                                              </SelectItem>
+                                            ))
+                                        }
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    {addField.field ? (
+                                      <div className="h-7">
+                                        {renderFieldValueControl(
+                                          addField.field,
+                                          addField.value,
+                                          (value) => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value }),
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <Input 
+                                        disabled 
+                                        placeholder="Selecione campo"
+                                        className="h-7 text-xs bg-muted"
+                                      />
+                                    )}
+                                  </div>
                                 </div>
-                                <div>
-                                  {addField.field ? (
-                                    <div className="h-7">
-                                      {renderFieldValueControl(
-                                        addField.field,
-                                        addField.value,
-                                        (value) => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value }),
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <Input 
-                                      disabled 
-                                      placeholder="Selecione campo"
-                                      className="h-7 text-xs bg-muted"
-                                    />
-                                  )}
-                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onRemoveSubAdditionalField(button.id, subIndex, fieldIndex)}
+                                  className="h-7 w-7 p-0"
+                                >
+                                  <Trash2 className="w-3 h-3 text-destructive" />
+                                </Button>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onRemoveSubAdditionalField(button.id, subIndex, fieldIndex)}
-                                className="h-7 w-7 p-0"
-                              >
-                                <Trash2 className="w-3 h-3 text-destructive" />
-                              </Button>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-[10px] text-muted-foreground text-center py-2">Nenhum parâmetro adicional</p>
-                        )}
+                            ))
+                          ) : (
+                            <p className="text-[10px] text-muted-foreground text-center py-2">Nenhum parâmetro adicional</p>
+                          );
+                        })()}
                       </div>
                     </div>
                   </Card>
