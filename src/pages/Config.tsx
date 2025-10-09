@@ -451,9 +451,9 @@ const Config = () => {
 
     if (meta?.items?.length) {
       return (
-        <Select value={value} onValueChange={onChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione um valor" />
+        <Select value={value || ""} onValueChange={onChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um valor" />
           </SelectTrigger>
           <SelectContent className="bg-background z-[200]">
             {meta.items.map((option) => (

@@ -194,7 +194,7 @@ export function ButtonEditDialog({
                 )}
               </div>
               <Select
-                value={button.field}
+                value={button.field || ""}
                 onValueChange={(value) => {
                   const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
                   const fieldMeta = fields.find((f) => f.name === value);
@@ -213,9 +213,7 @@ export function ButtonEditDialog({
                         const selectedField = fields.find(f => f.name === button.field);
                         return selectedField ? selectedField.title : button.field;
                       })()
-                    ) : (
-                      `Selecione um campo ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`
-                    )}
+                    ) : null}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-background z-[200] max-h-[300px]">
@@ -376,7 +374,7 @@ export function ButtonEditDialog({
                           Campo do {button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}
                         </Label>
                         <Select
-                          value={sub.subField}
+                          value={sub.subField || ""}
                           onValueChange={(value) => {
                             const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
                             const fieldMeta = fields.find((f) => f.name === value);
@@ -394,9 +392,7 @@ export function ButtonEditDialog({
                                   const selectedField = fields.find(f => f.name === sub.subField);
                                   return selectedField ? selectedField.title : sub.subField;
                                 })()
-                              ) : (
-                                `Selecione ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`
-                              )}
+                              ) : null}
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent className="bg-background z-[200] max-h-[200px]">
