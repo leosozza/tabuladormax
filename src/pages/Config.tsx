@@ -747,8 +747,8 @@ const Config = () => {
     setSaving(true);
 
     try {
-      // Preparar dados para inserção com validação
-      const buttonsToInsert = buttons.map((button) => ({
+      // Preparar dados para upsert com validação
+      const buttonsToUpsert = buttons.map((button) => ({
         id: button.id,
         label: button.label,
         description: button.description || "",
@@ -767,24 +767,36 @@ const Config = () => {
         additional_fields: button.additional_fields || [],
       }));
 
-      // Primeiro inserir os novos dados
-      const { error: insertError } = await supabase
+      // Usar upsert (insert ou update) para salvar todos os botões
+      const { error: upsertError } = await supabase
         .from("button_config")
-        .insert(buttonsToInsert);
+        .upsert(buttonsToUpsert, { onConflict: 'id' });
 
-      if (insertError) {
-        throw insertError;
+      if (upsertError) {
+        throw upsertError;
       }
 
-      // Só depois de inserir com sucesso, deletar os antigos que não estão na lista nova
+      // Deletar botões que foram removidos da configuração
       const currentIds = buttons.map(b => b.id);
-      const { error: deleteError } = await supabase
+      const { data: allButtons } = await supabase
         .from("button_config")
-        .delete()
-        .not('id', 'in', `(${currentIds.map(id => `'${id}'`).join(',')})`);
+        .select('id');
 
-      if (deleteError) {
-        console.warn("Aviso ao limpar botões antigos:", deleteError);
+      if (allButtons) {
+        const idsToDelete = allButtons
+          .filter(b => !currentIds.includes(b.id))
+          .map(b => b.id);
+
+        if (idsToDelete.length > 0) {
+          const { error: deleteError } = await supabase
+            .from("button_config")
+            .delete()
+            .in('id', idsToDelete);
+
+          if (deleteError) {
+            console.warn("Aviso ao limpar botões antigos:", deleteError);
+          }
+        }
       }
 
       toast.success("Configuração salva com sucesso!");
