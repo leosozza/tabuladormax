@@ -20,6 +20,7 @@ import {
 } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
 import { ButtonEditDialog } from "@/components/ButtonEditDialog";
+import { CategoryManager } from "@/components/CategoryManager";
 
 interface SubButton {
   subLabel: string;
@@ -151,9 +152,17 @@ const parseSubButtons = (value: unknown): SubButton[] => {
   });
 };
 
+interface Category {
+  id: string;
+  name: string;
+  label: string;
+  sort_order: number;
+}
+
 const Config = () => {
   const navigate = useNavigate();
   const [buttons, setButtons] = useState<ButtonConfig[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [bitrixFields, setBitrixFields] = useState<BitrixField[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
   const [loadingButtons, setLoadingButtons] = useState(true);
@@ -165,9 +174,25 @@ const Config = () => {
   const editingButton = editingButtonId ? buttons.find(b => b.id === editingButtonId) || null : null;
 
   useEffect(() => {
+    loadCategories();
     loadButtons();
     loadFields();
   }, []);
+
+  const loadCategories = async () => {
+    const { data, error } = await supabase
+      .from("button_categories")
+      .select("*")
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      console.error("Erro ao carregar categorias:", error);
+      toast.error("Não foi possível carregar as categorias");
+      return;
+    }
+
+    setCategories(data || []);
+  };
 
   const applyUpdate = (updater: (buttons: ButtonConfig[]) => ButtonConfig[]) => {
     setButtons((prev) => normalizeButtons(updater(cloneButtons(prev))));
@@ -218,7 +243,7 @@ const Config = () => {
   };
 
   const addButton = () => {
-    const defaultCategory = BUTTON_CATEGORIES[0].id;
+    const defaultCategory = (categories[0]?.name || BUTTON_CATEGORIES[0].id) as ButtonCategory;
     const layout = createDefaultLayout(
       defaultCategory,
       buttons.filter((button) => button.layout.category === defaultCategory).length,
@@ -323,7 +348,7 @@ const Config = () => {
     );
   };
 
-  const moveButton = (buttonId: string, category: ButtonCategory, targetIndex?: number) => {
+  const moveButton = (buttonId: string, category: string, targetIndex?: number) => {
     applyUpdate((current) => {
       const index = current.findIndex((button) => button.id === buttonId);
 
@@ -332,20 +357,21 @@ const Config = () => {
       }
 
       const [button] = current.splice(index, 1);
-      const safeCategory = BUTTON_CATEGORIES.some((item) => item.id === category) ? category : BUTTON_CATEGORIES[0].id;
+      const validCategoryNames = categories.map(c => c.name);
+      const safeCategory = validCategoryNames.includes(category) ? category : (categories[0]?.name || 'NAO_AGENDADO');
 
-      const buckets = BUTTON_CATEGORIES.reduce(
+      const buckets = categories.reduce(
         (acc, item) => ({
           ...acc,
-          [item.id]: [] as ButtonConfig[],
+          [item.name]: [] as ButtonConfig[],
         }),
-        {} as Record<ButtonCategory, ButtonConfig[]>,
+        {} as Record<string, ButtonConfig[]>,
       );
 
       current.forEach((entry) => {
-        const entryCategory = BUTTON_CATEGORIES.some((item) => item.id === entry.layout.category)
-          ? (entry.layout.category as ButtonCategory)
-          : BUTTON_CATEGORIES[0].id;
+        const entryCategory = validCategoryNames.includes(entry.layout.category)
+          ? entry.layout.category
+          : (categories[0]?.name || 'NAO_AGENDADO');
         buckets[entryCategory].push(entry);
       });
 
@@ -358,14 +384,14 @@ const Config = () => {
         layout: ensureButtonLayout(
           {
             ...button.layout,
-            category: safeCategory,
+            category: safeCategory as ButtonCategory,
             index: insertionIndex,
           },
           insertionIndex,
         ),
       });
 
-      return BUTTON_CATEGORIES.flatMap((item) => buckets[item.id]);
+      return categories.flatMap((item) => buckets[item.name]);
     });
   };
 
@@ -394,7 +420,7 @@ const Config = () => {
     setDraggingButton(null);
   };
 
-  const handleButtonDropOnCard = (event: DragEvent<HTMLDivElement>, category: ButtonCategory, dropIndex: number) => {
+  const handleButtonDropOnCard = (event: DragEvent<HTMLDivElement>, category: string, dropIndex: number) => {
     event.preventDefault();
     event.stopPropagation();
     const id = event.dataTransfer.getData("button-id");
@@ -407,7 +433,7 @@ const Config = () => {
     setDraggingButton(null);
   };
 
-  const handleColumnDrop = (event: DragEvent<HTMLDivElement>, category: ButtonCategory) => {
+  const handleColumnDrop = (event: DragEvent<HTMLDivElement>, category: string) => {
     event.preventDefault();
     const id = event.dataTransfer.getData("button-id");
 
@@ -558,6 +584,11 @@ const Config = () => {
             </div>
           </div>
 
+          <CategoryManager 
+            categories={categories} 
+            onCategoriesChange={loadCategories}
+          />
+
           <section className="space-y-4">
               {loadingButtons ? (
                 <p className="text-sm text-muted-foreground">Carregando botões...</p>
@@ -567,8 +598,8 @@ const Config = () => {
                 </Card>
               ) : (
                 <div className="grid gap-4 lg:grid-cols-3">
-                  {BUTTON_CATEGORIES.map((category) => {
-                    const categoryButtons = buttons.filter((button) => button.layout.category === category.id);
+                  {categories.map((category) => {
+                    const categoryButtons = buttons.filter((button) => button.layout.category === category.name);
 
                     return (
                       <div
@@ -577,7 +608,7 @@ const Config = () => {
                           event.preventDefault();
                           event.dataTransfer.dropEffect = "move";
                         }}
-                        onDrop={(event) => handleColumnDrop(event, category.id)}
+                        onDrop={(event) => handleColumnDrop(event, category.name)}
                         className={cn(
                           "rounded-xl border bg-muted/20 p-4 transition-colors",
                           draggingButton && "border-primary/40 bg-primary/5",
@@ -604,7 +635,7 @@ const Config = () => {
                                     event.preventDefault();
                                     event.dataTransfer.dropEffect = "move";
                                   }}
-                                  onDrop={(event) => handleButtonDropOnCard(event, category.id, index)}
+                                  onDrop={(event) => handleButtonDropOnCard(event, category.name, index)}
                                 >
                                   <Card
                                     className={cn(
@@ -650,6 +681,7 @@ const Config = () => {
           open={editingButton !== null}
           onOpenChange={(open) => !open && setEditingButtonId(null)}
           button={editingButton}
+          categories={categories}
           bitrixFields={bitrixFields}
           supabaseFields={[
             { name: 'id', title: 'ID', type: 'bigint' },

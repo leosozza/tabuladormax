@@ -38,10 +38,18 @@ interface SupabaseField {
   type: string;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  label: string;
+  sort_order: number;
+}
+
 interface ButtonEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   button: ButtonConfig | null;
+  categories: Category[];
   bitrixFields: BitrixField[];
   supabaseFields: SupabaseField[];
   onUpdate: (id: string, updates: Partial<Omit<ButtonConfig, "id" | "layout" | "sub_buttons">>) => void;
@@ -50,7 +58,7 @@ interface ButtonEditDialogProps {
   onRemoveSubButton: (id: string, subIndex: number) => void;
   onUpdateSubButton: (id: string, subIndex: number, updates: Partial<SubButton>) => void;
   onFieldDrop: (event: React.DragEvent<HTMLDivElement>, buttonId: string, subIndex?: number) => void;
-  onMoveButton: (id: string, category: ButtonCategory) => void;
+  onMoveButton: (id: string, category: string) => void;
   onDelete: (id: string) => void;
   renderFieldValueControl: (fieldName: string, value: string, onChange: (value: string) => void) => React.ReactNode;
 }
@@ -59,6 +67,7 @@ export function ButtonEditDialog({
   open,
   onOpenChange,
   button,
+  categories,
   bitrixFields,
   supabaseFields,
   onUpdate,
@@ -117,7 +126,7 @@ export function ButtonEditDialog({
                 value={button.layout.category}
                 onValueChange={(value) => {
                   if (value !== button.layout.category) {
-                    onMoveButton(button.id, value as ButtonCategory);
+                    onMoveButton(button.id, value);
                   }
                 }}
               >
@@ -125,8 +134,8 @@ export function ButtonEditDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-[200]">
-                  {BUTTON_CATEGORIES.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
+                  {categories.map((item) => (
+                    <SelectItem key={item.id} value={item.name}>
                       {item.label}
                     </SelectItem>
                   ))}
