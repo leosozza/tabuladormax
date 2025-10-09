@@ -702,6 +702,7 @@ const LeadTab = () => {
       return {
         id: entry.id,
         label: entry.label,
+        description: entry.description || "",
         color: entry.color,
         webhook_url: (entry as any).webhook_url || DEFAULT_WEBHOOK,
         field: entry.field || "",
