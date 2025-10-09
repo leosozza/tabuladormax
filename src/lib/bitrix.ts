@@ -158,21 +158,22 @@ export async function getLeadFields(): Promise<BitrixField[]> {
     
     const fields = data.result || {};
     return Object.entries(fields).map(([key, value]: [string, any]) => {
+      // Log para debug - expandir todas propriedades
+      if (key === 'UF_CRM_1751725861692' || key === 'UF_CRM_AGEND_EM') {
+        console.log('🔍 Campo personalizado completo:', key);
+        console.log('  - formLabel:', value.formLabel);
+        console.log('  - listLabel:', value.listLabel);  
+        console.log('  - title:', value.title);
+        console.log('  - editFormLabel:', value.editFormLabel);
+        console.log('  - listFormLabel:', value.listFormLabel);
+        console.log('  - filterFormLabel:', value.filterFormLabel);
+        console.log('  - value completo:', JSON.stringify(value, null, 2));
+      }
+      
       // Para campos personalizados do Bitrix (UF_CRM_*), verificar várias propriedades possíveis
       const displayTitle = value.formLabel || value.listLabel || value.title || 
-                           value.label || value.name || key;
-      
-      // Log para debug (remover depois)
-      if (key.startsWith('UF_CRM_')) {
-        console.log('🔍 Campo personalizado:', key, {
-          formLabel: value.formLabel,
-          listLabel: value.listLabel,
-          title: value.title,
-          label: value.label,
-          name: value.name,
-          displayTitle
-        });
-      }
+                           value.editFormLabel || value.listFormLabel || 
+                           value.filterFormLabel || key;
       
       return {
         ID: key,
