@@ -467,9 +467,10 @@ export function ButtonEditDialog({
                           )
                         ) : (
                           <Input 
-                            disabled 
-                            placeholder="Selecione um campo primeiro" 
-                            className="h-8 bg-muted text-xs"
+                            placeholder="Digite placeholders: {{horario}}, {{data}}, {{valor_botao}}" 
+                            className="h-8 text-xs"
+                            value={addField.value}
+                            onChange={(e) => onUpdateAdditionalField(button.id, fieldIndex, { value: e.target.value })}
                           />
                         )}
                       </div>
@@ -641,9 +642,10 @@ export function ButtonEditDialog({
                           )
                         ) : (
                           <Input 
-                            disabled 
-                            placeholder="Selecione um campo primeiro" 
-                            className="h-8 bg-muted"
+                            placeholder="Digite placeholders: {{horario}}, {{data}}, {{valor_botao}}"
+                            className="h-8"
+                            value={sub.subValue}
+                            onChange={(e) => onUpdateSubButton(button.id, subIndex, { subValue: e.target.value })}
                           />
                         )}
                       </div>
@@ -717,9 +719,10 @@ export function ButtonEditDialog({
                                     </div>
                                   ) : (
                                     <Input 
-                                      disabled 
-                                      placeholder="Selecione campo"
-                                      className="h-7 text-xs bg-muted"
+                                      placeholder="{{horario}}, {{data}}"
+                                      className="h-7 text-xs"
+                                      value={addField.value}
+                                      onChange={(e) => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value: e.target.value })}
                                     />
                                   )}
                                 </div>
