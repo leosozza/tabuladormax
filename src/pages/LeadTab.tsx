@@ -216,6 +216,7 @@ const LeadTab = () => {
   const [showFieldMappingModal, setShowFieldMappingModal] = useState(false);
   const [isManager, setIsManager] = useState(false);
   const [buttonColumns, setButtonColumns] = useState(3); // 3, 4 ou 5 colunas
+  const [bitrixFields, setBitrixFields] = useState<BitrixField[]>([]);
   
 
   const checkUserRole = async () => {
@@ -422,9 +423,23 @@ const LeadTab = () => {
 
 
   useEffect(() => {
-    checkUserRole();
-    loadButtons();
-    loadFieldMappings();
+    const initialize = async () => {
+      checkUserRole();
+      loadButtons();
+      loadFieldMappings();
+      
+      // Carregar metadados dos campos Bitrix para conversão automática
+      try {
+        console.log('🔄 Carregando metadados dos campos Bitrix...');
+        const fields = await getLeadFields();
+        setBitrixFields(fields);
+        console.log('✅ Metadados carregados:', fields.length, 'campos');
+      } catch (error) {
+        console.error('❌ Erro ao carregar campos Bitrix:', error);
+      }
+    };
+    
+    initialize();
   }, []); // Executar apenas uma vez na montagem
 
   // Sincronizar com Bitrix ao sair da página
@@ -948,35 +963,39 @@ const LeadTab = () => {
         // FLUXO ATUAL: Bitrix como fonte da verdade
         // 1. Atualizar Bitrix via webhook primeiro
         if (webhookUrl) {
-          // Helper para converter labels de campos enumeration para IDs
+          // Helper AUTOMÁTICO para converter labels de campos enumeration para IDs
           const convertEnumerationValue = (fieldName: string, value: string): string => {
-            // Mapeamento de labels para IDs para campos conhecidos
-            const enumerationMappings: Record<string, Record<string, string>> = {
-              'UF_CRM_1742410301': {
-                '⚠ Ligação Interrompida': '3616',
-                '♻ Retorno': '3626',
-                '❌❌ Sem Interesse': '3622',
-                '❌ Não fez o cadastro ⚠': '8998',
-                '❌ Contato incorreto ⚠': '5514',
-                '⛔ Já compareceu': '3624',
-                '❌ Descatar Lead ❌': '3648',
-                'Outra Região ⚠': '6518',
-                '✅ Ficha Verificada por IA': '5526',
-                '✅ Agendado': '3620',
-                '✅✅ Agendamento confirmado': '3644',
-                '⚠ Requalificar - descarte não autorizado': '5518',
-                '✅ Ficha Verificada': '5522',
-                '☎️  Caixa Postal': '3618',
-                '⚠ Aguardando Qualificação': '6540',
-              },
-            };
-
-            // Se o campo tem mapeamento e o valor é um label
-            if (enumerationMappings[fieldName]?.[value]) {
-              return enumerationMappings[fieldName][value];
+            // Se não temos metadados ainda, retornar valor original
+            if (bitrixFields.length === 0) {
+              console.warn('⚠️ Metadados Bitrix ainda não carregados');
+              return value;
             }
-
-            // Se já é um ID ou não tem mapeamento, retornar como está
+            
+            // Encontrar a definição do campo
+            const fieldDef = bitrixFields.find(f => 
+              f.ID === fieldName || 
+              f.FIELD_NAME === fieldName || 
+              f.name === fieldName
+            );
+            
+            // Se não for campo enumeration, retornar valor original
+            if (!fieldDef || fieldDef.type !== 'enumeration' || !fieldDef.items) {
+              return value;
+            }
+            
+            // Procurar o item que corresponde ao valor (label)
+            const item = fieldDef.items.find((i: any) => 
+              i.VALUE === value || 
+              i.ID === value
+            );
+            
+            if (item) {
+              console.log(`🔄 Convertendo "${value}" → ID "${item.ID}" (campo: ${fieldName})`);
+              return item.ID;
+            }
+            
+            // Se não encontrou, pode ser que já seja o ID
+            console.warn(`⚠️ Valor "${value}" não encontrado nos items do campo ${fieldName}`);
             return value;
           };
 
@@ -1152,9 +1171,9 @@ const LeadTab = () => {
           
           if (hourFieldData?.items) {
             console.log('✅ Items encontrados:', hourFieldData.items);
-            const options = Object.entries(hourFieldData.items).map(([id, value]: [string, any]) => ({
-              id: id,
-              name: value.VALUE || value
+            const options = hourFieldData.items.map((item: any) => ({
+              id: item.ID,      // ✅ ID real do Bitrix (ex: "2388", "9014")
+              name: item.VALUE  // ✅ Label (ex: "09:00", "09:15")
             }));
             console.log('⏰ Opções de horário:', options);
             setTimeOptions(options);
