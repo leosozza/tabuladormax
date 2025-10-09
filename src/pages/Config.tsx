@@ -465,7 +465,8 @@ const Config = () => {
     setDraggingButton(id);
   };
 
-  const handleDragEnd = () => {
+  const handleDragEnd = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
     setDraggingButton(null);
     setIsDraggingOverTrash(false);
   };
@@ -493,7 +494,6 @@ const Config = () => {
     }
     
     setIsDraggingOverTrash(false);
-    setDraggingButton(null);
   };
 
   const handleButtonDropOnCard = (event: DragEvent<HTMLDivElement>, category: string, dropIndex: number) => {
@@ -506,7 +506,6 @@ const Config = () => {
     }
 
     moveButton(id, category, dropIndex);
-    setDraggingButton(null);
   };
 
   const handleColumnDrop = (event: DragEvent<HTMLDivElement>, category: string) => {
@@ -519,7 +518,6 @@ const Config = () => {
 
     const categoryButtons = buttons.filter((button) => button.layout.category === category);
     moveButton(id, category, categoryButtons.length);
-    setDraggingButton(null);
   };
 
   const renderFieldValueControl = (fieldName: string, value: string, onChange: (value: string) => void) => {
