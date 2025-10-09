@@ -872,8 +872,11 @@ const LeadTab = () => {
       const additionalFields: Record<string, any> = {};
       if (button.additional_fields && Array.isArray(button.additional_fields)) {
         button.additional_fields.forEach(({ field: addField, value: addValue }) => {
-          // Processar placeholders no valor
-          additionalFields[addField] = replacePlaceholders(addValue);
+          // Processar placeholders no valor - pular campos vazios
+          const processedValue = replacePlaceholders(addValue);
+          if (processedValue !== '') {
+            additionalFields[addField] = processedValue;
+          }
         });
       }
 
