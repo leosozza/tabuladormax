@@ -484,14 +484,19 @@ const LeadTab = () => {
     }
 
     const parsed = (data || []).map((entry, index) => {
-      // Se category não existe, usar o valor salvo ou inferir baseado no sort
+      // Mapear categorias antigas para as novas
       let category = entry.category;
+      
+      // Converter categorias antigas para as novas
+      if (category === 'AGENDAMENTO') category = 'AGENDAR';
+      else if (category === 'QUALIFICACAO') category = 'RETORNAR';
+      else if (category === 'OUTRAS') category = 'NAO_AGENDADO';
+      
+      // Se ainda não tem categoria, inferir baseado no sort
       if (!category) {
-        // Inferir categoria baseada no sort antigo
-        if (entry.sort <= 10) category = 'AGENDAMENTO';
-        else if (entry.sort <= 20) category = 'NAO_AGENDADO';
-        else if (entry.sort <= 30) category = 'QUALIFICACAO';
-        else category = 'OUTRAS';
+        if (entry.sort <= 10) category = 'AGENDAR';
+        else if (entry.sort <= 20) category = 'RETORNAR';
+        else category = 'NAO_AGENDADO';
       }
       
       return {
