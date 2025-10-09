@@ -948,10 +948,51 @@ const LeadTab = () => {
         // FLUXO ATUAL: Bitrix como fonte da verdade
         // 1. Atualizar Bitrix via webhook primeiro
         if (webhookUrl) {
-          // Combinar campo principal com campos adicionais
+          // Helper para converter labels de campos enumeration para IDs
+          const convertEnumerationValue = (fieldName: string, value: string): string => {
+            // Mapeamento de labels para IDs para campos conhecidos
+            const enumerationMappings: Record<string, Record<string, string>> = {
+              'UF_CRM_1742410301': {
+                '⚠ Ligação Interrompida': '3616',
+                '♻ Retorno': '3626',
+                '❌❌ Sem Interesse': '3622',
+                '❌ Não fez o cadastro ⚠': '8998',
+                '❌ Contato incorreto ⚠': '5514',
+                '⛔ Já compareceu': '3624',
+                '❌ Descatar Lead ❌': '3648',
+                'Outra Região ⚠': '6518',
+                '✅ Ficha Verificada por IA': '5526',
+                '✅ Agendado': '3620',
+                '✅✅ Agendamento confirmado': '3644',
+                '⚠ Requalificar - descarte não autorizado': '5518',
+                '✅ Ficha Verificada': '5522',
+                '☎️  Caixa Postal': '3618',
+                '⚠ Aguardando Qualificação': '6540',
+              },
+            };
+
+            // Se o campo tem mapeamento e o valor é um label
+            if (enumerationMappings[fieldName]?.[value]) {
+              return enumerationMappings[fieldName][value];
+            }
+
+            // Se já é um ID ou não tem mapeamento, retornar como está
+            return value;
+          };
+
+          // Converter valores de campos adicionais (enumeration labels -> IDs)
+          const processedAdditionalFields = Object.fromEntries(
+            Object.entries(additionalFields).map(([key, val]) => [
+              key,
+              typeof val === 'string' ? convertEnumerationValue(key, val) : val
+            ])
+          );
+
+          // Combinar campo principal com campos adicionais processados
+          const mainValue = typeof value === 'string' ? convertEnumerationValue(field, value) : value;
           const allFields = {
-            [field]: value,
-            ...additionalFields
+            [field]: mainValue,
+            ...processedAdditionalFields
           };
           
           console.log('🔍 DEBUG - Antes de enviar ao Bitrix:', {
