@@ -32,10 +32,12 @@ type DynamicProfile = Record<string, any>;
 
 interface SubButton {
   subLabel: string;
+  subDescription?: string;
   subWebhook: string;
   subField: string;
   subValue: string;
   subHotkey?: string;
+  subAdditionalFields?: Array<{ field: string; value: string }>;
 }
 
 interface ButtonConfig {
@@ -865,7 +867,14 @@ const LeadTab = () => {
           .replace(/\{\{valor_botao\}\}/g, value)
           .replace(/\{\{data\}\}/g, scheduledDate || new Date().toISOString().split('T')[0])
           .replace(/\{\{horario\}\}/g, scheduledTime || '')
-          .replace(/\{\{nome_lead\}\}/g, chatwootData.name || '');
+          .replace(/\{\{nome_lead\}\}/g, chatwootData.name || '')
+          .replace(/\{\{id_lead\}\}/g, String(bitrixId))
+          .replace(/\{\{telefone\}\}/g, profile.phone_number || chatwootData.phone_number || '')
+          .replace(/\{\{email\}\}/g, profile.email || chatwootData.email || '')
+          .replace(/\{\{responsavel\}\}/g, profile.responsible || '')
+          .replace(/\{\{endereco\}\}/g, profile.address || '')
+          .replace(/\{\{idade\}\}/g, profile.age ? String(profile.age) : '')
+          .replace(/\{\{scouter\}\}/g, profile.scouter || '');
       };
       
       // Preparar campos adicionais com processamento de placeholders
@@ -874,7 +883,17 @@ const LeadTab = () => {
         button.additional_fields.forEach(({ field: addField, value: addValue }) => {
           // Processar placeholders no valor - pular campos vazios
           const processedValue = replacePlaceholders(addValue);
-          if (processedValue !== '') {
+          if (processedValue !== '' && addField) {
+            additionalFields[addField] = processedValue;
+          }
+        });
+      }
+
+      // Processar subAdditionalFields se houver sub-button
+      if (subButton?.subAdditionalFields && Array.isArray(subButton.subAdditionalFields)) {
+        subButton.subAdditionalFields.forEach(({ field: addField, value: addValue }) => {
+          const processedValue = replacePlaceholders(addValue);
+          if (processedValue !== '' && addField) {
             additionalFields[addField] = processedValue;
           }
         });
@@ -926,6 +945,13 @@ const LeadTab = () => {
             [field]: value,
             ...additionalFields
           };
+          
+          console.log('📤 Enviando para Bitrix:', {
+            id: bitrixId,
+            campo_principal: { [field]: value },
+            campos_adicionais: additionalFields,
+            todos_campos: allFields
+          });
           
           const response = await fetch(webhookUrl, {
             method: 'POST',
