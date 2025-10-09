@@ -196,8 +196,16 @@ export function ButtonEditDialog({
               <Select
                 value={button.field || ""}
                 onValueChange={(value) => {
+                  console.log("🔧 Campo selecionado:", value);
+                  console.log("🔧 Sync target:", button.sync_target);
+                  console.log("🔧 Bitrix fields:", bitrixFields.length);
+                  console.log("🔧 Supabase fields:", supabaseFields.length);
+                  
                   const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
                   const fieldMeta = fields.find((f) => f.name === value);
+                  
+                  console.log("🔧 Field encontrado:", fieldMeta);
+                  
                   onUpdate(button.id, { 
                     field: value,
                     field_type: fieldMeta?.type || 'string',
