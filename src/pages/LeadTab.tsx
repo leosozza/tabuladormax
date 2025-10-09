@@ -967,18 +967,30 @@ const LeadTab = () => {
             }
           });
           
+          const bitrixPayload = {
+            id: bitrixId,
+            fields: allFields
+          };
+          
+          console.log('📤 Enviando para Bitrix:', JSON.stringify(bitrixPayload, null, 2));
+          
           const response = await fetch(webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: bitrixId,
-              fields: allFields
-            })
+            body: JSON.stringify(bitrixPayload)
           });
 
+          console.log('📥 Resposta do Bitrix - Status:', response.status);
+          
+          const responseData = await response.json();
+          console.log('📥 Resposta do Bitrix - Dados:', responseData);
+
           if (!response.ok) {
-            throw new Error('Erro ao atualizar Bitrix');
+            console.error('❌ Erro na resposta do Bitrix:', responseData);
+            throw new Error(`Erro ao atualizar Bitrix: ${JSON.stringify(responseData)}`);
           }
+          
+          console.log('✅ Bitrix atualizado com sucesso!');
         }
 
         // 2. Atualizar Supabase - chatwoot_contacts
