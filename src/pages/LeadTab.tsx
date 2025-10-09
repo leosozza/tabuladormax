@@ -899,6 +899,14 @@ const LeadTab = () => {
         });
       }
 
+      console.log('📋 Campos adicionais processados:', {
+        button_additional_fields: button.additional_fields,
+        sub_additional_fields: subButton?.subAdditionalFields,
+        resultado_final: additionalFields
+      });
+
+      console.log('🔀 Fluxo escolhido:', syncTarget === 'supabase' ? 'Edge Function' : 'Webhook Direto');
+
       // Determinar fluxo de sincronização baseado em sync_target
       if (syncTarget === 'supabase') {
         // NOVO FLUXO: Supabase → Bitrix
@@ -946,11 +954,17 @@ const LeadTab = () => {
             ...additionalFields
           };
           
-          console.log('📤 Enviando para Bitrix:', {
-            id: bitrixId,
-            campo_principal: { [field]: value },
+          console.log('🔍 DEBUG - Antes de enviar ao Bitrix:', {
+            bitrixId,
+            webhookUrl,
+            campo_principal: field,
+            valor_principal: value,
             campos_adicionais: additionalFields,
-            todos_campos: allFields
+            campos_combinados: allFields,
+            payload_completo: {
+              id: bitrixId,
+              fields: allFields
+            }
           });
           
           const response = await fetch(webhookUrl, {
@@ -995,7 +1009,9 @@ const LeadTab = () => {
         payload: { 
           webhook: webhookUrl, 
           field, 
-          value, 
+          value,
+          additional_fields: additionalFields,
+          all_fields: { [field]: value, ...additionalFields },
           sync_target: syncTarget 
         } as any,
         status: 'OK',
