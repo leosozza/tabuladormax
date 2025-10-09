@@ -423,24 +423,6 @@ export function ButtonEditDialog({
               </Button>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md p-3 mb-3">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-1">
-                    Placeholders Disponíveis
-                  </p>
-                  <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                    {AVAILABLE_PLACEHOLDERS.map((ph) => (
-                      <li key={ph.value}>
-                        <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">{ph.value}</code> - {ph.description}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-
             <div className="space-y-2">
               {(button.additional_fields || []).map((addField, fieldIndex) => (
                 <Card key={`${button.id}-field-${fieldIndex}`} className="p-3 bg-accent/30">
