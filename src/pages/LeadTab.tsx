@@ -1004,15 +1004,23 @@ const LeadTab = () => {
           custom_attributes: updatedAttributes,
         });
 
-        // 3. Atualizar tabela leads (para Power BI)
-        const leadUpdate = {
+        // 3. Atualizar tabela leads - APENAS campos que existem na tabela
+        // Não tentar salvar campos customizados do Bitrix (UF_CRM_*) aqui
+        const leadUpdateFields: any = {
           id: Number(bitrixId),
-          [field]: value
         };
+        
+        // Adicionar apenas campos que existem na tabela leads
+        const validLeadFields = ['name', 'age', 'address', 'photo_url', 'responsible', 'scouter'];
+        if (validLeadFields.includes(field)) {
+          leadUpdateFields[field] = value;
+        }
+        
+        console.log('💾 Atualizando tabela leads com:', leadUpdateFields);
         
         await supabase
           .from('leads')
-          .upsert([leadUpdate as any], { onConflict: 'id' });
+          .upsert([leadUpdateFields], { onConflict: 'id' });
       }
 
       const { error: logError } = await supabase.from('actions_log').insert([{
