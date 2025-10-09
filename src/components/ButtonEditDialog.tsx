@@ -206,7 +206,17 @@ export function ButtonEditDialog({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={`Selecione um campo ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`} />
+                  <SelectValue placeholder={`Selecione um campo ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`}>
+                    {button.field ? (
+                      (() => {
+                        const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
+                        const selectedField = fields.find(f => f.name === button.field);
+                        return selectedField ? selectedField.title : button.field;
+                      })()
+                    ) : (
+                      `Selecione um campo ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-background z-[200] max-h-[300px]">
                   {button.sync_target === 'supabase' 
@@ -377,7 +387,17 @@ export function ButtonEditDialog({
                           }}
                         >
                           <SelectTrigger className="h-8">
-                            <SelectValue placeholder={`Selecione ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`} />
+                            <SelectValue placeholder={`Selecione ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`}>
+                              {sub.subField ? (
+                                (() => {
+                                  const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
+                                  const selectedField = fields.find(f => f.name === sub.subField);
+                                  return selectedField ? selectedField.title : sub.subField;
+                                })()
+                              ) : (
+                                `Selecione ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`
+                              )}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent className="bg-background z-[200] max-h-[200px]">
                             {button.sync_target === 'supabase'
