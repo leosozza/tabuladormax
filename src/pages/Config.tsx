@@ -417,25 +417,34 @@ const Config = () => {
   };
 
   const addSubAdditionalField = (id: string, subIndex: number) => {
+    console.log('🔧 addSubAdditionalField chamado:', { id, subIndex });
     applyUpdate((current) =>
-      current.map((button) =>
-        button.id === id
-          ? {
-              ...button,
-              sub_buttons: button.sub_buttons.map((sub, index) => 
-                index === subIndex 
-                  ? {
-                      ...sub,
-                      subAdditionalFields: [
-                        ...(sub.subAdditionalFields || []),
-                        { field: "", value: "" },
-                      ],
-                    }
-                  : sub
-              ),
-            }
-          : button,
-      ),
+      current.map((button) => {
+        if (button.id === id) {
+          console.log('🔍 Botão encontrado:', button.label);
+          console.log('🔍 Sub-botão atual:', button.sub_buttons[subIndex]);
+          const updatedButton = {
+            ...button,
+            sub_buttons: button.sub_buttons.map((sub, index) => {
+              if (index === subIndex) {
+                const newFields = [
+                  ...(sub.subAdditionalFields || []),
+                  { field: "", value: "" },
+                ];
+                console.log('✅ Novos campos:', newFields);
+                return {
+                  ...sub,
+                  subAdditionalFields: newFields,
+                };
+              }
+              return sub;
+            }),
+          };
+          console.log('✅ Botão atualizado:', updatedButton);
+          return updatedButton;
+        }
+        return button;
+      }),
     );
   };
 
