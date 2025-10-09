@@ -157,25 +157,18 @@ export async function getLeadFields(): Promise<BitrixField[]> {
     }
     
     const fields = data.result || {};
-    return Object.entries(fields).map(([key, value]: [string, any]) => {
-      // Para campos do Bitrix:
-      // - Campos nativos: apenas "title" com o nome correto
-      // - Campos personalizados (UF_CRM_*): "title" tem o ID, mas "listLabel"/"formLabel" têm o nome real
-      const displayTitle = value.listLabel || value.formLabel || value.filterLabel || value.title || key;
-      
-      return {
-        ID: key,
-        FIELD_NAME: key,
-        TITLE: displayTitle,
-        TYPE: value.type || 'string',
-        // Propriedades padronizadas (minúsculas)
-        name: key,
-        title: displayTitle,
-        type: value.type || 'string',
-        items: value.items,
-        ...value
-      };
-    });
+    return Object.entries(fields).map(([key, value]: [string, any]) => ({
+      ID: key,
+      FIELD_NAME: key,
+      TITLE: value.formLabel || value.listLabel || value.title || key,
+      TYPE: value.type || 'string',
+      // Propriedades padronizadas (minúsculas)
+      name: key,
+      title: value.formLabel || value.listLabel || value.title || key,
+      type: value.type || 'string',
+      items: value.items,
+      ...value
+    }));
   } catch (error) {
     if (error instanceof BitrixError) throw error;
     throw new BitrixError('Não foi possível buscar campos do Bitrix');
