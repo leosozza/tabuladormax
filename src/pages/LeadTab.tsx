@@ -1143,6 +1143,24 @@ const LeadTab = () => {
     }
   };
 
+  // Função auxiliar para criar opções de horário padrão
+  const createFallbackTimeOptions = () => {
+    const fallbackOptions = [];
+    for (let h = 8; h <= 18; h++) {
+      for (let m of [0, 30]) {
+        if (h === 18 && m === 30) break; // Parar em 18:00
+        const hour = String(h).padStart(2, '0');
+        const min = String(m).padStart(2, '0');
+        const time = `${hour}:${min}`;
+        fallbackOptions.push({
+          id: time,
+          name: time
+        });
+      }
+    }
+    return fallbackOptions;
+  };
+
   const handleButtonClick = async (button: ButtonConfig) => {
     setSelectedButton(button);
 
@@ -1158,30 +1176,70 @@ const LeadTab = () => {
         try {
           console.log('🕐 Buscando opções de horário do Bitrix...');
           const fields = await getLeadFields();
-          console.log('📋 Todos os campos:', fields.length);
+          console.log('📋 Todos os campos:', fields.map(f => ({ 
+            ID: f.ID, 
+            name: f.name, 
+            type: f.type,
+            hasItems: !!f.items 
+          })));
           
           // Buscar pelo campo usando diferentes variações de nome
-          const hourFieldData = fields.find(f => 
-            f.ID === 'UF_CRM_1740755176' || 
-            f.FIELD_NAME === 'UF_CRM_1740755176' ||
-            f.name === 'UF_CRM_1740755176'
-          );
-          
-          console.log('🔍 Campo de hora encontrado:', hourFieldData);
+          const hourFieldData = fields.find(f => {
+            const fieldId = f.ID || f.FIELD_NAME || f.name;
+            const matches = fieldId === 'UF_CRM_1740755176';
+            
+            if (matches) {
+              console.log(`🔍 Campo encontrado:`, {
+                fieldId,
+                type: f.type,
+                hasItems: !!f.items,
+                itemsCount: f.items ? (Array.isArray(f.items) ? f.items.length : Object.keys(f.items).length) : 0,
+                itemsSample: f.items ? JSON.stringify(f.items).slice(0, 200) : null
+              });
+            }
+            
+            return matches;
+          });
           
           if (hourFieldData?.items) {
-            console.log('✅ Items encontrados:', hourFieldData.items);
-            const options = hourFieldData.items.map((item: any) => ({
-              id: item.ID,      // ✅ ID real do Bitrix (ex: "2388", "9014")
-              name: item.VALUE  // ✅ Label (ex: "09:00", "09:15")
-            }));
-            console.log('⏰ Opções de horário:', options);
-            setTimeOptions(options);
+            console.log('✅ Items completos:', JSON.stringify(hourFieldData.items, null, 2));
+            
+            let options = [];
+            
+            // Suportar formato array
+            if (Array.isArray(hourFieldData.items)) {
+              options = hourFieldData.items.map((item: any) => ({
+                id: item.ID || item.id,
+                name: item.VALUE || item.value || item.NAME || item.name
+              }));
+            } 
+            // Suportar formato objeto
+            else {
+              options = Object.entries(hourFieldData.items).map(([key, item]: [string, any]) => {
+                const id = item.ID || key;
+                const name = item.VALUE || item.value || item.NAME || item;
+                return { id, name };
+              });
+            }
+            
+            // Filtrar opções inválidas
+            options = options.filter(opt => opt.id && opt.name);
+            
+            console.log('⏰ Opções processadas:', options);
+            
+            if (options.length > 0) {
+              setTimeOptions(options);
+            } else {
+              console.warn('⚠️ Nenhuma opção válida após processamento, usando fallback');
+              setTimeOptions(createFallbackTimeOptions());
+            }
           } else {
-            console.warn('⚠️ Campo de hora não tem items:', hourFieldData);
+            console.warn('⚠️ Campo de hora não tem items, usando fallback');
+            setTimeOptions(createFallbackTimeOptions());
           }
         } catch (error) {
-          console.error('❌ Erro ao carregar opções de hora:', error);
+          console.error('❌ Erro ao carregar opções de hora, usando fallback:', error);
+          setTimeOptions(createFallbackTimeOptions());
         }
       }
       
