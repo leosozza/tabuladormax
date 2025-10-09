@@ -968,7 +968,7 @@ const LeadTab = () => {
           });
           
           const bitrixPayload = {
-            id: bitrixId,
+            id: String(bitrixId), // ✅ Converter para string
             fields: allFields
           };
           
@@ -983,10 +983,16 @@ const LeadTab = () => {
           console.log('📥 Resposta do Bitrix - Status:', response.status);
           
           const responseData = await response.json();
-          console.log('📥 Resposta do Bitrix - Dados:', responseData);
+          console.log('📥 Resposta COMPLETA do Bitrix:', responseData);
+          
+          // Verificar se há mensagens de erro mesmo com result: true
+          if (responseData.error) {
+            console.error('❌ Erro do Bitrix:', responseData.error_description || responseData.error);
+            throw new Error(`Erro do Bitrix: ${responseData.error_description || responseData.error}`);
+          }
 
           if (!response.ok) {
-            console.error('❌ Erro na resposta do Bitrix:', responseData);
+            console.error('❌ Erro na resposta do Bitrix (HTTP):', responseData);
             throw new Error(`Erro ao atualizar Bitrix: ${JSON.stringify(responseData)}`);
           }
           
