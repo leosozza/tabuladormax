@@ -960,24 +960,25 @@ const LeadTab = () => {
             campo_principal: field,
             valor_principal: value,
             campos_adicionais: additionalFields,
-            campos_combinados: allFields,
-            payload_completo: {
-              id: bitrixId,
-              fields: allFields
-            }
+            campos_combinados: allFields
           });
           
-          const bitrixPayload = {
-            id: String(bitrixId), // ✅ Converter para string
-            fields: allFields
-          };
+          // Construir URL com query parameters no formato Bitrix
+          const params = new URLSearchParams();
+          params.append('ID', String(bitrixId));
           
-          console.log('📤 Enviando para Bitrix:', JSON.stringify(bitrixPayload, null, 2));
+          // Adicionar todos os campos no formato FIELDS[CAMPO]=valor
+          Object.entries(allFields).forEach(([key, val]) => {
+            params.append(`FIELDS[${key}]`, String(val));
+          });
           
-          const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(bitrixPayload)
+          const fullUrl = `${webhookUrl}?${params.toString()}`;
+          console.log('🔗 URL completa do Bitrix:', fullUrl);
+          console.log('📤 Parâmetros:', params.toString());
+          
+          // Fazer requisição GET (formato esperado pelo Bitrix)
+          const response = await fetch(fullUrl, {
+            method: 'GET'
           });
 
           console.log('📥 Resposta do Bitrix - Status:', response.status);
