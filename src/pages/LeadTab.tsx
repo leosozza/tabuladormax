@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
@@ -37,6 +41,7 @@ interface SubButton {
 interface ButtonConfig {
   id: string;
   label: string;
+  description?: string;
   color: string;
   webhook_url: string;
   field: string;
@@ -851,14 +856,23 @@ const LeadTab = () => {
       const syncTarget = button.sync_target || 'bitrix';
       const bitrixId = Number(chatwootData.bitrix_id);
       
-      // Preparar campos adicionais
+      // Função para processar placeholders dinâmicos
+      const replacePlaceholders = (inputValue: string): string => {
+        if (typeof inputValue !== 'string') return inputValue;
+        
+        return inputValue
+          .replace(/\{\{valor_botao\}\}/g, value)
+          .replace(/\{\{data\}\}/g, scheduledDate || new Date().toISOString().split('T')[0])
+          .replace(/\{\{horario\}\}/g, scheduledTime || '')
+          .replace(/\{\{nome_lead\}\}/g, chatwootData.name || '');
+      };
+      
+      // Preparar campos adicionais com processamento de placeholders
       const additionalFields: Record<string, any> = {};
       if (button.additional_fields && Array.isArray(button.additional_fields)) {
-        button.additional_fields.forEach(({ field: addField }) => {
-          // Para campo de hora, usar o valor selecionado
-          if (addField === 'UF_CRM_1740755176' && scheduledTime) {
-            additionalFields[addField] = scheduledTime;
-          }
+        button.additional_fields.forEach(({ field: addField, value: addValue }) => {
+          // Processar placeholders no valor
+          additionalFields[addField] = replacePlaceholders(addValue);
         });
       }
 
@@ -1310,18 +1324,36 @@ const LeadTab = () => {
                           }}
                         >
                           {categoryButtons.map((btn) => {
-                            return (
+                            const ButtonContent = (
                               <Button
                                 variant="ghost"
                                 key={btn.id}
                                 data-btn-id={btn.id}
                                 onClick={() => handleButtonClick(btn)}
-                                className="flex items-center justify-center rounded-lg px-3 py-2 text-center text-sm font-semibold text-white shadow-lg transition-transform duration-150 hover:scale-[1.02] focus-visible:scale-[1.02] hover:bg-white/20 hover:text-white min-h-[56px]"
+                                className="flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-center text-sm font-semibold text-white shadow-lg transition-transform duration-150 hover:scale-[1.02] focus-visible:scale-[1.02] hover:bg-white/20 hover:text-white min-h-[56px] w-full"
                                 style={{ backgroundColor: btn.color }}
                               >
-                                <span className="break-words whitespace-normal leading-tight w-full max-w-full">{btn.label}</span>
+                                {btn.description && <Info className="w-3 h-3 flex-shrink-0" />}
+                                <span className="break-words whitespace-normal leading-tight flex-1">{btn.label}</span>
                               </Button>
                             );
+
+                            if (btn.description) {
+                              return (
+                                <TooltipProvider key={btn.id}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      {ButtonContent}
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs">
+                                      <p className="text-xs">{btn.description}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            }
+
+                            return ButtonContent;
                           })}
                         </div>
                       )}

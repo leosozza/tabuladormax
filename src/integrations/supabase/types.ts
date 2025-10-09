@@ -78,6 +78,7 @@ export type Database = {
           category: string | null
           color: string
           created_at: string | null
+          description: string | null
           field: string
           field_type: string | null
           hotkey: string | null
@@ -96,6 +97,7 @@ export type Database = {
           category?: string | null
           color?: string
           created_at?: string | null
+          description?: string | null
           field: string
           field_type?: string | null
           hotkey?: string | null
@@ -114,6 +116,7 @@ export type Database = {
           category?: string | null
           color?: string
           created_at?: string | null
+          description?: string | null
           field?: string
           field_type?: string | null
           hotkey?: string | null

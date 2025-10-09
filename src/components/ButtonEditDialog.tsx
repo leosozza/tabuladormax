@@ -1,10 +1,11 @@
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BitrixField } from "@/lib/bitrix";
 import { BUTTON_CATEGORIES, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 
@@ -19,6 +20,7 @@ interface SubButton {
 interface ButtonConfig {
   id: string;
   label: string;
+  description?: string;
   color: string;
   webhook_url: string;
   field: string;
@@ -115,6 +117,27 @@ export function ButtonEditDialog({
               <Input
                 value={button.label}
                 onChange={(event) => onUpdate(button.id, { label: event.target.value })}
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Label>Descrição/Dica</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Texto que aparece ao passar o mouse sobre o botão</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <Input
+                value={button.description || ""}
+                onChange={(event) => onUpdate(button.id, { description: event.target.value })}
+                placeholder="Ex: Confirmar agendamento e enviar notificação"
               />
             </div>
 
@@ -349,6 +372,23 @@ export function ButtonEditDialog({
                 <Plus className="w-3 h-3" />
                 Adicionar Parâmetro
               </Button>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md p-3 mb-3">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                    Placeholders Disponíveis
+                  </p>
+                  <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                    <li><code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">{'{{valor_botao}}'}</code> - Valor do campo principal do botão</li>
+                    <li><code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">{'{{data}}'}</code> - Data atual ou selecionada</li>
+                    <li><code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">{'{{horario}}'}</code> - Horário selecionado</li>
+                    <li><code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">{'{{nome_lead}}'}</code> - Nome do lead</li>
+                  </ul>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
