@@ -28,12 +28,25 @@ export default function Home() {
 
             if (loginError) throw loginError;
 
-            if (loginData?.success) {
-              console.log("✅ Auto-login bem-sucedido!");
-              setDebugLog(prev => [...prev, "Auto-login OK - Sessão ativa"]);
+            if (loginData?.session) {
+              console.log("✅ Auto-login retornou sessão - aplicando...");
               
-              // Aguardar um pouco para a sessão ser estabelecida
-              await new Promise(resolve => setTimeout(resolve, 500));
+              // Aplicar a sessão recebida
+              const { error: setSessionError } = await supabase.auth.setSession({
+                access_token: loginData.session.access_token,
+                refresh_token: loginData.session.refresh_token
+              });
+
+              if (setSessionError) {
+                console.error("❌ Erro ao aplicar sessão:", setSessionError);
+                setDebugLog(prev => [...prev, `Erro ao aplicar sessão: ${setSessionError.message}`]);
+              } else {
+                console.log("✅ Sessão aplicada! Usuário:", loginData.user);
+                setDebugLog(prev => [...prev, `Auto-login OK: ${loginData.user.email} (${loginData.user.role})`]);
+              }
+            } else {
+              console.warn("⚠️ Auto-login não retornou sessão");
+              setDebugLog(prev => [...prev, "Auto-login falhou: sessão não retornada"]);
             }
           } catch (loginError) {
             console.error("❌ Erro no auto-login:", loginError);

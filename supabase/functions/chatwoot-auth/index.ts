@@ -95,28 +95,29 @@ Deno.serve(async (req) => {
       console.log('✅ Role atribuída:', appRole);
     }
 
-    // Gerar session token
-    const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email,
+    // Criar sessão válida para o usuário
+    const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.createSession({
+      user_id: userId
     });
 
     if (sessionError) {
-      console.error('Erro ao gerar link:', sessionError);
+      console.error('Erro ao criar sessão:', sessionError);
       throw sessionError;
     }
-
-    // Criar sessão usando o token gerado
-    const { data: session, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
-      email,
-      password: sessionData.properties.hashed_token || '',
-    });
 
     console.log('✅ Sessão criada com sucesso');
 
     return new Response(
       JSON.stringify({
         success: true,
+        session: {
+          access_token: sessionData.session.access_token,
+          refresh_token: sessionData.session.refresh_token,
+          expires_at: sessionData.session.expires_at,
+          expires_in: sessionData.session.expires_in,
+          token_type: sessionData.session.token_type,
+          user: sessionData.user
+        },
         user: {
           id: userId,
           email,
