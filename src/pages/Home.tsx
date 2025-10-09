@@ -1,25 +1,43 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Bug } from "lucide-react";
 import { extractChatwootData, extractAssigneeData, saveChatwootContact } from "@/lib/chatwoot";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Home() {
   const navigate = useNavigate();
-  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
+  // Verificar autenticação e redirecionar para /lead
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        console.log("✅ Usuário autenticado - redirecionando para /lead");
+        navigate('/lead');
+      } else {
+        console.log("ℹ️ Usuário não autenticado - aguardando login Chatwoot");
+        setIsCheckingAuth(false);
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
+
+  // Listener para auto-login via Chatwoot
   useEffect(() => {
     console.log("🎧 Listener de mensagens do Chatwoot ativado na Home");
     
     const processChatwootData = async (eventData: any) => {
       try {
         console.log("📦 eventData completo:", eventData);
-        setDebugLog(prev => [...prev, `Has conversation: ${!!eventData?.conversation}`]);
 
-        // 1. Tentar auto-login via assignee
+        // Tentar auto-login via assignee
         const assigneeData = extractAssigneeData(eventData);
         if (assigneeData) {
           console.log("🔐 Tentando auto-login com assignee:", assigneeData.email);
-          setDebugLog(prev => [...prev, `Auto-login: ${assigneeData.email}`]);
           
           try {
             const { data: loginData, error: loginError } = await supabase.functions.invoke('chatwoot-auth', {
@@ -39,73 +57,49 @@ export default function Home() {
 
               if (setSessionError) {
                 console.error("❌ Erro ao aplicar sessão:", setSessionError);
-                setDebugLog(prev => [...prev, `Erro ao aplicar sessão: ${setSessionError.message}`]);
               } else {
-                console.log("✅ Sessão aplicada! Usuário:", loginData.user);
-                setDebugLog(prev => [...prev, `Auto-login OK: ${loginData.user.email} (${loginData.user.role})`]);
+                console.log("✅ Sessão aplicada! Redirecionando para /lead");
+                // Processar dados do contato antes de redirecionar
+                if (eventData?.conversation?.meta?.sender || eventData?.data?.contact) {
+                  const contactData = extractChatwootData(eventData);
+                  
+                  if (contactData && contactData.bitrix_id) {
+                    console.log("💾 Salvando contato:", contactData.bitrix_id);
+                    await saveChatwootContact(contactData);
+                    
+                    await supabase.from('actions_log').insert([{
+                      lead_id: Number(contactData.bitrix_id),
+                      action_label: 'Auto-login Chatwoot',
+                      payload: {
+                        conversation_id: contactData.conversation_id,
+                        contact_id: contactData.contact_id
+                      } as any,
+                      status: 'OK',
+                    }]);
+                  }
+                }
+                
+                navigate('/lead');
               }
-            } else {
-              console.warn("⚠️ Auto-login não retornou sessão");
-              setDebugLog(prev => [...prev, "Auto-login falhou: sessão não retornada"]);
             }
           } catch (loginError) {
             console.error("❌ Erro no auto-login:", loginError);
-            setDebugLog(prev => [...prev, `Erro auto-login: ${loginError}`]);
-            // Continuar mesmo se auto-login falhar
           }
-        }
-
-        // 2. Processar dados do contato
-        if (eventData?.conversation?.meta?.sender || eventData?.data?.contact) {
-          const contactData = extractChatwootData(eventData);
-          console.log("👤 Dados extraídos:", contactData);
-          
-          if (contactData && contactData.bitrix_id) {
-            console.log("💾 Salvando contato:", contactData.bitrix_id);
-            setDebugLog(prev => [...prev, `ID Bitrix encontrado: ${contactData.bitrix_id}`]);
-            
-            await saveChatwootContact(contactData);
-            
-            // Registrar log do evento
-            await supabase.from('actions_log').insert([{
-              lead_id: Number(contactData.bitrix_id),
-              action_label: 'Evento Chatwoot - Home',
-              payload: {
-                conversation_id: contactData.conversation_id,
-                contact_id: contactData.contact_id
-              } as any,
-              status: 'OK',
-            }]);
-            
-            console.log("✅ Navegando para /lead");
-            setDebugLog(prev => [...prev, "Navegando para /lead"]);
-            
-            navigate('/lead');
-          } else {
-            console.log("⚠️ Nenhum idbitrix encontrado");
-            setDebugLog(prev => [...prev, "Nenhum idbitrix nos dados"]);
-          }
-        } else {
-          console.log("ℹ️ Dados sem conversation.meta.sender");
-          setDebugLog(prev => [...prev, "Sem conversation.meta.sender"]);
         }
       } catch (error) {
         console.error("❌ Erro ao processar evento:", error);
-        setDebugLog(prev => [...prev, `Erro: ${error}`]);
       }
     };
     
     // 1. Verificar se já existem dados pré-carregados
     if ((window as any)._CHATWOOT_DATA_) {
       console.log("✅ [Home] Dados pré-carregados encontrados!");
-      setDebugLog(prev => [...prev, "Dados pré-carregados encontrados"]);
       processChatwootData((window as any)._CHATWOOT_DATA_);
     }
 
     // 2. Escutar evento customizado
     const handleChatwootReady = (event: Event) => {
       console.log("✅ [Home] Evento chatwoot-data-ready recebido!");
-      setDebugLog(prev => [...prev, "Evento customizado recebido"]);
       const customEvent = event as CustomEvent;
       processChatwootData(customEvent.detail);
     };
@@ -118,32 +112,25 @@ export default function Home() {
         origin: event.origin,
         dataType: typeof event.data,
       });
-      
-      setDebugLog(prev => [...prev, `Origem: ${event.origin}`, `Tipo: ${typeof event.data}`]);
 
       try {
         let eventData;
         
-        // Tenta parsear se for string
         if (typeof event.data === "string") {
           try {
             eventData = JSON.parse(event.data);
             console.log("✅ JSON parseado");
-            setDebugLog(prev => [...prev, "JSON parseado com sucesso"]);
           } catch (parseError) {
             console.log("⚠️ Não é JSON válido");
-            setDebugLog(prev => [...prev, "Não é JSON válido"]);
             return;
           }
         } else {
           eventData = event.data;
-          console.log("✅ Dados diretos (objeto)");
         }
 
         await processChatwootData(eventData);
       } catch (error) {
         console.error("❌ Erro ao processar evento:", error);
-        setDebugLog(prev => [...prev, `Erro: ${error}`]);
       }
     };
 
@@ -157,42 +144,43 @@ export default function Home() {
     };
   }, [navigate]);
 
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="text-center max-w-2xl w-full">
         <h1 className="text-2xl font-semibold text-foreground mb-2">
-          Aguardando dados do Chatwoot...
+          Aguardando login via Chatwoot...
         </h1>
-        <p className="text-muted-foreground mb-4">
-          Selecione uma conversa para começar
+        <p className="text-muted-foreground mb-6">
+          Abra uma conversa no Chatwoot para fazer login automaticamente
         </p>
         
-        {/* Debug info */}
-        <div className="mt-8 p-4 bg-muted rounded-lg text-left">
-          <p className="text-sm font-semibold mb-2">Debug Log:</p>
-          <div className="text-xs font-mono space-y-1 max-h-96 overflow-y-auto">
-            {debugLog.length === 0 ? (
-              <p className="text-muted-foreground">Nenhuma mensagem recebida ainda...</p>
-            ) : (
-              debugLog.map((log, i) => (
-                <p key={i} className="text-foreground">{log}</p>
-              ))
-            )}
-          </div>
-          <button 
-            onClick={() => setDebugLog([])} 
-            className="mt-2 text-xs text-blue-600 hover:underline"
+        <div className="flex justify-center gap-4">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/debug')}
+            className="gap-2"
           >
-            Limpar log
-          </button>
+            <Bug className="w-4 h-4" />
+            Modo Debug
+          </Button>
         </div>
         
-        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg text-left">
+        <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg text-left">
           <p className="text-xs font-semibold mb-2">💡 Como funciona:</p>
           <p className="text-xs text-muted-foreground">
-            Esta página está escutando eventos via <code className="bg-muted px-1 rounded">window.postMessage</code>.
-            Quando o Chatwoot enviar dados com <code className="bg-muted px-1 rounded">conversation.meta.sender.custom_attributes.idbitrix</code>,
-            você será redirecionado automaticamente para a página do lead.
+            Esta aplicação faz login automaticamente quando você abre uma conversa no Chatwoot.
+            Após o login, você será redirecionado para a página do lead.
           </p>
         </div>
       </div>

@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import Home from "./pages/Home";
+import Debug from "./pages/Debug";
 import LeadTab from "./pages/LeadTab";
 import Dashboard from "./pages/Dashboard";
 import Config from "./pages/Config";
@@ -22,7 +23,8 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/" element={<Home />} />
+          <Route path="/debug" element={<ProtectedRoute><Debug /></ProtectedRoute>} />
           <Route path="/lead" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/config" element={<ProtectedRoute requireManager><Config /></ProtectedRoute>} />
