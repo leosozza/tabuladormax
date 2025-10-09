@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, CalendarIcon } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -24,7 +22,6 @@ import {
   type ButtonLayout,
 } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
 
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, any>;
@@ -201,7 +198,7 @@ const LeadTab = () => {
   const [selectedButton, setSelectedButton] = useState<ButtonConfig | null>(null);
   const [subButtonModal, setSubButtonModal] = useState(false);
   const [scheduleModal, setScheduleModal] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+  const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
   const [timeOptions, setTimeOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [chatwootData, setChatwootData] = useState<any>(null);
@@ -1029,7 +1026,7 @@ const LeadTab = () => {
       }
       
       setScheduleModal(true);
-      setScheduleDate(undefined);
+      setScheduleDate("");
       setScheduleTime("");
       return;
     }
@@ -1042,13 +1039,11 @@ const LeadTab = () => {
       toast.error("Selecione data e hora");
       return;
     }
-
-    const formattedDate = format(scheduleDate, 'yyyy-MM-dd');
     
     // Atualizar automaticamente os campos correspondentes no profile
     if (selectedButton.field) {
       const updates: Record<string, any> = {
-        [selectedButton.field]: formattedDate,
+        [selectedButton.field]: scheduleDate,
       };
       
       // Se houver campo de horário nos additional_fields, atualizar também
@@ -1064,7 +1059,7 @@ const LeadTab = () => {
       toast.success("Data e horário preenchidos automaticamente!");
     }
     
-    executeAction(selectedButton, undefined, formattedDate, scheduleTime);
+    executeAction(selectedButton, undefined, scheduleDate, scheduleTime);
     setScheduleModal(false);
   };
 
@@ -1370,29 +1365,11 @@ const LeadTab = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Data</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !scheduleDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {scheduleDate ? format(scheduleDate, "dd/MM/yyyy") : <span>Selecione a data</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={scheduleDate}
-                    onSelect={setScheduleDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+              <Input
+                type="date"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label>Horário</Label>
