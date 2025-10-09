@@ -209,23 +209,36 @@ const Config = () => {
       return;
     }
 
-    const parsed = (data || []).map((entry, index) => ({
-      id: entry.id,
-      label: entry.label,
-      color: entry.color,
-      webhook_url: entry.webhook_url || DEFAULT_WEBHOOK,
-      field: entry.field || "",
-      value: entry.value || "",
-      field_type: entry.field_type || "string",
-      action_type: entry.action_type || "simple",
-      hotkey: entry.hotkey || "",
-      sort: entry.sort || index + 1,
-      layout: ensureButtonLayout(entry.pos as Partial<ButtonLayout>, entry.sort || index),
-      sub_buttons: parseSubButtons(entry.sub_buttons),
-      sync_target: (entry.sync_target as 'bitrix' | 'supabase') || 'bitrix',
-    }));
+    const parsed = (data || []).map((entry, index) => {
+      const layout = ensureButtonLayout(entry.pos as Partial<ButtonLayout>, entry.sort || index);
+      console.log('📦 Botão parseado:', {
+        label: entry.label,
+        category_db: entry.category,
+        layout_category: layout.category,
+        pos: entry.pos
+      });
+      
+      return {
+        id: entry.id,
+        label: entry.label,
+        color: entry.color,
+        webhook_url: entry.webhook_url || DEFAULT_WEBHOOK,
+        field: entry.field || "",
+        value: entry.value || "",
+        field_type: entry.field_type || "string",
+        action_type: entry.action_type || "simple",
+        hotkey: entry.hotkey || "",
+        sort: entry.sort || index + 1,
+        layout,
+        sub_buttons: parseSubButtons(entry.sub_buttons),
+        sync_target: (entry.sync_target as 'bitrix' | 'supabase') || 'bitrix',
+      };
+    });
 
-    setButtons(normalizeButtons(parsed));
+    const normalized = normalizeButtons(parsed);
+    console.log('📊 Botões normalizados:', normalized.map(b => ({ label: b.label, category: b.layout.category })));
+    
+    setButtons(normalized);
     setLoadingButtons(false);
   };
 
@@ -600,6 +613,12 @@ const Config = () => {
                 <div className="grid gap-4 lg:grid-cols-3">
                   {categories.map((category) => {
                     const categoryButtons = buttons.filter((button) => button.layout.category === category.name);
+                    
+                    console.log(`🔍 Filtro categoria "${category.name}" (${category.label}):`, {
+                      total_buttons: buttons.length,
+                      filtered: categoryButtons.length,
+                      button_categories: buttons.map(b => b.layout.category)
+                    });
 
                     return (
                       <div
