@@ -99,6 +99,9 @@ export function ButtonEditDialog({
   onRemoveSubAdditionalField,
   onUpdateSubAdditionalField,
 }: ButtonEditDialogProps) {
+  console.log('🔴 ButtonEditDialog renderizou com button:', button);
+  console.log('🔴 Sub-botões:', button?.sub_buttons);
+  
   if (!button) return null;
 
   const fieldMeta = bitrixFields.find((field) => field.name === button.field);

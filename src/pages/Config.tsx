@@ -188,6 +188,10 @@ const Config = () => {
 
   // Buscar o botão em edição do estado atualizado
   const editingButton = editingButtonId ? buttons.find(b => b.id === editingButtonId) || null : null;
+  
+  console.log('🟢 editingButtonId:', editingButtonId);
+  console.log('🟢 editingButton encontrado:', editingButton);
+  console.log('🟢 Sub-botões do editingButton:', editingButton?.sub_buttons);
 
   useEffect(() => {
     loadCategories();
