@@ -30,6 +30,7 @@ interface ButtonConfig {
   layout: ButtonLayout;
   sub_buttons: SubButton[];
   sync_target?: 'bitrix' | 'supabase';
+  additional_fields?: Array<{ field: string; value: string }>;
 }
 
 interface SupabaseField {
@@ -61,6 +62,9 @@ interface ButtonEditDialogProps {
   onMoveButton: (id: string, category: string) => void;
   onDelete: (id: string) => void;
   renderFieldValueControl: (fieldName: string, value: string, onChange: (value: string) => void) => React.ReactNode;
+  onAddAdditionalField: (id: string) => void;
+  onRemoveAdditionalField: (id: string, fieldIndex: number) => void;
+  onUpdateAdditionalField: (id: string, fieldIndex: number, updates: { field?: string; value?: string }) => void;
 }
 
 export function ButtonEditDialog({
@@ -79,6 +83,9 @@ export function ButtonEditDialog({
   onMoveButton,
   onDelete,
   renderFieldValueControl,
+  onAddAdditionalField,
+  onRemoveAdditionalField,
+  onUpdateAdditionalField,
 }: ButtonEditDialogProps) {
   if (!button) return null;
 
@@ -325,7 +332,78 @@ export function ButtonEditDialog({
             </div>
           </div>
 
-          <div>
+          <div className="border-t pt-4">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <Label className="text-sm font-semibold">Parâmetros Adicionais</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Campos extras enviados junto com a ação. Use placeholders como {`{{data}}`} ou {`{{horario}}`}
+                </p>
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => onAddAdditionalField(button.id)}
+                className="flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                Adicionar Parâmetro
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              {(button.additional_fields || []).map((addField, fieldIndex) => (
+                <Card key={`${button.id}-field-${fieldIndex}`} className="p-3 bg-accent/30">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Campo</Label>
+                        <Input
+                          value={addField.field}
+                          onChange={(event) =>
+                            onUpdateAdditionalField(button.id, fieldIndex, {
+                              field: event.target.value,
+                            })
+                          }
+                          placeholder="STATUS_ID"
+                          className="h-8 font-mono text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Valor</Label>
+                        <Input
+                          value={addField.value}
+                          onChange={(event) =>
+                            onUpdateAdditionalField(button.id, fieldIndex, {
+                              value: event.target.value,
+                            })
+                          }
+                          placeholder="UC_QWPO2W ou {{data}}"
+                          className="h-8 font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onRemoveAdditionalField(button.id, fieldIndex)}
+                      className="mt-5 h-8 w-8 p-0"
+                    >
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+              
+              {(!button.additional_fields || button.additional_fields.length === 0) && (
+                <div className="text-center py-4 text-sm text-muted-foreground bg-muted/30 rounded-md">
+                  Nenhum parâmetro adicional configurado
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-3">
               <Label className="text-sm font-semibold">Sub-botões (Motivos)</Label>
               <Button size="sm" variant="outline" onClick={() => onAddSubButton(button.id)}>

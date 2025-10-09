@@ -44,6 +44,7 @@ interface ButtonConfig {
   layout: ButtonLayout;
   sub_buttons: SubButton[];
   sync_target?: 'bitrix' | 'supabase';
+  additional_fields?: Array<{ field: string; value: string }>;
 }
 
 const DEFAULT_WEBHOOK = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json";
@@ -342,6 +343,53 @@ const Config = () => {
           ? {
               ...button,
               sub_buttons: button.sub_buttons.map((sub, index) => (index === subIndex ? { ...sub, ...updates } : sub)),
+            }
+          : button,
+      ),
+    );
+  };
+
+  const addAdditionalField = (id: string) => {
+    applyUpdate((current) =>
+      current.map((button) =>
+        button.id === id
+          ? {
+              ...button,
+              additional_fields: [
+                ...(button.additional_fields || []),
+                {
+                  field: "",
+                  value: "",
+                },
+              ],
+            }
+          : button,
+      ),
+    );
+  };
+
+  const removeAdditionalField = (id: string, fieldIndex: number) => {
+    applyUpdate((current) =>
+      current.map((button) =>
+        button.id === id
+          ? {
+              ...button,
+              additional_fields: (button.additional_fields || []).filter((_, index) => index !== fieldIndex),
+            }
+          : button,
+      ),
+    );
+  };
+
+  const updateAdditionalField = (id: string, fieldIndex: number, updates: { field?: string; value?: string }) => {
+    applyUpdate((current) =>
+      current.map((button) =>
+        button.id === id
+          ? {
+              ...button,
+              additional_fields: (button.additional_fields || []).map((addField, index) => 
+                index === fieldIndex ? { ...addField, ...updates } : addField
+              ),
             }
           : button,
       ),
@@ -707,6 +755,9 @@ const Config = () => {
           onMoveButton={moveButton}
           onDelete={removeButton}
           renderFieldValueControl={renderFieldValueControl}
+          onAddAdditionalField={addAdditionalField}
+          onRemoveAdditionalField={removeAdditionalField}
+          onUpdateAdditionalField={updateAdditionalField}
         />
       </div>
     </div>
