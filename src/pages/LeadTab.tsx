@@ -75,20 +75,38 @@ const mapChatwootToProfile = (contact: any, fieldMappings: FieldMapping[]): Dyna
 const mapBitrixToProfile = (bitrixLead: BitrixLead, fieldMappings: FieldMapping[]): DynamicProfile => {
   const profile: DynamicProfile = {};
   
-  // Mapeamento direto de campos conhecidos do Bitrix
-  const bitrixFieldMap: Record<string, string> = {
-    'name': bitrixLead.NAME || bitrixLead.TITLE || '',
-    'age': bitrixLead.UF_IDADE || bitrixLead.AGE || '',
-    'address': bitrixLead.UF_LOCAL || bitrixLead.ADDRESS || bitrixLead.ADDRESS_CITY || '',
-    'responsible': bitrixLead.UF_RESPONSAVEL || bitrixLead.ASSIGNED_BY_NAME || '',
-    'scouter': bitrixLead.UF_SCOUTER || '',
-    'photo': bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
-  };
-
-  // Aplicar field mappings configurados
+  // Para cada field mapping, buscar o valor correspondente no Bitrix
   fieldMappings.forEach(mapping => {
     const profileField = mapping.profile_field;
-    profile[profileField] = bitrixFieldMap[profileField] || '';
+    const chatwootField = mapping.chatwoot_field;
+    
+    // Remover prefixos "contact." ou "data.contact." para obter o caminho real
+    const cleanPath = chatwootField
+      .replace('data.contact.', '')
+      .replace('contact.', '');
+    
+    // Se for custom_attributes, buscar dentro de custom_attributes do lead
+    if (cleanPath.startsWith('custom_attributes.')) {
+      const attrKey = cleanPath.replace('custom_attributes.', '');
+      // Tentar diferentes variações de nomes de campos do Bitrix
+      profile[profileField] = bitrixLead[`UF_CRM_${attrKey.toUpperCase()}`] || 
+                              bitrixLead[`UF_${attrKey.toUpperCase()}`] ||
+                              bitrixLead[attrKey.toUpperCase()] ||
+                              (bitrixLead as any)[attrKey] || '';
+    } else if (cleanPath === 'name') {
+      profile[profileField] = bitrixLead.NAME || bitrixLead.TITLE || '';
+    } else if (cleanPath === 'phone_number') {
+      // Extrair telefone do array PHONE se existir
+      const phones = bitrixLead.PHONE;
+      if (Array.isArray(phones) && phones.length > 0) {
+        profile[profileField] = phones[0].VALUE || '';
+      } else {
+        profile[profileField] = '';
+      }
+    } else {
+      // Para outros campos, tentar buscar diretamente
+      profile[profileField] = getNestedValue(bitrixLead, cleanPath);
+    }
   });
 
   return profile;
@@ -320,20 +338,42 @@ const LeadTab = () => {
       setProfile(newProfile);
 
       // 4. Salvar no cache para próximas buscas
+      // Construir custom_attributes dinamicamente baseado nos field mappings
+      const customAttributes: Record<string, any> = {
+        idbitrix: bitrixId
+      };
+      
+      fieldMappings.forEach(mapping => {
+        const chatwootField = mapping.chatwoot_field;
+        const cleanPath = chatwootField
+          .replace('data.contact.', '')
+          .replace('contact.', '');
+        
+        if (cleanPath.startsWith('custom_attributes.')) {
+          const attrKey = cleanPath.replace('custom_attributes.', '');
+          // Buscar valor no Bitrix usando diferentes variações
+          const value = bitrixLead[`UF_CRM_${attrKey.toUpperCase()}`] || 
+                       bitrixLead[`UF_${attrKey.toUpperCase()}`] ||
+                       bitrixLead[attrKey.toUpperCase()] ||
+                       (bitrixLead as any)[attrKey] || '';
+          customAttributes[attrKey] = value;
+        }
+      });
+
+      // Extrair telefone
+      let phoneNumber = '';
+      const phones = bitrixLead.PHONE;
+      if (Array.isArray(phones) && phones.length > 0) {
+        phoneNumber = phones[0].VALUE || '';
+      }
+
       const contactData = {
         bitrix_id: bitrixId,
         name: bitrixLead.NAME || bitrixLead.TITLE || '',
-        phone_number: '',
+        phone_number: phoneNumber,
         email: '',
-        thumbnail: bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
-        custom_attributes: {
-          idbitrix: bitrixId,
-          idade: bitrixLead.UF_IDADE || bitrixLead.AGE || '',
-          local: bitrixLead.UF_LOCAL || bitrixLead.ADDRESS || '',
-          responsavel: bitrixLead.UF_RESPONSAVEL || bitrixLead.ASSIGNED_BY_NAME || '',
-          scouter: bitrixLead.UF_SCOUTER || '',
-          foto: bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
-        },
+        thumbnail: '',
+        custom_attributes: customAttributes,
         additional_attributes: {},
         conversation_id: null,
         contact_id: null,
