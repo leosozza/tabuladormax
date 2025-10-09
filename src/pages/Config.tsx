@@ -169,6 +169,7 @@ const Config = () => {
   const [loadingButtons, setLoadingButtons] = useState(true);
   const [saving, setSaving] = useState(false);
   const [draggingButton, setDraggingButton] = useState<string | null>(null);
+  const [isDraggingOverTrash, setIsDraggingOverTrash] = useState(false);
   const [editingButtonId, setEditingButtonId] = useState<string | null>(null);
 
   // Buscar o botão em edição do estado atualizado
@@ -466,6 +467,33 @@ const Config = () => {
 
   const handleDragEnd = () => {
     setDraggingButton(null);
+    setIsDraggingOverTrash(false);
+  };
+
+  const handleTrashDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setIsDraggingOverTrash(true);
+  };
+
+  const handleTrashDragLeave = () => {
+    setIsDraggingOverTrash(false);
+  };
+
+  const handleTrashDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    const buttonId = event.dataTransfer.getData("button-id");
+    
+    if (buttonId) {
+      const button = buttons.find(b => b.id === buttonId);
+      if (button && confirm(`Tem certeza que deseja excluir o botão "${button.label}"?`)) {
+        removeButton(buttonId);
+        toast.success("Botão excluído!");
+      }
+    }
+    
+    setIsDraggingOverTrash(false);
+    setDraggingButton(null);
   };
 
   const handleButtonDropOnCard = (event: DragEvent<HTMLDivElement>, category: string, dropIndex: number) => {
@@ -725,9 +753,39 @@ const Config = () => {
                       </div>
                     );
                   })}
-                </div>
-              )}
+                 </div>
+               )}
           </section>
+          
+          {/* Área de Lixeira */}
+          {draggingButton && (
+            <div 
+              className={cn(
+                "mt-6 rounded-xl border-2 border-dashed transition-all duration-300 flex items-center justify-center gap-3 py-8",
+                isDraggingOverTrash 
+                  ? "border-destructive bg-destructive/20 scale-105" 
+                  : "border-muted-foreground/30 bg-muted/20"
+              )}
+              onDragOver={handleTrashDragOver}
+              onDragLeave={handleTrashDragLeave}
+              onDrop={handleTrashDrop}
+            >
+              <Trash2 
+                className={cn(
+                  "w-8 h-8 transition-colors",
+                  isDraggingOverTrash ? "text-destructive" : "text-muted-foreground"
+                )} 
+              />
+              <span 
+                className={cn(
+                  "font-medium transition-colors",
+                  isDraggingOverTrash ? "text-destructive" : "text-muted-foreground"
+                )}
+              >
+                {isDraggingOverTrash ? "Solte para excluir" : "Arraste aqui para excluir"}
+              </span>
+            </div>
+          )}
         </Card>
 
         <ButtonEditDialog
