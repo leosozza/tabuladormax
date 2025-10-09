@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { saveChatwootContact, extractChatwootData, type ChatwootEventData } from "@/lib/chatwoot";
+import { getLead, type BitrixLead } from "@/lib/bitrix";
 import {
   BUTTON_CATEGORIES,
   categoryOrder,
@@ -66,6 +67,28 @@ const mapChatwootToProfile = (contact: any, fieldMappings: FieldMapping[]): Dyna
   fieldMappings.forEach(mapping => {
     const value = getNestedValue(contact, mapping.chatwoot_field);
     profile[mapping.profile_field] = value || "";
+  });
+
+  return profile;
+};
+
+const mapBitrixToProfile = (bitrixLead: BitrixLead, fieldMappings: FieldMapping[]): DynamicProfile => {
+  const profile: DynamicProfile = {};
+  
+  // Mapeamento direto de campos conhecidos do Bitrix
+  const bitrixFieldMap: Record<string, string> = {
+    'name': bitrixLead.NAME || bitrixLead.TITLE || '',
+    'age': bitrixLead.UF_IDADE || bitrixLead.AGE || '',
+    'address': bitrixLead.UF_LOCAL || bitrixLead.ADDRESS || bitrixLead.ADDRESS_CITY || '',
+    'responsible': bitrixLead.UF_RESPONSAVEL || bitrixLead.ASSIGNED_BY_NAME || '',
+    'scouter': bitrixLead.UF_SCOUTER || '',
+    'photo': bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
+  };
+
+  // Aplicar field mappings configurados
+  fieldMappings.forEach(mapping => {
+    const profileField = mapping.profile_field;
+    profile[profileField] = bitrixFieldMap[profileField] || '';
   });
 
   return profile;
@@ -148,6 +171,9 @@ const LeadTab = () => {
   const [profile, setProfile] = useState<DynamicProfile>(emptyProfile);
   const [buttons, setButtons] = useState<ButtonConfig[]>([]);
   const [editMode, setEditMode] = useState(false);
+  const [searchModal, setSearchModal] = useState(false);
+  const [searchId, setSearchId] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [selectedButton, setSelectedButton] = useState<ButtonConfig | null>(null);
   const [subButtonModal, setSubButtonModal] = useState(false);
@@ -247,6 +273,101 @@ const LeadTab = () => {
   const addNewField = async () => {
     const newFieldKey = `custom_${Date.now()}`;
     await saveFieldMapping(newFieldKey, '', 'Novo Campo');
+  };
+
+  const loadLeadById = async (bitrixId: string) => {
+    if (!bitrixId || !bitrixId.trim()) {
+      toast.error("Digite um ID válido");
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      // 1. Buscar primeiro no cache local (chatwoot_contacts)
+      console.log("🔍 Buscando lead no cache local...", bitrixId);
+      const { data: cachedContact, error: cacheError } = await supabase
+        .from('chatwoot_contacts')
+        .select('*')
+        .eq('bitrix_id', bitrixId)
+        .maybeSingle();
+
+      if (cacheError) {
+        console.error("Erro ao buscar no cache:", cacheError);
+      }
+
+      if (cachedContact) {
+        console.log("✅ Lead encontrado no cache:", cachedContact);
+        
+        // Usar dados do cache
+        setChatwootData(cachedContact);
+        const newProfile = mapChatwootToProfile(cachedContact, fieldMappings);
+        setProfile(newProfile);
+        
+        toast.success("Lead carregado do cache!");
+        setSearchModal(false);
+        setSearchId("");
+        return;
+      }
+
+      // 2. Se não estiver no cache, buscar no Bitrix
+      console.log("⚠️ Lead não encontrado no cache, buscando no Bitrix...");
+      const bitrixLead = await getLead(bitrixId);
+      
+      console.log("✅ Lead encontrado no Bitrix:", bitrixLead);
+
+      // 3. Mapear Bitrix → Profile
+      const newProfile = mapBitrixToProfile(bitrixLead, fieldMappings);
+      setProfile(newProfile);
+
+      // 4. Salvar no cache para próximas buscas
+      const contactData = {
+        bitrix_id: bitrixId,
+        name: bitrixLead.NAME || bitrixLead.TITLE || '',
+        phone_number: '',
+        email: '',
+        thumbnail: bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
+        custom_attributes: {
+          idbitrix: bitrixId,
+          idade: bitrixLead.UF_IDADE || bitrixLead.AGE || '',
+          local: bitrixLead.UF_LOCAL || bitrixLead.ADDRESS || '',
+          responsavel: bitrixLead.UF_RESPONSAVEL || bitrixLead.ASSIGNED_BY_NAME || '',
+          scouter: bitrixLead.UF_SCOUTER || '',
+          foto: bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
+        },
+        additional_attributes: {},
+        conversation_id: null,
+        contact_id: null,
+      };
+
+      setChatwootData(contactData);
+      await saveChatwootContact(contactData);
+
+      // 5. Salvar também na tabela leads (para Power BI)
+      await supabase
+        .from('leads')
+        .upsert([{
+          id: Number(bitrixId),
+          name: contactData.name,
+          age: bitrixLead.UF_IDADE ? Number(bitrixLead.UF_IDADE) : null,
+          address: bitrixLead.UF_LOCAL || bitrixLead.ADDRESS || '',
+          responsible: bitrixLead.UF_RESPONSAVEL || bitrixLead.ASSIGNED_BY_NAME || '',
+          scouter: bitrixLead.UF_SCOUTER || '',
+          photo_url: bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
+          date_modify: bitrixLead.DATE_MODIFY ? new Date(bitrixLead.DATE_MODIFY).toISOString() : null,
+          raw: bitrixLead as any,
+          sync_source: 'bitrix',
+        }], { onConflict: 'id' });
+
+      toast.success("Lead carregado do Bitrix!");
+      setSearchModal(false);
+      setSearchId("");
+
+    } catch (error) {
+      console.error("❌ Erro ao buscar lead:", error);
+      toast.error("Lead não encontrado ou erro ao buscar");
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
 
@@ -751,9 +872,14 @@ const LeadTab = () => {
         });
 
         // 3. Atualizar tabela leads (para Power BI)
+        const leadUpdate = {
+          id: Number(bitrixId),
+          [field]: value
+        };
+        
         await supabase
           .from('leads')
-          .upsert({ id: bitrixId, [field]: value }, { onConflict: 'id' });
+          .upsert([leadUpdate as any], { onConflict: 'id' });
       }
 
       const { error: logError } = await supabase.from('actions_log').insert([{
@@ -827,17 +953,26 @@ const LeadTab = () => {
       <div className="container mx-auto max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="p-6 flex flex-col items-center gap-4 h-fit relative">
-            {!editMode && (
+            <div className="absolute top-4 right-4 flex gap-2">
               <Button 
-                onClick={() => setEditMode(true)} 
+                onClick={() => setSearchModal(true)} 
                 size="icon"
-                disabled={loadingProfile}
-                title="Editar Perfil"
-                className="absolute top-4 right-4"
+                variant="outline"
+                title="Buscar Lead por ID"
               >
-                <Edit className="w-4 h-4" />
+                <Search className="w-4 h-4" />
               </Button>
-            )}
+              {!editMode && (
+                <Button 
+                  onClick={() => setEditMode(true)} 
+                  size="icon"
+                  disabled={loadingProfile}
+                  title="Editar Perfil"
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
             
             {/* Foto do perfil */}
             <div className="relative">
@@ -1406,6 +1541,66 @@ const LeadTab = () => {
             </Button>
             <Button onClick={() => setShowFieldMappingModal(false)} className="w-full sm:w-auto">
               Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Busca por ID */}
+      <Dialog open={searchModal} onOpenChange={setSearchModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Buscar Lead por ID do Bitrix</DialogTitle>
+            <DialogDescription>
+              Digite o ID do lead no Bitrix para carregar suas informações
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="bitrix-id">ID do Bitrix</Label>
+              <Input
+                id="bitrix-id"
+                type="text"
+                placeholder="Ex: 12345"
+                value={searchId}
+                onChange={(e) => setSearchId(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !searchLoading) {
+                    loadLeadById(searchId);
+                  }
+                }}
+                disabled={searchLoading}
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSearchModal(false);
+                setSearchId("");
+              }}
+              disabled={searchLoading}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={() => loadLeadById(searchId)}
+              disabled={searchLoading || !searchId.trim()}
+              className="w-full sm:w-auto"
+            >
+              {searchLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Buscando...
+                </>
+              ) : (
+                <>
+                  <Search className="w-4 h-4 mr-2" />
+                  Buscar Lead
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
