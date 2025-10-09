@@ -254,7 +254,41 @@ const LeadTab = () => {
     checkUserRole();
     loadButtons();
     loadFieldMappings();
-  }, []);
+
+    // Sincronizar com Bitrix ao sair da página
+    const handleBeforeUnload = async () => {
+      if (!chatwootData?.bitrix_id) return;
+
+      console.log("🔄 Sincronizando dados finais com Bitrix antes de sair...");
+
+      // Preparar dados completos do lead para sincronização
+      const leadData: any = { id: Number(chatwootData.bitrix_id) };
+      
+      fieldMappings.forEach(mapping => {
+        const value = profile[mapping.profile_field];
+        if (value !== undefined && value !== '') {
+          leadData[mapping.profile_field] = value;
+        }
+      });
+
+      // Usar sendBeacon para garantir envio mesmo ao fechar página
+      const syncUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-bitrix`;
+      const payload = JSON.stringify({
+        lead: leadData,
+        webhook: DEFAULT_WEBHOOK,
+        source: 'supabase'
+      });
+
+      navigator.sendBeacon(syncUrl, new Blob([payload], { type: 'application/json' }));
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      handleBeforeUnload(); // Também sincronizar ao desmontar componente
+    };
+  }, [chatwootData, profile, fieldMappings]);
 
   // Listener do Chatwoot - NÃO depende de fieldMappings para evitar recriar toda hora
   useEffect(() => {
@@ -541,18 +575,20 @@ const LeadTab = () => {
       
       fieldMappings.forEach(mapping => {
         const value = profile[mapping.profile_field];
-        if (value !== undefined) {
+        if (value !== undefined && value !== '') {
           const field = mapping.chatwoot_field;
           
           // Atualizar custom_attributes.*
-          if (field.startsWith('contact.custom_attributes.')) {
-            const attrKey = field.replace('contact.custom_attributes.', '');
+          if (field.startsWith('contact.custom_attributes.') || field.startsWith('data.contact.custom_attributes.')) {
+            const attrKey = field.replace('contact.custom_attributes.', '').replace('data.contact.custom_attributes.', '');
             updatedAttributes[attrKey] = value;
           }
           // Atualizar campos diretos do contato (nome, telefone, email, etc.)
-          else if (field.startsWith('contact.')) {
-            const contactKey = field.replace('contact.', '');
-            updatedChatwootData[contactKey] = value;
+          else if (field.startsWith('contact.') || field.startsWith('data.contact.')) {
+            const contactKey = field.replace('contact.', '').replace('data.contact.', '');
+            if (contactKey !== 'custom_attributes' && contactKey !== 'additional_attributes') {
+              updatedChatwootData[contactKey] = value;
+            }
           }
           // Atualizar additional_attributes.*
           else if (field.startsWith('additional_attributes.')) {
@@ -565,31 +601,56 @@ const LeadTab = () => {
         }
       });
 
-      // Aplicar custom_attributes atualizados
-      updatedChatwootData.custom_attributes = updatedAttributes;
+      // Aplicar custom_attributes atualizados (preservar campos não mapeados)
+      updatedChatwootData.custom_attributes = { ...chatwootData.custom_attributes, ...updatedAttributes };
 
-      // Atualizar no Supabase
+      // 1. Atualizar no Supabase - tabela chatwoot_contacts
       await saveChatwootContact(updatedChatwootData);
+
+      // 2. Atualizar tabela leads (para análise Power BI)
+      const bitrixId = Number(chatwootData.bitrix_id);
+      const leadData: any = { id: bitrixId };
+      
+      // Mapear campos do profile para a estrutura da tabela leads
+      fieldMappings.forEach(mapping => {
+        const value = profile[mapping.profile_field];
+        if (value !== undefined && value !== '') {
+          // Usar o profile_field como nome do campo no leads (ex: name, age, address)
+          leadData[mapping.profile_field] = value;
+        }
+      });
+
+      // Upsert na tabela leads
+      const { error: leadsError } = await supabase
+        .from('leads')
+        .upsert(leadData, { onConflict: 'id' });
+
+      if (leadsError) {
+        console.error('❌ Erro ao atualizar tabela leads:', leadsError);
+        toast.warning("Dados salvos no Chatwoot, mas erro ao atualizar backup");
+      }
 
       // Atualizar estado local com dados completos
       setChatwootData(updatedChatwootData);
       
-      // Reconstruir profile a partir dos dados atualizados para garantir sincronização
-      const newProfile = mapChatwootToProfile(updatedChatwootData, fieldMappings);
-      setProfile(newProfile);
+      // Manter o profile atual (não reconstruir para evitar perda de dados)
+      // Apenas atualizar os campos que foram editados
+      setProfile({ ...profile });
 
       // Registrar log da ação com detalhes completos
       await supabase.from('actions_log').insert([{
-        lead_id: Number(chatwootData.bitrix_id),
+        lead_id: bitrixId,
         action_label: 'Atualização de perfil',
         payload: { 
           profile_before: profileBefore,
-          profile_after: newProfile,
-          updated_chatwoot_data: updatedChatwootData 
+          profile_after: profile,
+          updated_chatwoot_data: updatedChatwootData,
+          leads_data: leadData
         } as any,
         status: 'OK',
       }]);
 
+      console.log("✅ Perfil salvo:", { chatwoot_contacts: true, leads: !leadsError });
       toast.success("Perfil salvo com sucesso!");
       setEditMode(false);
     } catch (error) {
@@ -621,6 +682,7 @@ const LeadTab = () => {
       const field = subButton?.subField || button.field;
       const value = scheduledDate || subButton?.subValue || button.value || "";
       const syncTarget = button.sync_target || 'bitrix';
+      const bitrixId = Number(chatwootData.bitrix_id);
 
       // Determinar fluxo de sincronização baseado em sync_target
       if (syncTarget === 'supabase') {
@@ -636,12 +698,17 @@ const LeadTab = () => {
           custom_attributes: updatedAttributes,
         });
 
+        // Atualizar tabela leads também
+        await supabase
+          .from('leads')
+          .upsert({ id: bitrixId, [field]: value }, { onConflict: 'id' });
+
         // Chamar edge function para sincronizar com Bitrix
         if (webhookUrl) {
           const { error: syncError } = await supabase.functions.invoke('sync-to-bitrix', {
             body: {
               lead: {
-                id: Number(chatwootData.bitrix_id),
+                id: bitrixId,
                 [field]: value,
               },
               webhook: webhookUrl,
@@ -655,14 +722,14 @@ const LeadTab = () => {
           }
         }
       } else {
-        // FLUXO ATUAL: Bitrix → Supabase
-        // Atualizar Bitrix via webhook primeiro
+        // FLUXO ATUAL: Bitrix como fonte da verdade
+        // 1. Atualizar Bitrix via webhook primeiro
         if (webhookUrl) {
           const response = await fetch(webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              id: Number(chatwootData.bitrix_id),
+              id: bitrixId,
               fields: { [field]: value }
             })
           });
@@ -672,7 +739,7 @@ const LeadTab = () => {
           }
         }
 
-        // Atualizar Supabase (o trigger do Bitrix também fará isso)
+        // 2. Atualizar Supabase - chatwoot_contacts
         const updatedAttributes = {
           ...chatwootData.custom_attributes,
           [field]: value,
@@ -682,10 +749,15 @@ const LeadTab = () => {
           ...chatwootData,
           custom_attributes: updatedAttributes,
         });
+
+        // 3. Atualizar tabela leads (para Power BI)
+        await supabase
+          .from('leads')
+          .upsert({ id: bitrixId, [field]: value }, { onConflict: 'id' });
       }
 
       const { error: logError } = await supabase.from('actions_log').insert([{
-        lead_id: Number(chatwootData.bitrix_id),
+        lead_id: bitrixId,
         action_label: subButton ? `${button.label} / ${subButton.subLabel}` : button.label,
         payload: { 
           webhook: webhookUrl, 
