@@ -987,7 +987,18 @@ const LeadTab = () => {
     }
 
     const datetime = `${scheduleDate} ${scheduleTime}:00`;
+    
+    // Atualizar automaticamente o campo correspondente no profile
+    if (selectedButton.field) {
+      setProfile((prev) => ({
+        ...prev,
+        [selectedButton.field]: datetime,
+      }));
+      toast.success("Data preenchida automaticamente!");
+    }
+    
     executeAction(selectedButton, undefined, datetime);
+    setScheduleModal(false);
   };
 
   return (
