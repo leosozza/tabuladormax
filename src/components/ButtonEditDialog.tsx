@@ -410,12 +410,13 @@ export function ButtonEditDialog({
                       <div>
                         <Label className="text-xs text-muted-foreground">Campo</Label>
                         <Select
-                          value={addField.field || ""}
+                          value={addField.field || '_placeholder_'}
                           onValueChange={(value) => {
+                            const newField = value === '_placeholder_' ? '' : value;
                             const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
-                            const fieldMeta = fields.find((f) => f.name === value);
+                            const fieldMeta = fields.find((f) => f.name === newField);
                             onUpdateAdditionalField(button.id, fieldIndex, {
-                              field: value,
+                              field: newField,
                               value: '' // Limpar valor ao mudar campo
                             });
                           }}
@@ -437,6 +438,13 @@ export function ButtonEditDialog({
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent className="bg-background z-[200] max-h-[200px]">
+                            <SelectItem value="_placeholder_">
+                              <div className="flex items-center gap-2">
+                                <code className="text-xs bg-primary/10 px-1.5 py-0.5 rounded">{'{ }'}</code>
+                                <span className="text-xs font-medium">Usar Placeholder</span>
+                              </div>
+                            </SelectItem>
+                            <div className="h-px bg-border my-1" />
                             {button.sync_target === 'supabase'
                               ? supabaseFields.map((field) => (
                                   <SelectItem key={`add-${fieldIndex}-${field.name}`} value={field.name}>
@@ -648,12 +656,13 @@ export function ButtonEditDialog({
                           Campo do {button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}
                         </Label>
                         <Select
-                          value={sub.subField || ""}
+                          value={sub.subField || '_placeholder_'}
                           onValueChange={(value) => {
+                            const newField = value === '_placeholder_' ? '' : value;
                             const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
-                            const fieldMeta = fields.find((f) => f.name === value);
+                            const fieldMeta = fields.find((f) => f.name === newField);
                             onUpdateSubButton(button.id, subIndex, { 
-                              subField: value,
+                              subField: newField,
                               subValue: '' // Limpar valor ao mudar campo
                             });
                           }}
@@ -670,6 +679,13 @@ export function ButtonEditDialog({
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent className="bg-background z-[200] max-h-[200px]">
+                            <SelectItem value="_placeholder_">
+                              <div className="flex items-center gap-2">
+                                <code className="text-xs bg-primary/10 px-1.5 py-0.5 rounded">{'{ }'}</code>
+                                <span className="text-xs font-medium">Usar Placeholder</span>
+                              </div>
+                            </SelectItem>
+                            <div className="h-px bg-border my-1" />
                             {button.sync_target === 'supabase'
                               ? supabaseFields.map((field) => (
                                   <SelectItem key={`sub-${subIndex}-${field.name}`} value={field.name}>
@@ -808,10 +824,11 @@ export function ButtonEditDialog({
                               <div className="flex-1 grid grid-cols-2 gap-2">
                                 <div>
                                   <Select
-                                    value={addField.field || ""}
+                                    value={addField.field || '_placeholder_'}
                                     onValueChange={(value) => {
+                                      const newField = value === '_placeholder_' ? '' : value;
                                       onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, {
-                                        field: value,
+                                        field: newField,
                                         value: ''
                                       });
                                     }}
@@ -828,6 +845,13 @@ export function ButtonEditDialog({
                                       </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent className="bg-background z-[250] max-h-[150px]">
+                                      <SelectItem value="_placeholder_">
+                                        <div className="flex items-center gap-1.5">
+                                          <code className="text-[10px] bg-primary/10 px-1 py-0.5 rounded">{'{ }'}</code>
+                                          <span className="text-[10px] font-medium">Placeholder</span>
+                                        </div>
+                                      </SelectItem>
+                                      <div className="h-px bg-border my-1" />
                                       {button.sync_target === 'supabase'
                                         ? supabaseFields.map((field) => (
                                             <SelectItem key={`sub-add-${subIndex}-${fieldIndex}-${field.name}`} value={field.name}>
