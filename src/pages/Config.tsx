@@ -610,6 +610,28 @@ const Config = () => {
   };
 
   const renderFieldValueControl = (fieldName: string, value: string, onChange: (value: string) => void) => {
+    // Detectar se o valor é um placeholder
+    const isPlaceholder = value && value.startsWith('{{') && value.endsWith('}}');
+    
+    // Se for placeholder, sempre mostrar Input com badge visual
+    if (isPlaceholder) {
+      return (
+        <div className="relative">
+          <Input 
+            value={value} 
+            onChange={(event) => onChange(event.target.value)} 
+            placeholder="Placeholder" 
+            className="pr-16 bg-primary/5 border-primary/30"
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+            <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+              PLACEHOLDER
+            </span>
+          </div>
+        </div>
+      );
+    }
+    
     // Verificar se é campo Supabase ou Bitrix
     const isSupabaseField = fieldName.startsWith('supabase.');
     const cleanFieldName = isSupabaseField ? fieldName.replace('supabase.', '') : fieldName;
