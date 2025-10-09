@@ -967,9 +967,22 @@ const LeadTab = () => {
           const params = new URLSearchParams();
           params.append('ID', String(bitrixId));
           
-          // Adicionar todos os campos no formato FIELDS[CAMPO]=valor
+          // Adicionar todos os campos no formato correto para Bitrix
           Object.entries(allFields).forEach(([key, val]) => {
-            params.append(`FIELDS[${key}]`, String(val));
+            if (Array.isArray(val)) {
+              // Para arrays, adicionar cada item com índice: FIELDS[CAMPO][]=VALOR
+              val.forEach((item) => {
+                params.append(`FIELDS[${key}][]`, String(item));
+              });
+            } else if (typeof val === 'object' && val !== null) {
+              // Para objetos, adicionar cada propriedade: FIELDS[CAMPO][PROP]=VALOR
+              Object.entries(val).forEach(([subKey, subVal]) => {
+                params.append(`FIELDS[${key}][${subKey}]`, String(subVal));
+              });
+            } else {
+              // Para valores simples: FIELDS[CAMPO]=VALOR
+              params.append(`FIELDS[${key}]`, String(val));
+            }
           });
           
           const fullUrl = `${webhookUrl}?${params.toString()}`;
