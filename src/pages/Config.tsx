@@ -225,6 +225,7 @@ const Config = () => {
       layout: ensureButtonLayout(entry.pos as Partial<ButtonLayout>, entry.sort || index),
       sub_buttons: parseSubButtons(entry.sub_buttons),
       sync_target: (entry.sync_target as 'bitrix' | 'supabase') || 'bitrix',
+      additional_fields: (entry.additional_fields as Array<{ field: string; value: string }>) || [],
     }));
 
     setButtons(normalizeButtons(parsed));
@@ -265,6 +266,7 @@ const Config = () => {
       layout,
       sub_buttons: [],
       sync_target: 'bitrix',
+      additional_fields: [],
     };
 
     applyUpdate((current) => [...current, newButton]);
@@ -596,7 +598,7 @@ const Config = () => {
           webhook_url: button.webhook_url,
           field: button.field,
           value: button.value,
-          field_type: button.field_type,
+          field_type: button.field_type || 'string',
           action_type: button.action_type,
           hotkey: button.hotkey,
           sort: button.sort,
@@ -604,6 +606,7 @@ const Config = () => {
           sub_buttons: button.sub_buttons as any,
           category: button.layout.category,
           sync_target: button.sync_target || 'bitrix',
+          additional_fields: button.additional_fields || [],
         })),
       );
 
