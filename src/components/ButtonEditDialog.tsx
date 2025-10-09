@@ -120,13 +120,9 @@ export function ButtonEditDialog({
   const [statusOptions, setStatusOptions] = useState<Array<{ ID: string; NAME: string }>>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
 
-  if (!button) return null;
-
-  const fieldMeta = bitrixFields.find((field) => field.name === button.field);
-
   // Carregar etapas quando o campo STATUS_ID for selecionado
   useEffect(() => {
-    if (button.field === 'STATUS_ID' && statusOptions.length === 0) {
+    if (button?.field === 'STATUS_ID' && statusOptions.length === 0) {
       setLoadingStatuses(true);
       getLeadStatuses()
         .then((statuses) => {
@@ -140,7 +136,11 @@ export function ButtonEditDialog({
           setLoadingStatuses(false);
         });
     }
-  }, [button.field]);
+  }, [button?.field, statusOptions.length]);
+
+  if (!button) return null;
+
+  const fieldMeta = bitrixFields.find((field) => field.name === button.field);
 
   // Filtrar campos baseado na busca
   const filteredFields = (button.sync_target === 'supabase' ? supabaseFields : bitrixFields).filter(
