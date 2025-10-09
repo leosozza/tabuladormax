@@ -29,6 +29,10 @@ export interface BitrixField {
   FIELD_NAME: string;
   TITLE: string;
   TYPE: string;
+  name: string;  // Propriedade padronizada
+  title: string; // Propriedade padronizada
+  type: string;  // Propriedade padronizada
+  items?: Array<{ ID: string; VALUE: string }>;
   [key: string]: any;
 }
 
@@ -156,8 +160,13 @@ export async function getLeadFields(): Promise<BitrixField[]> {
     return Object.entries(fields).map(([key, value]: [string, any]) => ({
       ID: key,
       FIELD_NAME: key,
-      TITLE: value.formLabel || value.listLabel || key,
+      TITLE: value.formLabel || value.listLabel || value.title || key,
       TYPE: value.type || 'string',
+      // Propriedades padronizadas (minúsculas)
+      name: key,
+      title: value.formLabel || value.listLabel || value.title || key,
+      type: value.type || 'string',
+      items: value.items,
       ...value
     }));
   } catch (error) {
