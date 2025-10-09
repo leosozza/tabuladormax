@@ -114,18 +114,10 @@ export function ButtonEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle>Editar Botão: {button.label}</DialogTitle>
-              <DialogDescription>
-                Configure o botão, campos de sincronização, webhooks e sub-botões (motivos).
-              </DialogDescription>
-            </div>
-            <Button onClick={onSave} className="gap-2">
-              <Save className="w-4 h-4" />
-              Salvar
-            </Button>
-          </div>
+          <DialogTitle>Editar Botão: {button.label}</DialogTitle>
+          <DialogDescription>
+            Configure o botão, campos de sincronização, webhooks e sub-botões (motivos).
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pointer-events-auto">
@@ -753,7 +745,7 @@ export function ButtonEditDialog({
             </div>
           </div>
 
-          <div className="flex justify-center pt-4 border-t">
+          <div className="flex justify-between items-center pt-4 border-t">
             <Button 
               variant="ghost" 
               size="sm"
@@ -761,6 +753,10 @@ export function ButtonEditDialog({
               className="text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="w-5 h-5" />
+            </Button>
+            <Button onClick={onSave} className="gap-2">
+              <Save className="w-4 h-4" />
+              Salvar
             </Button>
           </div>
         </div>
