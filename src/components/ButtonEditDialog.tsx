@@ -1,4 +1,4 @@
-import { Plus, Trash2, Info } from "lucide-react";
+import { Plus, Trash2, Info, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,12 @@ import { BUTTON_CATEGORIES, type ButtonCategory, type ButtonLayout } from "@/lib
 
 interface SubButton {
   subLabel: string;
+  subDescription?: string;
   subWebhook: string;
   subField: string;
   subValue: string;
   subHotkey?: string;
+  subAdditionalFields?: Array<{ field: string; value: string }>;
 }
 
 interface ButtonConfig {
@@ -63,10 +65,14 @@ interface ButtonEditDialogProps {
   onFieldDrop: (event: React.DragEvent<HTMLDivElement>, buttonId: string, subIndex?: number) => void;
   onMoveButton: (id: string, category: string) => void;
   onDelete: (id: string) => void;
+  onSave: () => void;
   renderFieldValueControl: (fieldName: string, value: string, onChange: (value: string) => void) => React.ReactNode;
   onAddAdditionalField: (id: string) => void;
   onRemoveAdditionalField: (id: string, fieldIndex: number) => void;
   onUpdateAdditionalField: (id: string, fieldIndex: number, updates: { field?: string; value?: string }) => void;
+  onAddSubAdditionalField: (id: string, subIndex: number) => void;
+  onRemoveSubAdditionalField: (id: string, subIndex: number, fieldIndex: number) => void;
+  onUpdateSubAdditionalField: (id: string, subIndex: number, fieldIndex: number, updates: { field?: string; value?: string }) => void;
 }
 
 export function ButtonEditDialog({
@@ -84,10 +90,14 @@ export function ButtonEditDialog({
   onFieldDrop,
   onMoveButton,
   onDelete,
+  onSave,
   renderFieldValueControl,
   onAddAdditionalField,
   onRemoveAdditionalField,
   onUpdateAdditionalField,
+  onAddSubAdditionalField,
+  onRemoveSubAdditionalField,
+  onUpdateSubAdditionalField,
 }: ButtonEditDialogProps) {
   if (!button) return null;
 
@@ -104,10 +114,18 @@ export function ButtonEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar Botão: {button.label}</DialogTitle>
-          <DialogDescription>
-            Configure o botão, campos de sincronização, webhooks e sub-botões (motivos).
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Editar Botão: {button.label}</DialogTitle>
+              <DialogDescription>
+                Configure o botão, campos de sincronização, webhooks e sub-botões (motivos).
+              </DialogDescription>
+            </div>
+            <Button onClick={onSave} className="gap-2">
+              <Save className="w-4 h-4" />
+              Salvar
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4 pointer-events-auto">
@@ -525,6 +543,32 @@ export function ButtonEditDialog({
                       </div>
 
                       <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Label className="text-xs">Descrição/Dica</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">Texto que aparece ao passar o mouse sobre o sub-botão</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <Input
+                          value={sub.subDescription || ""}
+                          onChange={(event) =>
+                            onUpdateSubButton(button.id, subIndex, {
+                              subDescription: event.target.value,
+                            })
+                          }
+                          placeholder="Ex: Motivo de cancelamento"
+                          className="h-8"
+                        />
+                      </div>
+
+                      <div>
                         <Label className="text-xs">Atalho</Label>
                         <Input
                           value={sub.subHotkey || ""}
@@ -609,6 +653,97 @@ export function ButtonEditDialog({
                             placeholder="Selecione um campo primeiro" 
                             className="h-8 bg-muted"
                           />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Parâmetros Adicionais do Sub-botão */}
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="flex justify-between items-center mb-2">
+                        <Label className="text-xs font-semibold">Parâmetros Adicionais</Label>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => onAddSubAdditionalField(button.id, subIndex)}
+                          className="h-6 text-xs"
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Adicionar
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {(sub.subAdditionalFields || []).length > 0 ? (
+                          (sub.subAdditionalFields || []).map((addField, fieldIndex) => (
+                            <div key={`sub-${subIndex}-field-${fieldIndex}`} className="flex items-start gap-2 bg-accent/20 p-2 rounded">
+                              <div className="flex-1 grid grid-cols-2 gap-2">
+                                <div>
+                                  <Select
+                                    value={addField.field || ""}
+                                    onValueChange={(value) => {
+                                      onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, {
+                                        field: value,
+                                        value: ''
+                                      });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 text-xs">
+                                      <SelectValue placeholder="Campo">
+                                        {addField.field ? (
+                                          (() => {
+                                            const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
+                                            const selectedField = fields.find(f => f.name === addField.field);
+                                            return selectedField ? selectedField.title : addField.field;
+                                          })()
+                                        ) : null}
+                                      </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-background z-[250] max-h-[150px]">
+                                      {button.sync_target === 'supabase'
+                                        ? supabaseFields.map((field) => (
+                                            <SelectItem key={`sub-add-${subIndex}-${fieldIndex}-${field.name}`} value={field.name}>
+                                              <span className="text-xs">{field.title}</span>
+                                            </SelectItem>
+                                          ))
+                                        : bitrixFields.map((field) => (
+                                            <SelectItem key={`sub-add-${subIndex}-${fieldIndex}-${field.name}`} value={field.name}>
+                                              <span className="text-xs">{field.title}</span>
+                                            </SelectItem>
+                                          ))
+                                      }
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  {addField.field ? (
+                                    <div className="h-7">
+                                      {renderFieldValueControl(
+                                        addField.field,
+                                        addField.value,
+                                        (value) => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value }),
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <Input 
+                                      disabled 
+                                      placeholder="Selecione campo"
+                                      className="h-7 text-xs bg-muted"
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onRemoveSubAdditionalField(button.id, subIndex, fieldIndex)}
+                                className="h-7 w-7 p-0"
+                              >
+                                <Trash2 className="w-3 h-3 text-destructive" />
+                              </Button>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground text-center py-2">Nenhum parâmetro adicional</p>
                         )}
                       </div>
                     </div>

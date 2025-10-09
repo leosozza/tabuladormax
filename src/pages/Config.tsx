@@ -24,15 +24,18 @@ import { CategoryManager } from "@/components/CategoryManager";
 
 interface SubButton {
   subLabel: string;
+  subDescription?: string;
   subWebhook: string;
   subField: string;
   subValue: string;
   subHotkey?: string;
+  subAdditionalFields?: Array<{ field: string; value: string }>;
 }
 
 interface ButtonConfig {
   id: string;
   label: string;
+  description?: string;
   color: string;
   webhook_url: string;
   field: string;
@@ -125,6 +128,12 @@ const parseSubButtons = (value: unknown): SubButton[] => {
           : typeof payload.label === "string"
             ? payload.label
             : "Novo motivo",
+      subDescription:
+        typeof payload.subDescription === "string"
+          ? payload.subDescription
+          : typeof payload.description === "string"
+            ? payload.description
+            : "",
       subWebhook:
         typeof payload.subWebhook === "string" && payload.subWebhook
           ? payload.subWebhook
@@ -149,6 +158,11 @@ const parseSubButtons = (value: unknown): SubButton[] => {
           : typeof payload.hotkey === "string"
             ? payload.hotkey
             : "",
+      subAdditionalFields: Array.isArray(payload.subAdditionalFields)
+        ? payload.subAdditionalFields as Array<{ field: string; value: string }>
+        : Array.isArray(payload.additional_fields)
+          ? payload.additional_fields as Array<{ field: string; value: string }>
+          : [],
     };
   });
 };
@@ -214,6 +228,7 @@ const Config = () => {
     const parsed = (data || []).map((entry, index) => ({
       id: entry.id,
       label: entry.label,
+      description: entry.description || "",
       color: entry.color,
       webhook_url: entry.webhook_url || DEFAULT_WEBHOOK,
       field: entry.field || "",
@@ -314,10 +329,12 @@ const Config = () => {
                 ...button.sub_buttons,
                 {
                   subLabel: "Novo motivo",
+                  subDescription: "",
                   subWebhook: DEFAULT_WEBHOOK,
                   subField: button.field || "",
                   subValue: "",
                   subHotkey: "",
+                  subAdditionalFields: [],
                 },
               ],
             }
@@ -392,6 +409,71 @@ const Config = () => {
               ...button,
               additional_fields: (button.additional_fields || []).map((addField, index) => 
                 index === fieldIndex ? { ...addField, ...updates } : addField
+              ),
+            }
+          : button,
+      ),
+    );
+  };
+
+  const addSubAdditionalField = (id: string, subIndex: number) => {
+    applyUpdate((current) =>
+      current.map((button) =>
+        button.id === id
+          ? {
+              ...button,
+              sub_buttons: button.sub_buttons.map((sub, index) => 
+                index === subIndex 
+                  ? {
+                      ...sub,
+                      subAdditionalFields: [
+                        ...(sub.subAdditionalFields || []),
+                        { field: "", value: "" },
+                      ],
+                    }
+                  : sub
+              ),
+            }
+          : button,
+      ),
+    );
+  };
+
+  const removeSubAdditionalField = (id: string, subIndex: number, fieldIndex: number) => {
+    applyUpdate((current) =>
+      current.map((button) =>
+        button.id === id
+          ? {
+              ...button,
+              sub_buttons: button.sub_buttons.map((sub, index) => 
+                index === subIndex 
+                  ? {
+                      ...sub,
+                      subAdditionalFields: (sub.subAdditionalFields || []).filter((_, i) => i !== fieldIndex),
+                    }
+                  : sub
+              ),
+            }
+          : button,
+      ),
+    );
+  };
+
+  const updateSubAdditionalField = (id: string, subIndex: number, fieldIndex: number, updates: { field?: string; value?: string }) => {
+    applyUpdate((current) =>
+      current.map((button) =>
+        button.id === id
+          ? {
+              ...button,
+              sub_buttons: button.sub_buttons.map((sub, index) => 
+                index === subIndex 
+                  ? {
+                      ...sub,
+                      subAdditionalFields: (sub.subAdditionalFields || []).map((addField, i) => 
+                        i === fieldIndex ? { ...addField, ...updates } : addField
+                      ),
+                    }
+                  : sub
               ),
             }
           : button,
@@ -594,6 +676,7 @@ const Config = () => {
         buttons.map((button) => ({
           id: button.id,
           label: button.label,
+          description: button.description || "",
           color: button.color,
           webhook_url: button.webhook_url,
           field: button.field,
@@ -813,10 +896,14 @@ const Config = () => {
           onFieldDrop={handleFieldDrop}
           onMoveButton={moveButton}
           onDelete={removeButton}
+          onSave={saveConfig}
           renderFieldValueControl={renderFieldValueControl}
           onAddAdditionalField={addAdditionalField}
           onRemoveAdditionalField={removeAdditionalField}
           onUpdateAdditionalField={updateAdditionalField}
+          onAddSubAdditionalField={addSubAdditionalField}
+          onRemoveSubAdditionalField={removeSubAdditionalField}
+          onUpdateSubAdditionalField={updateSubAdditionalField}
         />
       </div>
     </div>
