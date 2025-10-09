@@ -160,11 +160,11 @@ export async function getLeadFields(): Promise<BitrixField[]> {
     return Object.entries(fields).map(([key, value]: [string, any]) => ({
       ID: key,
       FIELD_NAME: key,
-      TITLE: value.formLabel || value.listLabel || value.title || key,
+      TITLE: value.title || value.formLabel || value.listLabel || key,
       TYPE: value.type || 'string',
       // Propriedades padronizadas (minúsculas)
       name: key,
-      title: value.formLabel || value.listLabel || value.title || key,
+      title: value.title || value.formLabel || value.listLabel || key,
       type: value.type || 'string',
       items: value.items,
       ...value
