@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, CalendarIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,14 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { saveChatwootContact, extractChatwootData, type ChatwootEventData } from "@/lib/chatwoot";
-import { getLead, type BitrixLead } from "@/lib/bitrix";
+import { getLead, type BitrixLead, getLeadFields, type BitrixField } from "@/lib/bitrix";
 import {
   BUTTON_CATEGORIES,
   categoryOrder,
@@ -21,6 +24,7 @@ import {
   type ButtonLayout,
 } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, any>;
@@ -197,8 +201,9 @@ const LeadTab = () => {
   const [selectedButton, setSelectedButton] = useState<ButtonConfig | null>(null);
   const [subButtonModal, setSubButtonModal] = useState(false);
   const [scheduleModal, setScheduleModal] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
   const [scheduleTime, setScheduleTime] = useState("");
+  const [timeOptions, setTimeOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [chatwootData, setChatwootData] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingButtons, setLoadingButtons] = useState(false);
@@ -849,19 +854,14 @@ const LeadTab = () => {
       const syncTarget = button.sync_target || 'bitrix';
       const bitrixId = Number(chatwootData.bitrix_id);
       
-      // Preparar campos adicionais, substituindo placeholders
+      // Preparar campos adicionais
       const additionalFields: Record<string, any> = {};
       if (button.additional_fields && Array.isArray(button.additional_fields)) {
-        button.additional_fields.forEach(({ field: addField, value: addValue }) => {
-          let finalValue = addValue;
-          // Substituir placeholders
-          if (addValue === '{{horario}}' && scheduledTime) {
-            finalValue = scheduledTime;
+        button.additional_fields.forEach(({ field: addField }) => {
+          // Para campo de hora, usar o valor selecionado
+          if (addField === 'UF_CRM_1740755176' && scheduledTime) {
+            additionalFields[addField] = scheduledTime;
           }
-          if (addValue === '{{data}}' && scheduledDate) {
-            finalValue = scheduledDate;
-          }
-          additionalFields[addField] = finalValue;
         });
       }
 
@@ -986,7 +986,7 @@ const LeadTab = () => {
     }
   };
 
-  const handleButtonClick = (button: ButtonConfig) => {
+  const handleButtonClick = async (button: ButtonConfig) => {
     setSelectedButton(button);
 
     if (button.sub_buttons && button.sub_buttons.length > 0) {
@@ -995,8 +995,25 @@ const LeadTab = () => {
     }
 
     if (button.action_type === 'schedule' || button.field_type === 'datetime') {
+      // Carregar opções de hora se houver campo de lista
+      const hourField = button.additional_fields?.find(f => f.field === 'UF_CRM_1740755176');
+      if (hourField) {
+        try {
+          const fields = await getLeadFields();
+          const hourFieldData = fields.find(f => f.id === 'UF_CRM_1740755176');
+          if (hourFieldData?.items) {
+            setTimeOptions(hourFieldData.items.map(item => ({
+              id: item.ID,
+              name: item.VALUE
+            })));
+          }
+        } catch (error) {
+          console.error('Erro ao carregar opções de hora:', error);
+        }
+      }
+      
       setScheduleModal(true);
-      setScheduleDate("");
+      setScheduleDate(undefined);
       setScheduleTime("");
       return;
     }
@@ -1010,16 +1027,16 @@ const LeadTab = () => {
       return;
     }
 
-    const datetime = `${scheduleDate} ${scheduleTime}:00`;
+    const formattedDate = format(scheduleDate, 'yyyy-MM-dd');
     
     // Atualizar automaticamente os campos correspondentes no profile
     if (selectedButton.field) {
       const updates: Record<string, any> = {
-        [selectedButton.field]: scheduleDate,
+        [selectedButton.field]: formattedDate,
       };
       
       // Se houver campo de horário nos additional_fields, atualizar também
-      const horarioField = selectedButton.additional_fields?.find(f => f.value === '{{horario}}');
+      const horarioField = selectedButton.additional_fields?.find(f => f.field === 'UF_CRM_1740755176');
       if (horarioField) {
         updates[horarioField.field] = scheduleTime;
       }
@@ -1031,7 +1048,7 @@ const LeadTab = () => {
       toast.success("Data e horário preenchidos automaticamente!");
     }
     
-    executeAction(selectedButton, undefined, scheduleDate, scheduleTime);
+    executeAction(selectedButton, undefined, formattedDate, scheduleTime);
     setScheduleModal(false);
   };
 
@@ -1334,22 +1351,55 @@ const LeadTab = () => {
             <DialogTitle>Agendar {selectedButton?.label}</DialogTitle>
             <DialogDescription>Escolha a data e horário</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
               <Label>Data</Label>
-              <Input
-                type="date"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !scheduleDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {scheduleDate ? format(scheduleDate, "dd/MM/yyyy") : <span>Selecione a data</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={scheduleDate}
+                    onSelect={setScheduleDate}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Horário</Label>
-              <Input
-                type="time"
-                value={scheduleTime}
-                onChange={(e) => setScheduleTime(e.target.value)}
-              />
+              {timeOptions.length > 0 ? (
+                <Select value={scheduleTime} onValueChange={setScheduleTime}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o horário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map((option) => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                />
+              )}
             </div>
           </div>
           <DialogFooter>
