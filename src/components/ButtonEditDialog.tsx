@@ -358,29 +358,70 @@ export function ButtonEditDialog({
                     <div className="flex-1 grid grid-cols-2 gap-2">
                       <div>
                         <Label className="text-xs text-muted-foreground">Campo</Label>
-                        <Input
-                          value={addField.field}
-                          onChange={(event) =>
+                        <Select
+                          value={addField.field || ""}
+                          onValueChange={(value) => {
+                            const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
+                            const fieldMeta = fields.find((f) => f.name === value);
                             onUpdateAdditionalField(button.id, fieldIndex, {
-                              field: event.target.value,
-                            })
-                          }
-                          placeholder="STATUS_ID"
-                          className="h-8 font-mono text-xs"
-                        />
+                              field: value,
+                              value: '' // Limpar valor ao mudar campo
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder={`Selecione ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`}>
+                              {addField.field ? (
+                                (() => {
+                                  const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
+                                  const selectedField = fields.find(f => f.name === addField.field);
+                                  return selectedField ? (
+                                    <div className="flex flex-col items-start">
+                                      <span className="text-xs font-medium">{selectedField.title}</span>
+                                      <span className="text-[10px] text-muted-foreground">{selectedField.type}</span>
+                                    </div>
+                                  ) : addField.field;
+                                })()
+                              ) : null}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent className="bg-background z-[200] max-h-[200px]">
+                            {button.sync_target === 'supabase'
+                              ? supabaseFields.map((field) => (
+                                  <SelectItem key={`add-${fieldIndex}-${field.name}`} value={field.name}>
+                                    <div className="flex flex-col">
+                                      <span className="text-xs font-medium">{field.title}</span>
+                                      <span className="text-[10px] text-muted-foreground">{field.type}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              : bitrixFields.map((field) => (
+                                  <SelectItem key={`add-${fieldIndex}-${field.name}`} value={field.name}>
+                                    <div className="flex flex-col">
+                                      <span className="text-xs font-medium">{field.title}</span>
+                                      <span className="text-[10px] text-muted-foreground">{field.type}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                            }
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Valor</Label>
-                        <Input
-                          value={addField.value}
-                          onChange={(event) =>
-                            onUpdateAdditionalField(button.id, fieldIndex, {
-                              value: event.target.value,
-                            })
-                          }
-                          placeholder="UC_QWPO2W ou {{data}}"
-                          className="h-8 font-mono text-xs"
-                        />
+                        {addField.field ? (
+                          renderFieldValueControl(
+                            addField.field,
+                            addField.value,
+                            (value) => onUpdateAdditionalField(button.id, fieldIndex, { value }),
+                          )
+                        ) : (
+                          <Input 
+                            disabled 
+                            placeholder="Selecione um campo primeiro" 
+                            className="h-8 bg-muted text-xs"
+                          />
+                        )}
                       </div>
                     </div>
                     <Button
