@@ -298,6 +298,7 @@ export type Database = {
           id: string
           is_profile_photo: boolean | null
           profile_field: string
+          sort_order: number | null
           updated_at: string | null
         }
         Insert: {
@@ -307,6 +308,7 @@ export type Database = {
           id?: string
           is_profile_photo?: boolean | null
           profile_field: string
+          sort_order?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -316,6 +318,7 @@ export type Database = {
           id?: string
           is_profile_photo?: boolean | null
           profile_field?: string
+          sort_order?: number | null
           updated_at?: string | null
         }
         Relationships: []

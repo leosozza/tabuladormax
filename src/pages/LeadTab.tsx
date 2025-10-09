@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
@@ -65,6 +68,7 @@ interface FieldMapping {
   chatwoot_field: string;
   display_name?: string;
   is_profile_photo?: boolean;
+  sort_order?: number;
 }
 
 const emptyProfile: DynamicProfile = {};
@@ -243,7 +247,8 @@ const LeadTab = () => {
       console.log("🔄 Carregando field mappings...");
       const { data, error } = await supabase
         .from("profile_field_mapping")
-        .select("*");
+        .select("*")
+        .order('sort_order', { ascending: true });
 
       if (error) throw error;
       
@@ -301,7 +306,77 @@ const LeadTab = () => {
 
   const addNewField = async () => {
     const newFieldKey = `custom_${Date.now()}`;
-    await saveFieldMapping(newFieldKey, '', 'Novo Campo');
+    const maxSortOrder = Math.max(...fieldMappings.map(m => m.sort_order || 0), 0);
+    
+    const { error } = await supabase
+      .from("profile_field_mapping")
+      .insert({
+        profile_field: newFieldKey,
+        chatwoot_field: '',
+        display_name: 'Novo Campo',
+        sort_order: maxSortOrder + 1
+      });
+    
+    if (!error) {
+      toast.success("Novo campo adicionado!");
+      loadFieldMappings();
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = fieldMappings.findIndex(m => m.id === active.id);
+    const newIndex = fieldMappings.findIndex(m => m.id === over.id);
+    
+    const reordered = arrayMove(fieldMappings, oldIndex, newIndex);
+    
+    // Atualizar sort_order no banco
+    for (let i = 0; i < reordered.length; i++) {
+      await supabase
+        .from('profile_field_mapping')
+        .update({ sort_order: i })
+        .eq('id', reordered[i].id);
+    }
+    
+    toast.success("Ordem atualizada!");
+    loadFieldMappings();
+  };
+
+  const moveFieldUp = async (index: number) => {
+    if (index === 0) return;
+    
+    const reordered = [...fieldMappings];
+    [reordered[index - 1], reordered[index]] = [reordered[index], reordered[index - 1]];
+    
+    // Atualizar sort_order no banco
+    for (let i = 0; i < reordered.length; i++) {
+      await supabase
+        .from('profile_field_mapping')
+        .update({ sort_order: i })
+        .eq('id', reordered[i].id);
+    }
+    
+    loadFieldMappings();
+  };
+
+  const moveFieldDown = async (index: number) => {
+    if (index === fieldMappings.length - 1) return;
+    
+    const reordered = [...fieldMappings];
+    [reordered[index], reordered[index + 1]] = [reordered[index + 1], reordered[index]];
+    
+    // Atualizar sort_order no banco
+    for (let i = 0; i < reordered.length; i++) {
+      await supabase
+        .from('profile_field_mapping')
+        .update({ sort_order: i })
+        .eq('id', reordered[i].id);
+    }
+    
+    loadFieldMappings();
   };
 
   const loadLeadById = async (bitrixId: string) => {
@@ -1299,6 +1374,7 @@ const LeadTab = () => {
                 <Button 
                   onClick={() => setEditMode(true)} 
                   size="icon"
+                  variant="outline"
                   disabled={loadingProfile}
                   title="Editar Perfil"
                 >
@@ -1380,6 +1456,7 @@ const LeadTab = () => {
             ) : (
               <div className="w-full space-y-3">
                 {fieldMappings
+                  .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
                   .filter(mapping => !mapping.is_profile_photo)
                   .map((mapping) => (
                     <div key={mapping.profile_field}>
@@ -1815,89 +1892,143 @@ const LeadTab = () => {
             {/* Coluna da direita: Configuração dos campos */}
             <ScrollArea className="border rounded-lg">
               <div className="space-y-4 p-4">
-              {fieldMappings.map((mapping, index) => (
-                <Card key={mapping.profile_field} className="p-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="font-semibold">Campo #{index + 1}</Label>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deleteFieldMapping(mapping.profile_field)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Nome de Exibição</Label>
-                      <Input
-                        placeholder="Ex: Nome, Idade, Endereço..."
-                        defaultValue={mapping.display_name || ''}
-                        onBlur={(e) => {
-                          if (e.target.value) {
-                            saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, e.target.value, mapping.is_profile_photo);
-                          }
-                        }}
-                      />
-                    </div>
+              <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext 
+                  items={fieldMappings.map(m => m.id || m.profile_field)} 
+                  strategy={verticalListSortingStrategy}
+                >
+                  {fieldMappings.map((mapping, index) => {
+                    const SortableFieldCard = () => {
+                      const {
+                        attributes,
+                        listeners,
+                        setNodeRef,
+                        transform,
+                        transition,
+                      } = useSortable({ id: mapping.id || mapping.profile_field });
 
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Campo do Chatwoot 
-                        <span className="ml-2 text-xs opacity-60">(clique nos campos à esquerda)</span>
-                      </Label>
-                      <Input
-                        data-chatwoot-field-input
-                        placeholder="Arraste um campo aqui ou clique nos campos à esquerda"
-                        defaultValue={mapping.chatwoot_field || ''}
-                        onBlur={(e) => {
-                          saveFieldMapping(mapping.profile_field, e.target.value, mapping.display_name, mapping.is_profile_photo);
-                        }}
-                        onFocus={(e) => {
-                          // Marcar este input como ativo
-                          document.querySelectorAll('[data-chatwoot-field-input]').forEach(input => {
-                            input.removeAttribute('data-active');
-                          });
-                          e.target.setAttribute('data-active', 'true');
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.currentTarget.classList.add('ring-2', 'ring-primary');
-                        }}
-                        onDragLeave={(e) => {
-                          e.currentTarget.classList.remove('ring-2', 'ring-primary');
-                        }}
-                        onDrop={async (e) => {
-                          e.preventDefault();
-                          e.currentTarget.classList.remove('ring-2', 'ring-primary');
-                          const fieldValue = e.dataTransfer.getData('chatwoot-field');
-                          if (fieldValue) {
-                            e.currentTarget.value = fieldValue;
-                            await saveFieldMapping(mapping.profile_field, fieldValue, mapping.display_name, mapping.is_profile_photo);
-                          }
-                        }}
-                      />
-                    </div>
+                      const style = {
+                        transform: CSS.Transform.toString(transform),
+                        transition,
+                      };
 
-                    <div className="flex items-center space-x-2 pt-2 border-t">
-                      <input
-                        type="checkbox"
-                        id={`photo-${mapping.profile_field}`}
-                        className="h-4 w-4 rounded border-gray-300"
-                        defaultChecked={mapping.is_profile_photo || false}
-                        onChange={(e) => {
-                          saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, mapping.display_name, e.target.checked);
-                        }}
-                      />
-                      <Label htmlFor={`photo-${mapping.profile_field}`} className="text-sm cursor-pointer">
-                        Este campo contém a foto de perfil
-                      </Label>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                      return (
+                        <Card ref={setNodeRef} style={style} key={mapping.profile_field} className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+                                  <GripVertical className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                                <Label className="font-semibold">Campo #{index + 1}</Label>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => moveFieldUp(index)}
+                                  disabled={index === 0}
+                                  className="h-8 w-8"
+                                  title="Mover para cima"
+                                >
+                                  <ChevronUp className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => moveFieldDown(index)}
+                                  disabled={index === fieldMappings.length - 1}
+                                  className="h-8 w-8"
+                                  title="Mover para baixo"
+                                >
+                                  <ChevronDown className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => deleteFieldMapping(mapping.profile_field)}
+                                  className="h-8 w-8"
+                                  title="Remover campo"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Nome de Exibição</Label>
+                              <Input
+                                placeholder="Ex: Nome, Idade, Endereço..."
+                                defaultValue={mapping.display_name || ''}
+                                onBlur={(e) => {
+                                  if (e.target.value) {
+                                    saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, e.target.value, mapping.is_profile_photo);
+                                  }
+                                }}
+                              />
+                            </div>
+
+                            <div>
+                              <Label className="text-xs text-muted-foreground">
+                                Campo do Chatwoot 
+                                <span className="ml-2 text-xs opacity-60">(clique nos campos à esquerda)</span>
+                              </Label>
+                              <Input
+                                data-chatwoot-field-input
+                                placeholder="Arraste um campo aqui ou clique nos campos à esquerda"
+                                defaultValue={mapping.chatwoot_field || ''}
+                                onBlur={(e) => {
+                                  saveFieldMapping(mapping.profile_field, e.target.value, mapping.display_name, mapping.is_profile_photo);
+                                }}
+                                onFocus={(e) => {
+                                  // Marcar este input como ativo
+                                  document.querySelectorAll('[data-chatwoot-field-input]').forEach(input => {
+                                    input.removeAttribute('data-active');
+                                  });
+                                  e.target.setAttribute('data-active', 'true');
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.currentTarget.classList.add('ring-2', 'ring-primary');
+                                }}
+                                onDragLeave={(e) => {
+                                  e.currentTarget.classList.remove('ring-2', 'ring-primary');
+                                }}
+                                onDrop={async (e) => {
+                                  e.preventDefault();
+                                  e.currentTarget.classList.remove('ring-2', 'ring-primary');
+                                  const fieldValue = e.dataTransfer.getData('chatwoot-field');
+                                  if (fieldValue) {
+                                    e.currentTarget.value = fieldValue;
+                                    await saveFieldMapping(mapping.profile_field, fieldValue, mapping.display_name, mapping.is_profile_photo);
+                                  }
+                                }}
+                              />
+                            </div>
+
+                            <div className="flex items-center space-x-2 pt-2 border-t">
+                              <input
+                                type="checkbox"
+                                id={`photo-${mapping.profile_field}`}
+                                className="h-4 w-4 rounded border-gray-300"
+                                defaultChecked={mapping.is_profile_photo || false}
+                                onChange={(e) => {
+                                  saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, mapping.display_name, e.target.checked);
+                                }}
+                              />
+                              <Label htmlFor={`photo-${mapping.profile_field}`} className="text-sm cursor-pointer">
+                                Este campo contém a foto de perfil
+                              </Label>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    };
+
+                    return <SortableFieldCard key={mapping.id || mapping.profile_field} />;
+                  })}
+                </SortableContext>
+              </DndContext>
               </div>
             </ScrollArea>
           </div>

@@ -36,18 +36,53 @@ const Index = () => {
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAllUsers, setShowAllUsers] = useState(false);
+  const [actionStats, setActionStats] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    loadLeads();
+    checkUserRole();
   }, []);
+
+  useEffect(() => {
+    if (currentUserId) {
+      loadLeads();
+      loadActionStats();
+    }
+  }, [currentUserId, showAllUsers]);
+
+  const checkUserRole = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      setCurrentUserId(session.user.id);
+      
+      // Verificar se é admin
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      
+      setIsAdmin(data?.role === 'admin');
+    }
+  };
 
   const loadLeads = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    
+    let query = supabase
       .from('leads')
       .select('*')
       .order('updated_at', { ascending: false })
       .limit(50);
+    
+    // SE NÃO FOR ADMIN ou se admin escolheu ver apenas seus dados, filtrar por responsible
+    if ((!isAdmin || !showAllUsers) && currentUserId) {
+      query = query.eq('responsible', currentUserId);
+    }
+    
+    const { data, error } = await query;
 
     if (error) {
       console.error('Erro ao carregar leads do cache:', error);
@@ -58,6 +93,36 @@ const Index = () => {
     }
 
     setLoading(false);
+  };
+
+  const loadActionStats = async () => {
+    let query = supabase
+      .from('actions_log')
+      .select('action_label, lead_id');
+    
+    // Filtrar por leads do usuário se não for admin ou se admin não quiser ver todos
+    if ((!isAdmin || !showAllUsers) && currentUserId) {
+      const { data: userLeads } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('responsible', currentUserId);
+      
+      const leadIds = userLeads?.map(l => l.id) || [];
+      if (leadIds.length > 0) {
+        query = query.in('lead_id', leadIds);
+      }
+    }
+    
+    const { data } = await query;
+    
+    // Contar ações por label
+    const counts: Record<string, number> = {};
+    data?.forEach(log => {
+      const label = log.action_label || 'Desconhecido';
+      counts[label] = (counts[label] || 0) + 1;
+    });
+    
+    setActionStats(counts);
   };
 
   const syncFromBitrix = async () => {
@@ -115,7 +180,18 @@ const Index = () => {
               Gerencie seus leads com eficiência
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {isAdmin && (
+              <label className="flex items-center gap-2 text-sm">
+                <input 
+                  type="checkbox" 
+                  checked={showAllUsers}
+                  onChange={(e) => setShowAllUsers(e.target.checked)}
+                  className="rounded"
+                />
+                <span>Ver todos os usuários</span>
+              </label>
+            )}
             <CSVImportDialog onImportComplete={loadLeads} />
             <Button onClick={syncFromBitrix} disabled={syncing} className="gap-2">
               {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
@@ -158,6 +234,27 @@ const Index = () => {
             </div>
           </Card>
         </div>
+
+        {/* Estatísticas de Ações */}
+        {Object.keys(actionStats).length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold mb-4">
+              📈 {isAdmin && showAllUsers ? 'Estatísticas Gerais' : 'Minhas Estatísticas'}
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(actionStats)
+                .sort(([, a], [, b]) => b - a)
+                .map(([label, count]) => (
+                  <Card key={label} className="p-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">{label}</p>
+                      <p className="text-2xl font-bold">{count}</p>
+                    </div>
+                  </Card>
+                ))}
+            </div>
+          </div>
+        )}
 
         <div>
           <div className="flex items-center justify-between mb-4">
