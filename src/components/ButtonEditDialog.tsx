@@ -117,6 +117,7 @@ export function ButtonEditDialog({
   onUpdateSubAdditionalField,
 }: ButtonEditDialogProps) {
   const [fieldSearchQuery, setFieldSearchQuery] = useState("");
+  const [additionalFieldSearchQuery, setAdditionalFieldSearchQuery] = useState("");
   const [statusOptions, setStatusOptions] = useState<Array<{ ID: string; NAME: string }>>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
 
@@ -147,6 +148,13 @@ export function ButtonEditDialog({
     (field) =>
       field.title.toLowerCase().includes(fieldSearchQuery.toLowerCase()) ||
       field.name.toLowerCase().includes(fieldSearchQuery.toLowerCase())
+  );
+
+  // Filtrar campos adicionais baseado na busca
+  const filteredAdditionalFields = (button.sync_target === 'supabase' ? supabaseFields : bitrixFields).filter(
+    (field) =>
+      field.title.toLowerCase().includes(additionalFieldSearchQuery.toLowerCase()) ||
+      field.name.toLowerCase().includes(additionalFieldSearchQuery.toLowerCase())
   );
 
   const handleDelete = () => {
@@ -533,16 +541,29 @@ export function ButtonEditDialog({
                               ) : null}
                             </SelectValue>
                           </SelectTrigger>
-                          <SelectContent className="bg-background z-[200] max-h-[200px]">
-                            <SelectItem value="_placeholder_">
-                              <div className="flex items-center gap-2">
-                                <code className="text-xs bg-primary/10 px-1.5 py-0.5 rounded">{'{ }'}</code>
-                                <span className="text-xs font-medium">Usar Placeholder</span>
+                          <SelectContent className="bg-background z-[200] max-h-[300px]">
+                            <div className="sticky top-0 z-10 bg-background p-2 border-b">
+                              <div className="relative">
+                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                  placeholder="Buscar campo..."
+                                  value={additionalFieldSearchQuery}
+                                  onChange={(e) => setAdditionalFieldSearchQuery(e.target.value)}
+                                  className="pl-8 h-9"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
                               </div>
-                            </SelectItem>
-                            <div className="h-px bg-border my-1" />
-                            {button.sync_target === 'supabase'
-                              ? supabaseFields.map((field) => (
+                            </div>
+                            <div className="max-h-[200px] overflow-y-auto">
+                              <SelectItem value="_placeholder_">
+                                <div className="flex items-center gap-2">
+                                  <code className="text-xs bg-primary/10 px-1.5 py-0.5 rounded">{'{ }'}</code>
+                                  <span className="text-xs font-medium">Usar Placeholder</span>
+                                </div>
+                              </SelectItem>
+                              <div className="h-px bg-border my-1" />
+                              {filteredAdditionalFields.length > 0 ? (
+                                filteredAdditionalFields.map((field) => (
                                   <SelectItem key={`add-${fieldIndex}-${field.name}`} value={field.name}>
                                     <div className="flex flex-col">
                                       <span className="text-xs font-medium">{field.title}</span>
@@ -550,15 +571,12 @@ export function ButtonEditDialog({
                                     </div>
                                   </SelectItem>
                                 ))
-                              : bitrixFields.map((field) => (
-                                  <SelectItem key={`add-${fieldIndex}-${field.name}`} value={field.name}>
-                                    <div className="flex flex-col">
-                                      <span className="text-xs font-medium">{field.title}</span>
-                                      <span className="text-[10px] text-muted-foreground">{field.type}</span>
-                                    </div>
-                                  </SelectItem>
-                                ))
-                            }
+                              ) : (
+                                <div className="p-4 text-center text-sm text-muted-foreground">
+                                  Nenhum campo encontrado
+                                </div>
+                              )}
+                            </div>
                           </SelectContent>
                         </Select>
                       </div>
