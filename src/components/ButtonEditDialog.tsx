@@ -477,21 +477,33 @@ export function ButtonEditDialog({
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                                  <MoreVertical className="h-3 w-3" />
+                                  <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem onClick={() => onUpdateAdditionalField(button.id, fieldIndex, { value: '{{horario}}' })}>
-                                  <code className="text-xs">{'{{horario}}'}</code>
+                              <DropdownMenuContent align="end" className="w-48 bg-background z-[250]">
+                                <DropdownMenuItem 
+                                  onClick={() => onUpdateAdditionalField(button.id, fieldIndex, { value: '{{horario}}' })}
+                                  className="cursor-pointer"
+                                >
+                                  <code className="text-xs bg-muted px-2 py-1 rounded">{'{{horario}}'}</code>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onUpdateAdditionalField(button.id, fieldIndex, { value: '{{data}}' })}>
-                                  <code className="text-xs">{'{{data}}'}</code>
+                                <DropdownMenuItem 
+                                  onClick={() => onUpdateAdditionalField(button.id, fieldIndex, { value: '{{data}}' })}
+                                  className="cursor-pointer"
+                                >
+                                  <code className="text-xs bg-muted px-2 py-1 rounded">{'{{data}}'}</code>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onUpdateAdditionalField(button.id, fieldIndex, { value: '{{valor_botao}}' })}>
-                                  <code className="text-xs">{'{{valor_botao}}'}</code>
+                                <DropdownMenuItem 
+                                  onClick={() => onUpdateAdditionalField(button.id, fieldIndex, { value: '{{valor_botao}}' })}
+                                  className="cursor-pointer"
+                                >
+                                  <code className="text-xs bg-muted px-2 py-1 rounded">{'{{valor_botao}}'}</code>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onUpdateAdditionalField(button.id, fieldIndex, { value: '{{nome_lead}}' })}>
-                                  <code className="text-xs">{'{{nome_lead}}'}</code>
+                                <DropdownMenuItem 
+                                  onClick={() => onUpdateAdditionalField(button.id, fieldIndex, { value: '{{nome_lead}}' })}
+                                  className="cursor-pointer"
+                                >
+                                  <code className="text-xs bg-muted px-2 py-1 rounded">{'{{nome_lead}}'}</code>
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -675,21 +687,33 @@ export function ButtonEditDialog({
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                                  <MoreVertical className="h-3 w-3" />
+                                  <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem onClick={() => onUpdateSubButton(button.id, subIndex, { subValue: '{{horario}}' })}>
-                                  <code className="text-xs">{'{{horario}}'}</code>
+                              <DropdownMenuContent align="end" className="w-48 bg-background z-[250]">
+                                <DropdownMenuItem 
+                                  onClick={() => onUpdateSubButton(button.id, subIndex, { subValue: '{{horario}}' })}
+                                  className="cursor-pointer"
+                                >
+                                  <code className="text-xs bg-muted px-2 py-1 rounded">{'{{horario}}'}</code>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onUpdateSubButton(button.id, subIndex, { subValue: '{{data}}' })}>
-                                  <code className="text-xs">{'{{data}}'}</code>
+                                <DropdownMenuItem 
+                                  onClick={() => onUpdateSubButton(button.id, subIndex, { subValue: '{{data}}' })}
+                                  className="cursor-pointer"
+                                >
+                                  <code className="text-xs bg-muted px-2 py-1 rounded">{'{{data}}'}</code>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onUpdateSubButton(button.id, subIndex, { subValue: '{{valor_botao}}' })}>
-                                  <code className="text-xs">{'{{valor_botao}}'}</code>
+                                <DropdownMenuItem 
+                                  onClick={() => onUpdateSubButton(button.id, subIndex, { subValue: '{{valor_botao}}' })}
+                                  className="cursor-pointer"
+                                >
+                                  <code className="text-xs bg-muted px-2 py-1 rounded">{'{{valor_botao}}'}</code>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onUpdateSubButton(button.id, subIndex, { subValue: '{{nome_lead}}' })}>
-                                  <code className="text-xs">{'{{nome_lead}}'}</code>
+                                <DropdownMenuItem 
+                                  onClick={() => onUpdateSubButton(button.id, subIndex, { subValue: '{{nome_lead}}' })}
+                                  className="cursor-pointer"
+                                >
+                                  <code className="text-xs bg-muted px-2 py-1 rounded">{'{{nome_lead}}'}</code>
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -778,18 +802,30 @@ export function ButtonEditDialog({
                                             <MoreVertical className="h-3 w-3" />
                                           </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-40">
-                                          <DropdownMenuItem onClick={() => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value: '{{horario}}' })}>
-                                            <code className="text-[10px]">{'{{horario}}'}</code>
+                                        <DropdownMenuContent align="end" className="w-40 bg-background z-[300]">
+                                          <DropdownMenuItem 
+                                            onClick={() => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value: '{{horario}}' })}
+                                            className="cursor-pointer"
+                                          >
+                                            <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{'{{horario}}'}</code>
                                           </DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value: '{{data}}' })}>
-                                            <code className="text-[10px]">{'{{data}}'}</code>
+                                          <DropdownMenuItem 
+                                            onClick={() => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value: '{{data}}' })}
+                                            className="cursor-pointer"
+                                          >
+                                            <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{'{{data}}'}</code>
                                           </DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value: '{{valor_botao}}' })}>
-                                            <code className="text-[10px]">{'{{valor_botao}}'}</code>
+                                          <DropdownMenuItem 
+                                            onClick={() => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value: '{{valor_botao}}' })}
+                                            className="cursor-pointer"
+                                          >
+                                            <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{'{{valor_botao}}'}</code>
                                           </DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value: '{{nome_lead}}' })}>
-                                            <code className="text-[10px]">{'{{nome_lead}}'}</code>
+                                          <DropdownMenuItem 
+                                            onClick={() => onUpdateSubAdditionalField(button.id, subIndex, fieldIndex, { value: '{{nome_lead}}' })}
+                                            className="cursor-pointer"
+                                          >
+                                            <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{'{{nome_lead}}'}</code>
                                           </DropdownMenuItem>
                                         </DropdownMenuContent>
                                       </DropdownMenu>
