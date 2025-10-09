@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, type DragEvent } from "react";
+import { useState, useEffect, type DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Save, RefreshCcw, Search, Loader2, GripVertical, Edit } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, RefreshCcw, Loader2, GripVertical, Edit } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -156,24 +156,15 @@ const Config = () => {
   const [buttons, setButtons] = useState<ButtonConfig[]>([]);
   const [bitrixFields, setBitrixFields] = useState<BitrixField[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
-  const [fieldSearch, setFieldSearch] = useState("");
   const [loadingButtons, setLoadingButtons] = useState(true);
   const [saving, setSaving] = useState(false);
   const [draggingButton, setDraggingButton] = useState<string | null>(null);
   const [editingButton, setEditingButton] = useState<ButtonConfig | null>(null);
-  const [fieldSource, setFieldSource] = useState<'bitrix' | 'supabase'>('bitrix');
 
   useEffect(() => {
     loadButtons();
     loadFields();
   }, []);
-
-  const filteredFields = useMemo(() => {
-    const query = fieldSearch.toLowerCase();
-    return bitrixFields.filter(
-      (field) => field?.name?.toLowerCase().includes(query) || field?.title?.toLowerCase().includes(query),
-    );
-  }, [bitrixFields, fieldSearch]);
 
   const applyUpdate = (updater: (buttons: ButtonConfig[]) => ButtonConfig[]) => {
     setButtons((prev) => normalizeButtons(updater(cloneButtons(prev))));
@@ -538,7 +529,7 @@ const Config = () => {
             <div>
               <h1 className="text-2xl font-bold">⚙️ Configuração de Botões</h1>
               <p className="text-sm text-muted-foreground">
-                Arraste campos do Bitrix para vincular rapidamente cada ação e organize os botões por categoria.
+                Organize os botões por categoria e configure suas ações clicando duas vezes em cada botão.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -564,109 +555,7 @@ const Config = () => {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[280px,1fr]">
-            <aside className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-                  <Input
-                    className="pl-9"
-                    placeholder="Buscar campo"
-                    value={fieldSearch}
-                    onChange={(event) => setFieldSearch(event.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Toggle Bitrix/Supabase */}
-              <div className="flex gap-2 p-1 rounded-lg bg-muted/40 border">
-                <Button
-                  variant={fieldSource === 'bitrix' ? 'default' : 'ghost'}
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => setFieldSource('bitrix')}
-                >
-                  🔷 Bitrix
-                </Button>
-                <Button
-                  variant={fieldSource === 'supabase' ? 'default' : 'ghost'}
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => setFieldSource('supabase')}
-                >
-                  ⚡ Supabase
-                </Button>
-              </div>
-
-              <div className="rounded-lg border bg-muted/40 h-[400px] overflow-y-auto p-3">
-                {fieldSource === 'bitrix' ? (
-                  loadingFields ? (
-                    <p className="text-sm text-muted-foreground">Carregando campos do Bitrix...</p>
-                  ) : filteredFields.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhum campo encontrado</p>
-                  ) : (
-                    <ul className="space-y-2 text-sm">
-                      {filteredFields.map((field) => (
-                        <li
-                          key={field.name}
-                          draggable
-                          onDragStart={(event) => event.dataTransfer.setData("bitrix-field", field.name)}
-                          className="cursor-grab rounded-md border bg-background px-3 py-2 hover:bg-muted"
-                          title={field.title}
-                        >
-                          <p className="font-medium">{field.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {field.name} · {field.type}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )
-                ) : (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase">Campos do Supabase (Tabela: leads)</p>
-                    <ul className="space-y-2 text-sm">
-                      {[
-                        { name: 'id', title: 'ID do Lead', type: 'bigint' },
-                        { name: 'name', title: 'Nome', type: 'text' },
-                        { name: 'age', title: 'Idade', type: 'integer' },
-                        { name: 'address', title: 'Endereço', type: 'text' },
-                        { name: 'photo_url', title: 'URL da Foto', type: 'text' },
-                        { name: 'responsible', title: 'Responsável', type: 'text' },
-                        { name: 'scouter', title: 'Olheiro', type: 'text' },
-                        { name: 'sync_status', title: 'Status de Sincronização', type: 'text' },
-                        { name: 'date_modify', title: 'Data de Modificação', type: 'timestamp' },
-                      ]
-                        .filter(field => 
-                          field.name.toLowerCase().includes(fieldSearch.toLowerCase()) ||
-                          field.title.toLowerCase().includes(fieldSearch.toLowerCase())
-                        )
-                        .map((field) => (
-                          <li
-                            key={field.name}
-                            draggable
-                            onDragStart={(event) => event.dataTransfer.setData("bitrix-field", `supabase.${field.name}`)}
-                            className="cursor-grab rounded-md border bg-background px-3 py-2 hover:bg-muted"
-                            title={field.title}
-                          >
-                            <p className="font-medium">{field.title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              supabase.{field.name} · {field.type}
-                            </p>
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {fieldSource === 'bitrix' 
-                  ? 'Arraste um campo do Bitrix e solte no botão desejado'
-                  : 'Arraste um campo do Supabase e solte no botão desejado'}
-              </p>
-            </aside>
-
-            <section className="space-y-4">
+          <section className="space-y-4">
               {loadingButtons ? (
                 <p className="text-sm text-muted-foreground">Carregando botões...</p>
               ) : buttons.length === 0 ? (
@@ -751,8 +640,7 @@ const Config = () => {
                   })}
                 </div>
               )}
-            </section>
-          </div>
+          </section>
         </Card>
 
         <ButtonEditDialog
