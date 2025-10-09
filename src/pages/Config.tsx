@@ -427,7 +427,33 @@ const Config = () => {
   };
 
   const renderFieldValueControl = (fieldName: string, value: string, onChange: (value: string) => void) => {
-    const meta = bitrixFields.find((field) => field.name === fieldName);
+    // Verificar se é campo Supabase ou Bitrix
+    const isSupabaseField = fieldName.startsWith('supabase.');
+    const cleanFieldName = isSupabaseField ? fieldName.replace('supabase.', '') : fieldName;
+    
+    if (isSupabaseField) {
+      // Para campos Supabase, usar tipo baseado no nome
+      const supabaseField = [
+        { name: 'id', type: 'bigint' },
+        { name: 'name', type: 'text' },
+        { name: 'age', type: 'integer' },
+        { name: 'address', type: 'text' },
+        { name: 'photo_url', type: 'text' },
+        { name: 'responsible', type: 'text' },
+        { name: 'scouter', type: 'text' },
+        { name: 'sync_status', type: 'text' },
+        { name: 'date_modify', type: 'timestamp' },
+      ].find(f => f.name === cleanFieldName);
+      
+      if (supabaseField?.type === 'integer' || supabaseField?.type === 'bigint') {
+        return <Input type="number" value={value} onChange={(event) => onChange(event.target.value)} placeholder="Valor numérico" />;
+      }
+      
+      return <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder="Valor a enviar" />;
+    }
+
+    // Para campos Bitrix, verificar se tem lista
+    const meta = bitrixFields.find((field) => field.name === cleanFieldName);
 
     if (meta?.items?.length) {
       return (
@@ -435,7 +461,7 @@ const Config = () => {
           <SelectTrigger>
             <SelectValue placeholder="Selecione um valor" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-background z-50">
             {meta.items.map((option) => (
               <SelectItem key={option.ID} value={option.VALUE}>
                 {option.VALUE}

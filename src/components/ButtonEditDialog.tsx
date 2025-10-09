@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { BitrixField } from "@/lib/bitrix";
 import { BUTTON_CATEGORIES, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 
@@ -87,6 +87,9 @@ export function ButtonEditDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Botão: {button.label}</DialogTitle>
+          <DialogDescription>
+            Configure o botão, campos de sincronização, webhooks e sub-botões (motivos).
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -135,29 +138,33 @@ export function ButtonEditDialog({
               <Label>Destino de Sincronização</Label>
               <Select
                 value={button.sync_target || 'bitrix'}
-                onValueChange={(value: 'bitrix' | 'supabase') => onUpdate(button.id, { sync_target: value })}
+                onValueChange={(value: 'bitrix' | 'supabase') => {
+                  onUpdate(button.id, { sync_target: value });
+                  // Limpar campo quando mudar destino
+                  onUpdate(button.id, { field: '', value: '' });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
                   <SelectItem value="bitrix">
-                    🔄 Bitrix → Supabase (Bitrix primeiro)
+                    🔷 Bitrix → Supabase
                   </SelectItem>
                   <SelectItem value="supabase">
-                    ⚡ Supabase → Bitrix (Mais rápido)
+                    ⚡ Supabase → Bitrix
                   </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
                 {button.sync_target === 'supabase' 
-                  ? 'Atualiza localmente primeiro, depois sincroniza com Bitrix'
-                  : 'Atualiza Bitrix primeiro, depois sincroniza localmente'}
+                  ? 'Atualiza Supabase primeiro, depois Bitrix'
+                  : 'Atualiza Bitrix primeiro, depois Supabase'}
               </p>
             </div>
 
-            <div>
-              <Label>URL do Webhook</Label>
+            <div className="md:col-span-2">
+              <Label>URL do Webhook {button.sync_target === 'bitrix' && '(Bitrix)'}</Label>
               <Input
                 value={button.webhook_url}
                 onChange={(event) =>
@@ -170,12 +177,33 @@ export function ButtonEditDialog({
             </div>
 
             <div className="md:col-span-2">
-              <Label>
-                {button.sync_target === 'supabase' ? 'Campo Supabase' : 'Campo Bitrix'}
-              </Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label>
+                  Campo do {button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}
+                </Label>
+                {button.field && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onUpdate(button.id, { field: '', value: '', field_type: 'string' })}
+                    className="h-6 text-xs text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Limpar
+                  </Button>
+                )}
+              </div>
               <Select
                 value={button.field}
-                onValueChange={(value) => onUpdate(button.id, { field: value })}
+                onValueChange={(value) => {
+                  const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
+                  const fieldMeta = fields.find((f) => f.name === value);
+                  onUpdate(button.id, { 
+                    field: value,
+                    field_type: fieldMeta?.type || 'string',
+                    value: '' // Limpar valor ao mudar campo
+                  });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={`Selecione um campo ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`} />
@@ -203,10 +231,18 @@ export function ButtonEditDialog({
               </Select>
             </div>
 
-            <div>
+            <div className="md:col-span-2">
               <Label>Valor Padrão</Label>
-              {renderFieldValueControl(button.field, button.value, (value) =>
-                onUpdate(button.id, { value }),
+              {button.field ? (
+                renderFieldValueControl(button.field, button.value, (value) =>
+                  onUpdate(button.id, { value }),
+                )
+              ) : (
+                <Input 
+                  disabled 
+                  placeholder="Selecione um campo primeiro" 
+                  className="bg-muted"
+                />
               )}
             </div>
 
@@ -220,8 +256,13 @@ export function ButtonEditDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
-                  <SelectItem value="simple">Simples</SelectItem>
-                  <SelectItem value="schedule">Agendamento</SelectItem>
+                  <SelectItem value="simple">✅ Simples</SelectItem>
+                  <SelectItem value="schedule">📅 Agendamento</SelectItem>
+                  <SelectItem value="text">✏️ Campo de Texto</SelectItem>
+                  <SelectItem value="date">📆 Data</SelectItem>
+                  <SelectItem value="datetime">🕐 Data e Hora</SelectItem>
+                  <SelectItem value="list">📋 Lista</SelectItem>
+                  <SelectItem value="number">🔢 Número</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -322,13 +363,18 @@ export function ButtonEditDialog({
 
                       <div className="md:col-span-2">
                         <Label className="text-xs">
-                          {button.sync_target === 'supabase' ? 'Campo Supabase' : 'Campo Bitrix'}
+                          Campo do {button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}
                         </Label>
                         <Select
                           value={sub.subField}
-                          onValueChange={(value) =>
-                            onUpdateSubButton(button.id, subIndex, { subField: value })
-                          }
+                          onValueChange={(value) => {
+                            const fields = button.sync_target === 'supabase' ? supabaseFields : bitrixFields;
+                            const fieldMeta = fields.find((f) => f.name === value);
+                            onUpdateSubButton(button.id, subIndex, { 
+                              subField: value,
+                              subValue: '' // Limpar valor ao mudar campo
+                            });
+                          }}
                         >
                           <SelectTrigger className="h-8">
                             <SelectValue placeholder={`Selecione ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`} />
@@ -336,12 +382,12 @@ export function ButtonEditDialog({
                           <SelectContent className="bg-background z-50 max-h-[200px]">
                             {button.sync_target === 'supabase'
                               ? supabaseFields.map((field) => (
-                                  <SelectItem key={field.name} value={field.name}>
+                                  <SelectItem key={`sub-${subIndex}-${field.name}`} value={field.name}>
                                     <span className="text-xs">{field.title}</span>
                                   </SelectItem>
                                 ))
                               : bitrixFields.map((field) => (
-                                  <SelectItem key={field.name} value={field.name}>
+                                  <SelectItem key={`sub-${subIndex}-${field.name}`} value={field.name}>
                                     <span className="text-xs">{field.title}</span>
                                   </SelectItem>
                                 ))
@@ -366,10 +412,18 @@ export function ButtonEditDialog({
 
                       <div>
                         <Label className="text-xs">Valor</Label>
-                        {renderFieldValueControl(
-                          sub.subField,
-                          sub.subValue,
-                          (value) => onUpdateSubButton(button.id, subIndex, { subValue: value }),
+                        {sub.subField ? (
+                          renderFieldValueControl(
+                            sub.subField,
+                            sub.subValue,
+                            (value) => onUpdateSubButton(button.id, subIndex, { subValue: value }),
+                          )
+                        ) : (
+                          <Input 
+                            disabled 
+                            placeholder="Selecione um campo primeiro" 
+                            className="h-8 bg-muted"
+                          />
                         )}
                       </div>
                     </div>
