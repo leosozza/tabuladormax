@@ -1,6 +1,6 @@
 import { useState, useEffect, type DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Save, RefreshCcw, Loader2, GripVertical, Edit } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, RefreshCcw, Loader2, GripVertical, Edit, Copy } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -290,6 +290,33 @@ const Config = () => {
     };
 
     applyUpdate((current) => [...current, newButton]);
+  };
+
+  const duplicateButton = (id: string) => {
+    const buttonToDuplicate = buttons.find((button) => button.id === id);
+    if (!buttonToDuplicate) return;
+
+    const category = buttonToDuplicate.layout.category;
+    const layout = createDefaultLayout(
+      category,
+      buttons.filter((button) => button.layout.category === category).length,
+    );
+
+    const duplicatedButton: ButtonConfig = {
+      ...buttonToDuplicate,
+      id: generateButtonId(),
+      label: `${buttonToDuplicate.label} (Cópia)`,
+      sort: buttons.length + 1,
+      layout,
+      sub_buttons: buttonToDuplicate.sub_buttons.map((sub) => ({
+        ...sub,
+        subAdditionalFields: sub.subAdditionalFields ? [...sub.subAdditionalFields] : [],
+      })),
+      additional_fields: buttonToDuplicate.additional_fields ? [...buttonToDuplicate.additional_fields] : [],
+    };
+
+    applyUpdate((current) => [...current, duplicatedButton]);
+    toast.success(`Botão "${buttonToDuplicate.label}" duplicado com sucesso!`);
   };
 
   const removeButton = (id: string) => {
@@ -831,7 +858,7 @@ const Config = () => {
                                 >
                                   <Card
                                     className={cn(
-                                      "p-3 bg-background shadow-sm hover:shadow-md transition-shadow cursor-pointer",
+                                      "p-3 bg-background shadow-sm hover:shadow-md transition-shadow cursor-pointer group",
                                       draggingButton === button.id && "ring-2 ring-primary/40",
                                     )}
                                     onDoubleClick={() => setEditingButtonId(button.id)}
@@ -853,6 +880,32 @@ const Config = () => {
                                           style={{ backgroundColor: button.color }}
                                         />
                                         <span className="font-medium truncate">{button.label || "Botão"}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            duplicateButton(button.id);
+                                          }}
+                                          className="h-7 w-7 p-0"
+                                          title="Duplicar botão"
+                                        >
+                                          <Copy className="w-3.5 h-3.5" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingButtonId(button.id);
+                                          }}
+                                          className="h-7 w-7 p-0"
+                                          title="Editar botão"
+                                        >
+                                          <Edit className="w-3.5 h-3.5" />
+                                        </Button>
                                       </div>
                                     </div>
                                   </Card>
