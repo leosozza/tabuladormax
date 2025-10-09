@@ -174,3 +174,28 @@ export async function getLeadFields(): Promise<BitrixField[]> {
     throw new BitrixError('Não foi possível buscar campos do Bitrix');
   }
 }
+
+// Buscar etapas (STATUS_ID) do Bitrix
+export async function getLeadStatuses(): Promise<Array<{ ID: string; NAME: string; SORT: number }>> {
+  try {
+    const response = await fetch(
+      `https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.status.list.json?filter[ENTITY_ID]=STATUS`,
+      { method: 'GET' }
+    );
+    
+    if (!response.ok) {
+      throw new BitrixError('Falha ao buscar etapas do Bitrix');
+    }
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new BitrixError(data.error_description || 'Erro do Bitrix');
+    }
+    
+    return (data.result || []).sort((a: any, b: any) => (a.SORT || 0) - (b.SORT || 0));
+  } catch (error) {
+    if (error instanceof BitrixError) throw error;
+    throw new BitrixError('Não foi possível buscar etapas do Bitrix');
+  }
+}

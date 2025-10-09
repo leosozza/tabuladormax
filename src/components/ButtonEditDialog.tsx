@@ -1,4 +1,4 @@
-import { Plus, Trash2, Info, Save, MoreVertical } from "lucide-react";
+import { Plus, Trash2, Info, Save, MoreVertical, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { BitrixField } from "@/lib/bitrix";
+import { BitrixField, getLeadStatuses } from "@/lib/bitrix";
 import { BUTTON_CATEGORIES, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
+import { useState, useEffect } from "react";
 
 // Constante centralizada com TODOS os placeholders disponíveis
 const AVAILABLE_PLACEHOLDERS = [
@@ -115,9 +116,38 @@ export function ButtonEditDialog({
   onRemoveSubAdditionalField,
   onUpdateSubAdditionalField,
 }: ButtonEditDialogProps) {
+  const [fieldSearchQuery, setFieldSearchQuery] = useState("");
+  const [statusOptions, setStatusOptions] = useState<Array<{ ID: string; NAME: string }>>([]);
+  const [loadingStatuses, setLoadingStatuses] = useState(false);
+
   if (!button) return null;
 
   const fieldMeta = bitrixFields.find((field) => field.name === button.field);
+
+  // Carregar etapas quando o campo STATUS_ID for selecionado
+  useEffect(() => {
+    if (button.field === 'STATUS_ID' && statusOptions.length === 0) {
+      setLoadingStatuses(true);
+      getLeadStatuses()
+        .then((statuses) => {
+          console.log('✅ Etapas carregadas:', statuses);
+          setStatusOptions(statuses);
+        })
+        .catch((error) => {
+          console.error('❌ Erro ao carregar etapas:', error);
+        })
+        .finally(() => {
+          setLoadingStatuses(false);
+        });
+    }
+  }, [button.field]);
+
+  // Filtrar campos baseado na busca
+  const filteredFields = (button.sync_target === 'supabase' ? supabaseFields : bitrixFields).filter(
+    (field) =>
+      field.title.toLowerCase().includes(fieldSearchQuery.toLowerCase()) ||
+      field.name.toLowerCase().includes(fieldSearchQuery.toLowerCase())
+  );
 
   const handleDelete = () => {
     if (confirm(`Tem certeza que deseja excluir o botão "${button.label}"?`)) {
@@ -269,6 +299,7 @@ export function ButtonEditDialog({
                     field_type: fieldMeta?.type || 'string',
                     value: '' // Limpar valor ao mudar campo
                   });
+                  setFieldSearchQuery(""); // Limpar busca
                 }}
               >
                 <SelectTrigger>
@@ -282,9 +313,22 @@ export function ButtonEditDialog({
                     ) : null}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="bg-background z-[200] max-h-[300px]">
-                  {button.sync_target === 'supabase' 
-                    ? supabaseFields.map((field) => (
+                <SelectContent className="bg-background z-[200] max-h-[400px]">
+                  <div className="sticky top-0 z-10 bg-background p-2 border-b">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar campo..."
+                        value={fieldSearchQuery}
+                        onChange={(e) => setFieldSearchQuery(e.target.value)}
+                        className="pl-8 h-9"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {filteredFields.length > 0 ? (
+                      filteredFields.map((field) => (
                         <SelectItem key={field.name} value={field.name}>
                           <div className="flex flex-col">
                             <span className="font-medium">{field.title}</span>
@@ -292,22 +336,39 @@ export function ButtonEditDialog({
                           </div>
                         </SelectItem>
                       ))
-                    : bitrixFields.map((field) => (
-                        <SelectItem key={field.name} value={field.name}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{field.title}</span>
-                            <span className="text-xs text-muted-foreground">{field.type}</span>
-                          </div>
-                        </SelectItem>
-                      ))
-                  }
+                    ) : (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        Nenhum campo encontrado
+                      </div>
+                    )}
+                  </div>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="md:col-span-2">
               <Label>Valor Padrão</Label>
-              {button.field ? (
+              {button.field === 'STATUS_ID' ? (
+                // Dropdown especial para etapas
+                <Select
+                  value={button.value}
+                  onValueChange={(value) => onUpdate(button.id, { value })}
+                  disabled={loadingStatuses}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingStatuses ? "Carregando etapas..." : "Selecione uma etapa"}>
+                      {button.value && statusOptions.find(s => s.ID === button.value)?.NAME}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-[250] max-h-[300px]">
+                    {statusOptions.map((status) => (
+                      <SelectItem key={status.ID} value={status.ID}>
+                        {status.NAME}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : button.field ? (
                 <div className="flex gap-1">
                   {renderFieldValueControl(button.field, button.value, (value) =>
                     onUpdate(button.id, { value }),
