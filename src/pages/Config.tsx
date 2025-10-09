@@ -245,6 +245,7 @@ const Config = () => {
   };
 
   const updateButton = (id: string, updates: Partial<Omit<ButtonConfig, "id" | "layout" | "sub_buttons">>) => {
+    console.log("📝 updateButton chamado:", { id, updates });
     applyUpdate((current) => current.map((button) => (button.id === id ? { ...button, ...updates } : button)));
   };
 
@@ -452,7 +453,7 @@ const Config = () => {
           <SelectTrigger>
             <SelectValue placeholder="Selecione um valor" />
           </SelectTrigger>
-          <SelectContent className="bg-background z-[9999]">
+          <SelectContent className="bg-background z-[200]">
             {meta.items.map((option) => (
               <SelectItem key={option.ID} value={option.VALUE}>
                 {option.VALUE}

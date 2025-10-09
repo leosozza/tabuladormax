@@ -92,13 +92,16 @@ export function ButtonEditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 pointer-events-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Nome do Botão</Label>
               <Input
                 value={button.label}
-                onChange={(event) => onUpdate(button.id, { label: event.target.value })}
+                onChange={(event) => {
+                  console.log("🔧 Alterando nome do botão:", event.target.value);
+                  onUpdate(button.id, { label: event.target.value });
+                }}
               />
             </div>
 
@@ -124,7 +127,7 @@ export function ButtonEditDialog({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-[9999]">
+                <SelectContent className="bg-background z-[200]">
                   {BUTTON_CATEGORIES.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.label}
@@ -147,7 +150,7 @@ export function ButtonEditDialog({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-[9999]">
+                <SelectContent className="bg-background z-[200]">
                   <SelectItem value="bitrix">
                     🔷 Bitrix → Supabase
                   </SelectItem>
@@ -208,7 +211,7 @@ export function ButtonEditDialog({
                 <SelectTrigger>
                   <SelectValue placeholder={`Selecione um campo ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`} />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-[9999] max-h-[300px]">
+                <SelectContent className="bg-background z-[200] max-h-[300px]">
                   {button.sync_target === 'supabase' 
                     ? supabaseFields.map((field) => (
                         <SelectItem key={field.name} value={field.name}>
@@ -255,7 +258,7 @@ export function ButtonEditDialog({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-[9999]">
+                <SelectContent className="bg-background z-[200]">
                   <SelectItem value="simple">✅ Simples</SelectItem>
                   <SelectItem value="schedule">📅 Agendamento</SelectItem>
                   <SelectItem value="text">✏️ Campo de Texto</SelectItem>
@@ -379,7 +382,7 @@ export function ButtonEditDialog({
                           <SelectTrigger className="h-8">
                             <SelectValue placeholder={`Selecione ${button.sync_target === 'supabase' ? 'Supabase' : 'Bitrix'}`} />
                           </SelectTrigger>
-                          <SelectContent className="bg-background z-[9999] max-h-[200px]">
+                          <SelectContent className="bg-background z-[200] max-h-[200px]">
                             {button.sync_target === 'supabase'
                               ? supabaseFields.map((field) => (
                                   <SelectItem key={`sub-${subIndex}-${field.name}`} value={field.name}>
