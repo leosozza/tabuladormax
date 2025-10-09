@@ -46,6 +46,15 @@ export default function Home() {
 
             if (loginError) throw loginError;
 
+            console.log("🔐 Resposta da edge function:", {
+              success: loginData?.success,
+              hasSession: !!loginData?.session,
+              hasAccessToken: !!loginData?.session?.access_token,
+              hasRefreshToken: !!loginData?.session?.refresh_token,
+              userMetadata: loginData?.session?.user?.user_metadata,
+              user: loginData?.user
+            });
+
             if (loginData?.session) {
               console.log("✅ Auto-login retornou sessão - aplicando...");
               
@@ -57,8 +66,28 @@ export default function Home() {
 
               if (setSessionError) {
                 console.error("❌ Erro ao aplicar sessão:", setSessionError);
+                throw setSessionError;
               } else {
-                console.log("✅ Sessão aplicada! Redirecionando para /lead");
+                console.log("✅ Sessão aplicada com sucesso!");
+                console.log("👤 User metadata disponível:", loginData.session.user.user_metadata);
+                
+                // Atualizar perfil com display_name do Chatwoot
+                if (loginData.session.user.user_metadata?.display_name) {
+                  const { error: profileError } = await supabase
+                    .from('profiles')
+                    .update({
+                      display_name: loginData.session.user.user_metadata.display_name
+                    })
+                    .eq('id', loginData.session.user.id);
+                  
+                  if (profileError) {
+                    console.error('⚠️ Erro ao atualizar display_name no perfil:', profileError);
+                  } else {
+                    console.log('✅ Display name atualizado no perfil');
+                  }
+                }
+                
+                console.log("✅ Redirecionando para /lead");
                 // Processar dados do contato antes de redirecionar
                 if (eventData?.conversation?.meta?.sender || eventData?.data?.contact) {
                   const contactData = extractChatwootData(eventData);

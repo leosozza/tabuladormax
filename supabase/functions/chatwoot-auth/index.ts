@@ -11,6 +11,13 @@ interface AssigneeData {
   role: string; // 'administrator' ou 'agent'
 }
 
+interface UserMetadata {
+  display_name: string;
+  chatwoot_email: string;
+  chatwoot_role: string;
+  chatwoot_id?: number;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -44,12 +51,31 @@ Deno.serve(async (req) => {
       throw listError;
     }
 
+    // Preparar metadata do usuário
+    const userMetadata: UserMetadata = {
+      display_name: name,
+      chatwoot_email: email,
+      chatwoot_role: role,
+    };
+
     let userId: string;
     const existingUser = existingUsers.users.find(u => u.email === email);
 
     if (existingUser) {
       userId = existingUser.id;
       console.log('✅ Usuário existente encontrado:', userId);
+      
+      // Atualizar metadata do usuário existente
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        userId,
+        { user_metadata: userMetadata }
+      );
+      
+      if (updateError) {
+        console.error('Erro ao atualizar metadata:', updateError);
+      } else {
+        console.log('✅ Metadata do usuário atualizado');
+      }
     } else {
       // Criar novo usuário com senha aleatória
       const randomPassword = crypto.randomUUID();
@@ -57,9 +83,7 @@ Deno.serve(async (req) => {
         email,
         password: randomPassword,
         email_confirm: true,
-        user_metadata: {
-          display_name: name
-        }
+        user_metadata: userMetadata
       });
 
       if (createError) {
@@ -108,15 +132,61 @@ Deno.serve(async (req) => {
 
     console.log('✅ Link de acesso gerado com sucesso');
 
+    // Extrair tokens do action_link
+    const actionLink = linkData.properties.action_link;
+    console.log('🔗 Action link gerado:', actionLink);
+
+    // Parsear URL para extrair tokens do hash
+    const url = new URL(actionLink);
+    const hashParams = new URLSearchParams(url.hash.substring(1));
+
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+    const expiresIn = hashParams.get('expires_in');
+
+    console.log('🔑 Tokens extraídos:', {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      expiresIn
+    });
+
+    if (!accessToken || !refreshToken) {
+      console.error('❌ Tokens não encontrados no magic link');
+      throw new Error('Tokens de autenticação não encontrados no magic link');
+    }
+
+    // Construir objeto de sessão completo
+    const sessionData = {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_in: parseInt(expiresIn || '3600'),
+      token_type: 'bearer',
+      user: {
+        id: userId,
+        email,
+        user_metadata: userMetadata,
+        app_metadata: {},
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+      }
+    };
+
+    console.log('✅ Sessão completa preparada:', {
+      userId,
+      email,
+      hasTokens: true
+    });
+
     return new Response(
       JSON.stringify({
         success: true,
-        redirect_url: linkData.properties.action_link,
+        session: sessionData,
         user: {
           id: userId,
           email,
           name,
-          role: appRole
+          role: appRole,
+          metadata: userMetadata
         }
       }),
       {

@@ -17,6 +17,7 @@ const UserMenu = () => {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState<string>("");
   const [userRole, setUserRole] = useState<string>("");
+  const [userMetadata, setUserMetadata] = useState<any>(null);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -24,6 +25,7 @@ const UserMenu = () => {
       
       if (session) {
         setUserEmail(session.user.email || "");
+        setUserMetadata(session.user.user_metadata);
         
         const { data: roles } = await supabase
           .from("user_roles")
@@ -56,7 +58,7 @@ const UserMenu = () => {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium">{userEmail}</p>
+            <p className="text-sm font-medium">{userMetadata?.display_name || userEmail}</p>
             {userRole && (
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Shield className="h-3 w-3" />
@@ -65,6 +67,17 @@ const UserMenu = () => {
             )}
           </div>
         </DropdownMenuLabel>
+        {userMetadata?.chatwoot_role && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-xs text-muted-foreground">Chatwoot</p>
+                <p className="text-xs">Role: {userMetadata.chatwoot_role}</p>
+              </div>
+            </DropdownMenuLabel>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => navigate("/debug")}>
           <Bug className="mr-2 h-4 w-4" />
