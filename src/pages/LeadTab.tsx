@@ -944,6 +944,9 @@ const LeadTab = () => {
       return;
     }
 
+    // Guardar o valor selecionado para exibir nas mensagens (disponível em todo o escopo da função)
+    const selectedValueDisplay = subButton?.subValue || button.value || scheduledDate || "";
+
     try {
       const webhookUrl = subButton?.subWebhook || button.webhook_url;
       const field = subButton?.subField || button.field;
@@ -1033,21 +1036,21 @@ const LeadTab = () => {
 
           if (syncError) {
             console.error('Erro ao sincronizar com Bitrix:', syncError);
-            const errorMessage = `Erro ao sincronizar com Bitrix: ${syncError.message || String(syncError)}`;
+            const errorMessage = `Valor selecionado: ${selectedValueDisplay}\n\nErro ao sincronizar com Bitrix: ${syncError.message || String(syncError)}`;
             setBitrixResponseMessage(errorMessage);
             setBitrixResponseModal(true);
             toast.warning("Dados salvos localmente, mas houve erro ao sincronizar com Bitrix");
           } else {
             // Exibir resposta de sucesso
             const successMessage = syncData 
-              ? `Sucesso! Dados sincronizados via Supabase → Bitrix. Lead ${bitrixId}.`
-              : 'Dados sincronizados com sucesso!';
+              ? `Valor selecionado: ${selectedValueDisplay}\n\nSucesso! Dados sincronizados via Supabase → Bitrix. Lead ${bitrixId}.`
+              : `Valor selecionado: ${selectedValueDisplay}\n\nDados sincronizados com sucesso!`;
             setBitrixResponseMessage(successMessage);
             setBitrixResponseModal(true);
           }
         } else {
           // Sem webhook, apenas salvo localmente
-          setBitrixResponseMessage(`Dados salvos localmente no Supabase. Lead ${bitrixId}.`);
+          setBitrixResponseMessage(`Valor selecionado: ${selectedValueDisplay}\n\nDados salvos localmente no Supabase. Lead ${bitrixId}.`);
           setBitrixResponseModal(true);
         }
       } else {
@@ -1153,7 +1156,7 @@ const LeadTab = () => {
           // Verificar se há mensagens de erro mesmo com result: true
           if (responseData.error) {
             console.error('❌ Erro do Bitrix:', responseData.error_description || responseData.error);
-            const errorMessage = `Erro do Bitrix: ${responseData.error_description || responseData.error}`;
+            const errorMessage = `Valor selecionado: ${selectedValueDisplay}\n\nErro do Bitrix: ${responseData.error_description || responseData.error}`;
             setBitrixResponseMessage(errorMessage);
             setBitrixResponseModal(true);
             throw new Error(errorMessage);
@@ -1161,7 +1164,7 @@ const LeadTab = () => {
 
           if (!response.ok) {
             console.error('❌ Erro na resposta do Bitrix (HTTP):', responseData);
-            const errorMessage = `Erro ao atualizar Bitrix: ${JSON.stringify(responseData)}`;
+            const errorMessage = `Valor selecionado: ${selectedValueDisplay}\n\nErro ao atualizar Bitrix: ${JSON.stringify(responseData)}`;
             setBitrixResponseMessage(errorMessage);
             setBitrixResponseModal(true);
             throw new Error(errorMessage);
@@ -1171,8 +1174,8 @@ const LeadTab = () => {
           
           // Salvar resposta do Bitrix para exibir ao usuário
           const successMessage = responseData.result 
-            ? `Sucesso! Lead ${bitrixId} atualizado no Bitrix.${responseData.result.ID ? ` ID: ${responseData.result.ID}` : ''}`
-            : 'Lead atualizado com sucesso no Bitrix!';
+            ? `Valor selecionado: ${selectedValueDisplay}\n\nSucesso! Lead ${bitrixId} atualizado no Bitrix.${responseData.result.ID ? ` ID: ${responseData.result.ID}` : ''}`
+            : `Valor selecionado: ${selectedValueDisplay}\n\nLead atualizado com sucesso no Bitrix!`;
           setBitrixResponseMessage(successMessage);
           setBitrixResponseModal(true);
         }
@@ -1234,7 +1237,11 @@ const LeadTab = () => {
       
       // Exibir mensagem de erro no modal
       const errorMsg = error instanceof Error ? error.message : String(error);
-      setBitrixResponseMessage(`Erro: ${errorMsg}`);
+      // Se a mensagem já contém "Valor selecionado:", não adicionar novamente
+      const finalErrorMsg = errorMsg.includes('Valor selecionado:') 
+        ? errorMsg 
+        : `Valor selecionado: ${selectedValueDisplay}\n\nErro: ${errorMsg}`;
+      setBitrixResponseMessage(finalErrorMsg);
       setBitrixResponseModal(true);
       
       toast.error("Erro ao executar ação");
