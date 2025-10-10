@@ -221,6 +221,8 @@ const LeadTab = () => {
   const [isManager, setIsManager] = useState(false);
   const [buttonColumns, setButtonColumns] = useState(3); // 3, 4 ou 5 colunas
   const [bitrixFields, setBitrixFields] = useState<BitrixField[]>([]);
+  const [bitrixResponseModal, setBitrixResponseModal] = useState(false);
+  const [bitrixResponseMessage, setBitrixResponseMessage] = useState("");
   
 
   const checkUserRole = async () => {
@@ -1018,7 +1020,7 @@ const LeadTab = () => {
 
         // Chamar edge function para sincronizar com Bitrix
         if (webhookUrl) {
-          const { error: syncError } = await supabase.functions.invoke('sync-to-bitrix', {
+          const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-to-bitrix', {
             body: {
               lead: {
                 id: bitrixId,
@@ -1031,8 +1033,22 @@ const LeadTab = () => {
 
           if (syncError) {
             console.error('Erro ao sincronizar com Bitrix:', syncError);
+            const errorMessage = `Erro ao sincronizar com Bitrix: ${syncError.message || String(syncError)}`;
+            setBitrixResponseMessage(errorMessage);
+            setBitrixResponseModal(true);
             toast.warning("Dados salvos localmente, mas houve erro ao sincronizar com Bitrix");
+          } else {
+            // Exibir resposta de sucesso
+            const successMessage = syncData 
+              ? `Sucesso! Dados sincronizados via Supabase → Bitrix. Lead ${bitrixId}.`
+              : 'Dados sincronizados com sucesso!';
+            setBitrixResponseMessage(successMessage);
+            setBitrixResponseModal(true);
           }
+        } else {
+          // Sem webhook, apenas salvo localmente
+          setBitrixResponseMessage(`Dados salvos localmente no Supabase. Lead ${bitrixId}.`);
+          setBitrixResponseModal(true);
         }
       } else {
         // FLUXO ATUAL: Bitrix como fonte da verdade
@@ -1137,15 +1153,28 @@ const LeadTab = () => {
           // Verificar se há mensagens de erro mesmo com result: true
           if (responseData.error) {
             console.error('❌ Erro do Bitrix:', responseData.error_description || responseData.error);
-            throw new Error(`Erro do Bitrix: ${responseData.error_description || responseData.error}`);
+            const errorMessage = `Erro do Bitrix: ${responseData.error_description || responseData.error}`;
+            setBitrixResponseMessage(errorMessage);
+            setBitrixResponseModal(true);
+            throw new Error(errorMessage);
           }
 
           if (!response.ok) {
             console.error('❌ Erro na resposta do Bitrix (HTTP):', responseData);
-            throw new Error(`Erro ao atualizar Bitrix: ${JSON.stringify(responseData)}`);
+            const errorMessage = `Erro ao atualizar Bitrix: ${JSON.stringify(responseData)}`;
+            setBitrixResponseMessage(errorMessage);
+            setBitrixResponseModal(true);
+            throw new Error(errorMessage);
           }
           
           console.log('✅ Bitrix atualizado com sucesso!');
+          
+          // Salvar resposta do Bitrix para exibir ao usuário
+          const successMessage = responseData.result 
+            ? `Sucesso! Lead ${bitrixId} atualizado no Bitrix.${responseData.result.ID ? ` ID: ${responseData.result.ID}` : ''}`
+            : 'Lead atualizado com sucesso no Bitrix!';
+          setBitrixResponseMessage(successMessage);
+          setBitrixResponseModal(true);
         }
 
         // 2. Atualizar Supabase - chatwoot_contacts
@@ -1202,6 +1231,12 @@ const LeadTab = () => {
       setSelectedButton(null);
     } catch (error) {
       console.error('Erro ao executar ação:', error);
+      
+      // Exibir mensagem de erro no modal
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setBitrixResponseMessage(`Erro: ${errorMsg}`);
+      setBitrixResponseModal(true);
+      
       toast.error("Erro ao executar ação");
 
       const { error: logError } = await supabase.from('actions_log').insert([{
@@ -2130,6 +2165,26 @@ const LeadTab = () => {
                   Buscar Lead
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Resposta do Bitrix */}
+      <Dialog open={bitrixResponseModal} onOpenChange={setBitrixResponseModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Resposta do Bitrix</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm whitespace-pre-wrap break-words">{bitrixResponseMessage}</p>
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={() => setBitrixResponseModal(false)}
+              className="w-full sm:w-auto"
+            >
+              OK
             </Button>
           </DialogFooter>
         </DialogContent>
