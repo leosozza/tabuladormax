@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, MapPin, Phone, RefreshCcw, Loader2 } from "lucide-react";
+import { User, MapPin, Phone, RefreshCcw, Loader2, Filter } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BitrixError, BitrixLead, listLeads } from "@/lib/bitrix";
 import { CSVImportDialog } from "@/components/CSVImportDialog";
+import { DateFilterSelector } from "@/components/DateFilterSelector";
+import { LeadsListModal } from "@/components/LeadsListModal";
+import { DateFilter, LeadWithDetails } from "@/types/filters";
+import { createDateFilter } from "@/lib/dateUtils";
 
 interface LeadRow {
   id: number;
@@ -40,6 +45,13 @@ const Index = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAllUsers, setShowAllUsers] = useState(false);
   const [actionStats, setActionStats] = useState<Record<string, number>>({});
+  const [dateFilter, setDateFilter] = useState<DateFilter>(() => createDateFilter('today'));
+  const [selectedOperator, setSelectedOperator] = useState<string | null>(null);
+  const [operators, setOperators] = useState<Array<{ id: string; name: string }>>([]);
+  const [showLeadsModal, setShowLeadsModal] = useState(false);
+  const [selectedStatusLabel, setSelectedStatusLabel] = useState<string>('');
+  const [selectedStatusLeads, setSelectedStatusLeads] = useState<LeadWithDetails[]>([]);
+  const [loadingStatusLeads, setLoadingStatusLeads] = useState(false);
 
   useEffect(() => {
     checkUserRole();
@@ -49,8 +61,9 @@ const Index = () => {
     if (currentUserId) {
       loadLeads();
       loadActionStats();
+      loadOperators();
     }
-  }, [currentUserId, showAllUsers]);
+  }, [currentUserId, showAllUsers, dateFilter, selectedOperator]);
 
   const checkUserRole = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -98,10 +111,30 @@ const Index = () => {
   const loadActionStats = async () => {
     let query = supabase
       .from('actions_log')
-      .select('action_label, lead_id');
+      .select('action_label, lead_id, created_at');
     
-    // Filtrar por leads do usuário se não for admin ou se admin não quiser ver todos
-    if ((!isAdmin || !showAllUsers) && currentUserId) {
+    // Apply date filter
+    query = query
+      .gte('created_at', dateFilter.startDate.toISOString())
+      .lte('created_at', dateFilter.endDate.toISOString());
+    
+    // Filter by operator if selected
+    if (selectedOperator) {
+      const { data: operatorLeads } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('responsible', selectedOperator);
+      
+      const leadIds = operatorLeads?.map(l => l.id) || [];
+      if (leadIds.length > 0) {
+        query = query.in('lead_id', leadIds);
+      } else {
+        // No leads for this operator
+        setActionStats({});
+        return;
+      }
+    } else if ((!isAdmin || !showAllUsers) && currentUserId) {
+      // Filtrar por leads do usuário se não for admin ou se admin não quiser ver todos
       const { data: userLeads } = await supabase
         .from('leads')
         .select('id')
@@ -123,6 +156,126 @@ const Index = () => {
     });
     
     setActionStats(counts);
+  };
+
+  const loadOperators = async () => {
+    // Load all users who are operators (have leads assigned)
+    const { data: leadsData } = await supabase
+      .from('leads')
+      .select('responsible')
+      .not('responsible', 'is', null);
+    
+    if (leadsData) {
+      const uniqueOperatorIds = [...new Set(leadsData.map(l => l.responsible))].filter(Boolean);
+      
+      // Get user details
+      const { data: usersData } = await supabase
+        .from('profiles')
+        .select('id, display_name')
+        .in('id', uniqueOperatorIds);
+      
+      if (usersData) {
+        setOperators(usersData.map(u => ({ id: u.id, name: u.display_name || u.id })));
+      }
+    }
+  };
+
+  const loadLeadsByStatus = async (statusLabel: string) => {
+    setLoadingStatusLeads(true);
+    setSelectedStatusLabel(statusLabel);
+    setShowLeadsModal(true);
+
+    try {
+      // Get action logs for this status within date range
+      let logsQuery = supabase
+        .from('actions_log')
+        .select('lead_id, created_at')
+        .eq('action_label', statusLabel)
+        .gte('created_at', dateFilter.startDate.toISOString())
+        .lte('created_at', dateFilter.endDate.toISOString());
+
+      // Apply operator filter if selected
+      if (selectedOperator) {
+        const { data: operatorLeads } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('responsible', selectedOperator);
+        
+        const leadIds = operatorLeads?.map(l => l.id) || [];
+        if (leadIds.length > 0) {
+          logsQuery = logsQuery.in('lead_id', leadIds);
+        } else {
+          setSelectedStatusLeads([]);
+          setLoadingStatusLeads(false);
+          return;
+        }
+      } else if ((!isAdmin || !showAllUsers) && currentUserId) {
+        // Filter by user's leads
+        const { data: userLeads } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('responsible', currentUserId);
+        
+        const leadIds = userLeads?.map(l => l.id) || [];
+        if (leadIds.length > 0) {
+          logsQuery = logsQuery.in('lead_id', leadIds);
+        }
+      }
+
+      const { data: logs } = await logsQuery;
+
+      if (!logs || logs.length === 0) {
+        setSelectedStatusLeads([]);
+        setLoadingStatusLeads(false);
+        return;
+      }
+
+      // Get unique lead IDs
+      const leadIds = [...new Set(logs.map(log => log.lead_id))];
+
+      // Fetch lead details
+      const { data: leadsData } = await supabase
+        .from('leads')
+        .select('*')
+        .in('id', leadIds);
+
+      if (leadsData) {
+        // Map to LeadWithDetails with action timestamp
+        const leadsWithDetails: LeadWithDetails[] = leadsData.map(lead => {
+          const leadLogs = logs.filter(log => log.lead_id === lead.id);
+          const latestLog = leadLogs.sort((a, b) => 
+            new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
+          )[0];
+
+          return {
+            id: lead.id,
+            name: lead.name,
+            age: lead.age,
+            address: lead.address,
+            photo_url: lead.photo_url,
+            updated_at: lead.updated_at,
+            responsible: lead.responsible,
+            scouter: lead.scouter,
+            action_label: statusLabel,
+            action_created_at: latestLog?.created_at || null
+          };
+        });
+
+        // Sort by action timestamp
+        leadsWithDetails.sort((a, b) => {
+          const dateA = new Date(a.action_created_at || a.updated_at || 0).getTime();
+          const dateB = new Date(b.action_created_at || b.updated_at || 0).getTime();
+          return dateB - dateA;
+        });
+
+        setSelectedStatusLeads(leadsWithDetails);
+      }
+    } catch (error) {
+      console.error('Error loading leads by status:', error);
+      toast.error('Erro ao carregar leads');
+    } finally {
+      setLoadingStatusLeads(false);
+    }
   };
 
   const syncFromBitrix = async () => {
@@ -171,34 +324,87 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b">
-        <div className="container mx-auto px-4 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              Tabulador Telemarketing
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Gerencie seus leads com eficiência
-            </p>
+        <div className="container mx-auto px-4 py-6 flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">
+                Tabulador Telemarketing
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                Gerencie seus leads com eficiência
+              </p>
+            </div>
+            <div className="flex gap-2 items-center">
+              {isAdmin && (
+                <label className="flex items-center gap-2 text-sm">
+                  <input 
+                    type="checkbox" 
+                    checked={showAllUsers}
+                    onChange={(e) => setShowAllUsers(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>Ver todos os usuários</span>
+                </label>
+              )}
+              <CSVImportDialog onImportComplete={loadLeads} />
+              <Button onClick={syncFromBitrix} disabled={syncing} className="gap-2">
+                {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                {syncing ? 'Sincronizando...' : 'Sincronizar com Bitrix'}
+              </Button>
+              <UserMenu />
+            </div>
           </div>
-          <div className="flex gap-2 items-center">
-            {isAdmin && (
-              <label className="flex items-center gap-2 text-sm">
-                <input 
-                  type="checkbox" 
-                  checked={showAllUsers}
-                  onChange={(e) => setShowAllUsers(e.target.checked)}
-                  className="rounded"
+
+          {/* Filter Bar */}
+          <Card className="p-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Filtros:</span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-muted-foreground">Data:</label>
+                <DateFilterSelector 
+                  value={dateFilter} 
+                  onChange={setDateFilter} 
                 />
-                <span>Ver todos os usuários</span>
-              </label>
-            )}
-            <CSVImportDialog onImportComplete={loadLeads} />
-            <Button onClick={syncFromBitrix} disabled={syncing} className="gap-2">
-              {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-              {syncing ? 'Sincronizando...' : 'Sincronizar com Bitrix'}
-            </Button>
-            <UserMenu />
-          </div>
+              </div>
+
+              {isAdmin && (
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground">Operador:</label>
+                  <Select 
+                    value={selectedOperator || 'all'} 
+                    onValueChange={(v) => setSelectedOperator(v === 'all' ? null : v)}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os operadores</SelectItem>
+                      {operators.map((op) => (
+                        <SelectItem key={op.id} value={op.id}>
+                          {op.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setDateFilter(createDateFilter('today'));
+                  setSelectedOperator(null);
+                }}
+              >
+                Limpar Filtros
+              </Button>
+            </div>
+          </Card>
         </div>
       </header>
 
@@ -245,10 +451,15 @@ const Index = () => {
               {Object.entries(actionStats)
                 .sort(([, a], [, b]) => b - a)
                 .map(([label, count]) => (
-                  <Card key={label} className="p-4">
+                  <Card 
+                    key={label} 
+                    className="p-4 cursor-pointer hover:shadow-lg transition-shadow hover:border-primary"
+                    onClick={() => loadLeadsByStatus(label)}
+                  >
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">{label}</p>
                       <p className="text-2xl font-bold">{count}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Clique para ver leads</p>
                     </div>
                   </Card>
                 ))}
@@ -316,6 +527,15 @@ const Index = () => {
           )}
         </div>
       </main>
+
+      {/* Leads List Modal */}
+      <LeadsListModal
+        isOpen={showLeadsModal}
+        onClose={() => setShowLeadsModal(false)}
+        leads={selectedStatusLeads}
+        statusLabel={selectedStatusLabel}
+        loading={loadingStatusLeads}
+      />
     </div>
   );
 };
