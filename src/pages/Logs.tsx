@@ -165,7 +165,6 @@ const Logs = () => {
     } catch (err) {
       console.warn("Erro ao carregar agentes", err);
     }
-  };
 
   const applyFiltersToQuery = useCallback(
     (query: any) => {
