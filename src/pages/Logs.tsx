@@ -18,7 +18,7 @@ interface LogEntry {
   id: string;
   lead_id: number;
   action_label: string;
-  payload: any;
+  payload: Record<string, unknown>;
   status: string;
   error?: string;
   created_at: string;
@@ -73,6 +73,7 @@ const Logs = () => {
     if (currentUserId) {
       loadLogs();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFilter, customDateFrom, customDateTo, agentFilter, currentUserId]);
 
   const checkUserRole = async () => {
