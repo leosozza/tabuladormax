@@ -5,7 +5,7 @@ export function getDateRangeForPreset(preset: DateFilterPreset): { startDate: Da
   const endDate = new Date(now);
   endDate.setHours(23, 59, 59, 999);
 
-  let startDate = new Date(now);
+  const startDate = new Date(now);
   
   switch (preset) {
     case 'today':
