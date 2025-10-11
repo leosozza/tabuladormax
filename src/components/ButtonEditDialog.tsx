@@ -10,7 +10,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { BitrixField, getLeadStatuses } from "@/lib/bitrix";
 import { BUTTON_CATEGORIES, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { useState, useEffect } from "react";
-import type { Flow } from "@/types/flow";
 
 // Constante centralizada com TODOS os placeholders disponíveis
 const AVAILABLE_PLACEHOLDERS = [
@@ -53,7 +52,6 @@ interface ButtonConfig {
   sub_buttons: SubButton[];
   sync_target?: 'bitrix' | 'supabase';
   additional_fields?: Array<{ field: string; value: string }>;
-  flow_id?: string | null;
 }
 
 interface SupabaseField {
@@ -76,9 +74,6 @@ interface ButtonEditDialogProps {
   categories: Category[];
   bitrixFields: BitrixField[];
   supabaseFields: SupabaseField[];
-  flows: Flow[];
-  pendingFlow?: Flow | null;
-  onApplyPendingFlow?: () => void;
   onUpdate: (id: string, updates: Partial<Omit<ButtonConfig, "id" | "layout" | "sub_buttons">>) => void;
   onUpdateLayout: (id: string, updates: Partial<ButtonLayout>) => void;
   onAddSubButton: (id: string) => void;
@@ -104,9 +99,6 @@ export function ButtonEditDialog({
   categories,
   bitrixFields,
   supabaseFields,
-  flows,
-  pendingFlow,
-  onApplyPendingFlow,
   onUpdate,
   onUpdateLayout,
   onAddSubButton,
@@ -150,7 +142,6 @@ export function ButtonEditDialog({
   if (!button) return null;
 
   const fieldMeta = bitrixFields.find((field) => field.name === button.field);
-  const isFlowAction = button.action_type === 'flow';
 
   // Filtrar campos baseado na busca
   const filteredFields = (button.sync_target === 'supabase' ? supabaseFields : bitrixFields).filter(
@@ -184,14 +175,6 @@ export function ButtonEditDialog({
         </DialogHeader>
 
         <div className="space-y-4 pointer-events-auto">
-          {pendingFlow && !isFlowAction && (
-            <div className="rounded-lg border border-primary/40 bg-primary/10 p-3">
-              <p className="text-sm font-medium">Fluxo sugerido: {pendingFlow.name}</p>
-              <p className="text-xs text-muted-foreground">
-                Altere o campo "Tipo de Ação" para "Fluxo (avançado)" para associar automaticamente este fluxo.
-              </p>
-            </div>
-          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Nome do Botão</Label>
@@ -258,7 +241,6 @@ export function ButtonEditDialog({
               <Label>Destino de Sincronização</Label>
               <Select
                 value={button.sync_target || 'bitrix'}
-                disabled={isFlowAction}
                 onValueChange={(value: 'bitrix' | 'supabase') => {
                   onUpdate(button.id, { sync_target: value });
                   // Limpar campo quando mudar destino
@@ -284,8 +266,6 @@ export function ButtonEditDialog({
               </p>
             </div>
 
-            {!isFlowAction && (
-              <>
             <div className="md:col-span-2">
               <Label>URL do Webhook {button.sync_target === 'bitrix' && '(Bitrix)'}</Label>
               <Input
@@ -446,19 +426,11 @@ export function ButtonEditDialog({
               )}
             </div>
 
-            </>
-            )}
-
             <div>
               <Label>Tipo de Ação</Label>
               <Select
                 value={button.action_type}
-                onValueChange={(value) => {
-                  onUpdate(button.id, {
-                    action_type: value,
-                    ...(value === 'flow' ? {} : { flow_id: null }),
-                  });
-                }}
+                onValueChange={(value) => onUpdate(button.id, { action_type: value })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -471,7 +443,6 @@ export function ButtonEditDialog({
                   <SelectItem value="datetime">🕐 Data e Hora</SelectItem>
                   <SelectItem value="list">📋 Lista</SelectItem>
                   <SelectItem value="number">🔢 Número</SelectItem>
-                  <SelectItem value="flow">⚙️ Fluxo (avançado)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -484,55 +455,6 @@ export function ButtonEditDialog({
                 placeholder="1, 2, Ctrl+1, etc"
               />
             </div>
-
-            {isFlowAction && (
-              <div className="md:col-span-2 space-y-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4">
-                {pendingFlow && (
-                  <div className="flex flex-col gap-2 rounded-md border border-primary/40 bg-primary/10 p-3 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Fluxo sugerido</p>
-                      <p className="text-xs text-muted-foreground">{pendingFlow.name}</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        onUpdate(button.id, { action_type: 'flow', flow_id: pendingFlow.id });
-                        onApplyPendingFlow?.();
-                      }}
-                    >
-                      Usar este fluxo
-                    </Button>
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label>Fluxo associado</Label>
-                  <Select
-                    value={button.flow_id ?? '_none_'}
-                    onValueChange={(value) =>
-                      onUpdate(button.id, { flow_id: value === '_none_' ? null : value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um fluxo" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-[210] max-h-[320px]">
-                      <SelectItem value="_none_">Nenhum fluxo associado</SelectItem>
-                      {flows.map((flow) => (
-                        <SelectItem key={flow.id} value={flow.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{flow.name}</span>
-                            <span className="text-xs uppercase text-muted-foreground">{flow.visibility}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Configure e edite os fluxos na área de Flow Builder. O botão executará o fluxo selecionado.
-                  </p>
-                </div>
-              </div>
-            )}
 
             <div>
               <Label>Largura (1 a 3 colunas)</Label>
@@ -565,7 +487,6 @@ export function ButtonEditDialog({
             </div>
           </div>
 
-          {!isFlowAction && (
           <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-3">
               <div>
@@ -754,9 +675,7 @@ export function ButtonEditDialog({
               )}
             </div>
           </div>
-          )}
 
-          {!isFlowAction && (
           <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-3">
               <Label className="text-sm font-semibold">Sub-botões (Motivos)</Label>
@@ -1150,7 +1069,6 @@ export function ButtonEditDialog({
               })}
             </div>
           </div>
-          )}
 
           <div className="flex justify-between items-center pt-4 border-t">
             <Button 
