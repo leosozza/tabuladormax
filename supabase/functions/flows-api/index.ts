@@ -177,27 +177,20 @@ Deno.serve(async (req: Request) => {
           return jsonResponse(500, { error: 'Erro ao criar execução' });
         }
 
-        const { error: executorError } = await supabase.functions.invoke('flows-executor', {
+        // Invoke the executor asynchronously (fire-and-forget)
+        supabase.functions.invoke('flows-executor', {
           body: {
             runId: run.id,
             input,
           },
+        }).then(({ error: executorError }) => {
+          if (executorError) {
+            console.error('Erro ao invocar executor', executorError);
+            // Optionally, update the run status to 'failed' here if needed
+          }
+        }).catch((err) => {
+          console.error('Erro inesperado ao invocar executor', err);
         });
-
-        if (executorError) {
-          console.error('Erro ao invocar executor', executorError);
-          await supabase
-            .from('flows_runs')
-            .update({
-              status: 'failed',
-              finished_at: new Date().toISOString(),
-              logs: [{ level: 'error', message: executorError.message }],
-            })
-            .eq('id', run.id);
-
-          return jsonResponse(500, { error: 'Falha ao iniciar executor', run });
-        }
-
         return jsonResponse(200, { run });
       }
     }
