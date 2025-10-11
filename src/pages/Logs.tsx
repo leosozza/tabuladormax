@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Filter, Columns } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
@@ -27,8 +28,8 @@ interface LogEntry {
   user_id?: string;
   agent?: {
     id: string;
-    email?: string;
-    display_name?: string;
+    email: string;
+    display_name: string;
   } | null;
 }
 
@@ -63,12 +64,15 @@ const Logs = () => {
 
   // Filters
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+const Logs = () => {
+  const navigate = useNavigate();
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>();
   const [customDateTo, setCustomDateTo] = useState<Date | undefined>();
   const [agentFilter, setAgentFilter] = useState<string>("all");
   const [agents, setAgents] = useState<Array<{ id: string; display_name: string; email: string }>>([]);
-
-  // Columns
   const [columns, setColumns] = useState<ColumnConfig[]>(() => {
     if (typeof window === "undefined") {
       return DEFAULT_COLUMNS;
@@ -93,17 +97,54 @@ const Logs = () => {
   const [pageSize, setPageSize] = useState<number>(50);
 
   // Load user role and agents list (for filter)
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [isAdmin, setIsAdmin] = useState(false);
+
   useEffect(() => {
     checkUserRole();
     loadAgents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Reload logs when filters, page, pageSize, or permissions change
   const loadRequestRef = useRef(0);
 
   const getDateRange = useCallback(() => {
+  useEffect(() => {
+    if (currentUserId) {
+      loadLogs();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFilter, customDateFrom, customDateTo, agentFilter, currentUserId]);
+
+  const checkUserRole = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      setCurrentUserId(session.user.id);
+      
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      
+      setIsAdmin(data?.role === 'admin' || data?.role === 'manager');
+    }
+  };
+
+  const loadAgents = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name, email')
+      .order('display_name');
+
+    if (!error && data) {
+      setAgents(data);
+    }
+  };
+
+  const getDateRange = () => {
     const now = new Date();
+    
     switch (dateFilter) {
       case "today":
         return { from: startOfDay(now), to: endOfDay(now) };
@@ -278,6 +319,52 @@ const Logs = () => {
 
   const toggleColumn = (columnId: string) => {
     const newColumns = columns.map((col) => (col.id === columnId ? { ...col, visible: !col.visible } : col));
+  const loadLogs = async () => {
+    setLoading(true);
+    
+    let query = supabase
+      .from('actions_log')
+      .select(`
+        *,
+        agent:user_id (
+          id,
+          email,
+          display_name
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    // Apply date filter
+    const dateRange = getDateRange();
+    if (dateRange) {
+      query = query
+        .gte('created_at', dateRange.from.toISOString())
+        .lte('created_at', dateRange.to.toISOString());
+    }
+
+    // Apply agent filter
+    if (agentFilter !== 'all') {
+      query = query.eq('user_id', agentFilter);
+    } else if (!isAdmin) {
+      // Non-admin users only see their own logs
+      query = query.eq('user_id', currentUserId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Erro ao carregar logs:', error);
+    } else {
+      setLogs(data || []);
+    }
+    setLoading(false);
+  };
+
+  const toggleColumn = (columnId: string) => {
+    const newColumns = columns.map(col =>
+      col.id === columnId ? { ...col, visible: !col.visible } : col
+    );
     setColumns(newColumns);
 
     try {
@@ -303,12 +390,18 @@ const Logs = () => {
 
   const startIndex = (page - 1) * pageSize + 1;
   const endIndex = Math.min((page - 1) * pageSize + logs.length, totalCount ?? (page - 1) * pageSize + logs.length);
+  const visibleColumns = columns.filter(col => col.visible);
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="container mx-auto max-w-7xl">
         <div className="flex justify-between items-center mb-6">
           <Button variant="outline" onClick={() => navigate("/dashboard")} className="gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/dashboard')}
+            className="gap-2"
+          >
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </Button>
@@ -316,7 +409,7 @@ const Logs = () => {
         </div>
 
         <Card className="p-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">🧾 Logs de Ações</h1>
             <div className="flex items-center gap-2">
               <div className="text-sm text-muted-foreground">
@@ -324,6 +417,7 @@ const Logs = () => {
                   ? `Mostrando ${startIndex}-${endIndex} de ${totalCount.toLocaleString()}`
                   : `Mostrando ${startIndex}-${endIndex}`}
               </div>
+            <div className="flex gap-2">
               <Button onClick={loadLogs} variant="outline">
                 Atualizar
               </Button>
@@ -336,8 +430,9 @@ const Logs = () => {
               <Filter className="w-4 h-4" />
               <h2 className="font-semibold">Filtros</h2>
             </div>
-
+            
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Date Filter */}
               <div className="space-y-2">
                 <Label>Período</Label>
                 <Select
@@ -347,6 +442,7 @@ const Logs = () => {
                     setPage(1);
                   }}
                 >
+                <Select value={dateFilter} onValueChange={(value) => setDateFilter(value as DateFilter)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -361,6 +457,8 @@ const Logs = () => {
               </div>
 
               {dateFilter === "custom" && (
+              {/* Custom Date Range */}
+              {dateFilter === 'custom' && (
                 <>
                   <div className="space-y-2">
                     <Label>Data Inicial</Label>
@@ -371,7 +469,12 @@ const Logs = () => {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
-                        <Calendar mode="single" selected={customDateFrom} onSelect={setCustomDateFrom} initialFocus />
+                        <Calendar
+                          mode="single"
+                          selected={customDateFrom}
+                          onSelect={setCustomDateFrom}
+                          initialFocus
+                        />
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -385,13 +488,19 @@ const Logs = () => {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
-                        <Calendar mode="single" selected={customDateTo} onSelect={setCustomDateTo} initialFocus />
+                        <Calendar
+                          mode="single"
+                          selected={customDateTo}
+                          onSelect={setCustomDateTo}
+                          initialFocus
+                        />
                       </PopoverContent>
                     </Popover>
                   </div>
                 </>
               )}
 
+              {/* Agent Filter (only for admins) */}
               {isAdmin && (
                 <div className="space-y-2">
                   <Label>Agente/Operador</Label>
@@ -402,12 +511,14 @@ const Logs = () => {
                       setPage(1);
                     }}
                   >
+                  <Select value={agentFilter} onValueChange={setAgentFilter}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos os Agentes</SelectItem>
                       {agents.map((agent) => (
+                      {agents.map(agent => (
                         <SelectItem key={agent.id} value={agent.id}>
                           {agent.display_name || agent.email}
                         </SelectItem>
@@ -418,6 +529,7 @@ const Logs = () => {
               )}
             </div>
 
+            {/* Column Selector */}
             <div className="mt-4 pt-4 border-t">
               <Popover>
                 <PopoverTrigger asChild>
@@ -433,6 +545,15 @@ const Logs = () => {
                       <div key={col.id} className="flex items-center space-x-2">
                         <Checkbox id={col.id} checked={col.visible} onCheckedChange={() => toggleColumn(col.id)} />
                         <Label htmlFor={col.id} className="text-sm font-normal cursor-pointer">
+                        <Checkbox
+                          id={col.id}
+                          checked={col.visible}
+                          onCheckedChange={() => toggleColumn(col.id)}
+                        />
+                        <Label
+                          htmlFor={col.id}
+                          className="text-sm font-normal cursor-pointer"
+                        >
                           {col.label}
                         </Label>
                       </div>
@@ -446,6 +567,8 @@ const Logs = () => {
           {/* Table */}
           {pageLoading ? (
             <p className="text-center text-muted-foreground">Carregando página...</p>
+          {loading ? (
+            <p className="text-center text-muted-foreground">Carregando...</p>
           ) : logs.length === 0 ? (
             <p className="text-center text-muted-foreground">Nenhum log encontrado</p>
           ) : (
@@ -454,6 +577,7 @@ const Logs = () => {
                 <TableHeader>
                   <TableRow>
                     {visibleColumns.map((col) => (
+                    {visibleColumns.map(col => (
                       <TableHead key={col.id}>{col.label}</TableHead>
                     ))}
                   </TableRow>
@@ -478,11 +602,25 @@ const Logs = () => {
                               </TableCell>
                             );
                           case "status":
+                          case 'created_at':
+                            return (
+                              <TableCell key={col.id} className="whitespace-nowrap">
+                                {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss')}
+                              </TableCell>
+                            );
+                          case 'lead_id':
+                            return <TableCell key={col.id}>{log.lead_id}</TableCell>;
+                          case 'action_label':
+                            return <TableCell key={col.id} className="font-medium">{log.action_label}</TableCell>;
+                          case 'status':
                             return (
                               <TableCell key={col.id}>
                                 <span
                                   className={`px-2 py-1 rounded text-xs font-semibold ${
                                     log.status === "OK" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                                    log.status === 'OK'
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-red-100 text-red-800'
                                   }`}
                                 >
                                   {log.status}
@@ -510,6 +648,36 @@ const Logs = () => {
                                 </pre>
                               </TableCell>
                             );
+                          case 'agent_name':
+                            return (
+                              <TableCell key={col.id}>
+                                {log.agent?.display_name || <span className="text-muted-foreground italic">N/A</span>}
+                              </TableCell>
+                            );
+                          case 'agent_email':
+                            return (
+                              <TableCell key={col.id}>
+                                {log.agent?.email || <span className="text-muted-foreground italic">N/A</span>}
+                              </TableCell>
+                            );
+                          case 'details':
+                            return (
+                              <TableCell key={col.id}>
+                                <details className="cursor-pointer">
+                                  <summary className="text-xs text-blue-600 hover:underline">
+                                    Ver payload
+                                  </summary>
+                                  <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-x-auto max-w-md">
+                                    {JSON.stringify(log.payload, null, 2)}
+                                  </pre>
+                                  {log.error && (
+                                    <p className="text-xs text-red-600 mt-1">Erro: {log.error}</p>
+                                  )}
+                                </details>
+                              </TableCell>
+                            );
+                          default:
+                            return <TableCell key={col.id}>-</TableCell>;
                         }
                       })}
                     </TableRow>
