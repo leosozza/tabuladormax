@@ -29,8 +29,22 @@ import {
   type ButtonLayout,
 } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
-import { runTabular } from "@/handlers/tabular";
+// import { runTabular } from "@/handlers/tabular";
 
+// Client-side wrapper for runTabular API
+async function callRunTabularAPI(params: any): Promise<any> {
+  const response = await fetch('/api/tabular', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(params),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to call runTabular API');
+  }
+  return response.json();
+}
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, any>;
 
