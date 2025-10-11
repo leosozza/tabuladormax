@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Filter, Columns } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { useAgentCache } from "@/hooks/useAgentCache";
 
 interface LogEntry {
   id: string;
@@ -49,14 +50,13 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'details', label: 'Detalhes', visible: true },
 ];
 
-const SESSION_AGENT_CACHE_KEY = 'logs_agents_cache_v1';
-
 const Logs = () => {
   const navigate = useNavigate();
+  const agentCache = useAgentCache();
 
   // Data
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true);
   const [totalCount, setTotalCount] = useState<number | null>(null);
 
   // Filters
@@ -82,18 +82,6 @@ const Logs = () => {
   const [pageSize, setPageSize] = useState<number>(50); // default 50
   const MAX_PAGE_SIZE = 100;
 
-  // Agent cache (in-memory + sessionStorage)
-  const agentCacheRef = useRef<Record<string, { id: string; display_name?: string; email?: string }>>({});
-  useEffect(() => {
-    // hydrate cache from sessionStorage
-    try {
-      const raw = sessionStorage.getItem(SESSION_AGENT_CACHE_KEY);
-      if (raw) agentCacheRef.current = JSON.parse(raw) || {};
-    } catch (e) {
-      console.warn('Erro ao ler cache de agentes da sessão', e);
-    }
-  }, []);
-
   // Load user role and agents list (for filter)
   useEffect(() => {
     checkUserRole();
@@ -102,12 +90,27 @@ const Logs = () => {
   }, []);
 
   // Reload logs when filters, page, pageSize, or permissions change
-  useEffect(() => {
-    if (currentUserId !== '') {
-      loadLogs();
+  const loadRequestRef = useRef(0);
+
+  const getDateRange = useCallback(() => {
+    const now = new Date();
+    switch (dateFilter) {
+      case 'today':
+        return { from: startOfDay(now), to: endOfDay(now) };
+      case 'week':
+        return { from: startOfWeek(now, { locale: ptBR }), to: endOfWeek(now, { locale: ptBR }) };
+      case 'month':
+        return { from: startOfMonth(now), to: endOfMonth(now) };
+      case 'custom':
+        if (customDateFrom && customDateTo) {
+          return { from: startOfDay(customDateFrom), to: endOfDay(customDateTo) };
+        }
+        return null;
+      case 'all':
+      default:
+        return null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFilter, customDateFrom, customDateTo, agentFilter, currentUserId, isAdmin, page, pageSize, columns]);
+  }, [customDateFrom, customDateTo, dateFilter]);
 
   const checkUserRole = async () => {
     try {
@@ -138,151 +141,109 @@ const Logs = () => {
     }
   };
 
-  const getDateRange = () => {
-    const now = new Date();
-    switch (dateFilter) {
-      case 'today':
-        return { from: startOfDay(now), to: endOfDay(now) };
-      case 'week':
-        return { from: startOfWeek(now, { locale: ptBR }), to: endOfWeek(now, { locale: ptBR }) };
-      case 'month':
-        return { from: startOfMonth(now), to: endOfMonth(now) };
-      case 'custom':
-        if (customDateFrom && customDateTo) {
-          return { from: startOfDay(customDateFrom), to: endOfDay(customDateTo) };
-        }
-        return null;
-      case 'all':
-      default:
-        return null;
-    }
-  };
-
   // Helper: apply common filters to a Supabase query builder
-  const applyFiltersToQuery = (query: any) => {
-    const dateRange = getDateRange();
-    if (dateRange) {
-      query = query.gte('created_at', dateRange.from.toISOString()).lte('created_at', dateRange.to.toISOString());
-    }
-    if (agentFilter !== 'all') {
-      query = query.eq('user_id', agentFilter);
-    }
-    if (!isAdmin && currentUserId) {
-      // non-admins see only their own logs
-      query = query.eq('user_id', currentUserId);
-    }
-    return query;
-  };
-
-  const fetchTotalCount = async () => {
-    try {
-      let countQuery = supabase.from('actions_log').select('id', { count: 'exact', head: false });
-      countQuery = applyFiltersToQuery(countQuery);
-      const { count, error } = await countQuery;
-      if (error) {
-        console.warn('Erro ao buscar count de logs:', error);
-        return null;
+  const applyFiltersToQuery = useCallback(
+    (query: any) => {
+      const dateRange = getDateRange();
+      if (dateRange) {
+        query = query
+          .gte('created_at', dateRange.from.toISOString())
+          .lte('created_at', dateRange.to.toISOString());
       }
-      return typeof count === 'number' ? count : null;
-    } catch (err) {
-      console.error('Erro inesperado ao buscar count de logs:', err);
-      return null;
+      if (agentFilter !== 'all') {
+        query = query.eq('user_id', agentFilter);
+      }
+      if (!isAdmin && currentUserId) {
+        // non-admins see only their own logs
+        query = query.eq('user_id', currentUserId);
+      }
+      return query;
+    },
+    [agentFilter, currentUserId, getDateRange, isAdmin]
+  );
+
+  const loadLogs = useCallback(async () => {
+    if (!isAdmin && !currentUserId) {
+      return;
     }
-  };
 
-  const loadLogs = async () => {
-    setLoading(true);
+    const requestId = ++loadRequestRef.current;
+    setPageLoading(true);
+
     try {
-      // Build main data query (no inline joins)
-      const offset = Math.max(0, (page - 1) * Math.min(pageSize, MAX_PAGE_SIZE));
-      let dataQuery: any = supabase
+      const safePageSize = Math.min(pageSize, MAX_PAGE_SIZE);
+      const start = Math.max(0, (page - 1) * safePageSize);
+      const end = start + safePageSize - 1;
+
+      let query = supabase
         .from('actions_log')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(Math.min(pageSize, MAX_PAGE_SIZE))
-        .offset(offset);
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false });
 
-      dataQuery = applyFiltersToQuery(dataQuery);
+      query = applyFiltersToQuery(query);
+      query = query.range(start, end);
 
-      const [{ data: rows, error: rowsError }, total] = await Promise.all([
-        dataQuery,
-        fetchTotalCount(),
-      ]);
+      const { data, error, count } = await query;
 
-      if (rowsError) {
-        console.error('Erro ao carregar logs (rows):', rowsError);
-        toast.error('Erro ao carregar logs. Veja console para detalhes.');
-        setLogs([]);
-        setTotalCount(total ?? null);
-        setLoading(false);
+      if (requestId !== loadRequestRef.current) {
         return;
       }
 
-      let logsData: LogEntry[] = (rows || []) as LogEntry[];
-
-      // If agent columns are visible, batch-fetch missing profiles and map to logs
-      const needAgent = columns.some(c => c.visible && (c.id === 'agent_name' || c.id === 'agent_email'));
-      if (needAgent && logsData.length > 0) {
-        // collect missing ids
-        const missingIdsSet = new Set<string>();
-        for (const l of logsData) {
-          if (l.user_id && !agentCacheRef.current[l.user_id]) {
-            missingIdsSet.add(l.user_id);
-          } else if (l.user_id && agentCacheRef.current[l.user_id]) {
-            // attach cached agent immediately
-            l.agent = agentCacheRef.current[l.user_id] as LogEntry['agent'];
-          }
-        }
-
-        const missingIds = Array.from(missingIdsSet);
-        if (missingIds.length > 0) {
-          // batch fetch up to 200 ids per call
-          const BATCH = 200;
-          for (let i = 0; i < missingIds.length; i += BATCH) {
-            const batchIds = missingIds.slice(i, i + BATCH);
-            try {
-              const { data: profiles, error: profilesError } = await supabase
-                .from('profiles')
-                .select('id, display_name, email')
-                .in('id', batchIds);
-              if (profilesError) {
-                console.warn('Erro ao buscar perfis de agentes (batch):', profilesError);
-                continue;
-              }
-              if (profiles) {
-                for (const p of profiles) {
-                  agentCacheRef.current[p.id] = { id: p.id, display_name: p.display_name, email: p.email };
-                }
-                // persist partially fetched cache
-                try {
-                  sessionStorage.setItem(SESSION_AGENT_CACHE_KEY, JSON.stringify(agentCacheRef.current));
-                } catch {
-                  // ignore
-                }
-              }
-            } catch (err) {
-              console.error('Erro fetch perfis batch:', err);
-            }
-          }
-          // attach agent objects to logs after all batches processed
-          logsData = logsData.map(l => ({
-            ...l,
-            agent: l.user_id ? (agentCacheRef.current[l.user_id] || null) : null,
-          }));
-        }
+      if (error) {
+        console.error('Erro ao carregar logs:', error);
+        toast.error('Erro ao carregar logs. Veja console para detalhes.');
+        setLogs([]);
+        setTotalCount(null);
+        return;
       }
 
-      setLogs(logsData);
-      setTotalCount(total ?? null);
+      const rows = (data ?? []) as Array<LogEntry & { user_id?: string } & Record<string, unknown>>;
+      const userIds = rows.map(row => row.user_id).filter(Boolean);
+      await agentCache.preload(userIds);
+
+      const mappedLogs: LogEntry[] = rows.map(row => {
+        const profile = row.user_id ? agentCache.get(row.user_id) : null;
+        const agent = profile
+          ? {
+              id: profile.id,
+              display_name: (profile.display_name ?? profile.full_name ?? undefined) as string | undefined,
+              email: profile.email ?? undefined,
+            }
+          : null;
+
+        return {
+          ...row,
+          payload: (row.payload as Record<string, unknown>) ?? {},
+          agent,
+        } as LogEntry;
+      });
+
+      setLogs(mappedLogs);
+      setTotalCount(typeof count === 'number' ? count : null);
     } catch (err) {
+      if (requestId !== loadRequestRef.current) {
+        return;
+      }
       console.error('Erro inesperado ao carregar logs:', err);
       toast.error('Erro inesperado ao carregar logs. Veja console.');
       setLogs([]);
       setTotalCount(null);
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) {
+        setPageLoading(false);
+      }
     }
-  };
+  }, [agentCache, applyFiltersToQuery, currentUserId, isAdmin, page, pageSize]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadLogs();
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [loadLogs]);
 
   const toggleColumn = (columnId: string) => {
     const newColumns = columns.map(col => (col.id === columnId ? { ...col, visible: !col.visible } : col));
@@ -421,8 +382,8 @@ const Logs = () => {
           </div>
 
           {/* Table */}
-          {loading ? (
-            <p className="text-center text-muted-foreground">Carregando...</p>
+          {pageLoading ? (
+            <p className="text-center text-muted-foreground">Carregando página...</p>
           ) : logs.length === 0 ? (
             <p className="text-center text-muted-foreground">Nenhum log encontrado</p>
           ) : (
