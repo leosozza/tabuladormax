@@ -15,10 +15,10 @@ export interface HttpCallResult {
 export async function execHttpCall(params: HttpCallParams): Promise<HttpCallResult> {
   const { url, method = "GET", headers = {}, body, timeoutMs } = params;
   const controller = timeoutMs ? new AbortController() : null;
-  let timeoutId: number | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   if (controller && timeoutMs) {
-    timeoutId = setTimeout(() => controller.abort(), timeoutMs) as unknown as number;
+    timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   }
 
   try {
