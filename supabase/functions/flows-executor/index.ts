@@ -1,7 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.74.0';
-import { runTabular } from '../../../src/handlers/tabular.ts';
-import { execHttpCall } from '../../../src/handlers/httpCall.ts';
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
