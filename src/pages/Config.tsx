@@ -21,6 +21,10 @@ import {
 import { cn } from "@/lib/utils";
 import { ButtonEditDialog } from "@/components/ButtonEditDialog";
 import { CategoryManager } from "@/components/CategoryManager";
+import { FlowBuilder } from "@/components/flow/FlowBuilder";
+import { FlowList } from "@/components/flow/FlowList";
+import { FlowExecuteModal } from "@/components/flow/FlowExecuteModal";
+import type { Flow } from "@/types/flow";
 
 interface SubButton {
   subLabel: string;
@@ -48,6 +52,7 @@ interface ButtonConfig {
   sub_buttons: SubButton[];
   sync_target?: 'bitrix' | 'supabase';
   additional_fields?: Array<{ field: string; value: string }>;
+  flow_id?: string | null;
 }
 
 const DEFAULT_WEBHOOK = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json";
@@ -187,6 +192,11 @@ const Config = () => {
   const [loadingFields, setLoadingFields] = useState(false);
   const [loadingButtons, setLoadingButtons] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [flows, setFlows] = useState<Flow[]>([]);
+  const [loadingFlows, setLoadingFlows] = useState(false);
+  const [pendingFlow, setPendingFlow] = useState<Flow | null>(null);
+  const [executeFlow, setExecuteFlow] = useState<Flow | null>(null);
+  const [executeModalOpen, setExecuteModalOpen] = useState(false);
   const [draggingButton, setDraggingButton] = useState<string | null>(null);
   const [isDraggingOverTrash, setIsDraggingOverTrash] = useState(false);
   const [editingButtonId, setEditingButtonId] = useState<string | null>(null);
@@ -198,6 +208,7 @@ const Config = () => {
     loadCategories();
     loadButtons();
     loadFields();
+    loadFlows();
   }, []);
 
   const loadCategories = async () => {
@@ -246,10 +257,31 @@ const Config = () => {
       sub_buttons: parseSubButtons(entry.sub_buttons),
       sync_target: (entry.sync_target as 'bitrix' | 'supabase') || 'bitrix',
       additional_fields: (entry.additional_fields as Array<{ field: string; value: string }>) || [],
+      flow_id: (entry as any).flow_id || null,
     }));
 
     setButtons(normalizeButtons(parsed));
     setLoadingButtons(false);
+  };
+
+  const loadFlows = async () => {
+    setLoadingFlows(true);
+    const { data, error } = await supabase.functions.invoke<{ flows?: Flow[] }>("flows-api", {
+      method: "GET",
+      headers: {
+        "x-flow-path": "/list",
+      },
+    });
+
+    if (error) {
+      console.error("Erro ao carregar flows", error);
+      toast.error("Não foi possível carregar os fluxos");
+      setLoadingFlows(false);
+      return;
+    }
+
+    setFlows(data?.flows ?? []);
+    setLoadingFlows(false);
   };
 
   const loadFields = async () => {
@@ -287,6 +319,7 @@ const Config = () => {
       sub_buttons: [],
       sync_target: 'bitrix',
       additional_fields: [],
+      flow_id: null,
     };
 
     applyUpdate((current) => [...current, newButton]);
@@ -313,6 +346,7 @@ const Config = () => {
         subAdditionalFields: sub.subAdditionalFields ? [...sub.subAdditionalFields] : [],
       })),
       additional_fields: buttonToDuplicate.additional_fields ? [...buttonToDuplicate.additional_fields] : [],
+      flow_id: buttonToDuplicate.flow_id || null,
     };
 
     applyUpdate((current) => [...current, duplicatedButton]);
@@ -737,7 +771,9 @@ const Config = () => {
     }
 
     // Validar field_type antes de salvar
-    const invalidButtons = buttons.filter(button => !button.field_type || button.field_type === '');
+    const invalidButtons = buttons.filter(
+      (button) => button.action_type !== 'flow' && (!button.field_type || button.field_type === '')
+    );
     if (invalidButtons.length > 0) {
       console.error("Botões com field_type inválido:", invalidButtons);
       toast.error("Erro: alguns botões não têm tipo de campo definido. Corrija-os antes de salvar.");
@@ -765,6 +801,7 @@ const Config = () => {
         category: button.layout.category,
         sync_target: button.sync_target || 'bitrix',
         additional_fields: button.additional_fields || [],
+        flow_id: button.flow_id || null,
       }));
 
       // Usar upsert (insert ou update) para salvar todos os botões
@@ -1005,6 +1042,30 @@ const Config = () => {
           )}
         </Card>
 
+        <div className="grid gap-4 md:grid-cols-2 mt-8">
+          <FlowBuilder
+            onSaved={(flow) => {
+              setFlows((current) => {
+                const exists = current.some((item) => item.id === flow.id);
+                return exists ? current.map((item) => (item.id === flow.id ? flow : item)) : [...current, flow];
+              });
+            }}
+          />
+          <FlowList
+            flows={flows}
+            loading={loadingFlows}
+            onRefresh={loadFlows}
+            onAssociate={(flow) => {
+              setPendingFlow(flow);
+              toast.success(`Fluxo "${flow.name}" selecionado. Abra um botão e escolha o modo avançado.`);
+            }}
+            onExecute={(flow) => {
+              setExecuteFlow(flow);
+              setExecuteModalOpen(true);
+            }}
+          />
+        </div>
+
         <ButtonEditDialog
           open={editingButton !== null}
           onOpenChange={(open) => !open && setEditingButtonId(null)}
@@ -1021,6 +1082,9 @@ const Config = () => {
             { name: 'scouter', title: 'Scouter', type: 'text' },
             { name: 'sync_status', title: 'Status Sync', type: 'text' },
           ]}
+          flows={flows}
+          pendingFlow={pendingFlow}
+          onApplyPendingFlow={() => setPendingFlow(null)}
           onUpdate={updateButton}
           onUpdateLayout={updateButtonLayout}
           onAddSubButton={addSubButton}
@@ -1037,6 +1101,17 @@ const Config = () => {
           onAddSubAdditionalField={addSubAdditionalField}
           onRemoveSubAdditionalField={removeSubAdditionalField}
           onUpdateSubAdditionalField={updateSubAdditionalField}
+        />
+
+        <FlowExecuteModal
+          flow={executeFlow}
+          open={executeModalOpen}
+          onOpenChange={(open) => {
+            setExecuteModalOpen(open);
+            if (!open) {
+              setExecuteFlow(null);
+            }
+          }}
         />
       </div>
     </div>

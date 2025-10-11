@@ -29,6 +29,7 @@ import {
   type ButtonLayout,
 } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
+import { runTabular } from "@/handlers/tabular";
 
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, any>;
@@ -60,6 +61,7 @@ interface ButtonConfig {
   category?: string | null;
   sync_target?: 'bitrix' | 'supabase';
   additional_fields?: Array<{ field: string; value: string }>;
+  flow_id?: string | null;
 }
 
 interface FieldMapping {
@@ -813,6 +815,7 @@ const LeadTab = () => {
         sub_buttons: parseSubButtons(entry.sub_buttons),
         category: category,
         additional_fields: (entry as any).additional_fields || [],
+        flow_id: (entry as any).flow_id || null,
       };
     });
 
@@ -944,295 +947,195 @@ const LeadTab = () => {
     }
   };
 
+  const executeFlow = async (
+    button: ButtonConfig,
+    subButton?: SubButton,
+    scheduledDate?: string,
+    scheduledTime?: string,
+    valueForFlow?: string,
+    additionalFieldsForFlow: Record<string, any> = {}
+  ) => {
+    if (!chatwootData) {
+      toast.error("Nenhum dado do Chatwoot disponível");
+      return;
+    }
+
+    if (!button.flow_id) {
+      toast.error("Nenhum fluxo associado a este botão");
+      return;
+    }
+
+    try {
+      const bitrixId = Number(chatwootData.bitrix_id);
+      const { data, error } = await supabase.functions.invoke<{ run?: { id: string } }>("flows-api", {
+        body: {
+          input: {
+            leadId: bitrixId,
+            userId: currentUserId,
+            value: valueForFlow,
+            scheduledDate,
+            scheduledTime,
+            additionalFields: additionalFieldsForFlow,
+            button: {
+              id: button.id,
+              label: button.label,
+              description: button.description,
+              action_type: button.action_type,
+              sync_target: button.sync_target,
+              subLabel: subButton?.subLabel ?? null,
+            },
+            subButton: subButton
+              ? {
+                  label: subButton.subLabel,
+                  value: subButton.subValue,
+                  additionalFields: subButton.subAdditionalFields ?? [],
+                }
+              : null,
+            chatwootData,
+            profile,
+            bitrixFields,
+          },
+        },
+        headers: {
+          "x-flow-path": `/${button.flow_id}/execute`,
+        },
+        method: "POST",
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success("Fluxo enviado para execução");
+      if (data?.run?.id) {
+        setBitrixResponseMessage(`Fluxo iniciado.\nRun ID: ${data.run.id}`);
+        setBitrixResponseModal(true);
+      }
+
+      setSubButtonModal(false);
+      setScheduleModal(false);
+      setSelectedButton(null);
+    } catch (error) {
+      console.error("Erro ao iniciar fluxo", error);
+      const message = error instanceof Error ? error.message : String(error);
+      setBitrixResponseMessage(
+        `Valor selecionado: ${subButton?.subValue || button.value || scheduledDate || ""}\n\nErro ao iniciar fluxo: ${message}`
+      );
+      setBitrixResponseModal(true);
+      toast.error("Erro ao iniciar fluxo");
+    }
+  };
+
   const executeAction = async (button: ButtonConfig, subButton?: SubButton, scheduledDate?: string, scheduledTime?: string) => {
     if (!chatwootData) {
       toast.error("Nenhum dado do Chatwoot disponível");
       return;
     }
 
-    // Guardar o valor selecionado para exibir nas mensagens (disponível em todo o escopo da função)
     const selectedValueDisplay = subButton?.subValue || button.value || scheduledDate || "";
 
+    const webhookUrl = subButton?.subWebhook || button.webhook_url;
+    const field = subButton?.subField || button.field;
+    const value = scheduledDate || subButton?.subValue || button.value || "";
+    const syncTarget = (button.sync_target as "bitrix" | "supabase") || "bitrix";
+    const bitrixId = Number(chatwootData.bitrix_id);
+
+    const replacePlaceholders = (inputValue: string): string => {
+      if (typeof inputValue !== "string") return inputValue;
+
+      return inputValue
+        .replace(/\{\{valor_botao\}\}/g, value)
+        .replace(/\{\{data\}\}/g, scheduledDate || new Date().toISOString().split("T")[0])
+        .replace(/\{\{horario\}\}/g, scheduledTime || "")
+        .replace(/\{\{nome_lead\}\}/g, chatwootData.name || "")
+        .replace(/\{\{id_lead\}\}/g, String(bitrixId))
+        .replace(/\{\{telefone\}\}/g, profile.phone_number || chatwootData.phone_number || "")
+        .replace(/\{\{email\}\}/g, profile.email || chatwootData.email || "")
+        .replace(/\{\{responsavel\}\}/g, profile.responsible || "")
+        .replace(/\{\{endereco\}\}/g, profile.address || "")
+        .replace(/\{\{idade\}\}/g, profile.age ? String(profile.age) : "")
+        .replace(/\{\{scouter\}\}/g, profile.scouter || "");
+    };
+
+    const additionalFields: Record<string, any> = {};
+
+    if (button.additional_fields && Array.isArray(button.additional_fields)) {
+      button.additional_fields.forEach(({ field: addField, value: addValue }) => {
+        const processedValue = replacePlaceholders(addValue);
+        if (processedValue !== "" && addField) {
+          additionalFields[addField] = processedValue;
+        }
+      });
+    }
+
+    if (subButton?.subAdditionalFields && Array.isArray(subButton.subAdditionalFields)) {
+      subButton.subAdditionalFields.forEach(({ field: addField, value: addValue }) => {
+        const processedValue = replacePlaceholders(addValue);
+        if (processedValue !== "" && addField) {
+          additionalFields[addField] = processedValue;
+        }
+      });
+    }
+
+    if ((button.action_type === "flow" || button.flow_id) && button.flow_id) {
+      await executeFlow(button, subButton, scheduledDate, scheduledTime, value, additionalFields);
+      return;
+    }
+
+    if (!field) {
+      toast.error("Campo principal não configurado para este botão");
+      return;
+    }
+
     try {
-      const webhookUrl = subButton?.subWebhook || button.webhook_url;
-      const field = subButton?.subField || button.field;
-      const value = scheduledDate || subButton?.subValue || button.value || "";
-      const syncTarget = button.sync_target || 'bitrix';
-      const bitrixId = Number(chatwootData.bitrix_id);
-      
-      // Função para processar placeholders dinâmicos
-      const replacePlaceholders = (inputValue: string): string => {
-        if (typeof inputValue !== 'string') return inputValue;
-        
-        return inputValue
-          .replace(/\{\{valor_botao\}\}/g, value)
-          .replace(/\{\{data\}\}/g, scheduledDate || new Date().toISOString().split('T')[0])
-          .replace(/\{\{horario\}\}/g, scheduledTime || '')
-          .replace(/\{\{nome_lead\}\}/g, chatwootData.name || '')
-          .replace(/\{\{id_lead\}\}/g, String(bitrixId))
-          .replace(/\{\{telefone\}\}/g, profile.phone_number || chatwootData.phone_number || '')
-          .replace(/\{\{email\}\}/g, profile.email || chatwootData.email || '')
-          .replace(/\{\{responsavel\}\}/g, profile.responsible || '')
-          .replace(/\{\{endereco\}\}/g, profile.address || '')
-          .replace(/\{\{idade\}\}/g, profile.age ? String(profile.age) : '')
-          .replace(/\{\{scouter\}\}/g, profile.scouter || '');
-      };
-      
-      // Preparar campos adicionais com processamento de placeholders
-      const additionalFields: Record<string, any> = {};
-      if (button.additional_fields && Array.isArray(button.additional_fields)) {
-        button.additional_fields.forEach(({ field: addField, value: addValue }) => {
-          // Processar placeholders no valor - pular campos vazios
-          const processedValue = replacePlaceholders(addValue);
-          if (processedValue !== '' && addField) {
-            additionalFields[addField] = processedValue;
-          }
-        });
-      }
-
-      // Processar subAdditionalFields se houver sub-button
-      if (subButton?.subAdditionalFields && Array.isArray(subButton.subAdditionalFields)) {
-        subButton.subAdditionalFields.forEach(({ field: addField, value: addValue }) => {
-          const processedValue = replacePlaceholders(addValue);
-          if (processedValue !== '' && addField) {
-            additionalFields[addField] = processedValue;
-          }
-        });
-      }
-
-      console.log('📋 Campos adicionais processados:', {
-        button_additional_fields: button.additional_fields,
-        sub_additional_fields: subButton?.subAdditionalFields,
-        resultado_final: additionalFields
+      const result = await runTabular({
+        leadId: bitrixId,
+        userId: currentUserId || null,
+        supabaseClient: supabase,
+        params: {
+          actionLabel: subButton ? `${button.label} / ${subButton.subLabel}` : button.label,
+          webhookUrl,
+          field,
+          value,
+          syncTarget,
+          additionalFields,
+          selectedValueDisplay,
+          chatwootData,
+          bitrixFields,
+          metadata: {
+            button_id: button.id,
+            sub_button: subButton?.subLabel ?? null,
+          },
+        },
       });
 
-      console.log('🔀 Fluxo escolhido:', syncTarget === 'supabase' ? 'Edge Function' : 'Webhook Direto');
-
-      // Determinar fluxo de sincronização baseado em sync_target
-      if (syncTarget === 'supabase') {
-        // NOVO FLUXO: Supabase → Bitrix
-        // Atualizar Supabase primeiro
-        const updatedAttributes = {
-          ...chatwootData.custom_attributes,
-          [field]: value,
-        };
-
-        await saveChatwootContact({
-          ...chatwootData,
-          custom_attributes: updatedAttributes,
-        });
-
-        // Atualizar tabela leads também
-        await supabase
-          .from('leads')
-          .upsert({ id: bitrixId, [field]: value }, { onConflict: 'id' });
-
-        // Chamar edge function para sincronizar com Bitrix
-        if (webhookUrl) {
-          const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-to-bitrix', {
-            body: {
-              lead: {
-                id: bitrixId,
-                [field]: value,
-              },
-              webhook: webhookUrl,
-              source: 'supabase'
-            }
-          });
-
-          if (syncError) {
-            console.error('Erro ao sincronizar com Bitrix:', syncError);
-            const errorMessage = `Valor selecionado: ${selectedValueDisplay}\n\nErro ao sincronizar com Bitrix: ${syncError.message || String(syncError)}`;
-            setBitrixResponseMessage(errorMessage);
-            setBitrixResponseModal(true);
-            toast.warning("Dados salvos localmente, mas houve erro ao sincronizar com Bitrix");
-          } else {
-            // Exibir resposta de sucesso
-            const successMessage = syncData 
-              ? `Valor selecionado: ${selectedValueDisplay}\n\nSucesso! Dados sincronizados via Supabase → Bitrix. Lead ${bitrixId}.`
-              : `Valor selecionado: ${selectedValueDisplay}\n\nDados sincronizados com sucesso!`;
-            setBitrixResponseMessage(successMessage);
-            setBitrixResponseModal(true);
-          }
-        } else {
-          // Sem webhook, apenas salvo localmente
-          setBitrixResponseMessage(`Valor selecionado: ${selectedValueDisplay}\n\nDados salvos localmente no Supabase. Lead ${bitrixId}.`);
-          setBitrixResponseModal(true);
-        }
-      } else {
-        // FLUXO ATUAL: Bitrix como fonte da verdade
-        // 1. Atualizar Bitrix via webhook primeiro
-        if (webhookUrl) {
-          // Helper AUTOMÁTICO para converter labels de campos enumeration para IDs
-          const convertEnumerationValue = (fieldName: string, value: string): string => {
-            // Se não temos metadados ainda, retornar valor original
-            if (bitrixFields.length === 0) {
-              console.warn('⚠️ Metadados Bitrix ainda não carregados');
-              return value;
-            }
-            
-            // Encontrar a definição do campo
-            const fieldDef = bitrixFields.find(f => 
-              f.ID === fieldName || 
-              f.FIELD_NAME === fieldName || 
-              f.name === fieldName
-            );
-            
-            // Se não for campo enumeration, retornar valor original
-            if (!fieldDef || fieldDef.type !== 'enumeration' || !fieldDef.items) {
-              return value;
-            }
-            
-            // Procurar o item que corresponde ao valor (label)
-            const item = fieldDef.items.find((i: any) => 
-              i.VALUE === value || 
-              i.ID === value
-            );
-            
-            if (item) {
-              console.log(`🔄 Convertendo "${value}" → ID "${item.ID}" (campo: ${fieldName})`);
-              return item.ID;
-            }
-            
-            // Se não encontrou, pode ser que já seja o ID
-            console.warn(`⚠️ Valor "${value}" não encontrado nos items do campo ${fieldName}`);
-            return value;
-          };
-
-          // Converter valores de campos adicionais (enumeration labels -> IDs)
-          const processedAdditionalFields = Object.fromEntries(
-            Object.entries(additionalFields).map(([key, val]) => [
-              key,
-              typeof val === 'string' ? convertEnumerationValue(key, val) : val
-            ])
-          );
-
-          // Combinar campo principal com campos adicionais processados
-          const mainValue = typeof value === 'string' ? convertEnumerationValue(field, value) : value;
-          const allFields = {
-            [field]: mainValue,
-            ...processedAdditionalFields
-          };
-          
-          console.log('🔍 DEBUG - Antes de enviar ao Bitrix:', {
-            bitrixId,
-            webhookUrl,
-            campo_principal: field,
-            valor_principal: value,
-            campos_adicionais: additionalFields,
-            campos_combinados: allFields
-          });
-          
-          // Construir URL com query parameters no formato Bitrix
-          const params = new URLSearchParams();
-          params.append('ID', String(bitrixId));
-          
-          // Adicionar todos os campos no formato correto para Bitrix
-          Object.entries(allFields).forEach(([key, val]) => {
-            if (Array.isArray(val)) {
-              // Para arrays, adicionar cada item com índice: FIELDS[CAMPO][]=VALOR
-              val.forEach((item) => {
-                params.append(`FIELDS[${key}][]`, String(item));
-              });
-            } else if (typeof val === 'object' && val !== null) {
-              // Para objetos, adicionar cada propriedade: FIELDS[CAMPO][PROP]=VALOR
-              Object.entries(val).forEach(([subKey, subVal]) => {
-                params.append(`FIELDS[${key}][${subKey}]`, String(subVal));
-              });
-            } else {
-              // Para valores simples: FIELDS[CAMPO]=VALOR
-              params.append(`FIELDS[${key}]`, String(val));
-            }
-          });
-          
-          const fullUrl = `${webhookUrl}?${params.toString()}`;
-          console.log('🔗 URL completa do Bitrix:', fullUrl);
-          console.log('📤 Parâmetros:', params.toString());
-          
-          // Fazer requisição GET (formato esperado pelo Bitrix)
-          const response = await fetch(fullUrl, {
-            method: 'GET'
-          });
-
-          console.log('📥 Resposta do Bitrix - Status:', response.status);
-          
-          const responseData = await response.json();
-          console.log('📥 Resposta COMPLETA do Bitrix:', responseData);
-          
-          // Verificar se há mensagens de erro mesmo com result: true
-          if (responseData.error) {
-            console.error('❌ Erro do Bitrix:', responseData.error_description || responseData.error);
-            const errorMessage = `Valor selecionado: ${selectedValueDisplay}\n\nErro do Bitrix: ${responseData.error_description || responseData.error}`;
-            setBitrixResponseMessage(errorMessage);
-            setBitrixResponseModal(true);
-            throw new Error(errorMessage);
-          }
-
-          if (!response.ok) {
-            console.error('❌ Erro na resposta do Bitrix (HTTP):', responseData);
-            const errorMessage = `Valor selecionado: ${selectedValueDisplay}\n\nErro ao atualizar Bitrix: ${JSON.stringify(responseData)}`;
-            setBitrixResponseMessage(errorMessage);
-            setBitrixResponseModal(true);
-            throw new Error(errorMessage);
-          }
-          
-          console.log('✅ Bitrix atualizado com sucesso!');
-          
-          // Salvar resposta do Bitrix para exibir ao usuário
-          const successMessage = responseData.result 
-            ? `Valor selecionado: ${selectedValueDisplay}\n\nSucesso! Lead ${bitrixId} atualizado no Bitrix.${responseData.result.ID ? ` ID: ${responseData.result.ID}` : ''}`
-            : `Valor selecionado: ${selectedValueDisplay}\n\nLead atualizado com sucesso no Bitrix!`;
-          setBitrixResponseMessage(successMessage);
-          setBitrixResponseModal(true);
-        }
-
-        // 2. Atualizar Supabase - chatwoot_contacts
-        const updatedAttributes = {
-          ...chatwootData.custom_attributes,
-          [field]: value,
-        };
-
-        await saveChatwootContact({
-          ...chatwootData,
-          custom_attributes: updatedAttributes,
-        });
-
-        // 3. Atualizar tabela leads - APENAS campos que existem na tabela
-        // Não tentar salvar campos customizados do Bitrix (UF_CRM_*) aqui
-        const leadUpdateFields: any = {
-          id: Number(bitrixId),
-        };
-        
-        // Adicionar apenas campos que existem na tabela leads
-        const validLeadFields = ['name', 'age', 'address', 'photo_url', 'responsible', 'scouter'];
-        if (validLeadFields.includes(field)) {
-          leadUpdateFields[field] = value;
-        }
-        
-        console.log('💾 Atualizando tabela leads com:', leadUpdateFields);
-        
-        await supabase
-          .from('leads')
-          .upsert([leadUpdateFields], { onConflict: 'id' });
+      if (result.status === "error") {
+        throw new Error(result.message);
       }
 
-      const { error: logError } = await supabase.from('actions_log').insert([{
-        lead_id: bitrixId,
-        action_label: subButton ? `${button.label} / ${subButton.subLabel}` : button.label,
-        user_id: currentUserId || null,
-        payload: { 
-          webhook: webhookUrl, 
-          field, 
-          value,
-          additional_fields: additionalFields,
-          all_fields: { [field]: value, ...additionalFields },
-          sync_target: syncTarget 
-        } as any,
-        status: 'OK',
-      }]);
-
-      if (logError) {
-        console.warn('Erro ao registrar log de sucesso:', logError);
+      if (syncTarget === "supabase") {
+        setBitrixResponseMessage(`Valor selecionado: ${selectedValueDisplay}\n\n${result.message}`);
+        setBitrixResponseModal(true);
+        setChatwootData((prev) => {
+          if (!prev) return prev;
+          const merged = {
+            ...(prev.custom_attributes || {}),
+            [field]: value,
+            ...additionalFields,
+          };
+          return {
+            ...prev,
+            custom_attributes: merged,
+          };
+        });
+      } else if (result.bitrixResponse) {
+        setBitrixResponseMessage(
+          `Valor selecionado: ${selectedValueDisplay}\n\nResposta do Bitrix: ${JSON.stringify(result.bitrixResponse, null, 2)}`
+        );
+        setBitrixResponseModal(true);
+      } else {
+        setBitrixResponseMessage(`Valor selecionado: ${selectedValueDisplay}\n\n${result.message}`);
+        setBitrixResponseModal(true);
       }
 
       toast.success("Ação executada com sucesso!");
@@ -1240,34 +1143,16 @@ const LeadTab = () => {
       setScheduleModal(false);
       setSelectedButton(null);
     } catch (error) {
-      console.error('Erro ao executar ação:', error);
-      
-      // Exibir mensagem de erro no modal
+      console.error("Erro ao executar ação:", error);
       const errorMsg = error instanceof Error ? error.message : String(error);
-      // Se a mensagem já contém "Valor selecionado:", não adicionar novamente
-      const finalErrorMsg = errorMsg.includes('Valor selecionado:') 
-        ? errorMsg 
+      const finalErrorMsg = errorMsg.includes("Valor selecionado:")
+        ? errorMsg
         : `Valor selecionado: ${selectedValueDisplay}\n\nErro: ${errorMsg}`;
       setBitrixResponseMessage(finalErrorMsg);
       setBitrixResponseModal(true);
-      
       toast.error("Erro ao executar ação");
-
-      const { error: logError } = await supabase.from('actions_log').insert([{
-        lead_id: Number(chatwootData.bitrix_id),
-        action_label: button.label,
-        user_id: currentUserId || null,
-        payload: { error: String(error) } as any,
-        status: 'ERROR',
-        error: String(error),
-      }]);
-
-      if (logError) {
-        console.warn('Erro ao registrar log de erro:', logError);
-      }
     }
   };
-
   // Função auxiliar para criar opções de horário padrão
   const createFallbackTimeOptions = () => {
     const fallbackOptions = [];

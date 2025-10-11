@@ -23,6 +23,7 @@ export type Database = {
           lead_id: number
           payload: Json | null
           status: string | null
+          user_id: string | null
         }
         Insert: {
           action_label?: string | null
@@ -32,6 +33,7 @@ export type Database = {
           lead_id: number
           payload?: Json | null
           status?: string | null
+          user_id?: string | null
         }
         Update: {
           action_label?: string | null
@@ -41,6 +43,7 @@ export type Database = {
           lead_id?: number
           payload?: Json | null
           status?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -79,6 +82,7 @@ export type Database = {
           color: string
           created_at: string | null
           description: string | null
+          flow_id: string | null
           field: string
           field_type: string | null
           hotkey: string | null
@@ -98,6 +102,7 @@ export type Database = {
           color?: string
           created_at?: string | null
           description?: string | null
+          flow_id?: string | null
           field: string
           field_type?: string | null
           hotkey?: string | null
@@ -117,6 +122,7 @@ export type Database = {
           color?: string
           created_at?: string | null
           description?: string | null
+          flow_id?: string | null
           field?: string
           field_type?: string | null
           hotkey?: string | null
@@ -239,6 +245,75 @@ export type Database = {
           key?: string
           updated_at?: string | null
           value?: Json | null
+        }
+        Relationships: []
+      }
+      flows: {
+        Row: {
+          created_at: string
+          created_by: string
+          definition: Json
+          id: string
+          name: string
+          updated_at: string
+          visibility: 'private' | 'org' | 'public'
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          definition?: Json
+          id?: string
+          name: string
+          updated_at?: string
+          visibility?: 'private' | 'org' | 'public'
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          definition?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+          visibility?: 'private' | 'org' | 'public'
+        }
+        Relationships: []
+      }
+      flows_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          flow_id: string
+          finished_at: string | null
+          id: string
+          input: Json | null
+          logs: Json | null
+          output: Json | null
+          started_at: string | null
+          status: 'pending' | 'running' | 'success' | 'failed'
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          flow_id: string
+          finished_at?: string | null
+          id?: string
+          input?: Json | null
+          logs?: Json | null
+          output?: Json | null
+          started_at?: string | null
+          status?: 'pending' | 'running' | 'success' | 'failed'
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          flow_id?: string
+          finished_at?: string | null
+          id?: string
+          input?: Json | null
+          logs?: Json | null
+          output?: Json | null
+          started_at?: string | null
+          status?: 'pending' | 'running' | 'success' | 'failed'
         }
         Relationships: []
       }
