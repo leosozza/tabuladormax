@@ -223,12 +223,15 @@ const LeadTab = () => {
   const [bitrixFields, setBitrixFields] = useState<BitrixField[]>([]);
   const [bitrixResponseModal, setBitrixResponseModal] = useState(false);
   const [bitrixResponseMessage, setBitrixResponseMessage] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   
 
   const checkUserRole = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      
+      setCurrentUserId(user.id);
 
       const { data: roles } = await supabase
         .from('user_roles')
@@ -656,6 +659,7 @@ const LeadTab = () => {
           await supabase.from('actions_log').insert([{
             lead_id: Number(attrs.idbitrix),
             action_label: 'Evento Chatwoot Recebido',
+            user_id: currentUserId || null,
             payload: {
               conversation_id: contactData.conversation_id,
               contact_id: contactData.contact_id,
@@ -908,6 +912,7 @@ const LeadTab = () => {
       await supabase.from('actions_log').insert([{
         lead_id: bitrixId,
         action_label: 'Atualização de perfil',
+        user_id: currentUserId || null,
         payload: { 
           profile_before: profileBefore,
           profile_after: profile,
@@ -927,6 +932,7 @@ const LeadTab = () => {
       await supabase.from('actions_log').insert([{
         lead_id: Number(chatwootData.bitrix_id),
         action_label: 'Atualização de perfil',
+        user_id: currentUserId || null,
         payload: { error: String(error) } as any,
         status: 'ERROR',
         error: String(error),
@@ -1213,6 +1219,7 @@ const LeadTab = () => {
       const { error: logError } = await supabase.from('actions_log').insert([{
         lead_id: bitrixId,
         action_label: subButton ? `${button.label} / ${subButton.subLabel}` : button.label,
+        user_id: currentUserId || null,
         payload: { 
           webhook: webhookUrl, 
           field, 
@@ -1249,6 +1256,7 @@ const LeadTab = () => {
       const { error: logError } = await supabase.from('actions_log').insert([{
         lead_id: Number(chatwootData.bitrix_id),
         action_label: button.label,
+        user_id: currentUserId || null,
         payload: { error: String(error) } as any,
         status: 'ERROR',
         error: String(error),
