@@ -18,7 +18,7 @@ interface LogEntry {
   id: string;
   lead_id: number;
   action_label: string;
-  payload: Record<string, unknown>;
+  payload: any;
   status: string;
   error?: string;
   created_at: string;
@@ -128,14 +128,7 @@ const Logs = () => {
     
     let query = supabase
       .from('actions_log')
-      .select(`
-        *,
-        agent:user_id (
-          id,
-          email,
-          display_name
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(500);
 
@@ -147,20 +140,13 @@ const Logs = () => {
         .lte('created_at', dateRange.to.toISOString());
     }
 
-    // Apply agent filter
-    if (agentFilter !== 'all') {
-      query = query.eq('user_id', agentFilter);
-    } else if (!isAdmin) {
-      // Non-admin users only see their own logs
-      query = query.eq('user_id', currentUserId);
-    }
-
     const { data, error } = await query;
 
     if (error) {
       console.error('Erro ao carregar logs:', error);
+      setLogs([]);
     } else {
-      setLogs(data || []);
+      setLogs((data || []) as any);
     }
     setLoading(false);
   };

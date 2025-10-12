@@ -41,19 +41,22 @@ const replacePlaceholders = (
   if (typeof inputValue !== 'string') return inputValue;
 
   const { leadId, chatwootData, profile, scheduledDate, scheduledTime } = context;
+  
+  const chatwootRec = chatwootData as Record<string, any> | undefined;
+  const profileRec = profile as Record<string, any> | undefined;
 
   return inputValue
     .replace(/\{\{valor_botao\}\}/g, value)
     .replace(/\{\{data\}\}/g, scheduledDate || new Date().toISOString().split('T')[0])
     .replace(/\{\{horario\}\}/g, scheduledTime || '')
-    .replace(/\{\{nome_lead\}\}/g, chatwootData?.name || '')
+    .replace(/\{\{nome_lead\}\}/g, String(chatwootRec?.name || ''))
     .replace(/\{\{id_lead\}\}/g, String(leadId))
-    .replace(/\{\{telefone\}\}/g, profile?.phone_number || chatwootData?.phone_number || '')
-    .replace(/\{\{email\}\}/g, profile?.email || chatwootData?.email || '')
-    .replace(/\{\{responsavel\}\}/g, profile?.responsible || '')
-    .replace(/\{\{endereco\}\}/g, profile?.address || '')
-    .replace(/\{\{idade\}\}/g, profile?.age ? String(profile.age) : '')
-    .replace(/\{\{scouter\}\}/g, profile?.scouter || '');
+    .replace(/\{\{telefone\}\}/g, String(profileRec?.phone_number || chatwootRec?.phone_number || ''))
+    .replace(/\{\{email\}\}/g, String(profileRec?.email || chatwootRec?.email || ''))
+    .replace(/\{\{responsavel\}\}/g, String(profileRec?.responsible || ''))
+    .replace(/\{\{endereco\}\}/g, String(profileRec?.address || ''))
+    .replace(/\{\{idade\}\}/g, profileRec?.age ? String(profileRec.age) : '')
+    .replace(/\{\{scouter\}\}/g, String(profileRec?.scouter || ''));
 };
 
 /**
@@ -122,8 +125,9 @@ export async function runTabular(
       // Supabase → Bitrix flow
       // Update Supabase first
       if (chatwootData) {
+        const chatwootRec = chatwootData as Record<string, any>;
         const updatedAttributes = {
-          ...chatwootData.custom_attributes,
+          ...(chatwootRec.custom_attributes || {}),
           [field]: value,
         };
 
@@ -238,10 +242,11 @@ export async function runTabular(
 
         console.log('✅ Bitrix atualizado com sucesso!');
 
-        // Update Supabase after Bitrix success
+      // Update Supabase after Bitrix success
         if (chatwootData) {
+          const chatwootRec = chatwootData as Record<string, any>;
           const updatedAttributes = {
-            ...chatwootData.custom_attributes,
+            ...(chatwootRec.custom_attributes || {}),
             [field]: value,
           };
           // await saveChatwootContact({ ...chatwootData, custom_attributes: updatedAttributes });

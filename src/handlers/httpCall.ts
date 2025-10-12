@@ -82,7 +82,7 @@ export async function execHttpCall(
       method: config.method,
       headers: {
         'Content-Type': 'application/json',
-        ...processedHeaders
+        ...(typeof processedHeaders === 'object' && processedHeaders !== null ? processedHeaders as Record<string, string> : {})
       }
     };
 
@@ -92,7 +92,7 @@ export async function execHttpCall(
     }
 
     // Execute the request
-    const response = await fetch(processedUrl, fetchOptions);
+    const response = await fetch(String(processedUrl), fetchOptions);
     
     let responseData: unknown;
     const contentType = response.headers.get('content-type');

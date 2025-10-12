@@ -132,7 +132,7 @@ export function FlowExecuteModal({ open, onOpenChange, flow, leadId: propLeadId,
                   <p className="font-semibold">
                     {result.status === 'completed' ? 'Execução Concluída' : 'Execução Falhou'}
                   </p>
-                  <p className="text-sm text-muted-foreground">Run ID: {result.runId}</p>
+                  <p className="text-sm text-muted-foreground">Run ID: {result.id}</p>
                 </div>
               </div>
 
