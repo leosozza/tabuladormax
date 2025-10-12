@@ -16,9 +16,9 @@ export interface TabularConfig {
 
 export interface TabularContext {
   leadId: number;
-  chatwootData?: any;
-  profile?: Record<string, any>;
-  bitrixFields?: any[];
+  chatwootData?: Record<string, unknown>;
+  profile?: Record<string, unknown>;
+  bitrixFields?: unknown[];
   scheduledDate?: string;
   scheduledTime?: string;
 }
@@ -26,7 +26,7 @@ export interface TabularContext {
 export interface TabularResult {
   success: boolean;
   message: string;
-  data?: any;
+  data?: unknown;
   error?: string;
 }
 
@@ -62,30 +62,31 @@ const replacePlaceholders = (
 const convertEnumerationValue = (
   fieldName: string,
   value: string,
-  bitrixFields: any[]
+  bitrixFields: unknown[]
 ): string => {
   if (!bitrixFields || bitrixFields.length === 0) {
     return value;
   }
 
-  const fieldDef = bitrixFields.find(f =>
+  const fieldDef = (bitrixFields as Record<string, unknown>[]).find((f: Record<string, unknown>) =>
     f.ID === fieldName ||
     f.FIELD_NAME === fieldName ||
     f.name === fieldName
-  );
+  ) as Record<string, unknown> | undefined;
 
   if (!fieldDef || fieldDef.type !== 'enumeration' || !fieldDef.items) {
     return value;
   }
 
-  const item = fieldDef.items.find((i: any) =>
+  const items = fieldDef.items as Record<string, unknown>[];
+  const item = items.find((i: Record<string, unknown>) =>
     i.VALUE === value ||
     i.ID === value
   );
 
-  if (item) {
+  if (item && item.ID) {
     console.log(`🔄 Convertendo "${value}" → ID "${item.ID}" (campo: ${fieldName})`);
-    return item.ID;
+    return String(item.ID);
   }
 
   return value;
@@ -106,7 +107,7 @@ export async function runTabular(
     console.log('🎯 runTabular called:', { config, leadId });
 
     // Process additional fields with placeholder replacement
-    const additionalFieldsProcessed: Record<string, any> = {};
+    const additionalFieldsProcessed: Record<string, unknown> = {};
     if (additional_fields && Array.isArray(additional_fields)) {
       additional_fields.forEach(({ field: addField, value: addValue }) => {
         const processedValue = replacePlaceholders(addValue, context, value);

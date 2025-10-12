@@ -6,18 +6,18 @@ export interface HttpCallConfig {
   url: string;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string>;
-  body?: Record<string, any>;
+  body?: Record<string, unknown>;
 }
 
 export interface HttpCallContext {
   leadId?: number;
-  variables?: Record<string, any>;
+  variables?: Record<string, unknown>;
 }
 
 export interface HttpCallResult {
   success: boolean;
   status: number;
-  data?: any;
+  data?: unknown;
   error?: string;
   message: string;
 }
@@ -26,9 +26,9 @@ export interface HttpCallResult {
  * Replace placeholders in strings with context values
  */
 const replacePlaceholders = (
-  value: any,
+  value: unknown,
   context: HttpCallContext
-): any => {
+): unknown => {
   if (typeof value === 'string') {
     let result = value;
     
@@ -49,7 +49,7 @@ const replacePlaceholders = (
   } else if (Array.isArray(value)) {
     return value.map(item => replacePlaceholders(item, context));
   } else if (typeof value === 'object' && value !== null) {
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     Object.entries(value).forEach(([key, val]) => {
       result[key] = replacePlaceholders(val, context);
     });
@@ -94,7 +94,7 @@ export async function execHttpCall(
     // Execute the request
     const response = await fetch(processedUrl, fetchOptions);
     
-    let responseData: any;
+    let responseData: unknown;
     const contentType = response.headers.get('content-type');
     
     if (contentType && contentType.includes('application/json')) {
