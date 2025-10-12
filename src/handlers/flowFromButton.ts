@@ -197,10 +197,19 @@ function createStepFromButton(button: ButtonConfig, stepType: FlowStepType, step
   }
 }
 
+interface SubButtonConfig {
+  subLabel: string;
+  subDescription?: string;
+  subWebhook: string;
+  subField: string;
+  subValue: string;
+  subAdditionalFields?: Array<{ field: string; value: string }>;
+}
+
 /**
  * Create a flow step from sub-button configuration
  */
-function createStepFromSubButton(subButton: any, stepNumber: number): FlowStep | null {
+function createStepFromSubButton(subButton: SubButtonConfig, stepNumber: number): FlowStep | null {
   const stepId = `step-${stepNumber}`;
   
   // Determine if it's a status change or webhook

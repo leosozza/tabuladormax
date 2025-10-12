@@ -13,7 +13,7 @@ import { useState, useEffect } from "react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { FlowBuilder } from "@/components/flow/FlowBuilder";
 import { createFlowFromButton } from "@/handlers/flowFromButton";
-import type { Flow } from "@/types/flow";
+import type { Flow, CreateFlowRequest } from "@/types/flow";
 
 // Constante centralizada com TODOS os placeholders disponíveis
 const AVAILABLE_PLACEHOLDERS = [
@@ -126,7 +126,7 @@ export function ButtonEditDialog({
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [flowBuilderOpen, setFlowBuilderOpen] = useState(false);
   const [flowBuilderMode, setFlowBuilderMode] = useState<'view' | 'edit'>('view');
-  const [currentFlow, setCurrentFlow] = useState<any>(null);
+  const [currentFlow, setCurrentFlow] = useState<Flow | CreateFlowRequest | null>(null);
   const { isAdmin } = useIsAdmin();
 
   // Carregar etapas quando o campo STATUS_ID for selecionado
@@ -183,11 +183,10 @@ export function ButtonEditDialog({
   const handleFlowSaved = (savedFlow?: Flow) => {
     if (savedFlow) {
       // Update button to reference the saved flow
+      // Store flowId in the value field and set action_type to 'flow'
       onUpdate(button.id, { 
-        action: { 
-          type: 'flow', 
-          flowId: savedFlow.id 
-        } as any 
+        action_type: 'flow',
+        value: savedFlow.id
       });
     }
     setFlowBuilderOpen(false);

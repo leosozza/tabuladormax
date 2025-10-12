@@ -186,7 +186,7 @@ export function FlowList({ onExecuteFlow }: FlowListProps) {
         open={builderOpen}
         onOpenChange={setBuilderOpen}
         flow={selectedFlow}
-        onSave={() => {
+        onSave={(savedFlow) => {
           handleBuilderClose();
           loadFlows();
         }}
