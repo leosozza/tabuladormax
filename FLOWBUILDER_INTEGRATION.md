@@ -89,3 +89,4 @@ A implementação assume que as seguintes Edge Functions existem:
 - Fallback para tipo webhook quando tipo não pode ser determinado
 - Action type do botão salvo como 'flow' com flowId no campo value
 - UI simples baseada em listas (não usa react-flow-renderer no MVP)
+test
