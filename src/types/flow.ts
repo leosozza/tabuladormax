@@ -5,7 +5,7 @@
 /**
  * Step type for flow actions
  */
-export type FlowStepType = 'tabular' | 'http_call' | 'wait';
+export type FlowStepType = 'tabular' | 'http_call' | 'wait' | 'email' | 'change_status' | 'webhook';
 
 /**
  * Base flow step interface
@@ -56,9 +56,46 @@ export interface FlowStepWait extends FlowStepBase {
 }
 
 /**
+ * Email step - sends an email
+ */
+export interface FlowStepEmail extends FlowStepBase {
+  type: 'email';
+  config: {
+    to: string;
+    subject: string;
+    body: string;
+    from?: string;
+  };
+}
+
+/**
+ * Change Status step - changes lead status
+ */
+export interface FlowStepChangeStatus extends FlowStepBase {
+  type: 'change_status';
+  config: {
+    statusId: string;
+    webhook_url?: string;
+  };
+}
+
+/**
+ * Webhook step - calls a webhook URL
+ */
+export interface FlowStepWebhook extends FlowStepBase {
+  type: 'webhook';
+  config: {
+    url: string;
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+    headers?: Record<string, string>;
+    body?: Record<string, any>;
+  };
+}
+
+/**
  * Union type for all flow steps
  */
-export type FlowStep = FlowStepTabular | FlowStepHttpCall | FlowStepWait;
+export type FlowStep = FlowStepTabular | FlowStepHttpCall | FlowStepWait | FlowStepEmail | FlowStepChangeStatus | FlowStepWebhook;
 
 /**
  * Flow definition

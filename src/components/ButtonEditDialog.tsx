@@ -1,4 +1,4 @@
-import { Plus, Trash2, Info, Save, MoreVertical, Search } from "lucide-react";
+import { Plus, Trash2, Info, Save, MoreVertical, Search, Eye, Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { BitrixField, getLeadStatuses } from "@/lib/bitrix";
 import { BUTTON_CATEGORIES, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { createFlowFromButton } from "@/handlers/flowFromButton";
+import { createFlow, updateFlow } from "@/services/flowsApi";
+import { FlowBuilder } from "@/components/flow/FlowBuilder";
+import { FlowExecuteModal } from "@/components/flow/FlowExecuteModal";
+import type { Flow } from "@/types/flow";
 
 // Constante centralizada com TODOS os placeholders disponíveis
 const AVAILABLE_PLACEHOLDERS = [
@@ -52,6 +59,10 @@ interface ButtonConfig {
   sub_buttons: SubButton[];
   sync_target?: 'bitrix' | 'supabase';
   additional_fields?: Array<{ field: string; value: string }>;
+  action?: {
+    type: 'flow' | 'button';
+    flowId?: string;
+  };
 }
 
 interface SupabaseField {
@@ -120,6 +131,94 @@ export function ButtonEditDialog({
   const [additionalFieldSearchQuery, setAdditionalFieldSearchQuery] = useState("");
   const [statusOptions, setStatusOptions] = useState<Array<{ ID: string; NAME: string }>>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [flowBuilderOpen, setFlowBuilderOpen] = useState(false);
+  const [flowExecuteModalOpen, setFlowExecuteModalOpen] = useState(false);
+  const [currentFlow, setCurrentFlow] = useState<Flow | null>(null);
+  const [isReadOnly, setIsReadOnly] = useState(false);
+
+  // Check if current user is admin
+  useEffect(() => {
+    checkAdminStatus();
+  }, []);
+
+  const checkAdminStatus = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      setIsAdmin(false);
+      return;
+    }
+
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
+
+    setIsAdmin(data?.role === 'admin');
+  };
+
+  // Handler to visualize button as flow (read-only)
+  const handleVisualizeFlow = () => {
+    if (!button) return;
+    const flow = createFlowFromButton(button);
+    setCurrentFlow(flow);
+    setIsReadOnly(true);
+    setFlowExecuteModalOpen(true);
+  };
+
+  // Handler to open flow builder (editable, admin only)
+  const handleOpenFlowBuilder = () => {
+    if (!button) return;
+    const flow = createFlowFromButton(button);
+    setCurrentFlow(flow);
+    setIsReadOnly(false);
+    setFlowBuilderOpen(true);
+  };
+
+  // Handler for flow save from FlowBuilder
+  const handleFlowSave = async () => {
+    if (!currentFlow || !button) return;
+
+    try {
+      let savedFlow: Flow;
+      
+      if (currentFlow.id) {
+        // Update existing flow
+        savedFlow = await updateFlow(currentFlow.id, {
+          nome: currentFlow.nome,
+          descricao: currentFlow.descricao,
+          steps: currentFlow.steps,
+          ativo: currentFlow.ativo
+        });
+        toast.success("Flow atualizado com sucesso!");
+      } else {
+        // Create new flow
+        savedFlow = await createFlow({
+          nome: currentFlow.nome,
+          descricao: currentFlow.descricao,
+          steps: currentFlow.steps,
+          ativo: true
+        });
+        toast.success("Flow criado com sucesso!");
+        
+        // Update button to reference the new flow (Option A)
+        onUpdate(button.id, {
+          action_type: 'flow',
+          action: {
+            type: 'flow',
+            flowId: savedFlow.id
+          }
+        } as any);
+      }
+
+      setFlowBuilderOpen(false);
+      setCurrentFlow(null);
+    } catch (error) {
+      console.error("Erro ao salvar flow:", error);
+      toast.error("Erro ao salvar flow");
+    }
+  };
 
   // Carregar etapas quando o campo STATUS_ID for selecionado
   useEffect(() => {
@@ -1070,7 +1169,7 @@ export function ButtonEditDialog({
             </div>
           </div>
 
-          <div className="flex justify-between items-center pt-4 border-t">
+          <div className="flex justify-between items-center pt-4 border-t gap-2">
             <Button 
               variant="ghost" 
               size="sm"
@@ -1079,13 +1178,56 @@ export function ButtonEditDialog({
             >
               <Trash2 className="w-5 h-5" />
             </Button>
-            <Button onClick={onSave} className="gap-2">
-              <Save className="w-4 h-4" />
-              Salvar
-            </Button>
+            
+            <div className="flex gap-2">
+              {/* Always visible - Visualize as Flow (read-only) */}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleVisualizeFlow}
+                className="gap-2"
+              >
+                <Eye className="w-4 h-4" />
+                Visualizar como Flow
+              </Button>
+              
+              {/* Admin only - Open Flow Builder (editable) */}
+              {isAdmin && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleOpenFlowBuilder}
+                  className="gap-2"
+                >
+                  <Workflow className="w-4 h-4" />
+                  Abrir no FlowBuilder
+                </Button>
+              )}
+              
+              <Button onClick={onSave} className="gap-2">
+                <Save className="w-4 h-4" />
+                Salvar
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
+
+      {/* Flow Builder Modal */}
+      <FlowBuilder
+        open={flowBuilderOpen}
+        onOpenChange={setFlowBuilderOpen}
+        flow={currentFlow}
+        onSave={handleFlowSave}
+      />
+
+      {/* Flow Execute Modal (for read-only visualization) */}
+      <FlowExecuteModal
+        open={flowExecuteModalOpen}
+        onOpenChange={setFlowExecuteModalOpen}
+        flow={currentFlow}
+        onComplete={() => setFlowExecuteModalOpen(false)}
+      />
     </Dialog>
   );
 }
