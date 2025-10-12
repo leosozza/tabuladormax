@@ -19,7 +19,7 @@ interface FlowBuilderProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   flow?: Flow | null;
-  onSave: () => void;
+  onSave: (savedFlow?: Flow) => void;
 }
 
 export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderProps) {
@@ -47,12 +47,23 @@ export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderPro
     const newStep: FlowStep = {
       id: `step-${Date.now()}`,
       type,
-      nome: type === 'tabular' ? 'Ação de tabulação' : type === 'http_call' ? 'Chamada HTTP' : 'Aguardar',
+      nome: type === 'tabular' ? 'Ação de tabulação' 
+        : type === 'http_call' ? 'Chamada HTTP' 
+        : type === 'wait' ? 'Aguardar'
+        : type === 'email' ? 'Enviar Email'
+        : type === 'change_status' ? 'Alterar Status'
+        : 'Webhook',
       config: type === 'tabular' 
         ? { buttonId: '', webhook_url: '', field: '', value: '' }
         : type === 'http_call'
         ? { url: '', method: 'GET' as const }
-        : { seconds: 5 }
+        : type === 'wait'
+        ? { seconds: 5 }
+        : type === 'email'
+        ? { to: '', subject: '', body: '' }
+        : type === 'change_status'
+        ? { statusId: '' }
+        : { url: '', method: 'POST' as const }
     };
     setSteps([...steps, newStep]);
   };
@@ -107,24 +118,25 @@ export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderPro
 
       if (flow?.id) {
         // Update existing flow
-        const { error } = await supabase.functions.invoke('flows-api', {
+        const { data, error } = await supabase.functions.invoke('flows-api', {
           body: flowData,
           method: 'PUT'
         });
 
         if (error) throw error;
         toast.success("Flow atualizado com sucesso!");
+        onSave(data as Flow);
       } else {
         // Create new flow
-        const { error } = await supabase.functions.invoke('flows-api', {
+        const { data, error } = await supabase.functions.invoke('flows-api', {
           body: flowData
         });
 
         if (error) throw error;
         toast.success("Flow criado com sucesso!");
+        onSave(data as Flow);
       }
 
-      onSave();
       handleOpenChange(false);
     } catch (error) {
       console.error("Erro ao salvar flow:", error);
@@ -166,7 +178,7 @@ export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderPro
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-base">Steps do Flow</Label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button onClick={() => addStep('tabular')} size="sm" variant="outline">
                   <Plus className="w-4 h-4 mr-1" /> Tabular
                 </Button>
@@ -175,6 +187,15 @@ export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderPro
                 </Button>
                 <Button onClick={() => addStep('wait')} size="sm" variant="outline">
                   <Plus className="w-4 h-4 mr-1" /> Aguardar
+                </Button>
+                <Button onClick={() => addStep('email')} size="sm" variant="outline">
+                  <Plus className="w-4 h-4 mr-1" /> Email
+                </Button>
+                <Button onClick={() => addStep('change_status')} size="sm" variant="outline">
+                  <Plus className="w-4 h-4 mr-1" /> Status
+                </Button>
+                <Button onClick={() => addStep('webhook')} size="sm" variant="outline">
+                  <Plus className="w-4 h-4 mr-1" /> Webhook
                 </Button>
               </div>
             </div>
@@ -301,6 +322,96 @@ export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderPro
                       onChange={(e) => updateStepConfig(step.id, 'seconds', parseInt(e.target.value) || 5)}
                       className="text-sm"
                     />
+                  </div>
+                )}
+
+                {step.type === 'email' && (
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="text-xs">Para (Email) *</Label>
+                      <Input
+                        value={step.config.to || ''}
+                        onChange={(e) => updateStepConfig(step.id, 'to', e.target.value)}
+                        placeholder="email@example.com"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Assunto *</Label>
+                      <Input
+                        value={step.config.subject || ''}
+                        onChange={(e) => updateStepConfig(step.id, 'subject', e.target.value)}
+                        placeholder="Assunto do email"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Mensagem *</Label>
+                      <Textarea
+                        value={step.config.body || ''}
+                        onChange={(e) => updateStepConfig(step.id, 'body', e.target.value)}
+                        placeholder="Corpo do email"
+                        className="text-sm"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {step.type === 'change_status' && (
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="text-xs">Status ID *</Label>
+                      <Input
+                        value={step.config.statusId || ''}
+                        onChange={(e) => updateStepConfig(step.id, 'statusId', e.target.value)}
+                        placeholder="CONVERTED"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Webhook URL (opcional)</Label>
+                      <Input
+                        value={step.config.webhook_url || ''}
+                        onChange={(e) => updateStepConfig(step.id, 'webhook_url', e.target.value)}
+                        placeholder="https://..."
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {step.type === 'webhook' && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="col-span-1">
+                        <Label className="text-xs">Método *</Label>
+                        <Select
+                          value={step.config.method || 'POST'}
+                          onValueChange={(val) => updateStepConfig(step.id, 'method', val)}
+                        >
+                          <SelectTrigger className="text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="GET">GET</SelectItem>
+                            <SelectItem value="POST">POST</SelectItem>
+                            <SelectItem value="PUT">PUT</SelectItem>
+                            <SelectItem value="PATCH">PATCH</SelectItem>
+                            <SelectItem value="DELETE">DELETE</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-3">
+                        <Label className="text-xs">URL *</Label>
+                        <Input
+                          value={step.config.url || ''}
+                          onChange={(e) => updateStepConfig(step.id, 'url', e.target.value)}
+                          placeholder="https://webhook.example.com/endpoint"
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </Card>

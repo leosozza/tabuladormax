@@ -10,6 +10,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { BitrixField, getLeadStatuses } from "@/lib/bitrix";
 import { BUTTON_CATEGORIES, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { useState, useEffect } from "react";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { FlowBuilder } from "@/components/flow/FlowBuilder";
+import { createFlowFromButton } from "@/handlers/flowFromButton";
+import type { Flow } from "@/types/flow";
 
 // Constante centralizada com TODOS os placeholders disponíveis
 const AVAILABLE_PLACEHOLDERS = [
@@ -120,6 +124,10 @@ export function ButtonEditDialog({
   const [additionalFieldSearchQuery, setAdditionalFieldSearchQuery] = useState("");
   const [statusOptions, setStatusOptions] = useState<Array<{ ID: string; NAME: string }>>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
+  const [flowBuilderOpen, setFlowBuilderOpen] = useState(false);
+  const [flowBuilderMode, setFlowBuilderMode] = useState<'view' | 'edit'>('view');
+  const [currentFlow, setCurrentFlow] = useState<any>(null);
+  const { isAdmin } = useIsAdmin();
 
   // Carregar etapas quando o campo STATUS_ID for selecionado
   useEffect(() => {
@@ -162,6 +170,27 @@ export function ButtonEditDialog({
       onDelete(button.id);
       onOpenChange(false);
     }
+  };
+
+  const handleOpenFlowBuilder = (mode: 'view' | 'edit') => {
+    // Convert button configuration to flow
+    const flowRequest = createFlowFromButton(button);
+    setCurrentFlow(flowRequest);
+    setFlowBuilderMode(mode);
+    setFlowBuilderOpen(true);
+  };
+
+  const handleFlowSaved = (savedFlow?: Flow) => {
+    if (savedFlow) {
+      // Update button to reference the saved flow
+      onUpdate(button.id, { 
+        action: { 
+          type: 'flow', 
+          flowId: savedFlow.id 
+        } as any 
+      });
+    }
+    setFlowBuilderOpen(false);
   };
 
   return (
@@ -1071,21 +1100,49 @@ export function ButtonEditDialog({
           </div>
 
           <div className="flex justify-between items-center pt-4 border-t">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={handleDelete}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="w-5 h-5" />
-            </Button>
-            <Button onClick={onSave} className="gap-2">
-              <Save className="w-4 h-4" />
-              Salvar
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={handleDelete}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleOpenFlowBuilder('view')}
+              >
+                Visualizar como Flow
+              </Button>
+              {isAdmin && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleOpenFlowBuilder('edit')}
+                >
+                  Abrir no FlowBuilder
+                </Button>
+              )}
+              <Button onClick={onSave} className="gap-2">
+                <Save className="w-4 h-4" />
+                Salvar
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
+
+      {/* FlowBuilder Modal */}
+      <FlowBuilder
+        open={flowBuilderOpen}
+        onOpenChange={setFlowBuilderOpen}
+        flow={currentFlow}
+        onSave={handleFlowSaved}
+      />
     </Dialog>
   );
 }
