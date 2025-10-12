@@ -2,7 +2,7 @@
 // Flow Builder Component - Create and Edit Flows
 // ============================================
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Trash2, Save, X, MoveUp, MoveDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,7 +19,7 @@ interface FlowBuilderProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   flow?: Flow | null;
-  onSave: () => void;
+  onSave: (savedFlow?: Flow) => void;
 }
 
 export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderProps) {
@@ -27,6 +27,15 @@ export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderPro
   const [descricao, setDescricao] = useState(flow?.descricao || "");
   const [steps, setSteps] = useState<FlowStep[]>(flow?.steps || []);
   const [saving, setSaving] = useState(false);
+
+  // Update state when flow prop changes
+  useEffect(() => {
+    if (flow) {
+      setNome(flow.nome || "");
+      setDescricao(flow.descricao || "");
+      setSteps(flow.steps || []);
+    }
+  }, [flow]);
 
   // Reset form when flow changes or dialog opens
   const handleOpenChange = (newOpen: boolean) => {
@@ -105,26 +114,30 @@ export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderPro
         ativo: true
       };
 
+      let savedFlow: Flow;
+      
       if (flow?.id) {
         // Update existing flow
-        const { error } = await supabase.functions.invoke('flows-api', {
+        const { data, error } = await supabase.functions.invoke(`flows-api/${flow.id}`, {
           body: flowData,
           method: 'PUT'
         });
 
         if (error) throw error;
+        savedFlow = data.flow;
         toast.success("Flow atualizado com sucesso!");
       } else {
         // Create new flow
-        const { error } = await supabase.functions.invoke('flows-api', {
+        const { data, error } = await supabase.functions.invoke('flows-api', {
           body: flowData
         });
 
         if (error) throw error;
+        savedFlow = data.flow;
         toast.success("Flow criado com sucesso!");
       }
 
-      onSave();
+      onSave(savedFlow);
       handleOpenChange(false);
     } catch (error) {
       console.error("Erro ao salvar flow:", error);

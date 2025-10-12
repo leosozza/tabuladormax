@@ -177,47 +177,23 @@ export function ButtonEditDialog({
   };
 
   // Handler for flow save from FlowBuilder
-  const handleFlowSave = async () => {
-    if (!currentFlow || !button) return;
-
-    try {
-      let savedFlow: Flow;
+  const handleFlowSave = async (savedFlow?: Flow) => {
+    // FlowBuilder handles the actual save and passes back the saved flow
+    if (savedFlow && !currentFlow?.id && button) {
+      // This is a new flow (Option A: update button to reference the flowId)
+      onUpdate(button.id, {
+        action_type: 'flow',
+        action: {
+          type: 'flow' as const,
+          flowId: savedFlow.id
+        }
+      });
       
-      if (currentFlow.id) {
-        // Update existing flow
-        savedFlow = await updateFlow(currentFlow.id, {
-          nome: currentFlow.nome,
-          descricao: currentFlow.descricao,
-          steps: currentFlow.steps,
-          ativo: currentFlow.ativo
-        });
-        toast.success("Flow atualizado com sucesso!");
-      } else {
-        // Create new flow
-        savedFlow = await createFlow({
-          nome: currentFlow.nome,
-          descricao: currentFlow.descricao,
-          steps: currentFlow.steps,
-          ativo: true
-        });
-        toast.success("Flow criado com sucesso!");
-        
-        // Update button to reference the new flow (Option A)
-        onUpdate(button.id, {
-          action_type: 'flow',
-          action: {
-            type: 'flow',
-            flowId: savedFlow.id
-          }
-        } as any);
-      }
-
-      setFlowBuilderOpen(false);
-      setCurrentFlow(null);
-    } catch (error) {
-      console.error("Erro ao salvar flow:", error);
-      toast.error("Erro ao salvar flow");
+      console.log(`✅ Button "${button.label}" updated to reference flow: ${savedFlow.id}`);
     }
+    
+    setFlowBuilderOpen(false);
+    setCurrentFlow(null);
   };
 
   // Carregar etapas quando o campo STATUS_ID for selecionado
