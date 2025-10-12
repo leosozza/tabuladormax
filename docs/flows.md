@@ -4,6 +4,15 @@
 
 O Flow Builder é uma funcionalidade MVP (Minimum Viable Product) que permite criar e executar fluxos de automação sequenciais no sistema. Os flows são executados server-side através de Edge Functions, com persistência em banco de dados e logging completo.
 
+### Flows v2 Foundation
+
+A versão 2 do Flow Builder adiciona infraestrutura robusta com:
+- **Versionamento**: Sistema completo de controle de versão de flows
+- **Validação JSON Schema**: Validação rigorosa de definições de flows
+- **Step Runners Modulares**: Infraestrutura extensível para executores de steps
+- **Utilidades**: Ferramentas para gerenciamento de versões e validação
+- **Testes**: Estrutura de testes unitários para garantir qualidade
+
 ## Conceitos
 
 ### Modo Básico vs Modo Avançado
@@ -33,7 +42,8 @@ CREATE TABLE public.flows (
   ativo BOOLEAN DEFAULT true,
   criado_em TIMESTAMP WITH TIME ZONE,
   atualizado_em TIMESTAMP WITH TIME ZONE,
-  criado_por UUID REFERENCES auth.users(id)
+  criado_por UUID REFERENCES auth.users(id),
+  current_version_id UUID REFERENCES public.flow_versions(id) -- v2: Link para versão ativa
 );
 
 -- Tabela de execuções
@@ -47,6 +57,22 @@ CREATE TABLE public.flows_runs (
   iniciado_em TIMESTAMP WITH TIME ZONE,
   finalizado_em TIMESTAMP WITH TIME ZONE,
   executado_por UUID REFERENCES auth.users(id)
+);
+
+-- Tabela de versões (v2)
+CREATE TABLE public.flow_versions (
+  id UUID PRIMARY KEY,
+  flow_id UUID REFERENCES public.flows(id),
+  version_number INTEGER NOT NULL,
+  nome TEXT NOT NULL,
+  descricao TEXT,
+  definition JSONB NOT NULL, -- Definição completa do flow
+  schema_version TEXT NOT NULL DEFAULT 'v1',
+  is_active BOOLEAN DEFAULT false,
+  criado_em TIMESTAMP WITH TIME ZONE,
+  criado_por UUID REFERENCES auth.users(id),
+  notas_versao TEXT,
+  UNIQUE(flow_id, version_number)
 );
 ```
 
@@ -461,8 +487,118 @@ supabase db push
 - [ ] Notificações em tempo real de execução
 - [ ] Métricas e analytics de flows
 
+## Flows v2 - Recursos Avançados
+
+### Versionamento de Flows
+
+O sistema v2 introduz controle de versão completo para flows:
+
+```typescript
+import { createFlowVersion, getFlowVersions, activateVersion } from '@/utils/flowVersionManager';
+
+// Criar nova versão
+const { data: version } = await createFlowVersion(
+  flowId,
+  'Meu Flow',
+  flowDefinition,
+  {
+    descricao: 'Descrição do flow',
+    notas_versao: 'Adicionado novo step de validação',
+    schema_version: 'v1',
+    activate: true
+  }
+);
+
+// Listar versões
+const { data: versions } = await getFlowVersions(flowId);
+
+// Ativar versão específica
+await activateVersion(versionId);
+```
+
+### Validação JSON Schema
+
+Validação rigorosa de definições de flows:
+
+```typescript
+import { validateFlowDefinition } from '@/utils/flowSchemaValidator';
+
+const result = validateFlowDefinition(flowDefinition, 'v1');
+if (!result.valid) {
+  console.error('Erros de validação:', result.errors);
+}
+```
+
+### Step Runners Modulares
+
+Sistema extensível para executores de steps:
+
+```typescript
+import { stepRunnerRegistry } from '@/stepRunners';
+
+// Obter runner para um tipo de step
+const runner = stepRunnerRegistry.get('tabular');
+
+// Validar configuração
+const validation = runner.validate(stepConfig);
+
+// Executar step
+const result = await runner.execute(stepConfig, context);
+```
+
+### Criar Custom Step Runner
+
+```typescript
+import { BaseStepRunner } from '@/stepRunners/BaseStepRunner';
+
+export class CustomStepRunner extends BaseStepRunner<CustomConfig> {
+  readonly type = 'custom';
+  readonly displayName = 'Custom Action';
+  
+  validate(config: CustomConfig) {
+    // Implementar validação
+  }
+  
+  async execute(config: CustomConfig, context: StepExecutionContext) {
+    // Implementar execução
+  }
+}
+
+// Registrar
+import { stepRunnerRegistry } from '@/stepRunners/StepRunnerRegistry';
+stepRunnerRegistry.register(new CustomStepRunner());
+```
+
+### Migrations v2
+
+As migrations v2 estão em `supabase/migrations/`:
+
+1. `20251012032351_create_flow_versions.sql` - Cria tabela de versões
+2. `20251012032352_migrate_flows_to_versions.sql` - Migra flows existentes para v1
+
+Para aplicar:
+```bash
+supabase db push
+```
+
+### Testes Unitários
+
+Estrutura de testes em `src/__tests__/`:
+
+```bash
+# Instalar dependências de teste
+npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
+
+# Executar testes
+npm run test
+
+# Executar com coverage
+npm run test:coverage
+```
+
 ## Referências
 
 - [Supabase Edge Functions](https://supabase.com/docs/guides/functions)
 - [Row Level Security (RLS)](https://supabase.com/docs/guides/auth/row-level-security)
 - [PostgreSQL JSONB](https://www.postgresql.org/docs/current/datatype-json.html)
+- [Vitest Testing Framework](https://vitest.dev/)
