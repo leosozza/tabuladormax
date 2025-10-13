@@ -13,6 +13,8 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import './styles.css';
+import { Button } from '@/components/ui/button';
+import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 
 import { StartNode } from './nodes/StartNode';
 import { TabularNode } from './nodes/TabularNode';
@@ -46,6 +48,33 @@ interface VisualFlowEditorProps {
 export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+  
+  // Auto-hide panels on mobile/tablet, show on desktop
+  const [showNodePalette, setShowNodePalette] = useState(true);
+  const [showVariables, setShowVariables] = useState(true);
+
+  // Detect screen size and auto-hide panels on smaller screens
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768;
+      const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+      
+      if (isMobile) {
+        // Hide both panels on mobile
+        setShowNodePalette(false);
+        setShowVariables(false);
+      } else if (isTablet) {
+        // Hide variables panel on tablet
+        setShowNodePalette(true);
+        setShowVariables(false);
+      }
+      // Desktop keeps both panels visible by default
+    };
+
+    handleResize(); // Initial check
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   const initialNodes = convertStepsToNodes(initialSteps);
   const initialEdges = convertStepsToEdges(initialSteps);
@@ -95,9 +124,11 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
   return (
     <div ref={reactFlowWrapper} className="h-full w-full flex border rounded-lg overflow-hidden bg-background">
       {/* Left Panel - Node Palette */}
-      <div className="w-64 border-r flex-shrink-0 flex flex-col overflow-hidden bg-background">
-        <NodePalette />
-      </div>
+      {showNodePalette && (
+        <div className="w-64 lg:w-64 md:w-56 border-r flex-shrink-0 flex flex-col overflow-hidden bg-background">
+          <NodePalette />
+        </div>
+      )}
 
       {/* Center Panel - ReactFlow Canvas */}
       <div className="flex-1 relative min-w-0">
@@ -132,17 +163,44 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
             }}
             className="bg-background"
           />
+          
+          {/* Toggle buttons for panels */}
+          <Panel position="top-left" className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowNodePalette(!showNodePalette)}
+              className="bg-background"
+              title={showNodePalette ? "Ocultar Paleta de Nós" : "Mostrar Paleta de Nós"}
+            >
+              {showNodePalette ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+            </Button>
+          </Panel>
+          
+          <Panel position="top-right" className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowVariables(!showVariables)}
+              className="bg-background"
+              title={showVariables ? "Ocultar Variáveis" : "Mostrar Variáveis"}
+            >
+              {showVariables ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+            </Button>
+          </Panel>
         </ReactFlow>
       </div>
 
       {/* Right Panel - Variables */}
-      <div className="w-80 border-l flex-shrink-0 flex flex-col overflow-hidden bg-background">
-        <VariablePicker />
-      </div>
+      {showVariables && (
+        <div className="w-80 lg:w-80 md:w-64 border-l flex-shrink-0 flex flex-col overflow-hidden bg-background">
+          <VariablePicker />
+        </div>
+      )}
 
       {/* Node Config Panel - Overlay when node selected */}
       {selectedNode && selectedNode.id !== 'start' && (
-        <div className="absolute right-0 top-0 bottom-0 w-96 border-l shadow-lg z-10 overflow-hidden bg-background">
+        <div className="absolute right-0 top-0 bottom-0 w-96 max-w-full md:max-w-96 border-l shadow-lg z-10 overflow-hidden bg-background">
           <NodeConfigPanel
             selectedNode={selectedNode}
             onUpdate={(nodeId, updates) => updateNodeData(nodeId, updates)}
