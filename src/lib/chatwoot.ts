@@ -150,6 +150,44 @@ export interface ChatwootAssignee {
   role: string;
 }
 
+export interface ChatwootAgent {
+  id: number;
+  name: string;
+  email: string;
+  role?: string;
+}
+
+/**
+ * Fetch list of Chatwoot agents from Supabase config or API
+ * For now, returns a mock list since we don't have direct API integration yet
+ * TODO: Integrate with real Chatwoot API when available
+ */
+export async function getChatwootAgents(): Promise<ChatwootAgent[]> {
+  try {
+    // Try to get agents from config_kv if stored there
+    const { data: configData } = await supabase
+      .from('config_kv')
+      .select('value')
+      .eq('key', 'chatwoot_agents')
+      .maybeSingle();
+
+    if (configData?.value) {
+      const agents = configData.value as unknown as ChatwootAgent[];
+      if (Array.isArray(agents)) {
+        return agents.sort((a, b) => a.name.localeCompare(b.name));
+      }
+    }
+
+    // Return empty array if no agents configured
+    // Admins can manually configure agents via config_kv table
+    console.log('ℹ️ Nenhum agente Chatwoot configurado. Configure via config_kv com key="chatwoot_agents"');
+    return [];
+  } catch (error) {
+    console.error('Erro ao buscar agentes do Chatwoot:', error);
+    return [];
+  }
+}
+
 /**
  * Extrai dados do assignee do evento Chatwoot para auto-login
  */
