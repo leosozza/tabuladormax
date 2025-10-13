@@ -7,6 +7,51 @@ import { describe, it, expect } from 'vitest';
 import { extractChatwootData, extractAssigneeData, type ChatwootEventData } from '@/lib/chatwoot';
 
 describe('Chatwoot Agent Data Extraction', () => {
+  it('should extract assignee data from data.currentAgent (priority)', () => {
+    const eventData: ChatwootEventData = {
+      conversation: {
+        id: 123,
+        meta: {
+          sender: {
+            id: 456,
+            name: 'John Doe',
+            phone_number: '+1234567890',
+            email: 'john@example.com',
+            custom_attributes: { idbitrix: '789' },
+            additional_attributes: {},
+          },
+          assignee: {
+            id: 999,
+            name: 'Old Agent',
+            email: 'old@example.com',
+            role: 'agent',
+          },
+        },
+      },
+      data: {
+        contact: {
+          id: 456,
+          name: 'John Doe',
+          custom_attributes: { idbitrix: '789' },
+          additional_attributes: {},
+        },
+        currentAgent: {
+          id: 101,
+          name: 'Agent Smith',
+          email: 'agent@example.com',
+          role: 'admin',
+        },
+      },
+    };
+
+    const assigneeData = extractAssigneeData(eventData);
+
+    expect(assigneeData).not.toBeNull();
+    expect(assigneeData?.email).toBe('agent@example.com');
+    expect(assigneeData?.name).toBe('Agent Smith');
+    expect(assigneeData?.role).toBe('admin');
+  });
+
   it('should extract assignee data from event with conversation.meta.assignee', () => {
     const eventData: ChatwootEventData = {
       conversation: {
@@ -148,6 +193,58 @@ describe('Chatwoot Agent Data Extraction', () => {
       name: 'Agent Smith',
       email: 'agent@example.com',
       role: undefined,
+    });
+  });
+
+  it('should prioritize data.currentAgent over conversation.meta.assignee', () => {
+    const eventData: ChatwootEventData = {
+      conversation: {
+        id: 123,
+        meta: {
+          sender: {
+            id: 456,
+            name: 'John Doe',
+            custom_attributes: { idbitrix: '789' },
+            additional_attributes: {},
+          },
+          assignee: {
+            id: 999,
+            name: 'Old Agent',
+            email: 'old@example.com',
+            role: 'agent',
+          },
+        },
+      },
+      data: {
+        contact: {
+          id: 456,
+          name: 'John Doe',
+          custom_attributes: { idbitrix: '789' },
+          additional_attributes: {},
+        },
+        currentAgent: {
+          id: 101,
+          name: 'Agent Smith',
+          email: 'agent@example.com',
+          role: 'admin',
+        },
+      },
+    };
+
+    const contactData = extractChatwootData(eventData);
+
+    expect(contactData).not.toBeNull();
+    expect(contactData?.currentAgent).toEqual({
+      id: 101,
+      name: 'Agent Smith',
+      email: 'agent@example.com',
+      role: 'admin',
+    });
+    expect(contactData?.assignee).toEqual({
+      id: 101,
+      name: 'Agent Smith',
+      email: 'agent@example.com',
+      role: 'admin',
     });
   });
 

@@ -60,6 +60,12 @@ export interface ChatwootEventData {
     conversation?: {
       id: number;
     };
+    currentAgent?: {
+      id: number;
+      name: string;
+      email: string;
+      role?: string;
+    };
   };
 }
 
@@ -148,34 +154,48 @@ export interface ChatwootAssignee {
  * Extrai dados do assignee do evento Chatwoot para auto-login
  */
 export function extractAssigneeData(eventData: ChatwootEventData): ChatwootAssignee | null {
-  const assignee = eventData.conversation?.meta?.assignee;
+  // Priorizar data.currentAgent, depois conversation.meta.assignee
+  const currentAgent = eventData.data?.currentAgent;
+  const assigneeFromMeta = eventData.conversation?.meta?.assignee;
   
-  if (!assignee?.email || !assignee?.name) {
-    console.log("⚠️ Dados do assignee incompletos ou não encontrados");
+  const agentSource = currentAgent || assigneeFromMeta;
+  
+  if (!agentSource?.email || !agentSource?.name) {
+    console.log("⚠️ Dados do agente incompletos ou não encontrados");
     return null;
   }
 
-  console.log("✅ Dados do assignee extraídos:", { email: assignee.email, name: assignee.name });
+  console.log("✅ Dados do agente extraídos:", { 
+    email: agentSource.email, 
+    name: agentSource.name,
+    source: currentAgent ? 'data.currentAgent' : 'conversation.meta.assignee'
+  });
   
   return {
-    email: assignee.email,
-    name: assignee.name,
-    role: assignee.role || 'agent'
+    email: agentSource.email,
+    name: agentSource.name,
+    role: agentSource.role || 'agent'
   };
 }
 
 export function extractChatwootData(eventData: ChatwootEventData): ChatwootContact | null {
-  // Extrair dados do assignee/agent se disponível
-  const assignee = eventData.conversation?.meta?.assignee;
-  const agentData = assignee ? {
-    id: assignee.id,
-    name: assignee.name,
-    email: assignee.email,
-    role: assignee.role
+  // Extrair dados do agente - PRIORIDADE: data.currentAgent, FALLBACK: conversation.meta.assignee
+  const currentAgent = eventData.data?.currentAgent;
+  const assigneeFromMeta = eventData.conversation?.meta?.assignee;
+  
+  // Usar currentAgent se disponível, senão usar assignee como fallback
+  const agentSource = currentAgent || assigneeFromMeta;
+  const agentData = agentSource ? {
+    id: agentSource.id,
+    name: agentSource.name,
+    email: agentSource.email,
+    role: agentSource.role
   } : undefined;
 
   console.log("🔍 Extraindo dados do Chatwoot com informações do agente:", {
-    hasAssignee: !!assignee,
+    hasCurrentAgent: !!currentAgent,
+    hasAssigneeFromMeta: !!assigneeFromMeta,
+    usingSource: currentAgent ? 'data.currentAgent' : (assigneeFromMeta ? 'conversation.meta.assignee' : 'none'),
     agentData
   });
 
