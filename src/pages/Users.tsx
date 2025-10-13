@@ -15,6 +15,8 @@ interface UserWithRole {
   display_name: string;
   created_at: string;
   role: 'admin' | 'agent';
+  chatwoot_agent_id?: string;
+  bitrix_tele_id?: string;
 }
 
 export default function Users() {
@@ -55,7 +57,7 @@ export default function Users() {
     
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, email, display_name, created_at')
+      .select('id, email, display_name, created_at, chatwoot_agent_id, bitrix_tele_id')
       .order('created_at', { ascending: false });
 
     if (profilesError) {
@@ -154,6 +156,8 @@ export default function Users() {
                       <th className="p-3 text-left text-sm font-medium">Email</th>
                       <th className="p-3 text-left text-sm font-medium">Nome</th>
                       <th className="p-3 text-left text-sm font-medium">Role</th>
+                      <th className="p-3 text-left text-sm font-medium">ID Chatwoot</th>
+                      <th className="p-3 text-left text-sm font-medium">ID Bitrix Tele</th>
                       <th className="p-3 text-left text-sm font-medium">Cadastro</th>
                       <th className="p-3 text-left text-sm font-medium">Ações</th>
                     </tr>
@@ -179,6 +183,12 @@ export default function Users() {
                               </span>
                             )}
                           </Badge>
+                        </td>
+                        <td className="p-3 text-sm text-muted-foreground">
+                          {user.chatwoot_agent_id || '—'}
+                        </td>
+                        <td className="p-3 text-sm text-muted-foreground">
+                          {user.bitrix_tele_id || '—'}
                         </td>
                         <td className="p-3 text-sm text-muted-foreground">
                           {new Date(user.created_at).toLocaleDateString('pt-BR')}
