@@ -13,7 +13,7 @@ import {
   UserPlus, 
   Users 
 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { FlowStepType } from '@/types/flow';
 
 interface NodePaletteProps {
@@ -90,27 +90,31 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
   };
 
   return (
-    <Card className="p-4 max-h-[calc(100vh-120px)] overflow-y-auto">
-      <h3 className="font-semibold text-sm mb-2">Adicionar Nós</h3>
-      <p className="text-xs text-muted-foreground mb-3">Arraste para o canvas</p>
-      <div className="space-y-2">
-        {nodeTypes.map(({ type, label, description, icon: Icon }) => (
-          <div
-            key={type}
-            draggable
-            onDragStart={(e) => handleDragStart(e, type)}
-            className="cursor-move border rounded-lg p-3 hover:bg-accent transition-colors bg-card"
-          >
-            <div className="flex items-start gap-3">
-              <Icon className="h-5 w-5 mt-0.5 shrink-0" />
-              <div className="text-left flex-1">
-                <div className="font-medium text-sm">{label}</div>
-                <div className="text-xs text-muted-foreground">{description}</div>
+    <div className="h-full flex flex-col">
+      <div className="p-4 border-b bg-background flex-shrink-0">
+        <h3 className="font-semibold text-sm mb-1">Adicionar Nós</h3>
+        <p className="text-xs text-muted-foreground">Arraste para o canvas</p>
+      </div>
+      <ScrollArea className="flex-1">
+        <div className="p-3 space-y-2">
+          {nodeTypes.map(({ type, label, description, icon: Icon }) => (
+            <div
+              key={type}
+              draggable
+              onDragStart={(e) => handleDragStart(e, type)}
+              className="cursor-move border rounded-lg p-3 hover:bg-accent transition-colors bg-card"
+            >
+              <div className="flex items-start gap-3">
+                <Icon className="h-5 w-5 mt-0.5 shrink-0" />
+                <div className="text-left flex-1 min-w-0">
+                  <div className="font-medium text-sm">{label}</div>
+                  <div className="text-xs text-muted-foreground">{description}</div>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </Card>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }

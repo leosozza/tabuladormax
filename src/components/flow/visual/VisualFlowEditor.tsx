@@ -93,14 +93,14 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
   );
 
   return (
-    <div ref={reactFlowWrapper} className="h-[600px] w-full flex border-2 rounded-lg overflow-hidden bg-background">
-      {/* Variable Picker Panel */}
-      <div className="w-64 border-r overflow-hidden">
-        <VariablePicker />
+    <div ref={reactFlowWrapper} className="h-full w-full flex border rounded-lg overflow-hidden bg-background">
+      {/* Left Panel - Node Palette */}
+      <div className="w-64 border-r flex-shrink-0 flex flex-col overflow-hidden bg-background">
+        <NodePalette />
       </div>
 
-      {/* ReactFlow Canvas */}
-      <div className="flex-1 relative">
+      {/* Center Panel - ReactFlow Canvas */}
+      <div className="flex-1 relative min-w-0">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -132,15 +132,17 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
             }}
             className="bg-background"
           />
-          <Panel position="top-left">
-            <NodePalette />
-          </Panel>
         </ReactFlow>
       </div>
 
-      {/* Node Config Panel */}
+      {/* Right Panel - Variables */}
+      <div className="w-80 border-l flex-shrink-0 flex flex-col overflow-hidden bg-background">
+        <VariablePicker />
+      </div>
+
+      {/* Node Config Panel - Overlay when node selected */}
       {selectedNode && selectedNode.id !== 'start' && (
-        <div className="w-96 border-l overflow-hidden">
+        <div className="absolute right-0 top-0 bottom-0 w-96 border-l shadow-lg z-10 overflow-hidden bg-background">
           <NodeConfigPanel
             selectedNode={selectedNode}
             onUpdate={(nodeId, updates) => updateNodeData(nodeId, updates)}
