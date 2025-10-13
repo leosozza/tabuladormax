@@ -629,8 +629,17 @@ const LeadTab = () => {
         // Criar profile com os dados recebidos
         const newProfile: DynamicProfile = {};
         
-        // Extrair dados do assignee/agent se disponível
-        const assignee = raw?.conversation?.meta?.assignee;
+        // Extrair dados do agente - PRIORIDADE: data.currentAgent, FALLBACK: conversation.meta.assignee
+        const currentAgent = raw?.data?.currentAgent;
+        const assigneeFromMeta = raw?.conversation?.meta?.assignee;
+        const agentData = currentAgent || assigneeFromMeta;
+        
+        console.log("👤 Dados do agente disponíveis:", {
+          hasCurrentAgent: !!currentAgent,
+          hasAssigneeFromMeta: !!assigneeFromMeta,
+          usingSource: currentAgent ? 'data.currentAgent' : (assigneeFromMeta ? 'conversation.meta.assignee' : 'none'),
+          agentData
+        });
         
         // Usar field mappings configurados para popular o profile
         if (currentMappings && currentMappings.length > 0) {
@@ -654,15 +663,15 @@ const LeadTab = () => {
             // Determinar de onde buscar os dados baseado no campo
             let sourceData: any = sender;
             
-            // Se o campo for do agente atual, usar os dados do assignee
-            if (cleanPath.startsWith('currentAgent.')) {
-              if (!assignee) {
-                console.log(`  ⚠️ Campo de agente solicitado (${cleanPath}), mas assignee não disponível`);
+            // Se o campo for do agente atual, usar os dados do agente (currentAgent ou assignee)
+            if (cleanPath.startsWith('currentAgent.') || cleanPath.startsWith('assignee.')) {
+              if (!agentData) {
+                console.log(`  ⚠️ Campo de agente solicitado (${cleanPath}), mas nenhum dado de agente disponível`);
                 value = "";
               } else {
-                sourceData = assignee;
-                cleanPath = cleanPath.replace(/^currentAgent\./, ''); // Remove "currentAgent."
-                console.log(`  👤 Campo de agente detectado, usando assignee. Novo caminho: ${cleanPath}`);
+                sourceData = agentData;
+                cleanPath = cleanPath.replace(/^currentAgent\./, '').replace(/^assignee\./, '');
+                console.log(`  👤 Campo de agente detectado, usando ${currentAgent ? 'data.currentAgent' : 'conversation.meta.assignee'}. Novo caminho: ${cleanPath}`);
               }
             }
             // Se o campo for da conversa, usar os dados da conversation
@@ -703,13 +712,17 @@ const LeadTab = () => {
 
         // Salvar dados do contato no Supabase
         if (attrs.idbitrix) {
-          // Extrair dados do assignee/agent se disponível
-          const assignee = raw?.conversation?.meta?.assignee;
+          // Extrair dados do agente - PRIORIDADE: data.currentAgent, FALLBACK: conversation.meta.assignee
+          const currentAgent = raw?.data?.currentAgent;
+          const assigneeFromMeta = raw?.conversation?.meta?.assignee;
+          const agentData = currentAgent || assigneeFromMeta;
           
           console.log("💾 Preparando dados do contato para salvar:", {
             bitrix_id: attrs.idbitrix,
-            hasAssignee: !!assignee,
-            assigneeData: assignee
+            hasCurrentAgent: !!currentAgent,
+            hasAssigneeFromMeta: !!assigneeFromMeta,
+            usingSource: currentAgent ? 'data.currentAgent' : (assigneeFromMeta ? 'conversation.meta.assignee' : 'none'),
+            agentData
           });
           
           const contactData = {
@@ -723,19 +736,19 @@ const LeadTab = () => {
             custom_attributes: attrs,
             additional_attributes: sender.additional_attributes || {},
             last_activity_at: undefined,
-            // Adicionar dados do agente atual
-            currentAgent: assignee ? {
-              id: assignee.id,
-              name: assignee.name,
-              email: assignee.email,
-              role: assignee.role
+            // Adicionar dados do agente atual (usa data.currentAgent como prioridade)
+            currentAgent: agentData ? {
+              id: agentData.id,
+              name: agentData.name,
+              email: agentData.email,
+              role: agentData.role
             } : undefined,
-            // Adicionar também como assignee para compatibilidade
-            assignee: assignee ? {
-              id: assignee.id,
-              name: assignee.name,
-              email: assignee.email,
-              role: assignee.role
+            // Adicionar também como assignee para retrocompatibilidade
+            assignee: agentData ? {
+              id: agentData.id,
+              name: agentData.name,
+              email: agentData.email,
+              role: agentData.role
             } : undefined,
           };
 
