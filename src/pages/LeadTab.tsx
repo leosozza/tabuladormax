@@ -75,14 +75,49 @@ interface FieldMapping {
 const emptyProfile: DynamicProfile = {};
 
 const mapChatwootToProfile = (contact: any, fieldMappings: FieldMapping[]): DynamicProfile => {
+  console.log("🔄 mapChatwootToProfile chamado com:", {
+    hasContact: !!contact,
+    hasCurrentAgent: !!(contact?.currentAgent || contact?.assignee),
+    currentAgent: contact?.currentAgent || contact?.assignee,
+    fieldMappingsCount: fieldMappings.length
+  });
+
   const profile: DynamicProfile = {};
   
   // Mapear todos os campos configurados
   fieldMappings.forEach(mapping => {
-    const value = getNestedValue(contact, mapping.chatwoot_field);
+    let value = "";
+    const field = mapping.chatwoot_field;
+    
+    // Limpar prefixos para determinar a fonte de dados
+    let cleanPath = field
+      .replace(/^data\.contact\./, '')
+      .replace(/^contact\./, '')
+      .replace(/^data\./, '');
+    
+    console.log(`🔍 Mapeando ${mapping.profile_field} <- ${field} (limpo: ${cleanPath})`);
+    
+    // Se o campo for do agente atual, buscar em currentAgent ou assignee
+    if (cleanPath.startsWith('currentAgent.') || cleanPath.startsWith('assignee.')) {
+      const agentPath = cleanPath.replace(/^currentAgent\./, '').replace(/^assignee\./, '');
+      const agentData = contact?.currentAgent || contact?.assignee;
+      
+      if (agentData) {
+        value = getNestedValue(agentData, agentPath);
+        console.log(`  👤 Campo de agente: ${agentPath} = ${value}`);
+      } else {
+        console.log(`  ⚠️ Nenhum dado de agente disponível`);
+      }
+    } else {
+      // Para outros campos, buscar normalmente no objeto contact
+      value = getNestedValue(contact, cleanPath);
+      console.log(`  📋 Campo normal: ${cleanPath} = ${value}`);
+    }
+    
     profile[mapping.profile_field] = value || "";
   });
 
+  console.log("✅ Profile mapeado:", profile);
   return profile;
 };
 
@@ -621,9 +656,14 @@ const LeadTab = () => {
             
             // Se o campo for do agente atual, usar os dados do assignee
             if (cleanPath.startsWith('currentAgent.')) {
-              sourceData = assignee;
-              cleanPath = cleanPath.replace(/^currentAgent\./, ''); // Remove "currentAgent."
-              console.log(`  👤 Campo de agente detectado, usando assignee. Novo caminho: ${cleanPath}`);
+              if (!assignee) {
+                console.log(`  ⚠️ Campo de agente solicitado (${cleanPath}), mas assignee não disponível`);
+                value = "";
+              } else {
+                sourceData = assignee;
+                cleanPath = cleanPath.replace(/^currentAgent\./, ''); // Remove "currentAgent."
+                console.log(`  👤 Campo de agente detectado, usando assignee. Novo caminho: ${cleanPath}`);
+              }
             }
             // Se o campo for da conversa, usar os dados da conversation
             else if (cleanPath.startsWith('conversation.')) {
@@ -632,20 +672,23 @@ const LeadTab = () => {
               console.log(`  💬 Campo de conversa detectado, usando conversation. Novo caminho: ${cleanPath}`);
             }
             
-            // Navegar pelo caminho limpo
-            const parts = cleanPath.split('.');
-            let temp: any = sourceData;
-            
-            console.log(`  📍 Navegando por: ${parts.join(' -> ')}`);
-            
-            for (const part of parts) {
-              console.log(`    🔹 Buscando "${part}" em:`, temp);
-              temp = temp?.[part];
-              console.log(`    ✓ Resultado:`, temp);
-              if (temp === undefined || temp === null) break;
+            // Só navegar se não foi definido como vazio acima
+            if (value === "" && sourceData) {
+              // Navegar pelo caminho limpo
+              const parts = cleanPath.split('.');
+              let temp: any = sourceData;
+              
+              console.log(`  📍 Navegando por: ${parts.join(' -> ')}`);
+              
+              for (const part of parts) {
+                console.log(`    🔹 Buscando "${part}" em:`, temp);
+                temp = temp?.[part];
+                console.log(`    ✓ Resultado:`, temp);
+                if (temp === undefined || temp === null) break;
+              }
+              
+              value = temp || "";
             }
-            
-            value = temp || "";
             
             console.log(`  ✅ Valor final para ${mapping.profile_field}:`, value);
             newProfile[mapping.profile_field] = value;
@@ -662,6 +705,12 @@ const LeadTab = () => {
         if (attrs.idbitrix) {
           // Extrair dados do assignee/agent se disponível
           const assignee = raw?.conversation?.meta?.assignee;
+          
+          console.log("💾 Preparando dados do contato para salvar:", {
+            bitrix_id: attrs.idbitrix,
+            hasAssignee: !!assignee,
+            assigneeData: assignee
+          });
           
           const contactData = {
             bitrix_id: String(attrs.idbitrix),
@@ -681,7 +730,22 @@ const LeadTab = () => {
               email: assignee.email,
               role: assignee.role
             } : undefined,
+            // Adicionar também como assignee para compatibilidade
+            assignee: assignee ? {
+              id: assignee.id,
+              name: assignee.name,
+              email: assignee.email,
+              role: assignee.role
+            } : undefined,
           };
+
+          console.log("📦 Dados do contato completos:", {
+            bitrix_id: contactData.bitrix_id,
+            hasCurrentAgent: !!contactData.currentAgent,
+            hasAssignee: !!contactData.assignee,
+            currentAgent: contactData.currentAgent,
+            assignee: contactData.assignee
+          });
 
           setChatwootData(contactData);
           await saveChatwootContact(contactData);
@@ -875,21 +939,27 @@ const LeadTab = () => {
       const updatedChatwootData: any = { ...chatwootData };
       const updatedAttributes = { ...chatwootData.custom_attributes };
       
+      console.log("🔄 Atualizando cache com field mappings:", fieldMappings.length);
+      
       fieldMappings.forEach(mapping => {
         const value = profile[mapping.profile_field];
         if (value !== undefined && value !== '') {
           const field = mapping.chatwoot_field;
           
+          console.log(`  📝 Processando ${mapping.profile_field} -> ${field} = ${value}`);
+          
           // Atualizar custom_attributes.*
           if (field.startsWith('contact.custom_attributes.') || field.startsWith('data.contact.custom_attributes.')) {
             const attrKey = field.replace('contact.custom_attributes.', '').replace('data.contact.custom_attributes.', '');
             updatedAttributes[attrKey] = value;
+            console.log(`    ✓ Atualizado custom_attributes.${attrKey}`);
           }
           // Atualizar campos diretos do contato (nome, telefone, email, etc.)
           else if (field.startsWith('contact.') || field.startsWith('data.contact.')) {
             const contactKey = field.replace('contact.', '').replace('data.contact.', '');
             if (contactKey !== 'custom_attributes' && contactKey !== 'additional_attributes') {
               updatedChatwootData[contactKey] = value;
+              console.log(`    ✓ Atualizado contact.${contactKey}`);
             }
           }
           // Atualizar additional_attributes.*
@@ -899,12 +969,42 @@ const LeadTab = () => {
               updatedChatwootData.additional_attributes = {};
             }
             updatedChatwootData.additional_attributes[attrKey] = value;
+            console.log(`    ✓ Atualizado additional_attributes.${attrKey}`);
+          }
+          // Atualizar campos do agente (currentAgent ou assignee)
+          // Nota: Campos do agente geralmente são read-only do ponto de vista do Chatwoot,
+          // mas permitimos armazenar localmente para consulta
+          else if (field.startsWith('currentAgent.') || field.startsWith('assignee.')) {
+            const agentKey = field.replace('currentAgent.', '').replace('assignee.', '');
+            if (!updatedChatwootData.currentAgent) {
+              updatedChatwootData.currentAgent = {};
+            }
+            if (!updatedChatwootData.assignee) {
+              updatedChatwootData.assignee = {};
+            }
+            updatedChatwootData.currentAgent[agentKey] = value;
+            updatedChatwootData.assignee[agentKey] = value;
+            console.log(`    ℹ️ Atualizado currentAgent/assignee.${agentKey} (somente local)`);
           }
         }
       });
 
       // Aplicar custom_attributes atualizados (preservar campos não mapeados)
       updatedChatwootData.custom_attributes = { ...chatwootData.custom_attributes, ...updatedAttributes };
+      
+      // Preservar dados do agente se não foram alterados
+      if (!updatedChatwootData.currentAgent && chatwootData.currentAgent) {
+        updatedChatwootData.currentAgent = chatwootData.currentAgent;
+      }
+      if (!updatedChatwootData.assignee && chatwootData.assignee) {
+        updatedChatwootData.assignee = chatwootData.assignee;
+      }
+
+      console.log("💾 Salvando dados atualizados:", {
+        hasCurrentAgent: !!updatedChatwootData.currentAgent,
+        hasAssignee: !!updatedChatwootData.assignee,
+        customAttributesCount: Object.keys(updatedChatwootData.custom_attributes || {}).length
+      });
 
       // 1. Atualizar no Supabase - tabela chatwoot_contacts
       await saveChatwootContact(updatedChatwootData);
