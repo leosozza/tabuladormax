@@ -101,8 +101,8 @@ function getDefaultLabel(type: FlowStepType): string {
   return labels[type] || type;
 }
 
-function getDefaultConfig(type: FlowStepType): any {
-  const configs: Record<FlowStepType, any> = {
+function getDefaultConfig(type: FlowStepType): unknown {
+  const configs: Record<FlowStepType, unknown> = {
     tabular: {
       buttonId: '',
       webhook_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json',

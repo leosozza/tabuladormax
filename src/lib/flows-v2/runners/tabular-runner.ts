@@ -73,7 +73,7 @@ export class TabularStepRunner extends BaseStepRunner<TabularStepConfig> {
       this.log(stepId, stepName, 'debug', 'Resolved webhook URL', { webhookUrl }, onLog);
 
       // Prepare request body
-      const body: Record<string, any> = {
+      const body: Record<string, unknown> = {
         id: context.leadId,
         fields: {
           [config.field]: this.replacePlaceholders(config.value, context.leadId, context.variables),
@@ -137,10 +137,10 @@ export class TabularStepRunner extends BaseStepRunner<TabularStepConfig> {
    * Replace placeholders in values
    */
   private replacePlaceholders(
-    value: any,
+    value: unknown,
     leadId: number | undefined,
-    variables: Record<string, any>
-  ): any {
+    variables: Record<string, unknown>
+  ): unknown {
     if (typeof value !== 'string') {
       return value;
     }

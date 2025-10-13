@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
 import { FlowList } from "@/components/flow/FlowList";
 
 // Profile é agora dinâmico, baseado nos field mappings
-type DynamicProfile = Record<string, any>;
+type DynamicProfile = Record<string, unknown>;
 
 interface SubButton {
   subLabel: string;
@@ -432,7 +432,7 @@ const LeadTab = () => {
 
       // 4. Salvar no cache para próximas buscas
       // Construir custom_attributes dinamicamente baseado nos field mappings
-      const customAttributes: Record<string, any> = {
+      const customAttributes: Record<string, unknown> = {
         idbitrix: bitrixId
       };
       
@@ -981,7 +981,7 @@ const LeadTab = () => {
       };
       
       // Preparar campos adicionais com processamento de placeholders
-      const additionalFields: Record<string, any> = {};
+      const additionalFields: Record<string, unknown> = {};
       if (button.additional_fields && Array.isArray(button.additional_fields)) {
         button.additional_fields.forEach(({ field: addField, value: addValue }) => {
           // Processar placeholders no valor - pular campos vazios
@@ -1387,7 +1387,7 @@ const LeadTab = () => {
     
     // Atualizar automaticamente os campos correspondentes no profile
     if (selectedButton.field) {
-      const updates: Record<string, any> = {
+      const updates: Record<string, unknown> = {
         [selectedButton.field]: scheduleDate,
       };
       

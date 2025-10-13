@@ -8,8 +8,8 @@ export interface ChatwootContact {
   phone_number?: string;
   email?: string;
   thumbnail?: string;
-  custom_attributes: Record<string, any>;
-  additional_attributes: Record<string, any>;
+  custom_attributes: Record<string, unknown>;
+  additional_attributes: Record<string, unknown>;
   last_activity_at?: number;
 }
 
@@ -23,8 +23,8 @@ export interface ChatwootEventData {
         phone_number?: string;
         email?: string;
         thumbnail?: string;
-        custom_attributes: Record<string, any>;
-        additional_attributes: Record<string, any>;
+        custom_attributes: Record<string, unknown>;
+        additional_attributes: Record<string, unknown>;
         last_activity_at?: number;
       };
       assignee?: {
@@ -42,8 +42,8 @@ export interface ChatwootEventData {
       phone_number?: string;
       email?: string;
       thumbnail?: string;
-      custom_attributes: Record<string, any>;
-      additional_attributes?: Record<string, any>;
+      custom_attributes: Record<string, unknown>;
+      additional_attributes?: Record<string, unknown>;
     };
     conversation?: {
       id: number;
@@ -104,8 +104,8 @@ export async function getChatwootContact(bitrixId: string): Promise<ChatwootCont
     phone_number: data.phone_number || undefined,
     email: data.email || undefined,
     thumbnail: data.thumbnail || undefined,
-    custom_attributes: (data.custom_attributes as Record<string, any>) || {},
-    additional_attributes: (data.additional_attributes as Record<string, any>) || {},
+    custom_attributes: (data.custom_attributes as Record<string, unknown>) || {},
+    additional_attributes: (data.additional_attributes as Record<string, unknown>) || {},
     last_activity_at: data.last_activity_at || undefined,
   };
 }

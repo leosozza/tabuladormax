@@ -86,7 +86,7 @@ export async function getLead(id: string | number): Promise<BitrixLead> {
   }
 }
 
-export async function updateLead(id: string | number, fields: Record<string, any>): Promise<void> {
+export async function updateLead(id: string | number, fields: Record<string, unknown>): Promise<void> {
   try {
     const response = await fetch(
       `https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json`,
@@ -115,7 +115,7 @@ export async function updateLead(id: string | number, fields: Record<string, any
 export async function updateLeadViaWebhook(
   webhookUrl: string,
   leadId: string | number,
-  fields: Record<string, any>
+  fields: Record<string, unknown>
 ): Promise<void> {
   try {
     const response = await fetch(webhookUrl, {

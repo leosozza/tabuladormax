@@ -13,8 +13,8 @@ export interface StepExecutionContext {
   flowId: string;
   runId: string;
   userId?: string;
-  variables?: Record<string, any>;
-  previousResults?: Record<string, any>;
+  variables?: Record<string, unknown>;
+  previousResults?: Record<string, unknown>;
 }
 
 /**
@@ -22,7 +22,7 @@ export interface StepExecutionContext {
  */
 export interface StepExecutionResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
   logs?: string[];
   duration?: number;
@@ -31,7 +31,7 @@ export interface StepExecutionResult {
 /**
  * Base interface for all step runners
  */
-export interface StepRunner<TConfig = any> {
+export interface StepRunner<TConfig = unknown> {
   /**
    * Type of step this runner handles
    */
@@ -69,7 +69,7 @@ export interface StepRunner<TConfig = any> {
 /**
  * Abstract base class for step runners
  */
-export abstract class BaseStepRunner<TConfig = any> implements StepRunner<TConfig> {
+export abstract class BaseStepRunner<TConfig = unknown> implements StepRunner<TConfig> {
   abstract readonly type: string;
   abstract readonly displayName: string;
   
@@ -83,7 +83,7 @@ export abstract class BaseStepRunner<TConfig = any> implements StepRunner<TConfi
   /**
    * Helper method to create a success result
    */
-  protected createSuccessResult(data?: any, logs?: string[]): StepExecutionResult {
+  protected createSuccessResult(data?: unknown, logs?: string[]): StepExecutionResult {
     return {
       success: true,
       data,
@@ -150,9 +150,9 @@ export abstract class BaseStepRunner<TConfig = any> implements StepRunner<TConfi
    * Helper method to replace placeholders in an object
    */
   protected replacePlaceholdersInObject(
-    obj: any,
+    obj: unknown,
     context: StepExecutionContext
-  ): any {
+  ): unknown {
     if (typeof obj === 'string') {
       return this.replacePlaceholders(obj, context);
     }
@@ -162,9 +162,9 @@ export abstract class BaseStepRunner<TConfig = any> implements StepRunner<TConfi
     }
     
     if (typeof obj === 'object' && obj !== null) {
-      const result: any = {};
+      const result: Record<string, unknown> = {};
       Object.keys(obj).forEach((key) => {
-        result[key] = this.replacePlaceholdersInObject(obj[key], context);
+        result[key] = this.replacePlaceholdersInObject((obj as Record<string, unknown>)[key], context);
       });
       return result;
     }

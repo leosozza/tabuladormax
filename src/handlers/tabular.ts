@@ -42,8 +42,8 @@ const replacePlaceholders = (
 
   const { leadId, chatwootData, profile, scheduledDate, scheduledTime } = context;
   
-  const chatwootRec = chatwootData as Record<string, any> | undefined;
-  const profileRec = profile as Record<string, any> | undefined;
+  const chatwootRec = chatwootData as Record<string, unknown> | undefined;
+  const profileRec = profile as Record<string, unknown> | undefined;
 
   return inputValue
     .replace(/\{\{valor_botao\}\}/g, value)
@@ -125,7 +125,7 @@ export async function runTabular(
       // Supabase → Bitrix flow
       // Update Supabase first
       if (chatwootData) {
-        const chatwootRec = chatwootData as Record<string, any>;
+        const chatwootRec = chatwootData as Record<string, unknown>;
         const updatedAttributes = {
           ...(chatwootRec.custom_attributes || {}),
           [field]: value,
@@ -244,7 +244,7 @@ export async function runTabular(
 
       // Update Supabase after Bitrix success
         if (chatwootData) {
-          const chatwootRec = chatwootData as Record<string, any>;
+          const chatwootRec = chatwootData as Record<string, unknown>;
           const updatedAttributes = {
             ...(chatwootRec.custom_attributes || {}),
             [field]: value,

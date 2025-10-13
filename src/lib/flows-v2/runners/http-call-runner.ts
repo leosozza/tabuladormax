@@ -209,10 +209,10 @@ export class HttpCallStepRunner extends BaseStepRunner<HttpCallStepConfig> {
    * Replace placeholders in string values
    */
   private replacePlaceholders(
-    value: any,
+    value: unknown,
     leadId: number | undefined,
-    variables: Record<string, any>
-  ): any {
+    variables: Record<string, unknown>
+  ): unknown {
     if (typeof value !== 'string') {
       return value;
     }
@@ -237,11 +237,11 @@ export class HttpCallStepRunner extends BaseStepRunner<HttpCallStepConfig> {
    * Replace placeholders in object (recursive)
    */
   private replacePlaceholdersInObject(
-    obj: Record<string, any>,
+    obj: Record<string, unknown>,
     leadId: number | undefined,
-    variables: Record<string, any>
-  ): Record<string, any> {
-    const result: Record<string, any> = {};
+    variables: Record<string, unknown>
+  ): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
 
     Object.keys(obj).forEach((key) => {
       const value = obj[key];

@@ -9,7 +9,7 @@ export interface HttpCallStepConfig {
   url: string;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string>;
-  body?: Record<string, any>;
+  body?: Record<string, unknown>;
   timeout?: number;
 }
 
@@ -90,7 +90,7 @@ export class HttpCallStepRunner extends BaseStepRunner<HttpCallStepConfig> {
         }
         
         // Try to parse response as JSON
-        let result: any;
+        let result: unknown;
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           result = await response.json();
