@@ -11,6 +11,18 @@ export interface ChatwootContact {
   custom_attributes: Record<string, unknown>;
   additional_attributes: Record<string, unknown>;
   last_activity_at?: number;
+  currentAgent?: {
+    id: number;
+    name: string;
+    email: string;
+    role?: string;
+  };
+  assignee?: {
+    id: number;
+    name: string;
+    email: string;
+    role?: string;
+  };
 }
 
 export interface ChatwootEventData {
@@ -55,6 +67,14 @@ export interface ChatwootEventData {
  * Salva ou atualiza um contato do Chatwoot no Supabase
  */
 export async function saveChatwootContact(contactData: ChatwootContact): Promise<void> {
+  console.log("💾 Salvando contato do Chatwoot com dados do agente:", {
+    bitrix_id: contactData.bitrix_id,
+    hasCurrentAgent: !!contactData.currentAgent,
+    hasAssignee: !!contactData.assignee,
+    currentAgent: contactData.currentAgent,
+    assignee: contactData.assignee
+  });
+
   const { error } = await supabase
     .from("chatwoot_contacts")
     .upsert({
@@ -77,6 +97,8 @@ export async function saveChatwootContact(contactData: ChatwootContact): Promise
     console.error("Erro ao salvar contato do Chatwoot:", error);
     throw error;
   }
+  
+  console.log("✅ Contato salvo com sucesso no Supabase");
 }
 
 /**
@@ -143,6 +165,20 @@ export function extractAssigneeData(eventData: ChatwootEventData): ChatwootAssig
 }
 
 export function extractChatwootData(eventData: ChatwootEventData): ChatwootContact | null {
+  // Extrair dados do assignee/agent se disponível
+  const assignee = eventData.conversation?.meta?.assignee;
+  const agentData = assignee ? {
+    id: assignee.id,
+    name: assignee.name,
+    email: assignee.email,
+    role: assignee.role
+  } : undefined;
+
+  console.log("🔍 Extraindo dados do Chatwoot com informações do agente:", {
+    hasAssignee: !!assignee,
+    agentData
+  });
+
   // Tentar formato novo: eventData.data.contact
   if (eventData.data?.contact) {
     const contact = eventData.data.contact;
@@ -167,6 +203,8 @@ export function extractChatwootData(eventData: ChatwootEventData): ChatwootConta
       custom_attributes: contact.custom_attributes || {},
       additional_attributes: contact.additional_attributes || {},
       last_activity_at: undefined,
+      currentAgent: agentData,
+      assignee: agentData,
     };
   }
 
@@ -192,5 +230,7 @@ export function extractChatwootData(eventData: ChatwootEventData): ChatwootConta
     custom_attributes: sender.custom_attributes || {},
     additional_attributes: sender.additional_attributes || {},
     last_activity_at: sender.last_activity_at,
+    currentAgent: agentData,
+    assignee: agentData,
   };
 }
