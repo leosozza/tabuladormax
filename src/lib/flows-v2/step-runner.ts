@@ -11,9 +11,9 @@ export type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipp
 export interface StepExecutionResult {
   success: boolean;
   status: StepStatus;
-  output?: any;
+  output?: unknown;
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   duration?: number; // Execution time in milliseconds
 }
 
@@ -25,7 +25,7 @@ export interface StepExecutionContext {
   flowDefinitionId: string;
   flowVersionId: string;
   leadId?: number;
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   previousStepResults: Record<string, StepExecutionResult>;
   userId?: string;
   timestamp: string;
@@ -40,13 +40,13 @@ export interface StepLogEntry {
   stepName: string;
   level: 'info' | 'success' | 'warning' | 'error' | 'debug';
   message: string;
-  data?: any;
+  data?: unknown;
 }
 
 /**
  * Base interface for all step runners
  */
-export interface StepRunner<TConfig = any> {
+export interface StepRunner<TConfig = unknown> {
   /**
    * The type of step this runner handles
    */
@@ -155,8 +155,8 @@ export function createLogEntry(
  * Utility function to create a successful result
  */
 export function createSuccessResult(
-  output?: any,
-  metadata?: Record<string, any>,
+  output?: unknown,
+  metadata?: Record<string, unknown>,
   duration?: number
 ): StepExecutionResult {
   return {
@@ -173,7 +173,7 @@ export function createSuccessResult(
  */
 export function createFailureResult(
   error: string,
-  metadata?: Record<string, any>,
+  metadata?: Record<string, unknown>,
   duration?: number
 ): StepExecutionResult {
   return {

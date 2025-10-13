@@ -251,7 +251,7 @@ function validateWaitStep(
  */
 export function createFlowDefinition(
   steps: FlowStep[],
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ): FlowDefinition {
   return {
     steps,

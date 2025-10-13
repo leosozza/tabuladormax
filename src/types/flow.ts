@@ -51,7 +51,7 @@ export interface FlowStepHttpCall extends FlowStepBase {
     url: string;
     method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     headers?: Record<string, string>;
-    body?: Record<string, any>;
+    body?: Record<string, unknown>;
   };
 }
 
@@ -114,7 +114,7 @@ export interface FlowStepUpdateContact extends FlowStepBase {
     name?: string;
     email?: string;
     phone_number?: string;
-    custom_attributes?: Record<string, any>;
+    custom_attributes?: Record<string, unknown>;
   };
 }
 
@@ -194,7 +194,7 @@ export interface FlowLogEntry {
   stepNome: string;
   level: 'info' | 'success' | 'warning' | 'error';
   message: string;
-  data?: any;
+  data?: unknown;
 }
 
 /**
@@ -206,7 +206,7 @@ export interface FlowRun {
   lead_id?: number;
   status: FlowRunStatus;
   logs: FlowLogEntry[];
-  resultado?: any;
+  resultado?: unknown;
   iniciado_em: string;
   finalizado_em?: string;
   executado_por?: string;
@@ -218,7 +218,7 @@ export interface FlowRun {
 export interface ExecuteFlowRequest {
   flowId: string;
   leadId?: number;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 /**
