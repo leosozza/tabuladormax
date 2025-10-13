@@ -588,14 +588,17 @@ const LeadTab = () => {
           nome: sender.name,
           custom_attributes: attrs,
           foto: sender.thumbnail || attrs.foto,
-          sender_completo: sender
+          sender_completo: sender,
+          assignee_disponivel: !!assignee,
+          assignee_data: assignee ? { id: assignee.id, name: assignee.name, email: assignee.email } : null
         });
 
         // Criar profile com os dados recebidos
         const newProfile: DynamicProfile = {};
         
         // Extrair dados do assignee/agent se disponível
-        const assignee = raw?.conversation?.meta?.assignee;
+        // Tentar primeiro do raw data, depois do chatwootData se já foi salvo anteriormente
+        const assignee = raw?.conversation?.meta?.assignee || chatwootData?.agent_data;
         
         // Usar field mappings configurados para popular o profile
         if (currentMappings && currentMappings.length > 0) {
@@ -663,7 +666,7 @@ const LeadTab = () => {
           // Extrair dados do assignee/agent se disponível
           const assignee = raw?.conversation?.meta?.assignee;
           
-          const contactData = {
+          const contactData: any = {
             bitrix_id: String(attrs.idbitrix),
             conversation_id: raw?.conversation?.id || raw?.data?.conversation?.id || 0,
             contact_id: sender.id,
@@ -674,8 +677,8 @@ const LeadTab = () => {
             custom_attributes: attrs,
             additional_attributes: sender.additional_attributes || {},
             last_activity_at: undefined,
-            // Adicionar dados do agente atual
-            currentAgent: assignee ? {
+            // Adicionar dados do agente atual usando agent_data
+            agent_data: assignee ? {
               id: assignee.id,
               name: assignee.name,
               email: assignee.email,
@@ -776,7 +779,9 @@ const LeadTab = () => {
         hasCustomAttributes: !!chatwootData.custom_attributes,
         customAttributesKeys: Object.keys(chatwootData.custom_attributes || {}),
         customAttributesCount: Object.keys(chatwootData.custom_attributes || {}).length,
-        customAttributes: chatwootData.custom_attributes
+        customAttributes: chatwootData.custom_attributes,
+        hasAgentData: !!chatwootData.agent_data,
+        agentData: chatwootData.agent_data
       });
     }
   }, [chatwootData]);

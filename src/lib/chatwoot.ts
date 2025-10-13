@@ -11,6 +11,12 @@ export interface ChatwootContact {
   custom_attributes: Record<string, unknown>;
   additional_attributes: Record<string, unknown>;
   last_activity_at?: number;
+  agent_data?: {
+    id: number;
+    name: string;
+    email: string;
+    role?: string;
+  };
 }
 
 export interface ChatwootEventData {
@@ -68,6 +74,7 @@ export async function saveChatwootContact(contactData: ChatwootContact): Promise
       custom_attributes: contactData.custom_attributes,
       additional_attributes: contactData.additional_attributes,
       last_activity_at: contactData.last_activity_at,
+      agent_data: contactData.agent_data || {},
       updated_at: new Date().toISOString(),
     }, {
       onConflict: "bitrix_id"
@@ -107,6 +114,7 @@ export async function getChatwootContact(bitrixId: string): Promise<ChatwootCont
     custom_attributes: (data.custom_attributes as Record<string, unknown>) || {},
     additional_attributes: (data.additional_attributes as Record<string, unknown>) || {},
     last_activity_at: data.last_activity_at || undefined,
+    agent_data: (data.agent_data as { id: number; name: string; email: string; role?: string }) || undefined,
   };
 }
 
@@ -143,6 +151,15 @@ export function extractAssigneeData(eventData: ChatwootEventData): ChatwootAssig
 }
 
 export function extractChatwootData(eventData: ChatwootEventData): ChatwootContact | null {
+  // Extract assignee data if available
+  const assignee = eventData.conversation?.meta?.assignee;
+  const agentData = assignee ? {
+    id: assignee.id,
+    name: assignee.name,
+    email: assignee.email,
+    role: assignee.role
+  } : undefined;
+
   // Tentar formato novo: eventData.data.contact
   if (eventData.data?.contact) {
     const contact = eventData.data.contact;
@@ -167,6 +184,7 @@ export function extractChatwootData(eventData: ChatwootEventData): ChatwootConta
       custom_attributes: contact.custom_attributes || {},
       additional_attributes: contact.additional_attributes || {},
       last_activity_at: undefined,
+      agent_data: agentData,
     };
   }
 
@@ -192,5 +210,6 @@ export function extractChatwootData(eventData: ChatwootEventData): ChatwootConta
     custom_attributes: sender.custom_attributes || {},
     additional_attributes: sender.additional_attributes || {},
     last_activity_at: sender.last_activity_at,
+    agent_data: agentData,
   };
 }
