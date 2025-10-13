@@ -5,7 +5,17 @@
 /**
  * Step type for flow actions
  */
-export type FlowStepType = 'tabular' | 'http_call' | 'wait';
+export type FlowStepType = 
+  | 'tabular' 
+  | 'http_call' 
+  | 'wait'
+  | 'send_message'
+  | 'condition'
+  | 'schedule_message'
+  | 'update_contact'
+  | 'add_label'
+  | 'assign_agent'
+  | 'assign_team';
 
 /**
  * Base flow step interface
@@ -56,9 +66,105 @@ export interface FlowStepWait extends FlowStepBase {
 }
 
 /**
+ * Send Message step - sends message to Chatwoot
+ */
+export interface FlowStepSendMessage extends FlowStepBase {
+  type: 'send_message';
+  config: {
+    conversationId: string;
+    message: string;
+    messageType?: 'incoming' | 'outgoing';
+  };
+}
+
+/**
+ * Condition step - conditional logic
+ */
+export interface FlowStepCondition extends FlowStepBase {
+  type: 'condition';
+  config: {
+    conditions: Array<{
+      variable: string;
+      operator: string;
+      value: string;
+    }>;
+    logic: 'AND' | 'OR';
+  };
+}
+
+/**
+ * Schedule Message step - schedules message for later
+ */
+export interface FlowStepScheduleMessage extends FlowStepBase {
+  type: 'schedule_message';
+  config: {
+    conversationId: string;
+    message: string;
+    delayMinutes: number;
+  };
+}
+
+/**
+ * Update Contact step - updates contact information
+ */
+export interface FlowStepUpdateContact extends FlowStepBase {
+  type: 'update_contact';
+  config: {
+    contactId: string;
+    name?: string;
+    email?: string;
+    phone_number?: string;
+    custom_attributes?: Record<string, any>;
+  };
+}
+
+/**
+ * Add Label step - adds label to conversation
+ */
+export interface FlowStepAddLabel extends FlowStepBase {
+  type: 'add_label';
+  config: {
+    conversationId: string;
+    labels: string[];
+  };
+}
+
+/**
+ * Assign Agent step - assigns agent to conversation
+ */
+export interface FlowStepAssignAgent extends FlowStepBase {
+  type: 'assign_agent';
+  config: {
+    conversationId: string;
+    agentId: string;
+  };
+}
+
+/**
+ * Assign Team step - assigns team to conversation
+ */
+export interface FlowStepAssignTeam extends FlowStepBase {
+  type: 'assign_team';
+  config: {
+    conversationId: string;
+    teamId: string;
+  };
+}
+
+/**
  * Union type for all flow steps
  */
-export type FlowStep = FlowStepTabular | FlowStepHttpCall | FlowStepWait;
+export type FlowStep = 
+  | FlowStepTabular 
+  | FlowStepHttpCall 
+  | FlowStepWait
+  | FlowStepSendMessage
+  | FlowStepCondition
+  | FlowStepScheduleMessage
+  | FlowStepUpdateContact
+  | FlowStepAddLabel
+  | FlowStepAssignAgent
+  | FlowStepAssignTeam;
 
 /**
  * Flow definition

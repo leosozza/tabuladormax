@@ -172,15 +172,6 @@ export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderPro
               <VisualFlowEditor
                 initialSteps={steps}
                 onChange={setSteps}
-                onSelectNode={setSelectedNode}
-              />
-            </div>
-
-            {/* Config Panel */}
-            <div className="overflow-y-auto">
-              <NodeConfigPanel
-                selectedNode={selectedNode}
-                onUpdate={updateNode}
               />
             </div>
           </div>

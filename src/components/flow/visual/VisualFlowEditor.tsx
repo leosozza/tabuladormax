@@ -1,19 +1,15 @@
 // ============================================
-// Visual Flow Editor - ReactFlow canvas
+// Visual Flow Editor - ReactFlow canvas with drag & drop
 // ============================================
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import ReactFlow, {
   Background,
   Controls,
   MiniMap,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  Connection,
-  Node,
-  Edge,
-  NodeTypes
+  Panel,
+  NodeTypes,
+  ReactFlowInstance,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import './styles.css';
@@ -22,107 +18,136 @@ import { StartNode } from './nodes/StartNode';
 import { TabularNode } from './nodes/TabularNode';
 import { HttpCallNode } from './nodes/HttpCallNode';
 import { WaitNode } from './nodes/WaitNode';
+import { CustomNode } from './nodes/CustomNode';
+import { SendMessageNode } from './nodes/SendMessageNode';
+import { ConditionNode } from './nodes/ConditionNode';
+import { NodePalette } from './NodePalette';
+import { NodeConfigPanel } from './NodeConfigPanel';
+import { VariablePicker } from './VariablePicker';
 import { convertStepsToNodes, convertStepsToEdges, convertNodesToSteps } from './converters';
-import type { FlowStep } from '@/types/flow';
+import { useFlowBuilder } from '@/lib/hooks/use-flow-builder';
+import type { FlowStep, FlowStepType } from '@/types/flow';
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
   tabular: TabularNode,
   http_call: HttpCallNode,
-  wait: WaitNode
+  wait: WaitNode,
+  custom: CustomNode,
+  send_message: SendMessageNode,
+  condition: ConditionNode,
 };
 
 interface VisualFlowEditorProps {
   initialSteps: FlowStep[];
   onChange: (steps: FlowStep[]) => void;
-  onSelectNode?: (node: Node | null) => void;
 }
 
-export function VisualFlowEditor({ initialSteps, onChange, onSelectNode }: VisualFlowEditorProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(convertStepsToNodes(initialSteps));
-  const [edges, setEdges, onEdgesChange] = useEdgesState(convertStepsToEdges(initialSteps));
-  const [hasChanges, setHasChanges] = useState(false);
+export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorProps) {
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+  
+  const initialNodes = convertStepsToNodes(initialSteps);
+  const initialEdges = convertStepsToEdges(initialSteps);
 
-  // Sync when initialSteps change externally
+  const {
+    nodes,
+    edges,
+    selectedNode,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    onNodeClick,
+    onPaneClick,
+    addNode,
+    updateNodeData,
+    deleteNode,
+  } = useFlowBuilder(initialNodes, initialEdges);
+
+  // Sync changes back to parent
   useEffect(() => {
-    if (!hasChanges) {
-      setNodes(convertStepsToNodes(initialSteps));
-      setEdges(convertStepsToEdges(initialSteps));
-    }
-  }, [initialSteps, hasChanges, setNodes, setEdges]);
+    const newSteps = convertNodesToSteps(nodes, edges);
+    onChange(newSteps);
+  }, [nodes, edges, onChange]);
 
-  // Convert nodes/edges back to steps when they change
-  useEffect(() => {
-    if (hasChanges) {
-      const newSteps = convertNodesToSteps(nodes, edges);
-      onChange(newSteps);
-    }
-  }, [nodes, edges, hasChanges, onChange]);
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
 
-  const onConnect = useCallback(
-    (params: Connection) => {
-      setEdges((eds) => addEdge({ ...params, animated: true }, eds));
-      setHasChanges(true);
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      const type = event.dataTransfer.getData('application/reactflow') as FlowStepType;
+      if (!type || !reactFlowInstance) return;
+
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      addNode(type, position);
     },
-    [setEdges]
+    [reactFlowInstance, addNode]
   );
-
-  const handleNodesChange = useCallback(
-    (changes: any) => {
-      onNodesChange(changes);
-      setHasChanges(true);
-    },
-    [onNodesChange]
-  );
-
-  const handleEdgesChange = useCallback(
-    (changes: any) => {
-      onEdgesChange(changes);
-      setHasChanges(true);
-    },
-    [onEdgesChange]
-  );
-
-  const handleNodeClick = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
-      onSelectNode?.(node);
-    },
-    [onSelectNode]
-  );
-
-  const handlePaneClick = useCallback(() => {
-    onSelectNode?.(null);
-  }, [onSelectNode]);
 
   return (
-    <div className="h-[600px] w-full border-2 rounded-lg overflow-hidden bg-muted/20">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
-        onConnect={onConnect}
-        onNodeClick={handleNodeClick}
-        onPaneClick={handlePaneClick}
-        nodeTypes={nodeTypes}
-        fitView
-        className="bg-background"
-      >
-        <Background gap={16} size={1} />
-        <Controls />
-        <MiniMap
-          nodeColor={(node) => {
-            switch (node.type) {
-              case 'start': return '#3b82f6';
-              case 'tabular': return '#60a5fa';
-              case 'http_call': return '#a855f7';
-              case 'wait': return '#f59e0b';
-              default: return '#94a3b8';
-            }
-          }}
-          className="bg-background"
-        />
-      </ReactFlow>
+    <div ref={reactFlowWrapper} className="h-[600px] w-full flex border-2 rounded-lg overflow-hidden bg-background">
+      {/* Variable Picker Panel */}
+      <div className="w-64 border-r overflow-hidden">
+        <VariablePicker />
+      </div>
+
+      {/* ReactFlow Canvas */}
+      <div className="flex-1 relative">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          onInit={setReactFlowInstance}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          nodeTypes={nodeTypes}
+          fitView
+          className="bg-muted/20"
+        >
+          <Background gap={16} size={1} />
+          <Controls />
+          <MiniMap
+            nodeColor={(node) => {
+              switch (node.type) {
+                case 'start': return '#3b82f6';
+                case 'tabular': return '#60a5fa';
+                case 'http_call': return '#a855f7';
+                case 'wait': return '#f59e0b';
+                case 'send_message': return '#10b981';
+                case 'condition': return '#eab308';
+                default: return '#94a3b8';
+              }
+            }}
+            className="bg-background"
+          />
+          <Panel position="top-left">
+            <NodePalette />
+          </Panel>
+        </ReactFlow>
+      </div>
+
+      {/* Node Config Panel */}
+      {selectedNode && selectedNode.id !== 'start' && (
+        <div className="w-96 border-l overflow-hidden">
+          <NodeConfigPanel
+            selectedNode={selectedNode}
+            onUpdate={(nodeId, updates) => updateNodeData(nodeId, updates)}
+            onDelete={(nodeId) => deleteNode(nodeId)}
+          />
+        </div>
+      )}
     </div>
   );
 }

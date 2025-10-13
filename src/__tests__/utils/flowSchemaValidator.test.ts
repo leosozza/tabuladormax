@@ -21,6 +21,7 @@ describe('Flow Schema Validator', () => {
             type: 'tabular',
             nome: 'Test Step',
             config: {
+              buttonId: 'btn1',
               webhook_url: 'https://example.com',
               field: 'STATUS',
               value: 'COMPLETED'
