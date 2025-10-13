@@ -1463,64 +1463,6 @@ const LeadTab = () => {
                     ))}
                 </div>
 
-                {/* Seção de informações do Chatwoot */}
-                {chatwootData && (
-                  <>
-                    <Separator className="my-4" />
-                    <div className="w-full space-y-3">
-                      <h3 className="text-lg font-semibold text-center text-primary">📋 Informações do Chatwoot</h3>
-                      
-                      <div className="w-full space-y-2 text-sm bg-muted/30 rounded-lg p-3">
-                        <p className="flex justify-between">
-                          <strong>Nome:</strong>
-                          <span className="text-right">{chatwootData.name || '—'}</span>
-                        </p>
-                        <p className="flex justify-between">
-                          <strong>E-mail:</strong>
-                          <span className="text-right break-all">{chatwootData.email || '—'}</span>
-                        </p>
-                        <p className="flex justify-between">
-                          <strong>Telefone:</strong>
-                          <span className="text-right">{chatwootData.phone_number || '—'}</span>
-                        </p>
-                        <p className="flex justify-between">
-                          <strong>ID do Contato:</strong>
-                          <span className="text-right">{chatwootData.contact_id || '—'}</span>
-                        </p>
-                        <p className="flex justify-between">
-                          <strong>ID do Bitrix:</strong>
-                          <span className="text-right">{chatwootData.bitrix_id || '—'}</span>
-                        </p>
-                        {chatwootData.thumbnail && (
-                          <p className="flex justify-between items-center">
-                            <strong>Foto:</strong>
-                            <span className="text-right text-xs text-muted-foreground">✓ Disponível</span>
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Atributos customizados */}
-                      {chatwootData.custom_attributes && Object.keys(chatwootData.custom_attributes).length > 0 && (
-                        <div className="w-full space-y-2">
-                          <h4 className="text-sm font-semibold text-muted-foreground">Atributos Customizados</h4>
-                          <div className="w-full space-y-1 text-sm bg-muted/20 rounded-lg p-3 max-h-64 overflow-y-auto">
-                            {Object.entries(chatwootData.custom_attributes)
-                              .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-                              .map(([key, value]) => (
-                                <p key={key} className="flex justify-between gap-2 py-1 border-b border-border/30 last:border-0">
-                                  <strong className="text-muted-foreground text-xs">{key}:</strong>
-                                  <span className="text-right break-all text-xs">
-                                    {typeof value === 'object' ? JSON.stringify(value) : String(value || '—')}
-                                  </span>
-                                </p>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
                 <div className="flex flex-col gap-2 w-full mt-4">
                   <div className="flex gap-2 w-full">
                     <Button
