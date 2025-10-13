@@ -161,14 +161,9 @@ export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderPro
           </div>
 
           {/* Visual Editor */}
-          <div className="flex-1 grid grid-cols-[250px_1fr_300px] gap-4 min-h-0">
-            {/* Node Palette */}
-            <div className="overflow-y-auto">
-              <NodePalette onAddNode={addStep} />
-            </div>
-
-            {/* Canvas */}
-            <div className="min-h-0">
+          <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
+            {/* Canvas - Now full width with integrated panels */}
+            <div className="flex-1 min-w-0">
               <VisualFlowEditor
                 initialSteps={steps}
                 onChange={setSteps}
