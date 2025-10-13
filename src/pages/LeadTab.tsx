@@ -594,6 +594,9 @@ const LeadTab = () => {
         // Criar profile com os dados recebidos
         const newProfile: DynamicProfile = {};
         
+        // Extrair dados do assignee/agent se disponível
+        const assignee = raw?.conversation?.meta?.assignee;
+        
         // Usar field mappings configurados para popular o profile
         if (currentMappings && currentMappings.length > 0) {
           currentMappings.forEach((mapping: FieldMapping) => {
@@ -613,9 +616,25 @@ const LeadTab = () => {
             
             console.log(`  🧹 Caminho limpo: ${mapping.chatwoot_field} → ${cleanPath}`);
             
+            // Determinar de onde buscar os dados baseado no campo
+            let sourceData: any = sender;
+            
+            // Se o campo for do agente atual, usar os dados do assignee
+            if (cleanPath.startsWith('currentAgent.')) {
+              sourceData = assignee;
+              cleanPath = cleanPath.replace(/^currentAgent\./, ''); // Remove "currentAgent."
+              console.log(`  👤 Campo de agente detectado, usando assignee. Novo caminho: ${cleanPath}`);
+            }
+            // Se o campo for da conversa, usar os dados da conversation
+            else if (cleanPath.startsWith('conversation.')) {
+              sourceData = raw?.conversation || raw?.data?.conversation;
+              cleanPath = cleanPath.replace(/^conversation\./, ''); // Remove "conversation."
+              console.log(`  💬 Campo de conversa detectado, usando conversation. Novo caminho: ${cleanPath}`);
+            }
+            
             // Navegar pelo caminho limpo
             const parts = cleanPath.split('.');
-            let temp: any = sender;
+            let temp: any = sourceData;
             
             console.log(`  📍 Navegando por: ${parts.join(' -> ')}`);
             
@@ -641,6 +660,9 @@ const LeadTab = () => {
 
         // Salvar dados do contato no Supabase
         if (attrs.idbitrix) {
+          // Extrair dados do assignee/agent se disponível
+          const assignee = raw?.conversation?.meta?.assignee;
+          
           const contactData = {
             bitrix_id: String(attrs.idbitrix),
             conversation_id: raw?.conversation?.id || raw?.data?.conversation?.id || 0,
@@ -652,6 +674,13 @@ const LeadTab = () => {
             custom_attributes: attrs,
             additional_attributes: sender.additional_attributes || {},
             last_activity_at: undefined,
+            // Adicionar dados do agente atual
+            currentAgent: assignee ? {
+              id: assignee.id,
+              name: assignee.name,
+              email: assignee.email,
+              role: assignee.role
+            } : undefined,
           };
 
           setChatwootData(contactData);
@@ -1975,6 +2004,66 @@ const LeadTab = () => {
                       }}
                     >
                       conversation.status
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1 mt-4">
+                  <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Agente Atual</p>
+                  <div className="ml-4 space-y-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('chatwoot-field', 'currentAgent.id');
+                      }}
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move"
+                      onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'currentAgent.id';
+                          input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                      }}
+                    >
+                      currentAgent.id
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('chatwoot-field', 'currentAgent.name');
+                      }}
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move"
+                      onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'currentAgent.name';
+                          input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                      }}
+                    >
+                      currentAgent.name
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('chatwoot-field', 'currentAgent.email');
+                      }}
+                      className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move"
+                      onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'currentAgent.email';
+                          input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                      }}
+                    >
+                      currentAgent.email
                     </Button>
                   </div>
                 </div>
