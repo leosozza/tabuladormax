@@ -260,6 +260,7 @@ const LeadTab = () => {
   const [bitrixResponseModal, setBitrixResponseModal] = useState(false);
   const [bitrixResponseMessage, setBitrixResponseMessage] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [currentUserProfile, setCurrentUserProfile] = useState<{ bitrix_operator_id?: string | null } | null>(null);
   const [flowsModalOpen, setFlowsModalOpen] = useState(false);
   
 
@@ -269,6 +270,22 @@ const LeadTab = () => {
       if (!user) return;
       
       setCurrentUserId(user.id);
+
+      // Fetch user profile with Bitrix operator link
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('bitrix_operator_id, chatwoot_agent_id')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (profileData) {
+        setCurrentUserProfile(profileData);
+        console.log('👤 Perfil do usuário carregado:', {
+          userId: user.id,
+          bitrixOperatorId: profileData.bitrix_operator_id,
+          chatwootAgentId: profileData.chatwoot_agent_id
+        });
+      }
 
       const { data: roles } = await supabase
         .from('user_roles')
@@ -1370,7 +1387,8 @@ const LeadTab = () => {
           value,
           additional_fields: additionalFields,
           all_fields: { [field]: value, ...additionalFields },
-          sync_target: syncTarget 
+          sync_target: syncTarget,
+          bitrix_operator_id: currentUserProfile?.bitrix_operator_id || null
         } as any,
         status: 'OK',
       }]);
@@ -1401,7 +1419,10 @@ const LeadTab = () => {
         lead_id: Number(chatwootData.bitrix_id),
         action_label: button.label,
         user_id: currentUserId || null,
-        payload: { error: String(error) } as any,
+        payload: { 
+          error: String(error),
+          bitrix_operator_id: currentUserProfile?.bitrix_operator_id || null
+        } as any,
         status: 'ERROR',
         error: String(error),
       }]);
