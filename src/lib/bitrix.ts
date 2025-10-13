@@ -36,13 +36,6 @@ export interface BitrixField {
   [key: string]: any;
 }
 
-export interface BitrixOperator {
-  id: string;
-  title: string;
-  name?: string;
-  [key: string]: any;
-}
-
 export async function listLeads(params?: { limit?: number }): Promise<BitrixLead[]> {
   const limit = params?.limit || 50;
   
@@ -204,36 +197,5 @@ export async function getLeadStatuses(): Promise<Array<{ ID: string; NAME: strin
   } catch (error) {
     if (error instanceof BitrixError) throw error;
     throw new BitrixError('Não foi possível buscar etapas do Bitrix');
-  }
-}
-
-// Buscar operadores de telemarketing do Bitrix (entityTypeId=1144)
-export async function getBitrixOperators(): Promise<BitrixOperator[]> {
-  try {
-    const response = await fetch(
-      `https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.item.list.json?entityTypeId=1144`,
-      { method: 'GET' }
-    );
-    
-    if (!response.ok) {
-      throw new BitrixError('Falha ao buscar operadores do Bitrix');
-    }
-    
-    const data = await response.json();
-    
-    if (data.error) {
-      throw new BitrixError(data.error_description || 'Erro do Bitrix');
-    }
-    
-    const items = data.result?.items || [];
-    return items.map((item: any) => ({
-      id: String(item.id),
-      title: item.title || `Operador ${item.id}`,
-      name: item.title,
-      ...item
-    }));
-  } catch (error) {
-    if (error instanceof BitrixError) throw error;
-    throw new BitrixError('Não foi possível buscar operadores do Bitrix');
   }
 }

@@ -325,8 +325,6 @@ export type Database = {
       }
       profiles: {
         Row: {
-          bitrix_operator_id: string | null
-          chatwoot_agent_id: number | null
           created_at: string | null
           display_name: string | null
           email: string | null
@@ -334,8 +332,6 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          bitrix_operator_id?: string | null
-          chatwoot_agent_id?: number | null
           created_at?: string | null
           display_name?: string | null
           email?: string | null
@@ -343,8 +339,6 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          bitrix_operator_id?: string | null
-          chatwoot_agent_id?: number | null
           created_at?: string | null
           display_name?: string | null
           email?: string | null
