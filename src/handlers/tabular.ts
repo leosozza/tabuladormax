@@ -21,8 +21,6 @@ export interface TabularContext {
   bitrixFields?: unknown[];
   scheduledDate?: string;
   scheduledTime?: string;
-  userId?: string;
-  bitrixOperatorId?: string | null;
 }
 
 export interface TabularResult {
@@ -107,9 +105,9 @@ export async function runTabular(
 ): Promise<TabularResult> {
   try {
     const { webhook_url, field, value, sync_target = 'bitrix', additional_fields = [] } = config;
-    const { leadId, chatwootData, bitrixFields = [], userId, bitrixOperatorId } = context;
+    const { leadId, chatwootData, bitrixFields = [] } = context;
 
-    console.log('🎯 runTabular called:', { config, leadId, userId, bitrixOperatorId });
+    console.log('🎯 runTabular called:', { config, leadId });
 
     // Process additional fields with placeholder replacement
     const additionalFieldsProcessed: Record<string, unknown> = {};
@@ -121,33 +119,6 @@ export async function runTabular(
         }
       });
     }
-
-    // Helper function to log the action
-    const logAction = async (status: string, error?: string) => {
-      try {
-        const payload: Record<string, unknown> = {
-          field,
-          value,
-          sync_target,
-          additional_fields: additionalFieldsProcessed,
-        };
-
-        if (bitrixOperatorId) {
-          payload.bitrix_operator_id = bitrixOperatorId;
-        }
-
-        await supabase.from('actions_log').insert({
-          lead_id: leadId,
-          action_label: `Tabulação: ${field} = ${value}`,
-          payload,
-          status,
-          error,
-          user_id: userId || null,
-        });
-      } catch (logError) {
-        console.error('Erro ao registrar log de ação:', logError);
-      }
-    };
 
     // Determine synchronization flow based on sync_target
     if (sync_target === 'supabase') {
@@ -184,7 +155,6 @@ export async function runTabular(
 
         if (syncError) {
           console.error('Erro ao sincronizar com Bitrix:', syncError);
-          await logAction('error', syncError.message);
           return {
             success: false,
             message: `Erro ao sincronizar com Bitrix: ${syncError.message || String(syncError)}`,
@@ -192,14 +162,12 @@ export async function runTabular(
           };
         }
 
-        await logAction('success');
         return {
           success: true,
           message: `Dados sincronizados via Supabase → Bitrix. Lead ${leadId}.`,
           data: syncData
         };
       } else {
-        await logAction('success');
         return {
           success: true,
           message: `Dados salvos localmente no Supabase. Lead ${leadId}.`
@@ -256,7 +224,6 @@ export async function runTabular(
 
         if (responseData.error) {
           console.error('❌ Erro do Bitrix:', responseData.error_description || responseData.error);
-          await logAction('error', responseData.error_description || responseData.error);
           return {
             success: false,
             message: `Erro do Bitrix: ${responseData.error_description || responseData.error}`,
@@ -266,7 +233,6 @@ export async function runTabular(
 
         if (!response.ok) {
           console.error('❌ Erro HTTP do Bitrix:', responseData);
-          await logAction('error', JSON.stringify(responseData));
           return {
             success: false,
             message: `Erro ao atualizar Bitrix: ${JSON.stringify(responseData)}`,
@@ -291,7 +257,6 @@ export async function runTabular(
           .from('leads')
           .upsert({ id: leadId, [field]: value }, { onConflict: 'id' });
 
-        await logAction('success');
         return {
           success: true,
           message: `Lead ${leadId} atualizado no Bitrix.${responseData.result?.ID ? ` ID: ${responseData.result.ID}` : ''}`,
@@ -304,7 +269,6 @@ export async function runTabular(
         .from('leads')
         .upsert({ id: leadId, [field]: value }, { onConflict: 'id' });
 
-      await logAction('success');
       return {
         success: true,
         message: `Lead ${leadId} atualizado localmente.`
@@ -312,21 +276,6 @@ export async function runTabular(
     }
   } catch (error) {
     console.error('❌ Erro em runTabular:', error);
-    // Try to log error if we have leadId
-    if (context.leadId) {
-      try {
-        await supabase.from('actions_log').insert({
-          lead_id: context.leadId,
-          action_label: `Tabulação: ${config.field} = ${config.value}`,
-          payload: { error: error instanceof Error ? error.message : String(error) },
-          status: 'error',
-          error: error instanceof Error ? error.message : String(error),
-          user_id: context.userId || null,
-        });
-      } catch (logError) {
-        console.error('Erro ao registrar log de erro:', logError);
-      }
-    }
     return {
       success: false,
       message: `Erro ao executar ação: ${error instanceof Error ? error.message : String(error)}`,
