@@ -1112,14 +1112,14 @@ const LeadTab = () => {
           .replace(/\{\{valor_botao\}\}/g, value)
           .replace(/\{\{data\}\}/g, scheduledDate || new Date().toISOString().split('T')[0])
           .replace(/\{\{horario\}\}/g, scheduledTime || '')
-          .replace(/\{\{nome_lead\}\}/g, chatwootData.name || '')
+          .replace(/\{\{nome_lead\}\}/g, String(chatwootData.name || ''))
           .replace(/\{\{id_lead\}\}/g, String(bitrixId))
-          .replace(/\{\{telefone\}\}/g, profile.phone_number || chatwootData.phone_number || '')
-          .replace(/\{\{email\}\}/g, profile.email || chatwootData.email || '')
-          .replace(/\{\{responsavel\}\}/g, profile.responsible || '')
-          .replace(/\{\{endereco\}\}/g, profile.address || '')
-          .replace(/\{\{idade\}\}/g, profile.age ? String(profile.age) : '')
-          .replace(/\{\{scouter\}\}/g, profile.scouter || '');
+          .replace(/\{\{telefone\}\}/g, String((profile as any).phone_number || chatwootData.phone_number || ''))
+          .replace(/\{\{email\}\}/g, String((profile as any).email || chatwootData.email || ''))
+          .replace(/\{\{responsavel\}\}/g, String((profile as any).responsible || ''))
+          .replace(/\{\{endereco\}\}/g, String((profile as any).address || ''))
+          .replace(/\{\{idade\}\}/g, (profile as any).age ? String((profile as any).age) : '')
+          .replace(/\{\{scouter\}\}/g, String((profile as any).scouter || ''));
       };
       
       // Preparar campos adicionais com processamento de placeholders
@@ -1599,8 +1599,8 @@ const LeadTab = () => {
                     .filter(mapping => !mapping.is_profile_photo) // Não exibir o campo da foto na lista
                     .map((mapping) => (
                       <p key={mapping.profile_field}>
-                        <strong>{mapping.display_name || mapping.profile_field}:</strong>{' '}
-                        {profile[mapping.profile_field] || '—'}
+                      <strong>{mapping.display_name || mapping.profile_field}:</strong>{' '}
+                        {String((profile as any)[mapping.profile_field] || '—')}
                       </p>
                     ))}
                 </div>
@@ -1682,7 +1682,7 @@ const LeadTab = () => {
                               <div className="flex-1">
                                 <Label>{mapping.display_name || mapping.profile_field}</Label>
                                 <Input
-                                  value={profile[mapping.profile_field] || ''}
+                                  value={String((profile as any)[mapping.profile_field] || '')}
                                   onChange={(e) => setProfile({ 
                                     ...profile, 
                                     [mapping.profile_field]: e.target.value 

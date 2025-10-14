@@ -97,7 +97,7 @@ export class HttpCallStepRunner extends BaseStepRunner<HttpCallStepConfig> {
           logs.push(`Response: ${JSON.stringify(result).substring(0, 200)}`);
         } else {
           result = await response.text();
-          logs.push(`Response: ${result.substring(0, 200)}`);
+          logs.push(`Response: ${String(result).substring(0, 200)}`);
         }
         
         logs.push(`Successfully completed HTTP ${config.method} request`);

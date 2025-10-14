@@ -133,16 +133,16 @@ export class HttpCallStepRunner extends BaseStepRunner<HttpCallStepConfig> {
 
     // Replace placeholders in headers
     Object.keys(headers).forEach((key) => {
-      headers[key] = this.replacePlaceholders(headers[key], context.leadId, context.variables);
+      headers[key] = String(this.replacePlaceholders(headers[key], context.leadId, context.variables));
     });
 
     // Prepare body
     let body: string | undefined;
     if (config.body) {
       if (typeof config.body === 'string') {
-        body = this.replacePlaceholders(config.body, context.leadId, context.variables);
+        body = String(this.replacePlaceholders(config.body, context.leadId, context.variables));
       } else {
-        body = JSON.stringify(this.replacePlaceholdersInObject(config.body, context.leadId, context.variables));
+        body = JSON.stringify(this.replacePlaceholdersInObject(config.body as Record<string, unknown>, context.leadId, context.variables));
       }
     }
 
@@ -154,7 +154,7 @@ export class HttpCallStepRunner extends BaseStepRunner<HttpCallStepConfig> {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await fetch(url, {
+      const response = await fetch(String(url), {
         method: config.method,
         headers,
         body,
@@ -248,7 +248,7 @@ export class HttpCallStepRunner extends BaseStepRunner<HttpCallStepConfig> {
       if (typeof value === 'string') {
         result[key] = this.replacePlaceholders(value, leadId, variables);
       } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        result[key] = this.replacePlaceholdersInObject(value, leadId, variables);
+        result[key] = this.replacePlaceholdersInObject(value as Record<string, unknown>, leadId, variables);
       } else {
         result[key] = value;
       }

@@ -94,7 +94,7 @@ export class TabularStepRunner extends BaseStepRunner<TabularStepConfig> {
       this.log(stepId, stepName, 'info', 'Sending request to webhook', { body }, onLog);
 
       // Make HTTP request
-      const response = await fetch(webhookUrl, {
+      const response = await fetch(String(webhookUrl), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

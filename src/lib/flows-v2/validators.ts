@@ -87,7 +87,7 @@ export function validate<T>(
 export function validateOrThrow<T>(schema: ZodSchema<T>, data: unknown): T {
   const result = validate(schema, data);
   if (!result.success) {
-    const errorMessages = result.errors
+    const errorMessages = (result as ValidationError).errors
       .map((err) => `${err.path.join('.')}: ${err.message}`)
       .join('; ');
     throw new Error(`Validation failed: ${errorMessages}`);
@@ -118,11 +118,8 @@ export function validateFlowSteps(steps: unknown[]): ValidationResult<any[]> {
     if (result.success) {
       validatedSteps.push(result.data);
     } else {
-      result.errors.forEach((err) => ({
-        path: [`steps[${index}]`, ...err.path],
-        message: err.message,
-      }));
-      errors.push(...result.errors.map((err) => ({
+      const validationError = result as ValidationError;
+      errors.push(...validationError.errors.map((err) => ({
         path: [`steps[${index}]`, ...err.path],
         message: err.message,
       })));
@@ -255,7 +252,7 @@ export function validateCompleteFlow(data: {
   // Validate unique step IDs
   const uniqueResult = validateUniqueStepIds(versionResult.data.steps);
   if (!uniqueResult.success) {
-    return uniqueResult;
+    return uniqueResult as ValidationError as ValidationResult<{ definition: any; version: any }>;
   }
 
   return {

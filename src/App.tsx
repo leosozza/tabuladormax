@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Config from "./pages/Config";
 import Logs from "./pages/Logs";
 import Users from "./pages/Users";
+import AgentMapping from "./pages/AgentMapping";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
           <Route path="/config" element={<ProtectedRoute requireManager><Config /></ProtectedRoute>} />
           <Route path="/logs" element={<ProtectedRoute requireManager><Logs /></ProtectedRoute>} />
+          <Route path="/agent-mapping" element={<ProtectedRoute requireManager><AgentMapping /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

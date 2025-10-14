@@ -91,11 +91,11 @@ export async function saveChatwootContact(contactData: ChatwootContact): Promise
       phone_number: contactData.phone_number,
       email: contactData.email,
       thumbnail: contactData.thumbnail,
-      custom_attributes: contactData.custom_attributes,
-      additional_attributes: contactData.additional_attributes,
+      custom_attributes: contactData.custom_attributes as any,
+      additional_attributes: contactData.additional_attributes as any,
       last_activity_at: contactData.last_activity_at,
       updated_at: new Date().toISOString(),
-    }, {
+    } as any, {
       onConflict: "bitrix_id"
     });
 
@@ -219,7 +219,7 @@ export function extractChatwootData(eventData: ChatwootEventData): ChatwootConta
       name: contact.name,
       phone_number: contact.phone_number,
       email: contact.email,
-      thumbnail: contact.custom_attributes?.foto || contact.thumbnail,
+      thumbnail: (contact.custom_attributes?.foto as string) || contact.thumbnail,
       custom_attributes: contact.custom_attributes || {},
       additional_attributes: contact.additional_attributes || {},
       last_activity_at: undefined,

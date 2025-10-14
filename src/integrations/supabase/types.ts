@@ -44,6 +44,47 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_telemarketing_mapping: {
+        Row: {
+          bitrix_telemarketing_id: number
+          bitrix_telemarketing_name: string | null
+          chatwoot_agent_email: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          tabuladormax_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          bitrix_telemarketing_id: number
+          bitrix_telemarketing_name?: string | null
+          chatwoot_agent_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          tabuladormax_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bitrix_telemarketing_id?: number
+          bitrix_telemarketing_name?: string | null
+          chatwoot_agent_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          tabuladormax_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_telemarketing_mapping_tabuladormax_user_id_fkey"
+            columns: ["tabuladormax_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       button_categories: {
         Row: {
           created_at: string

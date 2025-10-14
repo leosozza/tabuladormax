@@ -21,6 +21,10 @@ export interface TabularContext {
   bitrixFields?: unknown[];
   scheduledDate?: string;
   scheduledTime?: string;
+  currentAgent?: {
+    email?: string;
+    userId?: string;
+  };
 }
 
 export interface TabularResult {
@@ -96,6 +100,53 @@ const convertEnumerationValue = (
 };
 
 /**
+ * Helper function to get Bitrix telemarketing ID from agent mapping
+ */
+const getTelemarketingId = async (
+  currentAgent?: { email?: string; userId?: string }
+): Promise<number> => {
+  if (!currentAgent) {
+    return 32; // Default: "Sem telemarketing"
+  }
+
+  try {
+    // Importar supabase apenas quando necessário
+    const { supabase } = await import("@/integrations/supabase/client");
+    
+    // Tentar buscar mapeamento por email ou userId
+    let query = supabase
+      .from('agent_telemarketing_mapping')
+      .select('bitrix_telemarketing_id');
+    
+    if (currentAgent.email) {
+      query = query.eq('chatwoot_agent_email', currentAgent.email);
+    } else if (currentAgent.userId) {
+      query = query.eq('tabuladormax_user_id', currentAgent.userId);
+    } else {
+      return 32;
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error) {
+      console.error('❌ Erro ao buscar mapeamento de telemarketing:', error);
+      return 32;
+    }
+
+    if (data?.bitrix_telemarketing_id) {
+      console.log(`✅ Telemarketing ID encontrado: ${data.bitrix_telemarketing_id} para agente ${currentAgent.email || currentAgent.userId}`);
+      return data.bitrix_telemarketing_id;
+    }
+
+    console.log(`⚠️ Nenhum mapeamento encontrado para agente ${currentAgent.email || currentAgent.userId}, usando default ID 32`);
+    return 32;
+  } catch (error) {
+    console.error('❌ Erro ao buscar telemarketing:', error);
+    return 32;
+  }
+};
+
+/**
  * Execute a tabular action (button click simulation)
  * This function encapsulates the logic of updating Bitrix and/or Supabase
  */
@@ -105,9 +156,13 @@ export async function runTabular(
 ): Promise<TabularResult> {
   try {
     const { webhook_url, field, value, sync_target = 'bitrix', additional_fields = [] } = config;
-    const { leadId, chatwootData, bitrixFields = [] } = context;
+    const { leadId, chatwootData, bitrixFields = [], currentAgent } = context;
 
-    console.log('🎯 runTabular called:', { config, leadId });
+    console.log('🎯 runTabular called:', { config, leadId, currentAgent });
+
+    // Buscar ID do telemarketing do agente
+    const telemarketingId = await getTelemarketingId(currentAgent);
+    console.log(`📋 Telemarketing ID para este agente: ${telemarketingId}`);
 
     // Process additional fields with placeholder replacement
     const additionalFieldsProcessed: Record<string, unknown> = {};
@@ -120,14 +175,19 @@ export async function runTabular(
       });
     }
 
+    // Adicionar campo UF_CRM_1733943936 (Telemarketing) automaticamente
+    additionalFieldsProcessed['UF_CRM_1733943936'] = telemarketingId;
+    console.log(`✅ Campo de telemarketing adicionado: UF_CRM_1733943936 = ${telemarketingId}`);
+
     // Determine synchronization flow based on sync_target
     if (sync_target === 'supabase') {
       // Supabase → Bitrix flow
       // Update Supabase first
       if (chatwootData) {
         const chatwootRec = chatwootData as Record<string, unknown>;
+        const customAttrs = (chatwootRec.custom_attributes as Record<string, unknown>) || {};
         const updatedAttributes = {
-          ...(chatwootRec.custom_attributes || {}),
+          ...customAttrs,
           [field]: value,
         };
 
@@ -245,8 +305,9 @@ export async function runTabular(
       // Update Supabase after Bitrix success
         if (chatwootData) {
           const chatwootRec = chatwootData as Record<string, unknown>;
+          const customAttrs = (chatwootRec.custom_attributes as Record<string, unknown>) || {};
           const updatedAttributes = {
-            ...(chatwootRec.custom_attributes || {}),
+            ...customAttrs,
             [field]: value,
           };
           // await saveChatwootContact({ ...chatwootData, custom_attributes: updatedAttributes });
