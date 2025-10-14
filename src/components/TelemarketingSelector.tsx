@@ -2,7 +2,10 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RefreshCw, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface TelemarketingOption {
@@ -20,6 +23,9 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
   const [options, setOptions] = useState<TelemarketingOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newTelemarketingName, setNewTelemarketingName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   // Carregar lista do cache
   const loadFromCache = async () => {
@@ -67,33 +73,131 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
     }
   };
 
+  // Criar novo telemarketing
+  const handleCreateNew = async () => {
+    if (!newTelemarketingName.trim()) {
+      toast.error("Por favor, digite o nome do operador de telemarketing");
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-bitrix-telemarketing', {
+        body: { title: newTelemarketingName.trim() }
+      });
+
+      if (error) throw error;
+
+      if (data?.item) {
+        // Adicionar à lista local
+        const newOption = { id: data.item.id, title: data.item.title };
+        setOptions(prev => [...prev, newOption]);
+        
+        // Selecionar automaticamente
+        onChange(data.item.id);
+        
+        toast.success(`Operador "${data.item.title}" criado com sucesso!`);
+        
+        // Fechar dialog e limpar campo
+        setCreateDialogOpen(false);
+        setNewTelemarketingName("");
+      }
+    } catch (error) {
+      console.error('Erro ao criar telemarketing:', error);
+      toast.error('Erro ao criar operador de telemarketing');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   useEffect(() => {
     loadFromCache();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="flex gap-2">
-      <Select value={value?.toString()} onValueChange={(v) => onChange(parseInt(v))}>
-        <SelectTrigger className="flex-1">
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.id} value={option.id.toString()}>
-              {option.title}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        onClick={syncFromBitrix}
-        disabled={refreshing}
-      >
-        <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-      </Button>
-    </div>
+    <>
+      <div className="flex gap-2">
+        <Select value={value?.toString()} onValueChange={(v) => onChange(parseInt(v))}>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder={placeholder} />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.id} value={option.id.toString()}>
+                {option.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => setCreateDialogOpen(true)}
+          title="Criar novo operador"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={syncFromBitrix}
+          disabled={refreshing}
+          title="Sincronizar lista"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Novo Operador de Telemarketing</DialogTitle>
+            <DialogDescription>
+              Digite o nome do operador de telemarketing que será criado no Bitrix24.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="telemarketing-name">Nome do Operador *</Label>
+              <Input
+                id="telemarketing-name"
+                placeholder="Ex: João Silva"
+                value={newTelemarketingName}
+                onChange={(e) => setNewTelemarketingName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !creating) {
+                    handleCreateNew();
+                  }
+                }}
+                disabled={creating}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setCreateDialogOpen(false);
+                setNewTelemarketingName("");
+              }}
+              disabled={creating}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCreateNew}
+              disabled={creating || !newTelemarketingName.trim()}
+            >
+              {creating ? "Criando..." : "Criar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
