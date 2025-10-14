@@ -18,7 +18,7 @@ const Auth = () => {
   const [displayName, setDisplayName] = useState("");
   const [telemarketingId, setTelemarketingId] = useState<number>();
   const [showTelemarketingModal, setShowTelemarketingModal] = useState(false);
-  const [oauthUser, setOauthUser] = useState<any>(null);
+  const [oauthUser, setOauthUser] = useState<{ id: string; user_metadata?: Record<string, unknown> } | null>(null);
 
   // Helper function to create agent_telemarketing_mapping without duplicates
   const createAgentMapping = async (userId: string, tmId: number): Promise<boolean> => {
@@ -186,9 +186,10 @@ const Auth = () => {
       setPassword("");
       setDisplayName("");
       setTelemarketingId(undefined);
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao criar conta";
       console.error('❌ Erro ao criar conta:', error);
-      toast.error(error.message || "Erro ao criar conta");
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -226,9 +227,10 @@ const Auth = () => {
 
       toast.success("Login realizado com sucesso!");
       navigate("/");
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao fazer login";
       console.error('❌ Erro ao fazer login:', error);
-      toast.error(error.message || "Erro ao fazer login");
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -248,8 +250,9 @@ const Auth = () => {
       if (error) throw error;
       // Note: On success, the browser will redirect to Google OAuth page,
       // so no need to reset loading state here
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao fazer login com Google");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao fazer login com Google";
+      toast.error(errorMessage);
       setLoading(false);
     }
   };
@@ -296,9 +299,10 @@ const Auth = () => {
 
       setShowTelemarketingModal(false);
       navigate("/");
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao salvar configuração";
       console.error('❌ Erro ao salvar configuração:', error);
-      toast.error(error.message || "Erro ao salvar configuração");
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // Unit tests for telemarketing validation logic
 describe('Telemarketing Validation Logic', () => {
   describe('telemarketingId validation', () => {
-    const isValidTelemarketingId = (id: any): boolean => {
+    const isValidTelemarketingId = (id: number | null | undefined): boolean => {
       return id != null && Number.isInteger(id) && id > 0;
     };
 
@@ -75,9 +75,9 @@ describe('Telemarketing Validation Logic', () => {
   });
 
   describe('User metadata validation', () => {
-    const hasValidTelemarketingMetadata = (user: any): boolean => {
+    const hasValidTelemarketingMetadata = (user: { user_metadata?: { telemarketing_id?: unknown } } | null | undefined): boolean => {
       const tmId = user?.user_metadata?.telemarketing_id;
-      return Number.isInteger(tmId) && tmId > 0;
+      return Number.isInteger(tmId) && tmId as number > 0;
     };
 
     it('should return false for user without metadata', () => {
