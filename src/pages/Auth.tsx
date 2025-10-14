@@ -42,8 +42,8 @@ const Auth = () => {
     setLoading(true);
 
     // Validação do campo de telemarketing
-    if (telemarketingId == null) {
-      toast.error("Por favor, selecione o operador de telemarketing");
+    if (telemarketingId == null || !Number.isInteger(telemarketingId) || telemarketingId <= 0) {
+      toast.error("Por favor, selecione um operador de telemarketing válido");
       setLoading(false);
       return;
     }
@@ -117,8 +117,8 @@ const Auth = () => {
   };
 
   const handleCompleteTelemarketingSetup = async () => {
-    if (!telemarketingId) {
-      toast.error("Por favor, selecione um operador de telemarketing");
+    if (!telemarketingId || !Number.isInteger(telemarketingId) || telemarketingId <= 0) {
+      toast.error("Por favor, selecione um operador de telemarketing válido");
       return;
     }
 

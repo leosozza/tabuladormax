@@ -37,7 +37,11 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
         .eq('key', 'bitrix_telemarketing_list')
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao carregar cache:', error);
+        toast.error('Erro ao carregar lista de telemarketing');
+        return;
+      }
 
       if (data?.value) {
         setOptions(data.value as unknown as TelemarketingOption[]);
@@ -47,7 +51,8 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
       }
     } catch (error) {
       console.error('Erro ao carregar lista de telemarketing:', error);
-      toast.error('Erro ao carregar lista de telemarketing');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar lista de telemarketing';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -59,15 +64,28 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
     try {
       const { data, error } = await supabase.functions.invoke('sync-bitrix-telemarketing');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao sincronizar telemarketing:', error);
+        toast.error(error.message || 'Erro ao sincronizar do Bitrix24');
+        return;
+      }
+
+      if (data?.error) {
+        console.error('Erro do servidor ao sincronizar:', data.error);
+        toast.error(data.error);
+        return;
+      }
 
       if (data?.items) {
         setOptions(data.items);
         toast.success(`${data.count} operadores sincronizados`);
+      } else {
+        toast.error('Resposta inválida do servidor');
       }
     } catch (error) {
       console.error('Erro ao sincronizar telemarketing:', error);
-      toast.error('Erro ao sincronizar do Bitrix24');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao sincronizar do Bitrix24';
+      toast.error(errorMessage);
     } finally {
       setRefreshing(false);
     }
@@ -86,7 +104,17 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
         body: { title: newTelemarketingName.trim() }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao criar telemarketing:', error);
+        toast.error(error.message || 'Erro ao criar operador de telemarketing');
+        return;
+      }
+
+      if (data?.error) {
+        console.error('Erro do servidor ao criar telemarketing:', data.error);
+        toast.error(data.error);
+        return;
+      }
 
       if (data?.item) {
         // Adicionar à lista local
@@ -101,10 +129,13 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
         // Fechar dialog e limpar campo
         setCreateDialogOpen(false);
         setNewTelemarketingName("");
+      } else {
+        toast.error('Resposta inválida do servidor');
       }
     } catch (error) {
       console.error('Erro ao criar telemarketing:', error);
-      toast.error('Erro ao criar operador de telemarketing');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao criar operador de telemarketing';
+      toast.error(errorMessage);
     } finally {
       setCreating(false);
     }
