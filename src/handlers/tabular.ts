@@ -148,6 +148,15 @@ export const getTelemarketingId = async (
       return data.bitrix_telemarketing_id;
     }
 
+    // Se não encontrou no agent_mapping, tentar buscar no user_metadata
+    if (currentAgent.userId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && user.id === currentAgent.userId && user.user_metadata?.telemarketing_id) {
+        console.log(`✅ Telemarketing ID encontrado no user_metadata: ${user.user_metadata.telemarketing_id} para usuário ${currentAgent.userId}`);
+        return user.user_metadata.telemarketing_id;
+      }
+    }
+
     console.log(`⚠️ Nenhum mapeamento encontrado para agente ${currentAgent.email || currentAgent.userId}, usando default ID 32`);
     return 32;
   } catch (error) {

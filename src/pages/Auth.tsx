@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { TelemarketingSelector } from "@/components/TelemarketingSelector";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [telemarketingId, setTelemarketingId] = useState<number>();
 
   useEffect(() => {
     // Check if user is already logged in
@@ -28,6 +30,13 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Validação do campo de telemarketing
+    if (!telemarketingId) {
+      toast.error("Por favor, selecione o operador de telemarketing");
+      setLoading(false);
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signUp({
         email,
@@ -36,6 +45,7 @@ const Auth = () => {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
             display_name: displayName,
+            telemarketing_id: telemarketingId,
           },
         },
       });
@@ -46,6 +56,7 @@ const Auth = () => {
       setEmail("");
       setPassword("");
       setDisplayName("");
+      setTelemarketingId(undefined);
     } catch (error: any) {
       toast.error(error.message || "Erro ao criar conta");
     } finally {
@@ -132,6 +143,17 @@ const Auth = () => {
                     onChange={(e) => setDisplayName(e.target.value)}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-telemarketing">Operador de Telemarketing *</Label>
+                  <TelemarketingSelector
+                    value={telemarketingId}
+                    onChange={setTelemarketingId}
+                    placeholder="Selecione o operador de telemarketing"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Selecione o operador de telemarketing do Bitrix24 que você representa
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
