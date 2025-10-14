@@ -54,7 +54,7 @@ The current implementation follows these business rules:
     ON public.agent_telemarketing_mapping
     FOR INSERT
     TO authenticated
-    USING (auth.uid() IS NOT NULL);
+    WITH CHECK (auth.uid() IS NOT NULL);
   ```
 
 - **Allow users to update their own mappings:**
