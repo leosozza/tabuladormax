@@ -29,8 +29,8 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
       return;
     }
 
-    if (selectedFile.size > 50 * 1024 * 1024) {
-      toast.error('Arquivo muito grande. Máximo 50MB');
+    if (selectedFile.size > 250 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 250MB');
       return;
     }
 
@@ -132,7 +132,7 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
                     {file ? file.name : 'Clique para selecionar arquivo CSV'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Máximo 50MB
+                    Máximo 250MB
                   </p>
                 </label>
               </div>
