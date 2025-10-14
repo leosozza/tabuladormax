@@ -151,7 +151,7 @@ export const getTelemarketingId = async (
     // Se não encontrou no agent_mapping, tentar buscar no user_metadata
     if (currentAgent.userId) {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user && user.id === currentAgent.userId && user.user_metadata?.telemarketing_id) {
+      if (user && user.id === currentAgent.userId && user.user_metadata?.telemarketing_id != null) {
         console.log(`✅ Telemarketing ID encontrado no user_metadata: ${user.user_metadata.telemarketing_id} para usuário ${currentAgent.userId}`);
         return user.user_metadata.telemarketing_id;
       }
