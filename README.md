@@ -83,12 +83,11 @@ The `agent_telemarketing_mapping` table controls the relationship between users 
 #### Current Policies
 
 **INSERT Policy:**
-- **Name:** "Users can create their own mapping"
-- **Purpose:** Allows authenticated users to create mappings for themselves during signup and operation
-- **Business Rule:** Uses WITH CHECK constraint with two conditions:
-  - Users can insert only if `tabuladormax_user_id = auth.uid()` (their own records)
-  - OR if they have admin or manager role via `has_role(auth.uid(), 'admin'::app_role)` or `has_role(auth.uid(), 'manager'::app_role)`
-- **Migration:** `supabase/migrations/20251014171900_fix_agent_telemarketing_mapping_rls.sql`
+- **Name:** "Authenticated users can insert mappings"
+- **Purpose:** Allows any authenticated user to create mappings for any user, resolving 403 errors during telemarketing mapping
+- **Business Rule:** Any authenticated user (`auth.uid() IS NOT NULL`) can insert mappings without user ID restrictions
+- **Migration:** `supabase/migrations/20251014195746_add_insert_policy_agent_telemarketing_mapping.sql`
+- **Previous Migration (replaced):** `supabase/migrations/20251014171900_fix_agent_telemarketing_mapping_rls.sql`
 
 **SELECT Policy:**
 - **Name:** "Users can view own mapping, admins view all"
@@ -177,3 +176,87 @@ LEFT JOIN agent_telemarketing_mapping atm ON u.id = atm.tabuladormax_user_id;
 - **Deployment Guide:** See `PR_SUMMARY.md`
 - **Change History:** See `CHANGELOG.md`
 - **Supabase RLS Documentation:** [Supabase Row Level Security](https://supabase.com/docs/guides/auth/row-level-security)
+
+## Running Database Migrations
+
+### How to Run the Agent Telemarketing Mapping Migration
+
+To apply the new INSERT policy for the `agent_telemarketing_mapping` table, follow these steps:
+
+#### Option 1: Using Supabase Dashboard
+
+1. Log in to your [Supabase Dashboard](https://app.supabase.com/)
+2. Select your project
+3. Navigate to **SQL Editor** in the left sidebar
+4. Click **New Query**
+5. Copy and paste the contents of the migration file:
+   ```
+   supabase/migrations/20251014195746_add_insert_policy_agent_telemarketing_mapping.sql
+   ```
+6. Click **Run** to execute the migration
+7. Verify the policy was created successfully by running:
+   ```sql
+   SELECT * FROM pg_policies 
+   WHERE tablename = 'agent_telemarketing_mapping' 
+   AND policyname = 'Authenticated users can insert mappings';
+   ```
+
+#### Option 2: Using Supabase CLI
+
+If you have the Supabase CLI installed:
+
+```bash
+# Make sure you're in the project directory
+cd /path/to/tabuladormax
+
+# Link your project (if not already linked)
+supabase link --project-ref your-project-ref
+
+# Apply the migration
+supabase db push
+```
+
+#### Option 3: Manual Migration
+
+You can also run the SQL directly:
+
+```sql
+-- Permite INSERT na tabela agent_telemarketing_mapping para usuários autenticados
+-- Remove a política existente que restringe usuários a criar apenas seus próprios mapeamentos
+DROP POLICY IF EXISTS "Users can create their own mapping" ON public.agent_telemarketing_mapping;
+
+-- Cria nova política que permite qualquer usuário autenticado inserir mapeamentos
+CREATE POLICY "Authenticated users can insert mappings"
+  ON public.agent_telemarketing_mapping
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() IS NOT NULL);
+```
+
+#### Verification
+
+After running the migration, verify it's working correctly:
+
+1. Check the policy exists:
+   ```sql
+   SELECT * FROM pg_policies 
+   WHERE tablename = 'agent_telemarketing_mapping';
+   ```
+
+2. Test inserting a mapping as an authenticated user (should succeed):
+   ```sql
+   -- This should work for any authenticated user now
+   INSERT INTO agent_telemarketing_mapping (tabuladormax_user_id, bitrix_telemarketing_id, bitrix_telemarketing_name)
+   VALUES (auth.uid(), 123, 'Test Telemarketing');
+   ```
+
+3. Verify mapping coverage:
+   ```sql
+   SELECT 
+     COUNT(DISTINCT u.id) as total_users,
+     COUNT(DISTINCT atm.tabuladormax_user_id) as users_with_mapping,
+     ROUND(100.0 * COUNT(DISTINCT atm.tabuladormax_user_id) / COUNT(DISTINCT u.id), 2) as coverage_pct
+   FROM auth.users u
+   LEFT JOIN agent_telemarketing_mapping atm ON u.id = atm.tabuladormax_user_id;
+   ```
+
