@@ -113,7 +113,8 @@ Deno.serve(async (req) => {
       .upsert({ user_id: userId, role: appRole }, { onConflict: 'user_id,role', ignoreDuplicates: true });
 
     if (roleErr) {
-      console.error('Erro upsert role:', roleErr);
+      // Duplicates should be handled by ignoreDuplicates, so any error here is unexpected
+      console.error('Erro inesperado ao garantir role:', roleErr);
       throw roleErr;
     }
     console.log('✅ Role garantida:', appRole);
