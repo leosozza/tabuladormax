@@ -1,6 +1,6 @@
 import { createClient, type Session } from 'https://esm.sh/@supabase/supabase-js@2.74.0';
 
-const corsHeaders: Record<string,string> = {
+const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
@@ -113,15 +113,10 @@ Deno.serve(async (req) => {
       .upsert({ user_id: userId, role: appRole }, { onConflict: 'user_id,role', ignoreDuplicates: true });
 
     if (roleErr) {
-      if (roleErr.code === '23505') {
-        console.log('🔁 Role já existente (ignorada)');
-      } else {
-        console.error('Erro upsert role:', roleErr);
-        throw roleErr;
-      }
-    } else {
-      console.log('✅ Role garantida:', appRole);
+      console.error('Erro upsert role:', roleErr);
+      throw roleErr;
     }
+    console.log('✅ Role garantida:', appRole);
 
     // 4. Gerar magic link
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
