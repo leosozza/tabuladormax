@@ -31,7 +31,7 @@ const Auth = () => {
     setLoading(true);
 
     // Validação do campo de telemarketing
-    if (telemarketingId === undefined || telemarketingId === null) {
+    if (telemarketingId == null) {
       toast.error("Por favor, selecione o operador de telemarketing");
       setLoading(false);
       return;
