@@ -86,6 +86,8 @@ const Auth = () => {
       });
 
       if (error) throw error;
+      // Note: On success, the browser will redirect to Google OAuth page,
+      // so no need to reset loading state here
     } catch (error: any) {
       toast.error(error.message || "Erro ao fazer login com Google");
       setLoading(false);
