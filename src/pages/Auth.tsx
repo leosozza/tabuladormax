@@ -20,6 +20,62 @@ const Auth = () => {
   const [showTelemarketingModal, setShowTelemarketingModal] = useState(false);
   const [oauthUser, setOauthUser] = useState<any>(null);
 
+  // Helper function to create agent_telemarketing_mapping without duplicates
+  const createAgentMapping = async (userId: string, tmId: number): Promise<boolean> => {
+    try {
+      // Check if mapping already exists
+      const { data: existingMapping } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('id')
+        .eq('tabuladormax_user_id', userId)
+        .maybeSingle();
+
+      if (existingMapping) {
+        console.log('✅ Mapeamento já existe para o usuário');
+        return true; // Already exists, consider it a success
+      }
+
+      // Fetch telemarketing name from cache
+      const { data: cacheData } = await supabase
+        .from('config_kv')
+        .select('value')
+        .eq('key', 'bitrix_telemarketing_list')
+        .maybeSingle();
+
+      let telemarketingName = null;
+      if (cacheData?.value) {
+        const items = cacheData.value as Array<{ id: number; title: string }>;
+        const found = items.find(item => item.id === tmId);
+        telemarketingName = found?.title || null;
+      }
+
+      // Create agent_telemarketing_mapping record
+      const { error: mappingError } = await supabase
+        .from('agent_telemarketing_mapping')
+        .insert({
+          tabuladormax_user_id: userId,
+          bitrix_telemarketing_id: tmId,
+          bitrix_telemarketing_name: telemarketingName,
+        });
+
+      if (mappingError) {
+        // Check if it's a duplicate error (unique constraint violation)
+        if (mappingError.code === '23505') {
+          console.log('✅ Mapeamento já existe (constraint)');
+          return true;
+        }
+        console.error('❌ Erro ao criar mapeamento:', mappingError);
+        return false;
+      }
+
+      console.log('✅ Mapeamento criado com sucesso');
+      return true;
+    } catch (error) {
+      console.error('❌ Erro ao criar mapeamento de agente:', error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     // Check if user is already logged in or just returned from OAuth
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -90,48 +146,11 @@ const Auth = () => {
       // After successful login, check if user has telemarketing_id but no mapping
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.user_metadata?.telemarketing_id) {
-        try {
-          const telemarketingIdFromMetadata = user.user_metadata.telemarketing_id;
-          
-          // Check if mapping already exists
-          const { data: existingMapping } = await supabase
-            .from('agent_telemarketing_mapping')
-            .select('id')
-            .eq('tabuladormax_user_id', user.id)
-            .maybeSingle();
-
-          if (!existingMapping) {
-            // Fetch telemarketing name from cache
-            const { data: cacheData } = await supabase
-              .from('config_kv')
-              .select('value')
-              .eq('key', 'bitrix_telemarketing_list')
-              .maybeSingle();
-
-            let telemarketingName = null;
-            if (cacheData?.value) {
-              const items = cacheData.value as Array<{ id: number; title: string }>;
-              const found = items.find(item => item.id === telemarketingIdFromMetadata);
-              telemarketingName = found?.title || null;
-            }
-
-            // Create agent_telemarketing_mapping record silently
-            const { error: mappingError } = await supabase
-              .from('agent_telemarketing_mapping')
-              .insert({
-                tabuladormax_user_id: user.id,
-                bitrix_telemarketing_id: telemarketingIdFromMetadata,
-                bitrix_telemarketing_name: telemarketingName,
-              });
-
-            if (mappingError) {
-              console.error('Erro ao criar mapeamento de agente:', mappingError);
-              // Don't throw - just log the error so login can proceed
-            }
-          }
-        } catch (mappingError) {
-          console.error('Erro ao verificar/criar mapeamento de agente:', mappingError);
-          // Don't throw - just log the error so login can proceed
+        const telemarketingIdFromMetadata = user.user_metadata.telemarketing_id;
+        const success = await createAgentMapping(user.id, telemarketingIdFromMetadata);
+        
+        if (!success) {
+          toast.warning("Login realizado, mas houve um problema ao criar o mapeamento de agente");
         }
       }
 
@@ -187,45 +206,15 @@ const Auth = () => {
 
       if (updateError) throw updateError;
 
-      // Check if mapping already exists to avoid duplicates
-      const { data: existingMapping } = await supabase
-        .from('agent_telemarketing_mapping')
-        .select('id')
-        .eq('tabuladormax_user_id', user.id)
-        .maybeSingle();
+      // Create agent_telemarketing_mapping using helper function
+      const success = await createAgentMapping(user.id, telemarketingId);
 
-      if (!existingMapping) {
-        // Fetch telemarketing name from cache
-        const { data: cacheData } = await supabase
-          .from('config_kv')
-          .select('value')
-          .eq('key', 'bitrix_telemarketing_list')
-          .maybeSingle();
-
-        let telemarketingName = null;
-        if (cacheData?.value) {
-          const items = cacheData.value as Array<{ id: number; title: string }>;
-          const found = items.find(item => item.id === telemarketingId);
-          telemarketingName = found?.title || null;
-        }
-
-        // Create agent_telemarketing_mapping record
-        const { error: mappingError } = await supabase
-          .from('agent_telemarketing_mapping')
-          .insert({
-            tabuladormax_user_id: user.id,
-            bitrix_telemarketing_id: telemarketingId,
-            bitrix_telemarketing_name: telemarketingName,
-          });
-
-        if (mappingError) {
-          console.error('Erro ao criar mapeamento:', mappingError);
-          // Don't throw here - metadata update was successful, just log the error
-          toast.warning("Configuração salva, mas houve um problema ao criar o mapeamento de agente");
-        }
+      if (!success) {
+        toast.warning("Configuração salva, mas houve um problema ao criar o mapeamento de agente");
+      } else {
+        toast.success("Configuração concluída com sucesso!");
       }
 
-      toast.success("Configuração concluída com sucesso!");
       setShowTelemarketingModal(false);
       navigate("/");
     } catch (error: any) {
@@ -421,7 +410,8 @@ const Auth = () => {
           <DialogHeader>
             <DialogTitle>Complete seu Cadastro</DialogTitle>
             <DialogDescription>
-              Para finalizar seu registro, selecione ou crie o operador de telemarketing que você representa no Bitrix24.
+              Para finalizar seu registro, selecione ou busque o operador de telemarketing que você representa no Bitrix24.
+              Use o botão de busca para encontrar por nome completo ou pelas 3 primeiras letras.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
