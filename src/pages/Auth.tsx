@@ -87,6 +87,44 @@ const Auth = () => {
 
       if (error) throw error;
 
+      // After successful login, check if user has telemarketing_id but no mapping
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.user_metadata?.telemarketing_id) {
+        const telemarketingIdFromMetadata = user.user_metadata.telemarketing_id;
+        
+        // Check if mapping already exists
+        const { data: existingMapping } = await supabase
+          .from('agent_telemarketing_mapping')
+          .select('id')
+          .eq('tabuladormax_user_id', user.id)
+          .maybeSingle();
+
+        if (!existingMapping) {
+          // Fetch telemarketing name from cache
+          const { data: cacheData } = await supabase
+            .from('config_kv')
+            .select('value')
+            .eq('key', 'bitrix_telemarketing_list')
+            .maybeSingle();
+
+          let telemarketingName = null;
+          if (cacheData?.value) {
+            const items = cacheData.value as Array<{ id: number; title: string }>;
+            const found = items.find(item => item.id === telemarketingIdFromMetadata);
+            telemarketingName = found?.title || null;
+          }
+
+          // Create agent_telemarketing_mapping record silently
+          await supabase
+            .from('agent_telemarketing_mapping')
+            .insert({
+              tabuladormax_user_id: user.id,
+              bitrix_telemarketing_id: telemarketingIdFromMetadata,
+              bitrix_telemarketing_name: telemarketingName,
+            });
+        }
+      }
+
       toast.success("Login realizado com sucesso!");
       navigate("/");
     } catch (error: any) {
