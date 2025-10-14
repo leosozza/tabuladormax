@@ -246,7 +246,7 @@ After running the migration, verify it's working correctly:
 2. Test inserting a mapping as an authenticated user (should succeed):
    ```sql
    -- This should work for any authenticated user now
-   INSERT INTO agent_telemarketing_mapping (tabuladormax_user_id, bitrix24_user_id, telemarketing_name)
+   INSERT INTO agent_telemarketing_mapping (tabuladormax_user_id, bitrix_telemarketing_id, bitrix_telemarketing_name)
    VALUES (auth.uid(), 123, 'Test Telemarketing');
    ```
 
