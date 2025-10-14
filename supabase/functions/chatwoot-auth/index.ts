@@ -1,6 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.74.0';
+import { createClient, type Session } from 'https://esm.sh/@supabase/supabase-js@2.74.0';
 
-const corsHeaders = {
+const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
@@ -8,7 +8,7 @@ const corsHeaders = {
 interface AssigneeData {
   email: string;
   name: string;
-  role: string; // 'administrator' ou 'agent'
+  role: string; // 'administrator' | 'agent'
 }
 
 interface UserMetadata {
@@ -18,194 +18,172 @@ interface UserMetadata {
   chatwoot_id?: number;
 }
 
+function jsonResponse(body: any, init: ResponseInit = {}) {
+  return new Response(JSON.stringify(body), {
+    ...init,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    }
+  });
+}
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const start = performance.now();
+
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    const { email, name, role }: AssigneeData = await req.json();
-    
-    console.log('📧 Processando auto-login para:', { email, name, role });
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Variáveis SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY ausentes');
+    }
 
+    let payload: AssigneeData;
+    try {
+      payload = await req.json();
+    } catch {
+      throw new Error('JSON inválido');
+    }
+
+    const { email, name, role } = payload;
     if (!email || !name) {
       throw new Error('Email e nome são obrigatórios');
     }
 
-    // Buscar ou criar usuário
-    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    
-    if (listError) {
-      console.error('Erro ao listar usuários:', listError);
-      throw listError;
-    }
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
 
-    // Preparar metadata do usuário
+    console.log('📧 Iniciando auto-login:', { email, name, role });
+
     const userMetadata: UserMetadata = {
       display_name: name,
       chatwoot_email: email,
       chatwoot_role: role,
     };
 
-    let userId: string;
-    const existingUser = existingUsers.users.find(u => u.email === email);
+    // 1. Buscar usuário por e-mail (mais eficiente que listUsers)
+    const { data: byEmail, error: getUserErr } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+    if (getUserErr) {
+      console.error('Erro getUserByEmail:', getUserErr);
+      throw getUserErr;
+    }
 
-    if (existingUser) {
-      userId = existingUser.id;
-      console.log('✅ Usuário existente encontrado:', userId);
-      
-      // Atualizar metadata do usuário existente
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        userId,
-        { user_metadata: userMetadata }
-      );
-      
-      if (updateError) {
-        console.error('Erro ao atualizar metadata:', updateError);
+    let userId: string;
+
+    if (byEmail?.user) {
+      userId = byEmail.user.id;
+      console.log('✅ Usuário existente:', userId);
+      const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        user_metadata: userMetadata
+      });
+      if (updErr) {
+        console.warn('⚠️ Falha ao atualizar metadata (seguindo fluxo):', updErr);
       } else {
-        console.log('✅ Metadata do usuário atualizado');
+        console.log('✅ Metadata atualizada');
       }
     } else {
-      // Criar novo usuário com senha aleatória
       const randomPassword = crypto.randomUUID();
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email,
         password: randomPassword,
         email_confirm: true,
-        user_metadata: userMetadata
+        user_metadata: userMetadata,
       });
-
-      if (createError) {
-        console.error('Erro ao criar usuário:', createError);
-        throw createError;
+      if (createErr) {
+        console.error('Erro createUser:', createErr);
+        throw createErr;
       }
-
       userId = newUser.user.id;
       console.log('✅ Novo usuário criado:', userId);
     }
 
-    // Mapear role do Chatwoot para role do Supabase
+    // 2. Mapear role
     const appRole = role === 'administrator' ? 'admin' : 'agent';
-    
-    // Verificar se já tem a role
-    const { data: existingRole } = await supabaseAdmin
+
+    // 3. Upsert de role (evita 23505)
+    const { error: roleErr } = await supabaseAdmin
       .from('user_roles')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('role', appRole)
-      .single();
+      .upsert({ user_id: userId, role: appRole }, { onConflict: 'user_id,role', ignoreDuplicates: true });
 
-    if (!existingRole) {
-      // Inserir role
-      const { error: roleError } = await supabaseAdmin
-        .from('user_roles')
-        .insert({ user_id: userId, role: appRole });
-
-      if (roleError) {
-        console.error('Erro ao inserir role:', roleError);
-        throw roleError;
-      }
-      console.log('✅ Role atribuída:', appRole);
+    if (roleErr) {
+      // Duplicates should be handled by ignoreDuplicates, so any error here is unexpected
+      console.error('Erro inesperado ao garantir role:', roleErr);
+      throw roleErr;
     }
+    console.log('✅ Role garantida:', appRole);
 
-    // Gerar link mágico para o usuário
+    // 4. Gerar magic link
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
-      email: email,
+      email,
+      options: { redirectTo: 'https://tabuladormax.lovable.app' }
     });
-
     if (linkError) {
-      console.error('Erro ao gerar link:', linkError);
+      console.error('Erro generateLink:', linkError);
       throw linkError;
     }
 
-    console.log('✅ Link de acesso gerado com sucesso');
-
-    // Extrair tokens do action_link
     const actionLink = linkData.properties.action_link;
-    console.log('🔗 Action link gerado:', actionLink);
+    console.log('🔗 Action link:', actionLink);
 
-    // Parsear URL para extrair tokens do hash
+    // 5. Extrair token (OTP) da query
     const url = new URL(actionLink);
-    const hashParams = new URLSearchParams(url.hash.substring(1));
-
-    const accessToken = hashParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token');
-    const expiresIn = hashParams.get('expires_in');
-
-    console.log('🔑 Tokens extraídos:', {
-      hasAccessToken: !!accessToken,
-      hasRefreshToken: !!refreshToken,
-      expiresIn
-    });
-
-    if (!accessToken || !refreshToken) {
-      console.error('❌ Tokens não encontrados no magic link');
-      throw new Error('Tokens de autenticação não encontrados no magic link');
+    const otpToken = url.searchParams.get('token');
+    if (!otpToken) {
+      throw new Error('Token do magic link não encontrado na URL');
     }
 
-    // Construir objeto de sessão completo
-    const sessionData = {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_in: parseInt(expiresIn || '3600'),
-      token_type: 'bearer',
-      user: {
-        id: userId,
-        email,
-        user_metadata: userMetadata,
-        app_metadata: {},
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-      }
-    };
-
-    console.log('✅ Sessão completa preparada:', {
-      userId,
+    // 6. Trocar token por sessão (principal correção)
+    const { data: verifyData, error: verifyError } = await supabaseAdmin.auth.verifyOtp({
       email,
-      hasTokens: true
+      token: otpToken,
+      type: 'magiclink',
+    });
+    if (verifyError) {
+      console.error('Erro verifyOtp:', verifyError);
+      throw verifyError;
+    }
+    if (!verifyData?.session) {
+      console.error('verifyOtp não retornou sessão');
+      throw new Error('Falha ao verificar magic link');
+    }
+
+    const session: Session = verifyData.session;
+    console.log('✅ Sessão via verifyOtp:', {
+      hasAccess: !!session.access_token,
+      hasRefresh: !!session.refresh_token,
+      expiresIn: session.expires_in
     });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        session: sessionData,
-        user: {
-          id: userId,
-          email,
-          name,
-          role: appRole,
-          metadata: userMetadata
-        }
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    const durationMs = Math.round(performance.now() - start);
 
-  } catch (error) {
-    console.error('❌ Erro no auto-login:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: errorMessage
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return jsonResponse({
+      success: true,
+      mode: 'server-exchange',
+      duration_ms: durationMs,
+      session: {
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        expires_in: session.expires_in,
+        token_type: session.token_type
+      },
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        role: appRole,
+        metadata: session.user.user_metadata
       }
-    );
+    });
+  } catch (err: any) {
+    const msg = err?.message ?? 'Erro desconhecido';
+    console.error('❌ Erro auto-login:', err);
+    return jsonResponse({ success: false, error: msg }, { status: 500 });
   }
 });
