@@ -18,17 +18,30 @@ const Auth = () => {
   const [displayName, setDisplayName] = useState("");
   const [telemarketingId, setTelemarketingId] = useState<number>();
   const [showTelemarketingModal, setShowTelemarketingModal] = useState(false);
-  const [oauthUser, setOauthUser] = useState<any>(null);
+  const [oauthUser, setOauthUser] = useState<{ id: string; user_metadata?: Record<string, unknown> } | null>(null);
 
   // Helper function to create agent_telemarketing_mapping without duplicates
   const createAgentMapping = async (userId: string, tmId: number): Promise<boolean> => {
     try {
+      // Validate inputs
+      if (!userId || !tmId || !Number.isInteger(tmId) || tmId <= 0) {
+        console.error('❌ Parâmetros inválidos para criação de mapeamento:', { userId, tmId });
+        toast.error('Erro: Parâmetros inválidos para criar mapeamento de agente');
+        return false;
+      }
+
       // Check if mapping already exists
-      const { data: existingMapping } = await supabase
+      const { data: existingMapping, error: checkError } = await supabase
         .from('agent_telemarketing_mapping')
         .select('id')
         .eq('tabuladormax_user_id', userId)
         .maybeSingle();
+
+      if (checkError) {
+        console.error('❌ Erro ao verificar mapeamento existente:', checkError);
+        toast.error(`Erro ao verificar mapeamento: ${checkError.message}`);
+        return false;
+      }
 
       if (existingMapping) {
         console.log('✅ Mapeamento já existe para o usuário');
@@ -36,11 +49,16 @@ const Auth = () => {
       }
 
       // Fetch telemarketing name from cache
-      const { data: cacheData } = await supabase
+      const { data: cacheData, error: cacheError } = await supabase
         .from('config_kv')
         .select('value')
         .eq('key', 'bitrix_telemarketing_list')
         .maybeSingle();
+
+      if (cacheError) {
+        console.warn('⚠️ Erro ao buscar nome do telemarketing do cache:', cacheError);
+        // Continue without the name, it's not critical
+      }
 
       let telemarketingName = null;
       if (cacheData?.value) {
@@ -64,14 +82,32 @@ const Auth = () => {
           console.log('✅ Mapeamento já existe (constraint)');
           return true;
         }
-        console.error('❌ Erro ao criar mapeamento:', mappingError);
+        
+        // Log and alert for all other errors
+        console.error('❌ Erro ao criar mapeamento:', {
+          code: mappingError.code,
+          message: mappingError.message,
+          details: mappingError.details,
+          hint: mappingError.hint,
+        });
+        
+        // Provide specific error messages based on error codes
+        if (mappingError.code === '42501') {
+          toast.error('Erro de permissão: Você não tem permissão para criar o mapeamento. Contate o administrador.');
+        } else if (mappingError.code === '23503') {
+          toast.error('Erro: Referência inválida. Verifique se o usuário existe.');
+        } else {
+          toast.error(`Erro ao criar mapeamento de agente: ${mappingError.message}`);
+        }
+        
         return false;
       }
 
       console.log('✅ Mapeamento criado com sucesso');
       return true;
     } catch (error) {
-      console.error('❌ Erro ao criar mapeamento de agente:', error);
+      console.error('❌ Erro inesperado ao criar mapeamento de agente:', error);
+      toast.error('Erro inesperado ao criar mapeamento de agente');
       return false;
     }
   };
@@ -80,13 +116,24 @@ const Auth = () => {
     // Check if user is already logged in or just returned from OAuth
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
+        console.log('🔍 Verificando sessão do usuário:', session.user.id);
+        
         // Check if user has telemarketing_id in metadata
         if (!session.user.user_metadata?.telemarketing_id) {
           // User logged in via OAuth but doesn't have telemarketing set
+          console.log('⚠️ Usuário OAuth sem telemarketing_id configurado, mostrando modal');
           setOauthUser(session.user);
           setShowTelemarketingModal(true);
         } else {
-          // User has everything set up, navigate to home
+          // User has everything set up, but let's verify the mapping exists
+          const telemarketingId = session.user.user_metadata.telemarketing_id;
+          console.log('✅ Usuário tem telemarketing_id:', telemarketingId);
+          
+          // Ensure mapping exists (will skip if already exists)
+          if (Number.isInteger(telemarketingId) && telemarketingId > 0) {
+            await createAgentMapping(session.user.id, telemarketingId);
+          }
+          
           navigate("/");
         }
       }
@@ -97,7 +144,7 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Validação do campo de telemarketing
+    // Validação obrigatória do campo de telemarketing
     if (telemarketingId == null || !Number.isInteger(telemarketingId) || telemarketingId <= 0) {
       toast.error("Por favor, selecione um operador de telemarketing válido");
       setLoading(false);
@@ -105,7 +152,7 @@ const Auth = () => {
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -119,13 +166,30 @@ const Auth = () => {
 
       if (error) throw error;
 
-      toast.success("Conta criada com sucesso! Você já pode fazer login.");
+      // After successful signup, create the agent_telemarketing_mapping
+      // This ensures the mapping is created immediately
+      if (data.user?.id) {
+        console.log('📝 Criando mapeamento de agente após signup bem-sucedido');
+        const mappingSuccess = await createAgentMapping(data.user.id, telemarketingId);
+        
+        if (!mappingSuccess) {
+          console.warn('⚠️ Falha ao criar mapeamento durante signup, mas conta foi criada');
+          toast.warning("Conta criada, mas houve um problema ao criar o mapeamento de agente. Contate o suporte se necessário.");
+        } else {
+          toast.success("Conta criada com sucesso! Você já pode fazer login.");
+        }
+      } else {
+        toast.success("Conta criada com sucesso! Você já pode fazer login.");
+      }
+
       setEmail("");
       setPassword("");
       setDisplayName("");
       setTelemarketingId(undefined);
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar conta");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao criar conta";
+      console.error('❌ Erro ao criar conta:', error);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -147,17 +211,26 @@ const Auth = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.user_metadata?.telemarketing_id) {
         const telemarketingIdFromMetadata = user.user_metadata.telemarketing_id;
-        const success = await createAgentMapping(user.id, telemarketingIdFromMetadata);
         
-        if (!success) {
-          toast.warning("Login realizado, mas houve um problema ao criar o mapeamento de agente");
+        // Validate telemarketing_id from metadata
+        if (Number.isInteger(telemarketingIdFromMetadata) && telemarketingIdFromMetadata > 0) {
+          console.log('📝 Verificando/criando mapeamento de agente após login');
+          const success = await createAgentMapping(user.id, telemarketingIdFromMetadata);
+          
+          if (!success) {
+            toast.warning("Login realizado, mas houve um problema ao criar o mapeamento de agente");
+          }
+        } else {
+          console.warn('⚠️ telemarketing_id inválido nos metadados do usuário:', telemarketingIdFromMetadata);
         }
       }
 
       toast.success("Login realizado com sucesso!");
       navigate("/");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao fazer login");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao fazer login";
+      console.error('❌ Erro ao fazer login:', error);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -177,13 +250,15 @@ const Auth = () => {
       if (error) throw error;
       // Note: On success, the browser will redirect to Google OAuth page,
       // so no need to reset loading state here
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao fazer login com Google");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao fazer login com Google";
+      toast.error(errorMessage);
       setLoading(false);
     }
   };
 
   const handleCompleteTelemarketingSetup = async () => {
+    // Validação obrigatória do campo de telemarketing
     if (!telemarketingId || !Number.isInteger(telemarketingId) || telemarketingId <= 0) {
       toast.error("Por favor, selecione um operador de telemarketing válido");
       return;
@@ -197,6 +272,8 @@ const Auth = () => {
         throw new Error("Usuário não encontrado");
       }
 
+      console.log('📝 Completando setup de telemarketing para usuário OAuth:', user.id);
+
       // Update user metadata with telemarketing_id
       const { error: updateError } = await supabase.auth.updateUser({
         data: {
@@ -204,7 +281,12 @@ const Auth = () => {
         },
       });
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('❌ Erro ao atualizar metadados do usuário:', updateError);
+        throw updateError;
+      }
+
+      console.log('✅ Metadados do usuário atualizados com telemarketing_id');
 
       // Create agent_telemarketing_mapping using helper function
       const success = await createAgentMapping(user.id, telemarketingId);
@@ -217,8 +299,10 @@ const Auth = () => {
 
       setShowTelemarketingModal(false);
       navigate("/");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar configuração");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao salvar configuração";
+      console.error('❌ Erro ao salvar configuração:', error);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
