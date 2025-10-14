@@ -77,7 +77,7 @@ describe('Telemarketing Validation Logic', () => {
   describe('User metadata validation', () => {
     const hasValidTelemarketingMetadata = (user: { user_metadata?: { telemarketing_id?: unknown } } | null | undefined): boolean => {
       const tmId = user?.user_metadata?.telemarketing_id;
-      return Number.isInteger(tmId) && tmId as number > 0;
+      return typeof tmId === 'number' && Number.isInteger(tmId) && tmId > 0;
     };
 
     it('should return false for user without metadata', () => {
