@@ -48,14 +48,17 @@ The current implementation follows these business rules:
 
 **If your business rules differ, you may need to adjust these policies:**
 
-- **Allow any authenticated user to insert without restrictions:**
+- **Allow any authenticated user to insert mappings for ANY user (removes user ID restriction - ⚠️ security consideration):**
   ```sql
+  DROP POLICY IF EXISTS "Users can create their own mapping" ON public.agent_telemarketing_mapping;
+  
   CREATE POLICY "Authenticated users can insert mappings"
     ON public.agent_telemarketing_mapping
     FOR INSERT
     TO authenticated
     WITH CHECK (auth.uid() IS NOT NULL);
   ```
+  ⚠️ **Warning**: This allows any authenticated user to create mappings for any other user. Use only if your business logic handles user validation at the application level.
 
 - **Allow users to update their own mappings:**
   ```sql

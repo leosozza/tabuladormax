@@ -85,7 +85,9 @@ The `agent_telemarketing_mapping` table controls the relationship between users 
 **INSERT Policy:**
 - **Name:** "Users can create their own mapping"
 - **Purpose:** Allows authenticated users to create mappings for themselves during signup and operation
-- **Business Rule:** Uses WITH CHECK constraint - users can only insert records where `tabuladormax_user_id` matches their own user ID, OR they have admin/manager role
+- **Business Rule:** Uses WITH CHECK constraint with two conditions:
+  - Users can insert only if `tabuladormax_user_id = auth.uid()` (their own records)
+  - OR if they have admin or manager role via `has_role(auth.uid(), 'admin'::app_role)` or `has_role(auth.uid(), 'manager'::app_role)`
 - **Migration:** `supabase/migrations/20251014171900_fix_agent_telemarketing_mapping_rls.sql`
 
 **SELECT Policy:**
@@ -119,7 +121,7 @@ WHERE tablename = 'agent_telemarketing_mapping';
 
 **Common Customizations:**
 
-1. **Allow all authenticated users to insert without user ID restriction:**
+1. **Allow all authenticated users to insert mappings for ANY user (removes user ID restriction - ⚠️ security consideration):**
    ```sql
    DROP POLICY IF EXISTS "Users can create their own mapping" ON public.agent_telemarketing_mapping;
    
@@ -129,6 +131,7 @@ WHERE tablename = 'agent_telemarketing_mapping';
      TO authenticated
      WITH CHECK (auth.uid() IS NOT NULL);
    ```
+   ⚠️ **Warning**: This removes the user ID constraint, allowing any authenticated user to create mappings for any other user. Use only if your application handles this validation.
 
 2. **Allow users to update their own mappings:**
    ```sql
