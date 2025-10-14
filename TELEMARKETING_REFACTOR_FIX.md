@@ -29,7 +29,7 @@ const corsHeaders = {
 
 ### 2. Tratamento de Erros Genérico no Frontend
 
-**Problema:** O componente `TelemarketingSelector` capturava erros mas exibia apenas mensagens genéricas, dificultando o debug e feedback ao usuário.
+**Problema:** O componente `TelemarketingSelector` capturava erros, mas exibia apenas mensagens genéricas, dificultando o debug e feedback ao usuário.
 
 **Solução:**
 Implementado tratamento de erros em múltiplos níveis em três funções principais:
@@ -43,7 +43,7 @@ Implementado tratamento de erros em múltiplos níveis em três funções princi
 if (error) {
   console.error('Erro ao carregar cache:', error);
   toast.error('Erro ao carregar lista de telemarketing');
-  return; // ✅ Retorna early ao invés de throw
+  return; // ✅ Retorna cedo ao invés de throw
 }
 ```
 
@@ -87,6 +87,8 @@ if (data?.items) {
 Implementada validação robusta em `src/pages/Auth.tsx`:
 
 #### `handleSignUp()`
+A validação foi aprimorada para garantir que o ID seja um número inteiro positivo válido, evitando valores como `0`, `-1`, `NaN`, ou `undefined` que poderiam passar pela validação anterior.
+
 ```typescript
 // ❌ ANTES
 if (telemarketingId == null) {
@@ -177,7 +179,7 @@ if (telemarketingId == null || !Number.isInteger(telemarketingId) || telemarketi
 npm run test
 ```
 
-**Resultado:** ✅ Todos os 156 testes passaram
+**Resultado:** ✅ Todos os testes existentes passaram com sucesso
 
 ### Build do Projeto
 ```bash
