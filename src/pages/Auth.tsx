@@ -90,38 +90,48 @@ const Auth = () => {
       // After successful login, check if user has telemarketing_id but no mapping
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.user_metadata?.telemarketing_id) {
-        const telemarketingIdFromMetadata = user.user_metadata.telemarketing_id;
-        
-        // Check if mapping already exists
-        const { data: existingMapping } = await supabase
-          .from('agent_telemarketing_mapping')
-          .select('id')
-          .eq('tabuladormax_user_id', user.id)
-          .maybeSingle();
-
-        if (!existingMapping) {
-          // Fetch telemarketing name from cache
-          const { data: cacheData } = await supabase
-            .from('config_kv')
-            .select('value')
-            .eq('key', 'bitrix_telemarketing_list')
+        try {
+          const telemarketingIdFromMetadata = user.user_metadata.telemarketing_id;
+          
+          // Check if mapping already exists
+          const { data: existingMapping } = await supabase
+            .from('agent_telemarketing_mapping')
+            .select('id')
+            .eq('tabuladormax_user_id', user.id)
             .maybeSingle();
 
-          let telemarketingName = null;
-          if (cacheData?.value) {
-            const items = cacheData.value as Array<{ id: number; title: string }>;
-            const found = items.find(item => item.id === telemarketingIdFromMetadata);
-            telemarketingName = found?.title || null;
-          }
+          if (!existingMapping) {
+            // Fetch telemarketing name from cache
+            const { data: cacheData } = await supabase
+              .from('config_kv')
+              .select('value')
+              .eq('key', 'bitrix_telemarketing_list')
+              .maybeSingle();
 
-          // Create agent_telemarketing_mapping record silently
-          await supabase
-            .from('agent_telemarketing_mapping')
-            .insert({
-              tabuladormax_user_id: user.id,
-              bitrix_telemarketing_id: telemarketingIdFromMetadata,
-              bitrix_telemarketing_name: telemarketingName,
-            });
+            let telemarketingName = null;
+            if (cacheData?.value) {
+              const items = cacheData.value as Array<{ id: number; title: string }>;
+              const found = items.find(item => item.id === telemarketingIdFromMetadata);
+              telemarketingName = found?.title || null;
+            }
+
+            // Create agent_telemarketing_mapping record silently
+            const { error: mappingError } = await supabase
+              .from('agent_telemarketing_mapping')
+              .insert({
+                tabuladormax_user_id: user.id,
+                bitrix_telemarketing_id: telemarketingIdFromMetadata,
+                bitrix_telemarketing_name: telemarketingName,
+              });
+
+            if (mappingError) {
+              console.error('Erro ao criar mapeamento de agente:', mappingError);
+              // Don't throw - just log the error so login can proceed
+            }
+          }
+        } catch (mappingError) {
+          console.error('Erro ao verificar/criar mapeamento de agente:', mappingError);
+          // Don't throw - just log the error so login can proceed
         }
       }
 
