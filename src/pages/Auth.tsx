@@ -124,14 +124,58 @@ const Auth = () => {
 
     setLoading(true);
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("Usuário não encontrado");
+      }
+
       // Update user metadata with telemarketing_id
-      const { error } = await supabase.auth.updateUser({
+      const { error: updateError } = await supabase.auth.updateUser({
         data: {
           telemarketing_id: telemarketingId,
         },
       });
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // Check if mapping already exists to avoid duplicates
+      const { data: existingMapping } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('id')
+        .eq('tabuladormax_user_id', user.id)
+        .maybeSingle();
+
+      if (!existingMapping) {
+        // Fetch telemarketing name from cache
+        const { data: cacheData } = await supabase
+          .from('config_kv')
+          .select('value')
+          .eq('key', 'bitrix_telemarketing_list')
+          .maybeSingle();
+
+        let telemarketingName = null;
+        if (cacheData?.value) {
+          const items = cacheData.value as Array<{ id: number; title: string }>;
+          const found = items.find(item => item.id === telemarketingId);
+          telemarketingName = found?.title || null;
+        }
+
+        // Create agent_telemarketing_mapping record
+        const { error: mappingError } = await supabase
+          .from('agent_telemarketing_mapping')
+          .insert({
+            tabuladormax_user_id: user.id,
+            bitrix_telemarketing_id: telemarketingId,
+            bitrix_telemarketing_name: telemarketingName,
+          });
+
+        if (mappingError) {
+          console.error('Erro ao criar mapeamento:', mappingError);
+          // Don't throw here - metadata update was successful, just log the error
+          toast.warning("Configuração salva, mas houve um problema ao criar o mapeamento de agente");
+        }
+      }
 
       toast.success("Configuração concluída com sucesso!");
       setShowTelemarketingModal(false);
