@@ -25,6 +25,8 @@ export interface TabularContext {
     email?: string;
     userId?: string;
   };
+  // ID do telemarketing para substituição do placeholder {{telemarketing}}
+  telemarketing?: number;
 }
 
 export interface TabularResult {
@@ -36,11 +38,16 @@ export interface TabularResult {
 
 /**
  * Helper function to replace placeholders in values
+ * @param inputValue - The string containing placeholders to be replaced
+ * @param context - The context object containing data for replacement
+ * @param value - The button value
+ * @param telemarketingId - The telemarketing ID to replace {{telemarketing}} placeholder
  */
 const replacePlaceholders = (
   inputValue: string,
   context: TabularContext,
-  value: string
+  value: string,
+  telemarketingId?: number
 ): string => {
   if (typeof inputValue !== 'string') return inputValue;
 
@@ -60,7 +67,9 @@ const replacePlaceholders = (
     .replace(/\{\{responsavel\}\}/g, String(profileRec?.responsible || ''))
     .replace(/\{\{endereco\}\}/g, String(profileRec?.address || ''))
     .replace(/\{\{idade\}\}/g, profileRec?.age ? String(profileRec.age) : '')
-    .replace(/\{\{scouter\}\}/g, String(profileRec?.scouter || ''));
+    .replace(/\{\{scouter\}\}/g, String(profileRec?.scouter || ''))
+    // Substituir {{telemarketing}} pelo ID numérico do telemarketing
+    .replace(/\{\{telemarketing\}\}/g, telemarketingId !== undefined ? String(telemarketingId) : '');
 };
 
 /**
@@ -101,8 +110,9 @@ const convertEnumerationValue = (
 
 /**
  * Helper function to get Bitrix telemarketing ID from agent mapping
+ * Exportada para uso em outros módulos
  */
-const getTelemarketingId = async (
+export const getTelemarketingId = async (
   currentAgent?: { email?: string; userId?: string }
 ): Promise<number> => {
   if (!currentAgent) {
@@ -163,14 +173,20 @@ export async function runTabular(
     // Buscar ID do telemarketing do agente
     const telemarketingId = await getTelemarketingId(currentAgent);
     console.log(`📋 Telemarketing ID para este agente: ${telemarketingId}`);
+    
+    // Adicionar telemarketing ID ao contexto para uso em placeholders
+    context.telemarketing = telemarketingId;
 
     // Process additional fields with placeholder replacement
+    // Incluindo substituição do placeholder {{telemarketing}} pelo ID numérico
     const additionalFieldsProcessed: Record<string, unknown> = {};
     if (additional_fields && Array.isArray(additional_fields)) {
       additional_fields.forEach(({ field: addField, value: addValue }) => {
-        const processedValue = replacePlaceholders(addValue, context, value);
+        const processedValue = replacePlaceholders(addValue, context, value, telemarketingId);
         if (processedValue !== '' && addField) {
           additionalFieldsProcessed[addField] = processedValue;
+          // Log detalhado do campo processado
+          console.log(`📝 Campo adicional processado: ${addField} = ${processedValue}${addValue.includes('{{telemarketing}}') ? ' (substituído de {{telemarketing}})' : ''}`);
         }
       });
     }
@@ -251,7 +267,12 @@ export async function runTabular(
           ...processedAdditionalFields
         };
 
+        // Log detalhado de todos os campos a serem enviados ao Bitrix
         console.log('🔍 Campos a enviar ao Bitrix:', allFields);
+        console.log('📊 Detalhes dos campos:');
+        Object.entries(allFields).forEach(([key, val]) => {
+          console.log(`  - ${key}: ${val} (tipo: ${typeof val})`);
+        });
 
         // Build URL with query parameters in Bitrix format
         const params = new URLSearchParams();

@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { saveChatwootContact, extractChatwootData, type ChatwootEventData } from "@/lib/chatwoot";
 import { getLead, type BitrixLead, getLeadFields, type BitrixField } from "@/lib/bitrix";
+import { getTelemarketingId } from "@/handlers/tabular";
 import {
   BUTTON_CATEGORIES,
   categoryOrder,
@@ -1104,7 +1105,12 @@ const LeadTab = () => {
       const syncTarget = button.sync_target || 'bitrix';
       const bitrixId = Number(chatwootData.bitrix_id);
       
+      // Buscar ID do telemarketing do usuário atual para substituição de placeholders
+      const telemarketingId = await getTelemarketingId({ userId: currentUserId });
+      console.log(`📋 Telemarketing ID do usuário atual: ${telemarketingId}`);
+      
       // Função para processar placeholders dinâmicos
+      // Inclui substituição do placeholder {{telemarketing}} pelo ID numérico
       const replacePlaceholders = (inputValue: string): string => {
         if (typeof inputValue !== 'string') return inputValue;
         
@@ -1119,7 +1125,9 @@ const LeadTab = () => {
           .replace(/\{\{responsavel\}\}/g, String((profile as any).responsible || ''))
           .replace(/\{\{endereco\}\}/g, String((profile as any).address || ''))
           .replace(/\{\{idade\}\}/g, (profile as any).age ? String((profile as any).age) : '')
-          .replace(/\{\{scouter\}\}/g, String((profile as any).scouter || ''));
+          .replace(/\{\{scouter\}\}/g, String((profile as any).scouter || ''))
+          // Substituir {{telemarketing}} pelo ID numérico do telemarketing
+          .replace(/\{\{telemarketing\}\}/g, String(telemarketingId));
       };
       
       // Preparar campos adicionais com processamento de placeholders
@@ -1130,6 +1138,8 @@ const LeadTab = () => {
           const processedValue = replacePlaceholders(addValue);
           if (processedValue !== '' && addField) {
             additionalFields[addField] = processedValue;
+            // Log detalhado do campo processado
+            console.log(`📝 Campo adicional processado: ${addField} = ${processedValue}${addValue.includes('{{telemarketing}}') ? ' (substituído de {{telemarketing}})' : ''}`);
           }
         });
       }
@@ -1140,6 +1150,8 @@ const LeadTab = () => {
           const processedValue = replacePlaceholders(addValue);
           if (processedValue !== '' && addField) {
             additionalFields[addField] = processedValue;
+            // Log detalhado do campo processado
+            console.log(`📝 Campo adicional (sub) processado: ${addField} = ${processedValue}${addValue.includes('{{telemarketing}}') ? ' (substituído de {{telemarketing}})' : ''}`);
           }
         });
       }
@@ -1258,6 +1270,7 @@ const LeadTab = () => {
             ...processedAdditionalFields
           };
           
+          // Log detalhado de todos os campos a serem enviados ao Bitrix
           console.log('🔍 DEBUG - Antes de enviar ao Bitrix:', {
             bitrixId,
             webhookUrl,
@@ -1265,6 +1278,10 @@ const LeadTab = () => {
             valor_principal: value,
             campos_adicionais: additionalFields,
             campos_combinados: allFields
+          });
+          console.log('📊 Detalhes dos campos a enviar:');
+          Object.entries(allFields).forEach(([key, val]) => {
+            console.log(`  - ${key}: ${val} (tipo: ${typeof val})`);
           });
           
           // Construir URL com query parameters no formato Bitrix
