@@ -27,19 +27,27 @@ const ProtectedRoute = ({ children, requireAdmin, requireManager }: ProtectedRou
 
       // Check role if required
       if (requireAdmin || requireManager) {
-        const { data: roles } = await supabase
+        const { data: roles, error } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", session.user.id);
+          .eq("user_id", session.user.id)
+          .maybeSingle();
 
-        const userRoles = roles?.map(r => r.role) || [];
-        
-        if (requireAdmin) {
-          setHasAccess(userRoles.includes("admin"));
-        } else if (requireManager) {
-          setHasAccess(userRoles.includes("admin") || userRoles.includes("manager"));
+        if (error) {
+          console.error('❌ Erro ao verificar permissões:', error);
+          // Em caso de erro, bloquear acesso para segurança
+          setHasAccess(false);
         } else {
-          setHasAccess(true);
+          const userRole = roles?.role || null;
+          console.log('✅ Role verificada:', userRole);
+          
+          if (requireAdmin) {
+            setHasAccess(userRole === "admin");
+          } else if (requireManager) {
+            setHasAccess(userRole === "admin" || userRole === "manager");
+          } else {
+            setHasAccess(true);
+          }
         }
       } else {
         setHasAccess(true);

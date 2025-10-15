@@ -27,14 +27,23 @@ const UserMenu = () => {
         setUserEmail(session.user.email || "");
         setUserMetadata(session.user.user_metadata);
         
-        const { data: roles } = await supabase
+        // Tentar buscar role do banco com tratamento de erro
+        const { data: roles, error } = await supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", session.user.id)
-          .single();
+          .maybeSingle(); // maybeSingle() não lança erro se não encontrar
         
-        if (roles) {
+        if (error) {
+          console.error('❌ Erro ao buscar role:', error);
+          toast.error('Erro ao carregar permissões do usuário');
+          setUserRole('agent'); // Fallback para agent
+        } else if (roles) {
+          console.log('✅ Role carregada:', roles.role);
           setUserRole(roles.role);
+        } else {
+          console.warn('⚠️ Nenhuma role encontrada para usuário');
+          setUserRole('agent');
         }
       }
     };
