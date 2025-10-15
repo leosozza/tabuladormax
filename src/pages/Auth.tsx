@@ -583,6 +583,7 @@ const Auth = () => {
                     value={telemarketingId}
                     onChange={setTelemarketingId}
                     onPendingCreate={setPendingTelemarketingName}
+                    defaultSearchValue={displayName}
                     placeholder="Selecione o operador de telemarketing"
                   />
                   <p className="text-xs text-muted-foreground">

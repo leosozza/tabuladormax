@@ -16,10 +16,11 @@ interface TelemarketingSelectorProps {
   value?: number;
   onChange: (value: number) => void;
   placeholder?: string;
-  onPendingCreate?: (name: string | null) => void; // Callback para quando usuário escolhe "criar novo"
+  onPendingCreate?: (name: string | null) => void;
+  defaultSearchValue?: string; // Nome preenchido no campo "Nome"
 }
 
-export function TelemarketingSelector({ value, onChange, placeholder = "Selecione o telemarketing", onPendingCreate }: TelemarketingSelectorProps) {
+export function TelemarketingSelector({ value, onChange, placeholder = "Selecione o telemarketing", onPendingCreate, defaultSearchValue }: TelemarketingSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -45,6 +46,13 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
       }
     }
   }, [value, options]);
+
+  // Sincronizar searchValue com defaultSearchValue
+  useEffect(() => {
+    if (defaultSearchValue && defaultSearchValue.trim()) {
+      setSearchValue(defaultSearchValue.trim());
+    }
+  }, [defaultSearchValue]);
 
   // Debounce para busca automática
   useEffect(() => {
@@ -123,8 +131,14 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
   };
 
   const handleCreateNewClick = () => {
-    // Não criar imediatamente, apenas marcar como "pendente para criar"
-    const name = searchValue.trim();
+    // Usar defaultSearchValue (nome do campo) se disponível, senão usar o que foi digitado
+    const name = (defaultSearchValue && defaultSearchValue.trim()) || searchValue.trim();
+    
+    if (!name) {
+      toast.error("Nome não pode estar vazio");
+      return;
+    }
+    
     setPendingCreateName(name);
     
     // Notificar o componente pai
