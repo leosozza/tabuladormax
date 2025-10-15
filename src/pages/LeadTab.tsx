@@ -43,6 +43,7 @@ interface SubButton {
   subValue: string;
   subHotkey?: string;
   subAdditionalFields?: Array<{ field: string; value: string }>;
+  transfer_conversation?: boolean;
 }
 
 interface ButtonConfig {
@@ -62,6 +63,7 @@ interface ButtonConfig {
   category?: string | null;
   sync_target?: 'bitrix' | 'supabase';
   additional_fields?: Array<{ field: string; value: string }>;
+  transfer_conversation?: boolean;
 }
 
 interface FieldMapping {
@@ -1381,6 +1383,48 @@ const LeadTab = () => {
         await supabase
           .from('leads')
           .upsert([leadUpdateFields], { onConflict: 'id' });
+      }
+
+      // 4. Transferir conversa para o agente que tabulou (se configurado)
+      if (button.transfer_conversation || subButton?.transfer_conversation) {
+        console.log('🔄 Iniciando transferência de conversa...');
+        
+        const conversationId = chatwootData?.conversation_id;
+        if (!conversationId) {
+          console.warn('⚠️ conversation_id não encontrado, pulando transferência');
+        } else {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+              throw new Error('Usuário não autenticado');
+            }
+
+            console.log('📞 Transferindo conversa:', {
+              conversation_id: conversationId,
+              operator_user_id: user.id,
+              lead_id: bitrixId
+            });
+
+            const { data: transferData, error: transferError } = await supabase.functions.invoke('chatwoot-transfer', {
+              body: {
+                conversation_id: conversationId,
+                operator_user_id: user.id,
+                lead_id: bitrixId
+              }
+            });
+
+            if (transferError) {
+              console.error('❌ Erro ao transferir conversa:', transferError);
+              toast.error('Erro ao transferir conversa: ' + transferError.message);
+            } else {
+              console.log('✅ Conversa transferida com sucesso:', transferData);
+              toast.success(`Conversa transferida para você!`);
+            }
+          } catch (error) {
+            console.error('❌ Erro ao transferir conversa:', error);
+            toast.error('Erro ao transferir conversa');
+          }
+        }
       }
 
       const { error: logError } = await supabase.from('actions_log').insert([{

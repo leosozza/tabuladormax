@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileError || !profile?.email) {
-      console.error('Erro ao buscar perfil do operador:', profileError);
+      console.error('❌ Erro ao buscar perfil do operador:', profileError);
       return new Response(
         JSON.stringify({ error: 'Operador não encontrado' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -69,6 +69,7 @@ Deno.serve(async (req) => {
 
     const operatorEmail = profile.email;
     console.log('📧 Email do operador:', operatorEmail);
+    console.log('🔍 Buscando agente no Chatwoot com email:', operatorEmail);
 
     // Get all agents from Chatwoot to find assignee_id by email
     const agentsUrl = `${chatwootBaseUrl}/api/v1/accounts/${chatwootAccountId}/agents`;
@@ -87,10 +88,13 @@ Deno.serve(async (req) => {
     }
 
     const agents = await agentsResponse.json();
+    console.log(`📋 Total de agentes encontrados: ${agents.length}`);
+    
     const targetAgent = agents.find((agent: any) => agent.email === operatorEmail);
 
     if (!targetAgent) {
-      console.error('Agente não encontrado no Chatwoot:', operatorEmail);
+      console.error('❌ Agente não encontrado no Chatwoot:', operatorEmail);
+      console.log('📋 Emails disponíveis:', agents.map((a: any) => a.email).join(', '));
       return new Response(
         JSON.stringify({ error: 'Agente não encontrado no Chatwoot' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -98,10 +102,15 @@ Deno.serve(async (req) => {
     }
 
     const assigneeId = targetAgent.id;
-    console.log('👤 Assignee ID encontrado:', assigneeId);
+    console.log('✅ Agente encontrado:', { id: assigneeId, name: targetAgent.name, email: targetAgent.email });
 
     // Transfer conversation
     const transferUrl = `${chatwootBaseUrl}/api/v1/accounts/${chatwootAccountId}/conversations/${conversation_id}/assignments`;
+    console.log('📤 Request de transferência:', {
+      url: transferUrl,
+      assignee_id: assigneeId
+    });
+    
     const transferResponse = await fetch(transferUrl, {
       method: 'POST',
       headers: {
@@ -115,12 +124,14 @@ Deno.serve(async (req) => {
 
     if (!transferResponse.ok) {
       const errorText = await transferResponse.text();
-      console.error('Erro ao transferir conversa:', errorText);
+      console.error('❌ Erro ao transferir conversa. Status:', transferResponse.status);
+      console.error('❌ Resposta de erro:', errorText);
       throw new Error(`Failed to transfer conversation: ${transferResponse.status}`);
     }
 
     const transferResult = await transferResponse.json();
-    console.log('✅ Conversa transferida com sucesso:', transferResult);
+    console.log('✅ Conversa transferida com sucesso!');
+    console.log('📦 Resposta completa do Chatwoot:', JSON.stringify(transferResult, null, 2));
 
     // Log transfer to actions_log if lead_id is provided
     if (lead_id) {
