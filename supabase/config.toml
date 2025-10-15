@@ -11,3 +11,24 @@ verify_jwt = false
 
 [functions.chatwoot-transfer]
 verify_jwt = false
+
+[functions.create-bitrix-telemarketing]
+verify_jwt = false
+
+[functions.flows-api]
+verify_jwt = true
+
+[functions.flows-executor]
+verify_jwt = true
+
+[functions.reset-user-password]
+verify_jwt = false
+
+[functions.search-bitrix-telemarketing]
+verify_jwt = false
+
+[functions.sync-bitrix-telemarketing]
+verify_jwt = false
+
+[functions.sync-to-bitrix]
+verify_jwt = false
