@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, User as UserIcon, Key, Copy, Check } from "lucide-react";
+import { ArrowLeft, Shield, User as UserIcon, Key, Copy, Check, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import UserMenu from "@/components/UserMenu";
@@ -29,6 +30,10 @@ export default function Users() {
   const [selectedUserEmail, setSelectedUserEmail] = useState("");
   const [generatingPassword, setGeneratingPassword] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
+  const [editNameDialogOpen, setEditNameDialogOpen] = useState(false);
+  const [editingUserId, setEditingUserId] = useState("");
+  const [newDisplayName, setNewDisplayName] = useState("");
+  const [updatingName, setUpdatingName] = useState(false);
 
   useEffect(() => {
     checkUserRole();
@@ -149,6 +154,47 @@ export default function Users() {
     setCopiedPassword(false);
   };
 
+  const openEditNameDialog = (userId: string, currentName: string) => {
+    setEditingUserId(userId);
+    setNewDisplayName(currentName || "");
+    setEditNameDialogOpen(true);
+  };
+
+  const updateUserName = async () => {
+    if (!newDisplayName.trim()) {
+      toast.error('O nome não pode estar vazio');
+      return;
+    }
+
+    setUpdatingName(true);
+    try {
+      // Atualizar tabela profiles
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ display_name: newDisplayName.trim() })
+        .eq('id', editingUserId);
+
+      if (profileError) throw profileError;
+
+      // Atualizar metadata do usuário no auth
+      const { error: authError } = await supabase.auth.admin.updateUserById(
+        editingUserId,
+        { user_metadata: { display_name: newDisplayName.trim() } }
+      );
+
+      if (authError) throw authError;
+
+      toast.success('Nome atualizado com sucesso');
+      setEditNameDialogOpen(false);
+      loadUsers();
+    } catch (error: any) {
+      console.error('Erro ao atualizar nome:', error);
+      toast.error('Erro ao atualizar nome: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setUpdatingName(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b">
@@ -200,6 +246,7 @@ export default function Users() {
                       <th className="p-3 text-left text-sm font-medium">Cadastro</th>
                       <th className="p-3 text-left text-sm font-medium">Alterar Role</th>
                       <th className="p-3 text-left text-sm font-medium">Senha</th>
+                      <th className="p-3 text-left text-sm font-medium">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -254,6 +301,19 @@ export default function Users() {
                             >
                               <Key className="w-4 h-4" />
                               Gerar Senha
+                            </Button>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {isAdmin && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openEditNameDialog(user.id, user.display_name)}
+                              className="gap-2"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              Editar Nome
                             </Button>
                           )}
                         </td>
@@ -332,6 +392,41 @@ export default function Users() {
             <div className="flex justify-end gap-2 mt-4">
               <Button onClick={closePasswordDialog}>
                 Fechar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={editNameDialogOpen} onOpenChange={setEditNameDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Edit2 className="w-5 h-5" />
+                Editar Nome do Usuário
+              </DialogTitle>
+              <DialogDescription>
+                Atualize o nome de exibição do usuário. Esta alteração será refletida em todo o sistema.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Novo Nome</label>
+                <Input
+                  value={newDisplayName}
+                  onChange={(e) => setNewDisplayName(e.target.value)}
+                  placeholder="Digite o novo nome"
+                  className="mt-2"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setEditNameDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={updateUserName} disabled={updatingName}>
+                {updatingName ? 'Salvando...' : 'Salvar'}
               </Button>
             </div>
           </DialogContent>
