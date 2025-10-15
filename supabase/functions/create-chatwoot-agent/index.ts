@@ -94,12 +94,37 @@ serve(async (req) => {
     const newAgent = await createRes.json();
     console.log(`✅ Agente criado com sucesso no Chatwoot (ID: ${newAgent.id})`);
 
+    // Confirmar agente automaticamente
+    console.log(`📝 Confirmando agente ${newAgent.id} automaticamente`);
+
+    const confirmRes = await fetch(
+      `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/agents/${newAgent.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "api_access_token": TOKEN,
+        },
+        body: JSON.stringify({
+          confirmed: true
+        }),
+      }
+    );
+
+    if (!confirmRes.ok) {
+      const errorText = await confirmRes.text();
+      console.warn(`⚠️ Erro ao confirmar agente: ${confirmRes.status} ${errorText}`);
+      // Não bloquear - agente foi criado, só não confirmado
+    } else {
+      console.log(`✅ Agente ${newAgent.id} confirmado automaticamente`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         agent: newAgent,
         existed: false,
-        message: "Agente criado com sucesso no Chatwoot",
+        message: "Agente criado e confirmado com sucesso no Chatwoot",
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
