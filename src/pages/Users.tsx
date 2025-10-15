@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import UserMenu from "@/components/UserMenu";
-
 interface UserWithRole {
   id: string;
   email: string;
@@ -21,7 +20,6 @@ interface UserWithRole {
   telemarketing_name?: string;
   telemarketing_id?: number;
 }
-
 export default function Users() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithRole[]>([]);
@@ -36,42 +34,38 @@ export default function Users() {
   const [editingUserId, setEditingUserId] = useState("");
   const [newDisplayName, setNewDisplayName] = useState("");
   const [updatingName, setUpdatingName] = useState(false);
-
   useEffect(() => {
     checkUserRole();
     loadUsers();
   }, []);
-
   const checkUserRole = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: {
+        session
+      }
+    } = await supabase.auth.getSession();
     if (!session?.user) {
       navigate('/auth');
       return;
     }
-
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', session.user.id)
-      .single();
-
+    const {
+      data
+    } = await supabase.from('user_roles').select('role').eq('user_id', session.user.id).single();
     const userIsAdmin = data?.role === 'admin';
     setIsAdmin(userIsAdmin);
-
     if (!userIsAdmin) {
       toast.error('Acesso negado. Apenas administradores podem acessar esta página.');
       navigate('/dashboard');
     }
   };
-
   const loadUsers = async () => {
     setLoading(true);
-    
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, email, display_name, created_at')
-      .order('created_at', { ascending: false });
-
+    const {
+      data: profiles,
+      error: profilesError
+    } = await supabase.from('profiles').select('id, email, display_name, created_at').order('created_at', {
+      ascending: false
+    });
     if (profilesError) {
       toast.error('Erro ao carregar usuários');
       setLoading(false);
@@ -81,43 +75,36 @@ export default function Users() {
     // Buscar roles e mapeamentos de cada usuário
     const usersWithRoles: UserWithRole[] = [];
     for (const profile of profiles || []) {
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', profile.id)
-        .maybeSingle();
+      const {
+        data: roleData
+      } = await supabase.from('user_roles').select('role').eq('user_id', profile.id).maybeSingle();
 
       // Buscar mapeamento de telemarketing
-      const { data: mappingData } = await supabase
-        .from('agent_telemarketing_mapping')
-        .select('bitrix_telemarketing_name, bitrix_telemarketing_id')
-        .eq('tabuladormax_user_id', profile.id)
-        .maybeSingle();
-
+      const {
+        data: mappingData
+      } = await supabase.from('agent_telemarketing_mapping').select('bitrix_telemarketing_name, bitrix_telemarketing_id').eq('tabuladormax_user_id', profile.id).maybeSingle();
       usersWithRoles.push({
         ...profile,
-        role: (roleData?.role as 'admin' | 'agent') || 'agent',
+        role: roleData?.role as 'admin' | 'agent' || 'agent',
         telemarketing_name: mappingData?.bitrix_telemarketing_name,
         telemarketing_id: mappingData?.bitrix_telemarketing_id
       });
     }
-
     setUsers(usersWithRoles);
     setLoading(false);
   };
-
   const updateUserRole = async (userId: string, newRole: 'admin' | 'agent') => {
     try {
       // UPSERT em vez de DELETE + INSERT para evitar duplicatas
-      const { error } = await supabase
-        .from('user_roles')
-        .upsert(
-          { user_id: userId, role: newRole },
-          { onConflict: 'user_id' }
-        );
-
+      const {
+        error
+      } = await supabase.from('user_roles').upsert({
+        user_id: userId,
+        role: newRole
+      }, {
+        onConflict: 'user_id'
+      });
       if (error) throw error;
-
       toast.success('Role atualizada com sucesso');
       loadUsers();
     } catch (error) {
@@ -125,16 +112,18 @@ export default function Users() {
       toast.error('Erro ao atualizar role do usuário');
     }
   };
-
   const generateTempPassword = async (userId: string, userEmail: string) => {
     setGeneratingPassword(true);
     try {
-      const { data, error } = await supabase.functions.invoke('reset-user-password', {
-        body: { userId }
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('reset-user-password', {
+        body: {
+          userId
+        }
       });
-
       if (error) throw error;
-
       if (data.success) {
         setTempPassword(data.tempPassword);
         setSelectedUserEmail(userEmail);
@@ -150,51 +139,47 @@ export default function Users() {
       setGeneratingPassword(false);
     }
   };
-
   const copyPasswordToClipboard = () => {
     navigator.clipboard.writeText(tempPassword);
     setCopiedPassword(true);
     toast.success('Senha copiada para área de transferência');
     setTimeout(() => setCopiedPassword(false), 2000);
   };
-
   const closePasswordDialog = () => {
     setPasswordDialogOpen(false);
     setTempPassword("");
     setSelectedUserEmail("");
     setCopiedPassword(false);
   };
-
   const openEditNameDialog = (userId: string, currentName: string) => {
     setEditingUserId(userId);
     setNewDisplayName(currentName || "");
     setEditNameDialogOpen(true);
   };
-
   const updateUserName = async () => {
     if (!newDisplayName.trim()) {
       toast.error('O nome não pode estar vazio');
       return;
     }
-
     setUpdatingName(true);
     try {
       // Atualizar tabela profiles
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ display_name: newDisplayName.trim() })
-        .eq('id', editingUserId);
-
+      const {
+        error: profileError
+      } = await supabase.from('profiles').update({
+        display_name: newDisplayName.trim()
+      }).eq('id', editingUserId);
       if (profileError) throw profileError;
 
       // Atualizar metadata do usuário no auth
-      const { error: authError } = await supabase.auth.admin.updateUserById(
-        editingUserId,
-        { user_metadata: { display_name: newDisplayName.trim() } }
-      );
-
+      const {
+        error: authError
+      } = await supabase.auth.admin.updateUserById(editingUserId, {
+        user_metadata: {
+          display_name: newDisplayName.trim()
+        }
+      });
       if (authError) throw authError;
-
       toast.success('Nome atualizado com sucesso');
       setEditNameDialogOpen(false);
       loadUsers();
@@ -205,18 +190,12 @@ export default function Users() {
       setUpdatingName(false);
     }
   };
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <header className="bg-card border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => navigate('/dashboard')}
-              >
+              <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
@@ -242,17 +221,12 @@ export default function Users() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Carregando usuários...</p>
-            ) : users.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum usuário encontrado</p>
-            ) : (
-              <div className="rounded-md border">
+            {loading ? <p className="text-sm text-muted-foreground">Carregando usuários...</p> : users.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum usuário encontrado</p> : <div className="rounded-md border">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-muted/50">
                       <th className="p-3 text-left text-sm font-medium">Email</th>
-                      <th className="p-3 text-left text-sm font-medium">Nome (duplo clique para editar)</th>
+                      <th className="p-3 text-left text-sm font-medium">Nome </th>
                       <th className="p-3 text-left text-sm font-medium">Telemarketing</th>
                       <th className="p-3 text-left text-sm font-medium">Role</th>
                       <th className="p-3 text-left text-sm font-medium">Cadastro</th>
@@ -261,47 +235,30 @@ export default function Users() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map(user => (
-                      <tr key={user.id} className="border-b last:border-0">
+                    {users.map(user => <tr key={user.id} className="border-b last:border-0">
                         <td className="p-3 text-sm">{user.email}</td>
-                        <td 
-                          className="p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors"
-                          onDoubleClick={() => isAdmin && openEditNameDialog(user.id, user.display_name)}
-                          title={isAdmin ? "Duplo clique para editar" : ""}
-                        >
+                        <td className="p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors" onDoubleClick={() => isAdmin && openEditNameDialog(user.id, user.display_name)} title={isAdmin ? "Duplo clique para editar" : ""}>
                           {user.display_name || <span className="text-muted-foreground italic">Sem nome</span>}
                         </td>
                         <td className="p-3 text-sm">
-                          {user.telemarketing_name ? (
-                            <span className="text-foreground">{user.telemarketing_name}</span>
-                          ) : (
-                            <span className="text-muted-foreground italic">Não vinculado</span>
-                          )}
+                          {user.telemarketing_name ? <span className="text-foreground">{user.telemarketing_name}</span> : <span className="text-muted-foreground italic">Não vinculado</span>}
                         </td>
                         <td className="p-3">
                           <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                            {user.role === 'admin' ? (
-                              <span className="flex items-center gap-1">
+                            {user.role === 'admin' ? <span className="flex items-center gap-1">
                                 <Shield className="w-3 h-3" />
                                 Admin
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1">
+                              </span> : <span className="flex items-center gap-1">
                                 <UserIcon className="w-3 h-3" />
                                 Agente
-                              </span>
-                            )}
+                              </span>}
                           </Badge>
                         </td>
                         <td className="p-3 text-sm text-muted-foreground">
                           {new Date(user.created_at).toLocaleDateString('pt-BR')}
                         </td>
                         <td className="p-3">
-                          {isAdmin && (
-                            <Select 
-                              value={user.role} 
-                              onValueChange={(val) => updateUserRole(user.id, val as 'admin' | 'agent')}
-                            >
+                          {isAdmin && <Select value={user.role} onValueChange={val => updateUserRole(user.id, val as 'admin' | 'agent')}>
                               <SelectTrigger className="w-32">
                                 <SelectValue />
                               </SelectTrigger>
@@ -309,29 +266,18 @@ export default function Users() {
                                 <SelectItem value="admin">Admin</SelectItem>
                                 <SelectItem value="agent">Agente</SelectItem>
                               </SelectContent>
-                            </Select>
-                          )}
+                            </Select>}
                         </td>
                         <td className="p-3">
-                          {isAdmin && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => generateTempPassword(user.id, user.email)}
-                              disabled={generatingPassword}
-                              className="gap-2"
-                            >
+                          {isAdmin && <Button size="sm" variant="outline" onClick={() => generateTempPassword(user.id, user.email)} disabled={generatingPassword} className="gap-2">
                               <Key className="w-4 h-4" />
                               Gerar Senha
-                            </Button>
-                          )}
+                            </Button>}
                         </td>
-                      </tr>
-                    ))}
+                      </tr>)}
                   </tbody>
                 </table>
-              </div>
-            )}
+              </div>}
           </CardContent>
         </Card>
 
@@ -356,23 +302,14 @@ export default function Users() {
                       <code className="flex-1 px-3 py-2 bg-muted rounded-md text-lg font-mono select-all">
                         {tempPassword}
                       </code>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={copyPasswordToClipboard}
-                        className="gap-2"
-                      >
-                        {copiedPassword ? (
-                          <>
+                      <Button size="sm" variant="outline" onClick={copyPasswordToClipboard} className="gap-2">
+                        {copiedPassword ? <>
                             <Check className="w-4 h-4" />
                             Copiado
-                          </>
-                        ) : (
-                          <>
+                          </> : <>
                             <Copy className="w-4 h-4" />
                             Copiar
-                          </>
-                        )}
+                          </>}
                       </Button>
                     </div>
                   </div>
@@ -421,12 +358,7 @@ export default function Users() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium">Novo Nome</label>
-                <Input
-                  value={newDisplayName}
-                  onChange={(e) => setNewDisplayName(e.target.value)}
-                  placeholder="Digite o novo nome"
-                  className="mt-2"
-                />
+                <Input value={newDisplayName} onChange={e => setNewDisplayName(e.target.value)} placeholder="Digite o novo nome" className="mt-2" />
               </div>
             </div>
 
@@ -441,6 +373,5 @@ export default function Users() {
           </DialogContent>
         </Dialog>
       </main>
-    </div>
-  );
+    </div>;
 }
