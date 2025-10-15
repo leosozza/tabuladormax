@@ -720,12 +720,12 @@ export default function Users() {
 
                   <div>
                     <Label htmlFor="supervisor">Supervisor</Label>
-                    <Select value={newUserSupervisor} onValueChange={setNewUserSupervisor} disabled={!newUserDepartment}>
+                    <Select value={newUserSupervisor || "none"} onValueChange={(val) => setNewUserSupervisor(val === "none" ? "" : val)} disabled={!newUserDepartment}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o supervisor (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Nenhum</SelectItem>
+                        <SelectItem value="none">Nenhum</SelectItem>
                         {supervisors.map(s => (
                           <SelectItem key={s.id} value={s.id}>{s.display_name}</SelectItem>
                         ))}
