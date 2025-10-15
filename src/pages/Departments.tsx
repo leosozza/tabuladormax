@@ -368,15 +368,15 @@ export default function Departments() {
               <div>
                 <Label htmlFor="parent">Departamento Pai (opcional)</Label>
                 <Select
-                  value={formData.parent_id}
-                  onValueChange={(value) => setFormData({ ...formData, parent_id: value })}
+                  value={formData.parent_id || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, parent_id: value === "none" ? "" : value })}
                   disabled={!!editingDept}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Nenhum (departamento raiz)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="none">Nenhum</SelectItem>
                     {departments.map((dept) => (
                       <SelectItem key={dept.id} value={dept.id}>
                         {dept.name}
