@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RefreshCw, Plus, Search } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Search, Plus, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface TelemarketingOption {
   id: number;
@@ -20,20 +20,51 @@ interface TelemarketingSelectorProps {
 }
 
 export function TelemarketingSelector({ value, onChange, placeholder = "Selecione o telemarketing" }: TelemarketingSelectorProps) {
-  const [options, setOptions] = useState<TelemarketingOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
-  const [newTelemarketingName, setNewTelemarketingName] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchResults, setSearchResults] = useState<TelemarketingOption[]>([]);
-  const [creating, setCreating] = useState(false);
-  const [searching, setSearching] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<TelemarketingOption | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingName, setPendingName] = useState("");
+  const [options, setOptions] = useState<TelemarketingOption[]>([]);
 
-  // Carregar lista do cache
+  // Carregar cache inicial
+  useEffect(() => {
+    loadFromCache();
+  }, []);
+
+  // Atualizar selectedOption quando value mudar
+  useEffect(() => {
+    if (value) {
+      const option = options.find(o => o.id === value);
+      if (option) {
+        setSelectedOption(option);
+      }
+    }
+  }, [value, options]);
+
+  // Debounce para busca automática
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchValue.length >= 3) {
+        setDebouncedSearch(searchValue);
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchValue]);
+
+  // Buscar quando debounce atualizar
+  useEffect(() => {
+    if (debouncedSearch.length >= 3) {
+      performSearch(debouncedSearch);
+    }
+  }, [debouncedSearch]);
+
   const loadFromCache = async () => {
-    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('config_kv')
@@ -41,346 +72,240 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
         .eq('key', 'bitrix_telemarketing_list')
         .maybeSingle();
 
-      if (error) {
-        console.error('Erro ao carregar cache:', error);
-        toast.error('Erro ao carregar lista de telemarketing');
-        return;
-      }
-
-      if (data?.value) {
+      if (!error && data?.value) {
         setOptions(data.value as unknown as TelemarketingOption[]);
-      } else {
-        // Se não houver cache, sincronizar
-        await syncFromBitrix();
       }
     } catch (error) {
-      console.error('Erro ao carregar lista de telemarketing:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar lista de telemarketing';
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
+      console.error('Erro ao carregar cache:', error);
     }
   };
 
-  // Sincronizar do Bitrix24
-  const syncFromBitrix = async () => {
-    setRefreshing(true);
+  const performSearch = async (term: string) => {
+    setIsSearching(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-bitrix-telemarketing');
+      const { data, error } = await supabase.functions.invoke('search-bitrix-telemarketing', {
+        body: { searchTerm: term }
+      });
 
-      if (error) {
-        console.error('Erro ao sincronizar telemarketing:', error);
-        toast.error(error.message || 'Erro ao sincronizar do Bitrix24');
-        return;
-      }
-
-      if (data?.error) {
-        console.error('Erro do servidor ao sincronizar:', data.error);
-        toast.error(data.error);
-        return;
-      }
-
-      if (data?.items) {
-        setOptions(data.items);
-        toast.success(`${data.count} operadores sincronizados`);
+      if (!error && data?.results) {
+        setSearchResults(data.results);
       } else {
-        toast.error('Resposta inválida do servidor');
+        setSearchResults([]);
       }
     } catch (error) {
-      console.error('Erro ao sincronizar telemarketing:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao sincronizar do Bitrix24';
-      toast.error(errorMessage);
+      console.error('Erro na busca:', error);
+      setSearchResults([]);
     } finally {
-      setRefreshing(false);
+      setIsSearching(false);
     }
   };
 
-  // Criar novo telemarketing
-  const handleCreateNew = async () => {
-    if (!newTelemarketingName.trim()) {
-      toast.error("Por favor, digite o nome do operador de telemarketing");
-      return;
+  const handleSelectOption = (option: TelemarketingOption) => {
+    // Adicionar à lista local se não existir
+    const exists = options.find(o => o.id === option.id);
+    if (!exists) {
+      setOptions(prev => [...prev, option]);
     }
 
-    setCreating(true);
+    // Selecionar
+    setSelectedOption(option);
+    onChange(option.id);
+    setOpen(false);
+    
+    toast.success(`✅ "${option.title}" selecionado!`);
+  };
+
+  const handleCreateNewClick = () => {
+    setPendingName(searchValue.trim());
+    setConfirmDialogOpen(true);
+  };
+
+  const confirmCreate = async () => {
+    if (!pendingName.trim()) return;
+
+    setIsSearching(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-bitrix-telemarketing', {
-        body: { title: newTelemarketingName.trim() }
+        body: { title: pendingName.trim() }
       });
 
       if (error) {
-        console.error('Erro ao criar telemarketing:', error);
-        toast.error(error.message || 'Erro ao criar operador de telemarketing');
+        toast.error(error.message || 'Erro ao criar operador');
         return;
       }
 
       if (data?.error) {
-        console.error('Erro do servidor ao criar telemarketing:', data.error);
         toast.error(data.error);
         return;
       }
 
       if (data?.item) {
-        // Adicionar à lista local
         const newOption = { id: data.item.id, title: data.item.title };
+        
+        // Adicionar à lista local
         setOptions(prev => [...prev, newOption]);
         
         // Selecionar automaticamente
+        setSelectedOption(newOption);
         onChange(data.item.id);
         
-        toast.success(`Operador "${data.item.title}" criado com sucesso!`);
+        // Fechar popover e dialog
+        setOpen(false);
+        setConfirmDialogOpen(false);
         
-        // Fechar dialog e limpar campo
-        setCreateDialogOpen(false);
-        setNewTelemarketingName("");
+        // Limpar busca
+        setSearchValue("");
+        setSearchResults([]);
+        
+        toast.success(`✅ Operador "${data.item.title}" criado e vinculado!`);
       } else {
         toast.error('Resposta inválida do servidor');
       }
     } catch (error) {
-      console.error('Erro ao criar telemarketing:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao criar operador de telemarketing';
-      toast.error(errorMessage);
+      console.error('Erro ao criar:', error);
+      toast.error('Erro ao criar operador');
     } finally {
-      setCreating(false);
+      setIsSearching(false);
     }
   };
-
-  // Buscar telemarketing no Bitrix24
-  const handleSearch = async () => {
-    if (!searchTerm.trim()) {
-      toast.error("Por favor, digite um nome para buscar");
-      return;
-    }
-
-    setSearching(true);
-    setSearchResults([]);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('search-bitrix-telemarketing', {
-        body: { searchTerm: searchTerm.trim() }
-      });
-
-      if (error) {
-        console.error('Erro ao buscar telemarketing:', error);
-        toast.error(error.message || 'Erro ao buscar no Bitrix24');
-        return;
-      }
-
-      if (data?.error) {
-        console.error('Erro do servidor ao buscar:', data.error);
-        toast.error(data.error);
-        return;
-      }
-
-      if (data?.results) {
-        setSearchResults(data.results);
-        
-        if (data.results.length === 0) {
-          toast.info('Nenhum operador encontrado com esse nome');
-        } else {
-          toast.success(`${data.count} operador(es) encontrado(s)`);
-        }
-      } else {
-        toast.error('Resposta inválida do servidor');
-      }
-    } catch (error) {
-      console.error('Erro ao buscar telemarketing:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao buscar no Bitrix24';
-      toast.error(errorMessage);
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  // Selecionar um resultado da busca
-  const handleSelectSearchResult = (option: TelemarketingOption) => {
-    // Adicionar à lista local se não estiver lá
-    const exists = options.find(o => o.id === option.id);
-    if (!exists) {
-      setOptions(prev => [...prev, option]);
-    }
-    
-    // Selecionar
-    onChange(option.id);
-    
-    toast.success(`Operador "${option.title}" selecionado`);
-    
-    // Fechar dialog e limpar
-    setSearchDialogOpen(false);
-    setSearchTerm("");
-    setSearchResults([]);
-  };
-
-  useEffect(() => {
-    loadFromCache();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <>
-      <div className="flex gap-2">
-        <Select value={value?.toString()} onValueChange={(v) => onChange(parseInt(v))}>
-          <SelectTrigger className="flex-1">
-            <SelectValue placeholder={placeholder} />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((option) => (
-              <SelectItem key={option.id} value={option.id.toString()}>
-                {option.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={() => setSearchDialogOpen(true)}
-          title="Buscar operador no Bitrix24"
-        >
-          <Search className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={() => setCreateDialogOpen(true)}
-          title="Criar novo operador"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={syncFromBitrix}
-          disabled={refreshing}
-          title="Sincronizar lista"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-        </Button>
-      </div>
-
-      {/* Search Dialog */}
-      <Dialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Buscar Operador no Bitrix24</DialogTitle>
-            <DialogDescription>
-              Digite o nome completo do operador. Se não encontrar, buscará por operadores cujo nome comece com as 3 primeiras letras.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex gap-2">
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="search-term">Nome do Operador</Label>
-                <Input
-                  id="search-term"
-                  placeholder="Ex: João Silva"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !searching) {
-                      handleSearch();
-                    }
-                  }}
-                  disabled={searching}
-                />
-              </div>
-              <div className="flex items-end">
-                <Button
-                  type="button"
-                  onClick={handleSearch}
-                  disabled={searching || !searchTerm.trim()}
-                >
-                  {searching ? "Buscando..." : "Buscar"}
-                </Button>
-              </div>
-            </div>
-            
-            {searchResults.length > 0 && (
-              <div className="space-y-2">
-                <Label>Resultados ({searchResults.length})</Label>
-                <div className="border rounded-md max-h-60 overflow-y-auto">
-                  {searchResults.map((result) => (
-                    <div
-                      key={result.id}
-                      className="flex items-center justify-between p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
-                      onClick={() => handleSelectSearchResult(result)}
-                    >
-                      <span className="font-medium">{result.title}</span>
-                      <span className="text-sm text-muted-foreground">ID: {result.id}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between"
+          >
+            {selectedOption ? (
+              <span className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-green-600" />
+                {selectedOption.title}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">{placeholder}</span>
             )}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setSearchDialogOpen(false);
-                setSearchTerm("");
-                setSearchResults([]);
-              }}
-              disabled={searching}
-            >
-              Fechar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        
+        <PopoverContent className="w-full p-0" align="start">
+          <Command shouldFilter={false}>
+            <CommandInput 
+              placeholder="Digite o nome (mín. 3 letras)..." 
+              value={searchValue}
+              onValueChange={setSearchValue}
+            />
+            
+            <CommandList>
+              {isSearching && (
+                <div className="py-6 text-center text-sm flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Buscando no Bitrix24...
+                </div>
+              )}
+              
+              {!isSearching && searchValue.length > 0 && searchValue.length < 3 && (
+                <CommandEmpty>
+                  Digite pelo menos 3 letras para buscar
+                </CommandEmpty>
+              )}
+              
+              {!isSearching && searchValue.length >= 3 && searchResults.length === 0 && (
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={handleCreateNewClick}
+                    className="cursor-pointer"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span>✨ Criar novo: <strong>{searchValue}</strong></span>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+              
+              {!isSearching && searchResults.length > 0 && (
+                <CommandGroup heading={`${searchResults.length} resultado(s) encontrado(s)`}>
+                  {searchResults.map((result) => (
+                    <CommandItem
+                      key={result.id}
+                      value={result.id.toString()}
+                      onSelect={() => handleSelectOption(result)}
+                      className="cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className={cn(
+                          selectedOption?.id === result.id && "font-semibold"
+                        )}>
+                          {selectedOption?.id === result.id && (
+                            <Check className="inline mr-2 h-4 w-4 text-green-600" />
+                          )}
+                          {result.title}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          ID: {result.id}
+                        </span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
 
-      {/* Create Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Criar Novo Operador de Telemarketing</DialogTitle>
-            <DialogDescription>
-              Digite o nome do operador de telemarketing que será criado no Bitrix24.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="telemarketing-name">Nome do Operador *</Label>
-              <Input
-                id="telemarketing-name"
-                placeholder="Ex: João Silva"
-                value={newTelemarketingName}
-                onChange={(e) => setNewTelemarketingName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !creating) {
-                    handleCreateNew();
-                  }
-                }}
-                disabled={creating}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setCreateDialogOpen(false);
-                setNewTelemarketingName("");
-              }}
-              disabled={creating}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={handleCreateNew}
-              disabled={creating || !newTelemarketingName.trim()}
-            >
-              {creating ? "Criando..." : "Criar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              {/* Mostrar opções do cache quando não há busca */}
+              {!isSearching && searchValue.length === 0 && options.length > 0 && (
+                <CommandGroup heading="Operadores em cache">
+                  {options.slice(0, 10).map((option) => (
+                    <CommandItem
+                      key={option.id}
+                      value={option.id.toString()}
+                      onSelect={() => handleSelectOption(option)}
+                      className="cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className={cn(
+                          selectedOption?.id === option.id && "font-semibold"
+                        )}>
+                          {selectedOption?.id === option.id && (
+                            <Check className="inline mr-2 h-4 w-4 text-green-600" />
+                          )}
+                          {option.title}
+                        </span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Criar novo operador?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Será criado o operador "<strong>{pendingName}</strong>" no Bitrix24 e vinculado automaticamente à sua conta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSearching}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCreate} disabled={isSearching}>
+              {isSearching ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                "Criar e Vincular"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
