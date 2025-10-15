@@ -1389,9 +1389,30 @@ const LeadTab = () => {
       if (button.transfer_conversation || subButton?.transfer_conversation) {
         console.log('🔄 Iniciando transferência de conversa...');
         
-        const conversationId = chatwootData?.conversation_id;
-        if (!conversationId) {
-          console.warn('⚠️ conversation_id não encontrado, pulando transferência');
+        let conversationId = chatwootData?.conversation_id;
+        
+        // Se não tiver conversation_id, buscar do banco
+        if (!conversationId || conversationId === 0) {
+          console.log('🔍 Buscando conversation_id do banco de dados...');
+          const { data: savedContact, error: fetchError } = await supabase
+            .from('chatwoot_contacts')
+            .select('conversation_id')
+            .eq('bitrix_id', String(bitrixId))
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (fetchError) {
+            console.error('❌ Erro ao buscar conversation_id:', fetchError);
+          } else if (savedContact?.conversation_id) {
+            conversationId = savedContact.conversation_id;
+            console.log('✅ conversation_id recuperado do banco:', conversationId);
+          }
+        }
+        
+        if (!conversationId || conversationId === 0) {
+          console.warn('⚠️ Nenhuma conversa ativa encontrada para este lead');
+          toast.warning('Nenhuma conversa ativa encontrada. A transferência requer uma conversa aberta no Chatwoot.');
         } else {
           try {
             const { data: { user } } = await supabase.auth.getUser();
