@@ -171,15 +171,6 @@ export default function Users() {
       }).eq('id', editingUserId);
       if (profileError) throw profileError;
 
-      // Atualizar metadata do usuário no auth
-      const {
-        error: authError
-      } = await supabase.auth.admin.updateUserById(editingUserId, {
-        user_metadata: {
-          display_name: newDisplayName.trim()
-        }
-      });
-      if (authError) throw authError;
       toast.success('Nome atualizado com sucesso');
       setEditNameDialogOpen(false);
       loadUsers();
