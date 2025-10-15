@@ -105,20 +105,48 @@ Deno.serve(async (req) => {
       console.log('✅ Novo usuário criado:', userId);
     }
 
-    // 2. Mapear role
-    const appRole = role === 'administrator' ? 'admin' : 'agent';
+    // 2. Mapear role do Chatwoot
+    const chatwootRole = role === 'administrator' ? 'admin' : 'agent';
 
-    // 3. Upsert de role (agora com constraint correta em user_id apenas)
-    const { error: roleErr } = await supabaseAdmin
+    // 3. Verificar role existente no Supabase
+    const { data: existingRole } = await supabaseAdmin
       .from('user_roles')
-      .upsert({ user_id: userId, role: appRole }, { onConflict: 'user_id' });
+      .select('role')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-    if (roleErr) {
-      // Duplicates should be handled by ignoreDuplicates, so any error here is unexpected
-      console.error('Erro inesperado ao garantir role:', roleErr);
-      throw roleErr;
+    // 4. Apenas fazer upsert se:
+    //    - Usuário não tem role (novo usuário)
+    //    - OU role do Chatwoot é 'admin' (upgrade permitido)
+    //    - OU role atual não é 'admin' (não downgrade de admin)
+    const shouldUpdateRole = !existingRole || 
+                             chatwootRole === 'admin' || 
+                             existingRole.role !== 'admin';
+
+    let finalRole = chatwootRole;
+
+    if (existingRole && existingRole.role === 'admin' && chatwootRole === 'agent') {
+      // Preservar admin se Chatwoot tentar fazer downgrade
+      finalRole = 'admin';
+      console.log('⚠️ Preservando role admin - Chatwoot tentou fazer downgrade');
     }
-    console.log('✅ Role garantida:', appRole);
+
+    if (shouldUpdateRole) {
+      const { error: roleErr } = await supabaseAdmin
+        .from('user_roles')
+        .upsert(
+          { user_id: userId, role: finalRole },
+          { onConflict: 'user_id' }
+        );
+
+      if (roleErr) {
+        console.error('Erro ao garantir role:', roleErr);
+        throw roleErr;
+      }
+      console.log(`✅ Role garantida: ${finalRole}`);
+    } else {
+      console.log(`ℹ️ Role existente mantida: ${existingRole.role}`);
+    }
 
     // 4. Gerar magic link
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
@@ -178,7 +206,7 @@ Deno.serve(async (req) => {
       user: {
         id: session.user.id,
         email: session.user.email,
-        role: appRole,
+        role: finalRole,
         metadata: session.user.user_metadata
       }
     });
