@@ -214,6 +214,45 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
                 </CommandEmpty>
               )}
               
+              {!isSearching && searchResults.length > 0 && (
+                <>
+                  <CommandGroup heading={`${searchResults.length} resultado(s) encontrado(s)`}>
+                    {searchResults.map((result) => (
+                      <CommandItem
+                        key={result.id}
+                        value={result.id.toString()}
+                        onSelect={() => handleSelectOption(result)}
+                        className="cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className={cn(
+                            selectedOption?.id === result.id && "font-semibold"
+                          )}>
+                            {selectedOption?.id === result.id && (
+                              <Check className="inline mr-2 h-4 w-4 text-green-600" />
+                            )}
+                            {result.title}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            ID: {result.id}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                  
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={handleCreateNewClick}
+                      className="cursor-pointer border-t"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      <span>✨ Criar novo: <strong>{searchValue}</strong></span>
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              )}
+              
               {!isSearching && searchValue.length >= 3 && searchResults.length === 0 && (
                 <CommandGroup>
                   <CommandItem
@@ -223,33 +262,6 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
                     <Plus className="mr-2 h-4 w-4" />
                     <span>✨ Criar novo: <strong>{searchValue}</strong></span>
                   </CommandItem>
-                </CommandGroup>
-              )}
-              
-              {!isSearching && searchResults.length > 0 && (
-                <CommandGroup heading={`${searchResults.length} resultado(s) encontrado(s)`}>
-                  {searchResults.map((result) => (
-                    <CommandItem
-                      key={result.id}
-                      value={result.id.toString()}
-                      onSelect={() => handleSelectOption(result)}
-                      className="cursor-pointer"
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span className={cn(
-                          selectedOption?.id === result.id && "font-semibold"
-                        )}>
-                          {selectedOption?.id === result.id && (
-                            <Check className="inline mr-2 h-4 w-4 text-green-600" />
-                          )}
-                          {result.title}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          ID: {result.id}
-                        </span>
-                      </div>
-                    </CommandItem>
-                  ))}
                 </CommandGroup>
               )}
 
