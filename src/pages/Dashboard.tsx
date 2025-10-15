@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, MapPin, Phone, RefreshCcw, Loader2, Filter } from "lucide-react";
+import { User, MapPin, Phone, RefreshCcw, Loader2, Filter, Settings2, Eye, EyeOff } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BitrixError, BitrixLead, listLeads } from "@/lib/bitrix";
@@ -53,6 +56,16 @@ const Index = () => {
   const [selectedStatusLabel, setSelectedStatusLabel] = useState<string>('');
   const [selectedStatusLeads, setSelectedStatusLeads] = useState<LeadWithDetails[]>([]);
   const [loadingStatusLeads, setLoadingStatusLeads] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState({
+    id: true,
+    name: true,
+    photo: true,
+    age: true,
+    address: true,
+    scouter: true,
+    responsible: true,
+    updated_at: true,
+  });
 
   useEffect(() => {
     checkUserRole();
@@ -537,7 +550,96 @@ const Index = () => {
             <h2 className="text-2xl font-bold text-foreground">
               Leads para Tabular
             </h2>
-            {loading && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
+            <div className="flex items-center gap-2">
+              {loading && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Settings2 className="w-4 h-4" />
+                    Colunas
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 bg-background" align="end">
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm">Colunas Visíveis</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={visibleColumns.id}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, id: checked as boolean })
+                          }
+                        />
+                        <span className="text-sm">ID</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={visibleColumns.photo}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, photo: checked as boolean })
+                          }
+                        />
+                        <span className="text-sm">Foto</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={visibleColumns.name}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, name: checked as boolean })
+                          }
+                        />
+                        <span className="text-sm">Nome</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={visibleColumns.age}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, age: checked as boolean })
+                          }
+                        />
+                        <span className="text-sm">Idade</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={visibleColumns.scouter}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, scouter: checked as boolean })
+                          }
+                        />
+                        <span className="text-sm">Olheiro</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={visibleColumns.address}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, address: checked as boolean })
+                          }
+                        />
+                        <span className="text-sm">Endereço</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={visibleColumns.responsible}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, responsible: checked as boolean })
+                          }
+                        />
+                        <span className="text-sm">Operador</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={visibleColumns.updated_at}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, updated_at: checked as boolean })
+                          }
+                        />
+                        <span className="text-sm">Atualizado</span>
+                      </label>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
           {loading ? (
             <Card className="p-6 text-sm text-muted-foreground">Carregando leads...</Card>
@@ -546,49 +648,82 @@ const Index = () => {
               Nenhum lead encontrado no cache. Clique em "Sincronizar com Bitrix" para importar.
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {leads.map((lead) => (
-                <Card
-                  key={lead.id}
-                  className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => navigate('/lead')}
-                >
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                      {lead.photo_url ? (
-                        <img src={lead.photo_url} alt={lead.name ?? ''} className="w-full h-full object-cover" />
-                      ) : (
-                        <User className="w-8 h-8 text-muted-foreground" />
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {visibleColumns.id && <TableHead className="w-24">ID</TableHead>}
+                    {visibleColumns.photo && <TableHead className="w-16">Foto</TableHead>}
+                    {visibleColumns.name && <TableHead>Nome</TableHead>}
+                    {visibleColumns.age && <TableHead className="w-20">Idade</TableHead>}
+                    {visibleColumns.scouter && <TableHead>Olheiro</TableHead>}
+                    {visibleColumns.address && <TableHead>Endereço</TableHead>}
+                    {visibleColumns.responsible && <TableHead>Operador</TableHead>}
+                    {visibleColumns.updated_at && <TableHead className="w-40">Atualizado</TableHead>}
+                    <TableHead className="w-32">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {leads.map((lead) => (
+                    <TableRow
+                      key={lead.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                    >
+                      {visibleColumns.id && (
+                        <TableCell className="font-mono text-sm">{lead.id}</TableCell>
                       )}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg text-foreground">
-                        {lead.name || 'Lead sem nome'}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {lead.age ? `${lead.age} anos` : 'Idade não informada'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                      <span>{lead.address || 'Endereço não informado'}</span>
-                    </div>
-                    {lead.updated_at && (
-                      <p className="text-xs text-muted-foreground">
-                        Atualizado em: {new Date(lead.updated_at).toLocaleString('pt-BR')}
-                      </p>
-                    )}
-                  </div>
-
-                  <Button className="w-full" variant="default">
-                    Abrir Tabulação
-                  </Button>
-                </Card>
-              ))}
-            </div>
+                      {visibleColumns.photo && (
+                        <TableCell>
+                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+                            {lead.photo_url ? (
+                              <img src={lead.photo_url} alt={lead.name ?? ''} className="w-full h-full object-cover" />
+                            ) : (
+                              <User className="w-5 h-5 text-muted-foreground" />
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
+                      {visibleColumns.name && (
+                        <TableCell className="font-medium">
+                          {lead.name || 'Lead sem nome'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.age && (
+                        <TableCell>
+                          {lead.age ? `${lead.age}` : '-'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.scouter && (
+                        <TableCell>{lead.scouter || '-'}</TableCell>
+                      )}
+                      {visibleColumns.address && (
+                        <TableCell className="max-w-xs truncate">
+                          {lead.address || '-'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.responsible && (
+                        <TableCell>{lead.responsible || '-'}</TableCell>
+                      )}
+                      {visibleColumns.updated_at && (
+                        <TableCell className="text-sm text-muted-foreground">
+                          {lead.updated_at 
+                            ? new Date(lead.updated_at).toLocaleDateString('pt-BR')
+                            : '-'}
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <Button 
+                          size="sm" 
+                          onClick={() => navigate('/lead')}
+                        >
+                          Abrir
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
           )}
         </div>
       </main>
