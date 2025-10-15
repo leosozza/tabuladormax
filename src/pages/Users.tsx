@@ -18,6 +18,8 @@ interface UserWithRole {
   display_name: string;
   created_at: string;
   role: 'admin' | 'agent';
+  telemarketing_name?: string;
+  telemarketing_id?: number;
 }
 
 export default function Users() {
@@ -76,7 +78,7 @@ export default function Users() {
       return;
     }
 
-    // Buscar roles de cada usuário
+    // Buscar roles e mapeamentos de cada usuário
     const usersWithRoles: UserWithRole[] = [];
     for (const profile of profiles || []) {
       const { data: roleData } = await supabase
@@ -85,9 +87,18 @@ export default function Users() {
         .eq('user_id', profile.id)
         .maybeSingle();
 
+      // Buscar mapeamento de telemarketing
+      const { data: mappingData } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('bitrix_telemarketing_name, bitrix_telemarketing_id')
+        .eq('tabuladormax_user_id', profile.id)
+        .maybeSingle();
+
       usersWithRoles.push({
         ...profile,
-        role: (roleData?.role as 'admin' | 'agent') || 'agent'
+        role: (roleData?.role as 'admin' | 'agent') || 'agent',
+        telemarketing_name: mappingData?.bitrix_telemarketing_name,
+        telemarketing_id: mappingData?.bitrix_telemarketing_id
       });
     }
 
@@ -242,6 +253,7 @@ export default function Users() {
                     <tr className="border-b bg-muted/50">
                       <th className="p-3 text-left text-sm font-medium">Email</th>
                       <th className="p-3 text-left text-sm font-medium">Nome (duplo clique para editar)</th>
+                      <th className="p-3 text-left text-sm font-medium">Telemarketing</th>
                       <th className="p-3 text-left text-sm font-medium">Role</th>
                       <th className="p-3 text-left text-sm font-medium">Cadastro</th>
                       <th className="p-3 text-left text-sm font-medium">Alterar Role</th>
@@ -258,6 +270,13 @@ export default function Users() {
                           title={isAdmin ? "Duplo clique para editar" : ""}
                         >
                           {user.display_name || <span className="text-muted-foreground italic">Sem nome</span>}
+                        </td>
+                        <td className="p-3 text-sm">
+                          {user.telemarketing_name ? (
+                            <span className="text-foreground">{user.telemarketing_name}</span>
+                          ) : (
+                            <span className="text-muted-foreground italic">Não vinculado</span>
+                          )}
                         </td>
                         <td className="p-3">
                           <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
