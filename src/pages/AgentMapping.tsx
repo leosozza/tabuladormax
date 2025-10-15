@@ -12,14 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Pencil, Trash2, Search, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 
-interface ResponsibleMapping {
-  id: string;
-  bitrix_name: string;
-  user_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 interface AgentMapping {
   id: string;
   chatwoot_agent_email: string | null;
@@ -43,12 +35,6 @@ export default function AgentMapping() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedMapping, setSelectedMapping] = useState<AgentMapping | null>(null);
-  
-  // FASE 1: Estados para mapeamento de responsáveis (nome → UUID)
-  const [responsibleMappings, setResponsibleMappings] = useState<ResponsibleMapping[]>([]);
-  const [responsibleDialogOpen, setResponsibleDialogOpen] = useState(false);
-  const [selectedResponsible, setSelectedResponsible] = useState<ResponsibleMapping | null>(null);
-  const [responsibleUserId, setResponsibleUserId] = useState<string>("");
   
   // Form state
   const [formType, setFormType] = useState<'chatwoot' | 'tabuladormax'>('chatwoot');
@@ -85,49 +71,10 @@ export default function AgentMapping() {
     }
   };
 
-  // FASE 1: Carregar mapeamentos de responsáveis (nome → UUID)
-  const loadResponsibleMappings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('responsible_name_mapping' as any)
-        .select('*')
-        .order('bitrix_name');
-
-      if (error) throw error;
-      setResponsibleMappings((data || []) as unknown as ResponsibleMapping[]);
-    } catch (error) {
-      console.error('Erro ao carregar mapeamentos de responsáveis:', error);
-      toast.error('Erro ao carregar mapeamentos de responsáveis');
-    }
-  };
-
-  // FASE 1: Atualizar vínculo de responsável com usuário UUID
-  const handleUpdateResponsibleMapping = async () => {
-    if (!selectedResponsible) return;
-
-    try {
-      const { error } = await supabase
-        .from('responsible_name_mapping' as any)
-        .update({ user_id: responsibleUserId || null })
-        .eq('id', selectedResponsible.id);
-
-      if (error) throw error;
-
-      toast.success('Vínculo atualizado com sucesso');
-      setResponsibleDialogOpen(false);
-      setSelectedResponsible(null);
-      setResponsibleUserId("");
-      loadResponsibleMappings();
-    } catch (error) {
-      console.error('Erro ao atualizar vínculo:', error);
-      toast.error('Erro ao atualizar vínculo');
-    }
-  };
-
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([loadMappings(), loadProfiles(), loadResponsibleMappings()]); // FASE 1
+      await Promise.all([loadMappings(), loadProfiles()]);
       setLoading(false);
     };
     init();
@@ -431,118 +378,6 @@ export default function AgentMapping() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* FASE 1: Seção para Vincular Responsáveis (Nome → UUID) */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Mapeamento de Responsáveis</CardTitle>
-              <CardDescription>
-                Vincule os nomes dos responsáveis vindos do Bitrix aos usuários UUID do sistema
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-          ) : responsibleMappings.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Nenhum responsável encontrado nos leads
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome no Bitrix</TableHead>
-                  <TableHead>Usuário Vinculado</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {responsibleMappings.map((mapping) => {
-                  const linkedProfile = profiles.find(p => p.id === mapping.user_id);
-                  return (
-                    <TableRow key={mapping.id}>
-                      <TableCell className="font-medium">{mapping.bitrix_name}</TableCell>
-                      <TableCell>
-                        {linkedProfile ? (
-                          <div className="flex items-center gap-2">
-                            <span>{linkedProfile.display_name || linkedProfile.email}</span>
-                            <LinkIcon className="h-3 w-3 text-green-500" />
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground italic">Não vinculado</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedResponsible(mapping);
-                            setResponsibleUserId(mapping.user_id || "");
-                            setResponsibleDialogOpen(true);
-                          }}
-                        >
-                          <LinkIcon className="h-4 w-4 mr-2" />
-                          {linkedProfile ? 'Alterar' : 'Vincular'}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* FASE 1: Dialog para vincular responsável */}
-      <Dialog open={responsibleDialogOpen} onOpenChange={setResponsibleDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Vincular Responsável</DialogTitle>
-          </DialogHeader>
-          {selectedResponsible && (
-            <div className="space-y-4">
-              <div>
-                <Label>Nome no Bitrix</Label>
-                <Input 
-                  value={selectedResponsible.bitrix_name} 
-                  disabled 
-                  className="bg-muted"
-                />
-              </div>
-              <div>
-                <Label>Vincular ao Usuário</Label>
-                <Select value={responsibleUserId} onValueChange={setResponsibleUserId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um usuário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Nenhum (desvincular)</SelectItem>
-                    {profiles.map((profile) => (
-                      <SelectItem key={profile.id} value={profile.id}>
-                        {profile.display_name || profile.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setResponsibleDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleUpdateResponsibleMapping}>
-              Salvar Vínculo
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
