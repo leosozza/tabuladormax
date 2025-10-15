@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Search, Plus, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -17,9 +16,10 @@ interface TelemarketingSelectorProps {
   value?: number;
   onChange: (value: number) => void;
   placeholder?: string;
+  onPendingCreate?: (name: string | null) => void; // Callback para quando usuário escolhe "criar novo"
 }
 
-export function TelemarketingSelector({ value, onChange, placeholder = "Selecione o telemarketing" }: TelemarketingSelectorProps) {
+export function TelemarketingSelector({ value, onChange, placeholder = "Selecione o telemarketing", onPendingCreate }: TelemarketingSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -28,6 +28,7 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
   const [selectedOption, setSelectedOption] = useState<TelemarketingOption | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingName, setPendingName] = useState("");
+  const [pendingCreateName, setPendingCreateName] = useState<string | null>(null); // Nome pendente para criar
   const [options, setOptions] = useState<TelemarketingOption[]>([]);
 
   // Carregar cache inicial
@@ -112,62 +113,34 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
     onChange(option.id);
     setOpen(false);
     
+    // Limpar criação pendente
+    setPendingCreateName(null);
+    if (onPendingCreate) {
+      onPendingCreate(null);
+    }
+    
     toast.success(`✅ "${option.title}" selecionado!`);
   };
 
   const handleCreateNewClick = () => {
-    setPendingName(searchValue.trim());
-    setConfirmDialogOpen(true);
-  };
-
-  const confirmCreate = async () => {
-    if (!pendingName.trim()) return;
-
-    setIsSearching(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('create-bitrix-telemarketing', {
-        body: { title: pendingName.trim() }
-      });
-
-      if (error) {
-        toast.error(error.message || 'Erro ao criar operador');
-        return;
-      }
-
-      if (data?.error) {
-        toast.error(data.error);
-        return;
-      }
-
-      if (data?.item) {
-        const newOption = { id: data.item.id, title: data.item.title };
-        
-        // Adicionar à lista local
-        setOptions(prev => [...prev, newOption]);
-        
-        // Selecionar automaticamente
-        setSelectedOption(newOption);
-        onChange(data.item.id);
-        
-        // Fechar popover e dialog
-        setOpen(false);
-        setConfirmDialogOpen(false);
-        
-        // Limpar busca
-        setSearchValue("");
-        setSearchResults([]);
-        
-        toast.success(`✅ Operador "${data.item.title}" criado e vinculado!`);
-      } else {
-        toast.error('Resposta inválida do servidor');
-      }
-    } catch (error) {
-      console.error('Erro ao criar:', error);
-      toast.error('Erro ao criar operador');
-    } finally {
-      setIsSearching(false);
+    // Não criar imediatamente, apenas marcar como "pendente para criar"
+    const name = searchValue.trim();
+    setPendingCreateName(name);
+    
+    // Notificar o componente pai
+    if (onPendingCreate) {
+      onPendingCreate(name);
     }
+    
+    // Criar uma opção temporária para mostrar visualmente
+    setSelectedOption({ id: -1, title: `✨ Novo: ${name}` });
+    onChange(-1); // -1 indica que é uma criação pendente
+    setOpen(false);
+    
+    toast.info(`Operador "${name}" será criado ao finalizar o cadastro`);
   };
+
+  // Remover a função confirmCreate - não será mais usada aqui
 
   return (
     <>
@@ -294,30 +267,7 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
         </PopoverContent>
       </Popover>
 
-      {/* Confirmation Dialog */}
-      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Criar novo operador?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Será criado o operador "<strong>{pendingName}</strong>" no Bitrix24 e vinculado automaticamente à sua conta.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSearching}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmCreate} disabled={isSearching}>
-              {isSearching ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Criando...
-                </>
-              ) : (
-                "Criar e Vincular"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Removido AlertDialog - não é mais necessário */}
     </>
   );
 }

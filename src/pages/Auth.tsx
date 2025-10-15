@@ -17,6 +17,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [telemarketingId, setTelemarketingId] = useState<number>();
+  const [pendingTelemarketingName, setPendingTelemarketingName] = useState<string | null>(null);
   const [showTelemarketingModal, setShowTelemarketingModal] = useState(false);
   const [oauthUser, setOauthUser] = useState<{ id: string; user_metadata?: Record<string, unknown> } | null>(null);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
@@ -150,14 +151,47 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Validação obrigatória do campo de telemarketing
-    if (telemarketingId == null || !Number.isInteger(telemarketingId) || telemarketingId <= 0) {
-      toast.error("Por favor, selecione um operador de telemarketing válido");
-      setLoading(false);
-      return;
-    }
-
     try {
+      let finalTelemarketingId = telemarketingId;
+
+      // Se há um nome pendente para criar, criar primeiro
+      if (pendingTelemarketingName && telemarketingId === -1) {
+        console.log('📝 Criando novo operador de telemarketing:', pendingTelemarketingName);
+        
+        const { data: createData, error: createError } = await supabase.functions.invoke('create-bitrix-telemarketing', {
+          body: { title: pendingTelemarketingName.trim() }
+        });
+
+        if (createError) {
+          toast.error(createError.message || 'Erro ao criar operador de telemarketing');
+          setLoading(false);
+          return;
+        }
+
+        if (createData?.error) {
+          toast.error(createData.error);
+          setLoading(false);
+          return;
+        }
+
+        if (createData?.item) {
+          finalTelemarketingId = createData.item.id;
+          console.log('✅ Operador criado com ID:', finalTelemarketingId);
+          toast.success(`Operador "${createData.item.title}" criado com sucesso!`);
+        } else {
+          toast.error('Erro ao criar operador de telemarketing');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Validação obrigatória do campo de telemarketing
+      if (finalTelemarketingId == null || !Number.isInteger(finalTelemarketingId) || finalTelemarketingId <= 0) {
+        toast.error("Por favor, selecione um operador de telemarketing válido");
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -165,7 +199,7 @@ const Auth = () => {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
             display_name: displayName,
-            telemarketing_id: telemarketingId,
+            telemarketing_id: finalTelemarketingId,
           },
         },
       });
@@ -176,7 +210,7 @@ const Auth = () => {
       // This ensures the mapping is created immediately
       if (data.user?.id) {
         console.log('📝 Criando mapeamento de agente após signup bem-sucedido');
-        const mappingSuccess = await createAgentMapping(data.user.id, telemarketingId);
+        const mappingSuccess = await createAgentMapping(data.user.id, finalTelemarketingId);
         
         if (!mappingSuccess) {
           console.warn('⚠️ Falha ao criar mapeamento durante signup, mas conta foi criada');
@@ -192,6 +226,7 @@ const Auth = () => {
       setPassword("");
       setDisplayName("");
       setTelemarketingId(undefined);
+      setPendingTelemarketingName(null);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao criar conta";
       console.error('❌ Erro ao criar conta:', error);
@@ -547,10 +582,11 @@ const Auth = () => {
                   <TelemarketingSelector
                     value={telemarketingId}
                     onChange={setTelemarketingId}
+                    onPendingCreate={setPendingTelemarketingName}
                     placeholder="Selecione o operador de telemarketing"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Selecione o operador de telemarketing do Bitrix24 que você representa
+                    Selecione ou crie um operador de telemarketing do Bitrix24
                   </p>
                 </div>
                 <div className="space-y-2">
