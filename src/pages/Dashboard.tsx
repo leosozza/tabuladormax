@@ -71,14 +71,25 @@ const Index = () => {
     if (session?.user) {
       setCurrentUserId(session.user.id);
       
-      // Verificar se é admin
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-      
-      setIsAdmin(data?.role === 'admin');
+      try {
+        // Verificar se é admin
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Erro ao verificar role:', error);
+          setIsAdmin(false);
+          return;
+        }
+        
+        setIsAdmin(data?.role === 'admin');
+      } catch (error) {
+        console.error('Erro ao verificar role:', error);
+        setIsAdmin(false);
+      }
     }
   };
 
@@ -160,78 +171,50 @@ const Index = () => {
   };
 
   const loadOperators = async () => {
-    // Load all users who are operators (have leads assigned)
-    const { data: leadsData, error: leadsError } = await supabase
-      .from('leads')
-      .select('responsible')
-      .not('responsible', 'is', null);
-    
-    if (leadsError) {
-      console.error('Erro ao carregar responsáveis dos leads:', leadsError);
-      toast.error('Erro ao carregar lista de operadores');
-      return;
-    }
-    
-    if (leadsData) {
-      const uniqueOperatorIds = [...new Set(leadsData.map(l => l.responsible))].filter(Boolean);
-      
-      // Filtrar apenas IDs com formato UUID válido
-      const validUUIDs = uniqueOperatorIds.filter(id => isValidUUID(id));
-      const invalidIds = uniqueOperatorIds.filter(id => !isValidUUID(id));
-      
-      // Informar sobre responsáveis inválidos
-      if (invalidIds.length > 0) {
-        console.warn('⚠️ Responsáveis com formato inválido (não são UUIDs):', invalidIds);
-        
-        // Mostrar toast informativo para admins
-        if (isAdmin) {
-          toast.warning(
-            `${invalidIds.length} lead(s) com responsável inválido encontrado(s)`,
-            {
-              description: `Leads com responsáveis como texto ao invés de UUID. Os IDs inválidos são: ${invalidIds.slice(0, 3).join(', ')}${invalidIds.length > 3 ? '...' : ''}`,
-              duration: 10000,
-            }
-          );
-        }
+    try {
+      // NOVA LÓGICA: Buscar da tabela de mapeamento
+      const { data: mappings, error: mappingError } = await (supabase as any)
+        .from('responsible_name_mapping')
+        .select(`
+          bitrix_name,
+          user_id,
+          profiles:user_id (
+            id,
+            display_name
+          )
+        `)
+        .not('user_id', 'is', null);
+
+      if (mappingError) {
+        console.error('Erro ao carregar mapeamento de operadores:', mappingError);
+        toast.error('Erro ao carregar lista de operadores');
+        return;
       }
-      
-      // Se não há UUIDs válidos, não tenta buscar profiles
-      if (validUUIDs.length === 0) {
-        console.warn('Nenhum UUID válido encontrado nos responsáveis');
+
+      if (mappings && mappings.length > 0) {
+        const operatorsList = mappings.map((m: any) => ({
+          id: m.user_id,
+          name: m.profiles?.display_name || m.bitrix_name
+        }));
+        
+        setOperators(operatorsList);
+        console.log(`✅ ${operatorsList.length} operadores carregados com sucesso`);
+      } else {
         setOperators([]);
         
-        if (isAdmin && invalidIds.length > 0) {
-          toast.error(
-            'Nenhum operador válido encontrado',
+        if (isAdmin) {
+          toast.warning(
+            'Nenhum operador mapeado',
             {
-              description: 'Todos os responsáveis nos leads são nomes/textos ao invés de IDs de usuário. Corrija os dados no banco atualizando o campo "responsible" dos leads para conter UUIDs válidos de usuários.',
-              duration: 15000,
+              description: 'Acesse a página "Mapeamento de Agentes" para vincular nomes do Bitrix aos usuários.',
+              duration: 8000,
             }
           );
         }
-        return;
       }
-      
-      // Get user details apenas para UUIDs válidos
-      const { data: usersData, error: usersError } = await supabase
-        .from('profiles')
-        .select('id, display_name')
-        .in('id', validUUIDs);
-      
-      if (usersError) {
-        console.error('Erro ao buscar perfis de operadores:', usersError);
-        toast.error('Erro ao carregar detalhes dos operadores');
-        return;
-      }
-      
-      if (usersData) {
-        setOperators(usersData.map(u => ({ id: u.id, name: u.display_name || u.id })));
-        
-        // Feedback positivo quando tudo funciona
-        if (isAdmin && usersData.length > 0) {
-          console.log(`✅ ${usersData.length} operadores carregados com sucesso`);
-        }
-      }
+    } catch (error) {
+      console.error('Erro ao carregar operadores:', error);
+      toast.error('Erro ao carregar operadores');
     }
   };
 
