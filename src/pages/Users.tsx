@@ -4,7 +4,6 @@ import { ArrowLeft, Shield, User as UserIcon, Key, Copy, Check, Edit2 } from "lu
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -34,6 +33,8 @@ export default function Users() {
   const [editingUserId, setEditingUserId] = useState("");
   const [newDisplayName, setNewDisplayName] = useState("");
   const [updatingName, setUpdatingName] = useState(false);
+  const [editRoleDialogOpen, setEditRoleDialogOpen] = useState(false);
+  const [newRole, setNewRole] = useState<'admin' | 'agent'>('agent');
   useEffect(() => {
     checkUserRole();
     loadUsers();
@@ -93,23 +94,27 @@ export default function Users() {
     setUsers(usersWithRoles);
     setLoading(false);
   };
-  const updateUserRole = async (userId: string, newRole: 'admin' | 'agent') => {
+  const updateUserRole = async () => {
+    setUpdatingName(true);
     try {
       // UPSERT em vez de DELETE + INSERT para evitar duplicatas
       const {
         error
       } = await supabase.from('user_roles').upsert({
-        user_id: userId,
+        user_id: editingUserId,
         role: newRole
       }, {
         onConflict: 'user_id'
       });
       if (error) throw error;
       toast.success('Role atualizada com sucesso');
+      setEditRoleDialogOpen(false);
       loadUsers();
     } catch (error) {
       console.error('Erro ao atualizar role:', error);
       toast.error('Erro ao atualizar role do usuário');
+    } finally {
+      setUpdatingName(false);
     }
   };
   const generateTempPassword = async (userId: string, userEmail: string) => {
@@ -155,6 +160,12 @@ export default function Users() {
     setEditingUserId(userId);
     setNewDisplayName(currentName || "");
     setEditNameDialogOpen(true);
+  };
+
+  const openEditRoleDialog = (userId: string, currentRole: 'admin' | 'agent') => {
+    setEditingUserId(userId);
+    setNewRole(currentRole);
+    setEditRoleDialogOpen(true);
   };
   const updateUserName = async () => {
     if (!newDisplayName.trim()) {
@@ -221,7 +232,7 @@ export default function Users() {
                       <th className="p-3 text-left text-sm font-medium">Telemarketing</th>
                       <th className="p-3 text-left text-sm font-medium">Role</th>
                       <th className="p-3 text-left text-sm font-medium">Cadastro</th>
-                      <th className="p-3 text-left text-sm font-medium">Alterar Role</th>
+                      
                       <th className="p-3 text-left text-sm font-medium">Senha</th>
                     </tr>
                   </thead>
@@ -234,7 +245,7 @@ export default function Users() {
                         <td className="p-3 text-sm">
                           {user.telemarketing_name ? <span className="text-foreground">{user.telemarketing_name}</span> : <span className="text-muted-foreground italic">Não vinculado</span>}
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 cursor-pointer hover:bg-muted/50 transition-colors" onDoubleClick={() => isAdmin && openEditRoleDialog(user.id, user.role)} title={isAdmin ? "Duplo clique para editar" : ""}>
                           <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
                             {user.role === 'admin' ? <span className="flex items-center gap-1">
                                 <Shield className="w-3 h-3" />
@@ -247,17 +258,6 @@ export default function Users() {
                         </td>
                         <td className="p-3 text-sm text-muted-foreground">
                           {new Date(user.created_at).toLocaleDateString('pt-BR')}
-                        </td>
-                        <td className="p-3">
-                          {isAdmin && <Select value={user.role} onValueChange={val => updateUserRole(user.id, val as 'admin' | 'agent')}>
-                              <SelectTrigger className="w-32">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="agent">Agente</SelectItem>
-                              </SelectContent>
-                            </Select>}
                         </td>
                         <td className="p-3">
                           {isAdmin && <Button size="sm" variant="outline" onClick={() => generateTempPassword(user.id, user.email)} disabled={generatingPassword} className="gap-2">
@@ -358,6 +358,43 @@ export default function Users() {
                 Cancelar
               </Button>
               <Button onClick={updateUserName} disabled={updatingName}>
+                {updatingName ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={editRoleDialogOpen} onOpenChange={setEditRoleDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Editar Role do Usuário
+              </DialogTitle>
+              <DialogDescription>
+                Altere a função do usuário no sistema. Admins têm acesso completo.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Nova Role</label>
+                <select 
+                  value={newRole} 
+                  onChange={e => setNewRole(e.target.value as 'admin' | 'agent')}
+                  className="w-full mt-2 px-3 py-2 border rounded-md bg-background"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="agent">Agente</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setEditRoleDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={updateUserRole} disabled={updatingName}>
                 {updatingName ? 'Salvando...' : 'Salvar'}
               </Button>
             </div>
