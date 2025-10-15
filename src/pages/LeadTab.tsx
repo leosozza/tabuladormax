@@ -1386,6 +1386,13 @@ const LeadTab = () => {
       }
 
       // 4. Transferir conversa para o agente que tabulou (se configurado)
+      console.log('🔍 DEBUG transfer_conversation:', {
+        button_transfer: button.transfer_conversation,
+        subButton_transfer: subButton?.transfer_conversation,
+        chatwootData_conversationId: chatwootData?.conversation_id,
+        chatwootData_keys: chatwootData ? Object.keys(chatwootData) : []
+      });
+      
       if (button.transfer_conversation || subButton?.transfer_conversation) {
         console.log('🔄 Iniciando transferência de conversa...');
         
