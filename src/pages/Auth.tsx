@@ -21,6 +21,10 @@ const Auth = () => {
   const [oauthUser, setOauthUser] = useState<{ id: string; user_metadata?: Record<string, unknown> } | null>(null);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Helper function to create agent_telemarketing_mapping without duplicates
   const createAgentMapping = async (userId: string, tmId: number): Promise<boolean> => {
@@ -209,8 +213,19 @@ const Auth = () => {
 
       if (error) throw error;
 
-      // After successful login, check if user has telemarketing_id but no mapping
+      // After successful login, check if password reset is required
       const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user?.user_metadata?.password_reset_required) {
+        console.log('🔐 Senha temporária detectada - solicitando mudança de senha');
+        setCurrentUserId(user.id);
+        setShowPasswordChange(true);
+        toast.info("Por favor, defina uma nova senha para continuar");
+        setLoading(false);
+        return;
+      }
+
+      // Check if user has telemarketing_id but no mapping
       if (user?.user_metadata?.telemarketing_id) {
         const telemarketingIdFromMetadata = user.user_metadata.telemarketing_id;
         
@@ -232,6 +247,45 @@ const Auth = () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao fazer login";
       console.error('❌ Erro ao fazer login:', error);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (newPassword !== confirmNewPassword) {
+      toast.error("As senhas não coincidem");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error("A senha deve ter no mínimo 6 caracteres");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+        data: {
+          password_reset_required: false,
+          temp_password_created_at: null,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success("Senha alterada com sucesso!");
+      setShowPasswordChange(false);
+      setNewPassword("");
+      setConfirmNewPassword("");
+      navigate("/");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao alterar senha";
+      console.error('❌ Erro ao alterar senha:', error);
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -603,6 +657,52 @@ const Auth = () => {
               {loading ? "Salvando..." : "Concluir Cadastro"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Change Dialog */}
+      <Dialog open={showPasswordChange} onOpenChange={setShowPasswordChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Alterar Senha</DialogTitle>
+            <DialogDescription>
+              Por motivos de segurança, você deve definir uma nova senha permanente.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">Nova Senha</Label>
+              <Input
+                id="new-password"
+                type="password"
+                placeholder="••••••••"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+              <p className="text-xs text-muted-foreground">
+                Mínimo de 6 caracteres
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                placeholder="••••••••"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Alterando..." : "Alterar Senha"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

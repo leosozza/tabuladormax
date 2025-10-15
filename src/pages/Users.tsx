@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, User as UserIcon } from "lucide-react";
+import { ArrowLeft, Shield, User as UserIcon, Key, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import UserMenu from "@/components/UserMenu";
@@ -22,6 +24,11 @@ export default function Users() {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [tempPassword, setTempPassword] = useState("");
+  const [selectedUserEmail, setSelectedUserEmail] = useState("");
+  const [generatingPassword, setGeneratingPassword] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
 
   useEffect(() => {
     checkUserRole();
@@ -103,6 +110,45 @@ export default function Users() {
     }
   };
 
+  const generateTempPassword = async (userId: string, userEmail: string) => {
+    setGeneratingPassword(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-user-password', {
+        body: { userId }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setTempPassword(data.tempPassword);
+        setSelectedUserEmail(userEmail);
+        setPasswordDialogOpen(true);
+        toast.success('Senha temporária gerada com sucesso');
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
+      console.error('Erro ao gerar senha temporária:', error);
+      toast.error('Erro ao gerar senha temporária: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setGeneratingPassword(false);
+    }
+  };
+
+  const copyPasswordToClipboard = () => {
+    navigator.clipboard.writeText(tempPassword);
+    setCopiedPassword(true);
+    toast.success('Senha copiada para área de transferência');
+    setTimeout(() => setCopiedPassword(false), 2000);
+  };
+
+  const closePasswordDialog = () => {
+    setPasswordDialogOpen(false);
+    setTempPassword("");
+    setSelectedUserEmail("");
+    setCopiedPassword(false);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b">
@@ -152,7 +198,8 @@ export default function Users() {
                       <th className="p-3 text-left text-sm font-medium">Nome</th>
                       <th className="p-3 text-left text-sm font-medium">Role</th>
                       <th className="p-3 text-left text-sm font-medium">Cadastro</th>
-                      <th className="p-3 text-left text-sm font-medium">Ações</th>
+                      <th className="p-3 text-left text-sm font-medium">Alterar Role</th>
+                      <th className="p-3 text-left text-sm font-medium">Senha</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -196,6 +243,20 @@ export default function Users() {
                             </Select>
                           )}
                         </td>
+                        <td className="p-3">
+                          {isAdmin && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => generateTempPassword(user.id, user.email)}
+                              disabled={generatingPassword}
+                              className="gap-2"
+                            >
+                              <Key className="w-4 h-4" />
+                              Gerar Senha
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -204,6 +265,77 @@ export default function Users() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={passwordDialogOpen} onOpenChange={closePasswordDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5" />
+                Senha Temporária Gerada
+              </DialogTitle>
+              <DialogDescription>
+                Esta senha é válida apenas uma vez. O usuário deverá alterá-la no primeiro login.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <Alert>
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Usuário: {selectedUserEmail}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <code className="flex-1 px-3 py-2 bg-muted rounded-md text-lg font-mono select-all">
+                        {tempPassword}
+                      </code>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={copyPasswordToClipboard}
+                        className="gap-2"
+                      >
+                        {copiedPassword ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            Copiado
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            Copiar
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+
+              <Alert variant="destructive">
+                <AlertDescription className="text-sm">
+                  <strong>⚠️ Importante:</strong> Guarde esta senha em local seguro. 
+                  Ela não poderá ser visualizada novamente após fechar esta janela.
+                </AlertDescription>
+              </Alert>
+
+              <Alert>
+                <AlertDescription className="text-sm">
+                  <strong>📋 Instruções para o usuário:</strong>
+                  <ol className="list-decimal list-inside mt-2 space-y-1">
+                    <li>Faça login com esta senha temporária</li>
+                    <li>O sistema solicitará que você crie uma nova senha</li>
+                    <li>Defina uma senha segura de sua escolha</li>
+                  </ol>
+                </AlertDescription>
+              </Alert>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button onClick={closePasswordDialog}>
+                Fechar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
