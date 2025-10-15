@@ -241,19 +241,22 @@ export default function Users() {
                   <thead>
                     <tr className="border-b bg-muted/50">
                       <th className="p-3 text-left text-sm font-medium">Email</th>
-                      <th className="p-3 text-left text-sm font-medium">Nome</th>
+                      <th className="p-3 text-left text-sm font-medium">Nome (duplo clique para editar)</th>
                       <th className="p-3 text-left text-sm font-medium">Role</th>
                       <th className="p-3 text-left text-sm font-medium">Cadastro</th>
                       <th className="p-3 text-left text-sm font-medium">Alterar Role</th>
                       <th className="p-3 text-left text-sm font-medium">Senha</th>
-                      <th className="p-3 text-left text-sm font-medium">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.map(user => (
                       <tr key={user.id} className="border-b last:border-0">
                         <td className="p-3 text-sm">{user.email}</td>
-                        <td className="p-3 text-sm">
+                        <td 
+                          className="p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors"
+                          onDoubleClick={() => isAdmin && openEditNameDialog(user.id, user.display_name)}
+                          title={isAdmin ? "Duplo clique para editar" : ""}
+                        >
                           {user.display_name || <span className="text-muted-foreground italic">Sem nome</span>}
                         </td>
                         <td className="p-3">
@@ -301,19 +304,6 @@ export default function Users() {
                             >
                               <Key className="w-4 h-4" />
                               Gerar Senha
-                            </Button>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {isAdmin && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openEditNameDialog(user.id, user.display_name)}
-                              className="gap-2"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                              Editar Nome
                             </Button>
                           )}
                         </td>
