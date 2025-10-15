@@ -54,6 +54,7 @@ export default function Permissions() {
     try {
       setLoading(true);
 
+      // @ts-ignore - Tipos ainda não atualizados após migração
       const { data: permsData, error: permsError } = await supabase
         .from("permissions")
         .select("*")
@@ -61,14 +62,15 @@ export default function Permissions() {
 
       if (permsError) throw permsError;
 
+      // @ts-ignore - Tipos ainda não atualizados após migração
       const { data: rolePermsData, error: rolePermsError } = await supabase
         .from("role_permissions")
         .select("*");
 
       if (rolePermsError) throw rolePermsError;
 
-      setPermissions(permsData || []);
-      setRolePermissions(rolePermsData || []);
+      setPermissions(permsData as any || []);
+      setRolePermissions(rolePermsData as any || []);
     } catch (error) {
       console.error("Erro ao carregar permissões:", error);
       toast.error("Erro ao carregar permissões");
@@ -113,6 +115,7 @@ export default function Permissions() {
         );
 
         if (existingRolePerm) {
+          // @ts-ignore - Tipos ainda não atualizados após migração
           const { error } = await supabase
             .from("role_permissions")
             .update({ scope })
@@ -120,6 +123,7 @@ export default function Permissions() {
 
           if (error) throw error;
         } else {
+          // @ts-ignore - Tipos ainda não atualizados após migração
           const { error } = await supabase
             .from("role_permissions")
             .insert({

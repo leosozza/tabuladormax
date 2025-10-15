@@ -58,6 +58,7 @@ export default function Departments() {
       setLoading(true);
 
       // Carregar projetos comerciais
+      // @ts-ignore - Tipos ainda não atualizados após migração
       const { data: projectsData, error: projectsError } = await supabase
         .from("commercial_projects")
         .select("*")
@@ -65,9 +66,10 @@ export default function Departments() {
         .order("name");
 
       if (projectsError) throw projectsError;
-      setProjects(projectsData || []);
+      setProjects(projectsData as any || []);
 
       // Carregar departamentos com contagem de agentes
+      // @ts-ignore - Tipos ainda não atualizados após migração
       const { data: deptsData, error: deptsError } = await supabase
         .from("departments")
         .select(`
@@ -84,19 +86,19 @@ export default function Departments() {
         .from("agent_telemarketing_mapping")
         .select("department_id");
 
-      const counts = agentsCount?.reduce((acc, curr) => {
+      const counts = (agentsCount as any)?.reduce((acc: any, curr: any) => {
         if (curr.department_id) {
           acc[curr.department_id] = (acc[curr.department_id] || 0) + 1;
         }
         return acc;
       }, {} as Record<string, number>) || {};
 
-      const enrichedDepts = deptsData?.map(dept => ({
+      const enrichedDepts = (deptsData as any)?.map((dept: any) => ({
         ...dept,
         agents_count: counts[dept.id] || 0
       })) || [];
 
-      setDepartments(buildTree(enrichedDepts));
+      setDepartments(buildTree(enrichedDepts as Department[]));
     } catch (error) {
       console.error("Erro ao carregar departamentos:", error);
       toast.error("Erro ao carregar departamentos");
@@ -151,6 +153,7 @@ export default function Departments() {
 
     try {
       if (editingDept) {
+        // @ts-ignore - Tipos ainda não atualizados após migração
         const { error } = await supabase
           .from("departments")
           .update({
@@ -162,6 +165,7 @@ export default function Departments() {
         if (error) throw error;
         toast.success("Departamento atualizado com sucesso");
       } else {
+        // @ts-ignore - Tipos ainda não atualizados após migração
         const { error } = await supabase
           .from("departments")
           .insert({
@@ -189,6 +193,7 @@ export default function Departments() {
     if (!confirm(`Deseja realmente excluir o departamento "${dept.name}"?`)) return;
 
     try {
+      // @ts-ignore - Tipos ainda não atualizados após migração
       const { error } = await supabase
         .from("departments")
         .update({ active: false })
