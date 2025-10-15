@@ -10,7 +10,7 @@ Este erro impedia que o filtro de operadores/admins aparecesse corretamente nas 
 
 ### 1. Função de Validação UUID (`src/lib/utils.ts`)
 
-Adicionada função `isValidUUID()` que valida se uma string está no formato UUID válido:
+Adicionada função `isValidUUID()` que valida se uma string está no formato UUID válido (case-insensitive):
 
 ```typescript
 export function isValidUUID(value: string): boolean {
@@ -18,6 +18,8 @@ export function isValidUUID(value: string): boolean {
   return uuidRegex.test(value);
 }
 ```
+
+**Nota:** Esta função valida UUIDs em formato geral (incluindo v4). Se precisar validar especificamente UUIDs v4, ajuste o regex para incluir a versão no quarto grupo.
 
 ### 2. Tratamento de Erros em `Dashboard.tsx`
 
@@ -31,13 +33,13 @@ Atualizada a função `loadOperators()` para:
 
 #### Mensagens de Feedback
 
-**Quando há responsáveis inválidos:**
+**Quando há responsáveis inválidos (exemplo renderizado):**
 ```
-⚠️ ${invalidIds.length} lead(s) com responsável inválido encontrado(s)
-Leads com responsáveis como texto ao invés de UUID. Os IDs inválidos são: [lista]
+⚠️ 5 lead(s) com responsável inválido encontrado(s)
+Leads com responsáveis como texto ao invés de UUID. Os IDs inválidos são: João Silva, Maria Santos, Pedro Costa...
 ```
 
-**Quando não há UUIDs válidos:**
+**Quando não há UUIDs válidos (exemplo renderizado):**
 ```
 ❌ Nenhum operador válido encontrado
 Todos os responsáveis nos leads são nomes/textos ao invés de IDs de usuário. 
@@ -63,11 +65,11 @@ Para resolver definitivamente o problema, os dados no banco precisam ser corrigi
 ### Opção 1: SQL Update Manual
 
 ```sql
--- 1. Identificar leads com responsáveis inválidos (não UUID)
+-- 1. Identificar leads com responsáveis inválidos (não UUID) - case-insensitive
 SELECT id, responsible 
 FROM leads 
 WHERE responsible IS NOT NULL 
-  AND responsible !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  AND responsible !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 
 -- 2. Mapear nomes para UUIDs de usuários
 -- (Você precisará criar um mapeamento nome -> UUID baseado na sua tabela profiles)
@@ -82,7 +84,7 @@ WHERE responsible = 'João Silva';
 SELECT COUNT(*) 
 FROM leads 
 WHERE responsible IS NOT NULL 
-  AND responsible !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  AND responsible !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 -- Deve retornar 0
 ```
 
