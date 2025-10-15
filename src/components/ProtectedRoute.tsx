@@ -7,9 +7,15 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
   requireManager?: boolean;
+  requireSupervisor?: boolean;
 }
 
-const ProtectedRoute = ({ children, requireAdmin, requireManager }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ 
+  children, 
+  requireAdmin, 
+  requireManager,
+  requireSupervisor
+}: ProtectedRouteProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,13 +47,19 @@ const ProtectedRoute = ({ children, requireAdmin, requireManager }: ProtectedRou
           const userRole = roles?.role || null;
           console.log('✅ Role verificada:', userRole);
           
-          if (requireAdmin) {
-            setHasAccess(userRole === "admin");
-          } else if (requireManager) {
-            setHasAccess(userRole === "admin" || userRole === "manager");
-          } else {
-            setHasAccess(true);
-          }
+    if (requireAdmin) {
+      setHasAccess(userRole === "admin");
+    } else if (requireManager) {
+      setHasAccess(userRole === "admin" || userRole === "manager");
+    } else if (requireSupervisor) {
+      setHasAccess(
+        userRole === "admin" || 
+        userRole === "manager" || 
+        userRole === "supervisor"
+      );
+    } else {
+      setHasAccess(true);
+    }
         }
       } else {
         setHasAccess(true);
@@ -72,7 +84,7 @@ const ProtectedRoute = ({ children, requireAdmin, requireManager }: ProtectedRou
     );
 
     return () => subscription.unsubscribe();
-  }, [requireAdmin, requireManager]);
+  }, [requireAdmin, requireManager, requireSupervisor]);
 
   if (loading) {
     return (
