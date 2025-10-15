@@ -905,6 +905,13 @@ const LeadTab = () => {
       return;
     }
 
+    console.log('🔵 Botões carregados do Supabase - DEBUG transfer_conversation:', data?.map(b => ({
+      label: b.label,
+      has_transfer: 'transfer_conversation' in b,
+      transfer_value: b.transfer_conversation,
+      transfer_type: typeof b.transfer_conversation
+    })));
+    
     const parsed = (data || []).map((entry, index) => {
       // Se category não existe, usar o valor salvo ou inferir baseado no sort
       let category = entry.category;
@@ -932,6 +939,8 @@ const LeadTab = () => {
         sub_buttons: parseSubButtons(entry.sub_buttons),
         category: category,
         additional_fields: (entry as any).additional_fields || [],
+        transfer_conversation: (entry as any).transfer_conversation || false,
+        sync_target: (entry as any).sync_target || 'bitrix',
       };
     });
 
@@ -1386,17 +1395,24 @@ const LeadTab = () => {
       }
 
       // 4. Transferir conversa para o agente que tabulou (se configurado)
-      console.log('🔍 DEBUG transfer_conversation:', {
-        button_transfer: button.transfer_conversation,
-        subButton_transfer: subButton?.transfer_conversation,
-        chatwootData_conversationId: chatwootData?.conversation_id,
-        chatwootData_keys: chatwootData ? Object.keys(chatwootData) : []
-      });
+      console.log('🔍 DEBUG transfer_conversation - VALORES INDIVIDUAIS:');
+      console.log('  button.transfer_conversation =', button.transfer_conversation);
+      console.log('  typeof button.transfer_conversation =', typeof button.transfer_conversation);
+      console.log('  button.transfer_conversation === true?', button.transfer_conversation === true);
+      console.log('  button.transfer_conversation == true?', button.transfer_conversation == true);
+      console.log('  !!button.transfer_conversation?', !!button.transfer_conversation);
+      console.log('  subButton?.transfer_conversation =', subButton?.transfer_conversation);
+      console.log('  chatwootData?.conversation_id =', chatwootData?.conversation_id);
+      console.log('  Condição OR completa:', (button.transfer_conversation || subButton?.transfer_conversation));
       
-      if (button.transfer_conversation || subButton?.transfer_conversation) {
+      const shouldTransfer = Boolean(button.transfer_conversation) || Boolean(subButton?.transfer_conversation);
+      console.log('🔄 shouldTransfer (após Boolean()) =', shouldTransfer);
+      
+      if (shouldTransfer) {
         console.log('🔄 Iniciando transferência de conversa...');
         
         let conversationId = chatwootData?.conversation_id;
+        console.log('📍 conversation_id inicial:', conversationId, '(tipo:', typeof conversationId, ')');
         
         // Se não tiver conversation_id, buscar do banco
         if (!conversationId || conversationId === 0) {
@@ -1524,6 +1540,14 @@ const LeadTab = () => {
   };
 
   const handleButtonClick = async (button: ButtonConfig) => {
+    console.log('🔘 Botão clicado - DEBUG COMPLETO:', {
+      label: button.label,
+      transfer_conversation: button.transfer_conversation,
+      transfer_conversation_type: typeof button.transfer_conversation,
+      has_property: 'transfer_conversation' in button,
+      button_completo: button
+    });
+    
     setSelectedButton(button);
 
     if (button.sub_buttons && button.sub_buttons.length > 0) {
