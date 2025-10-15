@@ -88,6 +88,30 @@ export type Database = {
           },
         ]
       }
+      bitrix_sync_config: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          webhook_url: string
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          webhook_url: string
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       button_categories: {
         Row: {
           created_at: string
@@ -286,6 +310,54 @@ export type Database = {
           key?: string
           updated_at?: string | null
           value?: Json | null
+        }
+        Relationships: []
+      }
+      csv_import_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          error_details: Json | null
+          error_rows: number | null
+          file_path: string
+          id: string
+          imported_rows: number | null
+          processed_rows: number | null
+          started_at: string | null
+          status: string
+          total_rows: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          error_details?: Json | null
+          error_rows?: number | null
+          file_path: string
+          id?: string
+          imported_rows?: number | null
+          processed_rows?: number | null
+          started_at?: string | null
+          status?: string
+          total_rows?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          error_details?: Json | null
+          error_rows?: number | null
+          file_path?: string
+          id?: string
+          imported_rows?: number | null
+          processed_rows?: number | null
+          started_at?: string | null
+          status?: string
+          total_rows?: number | null
+          updated_at?: string | null
         }
         Relationships: []
       }

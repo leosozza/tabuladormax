@@ -30,9 +30,9 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
       return;
     }
 
-    // FASE 4: Reduzir limite de 250MB → 50MB
-    if (selectedFile.size > 50 * 1024 * 1024) {
-      toast.error('Arquivo muito grande. Máximo 50MB');
+    // Upload via Storage suporta até 5GB
+    if (selectedFile.size > 5 * 1024 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 5GB');
       return;
     }
 
@@ -57,83 +57,82 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
     setProgress(0);
 
     try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const csvData = event.target?.result as string;
-        const lines = csvData.split('\n');
-        
-        // FASE 4: Processar em chunks de 5000 linhas
-        const CHUNK_SIZE = 5000;
-        const headerLine = lines[0];
-        const dataLines = lines.slice(1).filter(line => line.trim() !== '');
-        const totalChunks = Math.ceil(dataLines.length / CHUNK_SIZE);
-        
-        let totalImported = 0;
-        let totalErrors = 0;
-        const errorDetails: any[] = [];
-        
-        console.log(`📦 Processando ${dataLines.length} linhas em ${totalChunks} chunks de ${CHUNK_SIZE}`);
-        
-        for (let i = 0; i < totalChunks; i++) {
-          const start = i * CHUNK_SIZE;
-          const end = start + CHUNK_SIZE;
-          const chunkLines = [headerLine, ...dataLines.slice(start, end)];
-          const chunkData = chunkLines.join('\n');
-          
-          // Atualizar progresso
-          const progressPercent = Math.round(((i + 1) / totalChunks) * 100);
-          setProgress(progressPercent);
-          console.log(`📊 Chunk ${i + 1}/${totalChunks} (${progressPercent}%)`);
-          
-          const { data, error } = await supabase.functions.invoke('import-csv-leads', {
-            body: { csvData: chunkData }
-          });
-          
-          if (error) {
-            console.error(`❌ Erro no chunk ${i + 1}:`, error);
-            totalErrors += chunkLines.length - 1; // -1 para o header
-            errorDetails.push({
-              batch: i + 1,
-              count: chunkLines.length - 1,
-              error: error.message
-            });
-          } else if (data) {
-            totalImported += data.imported || 0;
-            totalErrors += data.errors || 0;
-            if (data.errors > 0 && data.errorDetails) {
-              errorDetails.push(...data.errorDetails.map((d: any) => ({ ...d, batch: i + 1 })));
+      // 1. Upload para Storage
+      const fileName = `${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase
+        .storage
+        .from('leads-csv-import')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Criar job de importação
+      const { data: job, error: jobError } = await supabase
+        .from('csv_import_jobs')
+        .insert({
+          file_path: fileName,
+          status: 'pending',
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        })
+        .select()
+        .single();
+
+      if (jobError) throw jobError;
+
+      // 3. Iniciar processamento em background
+      supabase.functions.invoke('process-large-csv-import', {
+        body: { jobId: job.id, filePath: fileName }
+      });
+
+      toast.success('Upload iniciado! Processando em background...');
+
+      // 4. Monitorar progresso via Realtime
+      const channel = supabase
+        .channel(`csv-import-${job.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'csv_import_jobs',
+            filter: `id=eq.${job.id}`
+          },
+          (payload) => {
+            const updatedJob = payload.new as any;
+            const progress = updatedJob.total_rows 
+              ? Math.round((updatedJob.processed_rows / updatedJob.total_rows) * 100)
+              : 0;
+            
+            setProgress(progress);
+
+            if (updatedJob.status === 'completed' || updatedJob.status === 'completed_with_errors') {
+              setStats({
+                total: updatedJob.total_rows,
+                imported: updatedJob.imported_rows,
+                errors: updatedJob.error_rows,
+                errorDetails: updatedJob.error_details
+              });
+              setImporting(false);
+              channel.unsubscribe();
+
+              if (updatedJob.error_rows > 0) {
+                toast.warning(`Importados ${updatedJob.imported_rows} de ${updatedJob.total_rows} leads. ${updatedJob.error_rows} erros.`);
+              } else {
+                toast.success(`${updatedJob.imported_rows} leads importados com sucesso!`);
+              }
+
+              if (onImportComplete) {
+                onImportComplete();
+              }
             }
           }
-        }
-        
-        const finalStats: ImportStats = {
-          total: dataLines.length,
-          imported: totalImported,
-          errors: totalErrors,
-          errorDetails: errorDetails.length > 0 ? errorDetails : undefined
-        };
-        
-        setStats(finalStats);
-        setProgress(100);
-        
-        if (finalStats.errors > 0) {
-          toast.warning(`Importados ${finalStats.imported} de ${finalStats.total} leads. ${finalStats.errors} erros.`);
-        } else {
-          toast.success(`${finalStats.imported} leads importados com sucesso!`);
-        }
+        )
+        .subscribe();
 
-        if (onImportComplete) {
-          onImportComplete();
-        }
-
-        setImporting(false);
-      };
-      reader.readAsText(file);
     } catch (error) {
-      console.error('Error reading file:', error);
-      toast.error('Erro ao ler arquivo');
+      console.error('Error:', error);
+      toast.error('Erro ao iniciar importação');
       setImporting(false);
-      setProgress(0);
     }
   };
 
@@ -179,7 +178,7 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
                     {file ? file.name : 'Clique para selecionar arquivo CSV'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Máximo 50MB
+                    Máximo 5GB - Processamento automático em background
                   </p>
                 </label>
               </div>

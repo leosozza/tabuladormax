@@ -16,11 +16,15 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const { lead, webhook, source } = await req.json();
     
     console.log('sync-to-bitrix: Recebendo requisição', { lead, webhook, source });
 
-    // Evitar loop de sincronização - se a origem é 'bitrix', não sincronizar de volta
+    // Evitar loop de sincronização
     if (source === 'bitrix') {
       console.log('sync-to-bitrix: Ignorando - origem é bitrix');
       return new Response(
@@ -29,45 +33,63 @@ serve(async (req) => {
       );
     }
 
-    // Preparar dados para enviar ao Bitrix
+    // Buscar URL do webhook da configuração
+    const { data: config } = await supabase
+      .from('bitrix_sync_config')
+      .select('webhook_url, active')
+      .eq('active', true)
+      .maybeSingle();
+
+    if (!config) {
+      console.log('⚠️ Sincronização desabilitada - nenhuma config ativa');
+      return new Response(
+        JSON.stringify({ success: true, message: 'Sync disabled' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const webhookUrl = webhook || config.webhook_url;
+
+    // Preparar payload DINÂMICO baseado no campo raw
     const bitrixPayload: any = {
       id: lead.id,
-      fields: {}
+      fields: lead.raw || {}
     };
 
-  // Copiar todos os campos do lead exceto metadados de sincronização
-  Object.keys(lead).forEach(key => {
-    if (!['sync_status', 'sync_source', 'last_sync_at', 'updated_at', 
-          'commercial_project_id', 'responsible_user_id', 'bitrix_telemarketing_id'].includes(key)) {
-      bitrixPayload.fields[key] = lead[key];
+    // Sobrescrever campos mapeados se atualizados
+    if (lead.name) bitrixPayload.fields.NAME = lead.name;
+    if (lead.age) bitrixPayload.fields.UF_IDADE = lead.age;
+    if (lead.address) bitrixPayload.fields.UF_LOCAL = lead.address;
+    if (lead.photo_url) bitrixPayload.fields.UF_PHOTO = lead.photo_url;
+    if (lead.responsible) bitrixPayload.fields.UF_RESPONSAVEL = lead.responsible;
+    if (lead.scouter) bitrixPayload.fields.UF_SCOUTER = lead.scouter;
+    if (lead.bitrix_telemarketing_id) {
+      bitrixPayload.fields.PARENT_ID_1144 = lead.bitrix_telemarketing_id;
     }
-  });
 
-    console.log('sync-to-bitrix: Enviando para Bitrix', { webhook, payload: bitrixPayload });
+    console.log('🔄 Sincronizando com Bitrix:', {
+      leadId: lead.id,
+      fieldsCount: Object.keys(bitrixPayload.fields).length,
+      webhook: webhookUrl
+    });
 
-    // Enviar para o Bitrix via webhook
-    if (webhook) {
-      const bitrixResponse = await fetch(webhook, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bitrixPayload)
-      });
+    // Enviar para o Bitrix
+    const bitrixResponse = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bitrixPayload)
+    });
 
-      if (!bitrixResponse.ok) {
-        const errorText = await bitrixResponse.text();
-        console.error('sync-to-bitrix: Erro ao atualizar Bitrix', errorText);
-        throw new Error(`Erro ao atualizar Bitrix: ${errorText}`);
-      }
-
-      const bitrixResult = await bitrixResponse.json();
-      console.log('sync-to-bitrix: Bitrix atualizado com sucesso', bitrixResult);
+    if (!bitrixResponse.ok) {
+      const errorText = await bitrixResponse.text();
+      console.error('sync-to-bitrix: Erro ao atualizar Bitrix', errorText);
+      throw new Error(`Erro ao atualizar Bitrix: ${errorText}`);
     }
+
+    const bitrixResult = await bitrixResponse.json();
+    console.log('sync-to-bitrix: Bitrix atualizado com sucesso', bitrixResult);
 
     // Atualizar status de sincronização no Supabase
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
     const { error: updateError } = await supabase
       .from('leads')
       .update({

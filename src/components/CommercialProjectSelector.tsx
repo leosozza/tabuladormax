@@ -24,8 +24,9 @@ export function CommercialProjectSelector({ value, onChange }: CommercialProject
 
   const loadProjects = async () => {
     try {
-      // @ts-expect-error - Types will be auto-generated after migration
+      // @ts-expect-error Types will be auto-generated after migration
       const { data, error } = await supabase
+        // @ts-expect-error Types will be auto-generated
         .from('commercial_projects')
         .select('id, name, code')
         .eq('active', true)

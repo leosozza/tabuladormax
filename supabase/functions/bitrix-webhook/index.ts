@@ -42,7 +42,9 @@ serve(async (req) => {
       'ONCRM_LEAD_ADD',
       'ONCRM_LEAD_UPDATE',
       'ONCRMLEADADD',
-      'ONCRMLEADUPDATE'
+      'ONCRMLEADUPDATE',
+      'ONCRM_LEAD_DELETE',
+      'ONCRMLEADDELETE'
     ];
 
     if (!supportedEvents.includes(event)) {
@@ -61,6 +63,37 @@ serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
+      );
+    }
+
+    // Conectar ao Supabase
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // ✅ SUPORTE A DELETE
+    if (event.includes('DELETE')) {
+      console.log(`🗑️ Deletando lead ${leadId} do Supabase`);
+      
+      const { error: deleteError } = await supabase
+        .from('leads')
+        .delete()
+        .eq('id', leadId);
+
+      if (deleteError) {
+        console.error('❌ Erro ao deletar lead:', deleteError);
+        throw deleteError;
+      }
+
+      console.log(`✅ Lead ${leadId} deletado com sucesso`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Lead deletado com sucesso',
+          leadId: leadId
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -85,11 +118,6 @@ serve(async (req) => {
 
     const lead = bitrixData.result;
     console.log('✅ Lead obtido do Bitrix:', lead);
-
-    // Conectar ao Supabase
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // 1. EXTRAIR PROJETO COMERCIAL
     const projectName = lead['Projetos Cormeciais'] || lead['Projetos Comerciais'];

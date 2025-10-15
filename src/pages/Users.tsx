@@ -127,8 +127,9 @@ export default function Users() {
   };
 
   const loadCommercialProjects = async () => {
-    // @ts-expect-error - Types will be auto-generated after migration
+    // @ts-expect-error Types will be auto-generated after migration
     const { data } = await supabase
+      // @ts-expect-error Types will be auto-generated
       .from('commercial_projects')
       .select('id, name')
       .eq('active', true)
@@ -138,8 +139,9 @@ export default function Users() {
   };
 
   const loadDepartments = async (projectId: string) => {
-    // @ts-expect-error - Types will be auto-generated after migration
+    // @ts-expect-error Types will be auto-generated after migration
     const { data } = await supabase
+      // @ts-expect-error Types will be auto-generated
       .from('departments')
       .select('id, name, commercial_project_id')
       .eq('commercial_project_id', projectId)
@@ -214,10 +216,11 @@ export default function Users() {
 
       let departmentName, projectName, supervisorName;
 
-      // @ts-expect-error - Types will be auto-generated after migration
+      // @ts-expect-error Types will be auto-generated after migration
       if (mappingData?.department_id) {
-        // @ts-expect-error
+        // @ts-expect-error Types will be auto-generated
         const { data: dept } = await supabase
+          // @ts-expect-error Types will be auto-generated
           .from('departments')
           .select('name')
           // @ts-ignore
@@ -227,9 +230,10 @@ export default function Users() {
         departmentName = dept?.name;
       }
 
-      // @ts-expect-error - Types will be auto-generated after migration
+      // @ts-expect-error Types will be auto-generated after migration
       if (mappingData?.commercial_project_id) {
         const { data: proj } = await supabase
+          // @ts-expect-error Types will be auto-generated
           .from('commercial_projects')
           .select('name')
           // @ts-ignore
