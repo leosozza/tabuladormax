@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { User, X } from "lucide-react";
+import { User, X, Settings2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LeadWithDetails } from "@/types/filters";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -20,6 +22,16 @@ export function LeadsListModal({ isOpen, onClose, leads, statusLabel, loading }:
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [visibleColumns, setVisibleColumns] = useState({
+    id: true,
+    photo: true,
+    name: true,
+    age: true,
+    address: true,
+    scouter: true,
+    responsible: true,
+    updated_at: true,
+  });
 
   const totalPages = Math.ceil(leads.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -36,10 +48,99 @@ export function LeadsListModal({ isOpen, onClose, leads, statusLabel, loading }:
       <DialogContent className="max-w-5xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Leads - {statusLabel}</span>
-            <span className="text-sm font-normal text-muted-foreground">
-              {leads.length} {leads.length === 1 ? 'lead' : 'leads'}
-            </span>
+            <div className="flex items-center gap-4">
+              <span>Leads - {statusLabel}</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                {leads.length} {leads.length === 1 ? 'lead' : 'leads'}
+              </span>
+            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Settings2 className="w-4 h-4" />
+                  Colunas
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 bg-background" align="end">
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm">Colunas Visíveis</h4>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={visibleColumns.id}
+                        onCheckedChange={(checked) => 
+                          setVisibleColumns({ ...visibleColumns, id: checked as boolean })
+                        }
+                      />
+                      <span className="text-sm">ID</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={visibleColumns.photo}
+                        onCheckedChange={(checked) => 
+                          setVisibleColumns({ ...visibleColumns, photo: checked as boolean })
+                        }
+                      />
+                      <span className="text-sm">Foto</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={visibleColumns.name}
+                        onCheckedChange={(checked) => 
+                          setVisibleColumns({ ...visibleColumns, name: checked as boolean })
+                        }
+                      />
+                      <span className="text-sm">Nome</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={visibleColumns.age}
+                        onCheckedChange={(checked) => 
+                          setVisibleColumns({ ...visibleColumns, age: checked as boolean })
+                        }
+                      />
+                      <span className="text-sm">Idade</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={visibleColumns.scouter}
+                        onCheckedChange={(checked) => 
+                          setVisibleColumns({ ...visibleColumns, scouter: checked as boolean })
+                        }
+                      />
+                      <span className="text-sm">Olheiro</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={visibleColumns.address}
+                        onCheckedChange={(checked) => 
+                          setVisibleColumns({ ...visibleColumns, address: checked as boolean })
+                        }
+                      />
+                      <span className="text-sm">Endereço</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={visibleColumns.responsible}
+                        onCheckedChange={(checked) => 
+                          setVisibleColumns({ ...visibleColumns, responsible: checked as boolean })
+                        }
+                      />
+                      <span className="text-sm">Operador</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={visibleColumns.updated_at}
+                        onCheckedChange={(checked) => 
+                          setVisibleColumns({ ...visibleColumns, updated_at: checked as boolean })
+                        }
+                      />
+                      <span className="text-sm">Atualizado</span>
+                    </label>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </DialogTitle>
         </DialogHeader>
 
@@ -57,12 +158,14 @@ export function LeadsListModal({ isOpen, onClose, leads, statusLabel, loading }:
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Idade</TableHead>
-                    <TableHead>Endereço</TableHead>
-                    <TableHead>Responsável</TableHead>
-                    <TableHead>Atualizado</TableHead>
+                    {visibleColumns.id && <TableHead>ID</TableHead>}
+                    {visibleColumns.photo && <TableHead>Foto</TableHead>}
+                    {visibleColumns.name && <TableHead>Nome</TableHead>}
+                    {visibleColumns.age && <TableHead>Idade</TableHead>}
+                    {visibleColumns.scouter && <TableHead>Olheiro</TableHead>}
+                    {visibleColumns.address && <TableHead>Endereço</TableHead>}
+                    {visibleColumns.responsible && <TableHead>Operador</TableHead>}
+                    {visibleColumns.updated_at && <TableHead>Atualizado</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -72,9 +175,11 @@ export function LeadsListModal({ isOpen, onClose, leads, statusLabel, loading }:
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => navigate(`/lead?id=${lead.id}`)}
                     >
-                      <TableCell>{lead.id}</TableCell>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
+                      {visibleColumns.id && (
+                        <TableCell className="font-mono text-sm">{lead.id}</TableCell>
+                      )}
+                      {visibleColumns.photo && (
+                        <TableCell>
                           {lead.photo_url ? (
                             <img 
                               src={lead.photo_url} 
@@ -86,20 +191,35 @@ export function LeadsListModal({ isOpen, onClose, leads, statusLabel, loading }:
                               <User className="w-4 h-4 text-muted-foreground" />
                             </div>
                           )}
+                        </TableCell>
+                      )}
+                      {visibleColumns.name && (
+                        <TableCell className="font-medium">
                           {lead.name || '—'}
-                        </div>
-                      </TableCell>
-                      <TableCell>{lead.age ? `${lead.age} anos` : '—'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{lead.address || '—'}</TableCell>
-                      <TableCell>{lead.responsible || '—'}</TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {lead.action_created_at 
-                          ? format(new Date(lead.action_created_at), 'dd/MM/yyyy HH:mm')
-                          : lead.updated_at
-                          ? format(new Date(lead.updated_at), 'dd/MM/yyyy HH:mm')
-                          : '—'
-                        }
-                      </TableCell>
+                        </TableCell>
+                      )}
+                      {visibleColumns.age && (
+                        <TableCell>{lead.age ? `${lead.age} anos` : '—'}</TableCell>
+                      )}
+                      {visibleColumns.scouter && (
+                        <TableCell>{lead.scouter || '—'}</TableCell>
+                      )}
+                      {visibleColumns.address && (
+                        <TableCell className="max-w-xs truncate">{lead.address || '—'}</TableCell>
+                      )}
+                      {visibleColumns.responsible && (
+                        <TableCell>{lead.responsible || '—'}</TableCell>
+                      )}
+                      {visibleColumns.updated_at && (
+                        <TableCell className="whitespace-nowrap">
+                          {lead.action_created_at 
+                            ? format(new Date(lead.action_created_at), 'dd/MM/yyyy HH:mm')
+                            : lead.updated_at
+                            ? format(new Date(lead.updated_at), 'dd/MM/yyyy HH:mm')
+                            : '—'
+                          }
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
