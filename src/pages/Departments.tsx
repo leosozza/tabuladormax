@@ -10,28 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Plus, Building2, Users, ChevronRight, ChevronDown, Edit, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface Department {
-  id: string;
-  name: string;
-  code: string;
-  parent_id: string | null;
-  commercial_project_id: string;
-  description: string | null;
-  active: boolean;
-  sort_order: number;
-  project?: { name: string; code: string };
-  agents_count?: number;
-  children?: Department[];
-}
-
-interface CommercialProject {
-  id: string;
-  name: string;
-  code: string;
-  description: string | null;
-  active: boolean;
-}
+import type { Department, CommercialProject } from "@/types/database-extensions";
 
 export default function Departments() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -58,9 +37,8 @@ export default function Departments() {
       setLoading(true);
 
       // Carregar projetos comerciais
-      // @ts-ignore - Tipos ainda não atualizados após migração
       const { data: projectsData, error: projectsError } = await supabase
-        .from("commercial_projects")
+        .from("commercial_projects" as any)
         .select("*")
         .eq("active", true)
         .order("name");
@@ -68,22 +46,18 @@ export default function Departments() {
       if (projectsError) throw projectsError;
       setProjects(projectsData as any || []);
 
-      // Carregar departamentos com contagem de agentes
-      // @ts-ignore - Tipos ainda não atualizados após migração
+      // Carregar departamentos
       const { data: deptsData, error: deptsError } = await supabase
-        .from("departments")
-        .select(`
-          *,
-          project:commercial_projects(name, code)
-        `)
+        .from("departments" as any)
+        .select("*")
         .eq("active", true)
-        .order("sort_order");
+        .order("name");
 
       if (deptsError) throw deptsError;
 
       // Contar agentes por departamento
       const { data: agentsCount } = await supabase
-        .from("agent_telemarketing_mapping")
+        .from("agent_telemarketing_mapping" as any)
         .select("department_id");
 
       const counts = (agentsCount as any)?.reduce((acc: any, curr: any) => {
@@ -95,7 +69,7 @@ export default function Departments() {
 
       const enrichedDepts = (deptsData as any)?.map((dept: any) => ({
         ...dept,
-        agents_count: counts[dept.id] || 0
+        agent_count: counts[dept.id] || 0
       })) || [];
 
       setDepartments(buildTree(enrichedDepts as Department[]));
@@ -153,28 +127,26 @@ export default function Departments() {
 
     try {
       if (editingDept) {
-        // @ts-ignore - Tipos ainda não atualizados após migração
         const { error } = await supabase
-          .from("departments")
+          .from("departments" as any)
           .update({
             name: formData.name,
             description: formData.description || null,
-          })
+          } as any)
           .eq("id", editingDept.id);
 
         if (error) throw error;
         toast.success("Departamento atualizado com sucesso");
       } else {
-        // @ts-ignore - Tipos ainda não atualizados após migração
         const { error } = await supabase
-          .from("departments")
+          .from("departments" as any)
           .insert({
             name: formData.name,
             code: formData.code.toUpperCase(),
             commercial_project_id: formData.commercial_project_id,
             parent_id: formData.parent_id || null,
             description: formData.description || null,
-          });
+          } as any);
 
         if (error) throw error;
         toast.success("Departamento criado com sucesso");
@@ -193,10 +165,9 @@ export default function Departments() {
     if (!confirm(`Deseja realmente excluir o departamento "${dept.name}"?`)) return;
 
     try {
-      // @ts-ignore - Tipos ainda não atualizados após migração
       const { error } = await supabase
-        .from("departments")
-        .update({ active: false })
+        .from("departments" as any)
+        .update({ active: false } as any)
         .eq("id", dept.id);
 
       if (error) throw error;
@@ -266,7 +237,7 @@ export default function Departments() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Users className="h-4 w-4" />
-              <span>{dept.agents_count || 0}</span>
+              <span>{dept.agent_count || 0}</span>
             </div>
 
             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
