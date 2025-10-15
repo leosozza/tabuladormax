@@ -182,7 +182,6 @@ Deno.serve(async (req) => {
             await supabaseAdmin.from('actions_log').insert([{
               lead_id: leadId,
               action_label: `Flow: ${flow.nome} - ${step.nome}`,
-              user_id: userId || null,
               payload: { flowId, runId, stepId: step.id, result: stepResult },
               status: 'SUCCESS'
             }]);
@@ -201,7 +200,6 @@ Deno.serve(async (req) => {
             await supabaseAdmin.from('actions_log').insert([{
               lead_id: leadId,
               action_label: `Flow: ${flow.nome} - ${step.nome}`,
-              user_id: userId || null,
               payload: { flowId, runId, stepId: step.id, error: errorMessage },
               status: 'ERROR',
               error: errorMessage
