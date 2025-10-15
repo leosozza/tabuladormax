@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { isValidUUID, generateFixResponsibleSQL } from "@/lib/utils";
 
 interface LogEntry {
   id: string;
@@ -105,6 +106,81 @@ const Logs = () => {
     } else if (data) {
       setAgents(data);
       console.log(`✅ ${data.length} agentes carregados com sucesso`);
+    }
+    
+    // Validar responsáveis nos leads (apenas para admins)
+    if (isAdmin) {
+      await validateLeadsResponsible(data || []);
+    }
+  };
+
+  const validateLeadsResponsible = async (profilesData: Array<{ id: string; display_name: string; email: string }>) => {
+    // Buscar todos os responsáveis únicos dos leads
+    const { data: leadsData, error: leadsError } = await supabase
+      .from('leads')
+      .select('responsible')
+      .not('responsible', 'is', null);
+    
+    if (leadsError) {
+      console.error('Erro ao validar responsáveis dos leads:', leadsError);
+      return;
+    }
+    
+    if (leadsData && leadsData.length > 0) {
+      const uniqueResponsibles = [...new Set(leadsData.map(l => l.responsible))].filter(Boolean);
+      
+      // Filtrar inválidos (não-UUID) e válidos
+      const validUUIDs = uniqueResponsibles.filter(id => isValidUUID(id));
+      const invalidIds = uniqueResponsibles.filter(id => !isValidUUID(id));
+      
+      // Verificar quais UUIDs válidos existem nos profiles
+      const existingProfileIds = new Set(profilesData.map(p => p.id));
+      const validButNonExistentUUIDs = validUUIDs.filter(uuid => !existingProfileIds.has(uuid));
+      
+      // Diagnóstico completo se houver problemas
+      if (invalidIds.length > 0 || validButNonExistentUUIDs.length > 0) {
+        console.group('⚠️ DIAGNÓSTICO: Responsáveis Inválidos ou Inexistentes (Logs)');
+        
+        if (invalidIds.length > 0) {
+          console.warn(`📋 ${invalidIds.length} responsável(is) com formato inválido (não são UUIDs):`, invalidIds);
+          
+          // Gerar e exibir SQL pronto para correção
+          const fixSQL = generateFixResponsibleSQL(invalidIds);
+          console.info('📝 SQL para correção dos dados:\n\n' + fixSQL);
+        }
+        
+        if (validButNonExistentUUIDs.length > 0) {
+          console.warn(`🔍 ${validButNonExistentUUIDs.length} UUID(s) válido(s) mas que não existem na tabela profiles:`, validButNonExistentUUIDs);
+          console.info('💡 Estes UUIDs precisam ser corrigidos ou os usuários correspondentes precisam ser criados na tabela profiles.');
+        }
+        
+        console.info(`✅ ${validUUIDs.length - validButNonExistentUUIDs.length} UUID(s) válido(s) e existente(s) na tabela profiles`);
+        
+        if (profilesData.length > 0) {
+          console.info('👥 Usuários disponíveis na tabela profiles para mapeamento:');
+          console.table(profilesData.map(p => ({
+            UUID: p.id,
+            Nome: p.display_name || '(sem nome)',
+            Email: p.email
+          })));
+        }
+        
+        console.groupEnd();
+        
+        // Toast informativo
+        const totalInvalid = invalidIds.length + validButNonExistentUUIDs.length;
+        toast.warning(
+          `⚠️ ${totalInvalid} responsável(is) inválido(s) nos leads`,
+          {
+            description: invalidIds.length > 0 
+              ? `${invalidIds.length} com formato inválido (não-UUID). ${validButNonExistentUUIDs.length > 0 ? `${validButNonExistentUUIDs.length} UUIDs não existem na tabela profiles.` : ''} Veja o console (F12) para o SQL de correção.`
+              : `${validButNonExistentUUIDs.length} UUIDs válidos mas não existem na tabela profiles. Veja o console (F12) para detalhes.`,
+            duration: 15000,
+          }
+        );
+      } else if (validUUIDs.length > 0) {
+        console.log(`✅ Todos os ${validUUIDs.length} responsáveis nos leads são UUIDs válidos e existem na tabela profiles`);
+      }
     }
   };
 

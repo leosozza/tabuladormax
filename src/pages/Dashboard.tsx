@@ -13,7 +13,7 @@ import { DateFilterSelector } from "@/components/DateFilterSelector";
 import { LeadsListModal } from "@/components/LeadsListModal";
 import { DateFilter, LeadWithDetails } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
-import { isValidUUID } from "@/lib/utils";
+import { isValidUUID, generateFixResponsibleSQL } from "@/lib/utils";
 
 interface LeadRow {
   id: number;
@@ -179,17 +179,55 @@ const Index = () => {
       const validUUIDs = uniqueOperatorIds.filter(id => isValidUUID(id));
       const invalidIds = uniqueOperatorIds.filter(id => !isValidUUID(id));
       
-      // Informar sobre responsáveis inválidos
-      if (invalidIds.length > 0) {
-        console.warn('⚠️ Responsáveis com formato inválido (não são UUIDs):', invalidIds);
+      // Buscar todos os profiles existentes para validação
+      const { data: allProfilesData } = await supabase
+        .from('profiles')
+        .select('id, display_name, email');
+      
+      const existingProfileIds = new Set(allProfilesData?.map(p => p.id) || []);
+      const validButNonExistentUUIDs = validUUIDs.filter(uuid => !existingProfileIds.has(uuid));
+      
+      // Informar sobre responsáveis inválidos com diagnóstico completo
+      if (invalidIds.length > 0 || validButNonExistentUUIDs.length > 0) {
+        console.group('⚠️ DIAGNÓSTICO: Responsáveis Inválidos ou Inexistentes');
         
-        // Mostrar toast informativo para admins
+        if (invalidIds.length > 0) {
+          console.warn(`📋 ${invalidIds.length} responsável(is) com formato inválido (não são UUIDs):`, invalidIds);
+          
+          // Gerar e exibir SQL pronto para correção
+          const fixSQL = generateFixResponsibleSQL(invalidIds);
+          console.info('📝 SQL para correção dos dados:\n\n' + fixSQL);
+        }
+        
+        if (validButNonExistentUUIDs.length > 0) {
+          console.warn(`🔍 ${validButNonExistentUUIDs.length} UUID(s) válido(s) mas que não existem na tabela profiles:`, validButNonExistentUUIDs);
+          console.info('💡 Estes UUIDs precisam ser corrigidos ou os usuários correspondentes precisam ser criados na tabela profiles.');
+        }
+        
+        console.info(`✅ ${validUUIDs.length - validButNonExistentUUIDs.length} UUID(s) válido(s) e existente(s) na tabela profiles`);
+        
+        if (allProfilesData && allProfilesData.length > 0) {
+          console.info('👥 Usuários disponíveis na tabela profiles para mapeamento:');
+          console.table(allProfilesData.map(p => ({
+            UUID: p.id,
+            Nome: p.display_name || '(sem nome)',
+            Email: p.email
+          })));
+        }
+        
+        console.groupEnd();
+        
+        // Mostrar toast informativo para admins com instruções detalhadas
         if (isAdmin) {
+          const totalInvalid = invalidIds.length + validButNonExistentUUIDs.length;
+          
           toast.warning(
-            `${invalidIds.length} lead(s) com responsável inválido encontrado(s)`,
+            `⚠️ ${totalInvalid} responsável(is) inválido(s) ou inexistente(s) encontrado(s)`,
             {
-              description: `Leads com responsáveis como texto ao invés de UUID. Os IDs inválidos são: ${invalidIds.slice(0, 3).join(', ')}${invalidIds.length > 3 ? '...' : ''}`,
-              duration: 10000,
+              description: invalidIds.length > 0 
+                ? `${invalidIds.length} com formato inválido (não-UUID): ${invalidIds.slice(0, 3).join(', ')}${invalidIds.length > 3 ? '...' : ''}. ${validButNonExistentUUIDs.length > 0 ? `${validButNonExistentUUIDs.length} UUIDs não existem na tabela profiles.` : ''} Veja o console (F12) para o SQL de correção.`
+                : `${validButNonExistentUUIDs.length} UUIDs válidos mas não existem na tabela profiles. Veja o console (F12) para detalhes.`,
+              duration: 15000,
             }
           );
         }
@@ -197,26 +235,47 @@ const Index = () => {
       
       // Se não há UUIDs válidos, não tenta buscar profiles
       if (validUUIDs.length === 0) {
-        console.warn('Nenhum UUID válido encontrado nos responsáveis');
+        console.warn('❌ Nenhum UUID válido encontrado nos responsáveis');
         setOperators([]);
         
         if (isAdmin && invalidIds.length > 0) {
+          const fixSQL = generateFixResponsibleSQL(invalidIds);
+          console.error('🔧 SQL PARA CORREÇÃO:\n\n' + fixSQL);
+          
           toast.error(
-            'Nenhum operador válido encontrado',
+            '❌ Nenhum operador válido encontrado',
             {
-              description: 'Todos os responsáveis nos leads são nomes/textos ao invés de IDs de usuário. Corrija os dados no banco atualizando o campo "responsible" dos leads para conter UUIDs válidos de usuários.',
-              duration: 15000,
+              description: 'Todos os responsáveis nos leads são inválidos. Abra o console do navegador (F12) para ver o SQL de correção pronto.',
+              duration: 20000,
             }
           );
         }
         return;
       }
       
-      // Get user details apenas para UUIDs válidos
+      // Get user details apenas para UUIDs válidos que existem
+      const validExistingUUIDs = validUUIDs.filter(uuid => existingProfileIds.has(uuid));
+      
+      if (validExistingUUIDs.length === 0) {
+        console.warn('❌ Nenhum UUID válido encontrado que exista na tabela profiles');
+        setOperators([]);
+        
+        if (isAdmin) {
+          toast.error(
+            '❌ Nenhum operador válido encontrado',
+            {
+              description: 'Todos os UUIDs nos responsáveis não existem na tabela profiles. Veja o console (F12) para detalhes.',
+              duration: 20000,
+            }
+          );
+        }
+        return;
+      }
+      
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('id, display_name')
-        .in('id', validUUIDs);
+        .in('id', validExistingUUIDs);
       
       if (usersError) {
         console.error('Erro ao buscar perfis de operadores:', usersError);
