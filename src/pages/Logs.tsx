@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 
 interface LogEntry {
   id: string;
@@ -97,8 +98,13 @@ const Logs = () => {
       .select('id, display_name, email')
       .order('display_name');
 
-    if (!error && data) {
+    if (error) {
+      console.error('Erro ao carregar agentes:', error);
+      toast.error('Erro ao carregar lista de agentes/operadores');
+      setAgents([]);
+    } else if (data) {
       setAgents(data);
+      console.log(`✅ ${data.length} agentes carregados com sucesso`);
     }
   };
 
