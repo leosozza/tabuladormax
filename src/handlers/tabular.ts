@@ -200,9 +200,10 @@ export async function runTabular(
       });
     }
 
-    // Adicionar campo UF_CRM_1733943936 (Telemarketing) automaticamente
-    additionalFieldsProcessed['UF_CRM_1733943936'] = telemarketingId;
-    console.log(`✅ Campo de telemarketing adicionado: UF_CRM_1733943936 = ${telemarketingId}`);
+    // Adicionar campos de telemarketing automaticamente (PARENT_ID_1144 e UF_CRM_1748961149)
+    additionalFieldsProcessed['PARENT_ID_1144'] = telemarketingId;
+    additionalFieldsProcessed['UF_CRM_1748961149'] = telemarketingId;
+    console.log(`✅ Campos de telemarketing adicionados: PARENT_ID_1144 = ${telemarketingId}, UF_CRM_1748961149 = ${telemarketingId}`);
 
     // Determine synchronization flow based on sync_target
     if (sync_target === 'supabase') {

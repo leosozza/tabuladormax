@@ -17,7 +17,7 @@ serve(async (req) => {
     console.log('🔄 Sincronizando lista de telemarketing do Bitrix24...');
 
     // URL do webhook do Bitrix24 para buscar telemarketing
-    const bitrixUrl = 'https://maxsystem.bitrix24.com.br/rest/9/85e3cex48z1zc0qp/crm.item.list.json?entityTypeId=1145&select[]=title&select[]=id&start=-1';
+    const bitrixUrl = 'https://maxsystem.bitrix24.com.br/rest/9/85e3cex48z1zc0qp/crm.item.list.json?entityTypeId=1144&select[]=title&select[]=id&start=-1';
 
     // Buscar dados do Bitrix24
     const response = await fetch(bitrixUrl);

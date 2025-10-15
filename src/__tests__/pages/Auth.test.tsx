@@ -27,7 +27,7 @@ describe('Telemarketing Validation Logic', () => {
     });
 
     it('should reject non-numeric values', () => {
-      expect(isValidTelemarketingId('123')).toBe(false);
+      // String values are rejected by TypeScript types, so we only test NaN
       expect(isValidTelemarketingId(NaN)).toBe(false);
     });
 

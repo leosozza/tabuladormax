@@ -83,13 +83,16 @@ export class TabularStepRunner extends BaseStepRunner<TabularStepConfig> {
       // Add additional fields if present
       if (config.additional_fields && config.additional_fields.length > 0) {
         config.additional_fields.forEach((additionalField) => {
-          body.fields[additionalField.field] = this.replacePlaceholders(
+          const resolvedValue = this.replacePlaceholders(
             additionalField.value,
             context.leadId,
             context.variables
           );
+          body.fields[additionalField.field] = resolvedValue;
         });
       }
+
+      this.log(stepId, stepName, 'debug', 'Request body prepared', { body }, onLog);
 
       this.log(stepId, stepName, 'info', 'Sending request to webhook', { body }, onLog);
 

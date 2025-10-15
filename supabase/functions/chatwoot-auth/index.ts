@@ -68,17 +68,18 @@ Deno.serve(async (req) => {
       chatwoot_role: role,
     };
 
-    // 1. Buscar usuário por e-mail (mais eficiente que listUsers)
-    const { data: byEmail, error: getUserErr } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+    // 1. Buscar usuário por e-mail usando listUsers com filtro
+    const { data: listData, error: getUserErr } = await supabaseAdmin.auth.admin.listUsers();
     if (getUserErr) {
-      console.error('Erro getUserByEmail:', getUserErr);
+      console.error('Erro listUsers:', getUserErr);
       throw getUserErr;
     }
 
     let userId: string;
+    const existingUser = listData?.users?.find(u => u.email === email);
 
-    if (byEmail?.user) {
-      userId = byEmail.user.id;
+    if (existingUser) {
+      userId = existingUser.id;
       console.log('✅ Usuário existente:', userId);
       const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
         user_metadata: userMetadata

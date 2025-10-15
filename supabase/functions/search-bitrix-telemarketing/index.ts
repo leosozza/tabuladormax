@@ -51,7 +51,7 @@ serve(async (req) => {
 
     // Função auxiliar para buscar com filtro
     async function fetchWithFilter(filterParam: string, start = 0): Promise<BitrixResponse> {
-      const url = `${baseUrl}?entityTypeId=1145&select[]=title&select[]=id${filterParam}&start=${start}`;
+      const url = `${baseUrl}?entityTypeId=1144&select[]=title&select[]=id${filterParam}&start=${start}`;
       const response = await fetch(url);
       
       if (!response.ok) {

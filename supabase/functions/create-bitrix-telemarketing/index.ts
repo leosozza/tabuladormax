@@ -38,7 +38,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        entityTypeId: 1145,
+        entityTypeId: 1144,
         fields: {
           title: title.trim()
         }
