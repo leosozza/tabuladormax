@@ -132,16 +132,29 @@ const Index = () => {
     
     // Filter by operator if selected
     if (selectedOperator) {
-      const { data: operatorLeads } = await supabase
-        .from('leads')
-        .select('id')
-        .eq('responsible', selectedOperator);
+      // Buscar nome do operador no mapeamento
+      const { data: mapping } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('bitrix_telemarketing_name')
+        .eq('tabuladormax_user_id', selectedOperator)
+        .maybeSingle();
       
-      const leadIds = operatorLeads?.map(l => l.id) || [];
-      if (leadIds.length > 0) {
-        query = query.in('lead_id', leadIds);
+      if (mapping?.bitrix_telemarketing_name) {
+        // Buscar leads pelo NOME do bitrix
+        const { data: operatorLeads } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('responsible', mapping.bitrix_telemarketing_name);
+        
+        const leadIds = operatorLeads?.map(l => l.id) || [];
+        if (leadIds.length > 0) {
+          query = query.in('lead_id', leadIds);
+        } else {
+          setActionStats({});
+          return;
+        }
       } else {
-        // No leads for this operator
+        toast.warning('Operador não está mapeado no Bitrix');
         setActionStats({});
         return;
       }
@@ -217,15 +230,29 @@ const Index = () => {
 
       // Apply operator filter if selected
       if (selectedOperator) {
-        const { data: operatorLeads } = await supabase
-          .from('leads')
-          .select('id')
-          .eq('responsible', selectedOperator);
+        // Buscar nome do operador no mapeamento
+        const { data: mapping } = await supabase
+          .from('agent_telemarketing_mapping')
+          .select('bitrix_telemarketing_name')
+          .eq('tabuladormax_user_id', selectedOperator)
+          .maybeSingle();
         
-        const leadIds = operatorLeads?.map(l => l.id) || [];
-        if (leadIds.length > 0) {
-          logsQuery = logsQuery.in('lead_id', leadIds);
+        if (mapping?.bitrix_telemarketing_name) {
+          const { data: operatorLeads } = await supabase
+            .from('leads')
+            .select('id')
+            .eq('responsible', mapping.bitrix_telemarketing_name);
+          
+          const leadIds = operatorLeads?.map(l => l.id) || [];
+          if (leadIds.length > 0) {
+            logsQuery = logsQuery.in('lead_id', leadIds);
+          } else {
+            setSelectedStatusLeads([]);
+            setLoadingStatusLeads(false);
+            return;
+          }
         } else {
+          toast.warning('Operador não está mapeado no Bitrix');
           setSelectedStatusLeads([]);
           setLoadingStatusLeads(false);
           return;
