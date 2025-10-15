@@ -85,16 +85,13 @@ export default function Users() {
 
   const updateUserRole = async (userId: string, newRole: 'admin' | 'agent') => {
     try {
-      // Deletar role antiga
-      await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
-
-      // Inserir nova role
+      // UPSERT em vez de DELETE + INSERT para evitar duplicatas
       const { error } = await supabase
         .from('user_roles')
-        .insert({ user_id: userId, role: newRole });
+        .upsert(
+          { user_id: userId, role: newRole },
+          { onConflict: 'user_id' }
+        );
 
       if (error) throw error;
 

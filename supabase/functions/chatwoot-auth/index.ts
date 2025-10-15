@@ -108,10 +108,10 @@ Deno.serve(async (req) => {
     // 2. Mapear role
     const appRole = role === 'administrator' ? 'admin' : 'agent';
 
-    // 3. Upsert de role (evita 23505)
+    // 3. Upsert de role (agora com constraint correta em user_id apenas)
     const { error: roleErr } = await supabaseAdmin
       .from('user_roles')
-      .upsert({ user_id: userId, role: appRole }, { onConflict: 'user_id,role', ignoreDuplicates: true });
+      .upsert({ user_id: userId, role: appRole }, { onConflict: 'user_id' });
 
     if (roleErr) {
       // Duplicates should be handled by ignoreDuplicates, so any error here is unexpected
