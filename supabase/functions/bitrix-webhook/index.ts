@@ -31,8 +31,51 @@ serve(async (req) => {
   }
 
   try {
-    const payload: BitrixWebhookPayload = await req.json();
-    console.log('📥 Webhook recebido do Bitrix:', payload);
+    // Detectar Content-Type e fazer parse adequado
+    const contentType = req.headers.get('content-type') || '';
+    console.log('📋 Content-Type recebido:', contentType);
+
+    let payload: BitrixWebhookPayload;
+
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+      // Parse form data do Bitrix
+      const text = await req.text();
+      console.log('📄 Payload bruto (form data):', text.substring(0, 500) + '...');
+      
+      const params = new URLSearchParams(text);
+      
+      // Extrair event
+      const event = params.get('event') || '';
+      
+      // Extrair ID do lead
+      const leadId = params.get('data[FIELDS][ID]') || '';
+      
+      // Extrair domain
+      const domain = params.get('auth[domain]') || 'maxsystem.bitrix24.com.br';
+      
+      // Construir payload no formato esperado
+      payload = {
+        event,
+        data: {
+          FIELDS: {
+            ID: leadId
+          }
+        },
+        ts: Date.now(),
+        auth: {
+          access_token: '',
+          domain
+        }
+      } as BitrixWebhookPayload;
+      
+      console.log('✅ Form data convertido para JSON:', payload);
+    } else {
+      // Parse JSON tradicional
+      payload = await req.json();
+      console.log('📥 Webhook recebido (JSON):', payload);
+    }
+
+    console.log('📥 Processando evento:', payload.event, 'Lead ID:', payload.data?.FIELDS?.ID);
 
     const event = payload.event;
     const leadId = payload.data?.FIELDS?.ID;
