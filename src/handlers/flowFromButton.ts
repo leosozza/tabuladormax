@@ -14,6 +14,7 @@ interface ButtonConfig {
   field_type?: string;
   action_type: string;
   additional_fields?: Array<{ field: string; value: string }>;
+  transfer_conversation?: boolean;
   sub_buttons?: Array<{
     subLabel: string;
     subDescription?: string;
@@ -21,6 +22,7 @@ interface ButtonConfig {
     subField: string;
     subValue: string;
     subAdditionalFields?: Array<{ field: string; value: string }>;
+    transfer_conversation?: boolean;
   }>;
 }
 
@@ -45,7 +47,8 @@ export function createFlowFromButton(buttonConfig: ButtonConfig): Flow {
         field: buttonConfig.field,
         value: buttonConfig.value,
         field_type: buttonConfig.field_type,
-        additional_fields: buttonConfig.additional_fields || []
+        additional_fields: buttonConfig.additional_fields || [],
+        transfer_conversation: buttonConfig.transfer_conversation || false
       }
     };
     steps.push(step);
@@ -85,7 +88,8 @@ export function createFlowFromButton(buttonConfig: ButtonConfig): Flow {
           webhook_url: subButton.subWebhook,
           field: subButton.subField,
           value: subButton.subValue,
-          additional_fields: subButton.subAdditionalFields || []
+          additional_fields: subButton.subAdditionalFields || [],
+          transfer_conversation: subButton.transfer_conversation || false
         }
       };
       steps.push(subStep);

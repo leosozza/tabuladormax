@@ -39,6 +39,7 @@ export interface FlowStepTabular extends FlowStepBase {
     value: string;
     field_type?: string;
     additional_fields?: Array<{ field: string; value: string }>;
+    transfer_conversation?: boolean;
   };
 }
 

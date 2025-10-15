@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { BitrixField, getLeadStatuses } from "@/lib/bitrix";
 import { BUTTON_CATEGORIES, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { useState, useEffect } from "react";
@@ -38,6 +39,7 @@ interface SubButton {
   subValue: string;
   subHotkey?: string;
   subAdditionalFields?: Array<{ field: string; value: string }>;
+  transfer_conversation?: boolean;
 }
 
 interface ButtonConfig {
@@ -56,6 +58,7 @@ interface ButtonConfig {
   sub_buttons: SubButton[];
   sync_target?: 'bitrix' | 'supabase';
   additional_fields?: Array<{ field: string; value: string }>;
+  transfer_conversation?: boolean;
 }
 
 interface SupabaseField {
@@ -516,6 +519,26 @@ export function ButtonEditDialog({
           </div>
 
           <div className="border-t pt-4">
+            <div className="flex items-start gap-3 p-3 bg-accent/20 rounded-md">
+              <Checkbox
+                id={`transfer-conversation-${button.id}`}
+                checked={button.transfer_conversation || false}
+                onCheckedChange={(checked) => 
+                  onUpdate(button.id, { transfer_conversation: checked as boolean })
+                }
+              />
+              <div className="flex-1">
+                <Label htmlFor={`transfer-conversation-${button.id}`} className="text-sm font-medium cursor-pointer">
+                  Transferir conversa do Chatwoot ao tabular
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Quando ativado, a conversa será automaticamente transferida para o operador que tabulou este botão
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-3">
               <div>
                 <Label className="text-sm font-semibold">Parâmetros Adicionais</Label>
@@ -923,6 +946,27 @@ export function ButtonEditDialog({
                             </DropdownMenu>
                           </div>
                         )}
+                      </div>
+                    </div>
+
+                    {/* Transferência de Conversa do Sub-botão */}
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="flex items-start gap-3 p-2 bg-accent/10 rounded">
+                        <Checkbox
+                          id={`transfer-conversation-sub-${button.id}-${subIndex}`}
+                          checked={sub.transfer_conversation || false}
+                          onCheckedChange={(checked) => 
+                            onUpdateSubButton(button.id, subIndex, { transfer_conversation: checked as boolean })
+                          }
+                        />
+                        <div className="flex-1">
+                          <Label htmlFor={`transfer-conversation-sub-${button.id}-${subIndex}`} className="text-xs font-medium cursor-pointer">
+                            Transferir conversa do Chatwoot ao tabular
+                          </Label>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Quando ativado, transfere a conversa para o operador que tabulou
+                          </p>
+                        </div>
                       </div>
                     </div>
 

@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
 
           switch (step.type) {
             case 'tabular':
-              stepResult = await executeTabularStep(step, leadId, context, supabaseAdmin);
+              stepResult = await executeTabularStep(step, leadId, { ...context, userId }, supabaseAdmin);
               break;
             
             case 'http_call':
@@ -283,7 +283,7 @@ async function executeTabularStep(step: FlowStep, leadId: number | undefined, co
   }
 
   const config = step.config;
-  const { webhook_url, field, value, additional_fields = [] } = config;
+  const { webhook_url, field, value, additional_fields = [], transfer_conversation = false } = config;
 
   if (!webhook_url || !field) {
     throw new Error('webhook_url e field são obrigatórios para tabular steps');
@@ -319,7 +319,53 @@ async function executeTabularStep(step: FlowStep, leadId: number | undefined, co
     .from('leads')
     .upsert({ id: leadId, [field]: value }, { onConflict: 'id' });
 
-  return { bitrixResponse: responseData, field, value };
+  // Transfer Chatwoot conversation if configured
+  if (transfer_conversation) {
+    try {
+      // Get conversation_id from chatwoot_contacts
+      const { data: contact } = await supabaseAdmin
+        .from('chatwoot_contacts')
+        .select('conversation_id')
+        .eq('bitrix_id', String(leadId))
+        .maybeSingle();
+
+      if (contact?.conversation_id && context.userId) {
+        console.log('🔄 Transferindo conversa do Chatwoot...', { 
+          conversation_id: contact.conversation_id,
+          operator_user_id: context.userId 
+        });
+
+        // Call chatwoot-transfer edge function
+        const transferResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/chatwoot-transfer`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+          },
+          body: JSON.stringify({
+            conversation_id: contact.conversation_id,
+            operator_user_id: context.userId,
+            lead_id: leadId
+          })
+        });
+
+        if (transferResponse.ok) {
+          const transferResult = await transferResponse.json();
+          console.log('✅ Conversa transferida:', transferResult);
+        } else {
+          const errorText = await transferResponse.text();
+          console.error('⚠️ Erro ao transferir conversa:', errorText);
+        }
+      } else {
+        console.log('⚠️ Conversa não encontrada ou userId não fornecido');
+      }
+    } catch (transferError) {
+      console.error('⚠️ Erro na transferência do Chatwoot:', transferError);
+      // Não falhar a execução se a transferência falhar
+    }
+  }
+
+  return { bitrixResponse: responseData, field, value, conversation_transferred: transfer_conversation };
 }
 
 // Helper function to execute HTTP call step
