@@ -697,9 +697,52 @@ export default function Users() {
                         <SelectValue placeholder="Selecione o projeto" />
                       </SelectTrigger>
                       <SelectContent>
-                        {projects.map(p => (
+                      {projects.map(p => (
                           <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}\\n                      </SelectContent>\\n                    </Select>\\n                  </div>\\n\\n                  <div>\\n                    <Label htmlFor=\\\"department\\\">Departamento *</Label>\\n                    <Select value={newUserDepartment} onValueChange={setNewUserDepartment} disabled={!newUserProject}>\\n                      <SelectTrigger>\\n                        <SelectValue placeholder=\\\"Selecione o departamento\\\" />\\n                      </SelectTrigger>\\n                      <SelectContent>\\n                        {departments.map(d => (\\n                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>\\n                        ))}\\n                      </SelectContent>\\n                    </Select>\\n                  </div>\\n\\n                  <div>\\n                    <Label htmlFor=\\\"supervisor\\\">Supervisor</Label>\\n                    <Select value={newUserSupervisor} onValueChange={setNewUserSupervisor} disabled={!newUserDepartment}>\\n                      <SelectTrigger>\\n                        <SelectValue placeholder=\\\"Selecione o supervisor (opcional)\\\" />\\n                      </SelectTrigger>\\n                      <SelectContent>\\n                        <SelectItem value=\\\"\\\">Nenhum</SelectItem>\\n                        {supervisors.map(s => (\\n                          <SelectItem key={s.id} value={s.id}>{s.display_name}</SelectItem>\\n                        ))}\\n                      </SelectContent>\\n                    </Select>\\n                  </div>\\n\\n                  <div>\\n                    <Label htmlFor=\\\"telemarketing\\\">Operador Bitrix *</Label>\\n                    <TelemarketingSelector\\n                      value={newUserTelemarketing}\\n                      onChange={setNewUserTelemarketing}\\n                      disabled={creatingUser}\\n                    />\\n                  </div>\\n                </>\\n              )}
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="department">Departamento *</Label>
+                    <Select value={newUserDepartment} onValueChange={setNewUserDepartment} disabled={!newUserProject}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o departamento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map(d => (
+                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="supervisor">Supervisor</Label>
+                    <Select value={newUserSupervisor} onValueChange={setNewUserSupervisor} disabled={!newUserDepartment}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o supervisor (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Nenhum</SelectItem>
+                        {supervisors.map(s => (
+                          <SelectItem key={s.id} value={s.id}>{s.display_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="telemarketing">Operador Bitrix *</Label>
+                    <TelemarketingSelector
+                      value={newUserTelemarketing}
+                      onChange={setNewUserTelemarketing}
+                      disabled={creatingUser}
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setCreateUserDialogOpen(false)}>
