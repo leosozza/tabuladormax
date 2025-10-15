@@ -28,7 +28,7 @@ const Auth = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Helper function to create agent_telemarketing_mapping without duplicates
-  const createAgentMapping = async (userId: string, tmId: number): Promise<boolean> => {
+  const createAgentMapping = async (userId: string, tmId: number, tmName?: string | null): Promise<boolean> => {
     try {
       // Validate inputs
       if (!userId || !tmId || !Number.isInteger(tmId) || tmId <= 0) {
@@ -55,23 +55,26 @@ const Auth = () => {
         return true; // Already exists, consider it a success
       }
 
-      // Fetch telemarketing name from cache
-      const { data: cacheData, error: cacheError } = await supabase
-        .from('config_kv')
-        .select('value')
-        .eq('key', 'bitrix_telemarketing_list')
-        .maybeSingle();
+      // Use provided name or fetch from cache
+      let telemarketingName = tmName;
+      
+      if (!telemarketingName) {
+        const { data: cacheData, error: cacheError } = await supabase
+          .from('config_kv')
+          .select('value')
+          .eq('key', 'bitrix_telemarketing_list')
+          .maybeSingle();
 
-      if (cacheError) {
-        console.warn('⚠️ Erro ao buscar nome do telemarketing do cache:', cacheError);
-        // Continue without the name, it's not critical
-      }
+        if (cacheError) {
+          console.warn('⚠️ Erro ao buscar nome do telemarketing do cache:', cacheError);
+          // Continue without the name, it's not critical
+        }
 
-      let telemarketingName = null;
-      if (cacheData?.value) {
-        const items = cacheData.value as Array<{ id: number; title: string }>;
-        const found = items.find(item => item.id === tmId);
-        telemarketingName = found?.title || null;
+        if (cacheData?.value) {
+          const items = cacheData.value as Array<{ id: number; title: string }>;
+          const found = items.find(item => item.id === tmId);
+          telemarketingName = found?.title || null;
+        }
       }
 
       // Create agent_telemarketing_mapping record
@@ -138,7 +141,7 @@ const Auth = () => {
           
           // Ensure mapping exists (will skip if already exists)
           if (Number.isInteger(telemarketingId) && telemarketingId > 0) {
-            await createAgentMapping(session.user.id, telemarketingId);
+            await createAgentMapping(session.user.id, telemarketingId, null);
           }
           
           navigate("/");
@@ -153,6 +156,7 @@ const Auth = () => {
 
     try {
       let finalTelemarketingId = telemarketingId;
+      let finalTelemarketingName: string | null = null;
 
       // Se há um nome pendente para criar, criar primeiro
       if (pendingTelemarketingName && telemarketingId === -1) {
@@ -176,6 +180,7 @@ const Auth = () => {
 
         if (createData?.item) {
           finalTelemarketingId = createData.item.id;
+          finalTelemarketingName = createData.item.title;
           console.log('✅ Operador criado com ID:', finalTelemarketingId);
           toast.success(`Operador "${createData.item.title}" criado com sucesso!`);
         } else {
@@ -210,7 +215,7 @@ const Auth = () => {
       // This ensures the mapping is created immediately
       if (data.user?.id) {
         console.log('📝 Criando mapeamento de agente após signup bem-sucedido');
-        const mappingSuccess = await createAgentMapping(data.user.id, finalTelemarketingId);
+        const mappingSuccess = await createAgentMapping(data.user.id, finalTelemarketingId, finalTelemarketingName);
         
         if (!mappingSuccess) {
           console.warn('⚠️ Falha ao criar mapeamento durante signup, mas conta foi criada');
