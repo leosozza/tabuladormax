@@ -368,13 +368,14 @@ const Index = () => {
   };
 
   const activeTotal = useMemo(() => leads.length, [leads]);
-  const scheduledCount = useMemo(() => leads.filter(lead => (lead as any).status === 'SCHEDULED').length, [leads]);
-  const todaysContacts = useMemo(() => leads.filter(lead => {
-    if (!lead.updated_at) return false;
-    const updated = new Date(lead.updated_at);
-    const today = new Date();
-    return updated.toDateString() === today.toDateString();
-  }).length, [leads]);
+  const scheduledCount = useMemo(() => {
+    // FASE 3: Usar actionStats real ao invés de campo inexistente 'status'
+    return actionStats['Agendar'] || actionStats['Agendado'] || 0;
+  }, [actionStats]);
+  const todaysContacts = useMemo(() => {
+    // FASE 3: Somar TODAS as ações de hoje, não apenas updated_at
+    return Object.values(actionStats).reduce((sum, count) => sum + count, 0);
+  }, [actionStats]);
 
   return (
     <div className="min-h-screen bg-background">

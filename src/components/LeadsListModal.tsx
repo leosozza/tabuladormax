@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { User, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,6 +17,7 @@ interface LeadsListModalProps {
 }
 
 export function LeadsListModal({ isOpen, onClose, leads, statusLabel, loading }: LeadsListModalProps) {
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -65,7 +67,11 @@ export function LeadsListModal({ isOpen, onClose, leads, statusLabel, loading }:
                 </TableHeader>
                 <TableBody>
                   {currentLeads.map((lead) => (
-                    <TableRow key={lead.id}>
+                    <TableRow 
+                      key={lead.id}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => navigate(`/lead?id=${lead.id}`)}
+                    >
                       <TableCell>{lead.id}</TableCell>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">

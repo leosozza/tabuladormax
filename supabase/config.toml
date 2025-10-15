@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.chatwoot-auth]
 verify_jwt = false
+
+[functions.bitrix-webhook]
+verify_jwt = false

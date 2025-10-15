@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, Workflow } from "lucide-react";
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
@@ -235,6 +235,7 @@ const DEFAULT_WEBHOOK = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjj
 
 const LeadTab = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [profile, setProfile] = useState<DynamicProfile>(emptyProfile);
   const [buttons, setButtons] = useState<ButtonConfig[]>([]);
@@ -422,9 +423,9 @@ const LeadTab = () => {
     loadFieldMappings();
   };
 
-  const loadLeadById = async (bitrixId: string) => {
+  const loadLeadById = async (bitrixId: string, silent = false) => {
     if (!bitrixId || !bitrixId.trim()) {
-      toast.error("Digite um ID válido");
+      if (!silent) toast.error("Digite um ID válido");
       return;
     }
 
@@ -555,10 +556,18 @@ const LeadTab = () => {
       } catch (error) {
         console.error('❌ Erro ao carregar campos Bitrix:', error);
       }
+      
+      // FASE 2: Carregar lead via query param ?id=
+      const searchParams = new URLSearchParams(location.search);
+      const leadId = searchParams.get('id');
+      if (leadId) {
+        console.log('🔍 Carregando lead do query param:', leadId);
+        await loadLeadById(leadId, true); // silent = true para não mostrar toast de erro
+      }
     };
     
     initialize();
-  }, []); // Executar apenas uma vez na montagem
+  }, [location.search]); // Reexecutar quando query param mudar
 
   // Sincronizar com Bitrix ao sair da página
   useEffect(() => {

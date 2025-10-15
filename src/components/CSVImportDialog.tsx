@@ -19,6 +19,7 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
   const [preview, setPreview] = useState<string[][]>([]);
   const [importing, setImporting] = useState(false);
   const [stats, setStats] = useState<ImportStats | null>(null);
+  const [progress, setProgress] = useState(0); // FASE 4: Estado de progresso
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -29,8 +30,9 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
       return;
     }
 
-    if (selectedFile.size > 250 * 1024 * 1024) {
-      toast.error('Arquivo muito grande. Máximo 250MB');
+    // FASE 4: Reduzir limite de 250MB → 50MB
+    if (selectedFile.size > 50 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 50MB');
       return;
     }
 
@@ -52,29 +54,72 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
 
     setImporting(true);
     setStats(null);
+    setProgress(0);
 
     try {
       const reader = new FileReader();
       reader.onload = async (event) => {
         const csvData = event.target?.result as string;
-
-        const { data, error } = await supabase.functions.invoke('import-csv-leads', {
-          body: { csvData }
-        });
-
-        if (error) {
-          console.error('Error importing CSV:', error);
-          toast.error('Erro ao importar CSV: ' + error.message);
-          setImporting(false);
-          return;
-        }
-
-        setStats(data);
+        const lines = csvData.split('\n');
         
-        if (data.errors > 0) {
-          toast.warning(`Importados ${data.imported} de ${data.total} leads. ${data.errors} erros.`);
+        // FASE 4: Processar em chunks de 5000 linhas
+        const CHUNK_SIZE = 5000;
+        const headerLine = lines[0];
+        const dataLines = lines.slice(1).filter(line => line.trim() !== '');
+        const totalChunks = Math.ceil(dataLines.length / CHUNK_SIZE);
+        
+        let totalImported = 0;
+        let totalErrors = 0;
+        const errorDetails: any[] = [];
+        
+        console.log(`📦 Processando ${dataLines.length} linhas em ${totalChunks} chunks de ${CHUNK_SIZE}`);
+        
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = start + CHUNK_SIZE;
+          const chunkLines = [headerLine, ...dataLines.slice(start, end)];
+          const chunkData = chunkLines.join('\n');
+          
+          // Atualizar progresso
+          const progressPercent = Math.round(((i + 1) / totalChunks) * 100);
+          setProgress(progressPercent);
+          console.log(`📊 Chunk ${i + 1}/${totalChunks} (${progressPercent}%)`);
+          
+          const { data, error } = await supabase.functions.invoke('import-csv-leads', {
+            body: { csvData: chunkData }
+          });
+          
+          if (error) {
+            console.error(`❌ Erro no chunk ${i + 1}:`, error);
+            totalErrors += chunkLines.length - 1; // -1 para o header
+            errorDetails.push({
+              batch: i + 1,
+              count: chunkLines.length - 1,
+              error: error.message
+            });
+          } else if (data) {
+            totalImported += data.imported || 0;
+            totalErrors += data.errors || 0;
+            if (data.errors > 0 && data.errorDetails) {
+              errorDetails.push(...data.errorDetails.map((d: any) => ({ ...d, batch: i + 1 })));
+            }
+          }
+        }
+        
+        const finalStats: ImportStats = {
+          total: dataLines.length,
+          imported: totalImported,
+          errors: totalErrors,
+          errorDetails: errorDetails.length > 0 ? errorDetails : undefined
+        };
+        
+        setStats(finalStats);
+        setProgress(100);
+        
+        if (finalStats.errors > 0) {
+          toast.warning(`Importados ${finalStats.imported} de ${finalStats.total} leads. ${finalStats.errors} erros.`);
         } else {
-          toast.success(`${data.imported} leads importados com sucesso!`);
+          toast.success(`${finalStats.imported} leads importados com sucesso!`);
         }
 
         if (onImportComplete) {
@@ -88,6 +133,7 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
       console.error('Error reading file:', error);
       toast.error('Erro ao ler arquivo');
       setImporting(false);
+      setProgress(0);
     }
   };
 
@@ -96,6 +142,7 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
     setPreview([]);
     setStats(null);
     setImporting(false);
+    setProgress(0); // FASE 4: Resetar progresso
   };
 
   return (
@@ -132,7 +179,7 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
                     {file ? file.name : 'Clique para selecionar arquivo CSV'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Máximo 250MB
+                    Máximo 50MB
                   </p>
                 </label>
               </div>
@@ -169,8 +216,10 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
 
               {importing && (
                 <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Importando leads...</p>
-                  <Progress value={undefined} className="w-full" />
+                  <p className="text-sm text-muted-foreground">
+                    Importando leads... {progress}%
+                  </p>
+                  <Progress value={progress} className="w-full" />
                 </div>
               )}
 
