@@ -49,6 +49,7 @@ export type Database = {
           bitrix_telemarketing_id: number
           bitrix_telemarketing_name: string | null
           chatwoot_agent_email: string | null
+          chatwoot_agent_id: number | null
           created_at: string
           created_by: string | null
           id: string
@@ -59,6 +60,7 @@ export type Database = {
           bitrix_telemarketing_id: number
           bitrix_telemarketing_name?: string | null
           chatwoot_agent_email?: string | null
+          chatwoot_agent_id?: number | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -69,6 +71,7 @@ export type Database = {
           bitrix_telemarketing_id?: number
           bitrix_telemarketing_name?: string | null
           chatwoot_agent_email?: string | null
+          chatwoot_agent_id?: number | null
           created_at?: string
           created_by?: string | null
           id?: string

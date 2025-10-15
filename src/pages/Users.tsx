@@ -182,6 +182,38 @@ export default function Users() {
       }).eq('id', editingUserId);
       if (profileError) throw profileError;
 
+      // Sincronizar nome com Chatwoot
+      try {
+        const { data: mappingData } = await supabase
+          .from('agent_telemarketing_mapping')
+          .select('chatwoot_agent_id')
+          .eq('tabuladormax_user_id', editingUserId)
+          .maybeSingle();
+        
+        if (mappingData?.chatwoot_agent_id) {
+          console.log('📝 Atualizando nome no Chatwoot');
+          
+          const { error: chatwootError } = await supabase.functions.invoke(
+            'update-chatwoot-agent',
+            {
+              body: {
+                agentId: mappingData.chatwoot_agent_id,
+                name: newDisplayName.trim()
+              }
+            }
+          );
+          
+          if (chatwootError) {
+            console.warn('⚠️ Erro ao atualizar nome no Chatwoot:', chatwootError);
+            toast.warning('Nome atualizado no TabuladorMax, mas falhou no Chatwoot');
+          } else {
+            console.log('✅ Nome atualizado no Chatwoot');
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro ao sincronizar nome com Chatwoot:', error);
+      }
+
       toast.success('Nome atualizado com sucesso');
       setEditNameDialogOpen(false);
       loadUsers();

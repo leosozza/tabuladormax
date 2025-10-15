@@ -28,7 +28,7 @@ const Auth = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Helper function to create agent_telemarketing_mapping without duplicates
-  const createAgentMapping = async (userId: string, tmId: number, tmName?: string | null): Promise<boolean> => {
+  const createAgentMapping = async (userId: string, tmId: number, tmName?: string | null, chatwootAgentId?: number | null): Promise<boolean> => {
     try {
       // Validate inputs
       if (!userId || !tmId || !Number.isInteger(tmId) || tmId <= 0) {
@@ -84,6 +84,7 @@ const Auth = () => {
           tabuladormax_user_id: userId,
           bitrix_telemarketing_id: tmId,
           bitrix_telemarketing_name: telemarketingName,
+          chatwoot_agent_id: chatwootAgentId,
         });
 
       if (mappingError) {
@@ -141,7 +142,7 @@ const Auth = () => {
           
           // Ensure mapping exists (will skip if already exists)
           if (Number.isInteger(telemarketingId) && telemarketingId > 0) {
-            await createAgentMapping(session.user.id, telemarketingId, null);
+            await createAgentMapping(session.user.id, telemarketingId, null, null);
           }
           
           navigate("/");
@@ -157,6 +158,7 @@ const Auth = () => {
     try {
       let finalTelemarketingId = telemarketingId;
       let finalTelemarketingName: string | null = null;
+      let chatwootAgentId: number | null = null;
 
       // Se há um nome pendente para criar, criar primeiro
       if (pendingTelemarketingName && telemarketingId === -1) {
@@ -197,6 +199,39 @@ const Auth = () => {
         return;
       }
 
+      // Criar agente no Chatwoot
+      console.log('📝 Criando agente no Chatwoot');
+
+      const { data: chatwootData, error: chatwootError } = await supabase.functions.invoke(
+        'create-chatwoot-agent',
+        {
+          body: {
+            name: displayName,
+            email: email,
+            password: password,
+            role: 'agent'
+          }
+        }
+      );
+
+      if (chatwootError) {
+        console.error('❌ Erro ao criar agente no Chatwoot:', chatwootError);
+        toast.error('Erro ao criar conta no Chatwoot');
+        setLoading(false);
+        return;
+      }
+
+      if (chatwootData?.agent) {
+        chatwootAgentId = chatwootData.agent.id;
+        console.log('✅ Agente criado/encontrado no Chatwoot com ID:', chatwootAgentId);
+        
+        if (chatwootData.existed) {
+          toast.success(`Agente "${chatwootData.agent.name}" já existia no Chatwoot!`);
+        } else {
+          toast.success(`Agente "${chatwootData.agent.name}" criado no Chatwoot!`);
+        }
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -215,7 +250,7 @@ const Auth = () => {
       // This ensures the mapping is created immediately
       if (data.user?.id) {
         console.log('📝 Criando mapeamento de agente após signup bem-sucedido');
-        const mappingSuccess = await createAgentMapping(data.user.id, finalTelemarketingId, finalTelemarketingName);
+        const mappingSuccess = await createAgentMapping(data.user.id, finalTelemarketingId, finalTelemarketingName, chatwootAgentId);
         
         if (!mappingSuccess) {
           console.warn('⚠️ Falha ao criar mapeamento durante signup, mas conta foi criada');
@@ -319,6 +354,42 @@ const Auth = () => {
       if (error) throw error;
 
       toast.success("Senha alterada com sucesso!");
+
+      // Sincronizar senha com Chatwoot
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        
+        if (session?.session?.user) {
+          const { data: mappingData } = await supabase
+            .from('agent_telemarketing_mapping')
+            .select('chatwoot_agent_id')
+            .eq('tabuladormax_user_id', session.session.user.id)
+            .maybeSingle();
+          
+          if (mappingData?.chatwoot_agent_id) {
+            console.log('📝 Atualizando senha no Chatwoot');
+            
+            const { error: chatwootError } = await supabase.functions.invoke(
+              'update-chatwoot-agent',
+              {
+                body: {
+                  agentId: mappingData.chatwoot_agent_id,
+                  password: newPassword
+                }
+              }
+            );
+            
+            if (chatwootError) {
+              console.warn('⚠️ Erro ao atualizar senha no Chatwoot:', chatwootError);
+            } else {
+              console.log('✅ Senha atualizada no Chatwoot');
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro ao sincronizar senha com Chatwoot:', error);
+      }
+
       setShowPasswordChange(false);
       setNewPassword("");
       setConfirmNewPassword("");

@@ -53,6 +53,54 @@ serve(async (req) => {
 
     console.log(`✅ Senha temporária gerada para usuário ${userId}`);
 
+    // Sincronizar senha com Chatwoot
+    try {
+      const { data: mappingData, error: mappingError } = await supabaseAdmin
+        .from('agent_telemarketing_mapping')
+        .select('chatwoot_agent_id')
+        .eq('tabuladormax_user_id', userId)
+        .maybeSingle();
+      
+      if (mappingError) {
+        console.warn('⚠️ Erro ao buscar mapeamento:', mappingError);
+      }
+      
+      if (mappingData?.chatwoot_agent_id) {
+        console.log('📝 Atualizando senha no Chatwoot para agente:', mappingData.chatwoot_agent_id);
+        
+        const CHATWOOT_URL = Deno.env.get('CHATWOOT_BASE_URL') || 'https://chat.ybrasil.com.br';
+        const ACCOUNT_ID = Deno.env.get('CHATWOOT_ACCOUNT_ID') || '1';
+        const TOKEN = Deno.env.get('CHATWOOT_API_TOKEN');
+        
+        if (!TOKEN) {
+          console.warn('⚠️ Token do Chatwoot não configurado');
+        } else {
+          const chatwootRes = await fetch(
+            `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/agents/${mappingData.chatwoot_agent_id}`,
+            {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'api_access_token': TOKEN
+              },
+              body: JSON.stringify({
+                password: tempPassword
+              })
+            }
+          );
+          
+          if (!chatwootRes.ok) {
+            const errorText = await chatwootRes.text();
+            console.warn('⚠️ Erro ao atualizar senha no Chatwoot:', chatwootRes.status, errorText);
+          } else {
+            console.log('✅ Senha atualizada no Chatwoot');
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao sincronizar senha com Chatwoot:', error);
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
