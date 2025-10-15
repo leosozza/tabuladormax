@@ -86,26 +86,82 @@ serve(async (req) => {
     const lead = bitrixData.result;
     console.log('✅ Lead obtido do Bitrix:', lead);
 
-    // Preparar dados para upsert no Supabase
+    // Conectar ao Supabase
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // 1. EXTRAIR PROJETO COMERCIAL
+    const projectName = lead['Projetos Cormeciais'] || lead['Projetos Comerciais'];
+    let commercialProjectId = null;
+
+    if (projectName) {
+      const { data: project } = await supabase
+        .from('commercial_projects')
+        .select('id')
+        .ilike('name', `%${projectName}%`)
+        .maybeSingle();
+      
+      commercialProjectId = project?.id;
+    }
+
+    // Se não encontrou projeto, usar Pinheiros como padrão
+    if (!commercialProjectId) {
+      const { data: defaultProject } = await supabase
+        .from('commercial_projects')
+        .select('id')
+        .eq('code', 'PINHEIROS')
+        .maybeSingle();
+      
+      commercialProjectId = defaultProject?.id;
+    }
+
+    // 2. EXTRAIR OPERADOR DE TELEMARKETING
+    const bitrixTelemarketingId = lead.PARENT_ID_1144 ? Number(lead.PARENT_ID_1144) : null;
+    let responsibleUserId = null;
+    let responsibleName = null;
+
+    if (bitrixTelemarketingId) {
+      const { data: mapping } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('tabuladormax_user_id, bitrix_telemarketing_name')
+        .eq('bitrix_telemarketing_id', bitrixTelemarketingId)
+        .maybeSingle();
+      
+      if (mapping) {
+        responsibleUserId = mapping.tabuladormax_user_id;
+        responsibleName = mapping.bitrix_telemarketing_name;
+      }
+    }
+
+    console.log('📝 Dados extraídos:', {
+      leadId,
+      projectName,
+      commercialProjectId,
+      bitrixTelemarketingId,
+      responsibleUserId,
+      responsibleName
+    });
+
+    // 3. PREPARAR DADOS PARA UPSERT
     const leadData = {
       id: Number(leadId),
       name: lead.NAME || lead.TITLE || null,
       age: lead.UF_IDADE ? Number(lead.UF_IDADE) : null,
       address: lead.UF_LOCAL || lead.ADDRESS || null,
       photo_url: lead.UF_PHOTO || lead.PHOTO || null,
-      responsible: lead.UF_RESPONSAVEL || lead.ASSIGNED_BY_NAME || null,
+      responsible: responsibleName || lead.UF_RESPONSAVEL || lead.ASSIGNED_BY_NAME || null,
       scouter: lead.UF_SCOUTER || null,
       raw: lead,
       sync_source: 'bitrix',
       sync_status: 'synced',
       last_sync_at: new Date().toISOString(),
-      updated_at: lead.DATE_MODIFY || new Date().toISOString()
+      updated_at: lead.DATE_MODIFY || new Date().toISOString(),
+      commercial_project_id: commercialProjectId,
+      responsible_user_id: responsibleUserId,
+      bitrix_telemarketing_id: bitrixTelemarketingId
     };
 
-    // Conectar ao Supabase
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Upsert no Supabase
     const { data: upsertedLead, error: upsertError } = await supabase

@@ -35,12 +35,13 @@ serve(async (req) => {
       fields: {}
     };
 
-    // Copiar todos os campos do lead exceto metadados de sincronização
-    Object.keys(lead).forEach(key => {
-      if (!['sync_status', 'sync_source', 'last_sync_at', 'updated_at'].includes(key)) {
-        bitrixPayload.fields[key] = lead[key];
-      }
-    });
+  // Copiar todos os campos do lead exceto metadados de sincronização
+  Object.keys(lead).forEach(key => {
+    if (!['sync_status', 'sync_source', 'last_sync_at', 'updated_at', 
+          'commercial_project_id', 'responsible_user_id', 'bitrix_telemarketing_id'].includes(key)) {
+      bitrixPayload.fields[key] = lead[key];
+    }
+  });
 
     console.log('sync-to-bitrix: Enviando para Bitrix', { webhook, payload: bitrixPayload });
 

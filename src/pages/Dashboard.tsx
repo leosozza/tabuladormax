@@ -109,35 +109,19 @@ const Index = () => {
   const loadLeads = async () => {
     setLoading(true);
     
-    let query = supabase
+    // RLS agora controla automaticamente quais leads o usuário pode ver
+    // Admin/Manager: vê todos
+    // Supervisor: vê apenas do seu projeto
+    // Agent: vê apenas os seus
+    const { data, error } = await supabase
       .from('leads')
       .select('*')
       .order('updated_at', { ascending: false })
       .limit(50);
-    
-    // SE NÃO FOR ADMIN ou se admin escolheu ver apenas seus dados, filtrar por responsible
-    if ((!isAdmin || !showAllUsers) && currentUserId) {
-      // Buscar nome do usuário no mapeamento Bitrix
-      const { data: mapping } = await supabase
-        .from('agent_telemarketing_mapping')
-        .select('bitrix_telemarketing_name')
-        .eq('tabuladormax_user_id', currentUserId)
-        .maybeSingle();
-      
-      if (mapping?.bitrix_telemarketing_name) {
-        // Usar LIKE para match parcial (ex: "Ramon" match "Ramon Melo")
-        query = query.ilike('responsible', `${mapping.bitrix_telemarketing_name.split(' ')[0]}%`);
-      } else {
-        // Fallback: tentar match direto por UUID (não deve acontecer mas é seguro)
-        query = query.eq('responsible', currentUserId);
-      }
-    }
-    
-    const { data, error } = await query;
 
     if (error) {
-      console.error('Erro ao carregar leads do cache:', error);
-      toast.error('Não foi possível carregar os leads do Supabase');
+      console.error('Erro ao carregar leads:', error);
+      toast.error('Não foi possível carregar os leads');
       setLeads([]);
     } else {
       setLeads(data || []);
