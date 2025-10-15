@@ -136,7 +136,132 @@ Criar uma interface administrativa que:
 
 ## Arquivos Modificados
 
-- `src/lib/utils.ts` - Adicionada função `isValidUUID()`
-- `src/pages/Dashboard.tsx` - Atualizado `loadOperators()` com validação e tratamento de erros
-- `src/pages/Logs.tsx` - Melhorado `loadAgents()` com tratamento de erros
-- `src/__tests__/lib/utils.test.ts` - Testes unitários para validação UUID
+- `src/lib/utils.ts` - Adicionada função `isValidUUID()` e `generateFixResponsibleSQL()`
+- `src/pages/Dashboard.tsx` - Atualizado `loadOperators()` com validação completa e diagnóstico detalhado
+- `src/pages/Logs.tsx` - Adicionado `validateLeadsResponsible()` com diagnóstico para admins
+- `src/__tests__/lib/utils.test.ts` - Testes unitários para validação UUID e geração de SQL
+
+---
+
+## 🆕 ATUALIZAÇÃO: Diagnóstico Aprimorado (2025-10-15)
+
+### Novas Funcionalidades
+
+#### 1. Geração Automática de SQL Pronto (`generateFixResponsibleSQL()`)
+
+A nova função `generateFixResponsibleSQL()` em `src/lib/utils.ts` gera automaticamente um script SQL completo e comentado para corrigir responsáveis inválidos.
+
+**Exemplo de SQL gerado:**
+
+```sql
+-- ====================================================================
+-- SQL para corrigir responsáveis inválidos nos leads
+-- ====================================================================
+
+-- Passo 1: Identificar todos os leads com responsáveis inválidos
+SELECT id, name, responsible 
+FROM leads 
+WHERE responsible IS NOT NULL 
+  AND responsible !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+ORDER BY responsible;
+
+-- Passo 2: Ver lista de usuários disponíveis para mapeamento
+SELECT id, display_name, email
+FROM profiles
+ORDER BY display_name;
+
+-- Passo 3: Atualizar leads com UUIDs corretos
+-- IMPORTANTE: Substitua os UUIDs de exemplo pelos IDs reais da tabela profiles
+-- UPDATE leads SET responsible = 'UUID_DO_USUARIO_CORRETO' WHERE responsible = 'João Silva';
+-- UPDATE leads SET responsible = 'UUID_DO_USUARIO_CORRETO' WHERE responsible = 'Maria Santos';
+
+-- Passo 4: Para responsáveis que não podem ser mapeados, defina como NULL
+-- UPDATE leads SET responsible = NULL WHERE responsible !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+
+-- Passo 5: Verificar que não há mais responsáveis inválidos
+SELECT COUNT(*) as leads_invalidos
+FROM leads 
+WHERE responsible IS NOT NULL 
+  AND responsible !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+-- Deve retornar 0
+```
+
+#### 2. Validação Contra Tabela Profiles
+
+Ambos `Dashboard.tsx` e `Logs.tsx` agora validam os responsáveis contra a tabela `profiles` em tempo real, identificando:
+
+- ✅ **Responsáveis com formato inválido** (não-UUID) 
+- ✅ **UUIDs válidos mas que não existem na tabela profiles**
+- ✅ **UUIDs válidos e existentes** (funcionam corretamente)
+
+#### 3. Console com Diagnóstico Completo
+
+Quando há problemas, o console do navegador (F12) exibe:
+
+```
+⚠️ DIAGNÓSTICO: Responsáveis Inválidos ou Inexistentes
+
+📋 3 responsável(is) com formato inválido (não são UUIDs): ['João Silva', 'Maria Santos', 'Pedro Costa']
+
+📝 SQL para correção dos dados:
+[Script SQL completo aqui]
+
+🔍 2 UUID(s) válido(s) mas que não existem na tabela profiles: ['uuid-1', 'uuid-2']
+
+💡 Estes UUIDs precisam ser corrigidos ou os usuários correspondentes precisam ser criados na tabela profiles.
+
+✅ 5 UUID(s) válido(s) e existente(s) na tabela profiles
+
+👥 Usuários disponíveis na tabela profiles para mapeamento:
+[Tabela formatada com UUID, Nome, Email]
+```
+
+#### 4. Toast Messages Aprimorados
+
+Os toasts agora incluem instruções claras:
+
+- **Para responsáveis inválidos:**
+  ```
+  ⚠️ X responsável(is) inválido(s) ou inexistente(s) encontrado(s)
+  
+  N com formato inválido (não-UUID): João Silva, Maria Santos, Pedro Costa...
+  M UUIDs não existem na tabela profiles.
+  Veja o console (F12) para o SQL de correção.
+  ```
+
+- **Quando todos são inválidos:**
+  ```
+  ❌ Nenhum operador válido encontrado
+  
+  Todos os responsáveis nos leads são inválidos.
+  Abra o console do navegador (F12) para ver o SQL de correção pronto.
+  ```
+
+#### 5. Validação em Logs.tsx (Admins)
+
+A página de Logs agora também valida os responsáveis dos leads ao carregar, fornecendo o mesmo nível de diagnóstico que o Dashboard.
+
+### Como Usar
+
+1. **Acesse o Dashboard ou Logs como Admin**
+2. **Se houver problemas, você verá um toast de warning/error**
+3. **Abra o Console do Navegador (F12)**
+4. **Copie o SQL gerado automaticamente**
+5. **Execute no banco de dados (substituindo os UUIDs corretos)**
+6. **Recarregue a página para confirmar a correção**
+
+### Testes
+
+- ✅ **4 novos testes** para `generateFixResponsibleSQL()`
+- ✅ **Total de 184 testes** passando
+- ✅ **Build completa** com sucesso
+- ✅ Testa SQL vazio, escape de aspas simples, estrutura completa
+
+### Benefícios da Atualização
+
+1. **SQL Pronto**: Não precisa escrever SQL manualmente
+2. **Validação Completa**: Identifica todos os tipos de problemas
+3. **Tabela de Profiles**: Mostra os usuários disponíveis para mapeamento
+4. **Zero Configuração**: Funciona automaticamente para admins
+5. **Segurança**: Escape correto de aspas simples no SQL
+6. **Diagnóstico Visual**: Console agrupado e formatado para fácil leitura
