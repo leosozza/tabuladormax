@@ -13,6 +13,7 @@ import { DateFilterSelector } from "@/components/DateFilterSelector";
 import { LeadsListModal } from "@/components/LeadsListModal";
 import { DateFilter, LeadWithDetails } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
+import { isValidUUID } from "@/lib/utils";
 
 interface LeadRow {
   id: number;
@@ -160,22 +161,76 @@ const Index = () => {
 
   const loadOperators = async () => {
     // Load all users who are operators (have leads assigned)
-    const { data: leadsData } = await supabase
+    const { data: leadsData, error: leadsError } = await supabase
       .from('leads')
       .select('responsible')
       .not('responsible', 'is', null);
     
+    if (leadsError) {
+      console.error('Erro ao carregar responsáveis dos leads:', leadsError);
+      toast.error('Erro ao carregar lista de operadores');
+      return;
+    }
+    
     if (leadsData) {
       const uniqueOperatorIds = [...new Set(leadsData.map(l => l.responsible))].filter(Boolean);
       
-      // Get user details
-      const { data: usersData } = await supabase
+      // Filtrar apenas IDs com formato UUID válido
+      const validUUIDs = uniqueOperatorIds.filter(id => isValidUUID(id));
+      const invalidIds = uniqueOperatorIds.filter(id => !isValidUUID(id));
+      
+      // Informar sobre responsáveis inválidos
+      if (invalidIds.length > 0) {
+        console.warn('⚠️ Responsáveis com formato inválido (não são UUIDs):', invalidIds);
+        
+        // Mostrar toast informativo para admins
+        if (isAdmin) {
+          toast.warning(
+            `${invalidIds.length} lead(s) com responsável inválido encontrado(s)`,
+            {
+              description: `Leads com responsáveis como texto ao invés de UUID. Os IDs inválidos são: ${invalidIds.slice(0, 3).join(', ')}${invalidIds.length > 3 ? '...' : ''}`,
+              duration: 10000,
+            }
+          );
+        }
+      }
+      
+      // Se não há UUIDs válidos, não tenta buscar profiles
+      if (validUUIDs.length === 0) {
+        console.warn('Nenhum UUID válido encontrado nos responsáveis');
+        setOperators([]);
+        
+        if (isAdmin && invalidIds.length > 0) {
+          toast.error(
+            'Nenhum operador válido encontrado',
+            {
+              description: 'Todos os responsáveis nos leads são nomes/textos ao invés de IDs de usuário. Corrija os dados no banco atualizando o campo "responsible" dos leads para conter UUIDs válidos de usuários.',
+              duration: 15000,
+            }
+          );
+        }
+        return;
+      }
+      
+      // Get user details apenas para UUIDs válidos
+      const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('id, display_name')
-        .in('id', uniqueOperatorIds);
+        .in('id', validUUIDs);
+      
+      if (usersError) {
+        console.error('Erro ao buscar perfis de operadores:', usersError);
+        toast.error('Erro ao carregar detalhes dos operadores');
+        return;
+      }
       
       if (usersData) {
         setOperators(usersData.map(u => ({ id: u.id, name: u.display_name || u.id })));
+        
+        // Feedback positivo quando tudo funciona
+        if (isAdmin && usersData.length > 0) {
+          console.log(`✅ ${usersData.length} operadores carregados com sucesso`);
+        }
       }
     }
   };
