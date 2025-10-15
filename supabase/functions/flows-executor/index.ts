@@ -179,12 +179,24 @@ Deno.serve(async (req) => {
 
           // Log to actions_log if leadId is provided
           if (leadId) {
-            await supabaseAdmin.from('actions_log').insert([{
-              lead_id: leadId,
-              action_label: `Flow: ${flow.nome} - ${step.nome}`,
-              payload: { flowId, runId, stepId: step.id, result: stepResult },
-              status: 'SUCCESS'
-            }]);
+            // Verificar se lead existe na tabela leads
+            const { data: leadExists } = await supabaseAdmin
+              .from('leads')
+              .select('id')
+              .eq('id', leadId)
+              .maybeSingle();
+            
+            if (!leadExists) {
+              console.warn(`⚠️ Lead ${leadId} não existe na tabela leads, pulando log de ação`);
+              addLog(step.id, step.nome, 'warning', `Lead ${leadId} não sincronizado no banco local`);
+            } else {
+              await supabaseAdmin.from('actions_log').insert([{
+                lead_id: leadId,
+                action_label: `Flow: ${flow.nome} - ${step.nome}`,
+                payload: { flowId, runId, stepId: step.id, result: stepResult },
+                status: 'SUCCESS'
+              }]);
+            }
           }
 
         } catch (stepError) {
@@ -197,13 +209,22 @@ Deno.serve(async (req) => {
 
           // Log error to actions_log
           if (leadId) {
-            await supabaseAdmin.from('actions_log').insert([{
-              lead_id: leadId,
-              action_label: `Flow: ${flow.nome} - ${step.nome}`,
-              payload: { flowId, runId, stepId: step.id, error: errorMessage },
-              status: 'ERROR',
-              error: errorMessage
-            }]);
+            // Verificar se lead existe antes de logar erro
+            const { data: leadExists } = await supabaseAdmin
+              .from('leads')
+              .select('id')
+              .eq('id', leadId)
+              .maybeSingle();
+            
+            if (leadExists) {
+              await supabaseAdmin.from('actions_log').insert([{
+                lead_id: leadId,
+                action_label: `Flow: ${flow.nome} - ${step.nome}`,
+                payload: { flowId, runId, stepId: step.id, error: errorMessage },
+                status: 'ERROR',
+                error: errorMessage
+              }]);
+            }
           }
 
           // Stop execution on error

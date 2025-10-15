@@ -104,7 +104,20 @@ const Index = () => {
     
     // SE NÃO FOR ADMIN ou se admin escolheu ver apenas seus dados, filtrar por responsible
     if ((!isAdmin || !showAllUsers) && currentUserId) {
-      query = query.eq('responsible', currentUserId);
+      // Buscar nome do usuário no mapeamento Bitrix
+      const { data: mapping } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('bitrix_telemarketing_name')
+        .eq('tabuladormax_user_id', currentUserId)
+        .maybeSingle();
+      
+      if (mapping?.bitrix_telemarketing_name) {
+        // Usar LIKE para match parcial (ex: "Ramon" match "Ramon Melo")
+        query = query.ilike('responsible', `${mapping.bitrix_telemarketing_name.split(' ')[0]}%`);
+      } else {
+        // Fallback: tentar match direto por UUID (não deve acontecer mas é seguro)
+        query = query.eq('responsible', currentUserId);
+      }
     }
     
     const { data, error } = await query;
@@ -140,11 +153,12 @@ const Index = () => {
         .maybeSingle();
       
       if (mapping?.bitrix_telemarketing_name) {
-        // Buscar leads pelo NOME do bitrix
+        // Usar LIKE para match parcial do primeiro nome
+        const firstName = mapping.bitrix_telemarketing_name.split(' ')[0];
         const { data: operatorLeads } = await supabase
           .from('leads')
           .select('id')
-          .eq('responsible', mapping.bitrix_telemarketing_name);
+          .ilike('responsible', `${firstName}%`);
         
         const leadIds = operatorLeads?.map(l => l.id) || [];
         if (leadIds.length > 0) {
@@ -238,10 +252,12 @@ const Index = () => {
           .maybeSingle();
         
         if (mapping?.bitrix_telemarketing_name) {
+          // Usar LIKE para match parcial do primeiro nome
+          const firstName = mapping.bitrix_telemarketing_name.split(' ')[0];
           const { data: operatorLeads } = await supabase
             .from('leads')
             .select('id')
-            .eq('responsible', mapping.bitrix_telemarketing_name);
+            .ilike('responsible', `${firstName}%`);
           
           const leadIds = operatorLeads?.map(l => l.id) || [];
           if (leadIds.length > 0) {
