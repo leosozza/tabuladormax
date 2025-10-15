@@ -172,45 +172,28 @@ const Index = () => {
 
   const loadOperators = async () => {
     try {
-      // NOVA LÓGICA: Buscar da tabela de mapeamento
-      const { data: mappings, error: mappingError } = await (supabase as any)
-        .from('responsible_name_mapping')
-        .select(`
-          bitrix_name,
-          user_id,
-          profiles:user_id (
-            id,
-            display_name
-          )
-        `)
-        .not('user_id', 'is', null);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, display_name, email')
+        .order('display_name');
 
-      if (mappingError) {
-        console.error('Erro ao carregar mapeamento de operadores:', mappingError);
+      if (error) {
+        console.error('Erro ao carregar operadores:', error);
         toast.error('Erro ao carregar lista de operadores');
+        setOperators([]);
         return;
       }
 
-      if (mappings && mappings.length > 0) {
-        const operatorsList = mappings.map((m: any) => ({
-          id: m.user_id,
-          name: m.profiles?.display_name || m.bitrix_name
+      if (data && data.length > 0) {
+        const operatorsList = data.map((profile) => ({
+          id: profile.id,
+          name: profile.display_name || profile.email || 'Sem nome'
         }));
         
         setOperators(operatorsList);
         console.log(`✅ ${operatorsList.length} operadores carregados com sucesso`);
       } else {
         setOperators([]);
-        
-        if (isAdmin) {
-          toast.warning(
-            'Nenhum operador mapeado',
-            {
-              description: 'Acesse a página "Mapeamento de Agentes" para vincular nomes do Bitrix aos usuários.',
-              duration: 8000,
-            }
-          );
-        }
       }
     } catch (error) {
       console.error('Erro ao carregar operadores:', error);
