@@ -30,6 +30,7 @@ interface SubButton {
   subValue: string;
   subHotkey?: string;
   subAdditionalFields?: Array<{ field: string; value: string }>;
+  transfer_conversation?: boolean;
 }
 
 interface ButtonConfig {
@@ -48,6 +49,7 @@ interface ButtonConfig {
   sub_buttons: SubButton[];
   sync_target?: 'bitrix' | 'supabase';
   additional_fields?: Array<{ field: string; value: string }>;
+  transfer_conversation?: boolean;
 }
 
 const DEFAULT_WEBHOOK = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json";
@@ -246,6 +248,7 @@ const Config = () => {
       sub_buttons: parseSubButtons(entry.sub_buttons),
       sync_target: (entry.sync_target as 'bitrix' | 'supabase') || 'bitrix',
       additional_fields: (entry.additional_fields as Array<{ field: string; value: string }>) || [],
+      transfer_conversation: entry.transfer_conversation || false,
     }));
 
     setButtons(normalizeButtons(parsed));
@@ -765,6 +768,7 @@ const Config = () => {
         category: button.layout.category,
         sync_target: button.sync_target || 'bitrix',
         additional_fields: button.additional_fields || [],
+        transfer_conversation: button.transfer_conversation || false,
       }));
 
       // Usar upsert (insert ou update) para salvar todos os botões

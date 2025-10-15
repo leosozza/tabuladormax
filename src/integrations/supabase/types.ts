@@ -129,6 +129,7 @@ export type Database = {
           sort: number | null
           sub_buttons: Json | null
           sync_target: string | null
+          transfer_conversation: boolean | null
           value: string | null
           webhook_url: string | null
         }
@@ -148,6 +149,7 @@ export type Database = {
           sort?: number | null
           sub_buttons?: Json | null
           sync_target?: string | null
+          transfer_conversation?: boolean | null
           value?: string | null
           webhook_url?: string | null
         }
@@ -167,6 +169,7 @@ export type Database = {
           sort?: number | null
           sub_buttons?: Json | null
           sync_target?: string | null
+          transfer_conversation?: boolean | null
           value?: string | null
           webhook_url?: string | null
         }
