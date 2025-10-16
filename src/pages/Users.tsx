@@ -491,8 +491,8 @@ export default function Users() {
   };
 
   const filteredUsers = users.filter(user => {
-    if (filterProject && user.project_id !== filterProject) return false;
-    if (filterRole && user.role !== filterRole) return false;
+    if (filterProject && filterProject !== "all" && user.project_id !== filterProject) return false;
+    if (filterRole && filterRole !== "all" && user.role !== filterRole) return false;
     return true;
   });
 
@@ -542,12 +542,12 @@ export default function Users() {
         <div className="flex flex-wrap gap-4 items-center justify-between">
           <div className="flex flex-wrap gap-3">
             {currentUserRole === 'admin' && (
-              <Select value={filterProject} onValueChange={setFilterProject}>
+              <Select value={filterProject || "all"} onValueChange={(v) => setFilterProject(v === "all" ? "" : v)}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Todos os projetos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os projetos</SelectItem>
+                  <SelectItem value="all">Todos os projetos</SelectItem>
                   {projects.map(p => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
@@ -555,12 +555,12 @@ export default function Users() {
             </Select>
           )}
 
-          <Select value={filterRole} onValueChange={setFilterRole}>
+          <Select value={filterRole || "all"} onValueChange={(v) => setFilterRole(v === "all" ? "" : v)}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Todas as roles" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas as roles</SelectItem>
+                <SelectItem value="all">Todas as roles</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="manager">Manager</SelectItem>
                 <SelectItem value="supervisor">Supervisor</SelectItem>
