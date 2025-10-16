@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Plus, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -181,103 +182,121 @@ export function CommercialProjectBitrixSelector({
       </PopoverTrigger>
       
       <PopoverContent className="w-full p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput 
-            placeholder="Digite o nome do projeto (mín. 3 letras)..." 
-            value={searchValue}
-            onValueChange={setSearchValue}
-          />
+        <div className="flex flex-col">
+          {/* Input personalizado */}
+          <div className="p-3 border-b">
+            <Input
+              placeholder="Digite o nome do projeto (mín. 3 letras)..."
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              autoFocus
+              className="w-full"
+            />
+          </div>
           
-          <CommandList>
+          {/* Lista de resultados */}
+          <ScrollArea className="h-[300px]">
             {isSearching && (
-              <div className="py-6 text-center text-sm flex items-center justify-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Buscando no Bitrix24...
+              <div className="py-6 text-center">
+                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                <p className="text-sm text-muted-foreground mt-2">
+                  Buscando no Bitrix...
+                </p>
               </div>
             )}
             
             {!isSearching && searchValue.length > 0 && searchValue.length < 3 && (
-              <CommandEmpty>
-                Digite pelo menos 3 letras para buscar
-              </CommandEmpty>
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                Digite pelo menos 3 letras
+              </div>
             )}
             
-            {!isSearching && searchResults.length > 0 && (
-              <>
-                <CommandGroup heading={`${searchResults.length} projeto(s) encontrado(s)`}>
-                  {searchResults.map((result) => (
-                    <CommandItem
-                      key={result.id}
-                      value={result.id.toString()}
-                      onSelect={() => handleSelectOption(result)}
-                      className="cursor-pointer"
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span className={cn(
-                          selectedOption?.id === result.id && "font-semibold"
-                        )}>
-                          {selectedOption?.id === result.id && (
-                            <Check className="inline mr-2 h-4 w-4 text-green-600" />
-                          )}
-                          {result.title}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          ID: {result.id}
-                        </span>
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-                
-                <CommandGroup>
-                  <CommandItem
-                    onSelect={handleCreateNewClick}
-                    className="cursor-pointer border-t"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    <span>✨ Criar novo: <strong>{searchValue}</strong></span>
-                  </CommandItem>
-                </CommandGroup>
-              </>
-            )}
-            
-            {!isSearching && searchValue.length >= 3 && searchResults.length === 0 && (
-              <CommandGroup>
-                <CommandItem
-                  onSelect={handleCreateNewClick}
-                  className="cursor-pointer"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  <span>✨ Criar novo: <strong>{searchValue}</strong></span>
-                </CommandItem>
-              </CommandGroup>
-            )}
-
             {!isSearching && searchValue.length === 0 && options.length > 0 && (
-              <CommandGroup heading="Projetos em cache">
+              <div className="p-2">
+                <p className="text-xs text-muted-foreground mb-2 px-2">
+                  Projetos em cache
+                </p>
                 {options.slice(0, 10).map((option) => (
-                  <CommandItem
+                  <div
                     key={option.id}
-                    value={option.id.toString()}
-                    onSelect={() => handleSelectOption(option)}
-                    className="cursor-pointer"
+                    onClick={() => handleSelectOption(option)}
+                    className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer"
                   >
-                    <div className="flex items-center justify-between w-full">
-                      <span className={cn(
-                        selectedOption?.id === option.id && "font-semibold"
-                      )}>
-                        {selectedOption?.id === option.id && (
-                          <Check className="inline mr-2 h-4 w-4 text-green-600" />
+                    <div className="flex items-center flex-1">
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedOption?.id === option.id ? "opacity-100 text-green-600" : "opacity-0"
                         )}
+                      />
+                      <span className={cn(selectedOption?.id === option.id && "font-semibold")}>
                         {option.title}
                       </span>
                     </div>
-                  </CommandItem>
+                  </div>
                 ))}
-              </CommandGroup>
+              </div>
             )}
-          </CommandList>
-        </Command>
+            
+            {!isSearching && searchResults.length > 0 && (
+              <div className="p-2">
+                <p className="text-xs text-muted-foreground mb-2 px-2">
+                  {searchResults.length} projeto(s) encontrado(s)
+                </p>
+                {searchResults.map((result) => (
+                  <div
+                    key={result.id}
+                    onClick={() => handleSelectOption(result)}
+                    className="flex items-center justify-between p-2 hover:bg-muted rounded cursor-pointer"
+                  >
+                    <div className="flex items-center flex-1">
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedOption?.id === result.id ? "opacity-100 text-green-600" : "opacity-0"
+                        )}
+                      />
+                      <span className={cn(selectedOption?.id === result.id && "font-semibold")}>
+                        {result.title}
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      ID: {result.id}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {!isSearching && 
+             searchValue.length >= 3 && 
+             searchResults.length === 0 && (
+              <div className="p-2 border-t">
+                <div
+                  onClick={handleCreateNewClick}
+                  className="flex items-center p-2 hover:bg-muted rounded cursor-pointer"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span>✨ Criar novo: <strong>{searchValue}</strong></span>
+                </div>
+              </div>
+            )}
+            
+            {!isSearching && 
+             searchValue.length >= 3 && 
+             searchResults.length > 0 && (
+              <div className="p-2 border-t">
+                <div
+                  onClick={handleCreateNewClick}
+                  className="flex items-center p-2 hover:bg-muted rounded cursor-pointer text-muted-foreground"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span>Ou criar novo: <strong>{searchValue}</strong></span>
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );

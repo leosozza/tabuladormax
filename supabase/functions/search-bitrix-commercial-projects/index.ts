@@ -35,69 +35,43 @@ serve(async (req) => {
 
     console.log(`🔍 Buscando projetos comerciais com termo: "${searchTerm}"`);
 
-    // Buscar projetos comerciais (parent_id = 1120)
-    const fetchWithFilter = async (filterParam: string, start = 0): Promise<BitrixResponse> => {
-      const url = `${BITRIX_WEBHOOK}/crm.item.list.json`;
-      const body = {
-        entityTypeId: 190,
-        filter: { [filterParam]: searchTerm, parentId: 1120 },
-        select: ['id', 'title'],
-        start,
-        limit: 50
-      };
-
-      console.log(`📡 Fazendo requisição ao Bitrix:`, JSON.stringify(body));
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Bitrix API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log(`📥 Resposta do Bitrix:`, data);
-      return data;
+    // Nova estratégia: buscar TODOS os projetos e filtrar localmente
+    const url = `${BITRIX_WEBHOOK}/crm.item.list.json`;
+    const body = {
+      entityTypeId: 190,
+      filter: { parentId: 1120 }, // Sem filtro de título - buscar todos
+      select: ['id', 'title'],
+      start: 0,
+      limit: 200 // Limite maior para pegar mais projetos
     };
 
-    // Estratégia de busca em múltiplas etapas
-    let allResults: BitrixItem[] = [];
-    
-    // 1. Busca exata por nome completo
-    console.log('1️⃣ Tentando busca exata...');
-    const exactMatch = await fetchWithFilter('title');
-    if (exactMatch.result && exactMatch.result.length > 0) {
-      console.log(`✅ Encontrados ${exactMatch.result.length} resultados na busca exata`);
-      allResults.push(...exactMatch.result);
+    console.log(`📡 Fazendo requisição ao Bitrix:`, JSON.stringify(body));
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Bitrix API error: ${response.status}`);
     }
 
-    // 2. Se não encontrou, busca por prefixo (primeiras 3 letras)
-    if (allResults.length === 0) {
-      console.log('2️⃣ Busca exata sem resultados, tentando prefixo...');
-      const prefix = searchTerm.substring(0, 3);
-      const prefixMatch = await fetchWithFilter('title');
-      
-      if (prefixMatch.result && prefixMatch.result.length > 0) {
-        // Filtrar localmente para encontrar matches parciais
-        allResults = prefixMatch.result.filter(item => 
-          item.title.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        console.log(`✅ Encontrados ${allResults.length} resultados após filtro local`);
-      }
-    }
+    const data = await response.json();
+    console.log(`📥 Resposta do Bitrix: ${data.result?.length || 0} projetos encontrados`);
 
-    // Remover duplicatas e limitar a 50 resultados
-    const uniqueResults = Array.from(
-      new Map(allResults.map(item => [item.id, item])).values()
-    ).slice(0, 50);
+    // Filtrar localmente - busca "contém" case-insensitive
+    const filtered = (data.result || []).filter((item: BitrixItem) => 
+      item.title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-    console.log(`✅ Busca "${searchTerm}" retornou ${uniqueResults.length} projetos comerciais`);
+    console.log(`✅ Encontrados ${filtered.length} projetos contendo "${searchTerm}"`);
+
+    // Limitar a 50 resultados
+    const results = filtered.slice(0, 50);
 
     return new Response(
-      JSON.stringify({ results: uniqueResults }),
+      JSON.stringify({ results }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
