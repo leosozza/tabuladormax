@@ -471,6 +471,7 @@ export type Database = {
         Row: {
           address: string | null
           age: number | null
+          bitrix_telemarketing_id: number | null
           commercial_project_id: string | null
           date_modify: string | null
           id: number
@@ -479,6 +480,7 @@ export type Database = {
           photo_url: string | null
           raw: Json | null
           responsible: string | null
+          responsible_user_id: string | null
           scouter: string | null
           sync_source: string | null
           sync_status: string | null
@@ -487,6 +489,7 @@ export type Database = {
         Insert: {
           address?: string | null
           age?: number | null
+          bitrix_telemarketing_id?: number | null
           commercial_project_id?: string | null
           date_modify?: string | null
           id: number
@@ -495,6 +498,7 @@ export type Database = {
           photo_url?: string | null
           raw?: Json | null
           responsible?: string | null
+          responsible_user_id?: string | null
           scouter?: string | null
           sync_source?: string | null
           sync_status?: string | null
@@ -503,6 +507,7 @@ export type Database = {
         Update: {
           address?: string | null
           age?: number | null
+          bitrix_telemarketing_id?: number | null
           commercial_project_id?: string | null
           date_modify?: string | null
           id?: number
@@ -511,6 +516,7 @@ export type Database = {
           photo_url?: string | null
           raw?: Json | null
           responsible?: string | null
+          responsible_user_id?: string | null
           scouter?: string | null
           sync_source?: string | null
           sync_status?: string | null
