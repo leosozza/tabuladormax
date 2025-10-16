@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,7 +9,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { ResetStuckJobsButton } from "@/components/ResetStuckJobsButton";
-import { useState } from "react";
 
 export function CSVImportJobsTable() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -93,8 +93,8 @@ export function CSVImportJobsTable() {
               const hasError = job.status === 'failed' && job.error_details;
 
               return (
-                <>
-                  <TableRow key={job.id} className={job.status === 'processing' ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}>
+                <React.Fragment key={job.id}>
+                  <TableRow className={job.status === 'processing' ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {hasError && (
@@ -167,7 +167,7 @@ export function CSVImportJobsTable() {
                       </TableCell>
                     </TableRow>
                   )}
-                </>
+                </React.Fragment>
               );
             })}
           </TableBody>
