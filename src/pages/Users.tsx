@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import UserMenu from "@/components/UserMenu";
@@ -90,6 +91,14 @@ export default function Users() {
   // Filters
   const [filterProject, setFilterProject] = useState("");
   const [filterRole, setFilterRole] = useState("");
+
+  // Batch edit
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false);
+  const [batchEditField, setBatchEditField] = useState<'project' | 'supervisor'>('project');
+  const [batchEditValue, setBatchEditValue] = useState("");
+  const [batchEditLoading, setBatchEditLoading] = useState(false);
+  const [batchEditSupervisors, setBatchEditSupervisors] = useState<UserWithRole[]>([]);
 
   useEffect(() => {
     checkUserRole();
@@ -902,6 +911,166 @@ export default function Users() {
     }
   };
 
+  const toggleUserSelection = (userId: string) => {
+    const newSelection = new Set(selectedUserIds);
+    if (newSelection.has(userId)) {
+      newSelection.delete(userId);
+    } else {
+      newSelection.add(userId);
+    }
+    setSelectedUserIds(newSelection);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedUserIds.size === filteredUsers.length) {
+      setSelectedUserIds(new Set());
+    } else {
+      setSelectedUserIds(new Set(filteredUsers.map(u => u.id)));
+    }
+  };
+
+  const openBatchEditDialog = () => {
+    if (selectedUserIds.size === 0) {
+      toast.error('Selecione pelo menos um usuário');
+      return;
+    }
+    setBatchEditField('project');
+    setBatchEditValue("");
+    setBatchEditSupervisors([]);
+    setBatchEditDialogOpen(true);
+  };
+
+  const handleBatchEditFieldChange = async (field: 'project' | 'supervisor') => {
+    setBatchEditField(field);
+    setBatchEditValue("");
+    
+    // Se escolheu supervisor, carregar supervisores disponíveis
+    if (field === 'supervisor') {
+      // Verificar se todos usuários selecionados são agents e tem o mesmo projeto
+      const selectedUsers = users.filter(u => selectedUserIds.has(u.id));
+      const allAgents = selectedUsers.every(u => u.role === 'agent');
+      
+      if (!allAgents) {
+        toast.error('Apenas agentes podem ter supervisor alterado');
+        return;
+      }
+
+      const projects = new Set(selectedUsers.map(u => u.project_id).filter(Boolean));
+      if (projects.size !== 1) {
+        toast.error('Todos os usuários selecionados devem estar no mesmo projeto');
+        return;
+      }
+
+      const projectId = Array.from(projects)[0] as string;
+      await loadSupervisorsForBatchEdit(projectId);
+    }
+  };
+
+  const loadSupervisorsForBatchEdit = async (projectId: string) => {
+    if (!projectId) {
+      setBatchEditSupervisors([]);
+      return;
+    }
+
+    const { data: mappings } = await supabase
+      .from('agent_telemarketing_mapping')
+      .select('tabuladormax_user_id')
+      .eq('commercial_project_id', projectId)
+      .is('supervisor_id', null);
+
+    if (!mappings || mappings.length === 0) {
+      setBatchEditSupervisors([]);
+      return;
+    }
+
+    const userIds = [...new Set(mappings.map(m => m.tabuladormax_user_id).filter(Boolean))];
+
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'supervisor')
+      .in('user_id', userIds);
+
+    if (!userRoles || userRoles.length === 0) {
+      setBatchEditSupervisors([]);
+      return;
+    }
+
+    const supervisorIds = userRoles.map(ur => ur.user_id);
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, display_name, email')
+      .in('id', supervisorIds);
+
+    if (!profiles) {
+      setBatchEditSupervisors([]);
+      return;
+    }
+
+    const supervisorsData = profiles.map(p => ({
+      ...p,
+      role: 'supervisor' as const,
+      created_at: '',
+    }));
+
+    setBatchEditSupervisors(supervisorsData as UserWithRole[]);
+  };
+
+  const handleBatchEdit = async () => {
+    if (!batchEditValue) {
+      toast.error('Selecione um valor');
+      return;
+    }
+
+    // Verificar permissões
+    if (batchEditField === 'supervisor' && currentUserRole !== 'admin' && currentUserRole !== 'manager') {
+      toast.error('Apenas administradores e gerentes podem alterar supervisores em lote');
+      return;
+    }
+
+    if (batchEditField === 'project') {
+      if (currentUserRole !== 'admin' && currentUserRole !== 'manager' && currentUserRole !== 'supervisor') {
+        toast.error('Sem permissão para alterar projetos');
+        return;
+      }
+    }
+
+    setBatchEditLoading(true);
+    try {
+      const userIds = Array.from(selectedUserIds);
+      
+      if (batchEditField === 'project') {
+        const { error } = await supabase
+          .from('agent_telemarketing_mapping')
+          .update({ commercial_project_id: batchEditValue })
+          .in('tabuladormax_user_id', userIds);
+
+        if (error) throw error;
+        
+        toast.success(`✅ Projeto atualizado para ${userIds.length} usuário(s)`);
+      } else if (batchEditField === 'supervisor') {
+        const { error } = await supabase
+          .from('agent_telemarketing_mapping')
+          .update({ supervisor_id: batchEditValue })
+          .in('tabuladormax_user_id', userIds);
+
+        if (error) throw error;
+        
+        toast.success(`✅ Supervisor atualizado para ${userIds.length} usuário(s)`);
+      }
+
+      setBatchEditDialogOpen(false);
+      setSelectedUserIds(new Set());
+      loadUsers();
+    } catch (error: any) {
+      console.error('Erro ao editar em lote:', error);
+      toast.error('Erro ao editar em lote: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setBatchEditLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b">
@@ -966,10 +1135,18 @@ export default function Users() {
             </Select>
           </div>
 
-          <Button onClick={() => setCreateUserDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Usuário
-          </Button>
+          <div className="flex gap-3">
+            {selectedUserIds.size > 0 && (
+              <Button onClick={openBatchEditDialog} variant="secondary">
+                <Edit2 className="w-4 h-4 mr-2" />
+                Editar em lote ({selectedUserIds.size})
+              </Button>
+            )}
+            <Button onClick={() => setCreateUserDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Usuário
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -989,6 +1166,12 @@ export default function Users() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-muted/50">
+                      <th className="p-3 text-left w-12">
+                        <Checkbox
+                          checked={selectedUserIds.size === filteredUsers.length && filteredUsers.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </th>
                       <th className="p-3 text-left text-sm font-medium">Email</th>
                       <th className="p-3 text-left text-sm font-medium">Nome</th>
                       <th className="p-3 text-left text-sm font-medium">Projeto</th>
@@ -1001,6 +1184,12 @@ export default function Users() {
                   <tbody>
                     {filteredUsers.map(user => (
                       <tr key={user.id} className="border-b last:border-0 hover:bg-muted/50">
+                        <td className="p-3">
+                          <Checkbox
+                            checked={selectedUserIds.has(user.id)}
+                            onCheckedChange={() => toggleUserSelection(user.id)}
+                          />
+                        </td>
                         <td className="p-3 text-sm">{user.email}</td>
                         <td 
                           className="p-3 text-sm cursor-pointer" 
@@ -1456,6 +1645,97 @@ export default function Users() {
                 disabled={!newProjectId}
               >
                 Salvar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog: Edição em Lote */}
+        <Dialog open={batchEditDialogOpen} onOpenChange={setBatchEditDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>📝 Editar em Lote</DialogTitle>
+              <DialogDescription>
+                Selecione o campo e o novo valor para aplicar em {selectedUserIds.size} usuário(s) selecionado(s).
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Campo a editar</Label>
+                <Select 
+                  value={batchEditField} 
+                  onValueChange={(v: 'project' | 'supervisor') => handleBatchEditFieldChange(v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="project">Projeto Comercial</SelectItem>
+                    <SelectItem value="supervisor">Supervisor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Novo valor</Label>
+                {batchEditField === 'project' ? (
+                  <Select value={batchEditValue} onValueChange={setBatchEditValue}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o projeto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select 
+                    value={batchEditValue} 
+                    onValueChange={setBatchEditValue}
+                    disabled={batchEditSupervisors.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        batchEditSupervisors.length === 0
+                          ? "Nenhum supervisor disponível"
+                          : "Selecione o supervisor"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {batchEditSupervisors.map(s => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.display_name || s.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              {batchEditField === 'supervisor' && batchEditSupervisors.length === 0 && (
+                <Alert>
+                  <AlertDescription>
+                    ⚠️ Todos os usuários selecionados devem ser agentes do mesmo projeto para editar supervisor em lote.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setBatchEditDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleBatchEdit}
+                disabled={batchEditLoading || !batchEditValue}
+              >
+                {batchEditLoading ? 'Salvando...' : 'Salvar'}
               </Button>
             </div>
           </DialogContent>
