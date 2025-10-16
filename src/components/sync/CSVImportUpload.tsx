@@ -45,6 +45,35 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
     setPreview(rows);
   };
 
+  const parseBoolean = (value: string | null): boolean => {
+    if (!value) return false;
+    const v = value.toLowerCase().trim();
+    return v === 'sim' || v === 'yes' || v === 'true' || v === '1' || v === 'y';
+  };
+
+  const parseNumeric = (value: string | null): number | null => {
+    if (!value) return null;
+    const cleaned = value.replace(',', '.').replace(/[^\d.-]/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  };
+
+  const parseBrazilianDate = (dateStr: string | null): string | null => {
+    if (!dateStr) return null;
+    try {
+      const match = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+      if (match) {
+        const [, day, month, year, hour, minute, second] = match;
+        return `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+      }
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) return date.toISOString();
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleUpload = async () => {
     if (!file) return;
 
@@ -53,54 +82,166 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
     setProgress(0);
 
     try {
-      // Upload file
       const fileName = `${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase
-        .storage
-        .from('leads-csv-import')
-        .upload(fileName, file);
+      const userId = (await supabase.auth.getUser()).data.user?.id;
 
-      if (uploadError) throw uploadError;
-
-      setProgress(50);
-      setJobStatus('processing');
-
-      // Create job
+      // Criar job
       const { data: job, error: jobError } = await supabase
         .from('csv_import_jobs')
         .insert({
           file_path: fileName,
-          status: 'pending',
-          created_by: (await supabase.auth.getUser()).data.user?.id
+          status: 'processing',
+          started_at: new Date().toISOString(),
+          created_by: userId
         })
         .select()
         .single();
 
       if (jobError) throw jobError;
 
-      // Invoke edge function
-      const { error: invokeError } = await supabase.functions.invoke(
-        'process-large-csv-import',
-        { body: { jobId: job.id, filePath: fileName } }
-      );
+      setProgress(10);
 
-      if (invokeError) {
-        await supabase
-          .from('csv_import_jobs')
-          .update({ 
-            status: 'failed',
-            error_details: [{ error: invokeError.message }]
-          })
-          .eq('id', job.id);
-        
-        throw new Error(`Falha ao processar: ${invokeError.message}`);
+      // Ler e processar CSV no navegador
+      const text = await file.text();
+      const lines = text.split('\n');
+      const delimiter = lines[0].includes(';') ? ';' : ',';
+      const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+
+      let processedRows = 0;
+      let importedRows = 0;
+      let errorRows = 0;
+      const errorDetails: any[] = [];
+      const BATCH_SIZE = 100;
+      let leads: any[] = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        processedRows++;
+        const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+        const row: any = {};
+        headers.forEach((header, idx) => {
+          row[header] = values[idx] || null;
+        });
+
+        const lead = {
+          id: row.ID ? parseInt(row.ID) : null,
+          name: row['Nome do Lead'] || row.NAME || null,
+          age: row.Idade ? parseInt(row.Idade) : null,
+          address: row['Localização'] || row.ADDRESS || null,
+          photo_url: row['Foto do modelo'] || null,
+          responsible: row['Responsável'] || null,
+          scouter: row.Scouter || null,
+          date_modify: new Date().toISOString(),
+          etapa: row.Etapa || null,
+          nome_modelo: row['Nome do Modelo'] || row['nome modelo'] || null,
+          criado: parseBrazilianDate(row.Criado) || null,
+          fonte: row.Fonte || null,
+          telefone_trabalho: row['Telefone de trabalho'] || null,
+          celular: row.Celular || null,
+          telefone_casa: row['Telefone de casa'] || null,
+          local_abordagem: row['Local da Abordagem'] || null,
+          ficha_confirmada: parseBoolean(row['Ficha confirmada']),
+          data_criacao_ficha: parseBrazilianDate(row['Data de criação da Ficha']) || null,
+          data_confirmacao_ficha: parseBrazilianDate(row['Data da confirmação de ficha']) || null,
+          presenca_confirmada: parseBoolean(row['Presença Confirmada']),
+          compareceu: parseBoolean(row.Compareceu),
+          cadastro_existe_foto: parseBoolean(row['Cadastro Existe Foto?']),
+          valor_ficha: parseNumeric(row['Valor da Ficha']) || null,
+          data_criacao_agendamento: parseBrazilianDate(row['Data da criação do agendamento']) || null,
+          horario_agendamento: row['Horário do agendamento - Cliente - Campo Lista'] || null,
+          data_agendamento: parseBrazilianDate(row['Data do agendamento  - Cliente - Campo Data']) || null,
+          gerenciamento_funil: row['GERENCIAMENTO FUNIL DE QUALIFICAÇAO/AGENDAMENTO'] || null,
+          status_fluxo: row['Status de Fluxo'] || null,
+          etapa_funil: row['ETAPA FUNIL QUALIFICAÇÃO/AGENDAMENTO'] || null,
+          etapa_fluxo: row['Etapa de fluxo'] || null,
+          funil_fichas: row['Funil Fichas'] || null,
+          status_tabulacao: row['Status Tabulação'] || null,
+          maxsystem_id_ficha: row['MaxSystem - ID da Ficha'] || null,
+          gestao_scouter: row['Gestão de Scouter'] || null,
+          op_telemarketing: row['Op Telemarketing'] || null,
+          data_retorno_ligacao: parseBrazilianDate(row['Data Retorno de ligação']) || null,
+          raw: row,
+          sync_source: 'csv_import',
+          sync_status: 'synced',
+          commercial_project_id: null,
+          responsible_user_id: null,
+          bitrix_telemarketing_id: row.PARENT_ID_1144 ? parseInt(row.PARENT_ID_1144) : null
+        };
+
+        if (lead.id) leads.push(lead);
+
+        // Inserir batch
+        if (leads.length >= BATCH_SIZE) {
+          try {
+            const { error } = await supabase
+              .from('leads')
+              .upsert(leads, { onConflict: 'id' });
+
+            if (error) throw error;
+            importedRows += leads.length;
+          } catch (error: any) {
+            console.error('Erro no batch:', error);
+            errorRows += leads.length;
+            errorDetails.push({ linha: i, count: leads.length, error: error.message });
+          }
+
+          leads = [];
+
+          // Atualizar progresso
+          const currentProgress = 10 + Math.round((processedRows / (lines.length - 1)) * 85);
+          setProgress(currentProgress);
+
+          await supabase
+            .from('csv_import_jobs')
+            .update({ 
+              total_rows: lines.length - 1,
+              processed_rows: processedRows,
+              imported_rows: importedRows,
+              error_rows: errorRows,
+              error_details: errorDetails.slice(-10)
+            })
+            .eq('id', job.id);
+        }
       }
+
+      // Processar últimas linhas
+      if (leads.length > 0) {
+        try {
+          const { error } = await supabase
+            .from('leads')
+            .upsert(leads, { onConflict: 'id' });
+
+          if (error) throw error;
+          importedRows += leads.length;
+        } catch (error: any) {
+          errorRows += leads.length;
+          errorDetails.push({ count: leads.length, error: error.message });
+        }
+      }
+
+      // Upload arquivo para histórico
+      await supabase.storage.from('leads-csv-import').upload(fileName, file);
+
+      // Finalizar job
+      await supabase
+        .from('csv_import_jobs')
+        .update({ 
+          status: errorRows > 0 ? 'completed_with_errors' : 'completed',
+          total_rows: processedRows,
+          processed_rows: processedRows,
+          imported_rows: importedRows,
+          error_rows: errorRows,
+          error_details: errorDetails.slice(-20),
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', job.id);
 
       setProgress(100);
       setJobStatus('completed');
-      toast.success('Upload concluído! Processamento iniciado em background.');
+      toast.success(`Importação concluída! ${importedRows} leads importados${errorRows > 0 ? `, ${errorRows} com erro` : ''}.`);
       
-      // Reset
       setFile(null);
       setPreview([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -109,7 +250,7 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
     } catch (error: any) {
       console.error('Erro:', error);
       setJobStatus('error');
-      toast.error(error.message || 'Erro ao fazer upload');
+      toast.error(error.message || 'Erro ao processar arquivo');
     } finally {
       setUploading(false);
     }
