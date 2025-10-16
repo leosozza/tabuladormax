@@ -143,7 +143,8 @@ serve(async (req) => {
 
     // Buscar lead completo do Bitrix via API
     const bitrixDomain = payload.auth?.domain || 'maxsystem.bitrix24.com.br';
-    const bitrixUrl = `https://${bitrixDomain}/rest/crm.lead.get?ID=${leadId}`;
+    const bitrixToken = Deno.env.get('BITRIX_REST_TOKEN') || '7/338m945lx9ifjjnr';
+    const bitrixUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.lead.get?ID=${leadId}`;
     
     console.log('🔍 Buscando lead completo do Bitrix:', bitrixUrl);
     const bitrixResponse = await fetch(bitrixUrl);
