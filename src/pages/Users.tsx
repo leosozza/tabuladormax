@@ -708,14 +708,73 @@ export default function Users() {
     }
 
     try {
-      const { error } = await supabase
+      // Buscar informações do usuário que está sendo editado
+      const { data: userData, error: userError } = await supabase
         .from('agent_telemarketing_mapping')
-        .update({ commercial_project_id: newProjectId })
-        .eq('tabuladormax_user_id', editingProjectUserId);
+        .select('supervisor_id, tabuladormax_user_id')
+        .eq('tabuladormax_user_id', editingProjectUserId)
+        .single();
 
-      if (error) throw error;
+      if (userError) throw userError;
 
-      toast.success('✅ Projeto atualizado com sucesso!');
+      const userRole = users.find(u => u.id === editingProjectUserId)?.role;
+
+      if (userRole === 'agent' && userData.supervisor_id) {
+        // Atualizar o agente
+        const { error: agentError } = await supabase
+          .from('agent_telemarketing_mapping')
+          .update({ commercial_project_id: newProjectId })
+          .eq('tabuladormax_user_id', editingProjectUserId);
+
+        if (agentError) throw agentError;
+
+        // Atualizar todos os agentes do mesmo supervisor
+        const { error: teamError } = await supabase
+          .from('agent_telemarketing_mapping')
+          .update({ commercial_project_id: newProjectId })
+          .eq('supervisor_id', userData.supervisor_id);
+
+        if (teamError) throw teamError;
+
+        // Atualizar o supervisor
+        const { error: supervisorError } = await supabase
+          .from('agent_telemarketing_mapping')
+          .update({ commercial_project_id: newProjectId })
+          .eq('tabuladormax_user_id', userData.supervisor_id);
+
+        if (supervisorError) throw supervisorError;
+
+        toast.success('✅ Projeto atualizado para toda a equipe!');
+      } else if (userRole === 'supervisor') {
+        // Atualizar o supervisor
+        const { error: supervisorError } = await supabase
+          .from('agent_telemarketing_mapping')
+          .update({ commercial_project_id: newProjectId })
+          .eq('tabuladormax_user_id', editingProjectUserId);
+
+        if (supervisorError) throw supervisorError;
+
+        // Atualizar todos os agentes deste supervisor
+        const { error: agentsError } = await supabase
+          .from('agent_telemarketing_mapping')
+          .update({ commercial_project_id: newProjectId })
+          .eq('supervisor_id', editingProjectUserId);
+
+        if (agentsError) throw agentsError;
+
+        toast.success('✅ Projeto atualizado para toda a equipe!');
+      } else {
+        // Fallback para outros casos (admin, manager, etc.)
+        const { error } = await supabase
+          .from('agent_telemarketing_mapping')
+          .update({ commercial_project_id: newProjectId })
+          .eq('tabuladormax_user_id', editingProjectUserId);
+
+        if (error) throw error;
+
+        toast.success('✅ Projeto atualizado com sucesso!');
+      }
+
       setEditProjectDialogOpen(false);
       loadUsers();
     } catch (error) {

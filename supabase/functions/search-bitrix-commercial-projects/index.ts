@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.74.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -139,11 +140,53 @@ serve(async (req) => {
 
     console.log(`📊 Total de resultados encontrados: ${allResults.length}`);
 
-    // Converter IDs para string para compatibilidade
-    const resultsWithStringIds = allResults.map(item => ({
-      id: item.id.toString(),
-      title: item.title
-    }));
+    // Criar cliente Supabase
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Mapear IDs do Bitrix para UUIDs do Supabase
+    const bitrixIds = allResults.map(item => item.id.toString());
+
+    console.log(`🔍 Buscando UUIDs no Supabase para ${bitrixIds.length} projetos`);
+
+    const { data: supabaseProjects, error: dbError } = await supabaseClient
+      .from('commercial_projects')
+      .select('id, code, name')
+      .in('code', bitrixIds);
+
+    if (dbError) {
+      console.error('❌ Erro ao buscar projetos no Supabase:', dbError);
+      throw dbError;
+    }
+
+    console.log(`✅ Encontrados ${supabaseProjects?.length || 0} projetos no Supabase`);
+
+    // Criar mapa de code (Bitrix ID) -> UUID (Supabase)
+    const codeToUuidMap = new Map(
+      supabaseProjects?.map(p => [p.code, p.id]) || []
+    );
+
+    // Substituir IDs do Bitrix por UUIDs do Supabase
+    const resultsWithStringIds = allResults
+      .map(item => {
+        const bitrixIdStr = item.id.toString();
+        const supabaseUuid = codeToUuidMap.get(bitrixIdStr);
+        
+        if (!supabaseUuid) {
+          console.log(`⚠️ Projeto "${item.title}" (Bitrix ID: ${bitrixIdStr}) não encontrado no Supabase`);
+          return null;
+        }
+        
+        return {
+          id: supabaseUuid,
+          title: item.title
+        };
+      })
+      .filter((item): item is { id: string; title: string } => item !== null);
+
+    console.log(`✅ ${resultsWithStringIds.length} projetos mapeados para UUIDs`);
 
     return new Response(
       JSON.stringify({ 
