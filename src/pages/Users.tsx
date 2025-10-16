@@ -269,6 +269,24 @@ export default function Users() {
     setEditSupervisorOptions(supervisorsData as any);
   };
 
+  const handleSyncProjects = async () => {
+    const loading = toast.loading('Sincronizando projetos do Bitrix...');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-bitrix-commercial-projects');
+      
+      if (error) throw error;
+      
+      toast.success(`✅ ${data.processed} projetos sincronizados com sucesso!`, { id: loading });
+      
+      // Recarregar projetos após sincronização
+      await loadCommercialProjects();
+    } catch (error) {
+      toast.error('Erro ao sincronizar projetos', { id: loading });
+      console.error(error);
+    }
+  };
+
   const loadUsers = async () => {
     setLoading(true);
     const { data: profiles, error: profilesError } = await supabase
@@ -857,7 +875,16 @@ export default function Users() {
                 </p>
               </div>
             </div>
-            <UserMenu />
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleSyncProjects}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                🔄 Sincronizar Projetos
+              </Button>
+              <UserMenu />
+            </div>
           </div>
         </div>
       </header>

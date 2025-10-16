@@ -168,6 +168,36 @@ serve(async (req) => {
       supabaseProjects?.map(p => [p.code, p.id]) || []
     );
 
+    // Identificar projetos ausentes no Supabase
+    const missingProjects = allResults.filter(item => {
+      const bitrixIdStr = item.id.toString();
+      return !codeToUuidMap.has(bitrixIdStr);
+    });
+
+    // Criar projetos ausentes automaticamente
+    if (missingProjects.length > 0) {
+      console.log(`💾 Criando ${missingProjects.length} projetos ausentes no Supabase...`);
+      
+      const projectsToInsert = missingProjects.map(p => ({
+        code: p.id.toString(),
+        name: p.title,
+        active: true
+      }));
+
+      const { data: newProjects, error: insertError } = await supabaseClient
+        .from('commercial_projects')
+        .insert(projectsToInsert)
+        .select('id, code');
+
+      if (!insertError && newProjects) {
+        // Atualizar o mapa com os novos UUIDs
+        newProjects.forEach(p => codeToUuidMap.set(p.code, p.id));
+        console.log(`✅ ${newProjects.length} projetos criados com sucesso`);
+      } else if (insertError) {
+        console.error('❌ Erro ao criar projetos:', insertError);
+      }
+    }
+
     // Substituir IDs do Bitrix por UUIDs do Supabase
     const resultsWithStringIds = allResults
       .map(item => {
