@@ -48,7 +48,7 @@ serve(async (req) => {
     let prefixMatches: BitrixItem[] = [];
 
     async function fetchWithFilter(filterParam: string, start = 0): Promise<BitrixResponse> {
-      const url = `${baseUrl}?entityTypeId=190&select[]=title&select[]=id${filterParam}&start=${start}`;
+      const url = `${baseUrl}?entityTypeId=1120&select[]=title&select[]=id${filterParam}&start=${start}`;
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -90,7 +90,7 @@ serve(async (req) => {
           }
 
           const filtered = prefixData.result.items.filter(item => 
-            item.title.toLowerCase().includes(trimmedSearch.toLowerCase())
+            item.title.toLowerCase().startsWith(prefix.toLowerCase())
           );
           
           prefixMatches.push(...filtered);
