@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import UserMenu from "@/components/UserMenu";
 import { TelemarketingSelector } from "@/components/TelemarketingSelector";
+import { CommercialProjectBitrixSelector } from "@/components/CommercialProjectBitrixSelector";
 
 interface UserWithRole {
   id: string;
@@ -75,6 +76,12 @@ export default function Users() {
   const [newSupervisorId, setNewSupervisorId] = useState("");
   const [editSupervisorOptions, setEditSupervisorOptions] = useState<UserWithRole[]>([]);
   const [updatingSupervisor, setUpdatingSupervisor] = useState(false);
+  
+  // Edit project
+  const [editProjectDialogOpen, setEditProjectDialogOpen] = useState(false);
+  const [editingProjectUserId, setEditingProjectUserId] = useState("");
+  const [newProjectId, setNewProjectId] = useState("");
+  const [pendingProjectName, setPendingProjectName] = useState<string | null>(null);
   
   // Data for dropdowns
   const [projects, setProjects] = useState<CommercialProject[]>([]);
@@ -632,6 +639,91 @@ export default function Users() {
     setEditRoleDialogOpen(true);
   };
 
+  const openEditProjectDialog = (user: UserWithRole) => {
+    console.log('🚀 [openEditProjectDialog] Usuário:', user);
+
+    if (!['agent', 'supervisor'].includes(user.role)) {
+      toast.error('Apenas agentes e supervisores têm projeto vinculado');
+      return;
+    }
+
+    setEditingProjectUserId(user.id);
+    setNewProjectId(user.project_id || "");
+    setPendingProjectName(null);
+    setEditProjectDialogOpen(true);
+  };
+
+  const handleSaveProject = async () => {
+    // Se tem um projeto pendente de criação
+    if (pendingProjectName && newProjectId === '-1') {
+      console.log('✨ Criando novo projeto no Bitrix:', pendingProjectName);
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('create-bitrix-commercial-project', {
+          body: { title: pendingProjectName }
+        });
+
+        if (error) throw error;
+        if (!data?.result?.id) throw new Error('Bitrix não retornou ID do projeto');
+
+        const bitrixId = data.result.id;
+        
+        // Buscar o projeto recém-criado no Supabase
+        const { data: projectData } = await supabase
+          .from('commercial_projects')
+          .select('id')
+          .eq('code', bitrixId.toString())
+          .maybeSingle();
+
+        if (!projectData) {
+          toast.error('Erro ao vincular projeto criado');
+          return;
+        }
+
+        // Atualizar com o ID real do Supabase
+        const { error: mappingError } = await supabase
+          .from('agent_telemarketing_mapping')
+          .update({ commercial_project_id: projectData.id })
+          .eq('tabuladormax_user_id', editingProjectUserId);
+
+        if (mappingError) throw mappingError;
+
+        toast.success(`✅ Projeto "${pendingProjectName}" criado e vinculado!`);
+        setEditProjectDialogOpen(false);
+        setPendingProjectName(null);
+        loadUsers();
+        loadCommercialProjects();
+        return;
+      } catch (error) {
+        console.error('Erro ao criar projeto:', error);
+        toast.error('Erro ao criar projeto no Bitrix');
+        return;
+      }
+    }
+
+    // Projeto existente
+    if (!newProjectId || newProjectId === '-1') {
+      toast.error('Selecione um projeto válido');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('agent_telemarketing_mapping')
+        .update({ commercial_project_id: newProjectId })
+        .eq('tabuladormax_user_id', editingProjectUserId);
+
+      if (error) throw error;
+
+      toast.success('✅ Projeto atualizado com sucesso!');
+      setEditProjectDialogOpen(false);
+      loadUsers();
+    } catch (error) {
+      console.error('Erro ao atualizar projeto:', error);
+      toast.error('Erro ao atualizar projeto');
+    }
+  };
+
   const openEditSupervisorDialog = async (user: UserWithRole) => {
     console.log('🚀 [openEditSupervisorDialog] Iniciando para usuário:', {
       id: user.id,
@@ -786,7 +878,11 @@ export default function Users() {
                         >
                           {user.display_name || <span className="text-muted-foreground italic">Sem nome</span>}
                         </td>
-                         <td className="p-3 text-sm">
+                         <td 
+                           className="p-3 text-sm cursor-pointer hover:bg-muted/30" 
+                           onDoubleClick={() => ['agent', 'supervisor'].includes(user.role) && openEditProjectDialog(user)}
+                           title={['agent', 'supervisor'].includes(user.role) ? "Duplo clique para editar" : ""}
+                         >
                            {user.project_name || <span className="text-muted-foreground">-</span>}
                          </td>
                          <td 
@@ -1078,19 +1174,21 @@ export default function Users() {
 
         {/* Dialog: Editar Supervisor */}
         <Dialog open={editSupervisorDialogOpen} onOpenChange={setEditSupervisorDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Editar Supervisor</DialogTitle>
+              <DialogTitle>✏️ Editar Supervisor</DialogTitle>
               <DialogDescription>
-                Altere o supervisor do agente.
+                Selecione o novo supervisor para este agente.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            
+            <div className="space-y-4 py-4">
               {/* Debug info */}
-              <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                <div><strong>Debug:</strong></div>
-                <div>Projeto ID: {editingSupervisorProjectId}</div>
-                <div>Opções carregadas: {editSupervisorOptions.length}</div>
+              <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded">
+                <strong>Debug Info:</strong>
+                <div>Projeto: {editingSupervisorProjectId}</div>
+                <div>Supervisor atual: {newSupervisorId || 'Nenhum'}</div>
+                <div>Supervisores disponíveis: {editSupervisorOptions.length}</div>
                 {editSupervisorOptions.length > 0 && (
                   <div>Supervisores: {editSupervisorOptions.map(s => s.display_name || s.email).join(', ')}</div>
                 )}
@@ -1120,8 +1218,8 @@ export default function Users() {
                 >
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder={
-                      editSupervisorOptions.length === 0 
-                        ? "Nenhum supervisor disponível" 
+                      editSupervisorOptions.length === 0
+                        ? "Nenhum supervisor disponível"
                         : "Selecione o supervisor"
                     } />
                   </SelectTrigger>
@@ -1142,13 +1240,8 @@ export default function Users() {
                   </SelectContent>
                 </Select>
               </div>
-              
-              {editSupervisorOptions.length === 0 && (
-                <div className="text-sm text-muted-foreground col-span-4 text-center">
-                  ⚠️ Nenhum supervisor encontrado neste projeto
-                </div>
-              )}
             </div>
+
             <div className="flex justify-end gap-2">
               <Button 
                 type="button" 
@@ -1161,7 +1254,62 @@ export default function Users() {
                 onClick={updateUserSupervisor} 
                 disabled={updatingSupervisor || !newSupervisorId}
               >
-                {updatingSupervisor ? 'Salvando...' : 'Salvar'}
+                Salvar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog: Editar Projeto Comercial */}
+        <Dialog open={editProjectDialogOpen} onOpenChange={setEditProjectDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>✏️ Editar Projeto Comercial</DialogTitle>
+              <DialogDescription>
+                Busque e selecione o novo projeto comercial no Bitrix.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="project" className="text-right">
+                  Novo Projeto
+                </Label>
+                <div className="col-span-3">
+                  <CommercialProjectBitrixSelector
+                    value={newProjectId}
+                    onChange={setNewProjectId}
+                    onPendingCreate={setPendingProjectName}
+                    placeholder="Buscar projeto no Bitrix"
+                  />
+                </div>
+              </div>
+              
+              {pendingProjectName && (
+                <Alert>
+                  <AlertDescription>
+                    ✨ Novo projeto <strong>"{pendingProjectName}"</strong> será criado no Bitrix ao salvar.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setEditProjectDialogOpen(false);
+                  setPendingProjectName(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSaveProject}
+                disabled={!newProjectId}
+              >
+                Salvar
               </Button>
             </div>
           </DialogContent>
