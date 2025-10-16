@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { format } from "date-fns";
 import { User, MapPin, Phone, Filter, Settings2, Eye, EyeOff, Cloud, Loader2 } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Card } from "@/components/ui/card";
@@ -702,6 +703,68 @@ const Index = () => {
                       {visibleColumns.address && (
                         <TableCell className="max-w-xs truncate">
                           {lead.address || '-'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.etapa && <TableCell>{lead.etapa || '-'}</TableCell>}
+                      {visibleColumns.nome_modelo && <TableCell>{lead.nome_modelo || '-'}</TableCell>}
+                      {visibleColumns.fonte && <TableCell>{lead.fonte || '-'}</TableCell>}
+                      {visibleColumns.telefone_trabalho && <TableCell>{lead.telefone_trabalho || '-'}</TableCell>}
+                      {visibleColumns.celular && <TableCell>{lead.celular || '-'}</TableCell>}
+                      {visibleColumns.telefone_casa && <TableCell>{lead.telefone_casa || '-'}</TableCell>}
+                      {visibleColumns.local_abordagem && <TableCell>{lead.local_abordagem || '-'}</TableCell>}
+                      {visibleColumns.horario_agendamento && <TableCell>{lead.horario_agendamento || '-'}</TableCell>}
+                      {visibleColumns.gerenciamento_funil && <TableCell>{lead.gerenciamento_funil || '-'}</TableCell>}
+                      {visibleColumns.status_fluxo && <TableCell>{lead.status_fluxo || '-'}</TableCell>}
+                      {visibleColumns.etapa_funil && <TableCell>{lead.etapa_funil || '-'}</TableCell>}
+                      {visibleColumns.etapa_fluxo && <TableCell>{lead.etapa_fluxo || '-'}</TableCell>}
+                      {visibleColumns.funil_fichas && <TableCell>{lead.funil_fichas || '-'}</TableCell>}
+                      {visibleColumns.status_tabulacao && <TableCell>{lead.status_tabulacao || '-'}</TableCell>}
+                      {visibleColumns.maxsystem_id_ficha && <TableCell>{lead.maxsystem_id_ficha || '-'}</TableCell>}
+                      {visibleColumns.gestao_scouter && <TableCell>{lead.gestao_scouter || '-'}</TableCell>}
+                      {visibleColumns.op_telemarketing && <TableCell>{lead.op_telemarketing || '-'}</TableCell>}
+                      {visibleColumns.valor_ficha && <TableCell>{lead.valor_ficha || '-'}</TableCell>}
+                      {visibleColumns.cadastro_existe_foto && <TableCell>{lead.cadastro_existe_foto ? 'Sim' : 'Não'}</TableCell>}
+                      {visibleColumns.compareceu && <TableCell>{lead.compareceu ? 'Sim' : 'Não'}</TableCell>}
+                      {visibleColumns.presenca_confirmada && <TableCell>{lead.presenca_confirmada ? 'Sim' : 'Não'}</TableCell>}
+                      {visibleColumns.ficha_confirmada && <TableCell>{lead.ficha_confirmada ? 'Sim' : 'Não'}</TableCell>}
+                      {visibleColumns.data_agendamento && (
+                        <TableCell>
+                          {lead.data_agendamento ? format(new Date(lead.data_agendamento), 'dd/MM/yyyy') : '-'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.data_retorno_ligacao && (
+                        <TableCell>
+                          {lead.data_retorno_ligacao ? format(new Date(lead.data_retorno_ligacao), 'dd/MM/yyyy HH:mm') : '-'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.data_confirmacao_ficha && (
+                        <TableCell>
+                          {lead.data_confirmacao_ficha ? format(new Date(lead.data_confirmacao_ficha), 'dd/MM/yyyy HH:mm') : '-'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.data_criacao_ficha && (
+                        <TableCell>
+                          {lead.data_criacao_ficha ? format(new Date(lead.data_criacao_ficha), 'dd/MM/yyyy HH:mm') : '-'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.data_criacao_agendamento && (
+                        <TableCell>
+                          {lead.data_criacao_agendamento ? format(new Date(lead.data_criacao_agendamento), 'dd/MM/yyyy HH:mm') : '-'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.criado && (
+                        <TableCell>
+                          {lead.criado ? format(new Date(lead.criado), 'dd/MM/yyyy HH:mm') : '-'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.date_modify && (
+                        <TableCell>
+                          {lead.date_modify ? format(new Date(lead.date_modify), 'dd/MM/yyyy HH:mm') : '-'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.last_sync_at && (
+                        <TableCell>
+                          {lead.last_sync_at ? format(new Date(lead.last_sync_at), 'dd/MM/yyyy HH:mm') : '-'}
                         </TableCell>
                       )}
                       {visibleColumns.responsible && (
