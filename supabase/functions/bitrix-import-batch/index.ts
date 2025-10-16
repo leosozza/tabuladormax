@@ -282,8 +282,21 @@ async function processBatchJob(jobId: string) {
     nextDate.setDate(nextDate.getDate() - 1);
     processingDate = nextDate.toISOString().split('T')[0];
 
-    // Verificar se chegou ao fim
+    // Correção 3: Logs de debug
+    console.log(`📊 Status do processamento:`, {
+      processingDate,
+      lastCompleted: processingDate,
+      endDate: job.end_date,
+      shouldStop: job.end_date ? processingDate < job.end_date : false,
+      totalImported,
+      totalErrors
+    });
+
+    // CORREÇÃO CRÍTICA: Lógica de finalização estava INVERTIDA!
+    // Se processingDate < end_date: ainda não chegou no fim, CONTINUAR
+    // Se processingDate >= end_date OU não tem end_date: PARAR
     if (job.end_date && processingDate < job.end_date) {
+      console.log('🛑 Chegou no limite (end_date). Finalizando importação.');
       await supabase.from('bitrix_import_jobs').update({
         status: 'completed',
         completed_at: new Date().toISOString(),

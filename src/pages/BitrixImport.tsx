@@ -110,6 +110,27 @@ export default function BitrixImport() {
     }
   };
 
+  const resetJob = async (jobId: string) => {
+    const loading = toast.loading("Resetando job travado...");
+    
+    try {
+      const { error } = await supabase
+        .from("bitrix_import_jobs")
+        .update({
+          status: "paused",
+          pause_reason: "Reset manual",
+        })
+        .eq("id", jobId);
+      
+      if (error) throw error;
+      
+      toast.success("Job resetado! Clique em 'Retomar' para continuar.", { id: loading });
+      queryClient.invalidateQueries({ queryKey: ["bitrix-import-jobs"] });
+    } catch (error: any) {
+      toast.error("Erro ao resetar job", { id: loading });
+    }
+  };
+
   const formatDate = (date: string) => {
     if (!date) return "-";
     return new Date(date).toLocaleDateString("pt-BR");
@@ -235,17 +256,27 @@ export default function BitrixImport() {
 
                     <div className="flex gap-2">
                       {activeJob.status === "running" && (
-                        <Button size="sm" variant="outline" onClick={() => pauseJob(activeJob.id)}>
-                          <Pause className="w-4 h-4 mr-1" />
-                          Pausar
-                        </Button>
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => pauseJob(activeJob.id)}>
+                            <Pause className="w-4 h-4 mr-1" />
+                            Pausar
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => resetJob(activeJob.id)}>
+                            Reset
+                          </Button>
+                        </>
                       )}
 
                       {activeJob.status === "paused" && (
-                        <Button size="sm" onClick={() => resumeJob(activeJob.id)}>
-                          <Play className="w-4 h-4 mr-1" />
-                          Retomar
-                        </Button>
+                        <>
+                          <Button size="sm" onClick={() => resumeJob(activeJob.id)}>
+                            <Play className="w-4 h-4 mr-1" />
+                            Retomar
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => resetJob(activeJob.id)}>
+                            Reset
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
