@@ -50,9 +50,12 @@ export type Database = {
           bitrix_telemarketing_name: string | null
           chatwoot_agent_email: string | null
           chatwoot_agent_id: number | null
+          commercial_project_id: string | null
           created_at: string
           created_by: string | null
+          department_id: string | null
           id: string
+          supervisor_id: string | null
           tabuladormax_user_id: string | null
           updated_at: string
         }
@@ -61,9 +64,12 @@ export type Database = {
           bitrix_telemarketing_name?: string | null
           chatwoot_agent_email?: string | null
           chatwoot_agent_id?: number | null
+          commercial_project_id?: string | null
           created_at?: string
           created_by?: string | null
+          department_id?: string | null
           id?: string
+          supervisor_id?: string | null
           tabuladormax_user_id?: string | null
           updated_at?: string
         }
@@ -72,13 +78,30 @@ export type Database = {
           bitrix_telemarketing_name?: string | null
           chatwoot_agent_email?: string | null
           chatwoot_agent_id?: number | null
+          commercial_project_id?: string | null
           created_at?: string
           created_by?: string | null
+          department_id?: string | null
           id?: string
+          supervisor_id?: string | null
           tabuladormax_user_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "agent_telemarketing_mapping_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_telemarketing_mapping_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agent_telemarketing_mapping_tabuladormax_user_id_fkey"
             columns: ["tabuladormax_user_id"]
@@ -358,6 +381,36 @@ export type Database = {
         }
         Relationships: []
       }
+      commercial_projects: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       config_kv: {
         Row: {
           key: string
@@ -424,6 +477,57 @@ export type Database = {
         }
         Relationships: []
       }
+      departments: {
+        Row: {
+          active: boolean
+          code: string
+          commercial_project_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          commercial_project_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          commercial_project_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           address: string | null
@@ -469,6 +573,39 @@ export type Database = {
           sync_source?: string | null
           sync_status?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      permissions: {
+        Row: {
+          action: string
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          name: string
+          resource: string
+          scope: Database["public"]["Enums"]["permission_scope"]
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          name: string
+          resource: string
+          scope?: Database["public"]["Enums"]["permission_scope"]
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          name?: string
+          resource?: string
+          scope?: Database["public"]["Enums"]["permission_scope"]
         }
         Relationships: []
       }
@@ -528,6 +665,41 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          permission_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          scope: Database["public"]["Enums"]["permission_scope"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permission_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          scope: Database["public"]["Enums"]["permission_scope"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permission_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          scope?: Database["public"]["Enums"]["permission_scope"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_permission_id_fkey"
+            columns: ["permission_id"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sync_events: {
         Row: {
@@ -598,6 +770,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "agent" | "supervisor"
+      permission_scope: "global" | "department" | "own"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -726,6 +899,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "agent", "supervisor"],
+      permission_scope: ["global", "department", "own"],
     },
   },
 } as const
