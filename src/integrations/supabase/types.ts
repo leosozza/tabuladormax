@@ -53,7 +53,6 @@ export type Database = {
           commercial_project_id: string | null
           created_at: string
           created_by: string | null
-          department_id: string | null
           id: string
           supervisor_id: string | null
           tabuladormax_user_id: string | null
@@ -67,7 +66,6 @@ export type Database = {
           commercial_project_id?: string | null
           created_at?: string
           created_by?: string | null
-          department_id?: string | null
           id?: string
           supervisor_id?: string | null
           tabuladormax_user_id?: string | null
@@ -81,7 +79,6 @@ export type Database = {
           commercial_project_id?: string | null
           created_at?: string
           created_by?: string | null
-          department_id?: string | null
           id?: string
           supervisor_id?: string | null
           tabuladormax_user_id?: string | null
@@ -93,13 +90,6 @@ export type Database = {
             columns: ["commercial_project_id"]
             isOneToOne: false
             referencedRelation: "commercial_projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agent_telemarketing_mapping_department_id_fkey"
-            columns: ["department_id"]
-            isOneToOne: false
-            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
           {
@@ -477,61 +467,11 @@ export type Database = {
         }
         Relationships: []
       }
-      departments: {
-        Row: {
-          active: boolean
-          code: string
-          commercial_project_id: string
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          parent_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          code: string
-          commercial_project_id: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          parent_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          code?: string
-          commercial_project_id?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          parent_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "departments_commercial_project_id_fkey"
-            columns: ["commercial_project_id"]
-            isOneToOne: false
-            referencedRelation: "commercial_projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "departments_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "departments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       leads: {
         Row: {
           address: string | null
           age: number | null
+          commercial_project_id: string | null
           date_modify: string | null
           id: number
           last_sync_at: string | null
@@ -547,6 +487,7 @@ export type Database = {
         Insert: {
           address?: string | null
           age?: number | null
+          commercial_project_id?: string | null
           date_modify?: string | null
           id: number
           last_sync_at?: string | null
@@ -562,6 +503,7 @@ export type Database = {
         Update: {
           address?: string | null
           age?: number | null
+          commercial_project_id?: string | null
           date_modify?: string | null
           id?: number
           last_sync_at?: string | null
@@ -574,7 +516,15 @@ export type Database = {
           sync_status?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       permissions: {
         Row: {

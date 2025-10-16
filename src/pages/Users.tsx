@@ -22,17 +22,9 @@ interface UserWithRole {
   role: 'admin' | 'manager' | 'supervisor' | 'agent';
   telemarketing_name?: string;
   telemarketing_id?: number;
-  department_name?: string;
-  department_id?: string;
   project_name?: string;
   project_id?: string;
   supervisor_name?: string;
-}
-
-interface Department {
-  id: string;
-  name: string;
-  commercial_project_id: string;
 }
 
 interface CommercialProject {
@@ -57,7 +49,6 @@ export default function Users() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState<'admin' | 'manager' | 'supervisor' | 'agent'>('agent');
   const [newUserProject, setNewUserProject] = useState("");
-  const [newUserDepartment, setNewUserDepartment] = useState("");
   const [newUserSupervisor, setNewUserSupervisor] = useState("");
   const [newUserTelemarketing, setNewUserTelemarketing] = useState<number | undefined>();
   const [creatingUser, setCreatingUser] = useState(false);
@@ -78,12 +69,10 @@ export default function Users() {
   
   // Data for dropdowns
   const [projects, setProjects] = useState<CommercialProject[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
   const [supervisors, setSupervisors] = useState<UserWithRole[]>([]);
   
   // Filters
   const [filterProject, setFilterProject] = useState("");
-  const [filterDepartment, setFilterDepartment] = useState("");
   const [filterRole, setFilterRole] = useState("");
 
   useEffect(() => {
@@ -94,15 +83,9 @@ export default function Users() {
 
   useEffect(() => {
     if (newUserProject) {
-      loadDepartments(newUserProject);
+      loadSupervisors(newUserProject);
     }
   }, [newUserProject]);
-
-  useEffect(() => {
-    if (newUserDepartment) {
-      loadSupervisors(newUserDepartment);
-    }
-  }, [newUserDepartment]);
 
   const checkUserRole = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -127,40 +110,23 @@ export default function Users() {
   };
 
   const loadCommercialProjects = async () => {
-    // @ts-expect-error Types will be auto-generated after migration
     const { data } = await supabase
-      // @ts-expect-error Types will be auto-generated
       .from('commercial_projects')
       .select('id, name')
       .eq('active', true)
       .order('name');
 
-    setProjects(data as any || []);
+    setProjects(data || []);
   };
 
-  const loadDepartments = async (projectId: string) => {
-    // @ts-expect-error Types will be auto-generated after migration
-    const { data } = await supabase
-      // @ts-expect-error Types will be auto-generated
-      .from('departments')
-      .select('id, name, commercial_project_id')
-      .eq('commercial_project_id', projectId)
-      .eq('active', true)
-      .order('name');
-
-    setDepartments(data as any || []);
-  };
-
-  const loadSupervisors = async (departmentId: string) => {
-    // @ts-ignore - Types will be auto-generated after migration
+  const loadSupervisors = async (projectId: string) => {
     const { data: mappings } = await supabase
       .from('agent_telemarketing_mapping')
       .select('tabuladormax_user_id, supervisor_id')
-      .eq('department_id', departmentId);
+      .eq('commercial_project_id', projectId);
 
     if (!mappings) return;
 
-    // @ts-ignore
     const supervisorIds = [...new Set(mappings.map(m => m.supervisor_id).filter(Boolean))];
     
     const { data: profiles } = await supabase
@@ -201,54 +167,33 @@ export default function Users() {
         .eq('user_id', profile.id)
         .maybeSingle();
 
-      // Buscar mapeamento de telemarketing e departamento
+      // Buscar mapeamento de telemarketing e projeto comercial
       const { data: mappingData } = await supabase
         .from('agent_telemarketing_mapping')
         .select(`
           bitrix_telemarketing_name,
           bitrix_telemarketing_id,
-          department_id,
           commercial_project_id,
           supervisor_id
         `)
         .eq('tabuladormax_user_id', profile.id)
         .maybeSingle();
 
-      let departmentName, projectName, supervisorName;
+      let projectName, supervisorName;
 
-      // @ts-expect-error Types will be auto-generated after migration
-      if (mappingData?.department_id) {
-        // @ts-expect-error Types will be auto-generated
-        const { data: dept } = await supabase
-          // @ts-expect-error Types will be auto-generated
-          .from('departments')
-          .select('name')
-          // @ts-ignore
-          .eq('id', mappingData.department_id)
-          .maybeSingle();
-        // @ts-ignore
-        departmentName = dept?.name;
-      }
-
-      // @ts-expect-error Types will be auto-generated after migration
       if (mappingData?.commercial_project_id) {
         const { data: proj } = await supabase
-          // @ts-expect-error Types will be auto-generated
           .from('commercial_projects')
           .select('name')
-          // @ts-ignore
           .eq('id', mappingData.commercial_project_id)
           .maybeSingle();
-        // @ts-ignore
         projectName = proj?.name;
       }
 
-      // @ts-ignore - Types will be auto-generated after migration
       if (mappingData?.supervisor_id) {
         const { data: sup } = await supabase
           .from('profiles')
           .select('display_name')
-          // @ts-ignore
           .eq('id', mappingData.supervisor_id)
           .maybeSingle();
         supervisorName = sup?.display_name;
@@ -259,8 +204,6 @@ export default function Users() {
         role: roleData?.role as any || 'agent',
         telemarketing_name: (mappingData as any)?.bitrix_telemarketing_name,
         telemarketing_id: (mappingData as any)?.bitrix_telemarketing_id,
-        department_name: departmentName,
-        department_id: (mappingData as any)?.department_id,
         project_name: projectName,
         project_id: (mappingData as any)?.commercial_project_id,
         supervisor_name: supervisorName,
@@ -321,7 +264,6 @@ export default function Users() {
             displayName: newUserName,
             role: newUserRole,
             telemarketingId: newUserTelemarketing,
-            departmentId: newUserDepartment,
             projectId: newUserProject,
             supervisorId: newUserSupervisor,
           }
@@ -352,7 +294,6 @@ export default function Users() {
           await supabase.from('agent_telemarketing_mapping').insert({
             tabuladormax_user_id: userId,
             bitrix_telemarketing_id: newUserTelemarketing,
-            department_id: newUserDepartment || null,
             commercial_project_id: newUserProject || null,
             supervisor_id: newUserSupervisor || null,
             chatwoot_agent_id: chatwootAgentId,
@@ -380,7 +321,6 @@ export default function Users() {
     setNewUserName("");
     setNewUserRole('agent');
     setNewUserProject("");
-    setNewUserDepartment("");
     setNewUserSupervisor("");
     setNewUserTelemarketing(undefined);
   };
@@ -476,7 +416,6 @@ export default function Users() {
 
   const filteredUsers = users.filter(user => {
     if (filterProject && user.project_id !== filterProject) return false;
-    if (filterDepartment && user.department_id !== filterDepartment) return false;
     if (filterRole && user.role !== filterRole) return false;
     return true;
   });
@@ -536,23 +475,11 @@ export default function Users() {
                   {projects.map(p => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Todos departamentos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Todos departamentos</SelectItem>
-                {departments.map(d => (
-                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                ))}
               </SelectContent>
             </Select>
+          )}
 
-            <Select value={filterRole} onValueChange={setFilterRole}>
+          <Select value={filterRole} onValueChange={setFilterRole}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Todas as roles" />
               </SelectTrigger>
@@ -576,7 +503,7 @@ export default function Users() {
           <CardHeader>
             <CardTitle>Usuários do Sistema</CardTitle>
             <CardDescription>
-              Total de {filteredUsers.length} usuário{filteredUsers.length !== 1 ? 's' : ''} {filterProject || filterDepartment || filterRole ? 'filtrado(s)' : 'cadastrado(s)'}
+              Total de {filteredUsers.length} usuário{filteredUsers.length !== 1 ? 's' : ''} {filterProject || filterRole ? 'filtrado(s)' : 'cadastrado(s)'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -592,7 +519,6 @@ export default function Users() {
                       <th className="p-3 text-left text-sm font-medium">Email</th>
                       <th className="p-3 text-left text-sm font-medium">Nome</th>
                       <th className="p-3 text-left text-sm font-medium">Projeto</th>
-                      <th className="p-3 text-left text-sm font-medium">Departamento</th>
                       <th className="p-3 text-left text-sm font-medium">Supervisor</th>
                       <th className="p-3 text-left text-sm font-medium">Telemarketing</th>
                       <th className="p-3 text-left text-sm font-medium">Role</th>
@@ -612,9 +538,6 @@ export default function Users() {
                         </td>
                         <td className="p-3 text-sm">
                           {user.project_name || <span className="text-muted-foreground">-</span>}
-                        </td>
-                        <td className="p-3 text-sm">
-                          {user.department_name || <span className="text-muted-foreground">-</span>}
                         </td>
                         <td className="p-3 text-sm">
                           {user.supervisor_name || <span className="text-muted-foreground">-</span>}
@@ -718,22 +641,8 @@ export default function Users() {
                   </div>
 
                   <div>
-                    <Label htmlFor="department">Departamento *</Label>
-                    <Select value={newUserDepartment} onValueChange={setNewUserDepartment} disabled={!newUserProject}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o departamento" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {departments.map(d => (
-                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
                     <Label htmlFor="supervisor">Supervisor</Label>
-                    <Select value={newUserSupervisor || "none"} onValueChange={(val) => setNewUserSupervisor(val === "none" ? "" : val)} disabled={!newUserDepartment}>
+                    <Select value={newUserSupervisor || "none"} onValueChange={(val) => setNewUserSupervisor(val === "none" ? "" : val)} disabled={!newUserProject}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o supervisor (opcional)" />
                       </SelectTrigger>
