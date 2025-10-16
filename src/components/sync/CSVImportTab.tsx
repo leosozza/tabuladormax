@@ -13,38 +13,29 @@ export function CSVImportTab() {
 
   return (
     <div className="grid gap-6 max-w-4xl">
-      {/* Upload de CSV */}
+      {/* Upload e Gerenciamento de Arquivos */}
       <Card>
         <CardHeader>
-          <CardTitle>Upload de CSV</CardTitle>
+          <CardTitle>📤 Upload e Gerenciamento de Arquivos CSV</CardTitle>
           <CardDescription>
-            Faça upload de planilhas CSV para importar leads em lote
+            Faça upload de planilhas CSV e gerencie os arquivos armazenados
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <CSVImportUpload onImportComplete={handleImportComplete} />
-        </CardContent>
-      </Card>
-
-      {/* Gerenciador de Arquivos */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Arquivos no Bucket</CardTitle>
-          <CardDescription>
-            Gerencie os arquivos CSV armazenados
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <CSVFileManager key={refreshTrigger} />
+          <div className="border-t pt-6">
+            <h3 className="text-sm font-medium mb-4">Arquivos no Storage</h3>
+            <CSVFileManager key={refreshTrigger} />
+          </div>
         </CardContent>
       </Card>
 
       {/* Tabela de Jobs */}
       <Card>
         <CardHeader>
-          <CardTitle>Jobs de Importação</CardTitle>
+          <CardTitle>📊 Progresso das Importações</CardTitle>
           <CardDescription>
-            Acompanhe o status das importações
+            Acompanhe o status e progresso das importações em tempo real
           </CardDescription>
         </CardHeader>
         <CardContent>
