@@ -1094,6 +1094,14 @@ export default function Users() {
                 {editSupervisorOptions.length > 0 && (
                   <div>Supervisores: {editSupervisorOptions.map(s => s.display_name || s.email).join(', ')}</div>
                 )}
+                {editSupervisorOptions.length > 0 && (
+                  <div className="mt-2">
+                    <strong>IDs disponíveis:</strong>
+                    {editSupervisorOptions.map(s => (
+                      <div key={s.id} className="ml-2">- {s.id}: {s.display_name}</div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
@@ -1101,9 +1109,14 @@ export default function Users() {
                   Novo Supervisor
                 </Label>
                 <Select 
+                  key={`supervisor-select-${editSupervisorOptions.length}`}
                   value={newSupervisorId} 
-                  onValueChange={setNewSupervisorId}
+                  onValueChange={(value) => {
+                    console.log('🎯 [Select] onValueChange:', value);
+                    setNewSupervisorId(value);
+                  }}
                   disabled={editSupervisorOptions.length === 0}
+                  open={editSupervisorOptions.length > 0 ? undefined : false}
                 >
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder={
@@ -1112,12 +1125,20 @@ export default function Users() {
                         : "Selecione o supervisor"
                     } />
                   </SelectTrigger>
-                  <SelectContent className="bg-card border border-border z-50">
-                    {editSupervisorOptions.map(s => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.display_name || s.email}
-                      </SelectItem>
-                    ))}
+                  <SelectContent 
+                    className="bg-card border border-border"
+                    style={{ zIndex: 9999 }}
+                    position="popper"
+                    sideOffset={4}
+                  >
+                    {editSupervisorOptions.map((s, idx) => {
+                      console.log(`📝 [Select] Renderizando item ${idx}:`, s.id, s.display_name);
+                      return (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.display_name || s.email}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
