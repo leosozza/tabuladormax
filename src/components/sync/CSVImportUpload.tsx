@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, FileText, Loader2, CheckCircle2, XCircle, Eye } from "lucide-react";
+import { Upload, FileText, Loader2, CheckCircle2, XCircle, Eye, Info } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface CSVImportUploadProps {
@@ -18,6 +20,7 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [syncToBitrix, setSyncToBitrix] = useState(false);
   const [jobStatus, setJobStatus] = useState<'idle' | 'uploading' | 'processing' | 'completed' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -163,8 +166,8 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
           op_telemarketing: row['Op Telemarketing'] || null,
           data_retorno_ligacao: parseBrazilianDate(row['Data Retorno de ligação']) || null,
           raw: row,
-          sync_source: 'csv_import',
-          sync_status: 'synced',
+          sync_source: syncToBitrix ? null : 'bitrix',
+          sync_status: syncToBitrix ? 'pending' : 'synced',
           commercial_project_id: null,
           responsible_user_id: null,
           bitrix_telemarketing_id: row.PARENT_ID_1144 ? parseInt(row.PARENT_ID_1144) : null
@@ -331,6 +334,42 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
         </Collapsible>
       )}
 
+      {/* Sync Control */}
+      {file && (
+        <div className="flex items-start space-x-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <Checkbox 
+            id="sync-bitrix" 
+            checked={syncToBitrix}
+            onCheckedChange={(checked) => setSyncToBitrix(checked === true)}
+            className="mt-0.5"
+          />
+          <div className="flex-1">
+            <label htmlFor="sync-bitrix" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+              🔄 Sincronizar com Bitrix após importação
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <div className="space-y-2 text-xs">
+                      <p><strong>❌ Desmarcado:</strong> Importa apenas para o Supabase (ideal para carga inicial do Bitrix)</p>
+                      <p><strong>✅ Marcado:</strong> Importa para Supabase e sincroniza de volta com Bitrix (ideal para dados do discador)</p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </label>
+            <p className="text-xs text-muted-foreground mt-1">
+              {syncToBitrix 
+                ? "Os leads serão atualizados no Bitrix após a importação" 
+                : "Apenas importação local (não atualiza Bitrix)"
+              }
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Upload Button */}
       {file && (
         <Button
@@ -364,10 +403,17 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
 
       {/* Status */}
       {jobStatus === 'completed' && (
-        <Alert className="bg-green-50 border-green-200">
-          <CheckCircle2 className="w-4 h-4 text-green-600" />
-          <AlertDescription className="text-green-800">
-            Upload concluído com sucesso! O processamento continua em background.
+        <Alert className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+          <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+          <AlertDescription className="text-green-800 dark:text-green-200">
+            <div className="space-y-1">
+              <p className="font-semibold">✅ Importação concluída com sucesso!</p>
+              {syncToBitrix ? (
+                <p className="text-sm">🔄 Os leads serão sincronizados com o Bitrix automaticamente</p>
+              ) : (
+                <p className="text-sm">⏸️ Sincronização com Bitrix desabilitada (importação do Bitrix)</p>
+              )}
+            </div>
           </AlertDescription>
         </Alert>
       )}
