@@ -345,9 +345,14 @@ export async function runTabular(
         }
 
         // Update leads table
-        await supabase
-          .from('leads')
-          .upsert({ id: leadId, [field]: value }, { onConflict: 'id' });
+      await supabase
+        .from('leads')
+        .upsert({ 
+          id: leadId, 
+          [field]: value,
+          sync_source: 'supabase',
+          sync_status: 'synced'
+        }, { onConflict: 'id' });
 
         return {
           success: true,
