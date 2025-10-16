@@ -28,8 +28,8 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
       return;
     }
 
-    if (selectedFile.size > 20 * 1024 * 1024) {
-      toast.error('Arquivo muito grande. Limite: 20MB');
+    if (selectedFile.size > 100 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Limite: 100MB');
       return;
     }
 
@@ -132,7 +132,7 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
               Clique para selecionar ou arraste um arquivo CSV
             </p>
             <p className="text-xs text-muted-foreground">
-              Máximo: 20MB
+              Máximo: 100MB
             </p>
           </div>
         </label>
