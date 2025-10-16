@@ -314,14 +314,26 @@ export default function Users() {
       return;
     }
 
+    // Validação para supervisor criando agente
+    if (currentUserRole === 'supervisor' && newUserRole === 'agent') {
+      if (!newUserProject) {
+        toast.error("Selecione um Projeto Comercial para o agente");
+        return;
+      }
+      if (!newUserTelemarketing) {
+        toast.error("Selecione um Operador Bitrix para o agente");
+        return;
+      }
+    }
+
     // Validação para supervisor
     if (newUserRole === 'supervisor' && !newUserProject) {
       toast.error("Selecione um Projeto Comercial para o supervisor");
       return;
     }
 
-    // Validação para agent
-    if (newUserRole === 'agent') {
+    // Validação para agent criado por admin
+    if (currentUserRole === 'admin' && newUserRole === 'agent') {
       if (!newUserProject) {
         toast.error("Selecione um Projeto Comercial para o agente");
         return;
@@ -422,14 +434,28 @@ export default function Users() {
         }
 
         // Criar mapeamento para AGENT
-        if (newUserRole === 'agent' && newUserTelemarketing && newUserProject && newUserSupervisor) {
+        if (newUserRole === 'agent' && newUserTelemarketing && newUserProject) {
+          // Se supervisor está criando, usar seu próprio ID automaticamente
+          let supervisorId = newUserSupervisor;
+          
+          if (currentUserRole === 'supervisor') {
+            const { data: { user } } = await supabase.auth.getUser();
+            supervisorId = user?.id || '';
+          }
+
+          if (!supervisorId) {
+            toast.error('Supervisor não definido');
+            setCreatingUser(false);
+            return;
+          }
+
           const { error: mappingError } = await supabase
             .from('agent_telemarketing_mapping')
             .insert({
               tabuladormax_user_id: userId,
               bitrix_telemarketing_id: newUserTelemarketing,
               commercial_project_id: newUserProject,
-              supervisor_id: newUserSupervisor,
+              supervisor_id: supervisorId,
               chatwoot_agent_id: chatwootAgentId,
             });
 
@@ -458,7 +484,8 @@ export default function Users() {
   const resetCreateForm = () => {
     setNewUserEmail("");
     setNewUserName("");
-    setNewUserRole('agent');
+    // Inicializar como 'agent' se for supervisor
+    setNewUserRole(currentUserRole === 'supervisor' ? 'agent' : 'agent');
     setNewUserProject("");
     setNewUserSupervisor("");
     setNewUserTelemarketing(undefined);
@@ -801,15 +828,25 @@ export default function Users() {
 
               <div>
                 <Label htmlFor="role">Role *</Label>
-                <Select value={newUserRole} onValueChange={(v: any) => setNewUserRole(v)}>
+                <Select 
+                  value={newUserRole} 
+                  onValueChange={(v: any) => setNewUserRole(v)}
+                  disabled={currentUserRole === 'supervisor'}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {currentUserRole === 'admin' && <SelectItem value="admin">Admin</SelectItem>}
-                    {(currentUserRole === 'admin' || currentUserRole === 'manager') && <SelectItem value="manager">Manager</SelectItem>}
-                    <SelectItem value="supervisor">Supervisor</SelectItem>
-                    <SelectItem value="agent">Agent</SelectItem>
+                    {currentUserRole === 'supervisor' ? (
+                      <SelectItem value="agent">Agent</SelectItem>
+                    ) : (
+                      <>
+                        {currentUserRole === 'admin' && <SelectItem value="admin">Admin</SelectItem>}
+                        {(currentUserRole === 'admin' || currentUserRole === 'manager') && <SelectItem value="manager">Manager</SelectItem>}
+                        <SelectItem value="supervisor">Supervisor</SelectItem>
+                        <SelectItem value="agent">Agent</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -836,33 +873,43 @@ export default function Users() {
               {/* Seleção de Supervisor e Operador apenas para AGENT */}
               {newUserRole === 'agent' && (
                 <>
-                  <div>
-                    <Label htmlFor="supervisor">
-                      Supervisor <span className="text-red-500">*</span>
-                    </Label>
-                    <Select 
-                      value={newUserSupervisor} 
-                      onValueChange={setNewUserSupervisor}
-                      disabled={!newUserProject || supervisors.length === 0}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={
-                          !newUserProject 
-                            ? "Selecione primeiro um projeto" 
-                            : supervisors.length === 0 
-                            ? "Nenhum supervisor neste projeto" 
-                            : "Selecione o supervisor"
-                        } />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card">
-                        {supervisors.map(s => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.display_name || s.email}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Seleção de Supervisor (apenas para Admin) */}
+                  {currentUserRole === 'admin' && (
+                    <div>
+                      <Label htmlFor="supervisor">
+                        Supervisor <span className="text-red-500">*</span>
+                      </Label>
+                      <Select 
+                        value={newUserSupervisor} 
+                        onValueChange={setNewUserSupervisor}
+                        disabled={!newUserProject || supervisors.length === 0}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={
+                            !newUserProject 
+                              ? "Selecione primeiro um projeto" 
+                              : supervisors.length === 0 
+                              ? "Nenhum supervisor neste projeto" 
+                              : "Selecione o supervisor"
+                          } />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card">
+                          {supervisors.map(s => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.display_name || s.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
+                  {/* Info para Supervisor criando Agent */}
+                  {currentUserRole === 'supervisor' && (
+                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded">
+                      ℹ️ O agente será automaticamente vinculado a você como supervisor
+                    </div>
+                  )}
 
                   <div>
                     <Label htmlFor="telemarketing">
