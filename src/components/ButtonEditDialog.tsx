@@ -13,6 +13,7 @@ import { BUTTON_CATEGORIES, type ButtonCategory, type ButtonLayout } from "@/lib
 import { useState, useEffect } from "react";
 import { createFlowFromButton } from "@/handlers/flowFromButton";
 import type { Flow } from "@/types/flow";
+import { FlowBuilder } from "@/components/flow/FlowBuilder";
 
 // Constante centralizada com TODOS os placeholders disponíveis
 const AVAILABLE_PLACEHOLDERS = [
@@ -125,6 +126,8 @@ export function ButtonEditDialog({
   const [additionalFieldSearchQuery, setAdditionalFieldSearchQuery] = useState("");
   const [statusOptions, setStatusOptions] = useState<Array<{ ID: string; NAME: string }>>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
+  const [flowBuilderOpen, setFlowBuilderOpen] = useState(false);
+  const [generatedFlow, setGeneratedFlow] = useState<Flow | null>(null);
   
 
   // Carregar etapas quando o campo STATUS_ID for selecionado
@@ -170,11 +173,28 @@ export function ButtonEditDialog({
     }
   };
 
-  // Flow handler
+  /**
+   * Opens FlowBuilder with the button configuration converted to a Flow.
+   * Uses createFlowFromButton to generate a Flow object from the current button settings.
+   */
   const handleOpenFlowBuilder = () => {
     const flow = createFlowFromButton(button);
-    console.log('🎯 Abrindo FlowBuilder com:', flow);
-    // TODO: Abrir modal do FlowBuilder com o flow gerado
+    setGeneratedFlow(flow);
+    setFlowBuilderOpen(true);
+  };
+
+  const handleFlowBuilderClose = () => {
+    setFlowBuilderOpen(false);
+    setGeneratedFlow(null);
+  };
+
+  /**
+   * Called when the FlowBuilder saves the flow.
+   * The FlowBuilder handles the actual save operation to the database,
+   * so we just need to close the dialog here.
+   */
+  const handleFlowSave = () => {
+    handleFlowBuilderClose();
   };
 
   return (
@@ -1145,6 +1165,14 @@ export function ButtonEditDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* FlowBuilder Dialog */}
+    <FlowBuilder
+      open={flowBuilderOpen}
+      onOpenChange={handleFlowBuilderClose}
+      flow={generatedFlow}
+      onSave={handleFlowSave}
+    />
   </>
   );
 }
