@@ -1,12 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft } from "lucide-react";
 import { MetricsCards } from "@/components/sync/MetricsCards";
 import { PeriodSelector } from "@/components/sync/PeriodSelector";
 import { SyncTimelineChart } from "@/components/sync/SyncTimelineChart";
 import { SyncDirectionChart } from "@/components/sync/SyncDirectionChart";
 import { SyncLogsTable } from "@/components/sync/SyncLogsTable";
+import { BitrixImportTab } from "@/components/sync/BitrixImportTab";
+import { CSVImportTab } from "@/components/sync/CSVImportTab";
+import { BatchUpdateTab } from "@/components/sync/BatchUpdateTab";
 import { Period } from "@/lib/syncUtils";
 import UserMenu from "@/components/UserMenu";
 
@@ -29,10 +33,10 @@ export default function SyncMonitor() {
               </Button>
               <div>
                 <h1 className="text-3xl font-bold text-foreground">
-                  Monitoramento de Sincronização
+                  Central de Sincronização
                 </h1>
                 <p className="text-muted-foreground mt-1">
-                  Acompanhe a sincronização entre Bitrix e Supabase em tempo real
+                  Gerencie todas as operações de sincronização e importação em um só lugar
                 </p>
               </div>
             </div>
@@ -42,25 +46,55 @@ export default function SyncMonitor() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {/* Métricas em tempo real */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">Métricas em Tempo Real</h2>
-          <MetricsCards />
-        </div>
+        <Tabs defaultValue="monitoring" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 max-w-2xl">
+            <TabsTrigger value="monitoring">📊 Monitoramento</TabsTrigger>
+            <TabsTrigger value="imports">📥 Importações</TabsTrigger>
+            <TabsTrigger value="batch-update">🔄 Atualização em Lote</TabsTrigger>
+          </TabsList>
 
-        {/* Seletor de período */}
-        <div className="mb-6 flex items-center gap-4">
-          <PeriodSelector value={period} onChange={setPeriod} />
-        </div>
+          {/* Tab de Monitoramento (conteúdo atual) */}
+          <TabsContent value="monitoring" className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Métricas em Tempo Real</h2>
+              <MetricsCards />
+            </div>
 
-        {/* Gráficos */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <SyncTimelineChart period={period} />
-          <SyncDirectionChart />
-        </div>
+            <div className="flex items-center gap-4">
+              <PeriodSelector value={period} onChange={setPeriod} />
+            </div>
 
-        {/* Tabela de logs */}
-        <SyncLogsTable />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SyncTimelineChart period={period} />
+              <SyncDirectionChart />
+            </div>
+
+            <SyncLogsTable />
+          </TabsContent>
+
+          {/* Tab de Importações */}
+          <TabsContent value="imports" className="space-y-6">
+            <Tabs defaultValue="bitrix" className="space-y-6">
+              <TabsList>
+                <TabsTrigger value="bitrix">Bitrix</TabsTrigger>
+                <TabsTrigger value="csv">CSV</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="bitrix">
+                <BitrixImportTab />
+              </TabsContent>
+
+              <TabsContent value="csv">
+                <CSVImportTab />
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
+
+          {/* Tab de Atualização em Lote */}
+          <TabsContent value="batch-update">
+            <BatchUpdateTab />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

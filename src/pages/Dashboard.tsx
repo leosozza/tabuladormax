@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, MapPin, Phone, RefreshCcw, Loader2, Filter, Settings2, Eye, EyeOff, Cloud, Download } from "lucide-react";
+import { User, MapPin, Phone, Filter, Settings2, Eye, EyeOff, Cloud } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { BitrixError, BitrixLead, listLeads } from "@/lib/bitrix";
-import { CSVImportDialog } from "@/components/CSVImportDialog";
 import { DateFilterSelector } from "@/components/DateFilterSelector";
 import { LeadsListModal } from "@/components/LeadsListModal";
 import { DateFilter, LeadWithDetails } from "@/types/filters";
@@ -44,7 +42,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
+  
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAllUsers, setShowAllUsers] = useState(false);
@@ -339,39 +337,6 @@ const Index = () => {
     }
   };
 
-  const syncFromBitrix = async () => {
-    setSyncing(true);
-    try {
-      const remoteLeads = await listLeads({ limit: 30 });
-      if (remoteLeads.length === 0) {
-        toast.info('Nenhum lead retornado pelo Bitrix');
-        return;
-      }
-
-      const mapped = remoteLeads.map(mapBitrixLeadToRow);
-
-      await supabase.from('leads').upsert(
-        mapped.map(lead => ({
-          id: lead.id,
-          name: lead.name,
-          age: lead.age,
-          address: lead.address,
-          photo_url: lead.photo_url,
-          updated_at: lead.updated_at,
-          responsible: lead.responsible,
-          scouter: lead.scouter,
-        }))
-      );
-
-      toast.success('Leads sincronizados com o Bitrix!');
-      await loadLeads();
-    } catch (error) {
-      console.error('Erro ao sincronizar com o Bitrix:', error);
-      toast.error(error instanceof BitrixError ? error.message : 'Falha ao sincronizar com o Bitrix');
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const activeTotal = useMemo(() => leads.length, [leads]);
   const scheduledCount = useMemo(() => {
@@ -401,19 +366,11 @@ const Index = () => {
                 <>
                   <Button
                     variant="outline"
-                    size="icon"
                     onClick={() => navigate('/sync-monitor')}
-                    title="Monitoramento de Sincronização"
+                    title="Central de Sincronização"
                   >
-                    <Cloud className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => navigate('/bitrix-import')}
-                    title="Importar do Bitrix"
-                  >
-                    <Download className="w-4 h-4" />
+                    <Cloud className="w-4 h-4 mr-2" />
+                    Central de Sincronização
                   </Button>
                   <label className="flex items-center gap-2 text-sm">
                     <input 
@@ -426,11 +383,6 @@ const Index = () => {
                   </label>
                 </>
               )}
-              <CSVImportDialog onImportComplete={loadLeads} />
-              <Button onClick={syncFromBitrix} disabled={syncing} className="gap-2">
-                {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-                {syncing ? 'Sincronizando...' : 'Sincronizar com Bitrix'}
-              </Button>
               <UserMenu />
             </div>
           </div>
