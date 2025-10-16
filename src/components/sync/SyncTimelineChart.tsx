@@ -26,11 +26,19 @@ export function SyncTimelineChart({ period }: SyncTimelineChartProps) {
     queryFn: async () => {
       const config = getPeriodConfig(period);
       
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('sync_events')
         .select('created_at, status, direction')
         .gte('created_at', config.startDate.toISOString())
         .order('created_at', { ascending: true });
+      
+      console.log('🔍 SyncTimeline Query:', { 
+        count: data?.length, 
+        error,
+        period,
+        startDate: config.startDate.toISOString(),
+        sample: data?.slice(0, 3) 
+      });
       
       return groupDataByPeriod(data, period);
     },

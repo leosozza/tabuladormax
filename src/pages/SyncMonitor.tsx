@@ -12,7 +12,7 @@ import UserMenu from "@/components/UserMenu";
 
 export default function SyncMonitor() {
   const navigate = useNavigate();
-  const [period, setPeriod] = useState<Period>('hour');
+  const [period, setPeriod] = useState<Period>('day');
 
   return (
     <div className="min-h-screen bg-background">

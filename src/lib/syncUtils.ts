@@ -68,8 +68,13 @@ export const groupDataByPeriod = (
   data: SyncEvent[] | null,
   period: Period
 ): GroupedData[] => {
-  if (!data || data.length === 0) return [];
+  if (!data || data.length === 0) {
+    console.warn('⚠️ groupDataByPeriod: No data to group');
+    return [];
+  }
 
+  console.log(`📊 Grouping ${data.length} events by ${period}`);
+  
   const config = getPeriodConfig(period);
   const grouped = new Map<string, { success: number; error: number }>();
 
@@ -89,12 +94,16 @@ export const groupDataByPeriod = (
     }
   });
 
-  return Array.from(grouped.entries()).map(([period, counts]) => ({
+  const result = Array.from(grouped.entries()).map(([period, counts]) => ({
     period,
     success: counts.success,
     error: counts.error,
     total: counts.success + counts.error
   })).sort((a, b) => a.period.localeCompare(b.period));
+
+  console.log(`✅ Grouped into ${result.length} periods:`, result.slice(0, 5));
+  
+  return result;
 };
 
 export const calculateMetrics = (data: SyncEvent[] | null) => {
