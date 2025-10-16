@@ -574,6 +574,51 @@ export default function Users() {
     setTimeout(() => setCopiedPassword(false), 2000);
   };
 
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    if (!confirm(`⚠️ ATENÇÃO: Tem certeza que deseja deletar o usuário ${userEmail}?\n\nEsta ação irá:\n- Remover o usuário do sistema\n- Remover todos os mapeamentos\n- Esta ação é IRREVERSÍVEL!`)) {
+      return;
+    }
+
+    const loading = toast.loading('Deletando usuário...');
+    
+    try {
+      // 1. Deletar mapeamento
+      const { error: mappingError } = await supabase
+        .from('agent_telemarketing_mapping')
+        .delete()
+        .eq('tabuladormax_user_id', userId);
+
+      if (mappingError) console.warn('Aviso ao deletar mapeamento:', mappingError);
+
+      // 2. Deletar role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (roleError) console.warn('Aviso ao deletar role:', roleError);
+
+      // 3. Deletar profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (profileError) console.warn('Aviso ao deletar profile:', profileError);
+
+      // 4. Deletar do Auth (via admin API)
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+
+      if (authError) throw authError;
+
+      toast.success('✅ Usuário deletado com sucesso', { id: loading });
+      loadUsers();
+    } catch (error: any) {
+      console.error('Erro ao deletar usuário:', error);
+      toast.error('Erro ao deletar usuário: ' + (error.message || 'Erro desconhecido'), { id: loading });
+    }
+  };
+
   const updateUserRole = async () => {
     setUpdatingName(true);
     try {
@@ -909,10 +954,10 @@ export default function Users() {
 
           <Select value={filterRole || "all"} onValueChange={(v) => setFilterRole(v === "all" ? "" : v)}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Todas as roles" />
+                <SelectValue placeholder="Todas as funções" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as roles</SelectItem>
+                <SelectItem value="all">Todas as funções</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="manager">Manager</SelectItem>
                 <SelectItem value="supervisor">Supervisor</SelectItem>
@@ -949,7 +994,7 @@ export default function Users() {
                       <th className="p-3 text-left text-sm font-medium">Projeto</th>
                       <th className="p-3 text-left text-sm font-medium">Supervisor</th>
                       <th className="p-3 text-left text-sm font-medium">Telemarketing</th>
-                      <th className="p-3 text-left text-sm font-medium">Role</th>
+                      <th className="p-3 text-left text-sm font-medium">Função</th>
                       <th className="p-3 text-left text-sm font-medium">Ações</th>
                     </tr>
                   </thead>
@@ -994,16 +1039,31 @@ export default function Users() {
                           </Badge>
                         </td>
                         <td className="p-3">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => generateTempPassword(user.id, user.email)}
-                            disabled={generatingPassword}
-                            className="gap-2"
-                          >
-                            <Key className="w-4 h-4" />
-                            Senha
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => generateTempPassword(user.id, user.email)}
+                              disabled={generatingPassword}
+                              className="gap-2"
+                            >
+                              <Key className="w-4 h-4" />
+                              Senha
+                            </Button>
+                            {/* ✅ FASE 4: Adicionar botão de deletar usuário */}
+                            {currentUserRole === 'admin' && (
+                              <Button 
+                                size="sm" 
+                                variant="destructive" 
+                                onClick={() => handleDeleteUser(user.id, user.email)}
+                                title="Deletar usuário permanentemente"
+                                className="gap-2"
+                              >
+                                <UserIcon className="w-4 h-4" />
+                                Deletar
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1046,7 +1106,7 @@ export default function Users() {
               </div>
 
               <div>
-                <Label htmlFor="role">Role *</Label>
+                <Label htmlFor="role">Função *</Label>
                 <Select 
                   value={newUserRole} 
                   onValueChange={(v: any) => setNewUserRole(v)}
@@ -1220,19 +1280,19 @@ export default function Users() {
           </DialogContent>
         </Dialog>
 
-        {/* Dialog: Editar Role */}
+        {/* Dialog: Editar Função (Role) */}
         <Dialog open={editRoleDialogOpen} onOpenChange={setEditRoleDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Editar Role</DialogTitle>
+              <DialogTitle>Editar Função</DialogTitle>
               <DialogDescription>
-                Altere a role do usuário.
+                Altere a função (role) do usuário.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="role" className="text-right">
-                  Nova Role
+                  Nova Função
                 </Label>
                 <Select value={newRole} onValueChange={(value: any) => setNewRole(value)} >
                   <SelectTrigger className="col-span-3">

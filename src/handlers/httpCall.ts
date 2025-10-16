@@ -66,6 +66,9 @@ export async function execHttpCall(
   config: HttpCallConfig,
   context: HttpCallContext = {}
 ): Promise<HttpCallResult> {
+  // Importar supabase para logging
+  const { supabase } = await import("@/integrations/supabase/client");
+  
   try {
     console.log('🌐 execHttpCall called:', { config, context });
 
@@ -110,6 +113,21 @@ export async function execHttpCall(
     });
 
     if (!response.ok) {
+      // ✅ FASE 2: Log do erro HTTP
+      if (context.leadId) {
+        try {
+          await supabase.from('actions_log').insert({
+            lead_id: Number(context.leadId),
+            action_label: `HTTP ${config.method}`,
+            payload: { url: processedUrl, body: processedBody, response: responseData } as any,
+            status: 'ERROR',
+            error: `HTTP ${response.status}`,
+          });
+        } catch (logError) {
+          console.error('❌ Erro ao salvar log:', logError);
+        }
+      }
+      
       return {
         success: false,
         status: response.status,
@@ -117,6 +135,20 @@ export async function execHttpCall(
         data: responseData,
         error: typeof responseData === 'string' ? responseData : JSON.stringify(responseData)
       };
+    }
+
+    // ✅ FASE 2: Log do sucesso HTTP
+    if (context.leadId) {
+      try {
+        await supabase.from('actions_log').insert({
+          lead_id: Number(context.leadId),
+          action_label: `HTTP ${config.method}`,
+          payload: { url: processedUrl, body: processedBody } as any,
+          status: 'OK',
+        });
+      } catch (logError) {
+        console.error('❌ Erro ao salvar log:', logError);
+      }
     }
 
     return {
@@ -127,6 +159,23 @@ export async function execHttpCall(
     };
   } catch (error) {
     console.error('❌ Erro em execHttpCall:', error);
+    
+    // ✅ FASE 2: Log do erro de exceção
+    if (context.leadId) {
+      const { supabase } = await import("@/integrations/supabase/client");
+      try {
+        await supabase.from('actions_log').insert({
+          lead_id: Number(context.leadId),
+          action_label: `HTTP ${config.method}`,
+          payload: { url: config.url, error: true } as any,
+          status: 'ERROR',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      } catch (logError) {
+        console.error('❌ Erro ao salvar log:', logError);
+      }
+    }
+    
     return {
       success: false,
       status: 0,

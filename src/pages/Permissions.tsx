@@ -86,7 +86,10 @@ export default function Permissions() {
       setSaving(true);
 
       for (const [key, scope] of changes.entries()) {
-        const [role, permissionId] = key.split("-");
+        // ✅ FIX: Correção do split de UUID
+        const parts = key.split("-");
+        const role = parts[0];
+        const permissionId = parts.slice(1).join("-");
 
         const existingRolePerm = rolePermissions.find(
           rp => rp.role === role && rp.permission_id === permissionId
