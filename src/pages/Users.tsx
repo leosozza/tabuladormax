@@ -25,6 +25,7 @@ interface UserWithRole {
   project_name?: string;
   project_id?: string;
   supervisor_name?: string;
+  supervisor_id?: string;
 }
 
 interface CommercialProject {
@@ -66,6 +67,14 @@ export default function Users() {
   
   // Edit role
   const [newRole, setNewRole] = useState<'admin' | 'manager' | 'supervisor' | 'agent'>('agent');
+  
+  // Edit supervisor
+  const [editSupervisorDialogOpen, setEditSupervisorDialogOpen] = useState(false);
+  const [editingSupervisorUserId, setEditingSupervisorUserId] = useState("");
+  const [editingSupervisorProjectId, setEditingSupervisorProjectId] = useState("");
+  const [newSupervisorId, setNewSupervisorId] = useState("");
+  const [editSupervisorOptions, setEditSupervisorOptions] = useState<UserWithRole[]>([]);
+  const [updatingSupervisor, setUpdatingSupervisor] = useState(false);
   
   // Data for dropdowns
   const [projects, setProjects] = useState<CommercialProject[]>([]);
@@ -174,6 +183,59 @@ export default function Users() {
     setSupervisors(supervisorsData as any);
   };
 
+  const loadSupervisorsForEdit = async (projectId: string) => {
+    if (!projectId) {
+      setEditSupervisorOptions([]);
+      return;
+    }
+
+    // Buscar mappings de supervisores do projeto (supervisor_id = null indica que é supervisor)
+    const { data: mappings } = await supabase
+      .from('agent_telemarketing_mapping')
+      .select('tabuladormax_user_id')
+      .eq('commercial_project_id', projectId)
+      .is('supervisor_id', null);
+
+    if (!mappings || mappings.length === 0) {
+      setEditSupervisorOptions([]);
+      return;
+    }
+
+    const userIds = [...new Set(mappings.map(m => m.tabuladormax_user_id).filter(Boolean))];
+
+    // Buscar apenas usuários com role 'supervisor'
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'supervisor')
+      .in('user_id', userIds);
+
+    if (!userRoles || userRoles.length === 0) {
+      setEditSupervisorOptions([]);
+      return;
+    }
+
+    const supervisorIds = userRoles.map(ur => ur.user_id);
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, display_name, email')
+      .in('id', supervisorIds);
+
+    if (!profiles) {
+      setEditSupervisorOptions([]);
+      return;
+    }
+
+    const supervisorsData = profiles.map(p => ({
+      ...p,
+      role: 'supervisor' as const,
+      created_at: '',
+    }));
+
+    setEditSupervisorOptions(supervisorsData as any);
+  };
+
   const loadUsers = async () => {
     setLoading(true);
     const { data: profiles, error: profilesError } = await supabase
@@ -236,6 +298,7 @@ export default function Users() {
         project_name: projectName,
         project_id: (mappingData as any)?.commercial_project_id,
         supervisor_name: supervisorName,
+        supervisor_id: (mappingData as any)?.supervisor_id,
       });
     }
 
@@ -452,6 +515,32 @@ export default function Users() {
     }
   };
 
+  const updateUserSupervisor = async () => {
+    if (!newSupervisorId) {
+      toast.error('Selecione um supervisor');
+      return;
+    }
+
+    setUpdatingSupervisor(true);
+    try {
+      const { error } = await supabase
+        .from('agent_telemarketing_mapping')
+        .update({ supervisor_id: newSupervisorId })
+        .eq('tabuladormax_user_id', editingSupervisorUserId);
+
+      if (error) throw error;
+      
+      toast.success('Supervisor atualizado com sucesso');
+      setEditSupervisorDialogOpen(false);
+      loadUsers();
+    } catch (error) {
+      console.error('Erro ao atualizar supervisor:', error);
+      toast.error('Erro ao atualizar supervisor do agente');
+    } finally {
+      setUpdatingSupervisor(false);
+    }
+  };
+
   const updateUserName = async () => {
     if (!newDisplayName.trim()) {
       toast.error('O nome não pode estar vazio');
@@ -488,6 +577,27 @@ export default function Users() {
     setEditingUserId(userId);
     setNewRole(currentRole);
     setEditRoleDialogOpen(true);
+  };
+
+  const openEditSupervisorDialog = async (user: UserWithRole) => {
+    // Só permitir editar supervisor de agentes
+    if (user.role !== 'agent') {
+      toast.error('Apenas agentes podem ter supervisor alterado');
+      return;
+    }
+
+    if (!user.project_id) {
+      toast.error('Agente sem projeto vinculado');
+      return;
+    }
+
+    setEditingSupervisorUserId(user.id);
+    setEditingSupervisorProjectId(user.project_id);
+    setNewSupervisorId(user.supervisor_id || "");
+    setEditSupervisorDialogOpen(true);
+    
+    // Carregar supervisores do projeto
+    await loadSupervisorsForEdit(user.project_id);
   };
 
   const filteredUsers = users.filter(user => {
@@ -612,12 +722,16 @@ export default function Users() {
                         >
                           {user.display_name || <span className="text-muted-foreground italic">Sem nome</span>}
                         </td>
-                        <td className="p-3 text-sm">
-                          {user.project_name || <span className="text-muted-foreground">-</span>}
-                        </td>
-                        <td className="p-3 text-sm">
-                          {user.supervisor_name || <span className="text-muted-foreground">-</span>}
-                        </td>
+                         <td className="p-3 text-sm">
+                           {user.project_name || <span className="text-muted-foreground">-</span>}
+                         </td>
+                         <td 
+                           className="p-3 text-sm cursor-pointer" 
+                           onDoubleClick={() => user.role === 'agent' && openEditSupervisorDialog(user)}
+                           title={user.role === 'agent' ? "Duplo clique para editar" : ""}
+                         >
+                           {user.supervisor_name || <span className="text-muted-foreground">-</span>}
+                         </td>
                         <td className="p-3 text-sm">
                           {user.telemarketing_name || <span className="text-muted-foreground">-</span>}
                         </td>
@@ -873,6 +987,66 @@ export default function Users() {
               </Button>
               <Button onClick={updateUserRole} disabled={updatingName}>
                 Salvar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog: Editar Supervisor */}
+        <Dialog open={editSupervisorDialogOpen} onOpenChange={setEditSupervisorDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Editar Supervisor</DialogTitle>
+              <DialogDescription>
+                Altere o supervisor do agente.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="supervisor" className="text-right">
+                  Novo Supervisor
+                </Label>
+                <Select 
+                  value={newSupervisorId} 
+                  onValueChange={setNewSupervisorId}
+                  disabled={editSupervisorOptions.length === 0}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder={
+                      editSupervisorOptions.length === 0 
+                        ? "Nenhum supervisor disponível" 
+                        : "Selecione o supervisor"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border border-border z-50">
+                    {editSupervisorOptions.map(s => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.display_name || s.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {editSupervisorOptions.length === 0 && (
+                <div className="text-sm text-muted-foreground col-span-4 text-center">
+                  ⚠️ Nenhum supervisor encontrado neste projeto
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setEditSupervisorDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={updateUserSupervisor} 
+                disabled={updatingSupervisor || !newSupervisorId}
+              >
+                {updatingSupervisor ? 'Salvando...' : 'Salvar'}
               </Button>
             </div>
           </DialogContent>
