@@ -204,7 +204,7 @@ async function processBatchJob(jobId: string) {
           scouter: bitrixLead.UF_CRM_1730995479506,
           date_modify: bitrixLead.DATE_MODIFY,
           raw: bitrixLead,
-          sync_source: 'bitrix_import',
+          sync_source: 'bitrix', // Evita loop de sincronização
           sync_status: 'synced',
           last_sync_at: new Date().toISOString(),
         };
