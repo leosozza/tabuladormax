@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, MapPin, Phone, RefreshCcw, Loader2, Filter, Settings2, Eye, EyeOff } from "lucide-react";
+import { User, MapPin, Phone, RefreshCcw, Loader2, Filter, Settings2, Eye, EyeOff, Cloud } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -398,15 +398,25 @@ const Index = () => {
             </div>
             <div className="flex gap-2 items-center">
               {isAdmin && (
-                <label className="flex items-center gap-2 text-sm">
-                  <input 
-                    type="checkbox" 
-                    checked={showAllUsers}
-                    onChange={(e) => setShowAllUsers(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span>Ver todos os usuários</span>
-                </label>
+                <>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => navigate('/sync-monitor')}
+                    title="Monitoramento de Sincronização"
+                  >
+                    <Cloud className="w-4 h-4" />
+                  </Button>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input 
+                      type="checkbox" 
+                      checked={showAllUsers}
+                      onChange={(e) => setShowAllUsers(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>Ver todos os usuários</span>
+                  </label>
+                </>
               )}
               <CSVImportDialog onImportComplete={loadLeads} />
               <Button onClick={syncFromBitrix} disabled={syncing} className="gap-2">

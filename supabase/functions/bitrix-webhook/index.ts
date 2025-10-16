@@ -79,6 +79,7 @@ serve(async (req) => {
 
     const event = payload.event;
     const leadId = payload.data?.FIELDS?.ID;
+    const startTime = Date.now();
 
     // Eventos suportados
     const supportedEvents = [
@@ -248,6 +249,15 @@ serve(async (req) => {
 
     console.log('✅ Lead sincronizado no Supabase:', upsertedLead);
 
+    // Registrar evento de sincronização
+    await supabase.from('sync_events').insert({
+      event_type: event.includes('ADD') ? 'create' : event.includes('UPDATE') ? 'update' : 'delete',
+      direction: 'bitrix_to_supabase',
+      lead_id: parseInt(leadId),
+      status: 'success',
+      sync_duration_ms: Date.now() - startTime
+    });
+
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -260,6 +270,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Erro ao processar webhook:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
+    
     return new Response(
       JSON.stringify({ 
         error: errorMessage,

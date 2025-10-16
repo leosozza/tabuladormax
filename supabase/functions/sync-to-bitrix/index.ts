@@ -16,6 +16,7 @@ serve(async (req) => {
   }
 
   try {
+    const startTime = Date.now();
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -103,6 +104,15 @@ serve(async (req) => {
       console.error('sync-to-bitrix: Erro ao atualizar status no Supabase', updateError);
     }
 
+    // Registrar evento de sincronização
+    await supabase.from('sync_events').insert({
+      event_type: 'update',
+      direction: 'supabase_to_bitrix',
+      lead_id: lead.id,
+      status: 'success',
+      sync_duration_ms: Date.now() - startTime
+    });
+
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -114,6 +124,27 @@ serve(async (req) => {
   } catch (error) {
     console.error('sync-to-bitrix: Erro', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Registrar erro de sincronização
+    try {
+      const { lead } = await req.clone().json().catch(() => ({ lead: null }));
+      if (lead?.id) {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        await supabase.from('sync_events').insert({
+          event_type: 'update',
+          direction: 'supabase_to_bitrix',
+          lead_id: lead.id,
+          status: 'error',
+          error_message: errorMessage
+        });
+      }
+    } catch (logError) {
+      console.error('Erro ao registrar evento de erro:', logError);
+    }
+    
     return new Response(
       JSON.stringify({ 
         error: errorMessage,

@@ -466,6 +466,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_events: {
+        Row: {
+          created_at: string | null
+          direction: string
+          error_message: string | null
+          event_type: string
+          id: string
+          lead_id: number
+          status: string
+          sync_duration_ms: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          direction: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          lead_id: number
+          status: string
+          sync_duration_ms?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          direction?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          lead_id?: number
+          status?: string
+          sync_duration_ms?: number | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
