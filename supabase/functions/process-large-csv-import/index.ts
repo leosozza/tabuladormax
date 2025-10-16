@@ -63,6 +63,38 @@ serve(async (req) => {
     let errorRows = 0;
     const errorDetails: any[] = [];
 
+    // Funções auxiliares
+    const parseBoolean = (value: string | null): boolean => {
+      if (!value) return false;
+      const v = value.toLowerCase().trim();
+      return v === 'sim' || v === 'yes' || v === 'true' || v === '1' || v === 'y';
+    };
+
+    const parseNumeric = (value: string | null): number | null => {
+      if (!value) return null;
+      const cleaned = value.replace(',', '.').replace(/[^\d.-]/g, '');
+      const num = parseFloat(cleaned);
+      return isNaN(num) ? null : num;
+    };
+
+    const parseBrazilianDate = (dateStr: string | null): string | null => {
+      if (!dateStr) return null;
+      try {
+        const match = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+        if (match) {
+          const [, day, month, year, hour, minute, second] = match;
+          return `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+        }
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          return date.toISOString();
+        }
+        return null;
+      } catch (error) {
+        return null;
+      }
+    };
+
     for (let i = 1; i < lines.length; i += CHUNK_SIZE) {
       const chunkLines = lines.slice(i, i + CHUNK_SIZE);
       const leads: any[] = [];
@@ -78,6 +110,7 @@ serve(async (req) => {
 
         // Mapear para estrutura do lead
         const lead = {
+          // ✅ Campos já mapeados
           id: row.ID ? parseInt(row.ID) : null,
           name: row['Nome do Lead'] || row.NAME || null,
           age: row.Idade ? parseInt(row.Idade) : null,
@@ -85,10 +118,58 @@ serve(async (req) => {
           photo_url: row['Foto do modelo'] || null,
           responsible: row['Responsável'] || null,
           scouter: row.Scouter || null,
+          date_modify: new Date().toISOString(),
+          
+          // ❌ NOVOS CAMPOS - 1. Informações Básicas
+          etapa: row.Etapa || null,
+          nome_modelo: row['Nome do Modelo'] || row['nome modelo'] || null,
+          criado: parseBrazilianDate(row.Criado) || null,
+          fonte: row.Fonte || null,
+          
+          // ❌ NOVOS CAMPOS - 2. Contatos
+          telefone_trabalho: row['Telefone de trabalho'] || null,
+          celular: row.Celular || null,
+          telefone_casa: row['Telefone de casa'] || null,
+          
+          // ❌ NOVOS CAMPOS - 3. Endereço
+          local_abordagem: row['Local da Abordagem'] || null,
+          
+          // ❌ NOVOS CAMPOS - 4. Modelo/Ficha
+          ficha_confirmada: parseBoolean(row['Ficha confirmada']),
+          data_criacao_ficha: parseBrazilianDate(row['Data de criação da Ficha']) || null,
+          data_confirmacao_ficha: parseBrazilianDate(row['Data da confirmação de ficha']) || null,
+          presenca_confirmada: parseBoolean(row['Presença Confirmada']),
+          compareceu: parseBoolean(row.Compareceu),
+          cadastro_existe_foto: parseBoolean(row['Cadastro Existe Foto?']),
+          valor_ficha: parseNumeric(row['Valor da Ficha']) || null,
+          
+          // ❌ NOVOS CAMPOS - 5. Agendamento
+          data_criacao_agendamento: parseBrazilianDate(row['Data da criação do agendamento']) || null,
+          horario_agendamento: row['Horário do agendamento - Cliente - Campo Lista'] || null,
+          data_agendamento: parseBrazilianDate(row['Data do agendamento  - Cliente - Campo Data']) || null,
+          
+          // ❌ NOVOS CAMPOS - 6. Fluxo/Funil
+          gerenciamento_funil: row['GERENCIAMENTO FUNIL DE QUALIFICAÇAO/AGENDAMENTO'] || null,
+          status_fluxo: row['Status de Fluxo'] || null,
+          etapa_funil: row['ETAPA FUNIL QUALIFICAÇÃO/AGENDAMENTO'] || null,
+          etapa_fluxo: row['Etapa de fluxo'] || null,
+          funil_fichas: row['Funil Fichas'] || null,
+          status_tabulacao: row['Status Tabulação'] || null,
+          
+          // ❌ NOVOS CAMPOS - 7. MaxSystem/Integrações
+          maxsystem_id_ficha: row['MaxSystem - ID da Ficha'] || null,
+          
+          // ❌ NOVOS CAMPOS - 8. Gestão/Projetos
+          gestao_scouter: row['Gestão de Scouter'] || null,
+          op_telemarketing: row['Op Telemarketing'] || null,
+          
+          // ❌ NOVOS CAMPOS - 9. Outros
+          data_retorno_ligacao: parseBrazilianDate(row['Data Retorno de ligação']) || null,
+          
+          // ✅ Campos técnicos
           raw: row,
           sync_source: 'csv_import',
           sync_status: 'synced',
-          date_modify: new Date().toISOString(),
           commercial_project_id: null,
           responsible_user_id: null,
           bitrix_telemarketing_id: row.PARENT_ID_1144 ? parseInt(row.PARENT_ID_1144) : null

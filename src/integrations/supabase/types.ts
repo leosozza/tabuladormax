@@ -472,55 +472,139 @@ export type Database = {
           address: string | null
           age: number | null
           bitrix_telemarketing_id: number | null
+          cadastro_existe_foto: boolean | null
+          celular: string | null
           commercial_project_id: string | null
+          compareceu: boolean | null
+          criado: string | null
+          data_agendamento: string | null
+          data_confirmacao_ficha: string | null
+          data_criacao_agendamento: string | null
+          data_criacao_ficha: string | null
+          data_retorno_ligacao: string | null
           date_modify: string | null
+          etapa: string | null
+          etapa_fluxo: string | null
+          etapa_funil: string | null
+          ficha_confirmada: boolean | null
+          fonte: string | null
+          funil_fichas: string | null
+          gerenciamento_funil: string | null
+          gestao_scouter: string | null
+          horario_agendamento: string | null
           id: number
           last_sync_at: string | null
+          local_abordagem: string | null
+          maxsystem_id_ficha: string | null
           name: string | null
+          nome_modelo: string | null
+          op_telemarketing: string | null
           photo_url: string | null
+          presenca_confirmada: boolean | null
           raw: Json | null
           responsible: string | null
           responsible_user_id: string | null
           scouter: string | null
+          status_fluxo: string | null
+          status_tabulacao: string | null
           sync_source: string | null
           sync_status: string | null
+          telefone_casa: string | null
+          telefone_trabalho: string | null
           updated_at: string | null
+          valor_ficha: number | null
         }
         Insert: {
           address?: string | null
           age?: number | null
           bitrix_telemarketing_id?: number | null
+          cadastro_existe_foto?: boolean | null
+          celular?: string | null
           commercial_project_id?: string | null
+          compareceu?: boolean | null
+          criado?: string | null
+          data_agendamento?: string | null
+          data_confirmacao_ficha?: string | null
+          data_criacao_agendamento?: string | null
+          data_criacao_ficha?: string | null
+          data_retorno_ligacao?: string | null
           date_modify?: string | null
+          etapa?: string | null
+          etapa_fluxo?: string | null
+          etapa_funil?: string | null
+          ficha_confirmada?: boolean | null
+          fonte?: string | null
+          funil_fichas?: string | null
+          gerenciamento_funil?: string | null
+          gestao_scouter?: string | null
+          horario_agendamento?: string | null
           id: number
           last_sync_at?: string | null
+          local_abordagem?: string | null
+          maxsystem_id_ficha?: string | null
           name?: string | null
+          nome_modelo?: string | null
+          op_telemarketing?: string | null
           photo_url?: string | null
+          presenca_confirmada?: boolean | null
           raw?: Json | null
           responsible?: string | null
           responsible_user_id?: string | null
           scouter?: string | null
+          status_fluxo?: string | null
+          status_tabulacao?: string | null
           sync_source?: string | null
           sync_status?: string | null
+          telefone_casa?: string | null
+          telefone_trabalho?: string | null
           updated_at?: string | null
+          valor_ficha?: number | null
         }
         Update: {
           address?: string | null
           age?: number | null
           bitrix_telemarketing_id?: number | null
+          cadastro_existe_foto?: boolean | null
+          celular?: string | null
           commercial_project_id?: string | null
+          compareceu?: boolean | null
+          criado?: string | null
+          data_agendamento?: string | null
+          data_confirmacao_ficha?: string | null
+          data_criacao_agendamento?: string | null
+          data_criacao_ficha?: string | null
+          data_retorno_ligacao?: string | null
           date_modify?: string | null
+          etapa?: string | null
+          etapa_fluxo?: string | null
+          etapa_funil?: string | null
+          ficha_confirmada?: boolean | null
+          fonte?: string | null
+          funil_fichas?: string | null
+          gerenciamento_funil?: string | null
+          gestao_scouter?: string | null
+          horario_agendamento?: string | null
           id?: number
           last_sync_at?: string | null
+          local_abordagem?: string | null
+          maxsystem_id_ficha?: string | null
           name?: string | null
+          nome_modelo?: string | null
+          op_telemarketing?: string | null
           photo_url?: string | null
+          presenca_confirmada?: boolean | null
           raw?: Json | null
           responsible?: string | null
           responsible_user_id?: string | null
           scouter?: string | null
+          status_fluxo?: string | null
+          status_tabulacao?: string | null
           sync_source?: string | null
           sync_status?: string | null
+          telefone_casa?: string | null
+          telefone_trabalho?: string | null
           updated_at?: string | null
+          valor_ficha?: number | null
         }
         Relationships: [
           {
