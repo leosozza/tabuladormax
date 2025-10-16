@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, MapPin, Phone, Filter, Settings2, Eye, EyeOff, Cloud } from "lucide-react";
+import { User, MapPin, Phone, Filter, Settings2, Eye, EyeOff, Cloud, Loader2 } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,17 +26,6 @@ interface LeadRow {
   responsible: string | null;
   scouter: string | null;
 }
-
-const mapBitrixLeadToRow = (lead: BitrixLead): LeadRow => ({
-  id: Number(lead.ID),
-  name: lead.NAME || null,
-  age: lead.UF_IDADE ? Number(lead.UF_IDADE) : null,
-  address: lead.UF_LOCAL || lead.ADDRESS || null,
-  photo_url: lead.UF_PHOTO || lead.PHOTO || null,
-  updated_at: lead.DATE_MODIFY || new Date().toISOString(),
-  responsible: lead.UF_RESPONSAVEL || lead.ASSIGNED_BY_NAME || null,
-  scouter: lead.UF_SCOUTER || null,
-});
 
 const Index = () => {
   const navigate = useNavigate();
