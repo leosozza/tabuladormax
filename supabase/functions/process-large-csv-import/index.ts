@@ -6,7 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Funções auxiliares
 const parseBoolean = (value: string | null): boolean => {
   if (!value) return false;
   const v = value.toLowerCase().trim();
@@ -29,38 +28,36 @@ const parseBrazilianDate = (dateStr: string | null): string | null => {
       return `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
     }
     const date = new Date(dateStr);
-    if (!isNaN(date.getTime())) {
-      return date.toISOString();
-    }
+    if (!isNaN(date.getTime())) return date.toISOString();
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
 
-// Processar CSV linha por linha para evitar estouro de memória
-async function* processCSVInChunks(csvText: string, chunkSize: number) {
-  const lines = csvText.split('\n');
-  const headerLine = lines[0];
-  const delimiter = headerLine.includes(';') ? ';' : ',';
-  const headers = headerLine.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+// Processar CSV em streaming linha por linha
+async function* streamCSVLines(stream: ReadableStream<Uint8Array>) {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
   
-  for (let i = 1; i < lines.length; i += chunkSize) {
-    const chunkLines = lines.slice(i, Math.min(i + chunkSize, lines.length));
-    const chunk: any[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
     
-    for (const line of chunkLines) {
-      if (!line.trim()) continue;
+    if (value) {
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
       
-      const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
-      const row: any = {};
-      headers.forEach((header, idx) => {
-        row[header] = values[idx] || null;
-      });
-      chunk.push(row);
+      for (const line of lines) {
+        if (line.trim()) yield line;
+      }
     }
     
-    yield { chunk, totalLines: lines.length - 1, currentLine: i + chunkLines.length - 1 };
+    if (done) {
+      if (buffer.trim()) yield buffer;
+      break;
+    }
   }
 }
 
@@ -98,133 +95,127 @@ serve(async (req) => {
 
     console.log(`✅ Arquivo baixado: ${fileData.size} bytes`);
 
-    // Converter Blob para texto
-    const csvText = await fileData.text();
-    
-    // Processar em chunks de 500 linhas (reduzido de 5000)
-    const CHUNK_SIZE = 500;
+    // Processar em streaming
+    const BATCH_SIZE = 100;
     let processedRows = 0;
     let importedRows = 0;
     let errorRows = 0;
     const errorDetails: any[] = [];
-    let totalLines = 0;
+    let headers: string[] = [];
+    let delimiter = ',';
+    let leads: any[] = [];
+    let isFirstLine = true;
 
-    console.log('🔄 Iniciando processamento em chunks...');
+    console.log('🔄 Iniciando processamento em streaming...');
 
-    for await (const { chunk, totalLines: total, currentLine } of processCSVInChunks(csvText, CHUNK_SIZE)) {
-      totalLines = total;
-      const leads: any[] = [];
-
-      for (const row of chunk) {
-        const lead = {
-          // Campos básicos
-          id: row.ID ? parseInt(row.ID) : null,
-          name: row['Nome do Lead'] || row.NAME || null,
-          age: row.Idade ? parseInt(row.Idade) : null,
-          address: row['Localização'] || row.ADDRESS || null,
-          photo_url: row['Foto do modelo'] || null,
-          responsible: row['Responsável'] || null,
-          scouter: row.Scouter || null,
-          date_modify: new Date().toISOString(),
-          
-          // Informações Básicas
-          etapa: row.Etapa || null,
-          nome_modelo: row['Nome do Modelo'] || row['nome modelo'] || null,
-          criado: parseBrazilianDate(row.Criado) || null,
-          fonte: row.Fonte || null,
-          
-          // Contatos
-          telefone_trabalho: row['Telefone de trabalho'] || null,
-          celular: row.Celular || null,
-          telefone_casa: row['Telefone de casa'] || null,
-          
-          // Endereço
-          local_abordagem: row['Local da Abordagem'] || null,
-          
-          // Modelo/Ficha
-          ficha_confirmada: parseBoolean(row['Ficha confirmada']),
-          data_criacao_ficha: parseBrazilianDate(row['Data de criação da Ficha']) || null,
-          data_confirmacao_ficha: parseBrazilianDate(row['Data da confirmação de ficha']) || null,
-          presenca_confirmada: parseBoolean(row['Presença Confirmada']),
-          compareceu: parseBoolean(row.Compareceu),
-          cadastro_existe_foto: parseBoolean(row['Cadastro Existe Foto?']),
-          valor_ficha: parseNumeric(row['Valor da Ficha']) || null,
-          
-          // Agendamento
-          data_criacao_agendamento: parseBrazilianDate(row['Data da criação do agendamento']) || null,
-          horario_agendamento: row['Horário do agendamento - Cliente - Campo Lista'] || null,
-          data_agendamento: parseBrazilianDate(row['Data do agendamento  - Cliente - Campo Data']) || null,
-          
-          // Fluxo/Funil
-          gerenciamento_funil: row['GERENCIAMENTO FUNIL DE QUALIFICAÇAO/AGENDAMENTO'] || null,
-          status_fluxo: row['Status de Fluxo'] || null,
-          etapa_funil: row['ETAPA FUNIL QUALIFICAÇÃO/AGENDAMENTO'] || null,
-          etapa_fluxo: row['Etapa de fluxo'] || null,
-          funil_fichas: row['Funil Fichas'] || null,
-          status_tabulacao: row['Status Tabulação'] || null,
-          
-          // MaxSystem/Integrações
-          maxsystem_id_ficha: row['MaxSystem - ID da Ficha'] || null,
-          
-          // Gestão/Projetos
-          gestao_scouter: row['Gestão de Scouter'] || null,
-          op_telemarketing: row['Op Telemarketing'] || null,
-          
-          // Outros
-          data_retorno_ligacao: parseBrazilianDate(row['Data Retorno de ligação']) || null,
-          
-          // Campos técnicos
-          raw: row,
-          sync_source: 'csv_import',
-          sync_status: 'synced',
-          commercial_project_id: null,
-          responsible_user_id: null,
-          bitrix_telemarketing_id: row.PARENT_ID_1144 ? parseInt(row.PARENT_ID_1144) : null
-        };
-
-        if (lead.id) leads.push(lead);
+    for await (const line of streamCSVLines(fileData.stream())) {
+      if (isFirstLine) {
+        delimiter = line.includes(';') ? ';' : ',';
+        headers = line.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+        isFirstLine = false;
+        continue;
       }
 
-      // Upsert batch (menor)
-      if (leads.length > 0) {
+      processedRows++;
+      
+      const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+      const row: any = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx] || null;
+      });
+      const lead = {
+        id: row.ID ? parseInt(row.ID) : null,
+        name: row['Nome do Lead'] || row.NAME || null,
+        age: row.Idade ? parseInt(row.Idade) : null,
+        address: row['Localização'] || row.ADDRESS || null,
+        photo_url: row['Foto do modelo'] || null,
+        responsible: row['Responsável'] || null,
+        scouter: row.Scouter || null,
+        date_modify: new Date().toISOString(),
+        etapa: row.Etapa || null,
+        nome_modelo: row['Nome do Modelo'] || row['nome modelo'] || null,
+        criado: parseBrazilianDate(row.Criado) || null,
+        fonte: row.Fonte || null,
+        telefone_trabalho: row['Telefone de trabalho'] || null,
+        celular: row.Celular || null,
+        telefone_casa: row['Telefone de casa'] || null,
+        local_abordagem: row['Local da Abordagem'] || null,
+        ficha_confirmada: parseBoolean(row['Ficha confirmada']),
+        data_criacao_ficha: parseBrazilianDate(row['Data de criação da Ficha']) || null,
+        data_confirmacao_ficha: parseBrazilianDate(row['Data da confirmação de ficha']) || null,
+        presenca_confirmada: parseBoolean(row['Presença Confirmada']),
+        compareceu: parseBoolean(row.Compareceu),
+        cadastro_existe_foto: parseBoolean(row['Cadastro Existe Foto?']),
+        valor_ficha: parseNumeric(row['Valor da Ficha']) || null,
+        data_criacao_agendamento: parseBrazilianDate(row['Data da criação do agendamento']) || null,
+        horario_agendamento: row['Horário do agendamento - Cliente - Campo Lista'] || null,
+        data_agendamento: parseBrazilianDate(row['Data do agendamento  - Cliente - Campo Data']) || null,
+        gerenciamento_funil: row['GERENCIAMENTO FUNIL DE QUALIFICAÇAO/AGENDAMENTO'] || null,
+        status_fluxo: row['Status de Fluxo'] || null,
+        etapa_funil: row['ETAPA FUNIL QUALIFICAÇÃO/AGENDAMENTO'] || null,
+        etapa_fluxo: row['Etapa de fluxo'] || null,
+        funil_fichas: row['Funil Fichas'] || null,
+        status_tabulacao: row['Status Tabulação'] || null,
+        maxsystem_id_ficha: row['MaxSystem - ID da Ficha'] || null,
+        gestao_scouter: row['Gestão de Scouter'] || null,
+        op_telemarketing: row['Op Telemarketing'] || null,
+        data_retorno_ligacao: parseBrazilianDate(row['Data Retorno de ligação']) || null,
+        raw: row,
+        sync_source: 'csv_import',
+        sync_status: 'synced',
+        commercial_project_id: null,
+        responsible_user_id: null,
+        bitrix_telemarketing_id: row.PARENT_ID_1144 ? parseInt(row.PARENT_ID_1144) : null
+      };
+
+      if (lead.id) leads.push(lead);
+
+      // Processar batch quando atingir tamanho
+      if (leads.length >= BATCH_SIZE) {
         const { error } = await supabase
           .from('leads')
           .upsert(leads, { onConflict: 'id' });
 
         if (error) {
-          console.error(`❌ Erro no batch (linha ${currentLine}):`, error.message);
+          console.error(`❌ Erro no batch:`, error.message);
           errorRows += leads.length;
-          errorDetails.push({
-            linha: currentLine,
-            count: leads.length,
-            error: error.message
-          });
+          errorDetails.push({ linha: processedRows, count: leads.length, error: error.message });
         } else {
           importedRows += leads.length;
         }
+        
+        leads = [];
+        
+        // Atualizar progresso a cada 500 linhas
+        if (processedRows % 500 === 0) {
+          await supabase
+            .from('csv_import_jobs')
+            .update({ 
+              processed_rows: processedRows,
+              imported_rows: importedRows,
+              error_rows: errorRows,
+              error_details: errorDetails.slice(-10)
+            })
+            .eq('id', jobId);
+          
+          console.log(`📊 Progresso: ${processedRows} linhas`);
+        }
       }
+    }
 
-      processedRows += chunk.length;
+    // Processar últimas linhas
+    if (leads.length > 0) {
+      const { error } = await supabase
+        .from('leads')
+        .upsert(leads, { onConflict: 'id' });
 
-      // Atualizar progresso a cada 5 chunks
-      if (processedRows % (CHUNK_SIZE * 5) === 0 || currentLine >= totalLines) {
-        await supabase
-          .from('csv_import_jobs')
-          .update({ 
-            total_rows: totalLines,
-            processed_rows: processedRows,
-            imported_rows: importedRows,
-            error_rows: errorRows,
-            error_details: errorDetails.length > 0 ? errorDetails.slice(0, 10) : null
-          })
-          .eq('id', jobId);
-
-        const percent = Math.round((processedRows / totalLines) * 100);
-        console.log(`📊 Progresso: ${processedRows}/${totalLines} (${percent}%)`);
+      if (error) {
+        console.error(`❌ Erro no batch final:`, error.message);
+        errorRows += leads.length;
+        errorDetails.push({ linha: processedRows, count: leads.length, error: error.message });
+      } else {
+        importedRows += leads.length;
       }
-
-      // Pequena pausa para liberar memória
-      await new Promise(resolve => setTimeout(resolve, 5));
     }
 
     // Finalizar job
@@ -232,22 +223,22 @@ serve(async (req) => {
       .from('csv_import_jobs')
       .update({ 
         status: errorRows > 0 ? 'completed_with_errors' : 'completed',
-        total_rows: totalLines,
+        total_rows: processedRows,
         processed_rows: processedRows,
         imported_rows: importedRows,
         error_rows: errorRows,
-        error_details: errorDetails.length > 0 ? errorDetails.slice(0, 20) : null,
+        error_details: errorDetails.slice(-20),
         completed_at: new Date().toISOString()
       })
       .eq('id', jobId);
 
-    console.log(`✅ Job ${jobId} concluído: ${importedRows}/${totalLines} importados, ${errorRows} erros`);
+    console.log(`✅ Job ${jobId} concluído: ${importedRows}/${processedRows} importados, ${errorRows} erros`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         jobId,
-        totalRows: totalLines,
+        totalRows: processedRows,
         importedRows,
         errorRows 
       }),

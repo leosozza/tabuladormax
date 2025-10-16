@@ -5,7 +5,8 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, FileText, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Upload, FileText, Loader2, CheckCircle2, XCircle, Eye } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface CSVImportUploadProps {
   onImportComplete?: () => void;
@@ -14,6 +15,7 @@ interface CSVImportUploadProps {
 export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string[][]>([]);
+  const [showPreview, setShowPreview] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [jobStatus, setJobStatus] = useState<'idle' | 'uploading' | 'processing' | 'completed' | 'error'>('idle');
@@ -142,34 +144,50 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
       {file && (
         <Alert>
           <FileText className="w-4 h-4" />
-          <AlertDescription>
-            <strong>Arquivo selecionado:</strong> {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              <strong>Arquivo selecionado:</strong> {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+            </span>
+            {preview.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPreview(!showPreview)}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                {showPreview ? 'Ocultar' : 'Ver'} preview
+              </Button>
+            )}
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Preview */}
+      {/* Preview Collapsible */}
       {preview.length > 0 && (
-        <div className="border rounded-lg overflow-hidden">
-          <div className="bg-muted p-2 text-sm font-medium">
-            Preview (primeiras 10 linhas)
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <tbody>
-                {preview.map((row, i) => (
-                  <tr key={i} className="border-b">
-                    {row.map((cell, j) => (
-                      <td key={j} className="p-2 border-r">
-                        {cell}
-                      </td>
+        <Collapsible open={showPreview} onOpenChange={setShowPreview}>
+          <CollapsibleContent>
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted p-2 text-sm font-medium">
+                Preview (primeiras 10 linhas)
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <tbody>
+                    {preview.map((row, i) => (
+                      <tr key={i} className="border-b">
+                        {row.map((cell, j) => (
+                          <td key={j} className="p-2 border-r">
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {/* Upload Button */}
