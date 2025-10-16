@@ -88,6 +88,69 @@ export type Database = {
           },
         ]
       }
+      bitrix_import_jobs: {
+        Row: {
+          batch_size: number | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          end_date: string | null
+          error_details: Json | null
+          error_leads: number | null
+          id: string
+          imported_leads: number | null
+          last_completed_date: string | null
+          pause_reason: string | null
+          paused_at: string | null
+          processing_date: string | null
+          start_date: string
+          started_at: string | null
+          status: string
+          total_leads: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          batch_size?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          end_date?: string | null
+          error_details?: Json | null
+          error_leads?: number | null
+          id?: string
+          imported_leads?: number | null
+          last_completed_date?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
+          processing_date?: string | null
+          start_date: string
+          started_at?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          batch_size?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          end_date?: string | null
+          error_details?: Json | null
+          error_leads?: number | null
+          id?: string
+          imported_leads?: number | null
+          last_completed_date?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
+          processing_date?: string | null
+          start_date?: string
+          started_at?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       bitrix_sync_config: {
         Row: {
           active: boolean | null

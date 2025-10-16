@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.sync-to-bitrix]
 verify_jwt = false
+
+[functions.bitrix-import-batch]
+verify_jwt = true

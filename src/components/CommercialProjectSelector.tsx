@@ -24,12 +24,15 @@ export function CommercialProjectSelector({ value, onChange }: CommercialProject
 
   const loadProjects = async () => {
     try {
-      // @ts-expect-error Types will be auto-generated after migration
+      // @ts-ignore - Table exists but types not updated yet
       const { data, error } = await supabase
-        // @ts-expect-error Types will be auto-generated
+        // @ts-ignore
         .from('commercial_projects')
+        // @ts-ignore
         .select('id, name, code')
+        // @ts-ignore
         .eq('active', true)
+        // @ts-ignore
         .order('name');
 
       if (error) throw error;

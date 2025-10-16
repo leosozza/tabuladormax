@@ -17,6 +17,7 @@ import NotFound from "./pages/NotFound";
 import Departments from "./pages/Departments";
 import Permissions from "./pages/Permissions";
 import SyncMonitor from "./pages/SyncMonitor";
+import BitrixImport from "./pages/BitrixImport";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/logs" element={<ProtectedRoute requireManager><Logs /></ProtectedRoute>} />
           <Route path="/agent-mapping" element={<ProtectedRoute requireManager><AgentMapping /></ProtectedRoute>} />
           <Route path="/sync-monitor" element={<ProtectedRoute requireAdmin><SyncMonitor /></ProtectedRoute>} />
+          <Route path="/bitrix-import" element={<ProtectedRoute requireAdmin><BitrixImport /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

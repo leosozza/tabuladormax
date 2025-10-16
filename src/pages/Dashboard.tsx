@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, MapPin, Phone, RefreshCcw, Loader2, Filter, Settings2, Eye, EyeOff, Cloud } from "lucide-react";
+import { User, MapPin, Phone, RefreshCcw, Loader2, Filter, Settings2, Eye, EyeOff, Cloud, Download } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -406,6 +406,14 @@ const Index = () => {
                     title="Monitoramento de Sincronização"
                   >
                     <Cloud className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => navigate('/bitrix-import')}
+                    title="Importar do Bitrix"
+                  >
+                    <Download className="w-4 h-4" />
                   </Button>
                   <label className="flex items-center gap-2 text-sm">
                     <input 
