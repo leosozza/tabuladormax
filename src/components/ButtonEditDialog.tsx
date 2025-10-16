@@ -173,7 +173,10 @@ export function ButtonEditDialog({
     }
   };
 
-  // Flow handler - Opens FlowBuilder with button configuration converted to Flow
+  /**
+   * Opens FlowBuilder with the button configuration converted to a Flow.
+   * Uses createFlowFromButton to generate a Flow object from the current button settings.
+   */
   const handleOpenFlowBuilder = () => {
     const flow = createFlowFromButton(button);
     setGeneratedFlow(flow);
