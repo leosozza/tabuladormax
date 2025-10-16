@@ -173,10 +173,9 @@ export function ButtonEditDialog({
     }
   };
 
-  // Flow handler
+  // Flow handler - Opens FlowBuilder with button configuration converted to Flow
   const handleOpenFlowBuilder = () => {
     const flow = createFlowFromButton(button);
-    console.log('🎯 Abrindo FlowBuilder com:', flow);
     setGeneratedFlow(flow);
     setFlowBuilderOpen(true);
   };
@@ -186,8 +185,12 @@ export function ButtonEditDialog({
     setGeneratedFlow(null);
   };
 
+  /**
+   * Called when the FlowBuilder saves the flow.
+   * The FlowBuilder handles the actual save operation to the database,
+   * so we just need to close the dialog here.
+   */
   const handleFlowSave = () => {
-    // Reload or refresh if needed after saving flow
     handleFlowBuilderClose();
   };
 
