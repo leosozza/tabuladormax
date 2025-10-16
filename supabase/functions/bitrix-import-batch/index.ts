@@ -203,8 +203,9 @@ async function processBatchJob(jobId: string) {
           responsible: bitrixLead.UF_CRM_1730995472155,
           scouter: bitrixLead.UF_CRM_1730995479506,
           date_modify: bitrixLead.DATE_MODIFY,
+          commercial_project_id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
           raw: bitrixLead,
-          sync_source: 'bitrix', // Evita loop de sincronização
+          sync_source: 'bitrix',
           sync_status: 'synced',
           last_sync_at: new Date().toISOString(),
         };
@@ -212,6 +213,16 @@ async function processBatchJob(jobId: string) {
         const { error } = await supabase
           .from('leads')
           .upsert(leadData, { onConflict: 'id' });
+
+        // Registrar evento de sincronização
+        await supabase.from('sync_events').insert({
+          event_type: 'import',
+          direction: 'bitrix_to_supabase',
+          lead_id: Number(bitrixLead.ID),
+          status: error ? 'error' : 'success',
+          sync_duration_ms: null,
+          error_message: error ? error.message : null
+        });
 
         if (error) {
           console.error(`❌ Erro ao importar lead ${bitrixLead.ID}:`, error);
