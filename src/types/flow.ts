@@ -7,6 +7,10 @@
  */
 export type FlowStepType = 
   | 'tabular' 
+  | 'bitrix_connector'
+  | 'supabase_connector'
+  | 'chatwoot_connector'
+  | 'n8n_connector'
   | 'http_call' 
   | 'wait'
   | 'send_message'
@@ -40,6 +44,60 @@ export interface FlowStepTabular extends FlowStepBase {
     field_type?: string;
     additional_fields?: Array<{ field: string; value: string }>;
     transfer_conversation?: boolean;
+  };
+}
+
+/**
+ * Bitrix Connector - updates/creates leads in Bitrix24
+ */
+export interface FlowStepBitrixConnector extends FlowStepBase {
+  type: 'bitrix_connector';
+  config: {
+    action: 'update_lead' | 'create_lead' | 'get_lead';
+    webhook_url: string;
+    field: string;
+    value: string;
+    field_type?: string;
+    additional_fields?: Array<{ field: string; value: string }>;
+    lead_id?: string; // Placeholder like {{leadId}}
+  };
+}
+
+/**
+ * Supabase Connector - database operations
+ */
+export interface FlowStepSupabaseConnector extends FlowStepBase {
+  type: 'supabase_connector';
+  config: {
+    action: 'update' | 'insert' | 'select';
+    table: 'leads' | 'chatwoot_contacts' | string;
+    filters?: Record<string, unknown>;
+    data?: Record<string, unknown>;
+  };
+}
+
+/**
+ * Chatwoot Connector - chat operations
+ */
+export interface FlowStepChatwootConnector extends FlowStepBase {
+  type: 'chatwoot_connector';
+  config: {
+    action: 'send_message' | 'assign_agent' | 'close_conversation' | 'transfer_conversation';
+    conversation_id?: string;
+    message?: string;
+    agent_id?: string;
+  };
+}
+
+/**
+ * N8N Connector - webhook integration
+ */
+export interface FlowStepN8NConnector extends FlowStepBase {
+  type: 'n8n_connector';
+  config: {
+    webhook_url: string;
+    method: 'GET' | 'POST';
+    payload?: Record<string, unknown>;
   };
 }
 
@@ -157,6 +215,10 @@ export interface FlowStepAssignTeam extends FlowStepBase {
  */
 export type FlowStep = 
   | FlowStepTabular 
+  | FlowStepBitrixConnector
+  | FlowStepSupabaseConnector
+  | FlowStepChatwootConnector
+  | FlowStepN8NConnector
   | FlowStepHttpCall 
   | FlowStepWait
   | FlowStepSendMessage

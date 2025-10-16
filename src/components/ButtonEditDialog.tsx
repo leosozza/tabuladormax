@@ -1,4 +1,4 @@
-import { Plus, Trash2, Info, Save, MoreVertical, Search, Workflow, Eye } from "lucide-react";
+import { Plus, Trash2, Info, Save, MoreVertical, Search, Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,8 +11,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { BitrixField, getLeadStatuses } from "@/lib/bitrix";
 import { BUTTON_CATEGORIES, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { useState, useEffect } from "react";
-import { FlowBuilder } from "@/components/flow/FlowBuilder";
-import { FlowExecuteModal } from "@/components/flow/FlowExecuteModal";
 import { createFlowFromButton } from "@/handlers/flowFromButton";
 import type { Flow } from "@/types/flow";
 
@@ -128,10 +126,6 @@ export function ButtonEditDialog({
   const [statusOptions, setStatusOptions] = useState<Array<{ ID: string; NAME: string }>>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   
-  // Flow integration state
-  const [flowBuilderOpen, setFlowBuilderOpen] = useState(false);
-  const [flowExecuteOpen, setFlowExecuteOpen] = useState(false);
-  const [currentFlow, setCurrentFlow] = useState<Flow | null>(null);
 
   // Carregar etapas quando o campo STATUS_ID for selecionado
   useEffect(() => {
@@ -176,22 +170,11 @@ export function ButtonEditDialog({
     }
   };
 
-  // Flow handlers
-  const handleVisualizeFlow = () => {
-    const flow = createFlowFromButton(button);
-    setCurrentFlow(flow);
-    setFlowExecuteOpen(true);
-  };
-
+  // Flow handler
   const handleOpenFlowBuilder = () => {
     const flow = createFlowFromButton(button);
-    setCurrentFlow(flow);
-    setFlowBuilderOpen(true);
-  };
-
-  const handleFlowSaved = () => {
-    setFlowBuilderOpen(false);
-    setCurrentFlow(null);
+    console.log('🎯 Abrindo FlowBuilder com:', flow);
+    // TODO: Abrir modal do FlowBuilder com o flow gerado
   };
 
   return (
@@ -1144,23 +1127,6 @@ export function ButtonEditDialog({
 
           <div className="flex justify-between items-center pt-4 border-t">
             <div className="flex gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={handleDelete}
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleVisualizeFlow}
-                className="gap-2"
-              >
-                <Eye className="w-4 h-4" />
-                Visualizar como Flow
-              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -1179,22 +1145,6 @@ export function ButtonEditDialog({
         </div>
       </DialogContent>
     </Dialog>
-
-    {/* Flow Builder Modal */}
-    <FlowBuilder
-      open={flowBuilderOpen}
-      onOpenChange={setFlowBuilderOpen}
-      flow={currentFlow}
-      onSave={handleFlowSaved}
-    />
-
-    {/* Flow Execute Modal */}
-    <FlowExecuteModal
-      open={flowExecuteOpen}
-      onOpenChange={setFlowExecuteOpen}
-      flow={currentFlow}
-      onComplete={() => setFlowExecuteOpen(false)}
-    />
   </>
   );
 }

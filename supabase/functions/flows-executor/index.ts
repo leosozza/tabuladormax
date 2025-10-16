@@ -13,7 +13,7 @@ const corsHeaders = {
 
 interface FlowStep {
   id: string;
-  type: 'tabular' | 'http_call' | 'wait';
+  type: 'tabular' | 'bitrix_connector' | 'supabase_connector' | 'chatwoot_connector' | 'n8n_connector' | 'http_call' | 'wait';
   nome: string;
   config: any;
 }
@@ -160,6 +160,22 @@ Deno.serve(async (req) => {
           switch (step.type) {
             case 'tabular':
               stepResult = await executeTabularStep(step, leadId, { ...context, userId }, supabaseAdmin);
+              break;
+            
+            case 'bitrix_connector':
+              stepResult = await executeBitrixConnector(step, leadId, context);
+              break;
+            
+            case 'supabase_connector':
+              stepResult = await executeSupabaseConnector(step, leadId, supabaseAdmin);
+              break;
+            
+            case 'chatwoot_connector':
+              stepResult = await executeChatwootConnector(step, context);
+              break;
+            
+            case 'n8n_connector':
+              stepResult = await executeN8NConnector(step, leadId, context);
               break;
             
             case 'http_call':
@@ -421,6 +437,53 @@ async function executeWaitStep(step: FlowStep) {
   await new Promise(resolve => setTimeout(resolve, seconds * 1000));
   
   return { waited: seconds };
+}
+
+// Bitrix Connector
+async function executeBitrixConnector(step: FlowStep, leadId: number | undefined, context: Record<string, any>) {
+  if (!leadId) throw new Error('leadId obrigatório');
+  
+  const { webhook_url, field, value, additional_fields = [] } = step.config;
+  const params = new URLSearchParams();
+  params.append('ID', String(leadId));
+  params.append(`FIELDS[${field}]`, value || '');
+  
+  additional_fields.forEach((f: any) => {
+    params.append(`FIELDS[${f.field}]`, f.value);
+  });
+  
+  const response = await fetch(`${webhook_url}?${params.toString()}`);
+  return await response.json();
+}
+
+// Supabase Connector
+async function executeSupabaseConnector(step: FlowStep, leadId: number | undefined, supabaseAdmin: any) {
+  const { action, table, filters, data } = step.config;
+  
+  if (action === 'update') {
+    const { error } = await supabaseAdmin.from(table).update(data).match(filters);
+    if (error) throw error;
+  }
+  
+  return { action, table };
+}
+
+// Chatwoot Connector
+async function executeChatwootConnector(step: FlowStep, context: Record<string, any>) {
+  const { action, conversation_id } = step.config;
+  console.log('💬 Chatwoot action:', { action, conversation_id });
+  return { action, conversation_id };
+}
+
+// N8N Connector
+async function executeN8NConnector(step: FlowStep, leadId: number | undefined, context: Record<string, any>) {
+  const { webhook_url, method, payload } = step.config;
+  const response = await fetch(webhook_url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: method === 'POST' ? JSON.stringify({ leadId, ...payload }) : undefined
+  });
+  return await response.json();
 }
 
 // Helper to replace placeholders
