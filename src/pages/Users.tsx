@@ -184,55 +184,81 @@ export default function Users() {
   };
 
   const loadSupervisorsForEdit = async (projectId: string) => {
+    console.log('🔍 [loadSupervisorsForEdit] Iniciando com projectId:', projectId);
+    
     if (!projectId) {
+      console.log('❌ [loadSupervisorsForEdit] Sem projeto selecionado');
       setEditSupervisorOptions([]);
       return;
     }
 
-    // Buscar mappings de supervisores do projeto (supervisor_id = null indica que é supervisor)
-    const { data: mappings } = await supabase
+    // PASSO 1: Buscar mappings de supervisores do projeto
+    console.log('📋 [loadSupervisorsForEdit] Buscando mappings no projeto:', projectId);
+    const { data: mappings, error: mappingsError } = await supabase
       .from('agent_telemarketing_mapping')
       .select('tabuladormax_user_id')
       .eq('commercial_project_id', projectId)
       .is('supervisor_id', null);
 
+    console.log('📋 [loadSupervisorsForEdit] Mappings encontrados:', mappings);
+    console.log('📋 [loadSupervisorsForEdit] Erro nos mappings:', mappingsError);
+
     if (!mappings || mappings.length === 0) {
+      console.log('❌ [loadSupervisorsForEdit] Nenhum mapping encontrado');
       setEditSupervisorOptions([]);
       return;
     }
 
+    // PASSO 2: Extrair user IDs únicos
     const userIds = [...new Set(mappings.map(m => m.tabuladormax_user_id).filter(Boolean))];
+    console.log('👥 [loadSupervisorsForEdit] User IDs extraídos:', userIds);
 
-    // Buscar apenas usuários com role 'supervisor'
-    const { data: userRoles } = await supabase
+    // PASSO 3: Buscar apenas usuários com role 'supervisor'
+    console.log('👔 [loadSupervisorsForEdit] Buscando user_roles com role=supervisor');
+    const { data: userRoles, error: rolesError } = await supabase
       .from('user_roles')
       .select('user_id')
       .eq('role', 'supervisor')
       .in('user_id', userIds);
 
+    console.log('👔 [loadSupervisorsForEdit] User roles encontrados:', userRoles);
+    console.log('👔 [loadSupervisorsForEdit] Erro nos roles:', rolesError);
+
     if (!userRoles || userRoles.length === 0) {
+      console.log('❌ [loadSupervisorsForEdit] Nenhum supervisor encontrado');
       setEditSupervisorOptions([]);
       return;
     }
 
+    // PASSO 4: Extrair IDs dos supervisores
     const supervisorIds = userRoles.map(ur => ur.user_id);
+    console.log('✅ [loadSupervisorsForEdit] Supervisor IDs:', supervisorIds);
 
-    const { data: profiles } = await supabase
+    // PASSO 5: Buscar perfis dos supervisores
+    console.log('📇 [loadSupervisorsForEdit] Buscando profiles');
+    const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, display_name, email')
       .in('id', supervisorIds);
 
+    console.log('📇 [loadSupervisorsForEdit] Profiles carregados:', profiles);
+    console.log('📇 [loadSupervisorsForEdit] Erro nos profiles:', profilesError);
+
     if (!profiles) {
+      console.log('❌ [loadSupervisorsForEdit] Erro ao carregar profiles');
       setEditSupervisorOptions([]);
       return;
     }
 
+    // PASSO 6: Formatar dados
     const supervisorsData = profiles.map(p => ({
       ...p,
       role: 'supervisor' as const,
       created_at: '',
     }));
 
+    console.log('✅ [loadSupervisorsForEdit] setSupervisors chamado com:', supervisorsData);
+    console.log('✅ [loadSupervisorsForEdit] Total de supervisores:', supervisorsData.length);
     setEditSupervisorOptions(supervisorsData as any);
   };
 
@@ -607,13 +633,23 @@ export default function Users() {
   };
 
   const openEditSupervisorDialog = async (user: UserWithRole) => {
+    console.log('🚀 [openEditSupervisorDialog] Iniciando para usuário:', {
+      id: user.id,
+      name: user.display_name,
+      role: user.role,
+      project_id: user.project_id,
+      supervisor_id: user.supervisor_id
+    });
+
     // Só permitir editar supervisor de agentes
     if (user.role !== 'agent') {
+      console.log('❌ [openEditSupervisorDialog] Usuário não é agent');
       toast.error('Apenas agentes podem ter supervisor alterado');
       return;
     }
 
     if (!user.project_id) {
+      console.log('❌ [openEditSupervisorDialog] Agente sem projeto vinculado');
       toast.error('Agente sem projeto vinculado');
       return;
     }
@@ -623,8 +659,9 @@ export default function Users() {
     setNewSupervisorId(user.supervisor_id || "");
     setEditSupervisorDialogOpen(true);
     
-    // Carregar supervisores do projeto
+    console.log('🔄 [openEditSupervisorDialog] Chamando loadSupervisorsForEdit...');
     await loadSupervisorsForEdit(user.project_id);
+    console.log('✅ [openEditSupervisorDialog] loadSupervisorsForEdit concluído');
   };
 
   const filteredUsers = users.filter(user => {
@@ -1049,6 +1086,16 @@ export default function Users() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              {/* Debug info */}
+              <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                <div><strong>Debug:</strong></div>
+                <div>Projeto ID: {editingSupervisorProjectId}</div>
+                <div>Opções carregadas: {editSupervisorOptions.length}</div>
+                {editSupervisorOptions.length > 0 && (
+                  <div>Supervisores: {editSupervisorOptions.map(s => s.display_name || s.email).join(', ')}</div>
+                )}
+              </div>
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="supervisor" className="text-right">
                   Novo Supervisor
