@@ -82,10 +82,12 @@ export default function Users() {
   }, []);
 
   useEffect(() => {
-    if (newUserProject) {
+    if (newUserRole === 'agent' && newUserProject) {
       loadSupervisors(newUserProject);
+    } else {
+      setSupervisors([]);
     }
-  }, [newUserProject]);
+  }, [newUserProject, newUserRole]);
 
   const checkUserRole = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -120,21 +122,48 @@ export default function Users() {
   };
 
   const loadSupervisors = async (projectId: string) => {
+    if (!projectId) {
+      setSupervisors([]);
+      return;
+    }
+
+    // Buscar mappings de supervisores do projeto (supervisor_id = null indica que é supervisor)
     const { data: mappings } = await supabase
       .from('agent_telemarketing_mapping')
-      .select('tabuladormax_user_id, supervisor_id')
-      .eq('commercial_project_id', projectId);
+      .select('tabuladormax_user_id')
+      .eq('commercial_project_id', projectId)
+      .is('supervisor_id', null);
 
-    if (!mappings) return;
+    if (!mappings || mappings.length === 0) {
+      setSupervisors([]);
+      return;
+    }
 
-    const supervisorIds = [...new Set(mappings.map(m => m.supervisor_id).filter(Boolean))];
-    
+    const userIds = [...new Set(mappings.map(m => m.tabuladormax_user_id).filter(Boolean))];
+
+    // Buscar apenas usuários com role 'supervisor'
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'supervisor')
+      .in('user_id', userIds);
+
+    if (!userRoles || userRoles.length === 0) {
+      setSupervisors([]);
+      return;
+    }
+
+    const supervisorIds = userRoles.map(ur => ur.user_id);
+
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, display_name, email')
       .in('id', supervisorIds);
 
-    if (!profiles) return;
+    if (!profiles) {
+      setSupervisors([]);
+      return;
+    }
 
     const supervisorsData = profiles.map(p => ({
       ...p,
@@ -222,6 +251,28 @@ export default function Users() {
       return;
     }
 
+    // Validação para supervisor
+    if (newUserRole === 'supervisor' && !newUserProject) {
+      toast.error("Selecione um Projeto Comercial para o supervisor");
+      return;
+    }
+
+    // Validação para agent
+    if (newUserRole === 'agent') {
+      if (!newUserProject) {
+        toast.error("Selecione um Projeto Comercial para o agente");
+        return;
+      }
+      if (!newUserSupervisor) {
+        toast.error("Selecione um Supervisor para o agente");
+        return;
+      }
+      if (!newUserTelemarketing) {
+        toast.error("Selecione um Operador Bitrix para o agente");
+        return;
+      }
+    }
+
     setCreatingUser(true);
     try {
       // Gerar senha temporária
@@ -289,15 +340,40 @@ export default function Users() {
           role: newUserRole,
         });
 
-        // Se for agent, criar mapeamento
-        if (newUserRole === 'agent' && newUserTelemarketing) {
-          await supabase.from('agent_telemarketing_mapping').insert({
-            tabuladormax_user_id: userId,
-            bitrix_telemarketing_id: newUserTelemarketing,
-            commercial_project_id: newUserProject || null,
-            supervisor_id: newUserSupervisor || null,
-            chatwoot_agent_id: chatwootAgentId,
-          });
+        // Criar mapeamento para SUPERVISOR
+        if (newUserRole === 'supervisor' && newUserProject) {
+          const { error: mappingError } = await supabase
+            .from('agent_telemarketing_mapping')
+            .insert({
+              tabuladormax_user_id: userId,
+              bitrix_telemarketing_id: 0,
+              bitrix_telemarketing_name: newUserName,
+              commercial_project_id: newUserProject,
+              supervisor_id: null, // Supervisor não tem supervisor
+            });
+
+          if (mappingError) {
+            console.error('Erro ao criar mapeamento do supervisor:', mappingError);
+            toast.error('Erro ao vincular supervisor ao projeto');
+          }
+        }
+
+        // Criar mapeamento para AGENT
+        if (newUserRole === 'agent' && newUserTelemarketing && newUserProject && newUserSupervisor) {
+          const { error: mappingError } = await supabase
+            .from('agent_telemarketing_mapping')
+            .insert({
+              tabuladormax_user_id: userId,
+              bitrix_telemarketing_id: newUserTelemarketing,
+              commercial_project_id: newUserProject,
+              supervisor_id: newUserSupervisor,
+              chatwoot_agent_id: chatwootAgentId,
+            });
+
+          if (mappingError) {
+            console.error('Erro ao criar mapeamento do agente:', mappingError);
+            toast.error('Erro ao vincular agente ao supervisor');
+          }
         }
       }
 
@@ -624,39 +700,60 @@ export default function Users() {
                 </Select>
               </div>
 
+              {/* Seleção de Projeto para SUPERVISOR e AGENT */}
+              {(newUserRole === 'supervisor' || newUserRole === 'agent') && (
+                <div>
+                  <Label htmlFor="project">
+                    Projeto Comercial (Bitrix) <span className="text-red-500">*</span>
+                  </Label>
+                  <Select value={newUserProject} onValueChange={setNewUserProject}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o projeto" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card">
+                      {projects.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Seleção de Supervisor e Operador apenas para AGENT */}
               {newUserRole === 'agent' && (
                 <>
                   <div>
-                    <Label htmlFor="project">Projeto Comercial *</Label>
-                    <Select value={newUserProject} onValueChange={setNewUserProject}>
+                    <Label htmlFor="supervisor">
+                      Supervisor <span className="text-red-500">*</span>
+                    </Label>
+                    <Select 
+                      value={newUserSupervisor} 
+                      onValueChange={setNewUserSupervisor}
+                      disabled={!newUserProject || supervisors.length === 0}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o projeto" />
+                        <SelectValue placeholder={
+                          !newUserProject 
+                            ? "Selecione primeiro um projeto" 
+                            : supervisors.length === 0 
+                            ? "Nenhum supervisor neste projeto" 
+                            : "Selecione o supervisor"
+                        } />
                       </SelectTrigger>
-                      <SelectContent>
-                      {projects.map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="supervisor">Supervisor</Label>
-                    <Select value={newUserSupervisor || "none"} onValueChange={(val) => setNewUserSupervisor(val === "none" ? "" : val)} disabled={!newUserProject}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o supervisor (opcional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
+                      <SelectContent className="bg-card">
                         {supervisors.map(s => (
-                          <SelectItem key={s.id} value={s.id}>{s.display_name}</SelectItem>
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.display_name || s.email}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <Label htmlFor="telemarketing">Operador Bitrix *</Label>
+                    <Label htmlFor="telemarketing">
+                      Operador Bitrix <span className="text-red-500">*</span>
+                    </Label>
                     <TelemarketingSelector
                       value={newUserTelemarketing}
                       onChange={setNewUserTelemarketing}
