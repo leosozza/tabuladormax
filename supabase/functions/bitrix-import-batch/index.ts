@@ -194,6 +194,20 @@ async function processBatchJob(jobId: string) {
 
     for (const bitrixLead of leads) {
       try {
+        // Correção 3: Buscar commercial_project_id do Bitrix ou usar NULL
+        const commercialProjectCode = bitrixLead.UF_CRM_1731003158 || null;
+        let commercial_project_id = null;
+
+        if (commercialProjectCode) {
+          const { data: project } = await supabase
+            .from('commercial_projects')
+            .select('id')
+            .eq('code', commercialProjectCode)
+            .maybeSingle();
+          
+          commercial_project_id = project?.id || null;
+        }
+
         const leadData = {
           id: Number(bitrixLead.ID),
           name: bitrixLead.NAME || bitrixLead.TITLE,
@@ -203,7 +217,7 @@ async function processBatchJob(jobId: string) {
           responsible: bitrixLead.UF_CRM_1730995472155,
           scouter: bitrixLead.UF_CRM_1730995479506,
           date_modify: bitrixLead.DATE_MODIFY,
-          commercial_project_id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
+          commercial_project_id,
           raw: bitrixLead,
           sync_source: 'bitrix',
           sync_status: 'synced',
@@ -214,15 +228,23 @@ async function processBatchJob(jobId: string) {
           .from('leads')
           .upsert(leadData, { onConflict: 'id' });
 
-        // Registrar evento de sincronização
-        await supabase.from('sync_events').insert({
-          event_type: 'import',
-          direction: 'bitrix_to_supabase',
-          lead_id: Number(bitrixLead.ID),
-          status: error ? 'error' : 'success',
-          sync_duration_ms: null,
-          error_message: error ? error.message : null
-        });
+        // Correção 4: Melhorar tratamento de erros ao registrar sync_event
+        try {
+          const { error: syncError } = await supabase.from('sync_events').insert({
+            event_type: 'create',
+            direction: 'bitrix_to_supabase',
+            lead_id: Number(bitrixLead.ID),
+            status: error ? 'error' : 'success',
+            sync_duration_ms: null,
+            error_message: error ? error.message : null
+          });
+
+          if (syncError) {
+            console.error('❌ Erro ao registrar sync_event:', syncError);
+          }
+        } catch (syncErr) {
+          console.error('❌ Exceção ao criar sync_event:', syncErr);
+        }
 
         if (error) {
           console.error(`❌ Erro ao importar lead ${bitrixLead.ID}:`, error);
@@ -250,27 +272,25 @@ async function processBatchJob(jobId: string) {
 
     console.log(`✅ ${importedCount} leads importados de ${processingDate} (total: ${totalImported})`);
 
-    // Se processou menos de 50, a data está completa
-    if (leads.length < 50) {
+    // Correção 2: Sempre marcar a data como concluída após processar todos os leads
+    await supabase.from('bitrix_import_jobs').update({
+      last_completed_date: processingDate,
+    }).eq('id', jobId);
+
+    // Ir para o dia anterior
+    const nextDate = new Date(processingDate);
+    nextDate.setDate(nextDate.getDate() - 1);
+    processingDate = nextDate.toISOString().split('T')[0];
+
+    // Verificar se chegou ao fim
+    if (job.end_date && processingDate < job.end_date) {
       await supabase.from('bitrix_import_jobs').update({
-        last_completed_date: processingDate,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
       }).eq('id', jobId);
 
-      // Ir para o dia anterior
-      const nextDate = new Date(processingDate);
-      nextDate.setDate(nextDate.getDate() - 1);
-      processingDate = nextDate.toISOString().split('T')[0];
-
-      // Verificar se chegou ao fim
-      if (job.end_date && processingDate < job.end_date) {
-        await supabase.from('bitrix_import_jobs').update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-        }).eq('id', jobId);
-
-        console.log('✅ Importação CONCLUÍDA!');
-        return;
-      }
+      console.log('✅ Importação CONCLUÍDA!');
+      return;
     }
 
     // Delay de 500ms entre requisições
