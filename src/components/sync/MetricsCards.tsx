@@ -8,12 +8,19 @@ export function MetricsCards() {
   const { data: metrics } = useQuery({
     queryKey: ['sync-metrics-realtime'],
     queryFn: async () => {
-      const last5min = subMinutes(new Date(), 5);
+      const last60min = subMinutes(new Date(), 60);
       
-      const { data: recent } = await supabase
+      const { data: recent, error } = await supabase
         .from('sync_events')
         .select('status, sync_duration_ms')
-        .gte('created_at', last5min.toISOString());
+        .gte('created_at', last60min.toISOString());
+      
+      console.log('📊 MetricsCards Query:', {
+        count: recent?.length,
+        error,
+        timeRange: last60min.toISOString(),
+        sample: recent?.slice(0, 3)
+      });
       
       const total = recent?.length || 0;
       const success = recent?.filter(e => e.status === 'success').length || 0;
@@ -25,7 +32,7 @@ export function MetricsCards() {
         success,
         errors,
         successRate: total > 0 ? (success / total * 100).toFixed(1) : '0',
-        avgSpeed: total > 0 ? (total / 5).toFixed(1) : '0',
+        avgSpeed: total > 0 ? (total / 60).toFixed(1) : '0',
         avgDuration: avgDuration.toFixed(0)
       };
     },
@@ -42,7 +49,7 @@ export function MetricsCards() {
             </div>
             <div>
               <div className="text-2xl font-bold text-green-600">{metrics?.success || 0}</div>
-              <p className="text-xs text-muted-foreground">Sucessos (5min)</p>
+              <p className="text-xs text-muted-foreground">Sucessos (1h)</p>
             </div>
           </div>
         </CardContent>
@@ -70,7 +77,7 @@ export function MetricsCards() {
             </div>
             <div>
               <div className="text-2xl font-bold text-red-600">{metrics?.errors || 0}</div>
-              <p className="text-xs text-muted-foreground">Falhas (5min)</p>
+              <p className="text-xs text-muted-foreground">Falhas (1h)</p>
             </div>
           </div>
         </CardContent>
