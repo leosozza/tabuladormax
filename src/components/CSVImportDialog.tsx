@@ -57,6 +57,31 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
     setProgress(0);
 
     try {
+      // 🧹 Limpar arquivos antigos (mais de 24h)
+      console.log('🧹 Limpando arquivos antigos...');
+      const { data: oldFiles } = await supabase
+        .storage
+        .from('leads-csv-import')
+        .list();
+
+      if (oldFiles) {
+        const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+        const filesToDelete = oldFiles
+          .filter(f => {
+            const timestamp = parseInt(f.name.split('-')[0]);
+            return !isNaN(timestamp) && timestamp < oneDayAgo;
+          })
+          .map(f => f.name);
+
+        if (filesToDelete.length > 0) {
+          await supabase
+            .storage
+            .from('leads-csv-import')
+            .remove(filesToDelete);
+          console.log(`🗑️ ${filesToDelete.length} arquivos antigos deletados`);
+        }
+      }
+
       // 1. Upload para Storage
       const fileName = `${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase
@@ -80,10 +105,27 @@ export function CSVImportDialog({ onImportComplete }: { onImportComplete?: () =>
       if (jobError) throw jobError;
 
       // 3. Iniciar processamento em background
-      supabase.functions.invoke('process-large-csv-import', {
-        body: { jobId: job.id, filePath: fileName }
-      });
+      const { data: invokeData, error: invokeError } = await supabase.functions.invoke(
+        'process-large-csv-import',
+        { body: { jobId: job.id, filePath: fileName } }
+      );
 
+      if (invokeError) {
+        console.error('❌ Erro ao invocar edge function:', invokeError);
+        
+        // Marcar job como failed
+        await supabase
+          .from('csv_import_jobs')
+          .update({ 
+            status: 'failed',
+            error_details: [{ error: invokeError.message }]
+          })
+          .eq('id', job.id);
+        
+        throw new Error(`Falha ao processar: ${invokeError.message}`);
+      }
+
+      console.log('✅ Edge function invocada com sucesso:', invokeData);
       toast.success('Upload iniciado! Processando em background...');
 
       // 4. Monitorar progresso via Realtime
