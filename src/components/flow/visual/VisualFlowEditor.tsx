@@ -17,6 +17,10 @@ import { Button } from '@/components/ui/button';
 import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 
 import { StartNode } from './nodes/StartNode';
+import { BitrixConnectorNode } from './nodes/BitrixConnectorNode';
+import { SupabaseConnectorNode } from './nodes/SupabaseConnectorNode';
+import { ChatwootConnectorNode } from './nodes/ChatwootConnectorNode';
+import { N8NConnectorNode } from './nodes/N8NConnectorNode';
 import { TabularNode } from './nodes/TabularNode';
 import { HttpCallNode } from './nodes/HttpCallNode';
 import { WaitNode } from './nodes/WaitNode';
@@ -32,6 +36,10 @@ import type { FlowStep, FlowStepType } from '@/types/flow';
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
+  bitrix_connector: BitrixConnectorNode,     // ✅ NOVO
+  supabase_connector: SupabaseConnectorNode, // ✅ NOVO
+  chatwoot_connector: ChatwootConnectorNode, // ✅ NOVO
+  n8n_connector: N8NConnectorNode,           // ✅ NOVO
   tabular: TabularNode,
   http_call: HttpCallNode,
   wait: WaitNode,
@@ -153,6 +161,10 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
             nodeColor={(node) => {
               switch (node.type) {
                 case 'start': return '#3b82f6';
+                case 'bitrix_connector': return '#f97316';      // ✅ NOVO - Laranja
+                case 'supabase_connector': return '#3b82f6';   // ✅ NOVO - Azul
+                case 'chatwoot_connector': return '#10b981';   // ✅ NOVO - Verde
+                case 'n8n_connector': return '#a855f7';        // ✅ NOVO - Roxo
                 case 'tabular': return '#60a5fa';
                 case 'http_call': return '#a855f7';
                 case 'wait': return '#f59e0b';

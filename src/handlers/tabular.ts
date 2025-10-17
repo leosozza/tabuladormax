@@ -173,6 +173,7 @@ export async function runTabular(
   config: TabularConfig,
   context: TabularContext
 ): Promise<TabularResult> {
+  const startTime = Date.now();
   try {
     const { webhook_url, field, value, sync_target = 'bitrix', additional_fields = [] } = config;
     const { leadId, chatwootData, bitrixFields = [], currentAgent } = context;
@@ -345,9 +346,22 @@ export async function runTabular(
         }
 
         // Update leads table
-        await supabase
-          .from('leads')
-          .upsert({ id: leadId, [field]: value }, { onConflict: 'id' });
+      await supabase
+        .from('leads')
+        .upsert({ 
+          id: leadId, 
+          [field]: value,
+          sync_source: 'supabase',
+          sync_status: 'synced'
+        }, { onConflict: 'id' });
+
+        // ✅ FASE 2: Log da ação bem-sucedida
+        await supabase.from('actions_log').insert({
+          lead_id: Number(leadId),
+          action_label: value,
+          payload: { field, value, additional_fields: additionalFieldsProcessed } as any,
+          status: 'OK',
+        });
 
         return {
           success: true,
@@ -368,6 +382,20 @@ export async function runTabular(
     }
   } catch (error) {
     console.error('❌ Erro em runTabular:', error);
+    
+    // ✅ FASE 2: Log do erro
+    try {
+      await supabase.from('actions_log').insert({
+        lead_id: Number(context.leadId),
+        action_label: config.value || 'unknown',
+        payload: { field: config.field, value: config.value, error: true } as any,
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } catch (logError) {
+      console.error('❌ Erro ao salvar log:', logError);
+    }
+    
     return {
       success: false,
       message: `Erro ao executar ação: ${error instanceof Error ? error.message : String(error)}`,

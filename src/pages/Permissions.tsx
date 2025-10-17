@@ -7,35 +7,15 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Shield, Save } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface Permission {
-  id: string;
-  name: string;
-  label: string;
-  resource: string;
-  action: string;
-  description: string | null;
-}
-
-interface RolePermission {
-  id: string;
-  role: string;
-  permission_id: string;
-  scope: string;
-}
-
-type PermissionScope = "none" | "own" | "department" | "department_tree" | "project" | "all";
+import type { Permission, RolePermission, PermissionScope, AppRole } from "@/types/database-extensions";
 
 const SCOPE_LABELS: Record<PermissionScope, string> = {
-  all: "Todos",
-  project: "Projeto",
-  department_tree: "Departamento + Sub",
+  global: "Global (Todos)",
   department: "Departamento",
   own: "Próprio",
-  none: "Negar",
 };
 
-const SCOPE_OPTIONS: PermissionScope[] = ["all", "project", "department_tree", "department", "own", "none"];
+const SCOPE_OPTIONS: PermissionScope[] = ["global", "department", "own"];
 
 export default function Permissions() {
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -44,7 +24,7 @@ export default function Permissions() {
   const [saving, setSaving] = useState(false);
   const [changes, setChanges] = useState<Map<string, PermissionScope>>(new Map());
 
-  const roles = ["admin", "manager", "supervisor", "agent"];
+  const roles: AppRole[] = ["admin", "manager", "supervisor", "agent"];
 
   useEffect(() => {
     loadData();
@@ -55,20 +35,20 @@ export default function Permissions() {
       setLoading(true);
 
       const { data: permsData, error: permsError } = await supabase
-        .from("permissions")
+        .from("permissions" as any)
         .select("*")
         .order("resource, action");
 
       if (permsError) throw permsError;
 
       const { data: rolePermsData, error: rolePermsError } = await supabase
-        .from("role_permissions")
+        .from("role_permissions" as any)
         .select("*");
 
       if (rolePermsError) throw rolePermsError;
 
-      setPermissions(permsData || []);
-      setRolePermissions(rolePermsData || []);
+      setPermissions(permsData as any || []);
+      setRolePermissions(rolePermsData as any || []);
     } catch (error) {
       console.error("Erro ao carregar permissões:", error);
       toast.error("Erro ao carregar permissões");
@@ -77,7 +57,7 @@ export default function Permissions() {
     }
   };
 
-  const getScopeForRolePermission = (role: string, permissionId: string): PermissionScope => {
+  const getScopeForRolePermission = (role: AppRole, permissionId: string): PermissionScope => {
     const key = `${role}-${permissionId}`;
     
     if (changes.has(key)) {
@@ -88,10 +68,10 @@ export default function Permissions() {
       rp => rp.role === role && rp.permission_id === permissionId
     );
 
-    return (rolePerm?.scope as PermissionScope) || "none";
+    return rolePerm?.scope || "own";
   };
 
-  const handleScopeChange = (role: string, permissionId: string, scope: PermissionScope) => {
+  const handleScopeChange = (role: AppRole, permissionId: string, scope: PermissionScope) => {
     const key = `${role}-${permissionId}`;
     setChanges(prev => new Map(prev).set(key, scope));
   };
@@ -106,7 +86,10 @@ export default function Permissions() {
       setSaving(true);
 
       for (const [key, scope] of changes.entries()) {
-        const [role, permissionId] = key.split("-");
+        // ✅ FIX: Correção do split de UUID
+        const parts = key.split("-");
+        const role = parts[0];
+        const permissionId = parts.slice(1).join("-");
 
         const existingRolePerm = rolePermissions.find(
           rp => rp.role === role && rp.permission_id === permissionId
@@ -114,19 +97,19 @@ export default function Permissions() {
 
         if (existingRolePerm) {
           const { error } = await supabase
-            .from("role_permissions")
+            .from("role_permissions" as any)
             .update({ scope })
             .eq("id", existingRolePerm.id);
 
           if (error) throw error;
         } else {
           const { error } = await supabase
-            .from("role_permissions")
+            .from("role_permissions" as any)
             .insert({
               role,
               permission_id: permissionId,
               scope,
-            });
+            } as any);
 
           if (error) throw error;
         }
@@ -153,12 +136,9 @@ export default function Permissions() {
 
   const getScopeColor = (scope: PermissionScope): string => {
     const colors: Record<PermissionScope, string> = {
-      all: "text-green-600 dark:text-green-400",
-      project: "text-blue-600 dark:text-blue-400",
-      department_tree: "text-cyan-600 dark:text-cyan-400",
+      global: "text-green-600 dark:text-green-400",
       department: "text-purple-600 dark:text-purple-400",
       own: "text-orange-600 dark:text-orange-400",
-      none: "text-red-600 dark:text-red-400",
     };
     return colors[scope];
   };

@@ -88,6 +88,10 @@ export function useFlowBuilder(initialNodes: Node[] = [], initialEdges: Edge[] =
 function getDefaultLabel(type: FlowStepType): string {
   const labels: Record<FlowStepType, string> = {
     tabular: 'Tabulação',
+    bitrix_connector: 'Bitrix',
+    supabase_connector: 'Supabase',
+    chatwoot_connector: 'Chatwoot',
+    n8n_connector: 'N8N',
     http_call: 'HTTP Request',
     wait: 'Aguardar',
     send_message: 'Enviar Mensagem',
@@ -110,6 +114,31 @@ function getDefaultConfig(type: FlowStepType): unknown {
       value: '',
       field_type: 'string',
       additional_fields: [],
+    },
+    bitrix_connector: {
+      action: 'update_lead',
+      webhook_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json',
+      field: '',
+      value: '',
+      field_type: 'string',
+      additional_fields: [],
+      lead_id: '{{leadId}}'
+    },
+    supabase_connector: {
+      action: 'update',
+      table: 'leads',
+      filters: { id: '{{leadId}}' },
+      data: {}
+    },
+    chatwoot_connector: {
+      action: 'send_message',
+      conversation_id: '{{conversationId}}',
+      message: ''
+    },
+    n8n_connector: {
+      webhook_url: '',
+      method: 'POST',
+      payload: {}
     },
     http_call: {
       url: '',

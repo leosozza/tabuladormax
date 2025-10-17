@@ -88,7 +88,7 @@ const UserMenu = () => {
           </>
         )}
         <DropdownMenuSeparator />
-        {userRole === 'admin' && (
+        {(userRole === 'admin' || userRole === 'supervisor') && (
           <DropdownMenuItem onClick={() => navigate("/users")}>
             <Users className="mr-2 h-4 w-4" />
             <span>Gerenciar Usuários</span>

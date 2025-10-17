@@ -4,6 +4,7 @@
 
 import { 
   MousePointerClick, 
+  Database,
   Globe, 
   Clock, 
   MessageSquare, 
@@ -11,7 +12,8 @@ import {
   UserCog, 
   Tag, 
   UserPlus, 
-  Users 
+  Users,
+  Workflow
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { FlowStepType } from '@/types/flow';
@@ -21,6 +23,32 @@ interface NodePaletteProps {
 }
 
 const nodeTypes = [
+  // ✅ NOVOS CONECTORES
+  {
+    type: 'bitrix_connector' as const,
+    label: 'Bitrix',
+    description: 'Atualizar/Criar no Bitrix',
+    icon: Database,
+  },
+  {
+    type: 'supabase_connector' as const,
+    label: 'Supabase',
+    description: 'Banco de dados',
+    icon: Database,
+  },
+  {
+    type: 'chatwoot_connector' as const,
+    label: 'Chatwoot',
+    description: 'Ações de chat',
+    icon: MessageSquare,
+  },
+  {
+    type: 'n8n_connector' as const,
+    label: 'N8N',
+    description: 'Webhook externo',
+    icon: Workflow,
+  },
+  // Tipos existentes
   {
     type: 'tabular' as const,
     label: 'Tabulação',
