@@ -1,262 +1,121 @@
-# Welcome to your Lovable project
+# TabuladorMax
 
-## Project info
+A comprehensive lead management and automation platform with Bitrix24 integration.
 
-**URL**: https://lovable.dev/projects/fa1475f9-ea99-4684-a990-84bdf96f348a
+**Project URL**: https://lovable.dev/projects/fa1475f9-ea99-4684-a990-84bdf96f348a
 
-## How can I edit this code?
+## Quick Start
 
-There are several ways of editing your application.
+### Prerequisites
+- Node.js 18+ ([install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+- npm (comes with Node.js)
 
-**Use Lovable**
+### Development Setup
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/fa1475f9-ea99-4684-a990-84bdf96f348a) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+```bash
+# Clone the repository
 git clone <YOUR_GIT_URL>
+cd tabuladormax
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install dependencies
+npm install --legacy-peer-deps
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/fa1475f9-ea99-4684-a990-84bdf96f348a) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
-
-## Security and Permissions
-
-This project uses Supabase Row Level Security (RLS) policies to control data access and operations.
-
-### Agent Telemarketing Mapping Permissions
-
-The `agent_telemarketing_mapping` table controls the relationship between users and Bitrix24 telemarketing operators. The following RLS policies are implemented:
-
-#### Current Policies
-
-**INSERT Policy:**
-- **Name:** "Authenticated users can insert mappings"
-- **Purpose:** Allows any authenticated user to create mappings for any user, resolving 403 errors during telemarketing mapping
-- **Business Rule:** Any authenticated user (`auth.uid() IS NOT NULL`) can insert mappings without user ID restrictions
-- **Migration:** `supabase/migrations/20251014195746_add_insert_policy_agent_telemarketing_mapping.sql`
-- **Previous Migration (replaced):** `supabase/migrations/20251014171900_fix_agent_telemarketing_mapping_rls.sql`
-
-**SELECT Policy:**
-- **Name:** "Users can view own mapping, admins view all"
-- **Purpose:** Privacy protection - users can only see their own mappings
-- **Business Rule:** Users see only their own records; admins/managers see all
-
-**UPDATE/DELETE Policies:**
-- **Names:** "Admins and managers can update/delete mappings"
-- **Purpose:** Data integrity - only admins/managers can modify mappings
-- **Business Rule:** Restricted to users with admin or manager roles
-
-### ⚠️ Reviewing and Updating Permissions
-
-**When to Review:**
-- When onboarding new user roles
-- When business requirements change regarding data access
-- When implementing new features that interact with agent-telemarketing mappings
-- During security audits
-
-**How to Review Current Policies:**
-
-```sql
--- View all policies for the table
-SELECT 
-  schemaname, tablename, policyname, 
-  permissive, roles, cmd, qual, with_check
-FROM pg_policies 
-WHERE tablename = 'agent_telemarketing_mapping';
-```
-
-**Common Customizations:**
-
-1. **Allow all authenticated users to insert mappings for ANY user (removes user ID restriction - ⚠️ security consideration):**
-   ```sql
-   DROP POLICY IF EXISTS "Users can create their own mapping" ON public.agent_telemarketing_mapping;
-   
-   CREATE POLICY "Authenticated users can insert mappings"
-     ON public.agent_telemarketing_mapping
-     FOR INSERT
-     TO authenticated
-     WITH CHECK (auth.uid() IS NOT NULL);
-   ```
-   ⚠️ **Warning**: This removes the user ID constraint, allowing any authenticated user to create mappings for any other user. Use only if your application handles this validation.
-
-2. **Allow users to update their own mappings:**
-   ```sql
-   CREATE POLICY "Users can update own mapping"
-     ON public.agent_telemarketing_mapping
-     FOR UPDATE
-     TO authenticated
-     USING (tabuladormax_user_id = auth.uid())
-     WITH CHECK (tabuladormax_user_id = auth.uid());
-   ```
-
-3. **Allow users to delete their own mappings:**
-   ```sql
-   CREATE POLICY "Users can delete own mapping"
-     ON public.agent_telemarketing_mapping
-     FOR DELETE
-     TO authenticated
-     USING (tabuladormax_user_id = auth.uid());
-   ```
-
-**Testing Policy Changes:**
-
-After modifying policies, test with different user roles:
-
-```sql
--- Verify the policy exists
-SELECT * FROM pg_policies 
-WHERE tablename = 'agent_telemarketing_mapping' 
-AND policyname = 'Your Policy Name';
-
--- Check mapping coverage
-SELECT 
-  COUNT(DISTINCT u.id) as total_users,
-  COUNT(DISTINCT atm.tabuladormax_user_id) as users_with_mapping,
-  ROUND(100.0 * COUNT(DISTINCT atm.tabuladormax_user_id) / COUNT(DISTINCT u.id), 2) as coverage_pct
-FROM auth.users u
-LEFT JOIN agent_telemarketing_mapping atm ON u.id = atm.tabuladormax_user_id;
-```
-
-### Additional Resources
-
-- **Detailed Implementation:** See `docs/USER_CREATION_TELEMARKETING_FIX.md`
-- **Deployment Guide:** See `PR_SUMMARY.md`
-- **Change History:** See `CHANGELOG.md`
-- **Supabase RLS Documentation:** [Supabase Row Level Security](https://supabase.com/docs/guides/auth/row-level-security)
-
-## Running Database Migrations
-
-### How to Run the Agent Telemarketing Mapping Migration
-
-To apply the new INSERT policy for the `agent_telemarketing_mapping` table, follow these steps:
-
-#### Option 1: Using Supabase Dashboard
-
-1. Log in to your [Supabase Dashboard](https://app.supabase.com/)
-2. Select your project
-3. Navigate to **SQL Editor** in the left sidebar
-4. Click **New Query**
-5. Copy and paste the contents of the migration file:
-   ```
-   supabase/migrations/20251014195746_add_insert_policy_agent_telemarketing_mapping.sql
-   ```
-6. Click **Run** to execute the migration
-7. Verify the policy was created successfully by running:
-   ```sql
-   SELECT * FROM pg_policies 
-   WHERE tablename = 'agent_telemarketing_mapping' 
-   AND policyname = 'Authenticated users can insert mappings';
-   ```
-
-#### Option 2: Using Supabase CLI
-
-If you have the Supabase CLI installed:
+### Available Scripts
 
 ```bash
-# Make sure you're in the project directory
-cd /path/to/tabuladormax
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run lint         # Run ESLint
+npm test             # Run tests
+npm run test:ui      # Run tests with UI
+npm run preview      # Preview production build
+```
 
-# Link your project (if not already linked)
+## Tech Stack
+
+- **Frontend**: React 18 + TypeScript + Vite
+- **UI Framework**: shadcn/ui + Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + Edge Functions)
+- **Testing**: Vitest + Testing Library
+- **Integrations**: Bitrix24, Chatwoot, gestao-scouter
+
+## Documentation
+
+📚 **[Complete Documentation](./docs/README.md)** - Start here for comprehensive guides
+
+### Key Features
+- [Flow Builder v2](./docs/features/flows.md) - Visual automation system
+- [Sync Architecture](./docs/features/sync-architecture.md) - Multi-system synchronization
+- [Dashboard Filters](./docs/features/dashboard-filters.md) - Advanced filtering
+
+### Guides
+- [Gestão Scouter Integration](./docs/guides/gestao-scouter-sync-guide.md)
+- [CSV Import Control](./docs/guides/csv-import-sync.md)
+- [Batch Export Guide](./docs/guides/gestao-scouter-batch-export.md)
+
+## Project Structure
+
+```
+tabuladormax/
+├── src/
+│   ├── components/      # Reusable UI components
+│   ├── pages/          # Application pages/routes
+│   ├── lib/            # Core libraries (flows-v2, etc.)
+│   ├── handlers/       # Business logic handlers
+│   └── types/          # TypeScript type definitions
+├── supabase/
+│   ├── functions/      # Edge Functions (Deno)
+│   └── migrations/     # Database migrations
+├── docs/               # Documentation
+│   ├── features/       # Feature documentation
+│   ├── guides/         # How-to guides
+│   └── archived/       # Historical docs
+└── public/             # Static assets
+```
+
+## Deployment
+
+Deploy via [Lovable](https://lovable.dev/projects/fa1475f9-ea99-4684-a990-84bdf96f348a):
+1. Go to **Share** → **Publish**
+2. Follow deployment instructions
+
+### Custom Domain
+Navigate to **Project** > **Settings** > **Domains** and click **Connect Domain**.
+[Learn more](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Deployment
+
+Deploy via [Lovable](https://lovable.dev/projects/fa1475f9-ea99-4684-a990-84bdf96f348a):
+1. Go to **Share** → **Publish**
+2. Follow deployment instructions
+
+### Custom Domain
+Navigate to **Project** > **Settings** > **Domains** and click **Connect Domain**.
+[Learn more](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Database & Migrations
+
+### Running Migrations
+
+**Option 1: Supabase Dashboard**
+1. Log in to [Supabase Dashboard](https://app.supabase.com/)
+2. Navigate to **SQL Editor**
+3. Run migration files from `supabase/migrations/`
+
+**Option 2: Supabase CLI**
+```bash
 supabase link --project-ref your-project-ref
-
-# Apply the migration
 supabase db push
 ```
 
-#### Option 3: Manual Migration
+### Key Migrations
+- Agent telemarketing mapping RLS policies
+- Flow Builder v2 tables (flows, flow_configs, flows_runs)
+- Sync system tables (sync_events, gestao_scouter_config)
 
-You can also run the SQL directly:
-
-```sql
--- Permite INSERT na tabela agent_telemarketing_mapping para usuários autenticados
--- Remove a política existente que restringe usuários a criar apenas seus próprios mapeamentos
-DROP POLICY IF EXISTS "Users can create their own mapping" ON public.agent_telemarketing_mapping;
-
--- Cria nova política que permite qualquer usuário autenticado inserir mapeamentos
-CREATE POLICY "Authenticated users can insert mappings"
-  ON public.agent_telemarketing_mapping
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() IS NOT NULL);
-```
-
-#### Verification
-
-After running the migration, verify it's working correctly:
-
-1. Check the policy exists:
-   ```sql
-   SELECT * FROM pg_policies 
-   WHERE tablename = 'agent_telemarketing_mapping';
-   ```
-
-2. Test inserting a mapping as an authenticated user (should succeed):
-   ```sql
-   -- This should work for any authenticated user now
-   INSERT INTO agent_telemarketing_mapping (tabuladormax_user_id, bitrix_telemarketing_id, bitrix_telemarketing_name)
-   VALUES (auth.uid(), 123, 'Test Telemarketing');
-   ```
-
-3. Verify mapping coverage:
-   ```sql
-   SELECT 
-     COUNT(DISTINCT u.id) as total_users,
-     COUNT(DISTINCT atm.tabuladormax_user_id) as users_with_mapping,
-     ROUND(100.0 * COUNT(DISTINCT atm.tabuladormax_user_id) / COUNT(DISTINCT u.id), 2) as coverage_pct
-   FROM auth.users u
-   LEFT JOIN agent_telemarketing_mapping atm ON u.id = atm.tabuladormax_user_id;
-   ```
+See [docs/README.md](./docs/README.md) for detailed migration guides.
 
