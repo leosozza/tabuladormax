@@ -80,7 +80,7 @@ const usersWithRoles = profiles.map(profile => ({
 ```
 
 ## Testing
-- ✅ All existing tests pass (193 tests)
+- ✅ All tests pass (206 total: 193 existing + 13 new)
 - ✅ New tests added for optimization (13 tests)
 - ✅ Build successful
 - ✅ No breaking changes to functionality
