@@ -13,6 +13,7 @@ import { BitrixImportTab } from "@/components/sync/BitrixImportTab";
 import { CSVImportTab } from "@/components/sync/CSVImportTab";
 import { GestaoScouterExportTab } from "@/components/sync/GestaoScouterExportTab";
 import { BatchUpdateTab } from "@/components/sync/BatchUpdateTab";
+import { IntegrationTab } from "@/components/sync/IntegrationTab";
 import { Period } from "@/lib/syncUtils";
 import UserMenu from "@/components/UserMenu";
 
@@ -49,8 +50,9 @@ export default function SyncMonitor() {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="monitoring" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-2xl">
+          <TabsList className="grid w-full grid-cols-4 max-w-3xl">
             <TabsTrigger value="monitoring">📊 Monitoramento</TabsTrigger>
+            <TabsTrigger value="integration">🔗 Integração</TabsTrigger>
             <TabsTrigger value="imports">📥 Importações</TabsTrigger>
             <TabsTrigger value="batch-update">🔄 Atualização em Lote</TabsTrigger>
           </TabsList>
@@ -76,6 +78,11 @@ export default function SyncMonitor() {
             </div>
 
             <SyncLogsTable />
+          </TabsContent>
+
+          {/* Tab de Integração */}
+          <TabsContent value="integration" className="space-y-6">
+            <IntegrationTab />
           </TabsContent>
 
           {/* Tab de Importações */}
