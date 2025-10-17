@@ -274,5 +274,5 @@ For issues or questions:
 
 ---
 
-**Last Updated:** October 2025
+**Last Updated:** October 17, 2025
 **Version:** 2.0

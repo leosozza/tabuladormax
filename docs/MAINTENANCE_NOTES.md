@@ -72,9 +72,9 @@ Current status: 233 ESLint issues (mostly TypeScript `any` types and style issue
 ## Dependencies
 
 **Current Package Issues**:
-- date-fns version conflict with react-day-picker (resolved with --legacy-peer-deps)
+- date-fns version conflict: react-day-picker@8.10.1 requires date-fns ^2.28.0 || ^3.0.0, but project uses date-fns@4.1.0 (resolved with --legacy-peer-deps)
 
-**Recommendation**: Monitor for updates to react-day-picker that support date-fns v4.
+**Recommendation**: Monitor for updates to react-day-picker v9+ that support date-fns v4, or consider downgrading date-fns to v3.x if compatibility issues arise.
 
 ---
 
