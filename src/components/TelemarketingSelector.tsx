@@ -181,7 +181,7 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
           </Button>
         </PopoverTrigger>
         
-        <PopoverContent className="w-full p-0" align="start">
+        <PopoverContent className="w-full p-0 !z-[9999]" align="start">
           <Command shouldFilter={false}>
             <CommandInput 
               placeholder="Digite o nome (mín. 3 letras)..." 
