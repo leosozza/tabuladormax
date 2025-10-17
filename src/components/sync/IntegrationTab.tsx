@@ -129,7 +129,7 @@ export function IntegrationTab() {
     } catch (error: unknown) {
       console.error("Erro ao salvar configuração:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
-      toast.error(errorMessage || "Erro ao salvar configuração");
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -166,7 +166,7 @@ export function IntegrationTab() {
     } catch (error: unknown) {
       console.error("Erro ao testar integração:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
-      toast.error(`❌ Falha na conexão: ${errorMessage || "Verifique as credenciais"}`);
+      toast.error(`❌ Falha na conexão: ${errorMessage}`);
     } finally {
       setTesting(false);
     }
