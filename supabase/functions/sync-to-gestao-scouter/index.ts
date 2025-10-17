@@ -73,7 +73,7 @@ serve(async (req) => {
       address: lead.address,
       scouter: lead.scouter,
       photo_url: lead.photo_url,
-      date_modify: lead.date_modify,
+      date_modify: lead.date_modify ? new Date(lead.date_modify).toISOString() : (lead.updated_at ? new Date(lead.updated_at).toISOString() : null),
       raw: lead.raw,
       updated_at: new Date().toISOString(),
       // Campos adicionais
@@ -85,17 +85,17 @@ serve(async (req) => {
       telefone_casa: lead.telefone_casa,
       etapa: lead.etapa,
       fonte: lead.fonte,
-      criado: lead.criado,
+      criado: lead.criado ? new Date(lead.criado).toISOString() : null,
       nome_modelo: lead.nome_modelo,
       local_abordagem: lead.local_abordagem,
       ficha_confirmada: lead.ficha_confirmada,
-      data_criacao_ficha: lead.data_criacao_ficha,
-      data_confirmacao_ficha: lead.data_confirmacao_ficha,
+      data_criacao_ficha: lead.data_criacao_ficha ? new Date(lead.data_criacao_ficha).toISOString() : null,
+      data_confirmacao_ficha: lead.data_confirmacao_ficha ? new Date(lead.data_confirmacao_ficha).toISOString() : null,
       presenca_confirmada: lead.presenca_confirmada,
       compareceu: lead.compareceu,
       cadastro_existe_foto: lead.cadastro_existe_foto,
       valor_ficha: lead.valor_ficha,
-      data_criacao_agendamento: lead.data_criacao_agendamento,
+      data_criacao_agendamento: lead.data_criacao_agendamento ? new Date(lead.data_criacao_agendamento).toISOString() : null,
       horario_agendamento: lead.horario_agendamento,
       data_agendamento: lead.data_agendamento,
       gerenciamento_funil: lead.gerenciamento_funil,
@@ -107,7 +107,7 @@ serve(async (req) => {
       maxsystem_id_ficha: lead.maxsystem_id_ficha,
       gestao_scouter: lead.gestao_scouter,
       op_telemarketing: lead.op_telemarketing,
-      data_retorno_ligacao: lead.data_retorno_ligacao,
+      data_retorno_ligacao: lead.data_retorno_ligacao ? new Date(lead.data_retorno_ligacao).toISOString() : null,
       last_sync_at: new Date().toISOString(),
       sync_source: 'tabuladormax' // Marca origem para evitar loop
     };
@@ -136,14 +136,18 @@ serve(async (req) => {
           leadDate: lead.updated_at
         });
         
-        await supabase.from('sync_events').insert({
-          event_type: 'update',
-          direction: 'supabase_to_gestao_scouter',
-          lead_id: lead.id,
-          status: 'success',
-          error_message: 'Skipped - older version',
-          sync_duration_ms: Date.now() - startTime
-        });
+        try {
+          await supabase.from('sync_events').insert({
+            event_type: 'update',
+            direction: 'supabase_to_gestao_scouter',
+            lead_id: lead.id,
+            status: 'success',
+            error_message: 'Skipped - older version',
+            sync_duration_ms: Date.now() - startTime
+          });
+        } catch (syncError) {
+          console.error('❌ Erro ao registrar sync_event:', syncError);
+        }
 
         return new Response(
           JSON.stringify({ 
@@ -167,8 +171,14 @@ serve(async (req) => {
       .single();
 
     if (fichaError) {
-      console.error('❌ Erro ao sincronizar com gestao-scouter:', fichaError);
-      throw new Error(`Erro ao sincronizar: ${fichaError.message}`);
+      console.error('❌ Erro ao sincronizar com gestao-scouter:', {
+        error: fichaError,
+        leadId: lead.id,
+        errorDetails: fichaError.details,
+        errorHint: fichaError.hint,
+        errorCode: fichaError.code
+      });
+      throw new Error(`Erro ao sincronizar: ${fichaError.message} (code: ${fichaError.code})`);
     }
 
     console.log('✅ Ficha sincronizada com sucesso no gestao-scouter:', fichaResult?.id);
@@ -179,7 +189,8 @@ serve(async (req) => {
       .update({
         sync_status: 'synced',
         last_sync_at: new Date().toISOString(),
-        sync_source: 'supabase' // Marca para evitar loop
+        sync_source: 'supabase', // Marca para evitar loop
+        updated_at: new Date().toISOString()
       })
       .eq('id', lead.id);
 
@@ -188,19 +199,23 @@ serve(async (req) => {
     }
 
     // Registrar evento de sincronização com detalhes
-    await supabase.from('sync_events').insert({
-      event_type: 'update',
-      direction: 'supabase_to_gestao_scouter',
-      lead_id: lead.id,
-      status: 'success',
-      sync_duration_ms: Date.now() - startTime,
-      error_message: JSON.stringify({
-        action: 'sync_to_gestao_scouter',
-        lead_name: lead.name,
-        sync_source: 'supabase',
-        timestamp: new Date().toISOString()
-      })
-    });
+    try {
+      await supabase.from('sync_events').insert({
+        event_type: 'update',
+        direction: 'supabase_to_gestao_scouter',
+        lead_id: lead.id,
+        status: 'success',
+        sync_duration_ms: Date.now() - startTime,
+        error_message: JSON.stringify({
+          action: 'sync_to_gestao_scouter',
+          lead_name: lead.name,
+          sync_source: 'supabase',
+          timestamp: new Date().toISOString()
+        })
+      });
+    } catch (syncError) {
+      console.error('❌ Erro ao registrar sync_event:', syncError);
+    }
 
     return new Response(
       JSON.stringify({ 
@@ -223,13 +238,17 @@ serve(async (req) => {
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseKey);
         
-        await supabase.from('sync_events').insert({
-          event_type: 'update',
-          direction: 'supabase_to_gestao_scouter',
-          lead_id: lead.id,
-          status: 'error',
-          error_message: errorMessage
-        });
+        try {
+          await supabase.from('sync_events').insert({
+            event_type: 'update',
+            direction: 'supabase_to_gestao_scouter',
+            lead_id: lead.id,
+            status: 'error',
+            error_message: errorMessage
+          });
+        } catch (syncError) {
+          console.error('❌ Erro ao registrar sync_event de erro:', syncError);
+        }
       }
     } catch (logError) {
       console.error('Erro ao registrar evento de erro:', logError);

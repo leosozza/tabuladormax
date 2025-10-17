@@ -58,7 +58,7 @@ serve(async (req) => {
       address: ficha.address,
       scouter: ficha.scouter,
       photo_url: ficha.photo_url,
-      date_modify: ficha.date_modify || new Date().toISOString(),
+      date_modify: ficha.date_modify ? new Date(ficha.date_modify).toISOString() : null,
       raw: ficha.raw,
       updated_at: new Date().toISOString(),
       // Campos adicionais
@@ -70,17 +70,17 @@ serve(async (req) => {
       telefone_casa: ficha.telefone_casa,
       etapa: ficha.etapa,
       fonte: ficha.fonte,
-      criado: ficha.criado,
+      criado: ficha.criado ? new Date(ficha.criado).toISOString() : null,
       nome_modelo: ficha.nome_modelo,
       local_abordagem: ficha.local_abordagem,
       ficha_confirmada: ficha.ficha_confirmada,
-      data_criacao_ficha: ficha.data_criacao_ficha,
-      data_confirmacao_ficha: ficha.data_confirmacao_ficha,
+      data_criacao_ficha: ficha.data_criacao_ficha ? new Date(ficha.data_criacao_ficha).toISOString() : null,
+      data_confirmacao_ficha: ficha.data_confirmacao_ficha ? new Date(ficha.data_confirmacao_ficha).toISOString() : null,
       presenca_confirmada: ficha.presenca_confirmada,
       compareceu: ficha.compareceu,
       cadastro_existe_foto: ficha.cadastro_existe_foto,
       valor_ficha: ficha.valor_ficha,
-      data_criacao_agendamento: ficha.data_criacao_agendamento,
+      data_criacao_agendamento: ficha.data_criacao_agendamento ? new Date(ficha.data_criacao_agendamento).toISOString() : null,
       horario_agendamento: ficha.horario_agendamento,
       data_agendamento: ficha.data_agendamento,
       gerenciamento_funil: ficha.gerenciamento_funil,
@@ -92,7 +92,7 @@ serve(async (req) => {
       maxsystem_id_ficha: ficha.maxsystem_id_ficha,
       gestao_scouter: ficha.gestao_scouter,
       op_telemarketing: ficha.op_telemarketing,
-      data_retorno_ligacao: ficha.data_retorno_ligacao,
+      data_retorno_ligacao: ficha.data_retorno_ligacao ? new Date(ficha.data_retorno_ligacao).toISOString() : null,
       last_sync_at: new Date().toISOString(),
       sync_source: 'gestao_scouter', // Marca origem para evitar loop
       sync_status: 'synced'
@@ -121,14 +121,18 @@ serve(async (req) => {
           fichaDate: ficha.updated_at
         });
         
-        await supabase.from('sync_events').insert({
-          event_type: 'update',
-          direction: 'gestao_scouter_to_supabase',
-          lead_id: ficha.id,
-          status: 'success',
-          error_message: 'Skipped - older version',
-          sync_duration_ms: Date.now() - startTime
-        });
+        try {
+          await supabase.from('sync_events').insert({
+            event_type: 'update',
+            direction: 'gestao_scouter_to_supabase',
+            lead_id: ficha.id,
+            status: 'success',
+            error_message: 'Skipped - older version',
+            sync_duration_ms: Date.now() - startTime
+          });
+        } catch (syncError) {
+          console.error('❌ Erro ao registrar sync_event:', syncError);
+        }
 
         return new Response(
           JSON.stringify({ 
@@ -152,26 +156,36 @@ serve(async (req) => {
       .single();
 
     if (leadError) {
-      console.error('❌ Erro ao atualizar lead no TabuladorMax:', leadError);
-      throw new Error(`Erro ao atualizar lead: ${leadError.message}`);
+      console.error('❌ Erro ao atualizar lead no TabuladorMax:', {
+        error: leadError,
+        leadId: ficha.id,
+        errorDetails: leadError.details,
+        errorHint: leadError.hint,
+        errorCode: leadError.code
+      });
+      throw new Error(`Erro ao atualizar lead: ${leadError.message} (code: ${leadError.code})`);
     }
 
     console.log('✅ Lead atualizado com sucesso no TabuladorMax:', leadResult?.id);
 
     // Registrar evento de sincronização com detalhes
-    await supabase.from('sync_events').insert({
-      event_type: 'update',
-      direction: 'gestao_scouter_to_supabase',
-      lead_id: ficha.id,
-      status: 'success',
-      sync_duration_ms: Date.now() - startTime,
-      error_message: JSON.stringify({
-        action: 'sync_from_gestao_scouter',
-        lead_name: ficha.name,
-        sync_source: 'gestao_scouter',
-        timestamp: new Date().toISOString()
-      })
-    });
+    try {
+      await supabase.from('sync_events').insert({
+        event_type: 'update',
+        direction: 'gestao_scouter_to_supabase',
+        lead_id: ficha.id,
+        status: 'success',
+        sync_duration_ms: Date.now() - startTime,
+        error_message: JSON.stringify({
+          action: 'sync_from_gestao_scouter',
+          lead_name: ficha.name,
+          sync_source: 'gestao_scouter',
+          timestamp: new Date().toISOString()
+        })
+      });
+    } catch (syncError) {
+      console.error('❌ Erro ao registrar sync_event:', syncError);
+    }
 
     return new Response(
       JSON.stringify({ 
@@ -193,13 +207,17 @@ serve(async (req) => {
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseKey);
         
-        await supabase.from('sync_events').insert({
-          event_type: 'update',
-          direction: 'gestao_scouter_to_supabase',
-          lead_id: ficha.id,
-          status: 'error',
-          error_message: errorMessage
-        });
+        try {
+          await supabase.from('sync_events').insert({
+            event_type: 'update',
+            direction: 'gestao_scouter_to_supabase',
+            lead_id: ficha.id,
+            status: 'error',
+            error_message: errorMessage
+          });
+        } catch (syncError) {
+          console.error('❌ Erro ao registrar sync_event de erro:', syncError);
+        }
       }
     } catch (logError) {
       console.error('Erro ao registrar evento de erro:', logError);
