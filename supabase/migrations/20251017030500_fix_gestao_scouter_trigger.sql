@@ -1,8 +1,10 @@
 -- ============================================
--- Trigger para Sincronização com gestao-scouter
+-- Correção do trigger gestao-scouter
+-- Remover tentativa de modificar NEW em AFTER trigger
 -- ============================================
 
--- Criar função para trigger de sincronização com gestao-scouter
+DROP FUNCTION IF EXISTS public.trigger_sync_to_gestao_scouter() CASCADE;
+
 CREATE OR REPLACE FUNCTION public.trigger_sync_to_gestao_scouter()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -15,13 +17,9 @@ DECLARE
   service_key text;
   config_exists boolean;
 BEGIN
-  -- Ignorar quando sync_source é 'gestao_scouter' ou 'gestao-scouter' para evitar loops
-  IF NEW.sync_source IN ('gestao_scouter', 'gestao-scouter') THEN
-    RAISE NOTICE 'Ignorando trigger gestao-scouter - origem é %', NEW.sync_source;
-    NEW.sync_source := NULL;
-    RETURN NEW;
-  END IF;
-
+  -- A verificação de sync_source é feita pela cláusula WHEN do trigger
+  -- Este é um AFTER trigger, então não podemos modificar NEW
+  
   -- Verificar se a sincronização com gestao-scouter está habilitada
   SELECT EXISTS(
     SELECT 1 FROM gestao_scouter_config 
@@ -111,19 +109,6 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
-
--- Criar trigger que executa após UPDATE na tabela leads
-DROP TRIGGER IF EXISTS sync_lead_to_gestao_scouter_on_update ON public.leads;
-
-CREATE TRIGGER sync_lead_to_gestao_scouter_on_update
-  AFTER UPDATE ON public.leads
-  FOR EACH ROW
-  WHEN (
-    -- Só dispara se sync_source não for gestao_scouter (aceita ambas as variações)
-    COALESCE(NEW.sync_source, '') NOT IN ('gestao_scouter', 'gestao-scouter')
-    AND COALESCE(OLD.sync_source, '') NOT IN ('gestao_scouter', 'gestao-scouter')
-  )
-  EXECUTE FUNCTION public.trigger_sync_to_gestao_scouter();
 
 -- Comentário explicativo
 COMMENT ON FUNCTION public.trigger_sync_to_gestao_scouter IS 

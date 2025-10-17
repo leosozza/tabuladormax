@@ -117,6 +117,45 @@ serve(async (req) => {
       projectUrl: config.project_url
     });
 
+    // Verificar se existe uma ficha com ID e aplicar resolução de conflitos baseada em updated_at
+    const { data: existingFicha } = await gestaoScouterClient
+      .from('fichas')
+      .select('id, updated_at')
+      .eq('id', lead.id)
+      .maybeSingle();
+
+    // Se a ficha existe e o lead é mais antigo, ignorar a atualização
+    if (existingFicha && lead.updated_at) {
+      const existingDate = new Date(existingFicha.updated_at);
+      const leadDate = new Date(lead.updated_at);
+      
+      if (leadDate < existingDate) {
+        console.log('⏭️ Ignorando sincronização - lead mais antigo que ficha existente:', {
+          leadId: lead.id,
+          existingDate: existingFicha.updated_at,
+          leadDate: lead.updated_at
+        });
+        
+        await supabase.from('sync_events').insert({
+          event_type: 'update',
+          direction: 'supabase_to_gestao_scouter',
+          lead_id: lead.id,
+          status: 'success',
+          error_message: 'Skipped - older version',
+          sync_duration_ms: Date.now() - startTime
+        });
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'Lead ignorado - versão mais antiga que a ficha existente',
+            skipped: true
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Fazer upsert na tabela fichas do gestao-scouter
     const { data: fichaResult, error: fichaError } = await gestaoScouterClient
       .from('fichas')
@@ -148,13 +187,19 @@ serve(async (req) => {
       console.error('⚠️ Erro ao atualizar status no TabuladorMax:', updateError);
     }
 
-    // Registrar evento de sincronização
+    // Registrar evento de sincronização com detalhes
     await supabase.from('sync_events').insert({
       event_type: 'update',
       direction: 'supabase_to_gestao_scouter',
       lead_id: lead.id,
       status: 'success',
-      sync_duration_ms: Date.now() - startTime
+      sync_duration_ms: Date.now() - startTime,
+      error_message: JSON.stringify({
+        action: 'sync_to_gestao_scouter',
+        lead_name: lead.name,
+        sync_source: 'supabase',
+        timestamp: new Date().toISOString()
+      })
     });
 
     return new Response(

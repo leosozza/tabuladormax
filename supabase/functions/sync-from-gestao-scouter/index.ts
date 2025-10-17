@@ -102,6 +102,45 @@ serve(async (req) => {
       leadId: ficha.id
     });
 
+    // Verificar se existe um lead com ID e aplicar resolução de conflitos baseada em updated_at
+    const { data: existingLead } = await supabase
+      .from('leads')
+      .select('id, updated_at')
+      .eq('id', ficha.id)
+      .maybeSingle();
+
+    // Se o lead existe e a ficha é mais antiga, ignorar a atualização
+    if (existingLead && ficha.updated_at) {
+      const existingDate = new Date(existingLead.updated_at);
+      const fichaDate = new Date(ficha.updated_at);
+      
+      if (fichaDate < existingDate) {
+        console.log('⏭️ Ignorando atualização - ficha mais antiga que lead existente:', {
+          leadId: ficha.id,
+          existingDate: existingLead.updated_at,
+          fichaDate: ficha.updated_at
+        });
+        
+        await supabase.from('sync_events').insert({
+          event_type: 'update',
+          direction: 'gestao_scouter_to_supabase',
+          lead_id: ficha.id,
+          status: 'success',
+          error_message: 'Skipped - older version',
+          sync_duration_ms: Date.now() - startTime
+        });
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'Ficha ignorada - versão mais antiga que o lead existente',
+            skipped: true
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Fazer upsert na tabela leads do TabuladorMax
     const { data: leadResult, error: leadError } = await supabase
       .from('leads')
@@ -119,13 +158,19 @@ serve(async (req) => {
 
     console.log('✅ Lead atualizado com sucesso no TabuladorMax:', leadResult?.id);
 
-    // Registrar evento de sincronização
+    // Registrar evento de sincronização com detalhes
     await supabase.from('sync_events').insert({
       event_type: 'update',
       direction: 'gestao_scouter_to_supabase',
       lead_id: ficha.id,
       status: 'success',
-      sync_duration_ms: Date.now() - startTime
+      sync_duration_ms: Date.now() - startTime,
+      error_message: JSON.stringify({
+        action: 'sync_from_gestao_scouter',
+        lead_name: ficha.name,
+        sync_source: 'gestao_scouter',
+        timestamp: new Date().toISOString()
+      })
     });
 
     return new Response(
