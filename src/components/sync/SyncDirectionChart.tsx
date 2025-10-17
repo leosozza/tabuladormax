@@ -5,7 +5,12 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 import { subHours } from "date-fns";
 
-const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))'];
+const COLORS = [
+  'hsl(var(--chart-1))', 
+  'hsl(var(--chart-2))', 
+  'hsl(var(--chart-3))', 
+  'hsl(var(--chart-4))'
+];
 
 const chartConfig = {
   bitrix_to_supabase: {
@@ -15,6 +20,14 @@ const chartConfig = {
   supabase_to_bitrix: {
     label: "Supabase → Bitrix",
     color: "hsl(var(--chart-2))",
+  },
+  supabase_to_gestao_scouter: {
+    label: "Supabase → Gestão Scouter",
+    color: "hsl(var(--chart-3))",
+  },
+  gestao_scouter_to_supabase: {
+    label: "Gestão Scouter → Supabase",
+    color: "hsl(var(--chart-4))",
   },
 };
 
@@ -36,8 +49,16 @@ export function SyncDirectionChart() {
         grouped.set(event.direction, (grouped.get(event.direction) || 0) + 1);
       });
 
+      const directionLabels: Record<string, string> = {
+        'bitrix_to_supabase': 'Bitrix → Supabase',
+        'supabase_to_bitrix': 'Supabase → Bitrix',
+        'supabase_to_gestao_scouter': 'Supabase → Gestão Scouter',
+        'gestao_scouter_to_supabase': 'Gestão Scouter → Supabase',
+        'csv_import': 'Importação CSV'
+      };
+
       return Array.from(grouped.entries()).map(([name, value]) => ({
-        name: name === 'bitrix_to_supabase' ? 'Bitrix → Supabase' : 'Supabase → Bitrix',
+        name: directionLabels[name] || name,
         value
       }));
     },

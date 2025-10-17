@@ -142,8 +142,16 @@ export const groupByDirection = (data: SyncEvent[] | null) => {
     grouped.set(direction, (grouped.get(direction) || 0) + 1);
   });
 
+  const directionLabels: Record<string, string> = {
+    'bitrix_to_supabase': 'Bitrix → Supabase',
+    'supabase_to_bitrix': 'Supabase → Bitrix',
+    'supabase_to_gestao_scouter': 'Supabase → Gestão Scouter',
+    'gestao_scouter_to_supabase': 'Gestão Scouter → Supabase',
+    'csv_import': 'Importação CSV'
+  };
+
   return Array.from(grouped.entries()).map(([name, value]) => ({
-    name: name === 'bitrix_to_supabase' ? 'Bitrix → Supabase' : 'Supabase → Bitrix',
+    name: directionLabels[name] || name,
     value
   }));
 };

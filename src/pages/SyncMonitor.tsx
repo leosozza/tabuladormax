@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft } from "lucide-react";
 import { MetricsCards } from "@/components/sync/MetricsCards";
+import { GestaoScouterMetrics } from "@/components/sync/GestaoScouterMetrics";
 import { PeriodSelector } from "@/components/sync/PeriodSelector";
 import { SyncTimelineChart } from "@/components/sync/SyncTimelineChart";
 import { SyncDirectionChart } from "@/components/sync/SyncDirectionChart";
@@ -56,8 +57,12 @@ export default function SyncMonitor() {
           {/* Tab de Monitoramento (conteúdo atual) */}
           <TabsContent value="monitoring" className="space-y-6">
             <div>
-              <h2 className="text-xl font-semibold mb-4">Métricas em Tempo Real</h2>
+              <h2 className="text-xl font-semibold mb-4">Métricas em Tempo Real - Bitrix</h2>
               <MetricsCards />
+            </div>
+
+            <div className="mt-8">
+              <GestaoScouterMetrics />
             </div>
 
             <div className="flex items-center gap-4">

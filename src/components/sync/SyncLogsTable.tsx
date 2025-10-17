@@ -65,12 +65,26 @@ export function SyncLogsTable() {
                             <ArrowRight className="w-3 h-3" />
                             <span className="text-green-600">Supabase</span>
                           </>
-                        ) : (
+                        ) : log.direction === 'supabase_to_bitrix' ? (
                           <>
                             <span className="text-green-600">Supabase</span>
                             <ArrowRight className="w-3 h-3" />
                             <span className="text-blue-600">Bitrix</span>
                           </>
+                        ) : log.direction === 'supabase_to_gestao_scouter' ? (
+                          <>
+                            <span className="text-green-600">Supabase</span>
+                            <ArrowRight className="w-3 h-3" />
+                            <span className="text-purple-600">Gestão Scouter</span>
+                          </>
+                        ) : log.direction === 'gestao_scouter_to_supabase' ? (
+                          <>
+                            <span className="text-purple-600">Gestão Scouter</span>
+                            <ArrowRight className="w-3 h-3" />
+                            <span className="text-green-600">Supabase</span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">{log.direction}</span>
                         )}
                       </div>
                     </TableCell>
