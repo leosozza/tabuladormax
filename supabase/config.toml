@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.sync-from-gestao-scouter]
 verify_jwt = false
+
+[functions.export-to-gestao-scouter-batch]
+verify_jwt = true

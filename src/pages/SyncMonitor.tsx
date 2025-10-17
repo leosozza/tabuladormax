@@ -11,6 +11,7 @@ import { SyncDirectionChart } from "@/components/sync/SyncDirectionChart";
 import { SyncLogsTable } from "@/components/sync/SyncLogsTable";
 import { BitrixImportTab } from "@/components/sync/BitrixImportTab";
 import { CSVImportTab } from "@/components/sync/CSVImportTab";
+import { GestaoScouterExportTab } from "@/components/sync/GestaoScouterExportTab";
 import { BatchUpdateTab } from "@/components/sync/BatchUpdateTab";
 import { Period } from "@/lib/syncUtils";
 import UserMenu from "@/components/UserMenu";
@@ -83,6 +84,7 @@ export default function SyncMonitor() {
               <TabsList>
                 <TabsTrigger value="bitrix">Bitrix</TabsTrigger>
                 <TabsTrigger value="csv">CSV</TabsTrigger>
+                <TabsTrigger value="gestao-scouter">Gestão Scouter</TabsTrigger>
               </TabsList>
 
               <TabsContent value="bitrix">
@@ -91,6 +93,10 @@ export default function SyncMonitor() {
 
               <TabsContent value="csv">
                 <CSVImportTab />
+              </TabsContent>
+
+              <TabsContent value="gestao-scouter">
+                <GestaoScouterExportTab />
               </TabsContent>
             </Tabs>
           </TabsContent>
