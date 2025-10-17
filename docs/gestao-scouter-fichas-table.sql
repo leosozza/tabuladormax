@@ -129,8 +129,9 @@ BEGIN
   END IF;
 
   -- TODO: Configurar URL do TabuladorMax via tabela de configuração
-  -- Por enquanto, usar variável de ambiente ou valor fixo
-  tabuladormax_url := 'https://gkvvtfqfggddzotxltxf.supabase.co/functions/v1/sync-from-gestao-scouter';
+  -- IMPORTANTE: Substitua a URL abaixo pela URL do seu projeto TabuladorMax
+  -- Exemplo: 'https://[SEU_PROJETO_TABULADORMAX].supabase.co/functions/v1/sync-from-gestao-scouter'
+  tabuladormax_url := 'https://[CONFIGURE_TABULADORMAX_URL].supabase.co/functions/v1/sync-from-gestao-scouter';
 
   -- Construir payload com todos os campos
   ficha_data := row_to_json(NEW)::jsonb;
@@ -182,6 +183,8 @@ COMMENT ON FUNCTION public.trigger_sync_to_tabuladormax IS
 
 3. Habilite a extensão pg_net se ainda não estiver habilitada:
    CREATE EXTENSION IF NOT EXISTS pg_net;
+   NOTA: Requer privilégios de superusuário. No Supabase, isso geralmente
+   já está habilitado. Para verificar: SELECT * FROM pg_extension WHERE extname = 'pg_net';
 
 4. Certifique-se de que o Edge Function sync-from-gestao-scouter
    está implantado no projeto TabuladorMax

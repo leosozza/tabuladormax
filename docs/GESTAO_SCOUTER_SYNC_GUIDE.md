@@ -77,8 +77,8 @@ INSERT INTO public.gestao_scouter_config (
   active,
   sync_enabled
 ) VALUES (
-  'https://[SEU_PROJETO_GESTAO_SCOUTER].supabase.co',
-  '[SUA_ANON_KEY_DO_GESTAO_SCOUTER]',
+  'https://[YOUR_GESTAO_SCOUTER_PROJECT].supabase.co',
+  '[YOUR_GESTAO_SCOUTER_ANON_KEY]',
   true,
   true
 );
