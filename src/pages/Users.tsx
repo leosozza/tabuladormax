@@ -1264,7 +1264,7 @@ export default function Users() {
             <DialogHeader>
               <DialogTitle>Criar Novo Usuário</DialogTitle>
               <DialogDescription>
-                Preencha os dados do novo usuário. Uma senha temporária será gerada automaticamente.
+                Preencha os dados do novo usuário. Se não informar uma senha, será gerada automaticamente.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateUser} className="space-y-4">
