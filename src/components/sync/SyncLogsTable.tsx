@@ -18,7 +18,17 @@ import { ptBR } from "date-fns/locale";
 import { ArrowRight, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 
 export function SyncLogsTable() {
-  const [selectedError, setSelectedError] = useState<any>(null);
+  const [selectedError, setSelectedError] = useState<{
+    id: string;
+    created_at: string;
+    event_type: string;
+    direction: string;
+    lead_id: string | null;
+    status: string;
+    error_message: string | null;
+    sync_duration_ms: number | null;
+    details?: unknown;
+  } | null>(null);
   const { data: logs, isLoading } = useQuery({
     queryKey: ['sync-logs'],
     queryFn: async () => {

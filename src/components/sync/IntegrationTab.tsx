@@ -126,9 +126,10 @@ export function IntegrationTab() {
 
       toast.success("Configuração salva com sucesso!");
       queryClient.invalidateQueries({ queryKey: ['gestao-scouter-config'] });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao salvar configuração:", error);
-      toast.error(error.message || "Erro ao salvar configuração");
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+      toast.error(errorMessage || "Erro ao salvar configuração");
     } finally {
       setSaving(false);
     }
@@ -162,9 +163,10 @@ export function IntegrationTab() {
       }
 
       toast.success("✅ Conexão estabelecida com sucesso!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao testar integração:", error);
-      toast.error(`❌ Falha na conexão: ${error.message || "Verifique as credenciais"}`);
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+      toast.error(`❌ Falha na conexão: ${errorMessage || "Verifique as credenciais"}`);
     } finally {
       setTesting(false);
     }
