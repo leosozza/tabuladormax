@@ -58,7 +58,7 @@ serve(async (req) => {
       address: ficha.address,
       scouter: ficha.scouter,
       photo_url: ficha.photo_url,
-      date_modify: ficha.date_modify ? new Date(ficha.date_modify).toISOString() : null,
+      date_modify: ficha.date_modify ? new Date(ficha.date_modify).toISOString() : (ficha.updated_at ? new Date(ficha.updated_at).toISOString() : null),
       raw: ficha.raw,
       updated_at: new Date().toISOString(),
       // Campos adicionais
