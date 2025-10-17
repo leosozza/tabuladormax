@@ -36,12 +36,12 @@ This ensures:
 - Optionally includes path
 
 **Valid examples:**
-- `https://example.supabase.co`
+- `https://your-project.supabase.co`
 - `https://myproject.supabase.co/api`
 - `http://localhost:54321`
 
 **Invalid examples:**
-- `example.com` (missing protocol)
+- `myproject.supabase.co` (missing protocol)
 - `https://` (incomplete URL)
 - `ftp://example.com` (invalid protocol)
 
@@ -120,8 +120,8 @@ Optimizes queries for finding active configurations with sync enabled.
 The migration includes one example record:
 ```sql
 {
-  "project_url": "https://example.supabase.co",
-  "anon_key": "your-anon-key-here",
+  "project_url": "https://xxxxxxxxxxxxx.supabase.co",
+  "anon_key": "REPLACE_WITH_YOUR_ANON_KEY",
   "active": false,
   "sync_enabled": false
 }

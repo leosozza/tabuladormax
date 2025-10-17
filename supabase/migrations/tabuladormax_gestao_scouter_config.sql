@@ -162,17 +162,11 @@ INSERT INTO public.gestao_scouter_config (
   active,
   sync_enabled
 ) VALUES (
-  'https://example.supabase.co',
-  'your-anon-key-here',
+  'https://xxxxxxxxxxxxx.supabase.co',
+  'REPLACE_WITH_YOUR_ANON_KEY',
   false,
   false
 );
-
--- Add comment for the example record
-COMMENT ON TABLE public.gestao_scouter_config IS 
-  'Configuration table for Gestão Scouter integration. 
-  Initial example record provided - update with actual values before activating.
-  Only one configuration can be active at a time.';
 
 -- ============================================================================
 -- END OF MIGRATION
