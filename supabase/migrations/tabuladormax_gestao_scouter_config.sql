@@ -155,16 +155,16 @@ CREATE TRIGGER ensure_single_active_gestao_scouter_config
 -- 7. INITIAL DATA
 -- ============================================================================
 
--- Insert example configuration (inactive by default)
+-- Insert Gestão Scouter configuration
 INSERT INTO public.gestao_scouter_config (
   project_url,
   anon_key,
   active,
   sync_enabled
 ) VALUES (
-  'https://xxxxxxxxxxxxx.supabase.co',
-  'REPLACE_WITH_YOUR_ANON_KEY',
-  false,
+  'https://ngestyxtopvfeyenyvgt.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nZXN0eXh0b3B2ZmV5ZW55dmd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4NTM0MjEsImV4cCI6MjA3NTQyOTQyMX0.Vk22kFAD0GwVMmcJgHkNnz0P56_gK1wFQcw7tus8syc',
+  true,
   false
 );
 
