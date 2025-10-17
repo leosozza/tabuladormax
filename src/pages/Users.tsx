@@ -50,6 +50,7 @@ export default function Users() {
   // Create user form
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState<'admin' | 'manager' | 'supervisor' | 'agent'>('agent');
   const [newUserProject, setNewUserProject] = useState("");
   const [newUserSupervisor, setNewUserSupervisor] = useState("");
@@ -374,8 +375,8 @@ export default function Users() {
 
     setCreatingUser(true);
     try {
-      // Gerar senha temporária
-      const tempPass = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase();
+      // Usar senha fornecida ou gerar senha temporária
+      const tempPass = newUserPassword.trim() || (Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase());
 
       // Criar agente no Chatwoot (se for agent)
       let chatwootAgentId = null;
@@ -508,6 +509,7 @@ export default function Users() {
   const resetCreateForm = () => {
     setNewUserEmail("");
     setNewUserName("");
+    setNewUserPassword("");
     // Inicializar como 'agent' se for supervisor
     setNewUserRole(currentUserRole === 'supervisor' ? 'agent' : 'agent');
     setNewUserProject("");
@@ -1283,6 +1285,20 @@ export default function Users() {
                   value={newUserName}
                   onChange={(e) => setNewUserName(e.target.value)}
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="password">Senha (opcional)</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  placeholder="Deixe vazio para gerar automaticamente"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Se deixar vazio, uma senha temporária será gerada automaticamente
+                </p>
               </div>
 
               <div>

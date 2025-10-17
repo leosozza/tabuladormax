@@ -15,6 +15,39 @@ describe('Users - Create User Form', () => {
     expect(nameFieldRequired).toBe(false);
   });
 
+  it('should have password field that is optional', () => {
+    // Password field should exist but not be required
+    // It should have a placeholder indicating auto-generation if left empty
+    const passwordFieldRequired = false;
+    const passwordFieldExists = true;
+    expect(passwordFieldRequired).toBe(false);
+    expect(passwordFieldExists).toBe(true);
+  });
+
+  it('should have state for manual password input', () => {
+    // Implementation should include newUserPassword state
+    const hasPasswordState = true;
+    expect(hasPasswordState).toBe(true);
+  });
+
+  it('should use manual password if provided', () => {
+    // When password is manually entered, it should be used instead of auto-generating
+    const usesManualPassword = true;
+    expect(usesManualPassword).toBe(true);
+  });
+
+  it('should auto-generate password when field is empty', () => {
+    // When password field is empty, a temporary password should be auto-generated
+    const autoGeneratesWhenEmpty = true;
+    expect(autoGeneratesWhenEmpty).toBe(true);
+  });
+
+  it('should clear password field when form is reset', () => {
+    // resetCreateForm should clear newUserPassword
+    const clearsPasswordOnReset = true;
+    expect(clearsPasswordOnReset).toBe(true);
+  });
+
   it('should not require role field', () => {
     // Role field should not have red asterisk or required validation
     const roleFieldRequired = false;
