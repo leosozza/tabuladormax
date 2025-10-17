@@ -17,7 +17,6 @@ const ProtectedRoute = ({
   requireSupervisor
 }: ProtectedRouteProps) => {
   const [user, setUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState<"admin" | "manager" | "supervisor" | "agent" | null>(null);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,23 +44,22 @@ const ProtectedRoute = ({
           // Em caso de erro, bloquear acesso para segurança
           setHasAccess(false);
         } else {
-          const roleValue = roles?.role as "admin" | "manager" | "supervisor" | "agent" | null;
-          setUserRole(roleValue);
-          console.log('✅ Role verificada:', roleValue);
+          const userRole = roles?.role || null;
+          console.log('✅ Role verificada:', userRole);
           
-          if (requireAdmin) {
-            setHasAccess(roleValue === "admin");
-          } else if (requireManager) {
-            setHasAccess(roleValue === "admin" || roleValue === "manager");
-          } else if (requireSupervisor) {
-            setHasAccess(
-              roleValue === "admin" || 
-              roleValue === "manager" || 
-              roleValue === "supervisor"
-            );
-          } else {
-            setHasAccess(true);
-          }
+    if (requireAdmin) {
+      setHasAccess(userRole === "admin");
+    } else if (requireManager) {
+      setHasAccess(userRole === "admin" || userRole === "manager");
+    } else if (requireSupervisor) {
+      setHasAccess(
+        userRole === "admin" || 
+        userRole === "manager" || 
+        userRole === "supervisor"
+      );
+    } else {
+      setHasAccess(true);
+    }
         }
       } else {
         setHasAccess(true);

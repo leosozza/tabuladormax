@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, Workflow } from "lucide-react";
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -30,6 +30,7 @@ import {
   type ButtonLayout,
 } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
+import { FlowList } from "@/components/flow/FlowList";
 
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, unknown>;
@@ -263,6 +264,7 @@ const LeadTab = () => {
   const [bitrixResponseModal, setBitrixResponseModal] = useState(false);
   const [bitrixResponseMessage, setBitrixResponseMessage] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [flowsModalOpen, setFlowsModalOpen] = useState(false);
   
 
   const checkUserRole = async () => {
@@ -1903,6 +1905,15 @@ const LeadTab = () => {
                 
                 <Button
                   variant="outline"
+                  onClick={() => setFlowsModalOpen(true)}
+                  size="icon"
+                  title="Flows (Modo Avançado)"
+                >
+                  <Workflow className="w-4 h-4" />
+                </Button>
+                
+                <Button
+                  variant="outline"
                   onClick={() => setShowHelp(!showHelp)}
                   size="icon"
                   title="Atalhos"
@@ -2521,6 +2532,24 @@ const LeadTab = () => {
               OK
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Flows Modal */}
+      <Dialog open={flowsModalOpen} onOpenChange={setFlowsModalOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Flows - Modo Avançado</DialogTitle>
+            <DialogDescription>
+              Crie e execute sequências de ações automatizadas. Os flows são executados server-side com logging completo.
+            </DialogDescription>
+          </DialogHeader>
+          <FlowList 
+            onExecuteFlow={(flowId) => {
+              console.log('Flow executado:', flowId);
+              toast.success('Flow executado com sucesso!');
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>

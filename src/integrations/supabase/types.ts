@@ -50,11 +50,9 @@ export type Database = {
           bitrix_telemarketing_name: string | null
           chatwoot_agent_email: string | null
           chatwoot_agent_id: number | null
-          commercial_project_id: string | null
           created_at: string
           created_by: string | null
           id: string
-          supervisor_id: string | null
           tabuladormax_user_id: string | null
           updated_at: string
         }
@@ -63,11 +61,9 @@ export type Database = {
           bitrix_telemarketing_name?: string | null
           chatwoot_agent_email?: string | null
           chatwoot_agent_id?: number | null
-          commercial_project_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
-          supervisor_id?: string | null
           tabuladormax_user_id?: string | null
           updated_at?: string
         }
@@ -76,22 +72,13 @@ export type Database = {
           bitrix_telemarketing_name?: string | null
           chatwoot_agent_email?: string | null
           chatwoot_agent_id?: number | null
-          commercial_project_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
-          supervisor_id?: string | null
           tabuladormax_user_id?: string | null
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "agent_telemarketing_mapping_commercial_project_id_fkey"
-            columns: ["commercial_project_id"]
-            isOneToOne: false
-            referencedRelation: "commercial_projects"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "agent_telemarketing_mapping_tabuladormax_user_id_fkey"
             columns: ["tabuladormax_user_id"]
@@ -100,144 +87,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      batch_update_jobs: {
-        Row: {
-          completed_at: string | null
-          created_at: string | null
-          created_by: string | null
-          error_details: Json | null
-          error_rows: number | null
-          field_name: string
-          file_path: string
-          id: string
-          processed_rows: number | null
-          started_at: string | null
-          status: string
-          total_rows: number | null
-          updated_at: string | null
-          updated_rows: number | null
-        }
-        Insert: {
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          error_details?: Json | null
-          error_rows?: number | null
-          field_name: string
-          file_path: string
-          id?: string
-          processed_rows?: number | null
-          started_at?: string | null
-          status?: string
-          total_rows?: number | null
-          updated_at?: string | null
-          updated_rows?: number | null
-        }
-        Update: {
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          error_details?: Json | null
-          error_rows?: number | null
-          field_name?: string
-          file_path?: string
-          id?: string
-          processed_rows?: number | null
-          started_at?: string | null
-          status?: string
-          total_rows?: number | null
-          updated_at?: string | null
-          updated_rows?: number | null
-        }
-        Relationships: []
-      }
-      bitrix_import_jobs: {
-        Row: {
-          batch_size: number | null
-          completed_at: string | null
-          created_at: string | null
-          created_by: string | null
-          end_date: string | null
-          error_details: Json | null
-          error_leads: number | null
-          id: string
-          imported_leads: number | null
-          last_completed_date: string | null
-          pause_reason: string | null
-          paused_at: string | null
-          processing_date: string | null
-          start_date: string
-          started_at: string | null
-          status: string
-          total_leads: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          batch_size?: number | null
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          end_date?: string | null
-          error_details?: Json | null
-          error_leads?: number | null
-          id?: string
-          imported_leads?: number | null
-          last_completed_date?: string | null
-          pause_reason?: string | null
-          paused_at?: string | null
-          processing_date?: string | null
-          start_date: string
-          started_at?: string | null
-          status?: string
-          total_leads?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          batch_size?: number | null
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          end_date?: string | null
-          error_details?: Json | null
-          error_leads?: number | null
-          id?: string
-          imported_leads?: number | null
-          last_completed_date?: string | null
-          pause_reason?: string | null
-          paused_at?: string | null
-          processing_date?: string | null
-          start_date?: string
-          started_at?: string | null
-          status?: string
-          total_leads?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      bitrix_sync_config: {
-        Row: {
-          active: boolean | null
-          created_at: string | null
-          id: string
-          updated_at: string | null
-          webhook_url: string
-        }
-        Insert: {
-          active?: boolean | null
-          created_at?: string | null
-          id?: string
-          updated_at?: string | null
-          webhook_url: string
-        }
-        Update: {
-          active?: boolean | null
-          created_at?: string | null
-          id?: string
-          updated_at?: string | null
-          webhook_url?: string
-        }
-        Relationships: []
       }
       button_categories: {
         Row: {
@@ -422,36 +271,6 @@ export type Database = {
         }
         Relationships: []
       }
-      commercial_projects: {
-        Row: {
-          active: boolean
-          code: string
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          code: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          code?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       config_kv: {
         Row: {
           key: string
@@ -470,233 +289,51 @@ export type Database = {
         }
         Relationships: []
       }
-      csv_import_jobs: {
-        Row: {
-          completed_at: string | null
-          created_at: string | null
-          created_by: string | null
-          error_details: Json | null
-          error_rows: number | null
-          file_path: string
-          id: string
-          imported_rows: number | null
-          processed_rows: number | null
-          started_at: string | null
-          status: string
-          total_rows: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          error_details?: Json | null
-          error_rows?: number | null
-          file_path: string
-          id?: string
-          imported_rows?: number | null
-          processed_rows?: number | null
-          started_at?: string | null
-          status?: string
-          total_rows?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          error_details?: Json | null
-          error_rows?: number | null
-          file_path?: string
-          id?: string
-          imported_rows?: number | null
-          processed_rows?: number | null
-          started_at?: string | null
-          status?: string
-          total_rows?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       leads: {
         Row: {
           address: string | null
           age: number | null
-          bitrix_telemarketing_id: number | null
-          cadastro_existe_foto: boolean | null
-          celular: string | null
-          commercial_project_id: string | null
-          compareceu: boolean | null
-          criado: string | null
-          data_agendamento: string | null
-          data_confirmacao_ficha: string | null
-          data_criacao_agendamento: string | null
-          data_criacao_ficha: string | null
-          data_retorno_ligacao: string | null
           date_modify: string | null
-          etapa: string | null
-          etapa_fluxo: string | null
-          etapa_funil: string | null
-          ficha_confirmada: boolean | null
-          fonte: string | null
-          funil_fichas: string | null
-          gerenciamento_funil: string | null
-          gestao_scouter: string | null
-          horario_agendamento: string | null
           id: number
           last_sync_at: string | null
-          local_abordagem: string | null
-          maxsystem_id_ficha: string | null
           name: string | null
-          nome_modelo: string | null
-          op_telemarketing: string | null
           photo_url: string | null
-          presenca_confirmada: boolean | null
           raw: Json | null
           responsible: string | null
-          responsible_user_id: string | null
           scouter: string | null
-          status_fluxo: string | null
-          status_tabulacao: string | null
           sync_source: string | null
           sync_status: string | null
-          telefone_casa: string | null
-          telefone_trabalho: string | null
           updated_at: string | null
-          valor_ficha: number | null
         }
         Insert: {
           address?: string | null
           age?: number | null
-          bitrix_telemarketing_id?: number | null
-          cadastro_existe_foto?: boolean | null
-          celular?: string | null
-          commercial_project_id?: string | null
-          compareceu?: boolean | null
-          criado?: string | null
-          data_agendamento?: string | null
-          data_confirmacao_ficha?: string | null
-          data_criacao_agendamento?: string | null
-          data_criacao_ficha?: string | null
-          data_retorno_ligacao?: string | null
           date_modify?: string | null
-          etapa?: string | null
-          etapa_fluxo?: string | null
-          etapa_funil?: string | null
-          ficha_confirmada?: boolean | null
-          fonte?: string | null
-          funil_fichas?: string | null
-          gerenciamento_funil?: string | null
-          gestao_scouter?: string | null
-          horario_agendamento?: string | null
           id: number
           last_sync_at?: string | null
-          local_abordagem?: string | null
-          maxsystem_id_ficha?: string | null
           name?: string | null
-          nome_modelo?: string | null
-          op_telemarketing?: string | null
           photo_url?: string | null
-          presenca_confirmada?: boolean | null
           raw?: Json | null
           responsible?: string | null
-          responsible_user_id?: string | null
           scouter?: string | null
-          status_fluxo?: string | null
-          status_tabulacao?: string | null
           sync_source?: string | null
           sync_status?: string | null
-          telefone_casa?: string | null
-          telefone_trabalho?: string | null
           updated_at?: string | null
-          valor_ficha?: number | null
         }
         Update: {
           address?: string | null
           age?: number | null
-          bitrix_telemarketing_id?: number | null
-          cadastro_existe_foto?: boolean | null
-          celular?: string | null
-          commercial_project_id?: string | null
-          compareceu?: boolean | null
-          criado?: string | null
-          data_agendamento?: string | null
-          data_confirmacao_ficha?: string | null
-          data_criacao_agendamento?: string | null
-          data_criacao_ficha?: string | null
-          data_retorno_ligacao?: string | null
           date_modify?: string | null
-          etapa?: string | null
-          etapa_fluxo?: string | null
-          etapa_funil?: string | null
-          ficha_confirmada?: boolean | null
-          fonte?: string | null
-          funil_fichas?: string | null
-          gerenciamento_funil?: string | null
-          gestao_scouter?: string | null
-          horario_agendamento?: string | null
           id?: number
           last_sync_at?: string | null
-          local_abordagem?: string | null
-          maxsystem_id_ficha?: string | null
           name?: string | null
-          nome_modelo?: string | null
-          op_telemarketing?: string | null
           photo_url?: string | null
-          presenca_confirmada?: boolean | null
           raw?: Json | null
           responsible?: string | null
-          responsible_user_id?: string | null
           scouter?: string | null
-          status_fluxo?: string | null
-          status_tabulacao?: string | null
           sync_source?: string | null
           sync_status?: string | null
-          telefone_casa?: string | null
-          telefone_trabalho?: string | null
           updated_at?: string | null
-          valor_ficha?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "leads_commercial_project_id_fkey"
-            columns: ["commercial_project_id"]
-            isOneToOne: false
-            referencedRelation: "commercial_projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      permissions: {
-        Row: {
-          action: string
-          created_at: string
-          description: string | null
-          id: string
-          label: string
-          name: string
-          resource: string
-          scope: Database["public"]["Enums"]["permission_scope"]
-        }
-        Insert: {
-          action: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          label: string
-          name: string
-          resource: string
-          scope?: Database["public"]["Enums"]["permission_scope"]
-        }
-        Update: {
-          action?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          label?: string
-          name?: string
-          resource?: string
-          scope?: Database["public"]["Enums"]["permission_scope"]
         }
         Relationships: []
       }
@@ -757,74 +394,6 @@ export type Database = {
         }
         Relationships: []
       }
-      role_permissions: {
-        Row: {
-          created_at: string
-          id: string
-          permission_id: string
-          role: Database["public"]["Enums"]["app_role"]
-          scope: Database["public"]["Enums"]["permission_scope"]
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          permission_id: string
-          role: Database["public"]["Enums"]["app_role"]
-          scope: Database["public"]["Enums"]["permission_scope"]
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          permission_id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          scope?: Database["public"]["Enums"]["permission_scope"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "role_permissions_permission_id_fkey"
-            columns: ["permission_id"]
-            isOneToOne: false
-            referencedRelation: "permissions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sync_events: {
-        Row: {
-          created_at: string | null
-          direction: string
-          error_message: string | null
-          event_type: string
-          id: string
-          lead_id: number
-          status: string
-          sync_duration_ms: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          direction: string
-          error_message?: string | null
-          event_type: string
-          id?: string
-          lead_id: number
-          status: string
-          sync_duration_ms?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          direction?: string
-          error_message?: string | null
-          event_type?: string
-          id?: string
-          lead_id?: number
-          status?: string
-          sync_duration_ms?: number | null
-        }
-        Relationships: []
-      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -860,8 +429,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "manager" | "agent" | "supervisor"
-      permission_scope: "global" | "department" | "own"
+      app_role: "admin" | "manager" | "agent"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -989,8 +557,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "agent", "supervisor"],
-      permission_scope: ["global", "department", "own"],
+      app_role: ["admin", "manager", "agent"],
     },
   },
 } as const

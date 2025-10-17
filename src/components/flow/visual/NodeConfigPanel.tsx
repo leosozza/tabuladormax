@@ -16,11 +16,7 @@ import { Trash2, Plus, X } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { 
   FlowStep, 
-  FlowStepTabular,
-  FlowStepBitrixConnector,
-  FlowStepSupabaseConnector,
-  FlowStepChatwootConnector,
-  FlowStepN8NConnector,
+  FlowStepTabular, 
   FlowStepHttpCall, 
   FlowStepWait,
   FlowStepSendMessage,
@@ -101,26 +97,6 @@ export function NodeConfigPanel({ selectedNode, onUpdate, onDelete }: NodeConfig
 
             <div className="border-t pt-4">
               <h4 className="font-medium text-sm mb-3">Configurações Específicas</h4>
-
-              {/* Bitrix Connector */}
-              {step.type === 'bitrix_connector' && (
-                <BitrixConnectorConfig step={step as FlowStepBitrixConnector} updateConfig={updateConfig} />
-              )}
-
-              {/* Supabase Connector */}
-              {step.type === 'supabase_connector' && (
-                <SupabaseConnectorConfig step={step as FlowStepSupabaseConnector} updateConfig={updateConfig} />
-              )}
-
-              {/* Chatwoot Connector */}
-              {step.type === 'chatwoot_connector' && (
-                <ChatwootConnectorConfig step={step as FlowStepChatwootConnector} updateConfig={updateConfig} />
-              )}
-
-              {/* N8N Connector */}
-              {step.type === 'n8n_connector' && (
-                <N8NConnectorConfig step={step as FlowStepN8NConnector} updateConfig={updateConfig} />
-              )}
 
               {/* Tabular */}
               {step.type === 'tabular' && (
@@ -553,142 +529,6 @@ function AssignAgentConfig({ step, updateConfig }: { step: FlowStepAssignAgent; 
           value={step.config.agentId}
           onChange={(e) => updateConfig('agentId', e.target.value)}
           placeholder="123"
-          className="text-sm"
-        />
-      </div>
-    </div>
-  );
-}
-
-// Bitrix Connector Config
-function BitrixConnectorConfig({ step, updateConfig }: { step: FlowStepBitrixConnector; updateConfig: (key: string, value: any) => void }) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <Label className="text-xs">Ação *</Label>
-        <Select value={step.config.action} onValueChange={(val) => updateConfig('action', val)}>
-          <SelectTrigger className="text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="update_lead">Atualizar Lead</SelectItem>
-            <SelectItem value="create_lead">Criar Lead</SelectItem>
-            <SelectItem value="get_lead">Buscar Lead</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label className="text-xs">Webhook URL *</Label>
-        <Input
-          value={step.config.webhook_url}
-          onChange={(e) => updateConfig('webhook_url', e.target.value)}
-          className="text-sm"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label className="text-xs">Campo *</Label>
-          <Input
-            value={step.config.field}
-            onChange={(e) => updateConfig('field', e.target.value)}
-            className="text-sm"
-          />
-        </div>
-        <div>
-          <Label className="text-xs">Valor *</Label>
-          <Input
-            value={step.config.value}
-            onChange={(e) => updateConfig('value', e.target.value)}
-            className="text-sm"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Supabase Connector Config
-function SupabaseConnectorConfig({ step, updateConfig }: { step: FlowStepSupabaseConnector; updateConfig: (key: string, value: any) => void }) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <Label className="text-xs">Ação *</Label>
-        <Select value={step.config.action} onValueChange={(val) => updateConfig('action', val)}>
-          <SelectTrigger className="text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="update">Update</SelectItem>
-            <SelectItem value="insert">Insert</SelectItem>
-            <SelectItem value="select">Select</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label className="text-xs">Tabela *</Label>
-        <Input
-          value={step.config.table}
-          onChange={(e) => updateConfig('table', e.target.value)}
-          className="text-sm"
-        />
-      </div>
-    </div>
-  );
-}
-
-// Chatwoot Connector Config
-function ChatwootConnectorConfig({ step, updateConfig }: { step: FlowStepChatwootConnector; updateConfig: (key: string, value: any) => void }) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <Label className="text-xs">Ação *</Label>
-        <Select value={step.config.action} onValueChange={(val) => updateConfig('action', val)}>
-          <SelectTrigger className="text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="send_message">Enviar Mensagem</SelectItem>
-            <SelectItem value="assign_agent">Atribuir Agente</SelectItem>
-            <SelectItem value="transfer_conversation">Transferir Conversa</SelectItem>
-            <SelectItem value="close_conversation">Fechar Conversa</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      {step.config.conversation_id !== undefined && (
-        <div>
-          <Label className="text-xs">Conversation ID</Label>
-          <Input
-            value={step.config.conversation_id}
-            onChange={(e) => updateConfig('conversation_id', e.target.value)}
-            className="text-sm"
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-// N8N Connector Config
-function N8NConnectorConfig({ step, updateConfig }: { step: FlowStepN8NConnector; updateConfig: (key: string, value: any) => void }) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <Label className="text-xs">Método *</Label>
-        <Select value={step.config.method} onValueChange={(val) => updateConfig('method', val)}>
-          <SelectTrigger className="text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="GET">GET</SelectItem>
-            <SelectItem value="POST">POST</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label className="text-xs">Webhook URL *</Label>
-        <Input
-          value={step.config.webhook_url}
-          onChange={(e) => updateConfig('webhook_url', e.target.value)}
           className="text-sm"
         />
       </div>

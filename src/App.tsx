@@ -14,8 +14,8 @@ import Logs from "./pages/Logs";
 import Users from "./pages/Users";
 import AgentMapping from "./pages/AgentMapping";
 import NotFound from "./pages/NotFound";
+import Departments from "./pages/Departments";
 import Permissions from "./pages/Permissions";
-import SyncMonitor from "./pages/SyncMonitor";
 
 const queryClient = new QueryClient();
 
@@ -32,11 +32,11 @@ const App = () => (
           <Route path="/lead" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute requireSupervisor><Users /></ProtectedRoute>} />
+          <Route path="/departments" element={<ProtectedRoute requireManager><Departments /></ProtectedRoute>} />
           <Route path="/permissions" element={<ProtectedRoute requireAdmin><Permissions /></ProtectedRoute>} />
           <Route path="/config" element={<ProtectedRoute requireManager><Config /></ProtectedRoute>} />
           <Route path="/logs" element={<ProtectedRoute requireManager><Logs /></ProtectedRoute>} />
           <Route path="/agent-mapping" element={<ProtectedRoute requireManager><AgentMapping /></ProtectedRoute>} />
-          <Route path="/sync-monitor" element={<ProtectedRoute requireAdmin><SyncMonitor /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

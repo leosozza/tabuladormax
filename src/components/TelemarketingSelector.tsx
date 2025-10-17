@@ -18,10 +18,9 @@ interface TelemarketingSelectorProps {
   placeholder?: string;
   onPendingCreate?: (name: string | null) => void;
   defaultSearchValue?: string; // Nome preenchido no campo "Nome"
-  disabled?: boolean; // Adicionado para desabilitar o seletor
 }
 
-export function TelemarketingSelector({ value, onChange, placeholder = "Selecione o telemarketing", onPendingCreate, defaultSearchValue, disabled = false }: TelemarketingSelectorProps) {
+export function TelemarketingSelector({ value, onChange, placeholder = "Selecione o telemarketing", onPendingCreate, defaultSearchValue }: TelemarketingSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -159,14 +158,13 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
 
   return (
     <>
-      <Popover open={open} onOpenChange={disabled ? () => {} : setOpen}>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             type="button"
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            disabled={disabled}
             className="w-full justify-between"
           >
             {selectedOption ? (

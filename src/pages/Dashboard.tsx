@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
-import { User, MapPin, Phone, Filter, Settings2, Eye, EyeOff, Cloud, Loader2 } from "lucide-react";
+import { User, MapPin, Phone, RefreshCcw, Loader2, Filter, Settings2, Eye, EyeOff } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,13 +10,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { BitrixError, BitrixLead, listLeads } from "@/lib/bitrix";
+import { CSVImportDialog } from "@/components/CSVImportDialog";
 import { DateFilterSelector } from "@/components/DateFilterSelector";
 import { LeadsListModal } from "@/components/LeadsListModal";
 import { DateFilter, LeadWithDetails } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
 import { isValidUUID } from "@/lib/utils";
 
-// ✅ FASE 3: Expandir interface com TODAS as colunas do Supabase
 interface LeadRow {
   id: number;
   name: string | null;
@@ -27,48 +27,24 @@ interface LeadRow {
   updated_at: string | null;
   responsible: string | null;
   scouter: string | null;
-  etapa: string | null;
-  nome_modelo: string | null;
-  criado: string | null;
-  fonte: string | null;
-  telefone_trabalho: string | null;
-  celular: string | null;
-  telefone_casa: string | null;
-  local_abordagem: string | null;
-  ficha_confirmada: boolean | null;
-  data_criacao_ficha: string | null;
-  data_confirmacao_ficha: string | null;
-  presenca_confirmada: boolean | null;
-  compareceu: boolean | null;
-  cadastro_existe_foto: boolean | null;
-  valor_ficha: number | null;
-  data_criacao_agendamento: string | null;
-  horario_agendamento: string | null;
-  data_agendamento: string | null;
-  gerenciamento_funil: string | null;
-  status_fluxo: string | null;
-  etapa_funil: string | null;
-  etapa_fluxo: string | null;
-  funil_fichas: string | null;
-  status_tabulacao: string | null;
-  maxsystem_id_ficha: string | null;
-  gestao_scouter: string | null;
-  op_telemarketing: string | null;
-  data_retorno_ligacao: string | null;
-  commercial_project_id: string | null;
-  responsible_user_id: string | null;
-  bitrix_telemarketing_id: number | null;
-  sync_status: string | null;
-  sync_source: string | null;
-  last_sync_at: string | null;
-  date_modify: string | null;
 }
+
+const mapBitrixLeadToRow = (lead: BitrixLead): LeadRow => ({
+  id: Number(lead.ID),
+  name: lead.NAME || null,
+  age: lead.UF_IDADE ? Number(lead.UF_IDADE) : null,
+  address: lead.UF_LOCAL || lead.ADDRESS || null,
+  photo_url: lead.UF_PHOTO || lead.PHOTO || null,
+  updated_at: lead.DATE_MODIFY || new Date().toISOString(),
+  responsible: lead.UF_RESPONSAVEL || lead.ASSIGNED_BY_NAME || null,
+  scouter: lead.UF_SCOUTER || null,
+});
 
 const Index = () => {
   const navigate = useNavigate();
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [syncing, setSyncing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAllUsers, setShowAllUsers] = useState(false);
@@ -80,30 +56,15 @@ const Index = () => {
   const [selectedStatusLabel, setSelectedStatusLabel] = useState<string>('');
   const [selectedStatusLeads, setSelectedStatusLeads] = useState<LeadWithDetails[]>([]);
   const [loadingStatusLeads, setLoadingStatusLeads] = useState(false);
-  // ✅ FASE 3: Expandir colunas visíveis com todas as disponíveis
-  const [visibleColumns, setVisibleColumns] = useState(() => {
-    const saved = localStorage.getItem('dashboard_visible_columns');
-    return saved ? JSON.parse(saved) : {
-      id: true,
-      name: true,
-      photo: false,
-      age: false,
-      address: false,
-      scouter: false,
-      responsible: true,
-      updated_at: true,
-      etapa: false,
-      nome_modelo: false,
-      telefone_trabalho: false,
-      celular: false,
-      telefone_casa: false,
-      local_abordagem: false,
-      ficha_confirmada: false,
-      data_agendamento: false,
-      horario_agendamento: false,
-      status_tabulacao: false,
-      op_telemarketing: false,
-    };
+  const [visibleColumns, setVisibleColumns] = useState({
+    id: true,
+    name: true,
+    photo: true,
+    age: true,
+    address: true,
+    scouter: true,
+    responsible: true,
+    updated_at: true,
   });
 
   useEffect(() => {
@@ -148,20 +109,35 @@ const Index = () => {
   const loadLeads = async () => {
     setLoading(true);
     
-    // RLS agora controla automaticamente quais leads o usuário pode ver
-    // Admin/Manager: vê todos
-    // Supervisor: vê apenas do seu projeto
-    // Agent: vê apenas os seus
-    // ✅ FASE 3: Aumentar limite para 200 leads
-    const { data, error } = await supabase
+    let query = supabase
       .from('leads')
       .select('*')
       .order('updated_at', { ascending: false })
-      .limit(200);
+      .limit(50);
+    
+    // SE NÃO FOR ADMIN ou se admin escolheu ver apenas seus dados, filtrar por responsible
+    if ((!isAdmin || !showAllUsers) && currentUserId) {
+      // Buscar nome do usuário no mapeamento Bitrix
+      const { data: mapping } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('bitrix_telemarketing_name')
+        .eq('tabuladormax_user_id', currentUserId)
+        .maybeSingle();
+      
+      if (mapping?.bitrix_telemarketing_name) {
+        // Usar LIKE para match parcial (ex: "Ramon" match "Ramon Melo")
+        query = query.ilike('responsible', `${mapping.bitrix_telemarketing_name.split(' ')[0]}%`);
+      } else {
+        // Fallback: tentar match direto por UUID (não deve acontecer mas é seguro)
+        query = query.eq('responsible', currentUserId);
+      }
+    }
+    
+    const { data, error } = await query;
 
     if (error) {
-      console.error('Erro ao carregar leads:', error);
-      toast.error('Não foi possível carregar os leads');
+      console.error('Erro ao carregar leads do cache:', error);
+      toast.error('Não foi possível carregar os leads do Supabase');
       setLeads([]);
     } else {
       setLeads(data || []);
@@ -379,6 +355,39 @@ const Index = () => {
     }
   };
 
+  const syncFromBitrix = async () => {
+    setSyncing(true);
+    try {
+      const remoteLeads = await listLeads({ limit: 30 });
+      if (remoteLeads.length === 0) {
+        toast.info('Nenhum lead retornado pelo Bitrix');
+        return;
+      }
+
+      const mapped = remoteLeads.map(mapBitrixLeadToRow);
+
+      await supabase.from('leads').upsert(
+        mapped.map(lead => ({
+          id: lead.id,
+          name: lead.name,
+          age: lead.age,
+          address: lead.address,
+          photo_url: lead.photo_url,
+          updated_at: lead.updated_at,
+          responsible: lead.responsible,
+          scouter: lead.scouter,
+        }))
+      );
+
+      toast.success('Leads sincronizados com o Bitrix!');
+      await loadLeads();
+    } catch (error) {
+      console.error('Erro ao sincronizar com o Bitrix:', error);
+      toast.error(error instanceof BitrixError ? error.message : 'Falha ao sincronizar com o Bitrix');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const activeTotal = useMemo(() => leads.length, [leads]);
   const scheduledCount = useMemo(() => {
@@ -389,13 +398,6 @@ const Index = () => {
     // FASE 3: Somar TODAS as ações de hoje, não apenas updated_at
     return Object.values(actionStats).reduce((sum, count) => sum + count, 0);
   }, [actionStats]);
-
-  // ✅ FASE 3: Adicionar mais colunas ao controle
-  const toggleColumn = (columnKey: keyof typeof visibleColumns) => {
-    const newColumns = { ...visibleColumns, [columnKey]: !visibleColumns[columnKey] };
-    setVisibleColumns(newColumns);
-    localStorage.setItem('dashboard_visible_columns', JSON.stringify(newColumns));
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -412,26 +414,21 @@ const Index = () => {
             </div>
             <div className="flex gap-2 items-center">
               {isAdmin && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate('/sync-monitor')}
-                    title="Central de Sincronização"
-                  >
-                    <Cloud className="w-4 h-4 mr-2" />
-                    Central de Sincronização
-                  </Button>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input 
-                      type="checkbox" 
-                      checked={showAllUsers}
-                      onChange={(e) => setShowAllUsers(e.target.checked)}
-                      className="rounded"
-                    />
-                    <span>Ver todos os usuários</span>
-                  </label>
-                </>
+                <label className="flex items-center gap-2 text-sm">
+                  <input 
+                    type="checkbox" 
+                    checked={showAllUsers}
+                    onChange={(e) => setShowAllUsers(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>Ver todos os usuários</span>
+                </label>
               )}
+              <CSVImportDialog onImportComplete={loadLeads} />
+              <Button onClick={syncFromBitrix} disabled={syncing} className="gap-2">
+                {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                {syncing ? 'Sincronizando...' : 'Sincronizar com Bitrix'}
+              </Button>
               <UserMenu />
             </div>
           </div>
@@ -565,71 +562,78 @@ const Index = () => {
                 <PopoverContent className="w-64 bg-background" align="end">
                   <div className="space-y-3">
                     <h4 className="font-medium text-sm">Colunas Visíveis</h4>
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {/* ✅ FASE 3: Adicionar todas as colunas disponíveis */}
+                    <div className="space-y-2">
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.id} onCheckedChange={() => toggleColumn('id')} />
+                        <Checkbox
+                          checked={visibleColumns.id}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, id: checked as boolean })
+                          }
+                        />
                         <span className="text-sm">ID</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.name} onCheckedChange={() => toggleColumn('name')} />
-                        <span className="text-sm">Nome</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.photo} onCheckedChange={() => toggleColumn('photo')} />
+                        <Checkbox
+                          checked={visibleColumns.photo}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, photo: checked as boolean })
+                          }
+                        />
                         <span className="text-sm">Foto</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.age} onCheckedChange={() => toggleColumn('age')} />
+                        <Checkbox
+                          checked={visibleColumns.name}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, name: checked as boolean })
+                          }
+                        />
+                        <span className="text-sm">Nome</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={visibleColumns.age}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, age: checked as boolean })
+                          }
+                        />
                         <span className="text-sm">Idade</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.address} onCheckedChange={() => toggleColumn('address')} />
-                        <span className="text-sm">Endereço</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.scouter} onCheckedChange={() => toggleColumn('scouter')} />
+                        <Checkbox
+                          checked={visibleColumns.scouter}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, scouter: checked as boolean })
+                          }
+                        />
                         <span className="text-sm">Olheiro</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.responsible} onCheckedChange={() => toggleColumn('responsible')} />
+                        <Checkbox
+                          checked={visibleColumns.address}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, address: checked as boolean })
+                          }
+                        />
+                        <span className="text-sm">Endereço</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={visibleColumns.responsible}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, responsible: checked as boolean })
+                          }
+                        />
                         <span className="text-sm">Operador</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.updated_at} onCheckedChange={() => toggleColumn('updated_at')} />
+                        <Checkbox
+                          checked={visibleColumns.updated_at}
+                          onCheckedChange={(checked) => 
+                            setVisibleColumns({ ...visibleColumns, updated_at: checked as boolean })
+                          }
+                        />
                         <span className="text-sm">Atualizado</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.etapa} onCheckedChange={() => toggleColumn('etapa')} />
-                        <span className="text-sm">Etapa</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.telefone_trabalho} onCheckedChange={() => toggleColumn('telefone_trabalho')} />
-                        <span className="text-sm">Telefone Trabalho</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.celular} onCheckedChange={() => toggleColumn('celular')} />
-                        <span className="text-sm">Celular</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.local_abordagem} onCheckedChange={() => toggleColumn('local_abordagem')} />
-                        <span className="text-sm">Local Abordagem</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.data_agendamento} onCheckedChange={() => toggleColumn('data_agendamento')} />
-                        <span className="text-sm">Data Agendamento</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.horario_agendamento} onCheckedChange={() => toggleColumn('horario_agendamento')} />
-                        <span className="text-sm">Horário Agendamento</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.status_tabulacao} onCheckedChange={() => toggleColumn('status_tabulacao')} />
-                        <span className="text-sm">Status Tabulação</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={visibleColumns.op_telemarketing} onCheckedChange={() => toggleColumn('op_telemarketing')} />
-                        <span className="text-sm">OP Telemarketing</span>
                       </label>
                     </div>
                   </div>
@@ -656,14 +660,6 @@ const Index = () => {
                     {visibleColumns.address && <TableHead>Endereço</TableHead>}
                     {visibleColumns.responsible && <TableHead>Operador</TableHead>}
                     {visibleColumns.updated_at && <TableHead className="w-40">Atualizado</TableHead>}
-                    {visibleColumns.etapa && <TableHead>Etapa</TableHead>}
-                    {visibleColumns.telefone_trabalho && <TableHead>Tel. Trabalho</TableHead>}
-                    {visibleColumns.celular && <TableHead>Celular</TableHead>}
-                    {visibleColumns.local_abordagem && <TableHead>Local</TableHead>}
-                    {visibleColumns.data_agendamento && <TableHead>Data Agend.</TableHead>}
-                    {visibleColumns.horario_agendamento && <TableHead>Horário</TableHead>}
-                    {visibleColumns.status_tabulacao && <TableHead>Status Tab.</TableHead>}
-                    {visibleColumns.op_telemarketing && <TableHead>OP Telem.</TableHead>}
                     <TableHead className="w-32">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -703,68 +699,6 @@ const Index = () => {
                       {visibleColumns.address && (
                         <TableCell className="max-w-xs truncate">
                           {lead.address || '-'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.etapa && <TableCell>{lead.etapa || '-'}</TableCell>}
-                      {visibleColumns.nome_modelo && <TableCell>{lead.nome_modelo || '-'}</TableCell>}
-                      {visibleColumns.fonte && <TableCell>{lead.fonte || '-'}</TableCell>}
-                      {visibleColumns.telefone_trabalho && <TableCell>{lead.telefone_trabalho || '-'}</TableCell>}
-                      {visibleColumns.celular && <TableCell>{lead.celular || '-'}</TableCell>}
-                      {visibleColumns.telefone_casa && <TableCell>{lead.telefone_casa || '-'}</TableCell>}
-                      {visibleColumns.local_abordagem && <TableCell>{lead.local_abordagem || '-'}</TableCell>}
-                      {visibleColumns.horario_agendamento && <TableCell>{lead.horario_agendamento || '-'}</TableCell>}
-                      {visibleColumns.gerenciamento_funil && <TableCell>{lead.gerenciamento_funil || '-'}</TableCell>}
-                      {visibleColumns.status_fluxo && <TableCell>{lead.status_fluxo || '-'}</TableCell>}
-                      {visibleColumns.etapa_funil && <TableCell>{lead.etapa_funil || '-'}</TableCell>}
-                      {visibleColumns.etapa_fluxo && <TableCell>{lead.etapa_fluxo || '-'}</TableCell>}
-                      {visibleColumns.funil_fichas && <TableCell>{lead.funil_fichas || '-'}</TableCell>}
-                      {visibleColumns.status_tabulacao && <TableCell>{lead.status_tabulacao || '-'}</TableCell>}
-                      {visibleColumns.maxsystem_id_ficha && <TableCell>{lead.maxsystem_id_ficha || '-'}</TableCell>}
-                      {visibleColumns.gestao_scouter && <TableCell>{lead.gestao_scouter || '-'}</TableCell>}
-                      {visibleColumns.op_telemarketing && <TableCell>{lead.op_telemarketing || '-'}</TableCell>}
-                      {visibleColumns.valor_ficha && <TableCell>{lead.valor_ficha || '-'}</TableCell>}
-                      {visibleColumns.cadastro_existe_foto && <TableCell>{lead.cadastro_existe_foto ? 'Sim' : 'Não'}</TableCell>}
-                      {visibleColumns.compareceu && <TableCell>{lead.compareceu ? 'Sim' : 'Não'}</TableCell>}
-                      {visibleColumns.presenca_confirmada && <TableCell>{lead.presenca_confirmada ? 'Sim' : 'Não'}</TableCell>}
-                      {visibleColumns.ficha_confirmada && <TableCell>{lead.ficha_confirmada ? 'Sim' : 'Não'}</TableCell>}
-                      {visibleColumns.data_agendamento && (
-                        <TableCell>
-                          {lead.data_agendamento ? format(new Date(lead.data_agendamento), 'dd/MM/yyyy') : '-'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.data_retorno_ligacao && (
-                        <TableCell>
-                          {lead.data_retorno_ligacao ? format(new Date(lead.data_retorno_ligacao), 'dd/MM/yyyy HH:mm') : '-'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.data_confirmacao_ficha && (
-                        <TableCell>
-                          {lead.data_confirmacao_ficha ? format(new Date(lead.data_confirmacao_ficha), 'dd/MM/yyyy HH:mm') : '-'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.data_criacao_ficha && (
-                        <TableCell>
-                          {lead.data_criacao_ficha ? format(new Date(lead.data_criacao_ficha), 'dd/MM/yyyy HH:mm') : '-'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.data_criacao_agendamento && (
-                        <TableCell>
-                          {lead.data_criacao_agendamento ? format(new Date(lead.data_criacao_agendamento), 'dd/MM/yyyy HH:mm') : '-'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.criado && (
-                        <TableCell>
-                          {lead.criado ? format(new Date(lead.criado), 'dd/MM/yyyy HH:mm') : '-'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.date_modify && (
-                        <TableCell>
-                          {lead.date_modify ? format(new Date(lead.date_modify), 'dd/MM/yyyy HH:mm') : '-'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.last_sync_at && (
-                        <TableCell>
-                          {lead.last_sync_at ? format(new Date(lead.last_sync_at), 'dd/MM/yyyy HH:mm') : '-'}
                         </TableCell>
                       )}
                       {visibleColumns.responsible && (

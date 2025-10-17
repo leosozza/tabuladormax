@@ -8,7 +8,6 @@ interface ButtonConfig {
   id: string;
   label: string;
   description?: string;
-  color: string;
   webhook_url: string;
   field: string;
   value: string;
@@ -16,7 +15,6 @@ interface ButtonConfig {
   action_type: string;
   additional_fields?: Array<{ field: string; value: string }>;
   transfer_conversation?: boolean;
-  sync_target?: 'bitrix' | 'supabase';
   sub_buttons?: Array<{
     subLabel: string;
     subDescription?: string;
@@ -30,101 +28,71 @@ interface ButtonConfig {
 
 /**
  * Creates a Flow from a button configuration
- * Converts button actions into proper connector steps (Bitrix, Supabase, Chatwoot)
+ * Converts button actions (tabular, http_call) into Flow steps
  */
 export function createFlowFromButton(buttonConfig: ButtonConfig): Flow {
   const steps: FlowStep[] = [];
   
-  // 1️⃣ Criar BitrixConnector baseado na config do botão
-  const bitrixStep: FlowStep = {
-    id: `bitrix-${buttonConfig.id}`,
-    type: 'bitrix_connector',
-    nome: `Atualizar Bitrix: ${buttonConfig.label}`,
-    descricao: buttonConfig.description || `Atualiza o campo ${buttonConfig.field} no Bitrix`,
-    config: {
-      action: 'update_lead',
-      webhook_url: buttonConfig.webhook_url,
-      field: buttonConfig.field,
-      value: buttonConfig.value,
-      field_type: buttonConfig.field_type || 'string',
-      additional_fields: buttonConfig.additional_fields || [],
-      lead_id: '{{leadId}}' // Placeholder
-    }
-  };
-  steps.push(bitrixStep);
-  
-  // 2️⃣ Se transfer_conversation = true, adicionar ChatwootConnector
-  if (buttonConfig.transfer_conversation) {
-    const chatwootStep: FlowStep = {
-      id: `chatwoot-${buttonConfig.id}`,
-      type: 'chatwoot_connector',
-      nome: 'Transferir Conversa',
-      descricao: 'Transfere a conversa para outro agente',
+  // Main button action as first step
+  if (buttonConfig.action_type === 'tabular' || !buttonConfig.action_type) {
+    // Create tabular step
+    const step: FlowStep = {
+      id: `step-main-${buttonConfig.id}`,
+      type: 'tabular',
+      nome: buttonConfig.label,
+      descricao: buttonConfig.description,
       config: {
-        action: 'transfer_conversation',
-        conversation_id: '{{conversationId}}',
-        agent_id: '{{targetAgentId}}'
+        buttonId: buttonConfig.id,
+        webhook_url: buttonConfig.webhook_url,
+        field: buttonConfig.field,
+        value: buttonConfig.value,
+        field_type: buttonConfig.field_type,
+        additional_fields: buttonConfig.additional_fields || [],
+        transfer_conversation: buttonConfig.transfer_conversation || false
       }
     };
-    steps.push(chatwootStep);
-  }
-  
-  // 3️⃣ Se sync_target = 'supabase', adicionar SupabaseConnector
-  if (buttonConfig.sync_target === 'supabase') {
-    const supabaseStep: FlowStep = {
-      id: `supabase-${buttonConfig.id}`,
-      type: 'supabase_connector',
-      nome: 'Atualizar Supabase',
-      descricao: 'Sincroniza dados no banco local',
+    steps.push(step);
+  } else if (buttonConfig.action_type === 'http_call' && buttonConfig.webhook_url) {
+    // Create HTTP call step
+    const step: FlowStep = {
+      id: `step-main-${buttonConfig.id}`,
+      type: 'http_call',
+      nome: buttonConfig.label,
+      descricao: buttonConfig.description,
       config: {
-        action: 'update',
-        table: 'leads',
-        filters: { id: '{{leadId}}' },
-        data: {
-          [buttonConfig.field]: buttonConfig.value,
-          updated_at: '{{now}}',
-          sync_status: 'synced'
+        url: buttonConfig.webhook_url,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: {
+          field: buttonConfig.field,
+          value: buttonConfig.value,
+          additional_fields: buttonConfig.additional_fields || []
         }
       }
     };
-    steps.push(supabaseStep);
+    steps.push(step);
   }
-  
-  // 4️⃣ Adicionar sub-buttons como steps separados
+
+  // Add sub-buttons as additional steps
   if (buttonConfig.sub_buttons && buttonConfig.sub_buttons.length > 0) {
     buttonConfig.sub_buttons.forEach((subButton, index) => {
       const subStep: FlowStep = {
-        id: `bitrix-sub-${buttonConfig.id}-${index}`,
-        type: 'bitrix_connector',
-        nome: `Sub-ação: ${subButton.subLabel}`,
-        descricao: subButton.subDescription || `Atualiza ${subButton.subField} com ${subButton.subValue}`,
+        id: `step-sub-${buttonConfig.id}-${index}`,
+        type: 'tabular',
+        nome: subButton.subLabel,
+        descricao: subButton.subDescription,
         config: {
-          action: 'update_lead',
+          buttonId: `${buttonConfig.id}-sub-${index}`,
           webhook_url: subButton.subWebhook,
           field: subButton.subField,
           value: subButton.subValue,
-          field_type: 'string',
           additional_fields: subButton.subAdditionalFields || [],
-          lead_id: '{{leadId}}'
+          transfer_conversation: subButton.transfer_conversation || false
         }
       };
       steps.push(subStep);
-      
-      // Se sub-button tem transfer_conversation, adicionar Chatwoot step
-      if (subButton.transfer_conversation) {
-        const chatwootSubStep: FlowStep = {
-          id: `chatwoot-sub-${buttonConfig.id}-${index}`,
-          type: 'chatwoot_connector',
-          nome: `Transferir Conversa: ${subButton.subLabel}`,
-          descricao: 'Transfere conversa após executar sub-ação',
-          config: {
-            action: 'transfer_conversation',
-            conversation_id: '{{conversationId}}',
-            agent_id: '{{targetAgentId}}'
-          }
-        };
-        steps.push(chatwootSubStep);
-      }
     });
   }
 
@@ -132,7 +100,7 @@ export function createFlowFromButton(buttonConfig: ButtonConfig): Flow {
   const flow: Flow = {
     id: '', // Empty for new flows
     nome: `Flow: ${buttonConfig.label}`,
-    descricao: buttonConfig.description || `Automação gerada do botão ${buttonConfig.label}`,
+    descricao: buttonConfig.description || `Flow gerado a partir do botão ${buttonConfig.label}`,
     steps,
     ativo: true,
     criado_em: new Date().toISOString(),
