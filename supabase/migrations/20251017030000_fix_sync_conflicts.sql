@@ -121,15 +121,10 @@ CREATE TRIGGER sync_lead_to_bitrix_on_update
   BEFORE UPDATE ON public.leads
   FOR EACH ROW
   WHEN (
-    -- Só dispara se não for origem bitrix, supabase ou gestao-scouter
-    OLD.sync_source IS DISTINCT FROM 'bitrix'
-    AND NEW.sync_source IS DISTINCT FROM 'bitrix'
-    AND OLD.sync_source IS DISTINCT FROM 'supabase'
-    AND NEW.sync_source IS DISTINCT FROM 'supabase'
-    AND OLD.sync_source IS DISTINCT FROM 'gestao_scouter'
-    AND NEW.sync_source IS DISTINCT FROM 'gestao_scouter'
-    AND OLD.sync_source IS DISTINCT FROM 'gestao-scouter'
-    AND NEW.sync_source IS DISTINCT FROM 'gestao-scouter'
+    -- Só dispara se sync_source não for um dos sistemas conhecidos
+    -- Aceita ambos 'gestao_scouter' e 'gestao-scouter' para compatibilidade
+    COALESCE(NEW.sync_source, '') NOT IN ('bitrix', 'supabase', 'gestao_scouter', 'gestao-scouter')
+    AND COALESCE(OLD.sync_source, '') NOT IN ('bitrix', 'supabase', 'gestao_scouter', 'gestao-scouter')
   )
   EXECUTE FUNCTION public.trigger_sync_to_bitrix();
 
@@ -150,6 +145,10 @@ WHERE NOT EXISTS (
 );
 
 -- 5. Adicionar comentários explicativos
-COMMENT ON COLUMN public.leads.sync_source IS 'Origem da última sincronização: bitrix, supabase, gestao_scouter, csv';
+COMMENT ON COLUMN public.leads.sync_source IS 'Origem da última sincronização: bitrix, supabase, gestao_scouter, csv. Nota: Aceita tanto gestao_scouter quanto gestao-scouter para compatibilidade com diferentes versões do sistema.';
 COMMENT ON COLUMN public.leads.sync_status IS 'Status da última sincronização: synced, syncing, error, pending';
 COMMENT ON COLUMN public.leads.last_sync_at IS 'Data/hora da última sincronização bem-sucedida';
+
+-- NOTA IMPORTANTE: O sistema aceita tanto 'gestao_scouter' (com underscore) quanto 
+-- 'gestao-scouter' (com hífen) para garantir compatibilidade. O padrão recomendado
+-- é usar 'gestao_scouter' para consistência com os nomes de tabelas SQL.

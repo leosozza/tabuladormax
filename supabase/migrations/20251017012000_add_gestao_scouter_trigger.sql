@@ -119,11 +119,9 @@ CREATE TRIGGER sync_lead_to_gestao_scouter_on_update
   AFTER UPDATE ON public.leads
   FOR EACH ROW
   WHEN (
-    -- Só dispara se não for origem gestao-scouter
-    OLD.sync_source IS DISTINCT FROM 'gestao_scouter' 
-    AND NEW.sync_source IS DISTINCT FROM 'gestao_scouter'
-    AND OLD.sync_source IS DISTINCT FROM 'gestao-scouter'
-    AND NEW.sync_source IS DISTINCT FROM 'gestao-scouter'
+    -- Só dispara se sync_source não for gestao_scouter (aceita ambas as variações)
+    COALESCE(NEW.sync_source, '') NOT IN ('gestao_scouter', 'gestao-scouter')
+    AND COALESCE(OLD.sync_source, '') NOT IN ('gestao_scouter', 'gestao-scouter')
   )
   EXECUTE FUNCTION public.trigger_sync_to_gestao_scouter();
 
