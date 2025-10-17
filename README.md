@@ -119,3 +119,59 @@ supabase db push
 
 See [docs/README.md](./docs/README.md) for detailed migration guides.
 
+## Configuration
+
+### Gestão Scouter Integration Setup
+
+TabuladorMax integrates with Gestão Scouter for lead synchronization. Configure the integration using the `gestao_scouter_config` table.
+
+#### Quick Setup (5 minutes)
+
+1. **Apply the migration** (if not already done):
+   ```bash
+   # Via Supabase Dashboard: Run the SQL from
+   supabase/migrations/tabuladormax_gestao_scouter_config.sql
+   
+   # Or via CLI
+   supabase db push
+   ```
+
+2. **Configure your Gestão Scouter credentials**:
+   ```sql
+   -- Update the example configuration
+   UPDATE public.gestao_scouter_config 
+   SET 
+     project_url = 'https://your-project.supabase.co',
+     anon_key = 'your-actual-anon-key',
+     active = true,
+     sync_enabled = false  -- Test first, then enable
+   WHERE id = 1;
+   ```
+
+3. **Verify the configuration**:
+   ```sql
+   SELECT * FROM public.gestao_scouter_config WHERE active = true;
+   ```
+
+#### Documentation
+
+- 📘 [Quick Setup Guide](./QUICK_SETUP_GESTAO_SCOUTER_CONFIG.md) - 5-minute setup
+- 📚 [Detailed Table Setup](./TABULADORMAX_CONFIG_TABLE_SETUP.md) - Complete reference
+- 🏗️ [Architecture Overview](./GESTAO_SCOUTER_CONFIG_ARCHITECTURE.md) - System design
+- 💻 [Implementation Guide](./IMPLEMENTATION_GESTAO_SCOUTER_CONFIG.md) - Code examples
+
+#### Features
+
+- ✅ Secure configuration storage with RLS policies
+- ✅ URL format validation
+- ✅ Single active configuration enforcement
+- ✅ Automatic timestamp tracking
+- ✅ Public read / Authenticated write access
+- ✅ Optimized indexes for fast queries
+
+#### Requirements
+
+- Gestão Scouter Supabase project URL
+- Anonymous (anon) key from Gestão Scouter
+- Authenticated TabuladorMax user for configuration changes
+
