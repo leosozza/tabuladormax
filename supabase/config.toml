@@ -38,3 +38,12 @@ verify_jwt = true
 
 [functions.sync-bitrix-commercial-projects]
 verify_jwt = false
+
+[functions.sync-to-gestao-scouter]
+verify_jwt = false
+
+[functions.sync-from-gestao-scouter]
+verify_jwt = false
+
+[functions.export-to-gestao-scouter-batch]
+verify_jwt = true

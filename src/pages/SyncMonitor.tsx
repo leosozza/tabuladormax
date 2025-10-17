@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft } from "lucide-react";
 import { MetricsCards } from "@/components/sync/MetricsCards";
+import { GestaoScouterMetrics } from "@/components/sync/GestaoScouterMetrics";
 import { PeriodSelector } from "@/components/sync/PeriodSelector";
 import { SyncTimelineChart } from "@/components/sync/SyncTimelineChart";
 import { SyncDirectionChart } from "@/components/sync/SyncDirectionChart";
 import { SyncLogsTable } from "@/components/sync/SyncLogsTable";
 import { BitrixImportTab } from "@/components/sync/BitrixImportTab";
 import { CSVImportTab } from "@/components/sync/CSVImportTab";
+import { GestaoScouterExportTab } from "@/components/sync/GestaoScouterExportTab";
 import { BatchUpdateTab } from "@/components/sync/BatchUpdateTab";
 import { Period } from "@/lib/syncUtils";
 import UserMenu from "@/components/UserMenu";
@@ -56,8 +58,12 @@ export default function SyncMonitor() {
           {/* Tab de Monitoramento (conteúdo atual) */}
           <TabsContent value="monitoring" className="space-y-6">
             <div>
-              <h2 className="text-xl font-semibold mb-4">Métricas em Tempo Real</h2>
+              <h2 className="text-xl font-semibold mb-4">Métricas em Tempo Real - Bitrix</h2>
               <MetricsCards />
+            </div>
+
+            <div className="mt-8">
+              <GestaoScouterMetrics />
             </div>
 
             <div className="flex items-center gap-4">
@@ -78,6 +84,7 @@ export default function SyncMonitor() {
               <TabsList>
                 <TabsTrigger value="bitrix">Bitrix</TabsTrigger>
                 <TabsTrigger value="csv">CSV</TabsTrigger>
+                <TabsTrigger value="gestao-scouter">Gestão Scouter</TabsTrigger>
               </TabsList>
 
               <TabsContent value="bitrix">
@@ -86,6 +93,10 @@ export default function SyncMonitor() {
 
               <TabsContent value="csv">
                 <CSVImportTab />
+              </TabsContent>
+
+              <TabsContent value="gestao-scouter">
+                <GestaoScouterExportTab />
               </TabsContent>
             </Tabs>
           </TabsContent>
