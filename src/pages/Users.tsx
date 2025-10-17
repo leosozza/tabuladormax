@@ -299,6 +299,8 @@ export default function Users() {
 
   const loadUsers = async () => {
     setLoading(true);
+    
+    // QUERY 1: Buscar todos os profiles
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, email, display_name, created_at')
@@ -310,58 +312,108 @@ export default function Users() {
       return;
     }
 
-    // Buscar roles e mapeamentos de cada usuário
-    const usersWithRoles: UserWithRole[] = [];
-    for (const profile of profiles || []) {
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', profile.id)
-        .maybeSingle();
-
-      // Buscar mapeamento de telemarketing e projeto comercial
-      const { data: mappingData } = await supabase
-        .from('agent_telemarketing_mapping')
-        .select(`
-          bitrix_telemarketing_name,
-          bitrix_telemarketing_id,
-          commercial_project_id,
-          supervisor_id
-        `)
-        .eq('tabuladormax_user_id', profile.id)
-        .maybeSingle();
-
-      let projectName, supervisorName;
-
-      if (mappingData?.commercial_project_id) {
-        const { data: proj } = await supabase
-          .from('commercial_projects')
-          .select('name')
-          .eq('id', mappingData.commercial_project_id)
-          .maybeSingle();
-        projectName = proj?.name;
-      }
-
-      if (mappingData?.supervisor_id) {
-        const { data: sup } = await supabase
-          .from('profiles')
-          .select('display_name')
-          .eq('id', mappingData.supervisor_id)
-          .maybeSingle();
-        supervisorName = sup?.display_name;
-      }
-
-      usersWithRoles.push({
-        ...profile,
-        role: roleData?.role as any || 'agent',
-        telemarketing_name: (mappingData as any)?.bitrix_telemarketing_name,
-        telemarketing_id: (mappingData as any)?.bitrix_telemarketing_id,
-        project_name: projectName,
-        project_id: (mappingData as any)?.commercial_project_id,
-        supervisor_name: supervisorName,
-        supervisor_id: (mappingData as any)?.supervisor_id,
-      });
+    if (!profiles || profiles.length === 0) {
+      setUsers([]);
+      setLoading(false);
+      return;
     }
+
+    const userIds = profiles.map(p => p.id);
+
+    // QUERY 2: Buscar todas as roles em lote
+    const { data: rolesData } = await supabase
+      .from('user_roles')
+      .select('user_id, role')
+      .in('user_id', userIds);
+
+    // QUERY 3: Buscar todos os mapeamentos em lote
+    const { data: mappingsData } = await supabase
+      .from('agent_telemarketing_mapping')
+      .select(`
+        tabuladormax_user_id,
+        bitrix_telemarketing_name,
+        bitrix_telemarketing_id,
+        commercial_project_id,
+        supervisor_id
+      `)
+      .in('tabuladormax_user_id', userIds);
+
+    // Extrair IDs únicos de projetos e supervisores
+    const projectIds = [...new Set(
+      (mappingsData || [])
+        .map(m => m.commercial_project_id)
+        .filter(Boolean)
+    )] as string[];
+
+    const supervisorIds = [...new Set(
+      (mappingsData || [])
+        .map(m => m.supervisor_id)
+        .filter(Boolean)
+    )] as string[];
+
+    // QUERY 4: Buscar todos os projetos em lote (se houver)
+    let projectsMap = new Map<string, string>();
+    if (projectIds.length > 0) {
+      const { data: projectsData } = await supabase
+        .from('commercial_projects')
+        .select('id, name')
+        .in('id', projectIds);
+
+      if (projectsData) {
+        projectsData.forEach(proj => {
+          projectsMap.set(proj.id, proj.name);
+        });
+      }
+    }
+
+    // QUERY 5: Buscar todos os supervisores em lote (se houver)
+    let supervisorsMap = new Map<string, string>();
+    if (supervisorIds.length > 0) {
+      const { data: supervisorsData } = await supabase
+        .from('profiles')
+        .select('id, display_name')
+        .in('id', supervisorIds);
+
+      if (supervisorsData) {
+        supervisorsData.forEach(sup => {
+          supervisorsMap.set(sup.id, sup.display_name);
+        });
+      }
+    }
+
+    // Criar mapas para acesso rápido
+    const rolesMap = new Map(
+      (rolesData || []).map(r => [r.user_id, r.role])
+    );
+
+    const mappingsMap = new Map(
+      (mappingsData || []).map(m => [m.tabuladormax_user_id, m])
+    );
+
+    // Merge dos resultados em memória
+    const usersWithRoles: UserWithRole[] = profiles.map(profile => {
+      const roleData = rolesMap.get(profile.id);
+      const mappingData = mappingsMap.get(profile.id);
+      
+      const projectName = mappingData?.commercial_project_id 
+        ? projectsMap.get(mappingData.commercial_project_id)
+        : undefined;
+      
+      const supervisorName = mappingData?.supervisor_id 
+        ? supervisorsMap.get(mappingData.supervisor_id)
+        : undefined;
+
+      return {
+        ...profile,
+        role: roleData as any || 'agent',
+        telemarketing_name: mappingData?.bitrix_telemarketing_name,
+        telemarketing_id: mappingData?.bitrix_telemarketing_id,
+        project_name: projectName,
+        project_id: mappingData?.commercial_project_id,
+        supervisor_name: supervisorName,
+        supervisor_id: mappingData?.supervisor_id,
+      };
+    });
 
     setUsers(usersWithRoles);
     setLoading(false);
