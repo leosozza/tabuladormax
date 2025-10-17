@@ -126,12 +126,9 @@ if (source === 'gestao_scouter' || source === 'gestao-scouter') {
 ```
 
 ### 4. Reset de sync_source
-```plpgsql
-IF NEW.sync_source IN ('gestao_scouter', ...) THEN
-  NEW.sync_source := NULL;
-  RETURN NEW;
-END IF;
-```
+O campo `sync_source` permanece com seu valor após a sincronização. As atualizações subsequentes do mesmo sistema não disparam novos triggers devido à cláusula WHEN que verifica se o `sync_source` é diferente do sistema de destino.
+
+**Nota:** Em triggers AFTER UPDATE, não é possível modificar o registro NEW. O campo sync_source mantém seu valor original e a prevenção de loops é feita pela cláusula WHEN do trigger.
 
 ## Resolução de Conflitos
 

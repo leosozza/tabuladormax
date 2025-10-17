@@ -17,14 +17,9 @@ DECLARE
   service_key text;
   config_exists boolean;
 BEGIN
-  -- Ignorar quando sync_source é 'gestao_scouter' ou 'gestao-scouter' para evitar loops
-  -- Nota: Este é um AFTER trigger, então não podemos modificar NEW
-  -- A verificação é redundante com a cláusula WHEN do trigger, mas mantemos para segurança
-  IF NEW.sync_source IN ('gestao_scouter', 'gestao-scouter') THEN
-    RAISE NOTICE 'Ignorando trigger gestao-scouter - origem é %', NEW.sync_source;
-    RETURN NEW;
-  END IF;
-
+  -- A verificação de sync_source é feita pela cláusula WHEN do trigger
+  -- Este é um AFTER trigger, então não podemos modificar NEW
+  
   -- Verificar se a sincronização com gestao-scouter está habilitada
   SELECT EXISTS(
     SELECT 1 FROM gestao_scouter_config 

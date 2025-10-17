@@ -60,7 +60,7 @@ ORDER BY created_at DESC;
 
 **Resultado esperado:**
 - NÃO deve haver registros de sincronização para Bitrix
-- sync_source deve ter sido resetado para NULL
+- O trigger do Bitrix deve ter sido ignorado devido à cláusula WHEN
 
 ### Teste 2: Update vindo de Gestão Scouter não deve acionar trigger de volta
 ```sql

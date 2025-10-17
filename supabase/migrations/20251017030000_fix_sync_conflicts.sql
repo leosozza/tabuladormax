@@ -61,13 +61,10 @@ DECLARE
   supabase_url text;
   service_key text;
 BEGIN
-  -- Ignorar quando sync_source é 'bitrix', 'supabase' ou 'gestao_scouter' para evitar loops
-  IF NEW.sync_source IN ('bitrix', 'supabase', 'gestao_scouter', 'gestao-scouter') THEN
-    RAISE NOTICE 'Ignorando trigger bitrix - origem é %', NEW.sync_source;
-    NEW.sync_source := NULL;
-    RETURN NEW;
-  END IF;
-
+  -- A verificação de sync_source é feita pela cláusula WHEN do trigger
+  -- Este é um BEFORE trigger, então podemos modificar NEW se necessário
+  -- Mas como a WHEN clause já filtra, não precisamos verificar novamente
+  
   -- Obter URL e chave do Supabase
   SELECT decrypted_secret INTO supabase_url
   FROM vault.decrypted_secrets 
@@ -117,12 +114,23 @@ BEGIN
 END;
 $function$;
 
--- Recriar trigger
+-- Recriar trigger com WHEN clause para melhor performance
 DROP TRIGGER IF EXISTS sync_lead_to_bitrix_on_update ON public.leads;
 
 CREATE TRIGGER sync_lead_to_bitrix_on_update
   BEFORE UPDATE ON public.leads
   FOR EACH ROW
+  WHEN (
+    -- Só dispara se não for origem bitrix, supabase ou gestao-scouter
+    OLD.sync_source IS DISTINCT FROM 'bitrix'
+    AND NEW.sync_source IS DISTINCT FROM 'bitrix'
+    AND OLD.sync_source IS DISTINCT FROM 'supabase'
+    AND NEW.sync_source IS DISTINCT FROM 'supabase'
+    AND OLD.sync_source IS DISTINCT FROM 'gestao_scouter'
+    AND NEW.sync_source IS DISTINCT FROM 'gestao_scouter'
+    AND OLD.sync_source IS DISTINCT FROM 'gestao-scouter'
+    AND NEW.sync_source IS DISTINCT FROM 'gestao-scouter'
+  )
   EXECUTE FUNCTION public.trigger_sync_to_bitrix();
 
 -- 4. Popular gestao_scouter_config com configuração padrão (se não existir)
