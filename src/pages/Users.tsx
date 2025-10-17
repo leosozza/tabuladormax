@@ -54,6 +54,7 @@ export default function Users() {
   const [newUserProject, setNewUserProject] = useState("");
   const [newUserSupervisor, setNewUserSupervisor] = useState("");
   const [newUserTelemarketing, setNewUserTelemarketing] = useState<number | undefined>();
+  const [newUserTelemarketingName, setNewUserTelemarketingName] = useState<string>("");
   const [creatingUser, setCreatingUser] = useState(false);
   
   // Password reset
@@ -369,44 +370,7 @@ export default function Users() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!newUserEmail || !newUserName) {
-      toast.error("Email e nome são obrigatórios");
-      return;
-    }
-
-    // Validação para supervisor criando agente
-    if (currentUserRole === 'supervisor' && newUserRole === 'agent') {
-      if (!newUserProject) {
-        toast.error("Selecione um Projeto Comercial para o agente");
-        return;
-      }
-      if (!newUserTelemarketing) {
-        toast.error("Selecione um Operador Bitrix para o agente");
-        return;
-      }
-    }
-
-    // Validação para supervisor
-    if (newUserRole === 'supervisor' && !newUserProject) {
-      toast.error("Selecione um Projeto Comercial para o supervisor");
-      return;
-    }
-
-    // Validação para agent criado por admin
-    if (currentUserRole === 'admin' && newUserRole === 'agent') {
-      if (!newUserProject) {
-        toast.error("Selecione um Projeto Comercial para o agente");
-        return;
-      }
-      if (!newUserSupervisor) {
-        toast.error("Selecione um Supervisor para o agente");
-        return;
-      }
-      if (!newUserTelemarketing) {
-        toast.error("Selecione um Operador Bitrix para o agente");
-        return;
-      }
-    }
+    // Nenhum campo é obrigatório - todos os campos são opcionais
 
     setCreatingUser(true);
     try {
@@ -549,6 +513,7 @@ export default function Users() {
     setNewUserProject("");
     setNewUserSupervisor("");
     setNewUserTelemarketing(undefined);
+    setNewUserTelemarketingName("");
   };
 
   const generateTempPassword = async (userId: string, userEmail: string) => {
@@ -1017,6 +982,34 @@ export default function Users() {
     setBatchEditSupervisors(supervisorsData as UserWithRole[]);
   };
 
+  const handleTelemarketingChange = async (value: number) => {
+    setNewUserTelemarketing(value);
+    
+    // Fetch telemarketing name from cache or API
+    if (value && value !== -1) {
+      try {
+        const { data, error } = await supabase
+          .from('config_kv')
+          .select('value')
+          .eq('key', 'bitrix_telemarketing_list')
+          .maybeSingle();
+
+        if (!error && data?.value) {
+          const options = data.value as unknown as { id: number; title: string }[];
+          const selectedOption = options.find(o => o.id === value);
+          if (selectedOption) {
+            setNewUserTelemarketingName(selectedOption.title);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar nome do operador:', error);
+      }
+    } else {
+      setNewUserTelemarketingName("");
+    }
+  };
+
+
   const handleBatchEdit = async () => {
     if (!batchEditValue) {
       toast.error('Selecione um valor');
@@ -1274,28 +1267,26 @@ export default function Users() {
             </DialogHeader>
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
-                <Label htmlFor="email">Email *</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={newUserEmail}
                   onChange={(e) => setNewUserEmail(e.target.value)}
-                  required
                 />
               </div>
 
               <div>
-                <Label htmlFor="name">Nome *</Label>
+                <Label htmlFor="name">Nome</Label>
                 <Input
                   id="name"
                   value={newUserName}
                   onChange={(e) => setNewUserName(e.target.value)}
-                  required
                 />
               </div>
 
               <div>
-                <Label htmlFor="role">Função *</Label>
+                <Label htmlFor="role">Função</Label>
                 <Select 
                   value={newUserRole} 
                   onValueChange={(v: any) => setNewUserRole(v)}
@@ -1323,7 +1314,7 @@ export default function Users() {
               {(newUserRole === 'supervisor' || newUserRole === 'agent') && (
                 <div>
                   <Label htmlFor="project">
-                    Projeto Comercial (Bitrix) <span className="text-red-500">*</span>
+                    Projeto Comercial (Bitrix)
                   </Label>
                   <Select value={newUserProject} onValueChange={setNewUserProject}>
                     <SelectTrigger>
@@ -1345,7 +1336,7 @@ export default function Users() {
                   {currentUserRole === 'admin' && (
                     <div>
                       <Label htmlFor="supervisor">
-                        Supervisor <span className="text-red-500">*</span>
+                        Supervisor
                       </Label>
                       <Select 
                         value={newUserSupervisor} 
@@ -1381,13 +1372,21 @@ export default function Users() {
 
                   <div>
                     <Label htmlFor="telemarketing">
-                      Operador Bitrix <span className="text-red-500">*</span>
+                      Operador Bitrix
                     </Label>
                     <TelemarketingSelector
                       value={newUserTelemarketing}
-                      onChange={setNewUserTelemarketing}
+                      onChange={handleTelemarketingChange}
                       disabled={creatingUser}
                     />
+                    {newUserTelemarketing && newUserTelemarketing !== -1 && newUserTelemarketingName && (
+                      <div className="mt-2 p-3 bg-green-50 border border-green-300 rounded-md">
+                        <p className="text-sm font-bold text-green-800 flex items-center gap-2">
+                          <span className="text-lg">✓</span>
+                          Operador selecionado: {newUserTelemarketingName}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
