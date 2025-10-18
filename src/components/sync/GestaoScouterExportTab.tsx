@@ -9,14 +9,59 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Upload, Loader2, Pause, Play, Info, Database, Clock } from "lucide-react";
+import { Upload, Loader2, Pause, Play, Info, Database, Clock, RotateCcw, Trash2, AlertCircle, FileText } from "lucide-react";
+
+// Available fields for selection
+const AVAILABLE_FIELDS = [
+  { id: "name", label: "Nome" },
+  { id: "responsible", label: "Responsável" },
+  { id: "age", label: "Idade" },
+  { id: "address", label: "Endereço" },
+  { id: "scouter", label: "Scouter" },
+  { id: "celular", label: "Celular" },
+  { id: "telefone_trabalho", label: "Telefone Trabalho" },
+  { id: "telefone_casa", label: "Telefone Casa" },
+  { id: "etapa", label: "Etapa" },
+  { id: "fonte", label: "Fonte" },
+  { id: "nome_modelo", label: "Nome Modelo" },
+  { id: "local_abordagem", label: "Local Abordagem" },
+  { id: "ficha_confirmada", label: "Ficha Confirmada" },
+  { id: "presenca_confirmada", label: "Presença Confirmada" },
+  { id: "compareceu", label: "Compareceu" },
+  { id: "valor_ficha", label: "Valor Ficha" },
+  { id: "horario_agendamento", label: "Horário Agendamento" },
+  { id: "data_agendamento", label: "Data Agendamento" },
+  { id: "gerenciamento_funil", label: "Gerenciamento Funil" },
+  { id: "status_fluxo", label: "Status Fluxo" },
+  { id: "etapa_funil", label: "Etapa Funil" },
+  { id: "etapa_fluxo", label: "Etapa Fluxo" },
+  { id: "funil_fichas", label: "Funil Fichas" },
+  { id: "status_tabulacao", label: "Status Tabulação" },
+];
 
 export function GestaoScouterExportTab() {
   const queryClient = useQueryClient();
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  const [selectAllFields, setSelectAllFields] = useState(true);
+  const [selectedError, setSelectedError] = useState<{
+    id: string;
+    job_id: string;
+    lead_id: string | null;
+    lead_snapshot: Record<string, unknown>;
+    fields_sent: Record<string, unknown>;
+    error_message: string;
+    error_details?: Record<string, unknown>;
+    response_status?: number;
+    response_body?: Record<string, unknown>;
+    created_at: string;
+  } | null>(null);
 
   const { data: jobs } = useQuery({
     queryKey: ["gestao-scouter-export-jobs"],
@@ -33,6 +78,26 @@ export function GestaoScouterExportTab() {
   });
 
   const activeJob = jobs?.find((j) => j.status === "running" || j.status === "paused");
+
+  // Query for export errors for the active job
+  const { data: exportErrors } = useQuery({
+    queryKey: ["gestao-scouter-export-errors", activeJob?.id],
+    queryFn: async () => {
+      if (!activeJob) return [];
+      
+      const { data, error } = await supabase
+        .from("gestao_scouter_export_errors")
+        .select("*")
+        .eq("job_id", activeJob.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!activeJob,
+    refetchInterval: 5000,
+  });
 
   useEffect(() => {
     const channel = supabase
@@ -55,15 +120,38 @@ export function GestaoScouterExportTab() {
     };
   }, [queryClient]);
 
+  // Handle field selection
+  const handleFieldToggle = (fieldId: string) => {
+    setSelectedFields(prev => 
+      prev.includes(fieldId) 
+        ? prev.filter(f => f !== fieldId)
+        : [...prev, fieldId]
+    );
+    setSelectAllFields(false);
+  };
+
+  const handleSelectAllToggle = () => {
+    if (selectAllFields) {
+      setSelectAllFields(false);
+      setSelectedFields([]);
+    } else {
+      setSelectAllFields(true);
+      setSelectedFields(AVAILABLE_FIELDS.map(f => f.id));
+    }
+  };
+
   const handleStartExport = async () => {
     try {
       setExporting(true);
+
+      const fieldsToSend = selectAllFields ? null : selectedFields;
 
       const { data, error } = await supabase.functions.invoke("export-to-gestao-scouter-batch", {
         body: {
           action: "create",
           startDate,
           endDate: endDate || null,
+          fieldsSelected: fieldsToSend,
         },
       });
 
@@ -71,9 +159,10 @@ export function GestaoScouterExportTab() {
 
       toast.success("Exportação iniciada com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-jobs"] });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao iniciar exportação:", error);
-      toast.error(error.message || "Erro ao iniciar exportação");
+      const errorMessage = error instanceof Error ? error.message : "Erro ao iniciar exportação";
+      toast.error(errorMessage);
     } finally {
       setExporting(false);
     }
@@ -87,8 +176,9 @@ export function GestaoScouterExportTab() {
 
       toast.success("Exportação pausada");
       queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-jobs"] });
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao pausar");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao pausar";
+      toast.error(errorMessage);
     }
   };
 
@@ -100,8 +190,38 @@ export function GestaoScouterExportTab() {
 
       toast.success("Exportação retomada");
       queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-jobs"] });
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao retomar");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao retomar";
+      toast.error(errorMessage);
+    }
+  };
+
+  const resetJob = async (jobId: string) => {
+    try {
+      await supabase.functions.invoke("export-to-gestao-scouter-batch", {
+        body: { action: "reset", jobId },
+      });
+
+      toast.success("Exportação resetada e reiniciada");
+      queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-errors"] });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao resetar";
+      toast.error(errorMessage);
+    }
+  };
+
+  const deleteJob = async (jobId: string) => {
+    try {
+      await supabase.functions.invoke("export-to-gestao-scouter-batch", {
+        body: { action: "delete", jobId },
+      });
+
+      toast.success("Job de exportação excluído");
+      queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-jobs"] });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao excluir";
+      toast.error(errorMessage);
     }
   };
 
@@ -146,7 +266,7 @@ export function GestaoScouterExportTab() {
             Exportação em Lote para Gestão Scouter
           </CardTitle>
           <CardDescription>
-            Exporte leads existentes do TabuladorMax para a tabela fichas do gestao-scouter.
+            Exporte leads existentes do TabuladorMax para a tabela leads do gestao-scouter.
             A exportação processa leads das datas mais recentes para as mais antigas.
           </CardDescription>
         </CardHeader>
@@ -185,6 +305,55 @@ export function GestaoScouterExportTab() {
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Deixe vazio para exportar até o início
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div>
+            <Label className="text-base font-semibold mb-3 block">Campos a Exportar</Label>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="select-all"
+                  checked={selectAllFields}
+                  onCheckedChange={handleSelectAllToggle}
+                  disabled={!!activeJob}
+                />
+                <Label 
+                  htmlFor="select-all" 
+                  className="text-sm font-semibold cursor-pointer"
+                >
+                  Selecionar Todos os Campos
+                </Label>
+              </div>
+              
+              <ScrollArea className="h-48 w-full border rounded-md p-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {AVAILABLE_FIELDS.map((field) => (
+                    <div key={field.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={field.id}
+                        checked={selectAllFields || selectedFields.includes(field.id)}
+                        onCheckedChange={() => handleFieldToggle(field.id)}
+                        disabled={!!activeJob || selectAllFields}
+                      />
+                      <Label 
+                        htmlFor={field.id}
+                        className="text-sm cursor-pointer"
+                      >
+                        {field.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              
+              <p className="text-xs text-muted-foreground">
+                {selectAllFields 
+                  ? "Todos os campos disponíveis serão exportados" 
+                  : `${selectedFields.length} campo(s) selecionado(s)`}
               </p>
             </div>
           </div>
@@ -279,14 +448,32 @@ export function GestaoScouterExportTab() {
                 </Button>
               )}
               {activeJob.status === "paused" && (
-                <Button
-                  onClick={() => resumeJob(activeJob.id)}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  Retomar
-                </Button>
+                <>
+                  <Button
+                    onClick={() => resumeJob(activeJob.id)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    <Play className="mr-2 h-4 w-4" />
+                    Retomar
+                  </Button>
+                  <Button
+                    onClick={() => resetJob(activeJob.id)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Resetar
+                  </Button>
+                  <Button
+                    onClick={() => deleteJob(activeJob.id)}
+                    variant="destructive"
+                    className="flex-1"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Excluir
+                  </Button>
+                </>
               )}
             </div>
 
@@ -296,6 +483,124 @@ export function GestaoScouterExportTab() {
                   <strong>Motivo da pausa:</strong> {activeJob.pause_reason}
                 </AlertDescription>
               </Alert>
+            )}
+
+            {exportErrors && exportErrors.length > 0 && (
+              <Card className="border-red-200 bg-red-50">
+                <CardHeader>
+                  <CardTitle className="text-red-800 flex items-center gap-2 text-base">
+                    <AlertCircle className="w-4 h-4" />
+                    Log de Erros ({exportErrors.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-48">
+                    <div className="space-y-2">
+                      {exportErrors.map((error) => (
+                        <Dialog key={error.id}>
+                          <DialogTrigger asChild>
+                            <div 
+                              className="p-3 border rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
+                              onClick={() => setSelectedError(error)}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-red-900 truncate">
+                                    {error.error_message}
+                                  </p>
+                                  <p className="text-xs text-red-700 mt-1">
+                                    Lead ID: {error.lead_id || 'N/A'}
+                                  </p>
+                                </div>
+                                <FileText className="w-4 h-4 text-red-600 flex-shrink-0" />
+                              </div>
+                            </div>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-3xl max-h-[80vh]">
+                            <DialogHeader>
+                              <DialogTitle>Detalhes do Erro</DialogTitle>
+                              <DialogDescription>
+                                Informações completas sobre o erro de exportação
+                              </DialogDescription>
+                            </DialogHeader>
+                            <ScrollArea className="h-[60vh]">
+                              <div className="space-y-4 pr-4">
+                                <div>
+                                  <Label className="font-semibold">Mensagem de Erro</Label>
+                                  <p className="text-sm mt-1 p-3 bg-red-50 border border-red-200 rounded">
+                                    {error.error_message}
+                                  </p>
+                                </div>
+                                
+                                <div>
+                                  <Label className="font-semibold">Lead ID</Label>
+                                  <p className="text-sm mt-1">{error.lead_id || 'N/A'}</p>
+                                </div>
+
+                                {error.response_status && (
+                                  <div>
+                                    <Label className="font-semibold">Status HTTP</Label>
+                                    <p className="text-sm mt-1">{error.response_status}</p>
+                                  </div>
+                                )}
+
+                                <div>
+                                  <Label className="font-semibold">Data/Hora</Label>
+                                  <p className="text-sm mt-1">
+                                    {new Date(error.created_at).toLocaleString('pt-BR')}
+                                  </p>
+                                </div>
+
+                                <Separator />
+
+                                <div>
+                                  <Label className="font-semibold">Campos Enviados</Label>
+                                  <ScrollArea className="h-32 mt-2">
+                                    <pre className="text-xs p-3 bg-gray-50 border rounded">
+                                      {JSON.stringify(error.fields_sent, null, 2)}
+                                    </pre>
+                                  </ScrollArea>
+                                </div>
+
+                                <div>
+                                  <Label className="font-semibold">Snapshot do Lead</Label>
+                                  <ScrollArea className="h-32 mt-2">
+                                    <pre className="text-xs p-3 bg-gray-50 border rounded">
+                                      {JSON.stringify(error.lead_snapshot, null, 2)}
+                                    </pre>
+                                  </ScrollArea>
+                                </div>
+
+                                {error.error_details && (
+                                  <div>
+                                    <Label className="font-semibold">Detalhes Técnicos</Label>
+                                    <ScrollArea className="h-32 mt-2">
+                                      <pre className="text-xs p-3 bg-gray-50 border rounded">
+                                        {JSON.stringify(error.error_details, null, 2)}
+                                      </pre>
+                                    </ScrollArea>
+                                  </div>
+                                )}
+
+                                {error.response_body && (
+                                  <div>
+                                    <Label className="font-semibold">Resposta do Servidor</Label>
+                                    <ScrollArea className="h-32 mt-2">
+                                      <pre className="text-xs p-3 bg-gray-50 border rounded">
+                                        {JSON.stringify(error.response_body, null, 2)}
+                                      </pre>
+                                    </ScrollArea>
+                                  </div>
+                                )}
+                              </div>
+                            </ScrollArea>
+                          </DialogContent>
+                        </Dialog>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
             )}
           </CardContent>
         </Card>

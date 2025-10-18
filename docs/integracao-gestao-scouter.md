@@ -12,6 +12,8 @@ Esta documentação descreve a implementação da área de integração de sincr
 - Separada das abas de Monitoramento, Importações e Atualização em Lote
 - Interface dedicada para gerenciar a integração com Gestão Scouter
 
+**Nota**: A partir do PR #73, a integração usa a tabela `leads` em vez de `fichas` no gestao-scouter.
+
 ### 2. Configuração do Gestão Scouter
 
 A seção de configuração permite gerenciar os dados de conexão:
@@ -223,6 +225,79 @@ CREATE TABLE IF NOT EXISTS public.gestao_scouter_config (
 3. Verificar logs de sincronização
 4. Clicar em erros para ver detalhes completos
 
+## Melhorias na Exportação em Lote (PR Atual)
+
+### Funcionalidades Adicionadas
+
+1. **Seleção de Campos**
+   - Interface com checkboxes para selecionar campos específicos
+   - Opção "Selecionar Todos" (padrão)
+   - Seleção é persistida no job (`fields_selected`)
+   - Apenas campos selecionados são enviados ao gestao-scouter
+
+2. **Botão Resetar**
+   - Disponível em jobs pausados
+   - Zera contadores e reinicia processamento
+   - Limpa erros anteriores
+   - Útil para reprocessar toda a exportação
+
+3. **Botão Excluir**
+   - Disponível em jobs pausados
+   - Remove o job e todos os erros associados
+   - Libera para criar novo job
+
+4. **Log de Erros Detalhado**
+   - Tabela `gestao_scouter_export_errors` armazena:
+     - Snapshot completo do lead
+     - Campos que foram enviados
+     - Mensagem de erro
+     - Detalhes técnicos
+     - Status e corpo da resposta HTTP
+   - Interface com card vermelho mostrando erros
+   - Modal com detalhes completos ao clicar
+   - Permite análise aprofundada de falhas
+
+5. **Uso de Tabela leads**
+   - Exportação agora usa `gestao-scouter.public.leads`
+   - Anteriormente usava `gestao-scouter.public.fichas`
+   - Alinhamento com estrutura de dados do PR #73
+
+### Schema Changes
+
+**Tabela gestao_scouter_export_jobs:**
+```sql
+-- Nova coluna
+fields_selected JSONB DEFAULT NULL
+```
+
+**Nova Tabela gestao_scouter_export_errors:**
+```sql
+CREATE TABLE gestao_scouter_export_errors (
+  id UUID PRIMARY KEY,
+  job_id UUID REFERENCES gestao_scouter_export_jobs(id),
+  lead_id UUID REFERENCES leads(id),
+  lead_snapshot JSONB NOT NULL,
+  fields_sent JSONB NOT NULL,
+  error_message TEXT NOT NULL,
+  error_details JSONB,
+  response_status INTEGER,
+  response_body JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Edge Function Changes
+
+**Novas Actions:**
+- `reset`: Reseta job para reprocessar
+- `delete`: Exclui job pausado
+
+**Processamento:**
+- Suporta `fieldsSelected` no payload
+- Filtra campos antes de exportar
+- Registra erros detalhados na nova tabela
+- Captura status e resposta HTTP
+
 ## Melhorias Futuras (Não Implementadas)
 
 1. **Seletor de Mapeamento de Tabelas**
@@ -249,7 +324,7 @@ CREATE TABLE IF NOT EXISTS public.gestao_scouter_config (
 ### Erro ao testar integração:
 - Verificar URL do projeto (deve terminar com .supabase.co)
 - Verificar Anon Key (deve começar com eyJ...)
-- Verificar se tabela "fichas" existe no Gestão Scouter
+- Verificar se tabela "leads" existe no Gestão Scouter (não "fichas")
 
 ### Sincronização não funciona:
 - Verificar se switches estão ativos
@@ -261,6 +336,13 @@ CREATE TABLE IF NOT EXISTS public.gestao_scouter_config (
 - Verificar campo `sync_source` nos registros
 - Verificar se trigger verifica origem antes de sincronizar
 - Verificar logs para identificar padrão
+
+### Erros na exportação em lote:
+- Acessar card vermelho de erros
+- Clicar em erro para ver detalhes completos
+- Verificar campos enviados vs snapshot do lead
+- Verificar resposta do servidor
+- Corrigir dados se necessário e resetar job
 
 ## Referências
 

@@ -2,7 +2,9 @@
 
 ## 📋 Visão Geral
 
-Esta funcionalidade permite exportar leads existentes do TabuladorMax para a tabela fichas do gestao-scouter em lotes, processando das datas mais recentes para as mais antigas, similar ao funcionamento da importação do Bitrix.
+Esta funcionalidade permite exportar leads existentes do TabuladorMax para a tabela **leads** do gestao-scouter em lotes, processando das datas mais recentes para as mais antigas, similar ao funcionamento da importação do Bitrix.
+
+**Nota importante**: A partir do PR #73, a integração com Gestão Scouter usa a tabela `leads` em vez de `fichas` para melhor alinhamento com a estrutura de dados.
 
 ## 🎯 Casos de Uso
 
@@ -23,7 +25,10 @@ Esta funcionalidade permite exportar leads existentes do TabuladorMax para a tab
 │  ┌──────────────────────────────────────────────┐    │
 │  │  GestaoScouterExportTab.tsx                  │    │
 │  │  - Seleção de datas                          │    │
-│  │  - Controles de pausar/retomar               │    │
+│  │  - Seleção de campos (checkboxes)           │    │
+│  │  - Controles de pausar/retomar/resetar      │    │
+│  │  - Botão de excluir job pausado              │    │
+│  │  - Log de erros detalhado                    │    │
 │  │  - Monitoramento em tempo real               │    │
 │  │  - Histórico de exportações                  │    │
 │  └──────────────────────────────────────────────┘    │
@@ -38,14 +43,18 @@ Esta funcionalidade permite exportar leads existentes do TabuladorMax para a tab
 │  - create: Cria novo job de exportação                │
 │  - pause: Pausa job em execução                       │
 │  - resume: Retoma job pausado                         │
+│  - reset: Reseta job para reprocessar tudo            │
+│  - delete: Exclui job pausado                         │
 │                                                        │
 │  Processamento:                                        │
 │  1. Busca leads por data (mais recente → antiga)      │
 │  2. Batch de 100 leads por vez                        │
-│  3. Upsert em gestao-scouter.fichas                   │
-│  4. Registra cada lead em sync_events                 │
-│  5. Atualiza progresso no job                         │
-│  6. Delay de 500ms entre lotes                        │
+│  3. Aplica filtro de campos selecionados              │
+│  4. Upsert em gestao-scouter.leads                    │
+│  5. Registra cada lead em sync_events                 │
+│  6. Registra erros em gestao_scouter_export_errors    │
+│  7. Atualiza progresso no job                         │
+│  8. Delay de 500ms entre lotes                        │
 └────────────────────────────────────────────────────────┘
                           │
                           │ Registra em
@@ -55,8 +64,21 @@ Esta funcionalidade permite exportar leads existentes do TabuladorMax para a tab
 │  - id, status, start_date, end_date                    │
 │  - processing_date, last_completed_date                │
 │  - total_leads, exported_leads, error_leads            │
+│  - fields_selected (JSONB - campos selecionados)       │
 │  - pause_reason, paused_at                             │
 │  - created_at, started_at, completed_at                │
+└────────────────────────────────────────────────────────┘
+                          │
+                          │ Registra erros em
+                          ▼
+┌────────────────────────────────────────────────────────┐
+│  Tabela: gestao_scouter_export_errors                  │
+│  - id, job_id, lead_id                                 │
+│  - lead_snapshot (snapshot completo do lead)           │
+│  - fields_sent (campos que foram enviados)             │
+│  - error_message, error_details                        │
+│  - response_status, response_body                      │
+│  - created_at                                          │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -69,7 +91,8 @@ POST /functions/v1/export-to-gestao-scouter-batch
 {
   "action": "create",
   "startDate": "2025-10-17",  // Data mais recente
-  "endDate": "2024-01-01"     // Data mais antiga (opcional)
+  "endDate": "2024-01-01",    // Data mais antiga (opcional)
+  "fieldsSelected": ["name", "celular", "etapa"] // Campos a exportar (opcional, null = todos)
 }
 ```
 
@@ -96,10 +119,90 @@ Repetir até chegar em endDate (ou até o começo se endDate = null)
 ```
 pending → running → completed
               ↓
-            paused → running
+            paused → running (via resume)
               ↓
-            failed
+            reset → pending → running
+              ↓
+            deleted (só se paused)
 ```
+
+## 🆕 Novas Funcionalidades (PR Atual)
+
+### 1. Seleção de Campos
+
+**Interface:**
+- Checkbox "Selecionar Todos os Campos" (padrão: ativo)
+- Lista de campos individuais com checkboxes
+- Contador de campos selecionados
+- Campos sempre incluídos: `id`, `updated_at`, `sync_source`, `last_sync_at`
+
+**Comportamento:**
+- Se "Todos" estiver marcado: exporta todos os campos disponíveis
+- Se campos específicos selecionados: exporta apenas os campos marcados (+ campos obrigatórios)
+- Seleção é persistida no job (`fields_selected` em JSONB)
+
+**Campos Disponíveis:**
+- name, responsible, age, address, scouter
+- celular, telefone_trabalho, telefone_casa
+- etapa, fonte, nome_modelo, local_abordagem
+- ficha_confirmada, presenca_confirmada, compareceu
+- valor_ficha, horario_agendamento, data_agendamento
+- gerenciamento_funil, status_fluxo, etapa_funil, etapa_fluxo
+- funil_fichas, status_tabulacao
+
+### 2. Botão Resetar
+
+**Localização:** Card de exportação em andamento (apenas quando pausado)
+
+**Funcionalidade:**
+- Zera todos os contadores (total_leads, exported_leads, error_leads)
+- Limpa processing_date e last_completed_date
+- Remove todos os erros registrados para o job
+- Marca job como 'pending'
+- Reinicia o processamento do zero
+
+**Uso:** Quando você quer reprocessar toda a exportação novamente
+
+### 3. Botão Excluir
+
+**Localização:** Card de exportação em andamento (apenas quando pausado)
+
+**Funcionalidade:**
+- Exclui o job de exportação pausado
+- Remove todos os erros associados (CASCADE)
+- Libera para criar um novo job
+
+**Restrição:** Só funciona em jobs com status 'paused'
+
+### 4. Log de Erros Detalhado
+
+**Interface:**
+- Card vermelho exibindo erros da exportação em andamento
+- Lista de erros clicáveis (até 50 mais recentes)
+- Dialog modal com detalhes completos ao clicar
+
+**Informações no Modal:**
+- Mensagem de erro
+- Lead ID
+- Status HTTP (se disponível)
+- Data/Hora do erro
+- Campos que foram enviados (JSON)
+- Snapshot completo do lead (JSON)
+- Detalhes técnicos do erro (JSON)
+- Resposta do servidor (JSON, se disponível)
+
+**Armazenamento:**
+- Tabela: `gestao_scouter_export_errors`
+- Relacionado ao job via `job_id`
+- Permite análise pós-exportação
+
+### 5. Tabela de Destino: leads (não fichas)
+
+**Mudança (PR #73):**
+- Antes: exportava para `gestao-scouter.public.fichas`
+- Agora: exporta para `gestao-scouter.public.leads`
+- Melhor alinhamento com estrutura de dados
+- Evita confusão de nomenclatura
 
 ## 🎨 Interface do Usuário
 
@@ -111,6 +214,8 @@ pending → running → completed
 **Card Principal: "Exportação em Lote"**
 - 📅 Campo: Data Inicial (mais recente)
 - 📅 Campo: Data Final (mais antiga, opcional)
+- ☑️ Checkbox: Selecionar Todos os Campos
+- 📋 Lista: Campos individuais para seleção
 - 🚀 Botão: "Iniciar Exportação"
 - ℹ️ Alert: Informações sobre o uso
 
@@ -122,6 +227,16 @@ pending → running → completed
 - 📅 Data sendo processada atualmente
 - ⏸️ Botão: "Pausar" (se running)
 - ▶️ Botão: "Retomar" (se paused)
+- 🔄 Botão: "Resetar" (se paused)
+- 🗑️ Botão: "Excluir" (se paused)
+
+**Card de Erros (quando há erros):**
+- 🚨 Lista de erros clicáveis
+- 📄 Modal com detalhes completos do erro
+- 🔍 Snapshot do lead
+- 📤 Campos enviados
+- ⚠️ Detalhes técnicos
+- 📡 Resposta do servidor
 
 **Card de Histórico:**
 - 📋 Últimos 10 jobs de exportação
@@ -139,12 +254,18 @@ SELECT * FROM gestao_scouter_config
 WHERE active = true AND sync_enabled = true;
 ```
 
-2. **Tabela fichas criada no gestao-scouter:**
-Execute o script: `docs/gestao-scouter-fichas-table.sql`
+2. **Tabela leads criada no gestao-scouter:**
+A tabela `leads` deve existir no projeto gestao-scouter com a mesma estrutura da tabela `leads` do TabuladorMax.
 
 3. **Edge Function deployada:**
 ```bash
 supabase functions deploy export-to-gestao-scouter-batch
+```
+
+4. **Migration aplicada:**
+```bash
+# Aplicar a migration 20251018_gestao_scouter_batch_enhancements.sql
+# Adiciona fields_selected e tabela de erros
 ```
 
 ### Passo a Passo de Uso
@@ -159,6 +280,9 @@ supabase functions deploy export-to-gestao-scouter-batch
    - **Data Final**: 
      - Deixe vazio para exportar TUDO desde o início
      - Ou especifique até onde quer exportar (ex: 2024-01-01)
+   - **Campos**: 
+     - Marque "Selecionar Todos" para exportar todos os campos
+     - Ou desmarque e selecione campos específicos
 
 3. **Iniciar:**
    - Clique em "Iniciar Exportação"
@@ -168,10 +292,19 @@ supabase functions deploy export-to-gestao-scouter-batch
    - Acompanhe o progresso em tempo real
    - Veja quantos leads foram exportados
    - Verifique a data sendo processada
+   - Visualize erros no card vermelho (se houver)
 
 5. **Controlar:**
    - **Pausar**: Se precisar interromper temporariamente
    - **Retomar**: Continue de onde parou
+   - **Resetar**: Reprocesse tudo novamente (disponível quando pausado)
+   - **Excluir**: Remova o job pausado (disponível quando pausado)
+
+6. **Analisar Erros:**
+   - Clique em qualquer erro no card vermelho
+   - Veja detalhes completos do erro
+   - Analise o snapshot do lead e campos enviados
+   - Identifique a causa raiz do problema
 
 ## 📈 Métricas e Logs
 
@@ -222,6 +355,42 @@ SELECT
 FROM sync_events
 WHERE direction = 'supabase_to_gestao_scouter'
   AND created_at > NOW() - INTERVAL '1 day';
+```
+
+### Logs de Erros Detalhados
+
+Erros são registrados com informações completas em `gestao_scouter_export_errors`:
+
+```sql
+-- Ver erros de um job específico
+SELECT 
+  e.id,
+  e.lead_id,
+  e.error_message,
+  e.created_at
+FROM gestao_scouter_export_errors e
+WHERE e.job_id = '[job_id]'
+ORDER BY e.created_at DESC;
+
+-- Ver erros mais comuns
+SELECT 
+  error_message,
+  COUNT(*) as occurrences
+FROM gestao_scouter_export_errors
+WHERE job_id = '[job_id]'
+GROUP BY error_message
+ORDER BY occurrences DESC;
+
+-- Ver detalhes completos de um erro específico
+SELECT 
+  lead_snapshot,
+  fields_sent,
+  error_message,
+  error_details,
+  response_status,
+  response_body
+FROM gestao_scouter_export_errors
+WHERE id = '[error_id]';
 ```
 
 ## 🔒 Segurança
@@ -337,6 +506,58 @@ LEFT JOIN sync_events se ON se.lead_id = l.id
 WHERE se.id IS NULL
 ORDER BY l.updated_at DESC
 LIMIT 100;
+```
+
+### Analisar erros de exportação
+
+```sql
+-- Ver todos os erros de um job
+SELECT 
+  error_message,
+  COUNT(*) as total,
+  array_agg(lead_id) as affected_leads
+FROM gestao_scouter_export_errors
+WHERE job_id = '[job_id]'
+GROUP BY error_message
+ORDER BY total DESC;
+
+-- Ver campos que mais causam erros
+SELECT 
+  jsonb_object_keys(fields_sent) as field_name,
+  COUNT(*) as error_count
+FROM gestao_scouter_export_errors
+WHERE job_id = '[job_id]'
+GROUP BY field_name
+ORDER BY error_count DESC;
+```
+
+### Resetar job para reprocessar
+
+1. **Via Interface:**
+   - Pause o job (se estiver running)
+   - Clique em "Resetar"
+   - Aguarde reinício automático
+
+2. **Via SQL (se necessário):**
+```sql
+-- Resetar manualmente
+UPDATE gestao_scouter_export_jobs
+SET 
+  status = 'pending',
+  processing_date = NULL,
+  last_completed_date = NULL,
+  total_leads = 0,
+  exported_leads = 0,
+  error_leads = 0,
+  pause_reason = NULL,
+  paused_at = NULL,
+  started_at = NULL,
+  completed_at = NULL
+WHERE id = '[job_id]';
+
+-- Limpar erros
+DELETE FROM gestao_scouter_export_errors
+WHERE job_id = '[job_id]';
 ```
 
 ## 🚀 Próximas Melhorias Possíveis

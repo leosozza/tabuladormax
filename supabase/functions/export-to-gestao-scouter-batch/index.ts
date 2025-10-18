@@ -18,7 +18,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, jobId, startDate, endDate } = await req.json();
+    const { action, jobId, startDate, endDate, fieldsSelected } = await req.json();
 
     if (action === 'create') {
       // Obter usuário autenticado
@@ -56,6 +56,7 @@ serve(async (req) => {
           end_date: endDate || null,
           status: 'pending',
           created_by: user.id,
+          fields_selected: fieldsSelected || null, // Array de campos selecionados ou null = todos
         })
         .select()
         .single();
@@ -101,6 +102,65 @@ serve(async (req) => {
           pause_reason: 'Manual',
           paused_at: new Date().toISOString()
         })
+        .eq('id', jobId);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'reset') {
+      // Reset job counters to reprocess everything
+      await supabase
+        .from('gestao_scouter_export_jobs')
+        .update({
+          status: 'pending',
+          processing_date: null,
+          last_completed_date: null,
+          total_leads: 0,
+          exported_leads: 0,
+          error_leads: 0,
+          pause_reason: null,
+          paused_at: null,
+          started_at: null,
+          completed_at: null,
+        })
+        .eq('id', jobId);
+
+      // Clear errors for this job
+      await supabase
+        .from('gestao_scouter_export_errors')
+        .delete()
+        .eq('job_id', jobId);
+
+      // Start processing again
+      processBatchExport(jobId);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'delete') {
+      // Only allow deleting paused jobs
+      const { data: job } = await supabase
+        .from('gestao_scouter_export_jobs')
+        .select('status')
+        .eq('id', jobId)
+        .single();
+
+      if (job?.status !== 'paused') {
+        return new Response(
+          JSON.stringify({ error: 'Apenas jobs pausados podem ser excluídos' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      await supabase
+        .from('gestao_scouter_export_jobs')
+        .delete()
         .eq('id', jobId);
 
       return new Response(
@@ -178,6 +238,77 @@ async function processBatchExport(jobId: string) {
 
   const BATCH_SIZE = 100; // Processar 100 leads por vez
 
+  // Helper function to prepare lead data based on fields_selected
+  const prepareLeadData = (lead: any, fieldsSelected: string[] | null) => {
+    // All available fields
+    const allFields: Record<string, any> = {
+      id: lead.id,
+      name: lead.name,
+      responsible: lead.responsible,
+      age: lead.age,
+      address: lead.address,
+      scouter: lead.scouter,
+      photo_url: lead.photo_url,
+      date_modify: lead.date_modify ? new Date(lead.date_modify).toISOString() : (lead.updated_at ? new Date(lead.updated_at).toISOString() : null),
+      raw: lead.raw,
+      updated_at: lead.updated_at ? new Date(lead.updated_at).toISOString() : new Date().toISOString(),
+      bitrix_telemarketing_id: lead.bitrix_telemarketing_id,
+      commercial_project_id: lead.commercial_project_id,
+      responsible_user_id: lead.responsible_user_id,
+      celular: lead.celular,
+      telefone_trabalho: lead.telefone_trabalho,
+      telefone_casa: lead.telefone_casa,
+      etapa: lead.etapa,
+      fonte: lead.fonte,
+      criado: lead.criado ? new Date(lead.criado).toISOString() : null,
+      nome_modelo: lead.nome_modelo,
+      local_abordagem: lead.local_abordagem,
+      ficha_confirmada: lead.ficha_confirmada,
+      data_criacao_ficha: lead.data_criacao_ficha ? new Date(lead.data_criacao_ficha).toISOString() : null,
+      data_confirmacao_ficha: lead.data_confirmacao_ficha ? new Date(lead.data_confirmacao_ficha).toISOString() : null,
+      presenca_confirmada: lead.presenca_confirmada,
+      compareceu: lead.compareceu,
+      cadastro_existe_foto: lead.cadastro_existe_foto,
+      valor_ficha: lead.valor_ficha,
+      data_criacao_agendamento: lead.data_criacao_agendamento ? new Date(lead.data_criacao_agendamento).toISOString() : null,
+      horario_agendamento: lead.horario_agendamento,
+      data_agendamento: lead.data_agendamento,
+      gerenciamento_funil: lead.gerenciamento_funil,
+      status_fluxo: lead.status_fluxo,
+      etapa_funil: lead.etapa_funil,
+      etapa_fluxo: lead.etapa_fluxo,
+      funil_fichas: lead.funil_fichas,
+      status_tabulacao: lead.status_tabulacao,
+      maxsystem_id_ficha: lead.maxsystem_id_ficha,
+      gestao_scouter: lead.gestao_scouter,
+      op_telemarketing: lead.op_telemarketing,
+      data_retorno_ligacao: lead.data_retorno_ligacao ? new Date(lead.data_retorno_ligacao).toISOString() : null,
+      last_sync_at: new Date().toISOString(),
+      sync_source: 'tabuladormax'
+    };
+
+    // If no fields selected, return all fields
+    if (!fieldsSelected || fieldsSelected.length === 0) {
+      return allFields;
+    }
+
+    // Filter to only selected fields, but always include id, updated_at, sync_source for proper sync
+    const selectedData: Record<string, any> = {
+      id: allFields.id,
+      updated_at: allFields.updated_at,
+      sync_source: allFields.sync_source,
+      last_sync_at: allFields.last_sync_at,
+    };
+
+    fieldsSelected.forEach(field => {
+      if (field in allFields) {
+        selectedData[field] = allFields[field];
+      }
+    });
+
+    return selectedData;
+  };
+
   while (true) {
     // Verificar se job foi pausado
     const { data: currentJob } = await supabase
@@ -246,57 +377,13 @@ async function processBatchExport(jobId: string) {
       const startTime = Date.now();
       
       try {
-        // Preparar dados da ficha
-        const fichaData = {
-          id: lead.id,
-          name: lead.name,
-          responsible: lead.responsible,
-          age: lead.age,
-          address: lead.address,
-          scouter: lead.scouter,
-          photo_url: lead.photo_url,
-          date_modify: lead.date_modify ? new Date(lead.date_modify).toISOString() : (lead.updated_at ? new Date(lead.updated_at).toISOString() : null),
-          raw: lead.raw,
-          updated_at: lead.updated_at ? new Date(lead.updated_at).toISOString() : new Date().toISOString(),
-          bitrix_telemarketing_id: lead.bitrix_telemarketing_id,
-          commercial_project_id: lead.commercial_project_id,
-          responsible_user_id: lead.responsible_user_id,
-          celular: lead.celular,
-          telefone_trabalho: lead.telefone_trabalho,
-          telefone_casa: lead.telefone_casa,
-          etapa: lead.etapa,
-          fonte: lead.fonte,
-          criado: lead.criado ? new Date(lead.criado).toISOString() : null,
-          nome_modelo: lead.nome_modelo,
-          local_abordagem: lead.local_abordagem,
-          ficha_confirmada: lead.ficha_confirmada,
-          data_criacao_ficha: lead.data_criacao_ficha ? new Date(lead.data_criacao_ficha).toISOString() : null,
-          data_confirmacao_ficha: lead.data_confirmacao_ficha ? new Date(lead.data_confirmacao_ficha).toISOString() : null,
-          presenca_confirmada: lead.presenca_confirmada,
-          compareceu: lead.compareceu,
-          cadastro_existe_foto: lead.cadastro_existe_foto,
-          valor_ficha: lead.valor_ficha,
-          data_criacao_agendamento: lead.data_criacao_agendamento ? new Date(lead.data_criacao_agendamento).toISOString() : null,
-          horario_agendamento: lead.horario_agendamento,
-          data_agendamento: lead.data_agendamento,
-          gerenciamento_funil: lead.gerenciamento_funil,
-          status_fluxo: lead.status_fluxo,
-          etapa_funil: lead.etapa_funil,
-          etapa_fluxo: lead.etapa_fluxo,
-          funil_fichas: lead.funil_fichas,
-          status_tabulacao: lead.status_tabulacao,
-          maxsystem_id_ficha: lead.maxsystem_id_ficha,
-          gestao_scouter: lead.gestao_scouter,
-          op_telemarketing: lead.op_telemarketing,
-          data_retorno_ligacao: lead.data_retorno_ligacao ? new Date(lead.data_retorno_ligacao).toISOString() : null,
-          last_sync_at: new Date().toISOString(),
-          sync_source: 'tabuladormax'
-        };
+        // Preparar dados da ficha usando campos selecionados
+        const leadData = prepareLeadData(lead, job.fields_selected);
 
-        // Fazer upsert na tabela fichas
-        const { error: upsertError } = await gestaoScouterClient
-          .from('fichas')
-          .upsert(fichaData, { 
+        // Fazer upsert na tabela leads (não fichas - PR #73)
+        const { error: upsertError, status: responseStatus } = await gestaoScouterClient
+          .from('leads')
+          .upsert(leadData, { 
             onConflict: 'id',
             ignoreDuplicates: false 
           });
@@ -320,6 +407,25 @@ async function processBatchExport(jobId: string) {
         if (upsertError) {
           console.error(`❌ Erro ao exportar lead ${lead.id}:`, upsertError);
           errorCount++;
+
+          // Log detalhado do erro na nova tabela
+          try {
+            await supabase.from('gestao_scouter_export_errors').insert({
+              job_id: jobId,
+              lead_id: lead.id,
+              lead_snapshot: lead, // Snapshot completo do lead
+              fields_sent: leadData, // Campos que foram enviados
+              error_message: upsertError.message,
+              error_details: {
+                code: upsertError.code,
+                details: upsertError.details,
+                hint: upsertError.hint,
+              },
+              response_status: responseStatus || null,
+            });
+          } catch (logErr) {
+            console.error('❌ Erro ao registrar erro detalhado:', logErr);
+          }
         } else {
           exportedCount++;
         }
@@ -329,12 +435,24 @@ async function processBatchExport(jobId: string) {
 
         // Registrar erro
         try {
+          const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+          
           await supabase.from('sync_events').insert({
             event_type: 'update',
             direction: 'supabase_to_gestao_scouter',
             lead_id: lead.id,
             status: 'error',
-            error_message: err instanceof Error ? err.message : 'Erro desconhecido'
+            error_message: errorMessage
+          });
+
+          // Log detalhado do erro
+          await supabase.from('gestao_scouter_export_errors').insert({
+            job_id: jobId,
+            lead_id: lead.id,
+            lead_snapshot: lead,
+            fields_sent: prepareLeadData(lead, job.fields_selected),
+            error_message: errorMessage,
+            error_details: err instanceof Error ? { stack: err.stack } : { raw: String(err) },
           });
         } catch (syncErr) {
           console.error('❌ Erro ao registrar sync_event de erro:', syncErr);
