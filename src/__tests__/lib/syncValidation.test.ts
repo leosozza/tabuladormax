@@ -290,7 +290,7 @@ describe('Backward Compatibility - Payload Key Migration', () => {
     };
     
     // Backward compatibility logic: prefer 'lead' if present
-    const lead = body.lead || (body as any).ficha;
+    const lead = (body as any).lead || (body as any).ficha;
     
     expect(lead).toBeDefined();
     expect(lead.id).toBe(123);
@@ -304,7 +304,7 @@ describe('Backward Compatibility - Payload Key Migration', () => {
     };
     
     // Backward compatibility logic: fallback to 'ficha' if 'lead' not present
-    const lead = (body as any).lead || body.ficha;
+    const lead = (body as any).lead || (body as any).ficha;
     
     expect(lead).toBeDefined();
     expect(lead.id).toBe(456);
@@ -319,7 +319,7 @@ describe('Backward Compatibility - Payload Key Migration', () => {
     };
     
     // Backward compatibility logic: prefer 'lead' over 'ficha'
-    const lead = body.lead || (body as any).ficha;
+    const lead = (body as any).lead || (body as any).ficha;
     
     expect(lead).toBeDefined();
     expect(lead.id).toBe(123);
