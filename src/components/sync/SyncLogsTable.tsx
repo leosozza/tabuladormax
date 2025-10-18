@@ -23,7 +23,7 @@ export function SyncLogsTable() {
     created_at: string;
     event_type: string;
     direction: string;
-    lead_id: string | null;
+    lead_id: number | null;
     status: string;
     error_message: string | null;
     sync_duration_ms: number | null;

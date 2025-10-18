@@ -518,6 +518,93 @@ export type Database = {
         }
         Relationships: []
       }
+      gestao_scouter_config: {
+        Row: {
+          active: boolean
+          anon_key: string
+          created_at: string
+          id: string
+          project_url: string
+          sync_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          anon_key: string
+          created_at?: string
+          id?: string
+          project_url: string
+          sync_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          anon_key?: string
+          created_at?: string
+          id?: string
+          project_url?: string
+          sync_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gestao_scouter_export_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          end_date: string | null
+          error_leads: number | null
+          exported_leads: number | null
+          id: string
+          last_completed_date: string | null
+          pause_reason: string | null
+          paused_at: string | null
+          processing_date: string | null
+          start_date: string
+          started_at: string | null
+          status: string
+          total_leads: number | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          error_leads?: number | null
+          exported_leads?: number | null
+          id?: string
+          last_completed_date?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
+          processing_date?: string | null
+          start_date: string
+          started_at?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          error_leads?: number | null
+          exported_leads?: number | null
+          id?: string
+          last_completed_date?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
+          processing_date?: string | null
+          start_date?: string
+          started_at?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           address: string | null

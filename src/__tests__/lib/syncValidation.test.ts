@@ -7,37 +7,37 @@ import { describe, it, expect } from 'vitest';
 
 describe('Sync Loop Prevention', () => {
   it('should ignore updates when source is gestao_scouter', () => {
-    const source = 'gestao_scouter';
+    const source = 'gestao_scouter' as string;
     const shouldSync = source !== 'gestao_scouter' && source !== 'gestao-scouter';
     expect(shouldSync).toBe(false);
   });
 
   it('should ignore updates when source is gestao-scouter (with hyphen)', () => {
-    const source = 'gestao-scouter';
+    const source = 'gestao-scouter' as string;
     const shouldSync = source !== 'gestao_scouter' && source !== 'gestao-scouter';
     expect(shouldSync).toBe(false);
   });
 
   it('should allow sync when source is tabuladormax', () => {
-    const source = 'tabuladormax';
+    const source = 'tabuladormax' as string;
     const shouldSync = source !== 'gestao_scouter' && source !== 'gestao-scouter';
     expect(shouldSync).toBe(true);
   });
 
   it('should allow sync when source is supabase', () => {
-    const source = 'supabase';
+    const source = 'supabase' as string;
     const shouldSync = source !== 'gestao_scouter' && source !== 'gestao-scouter';
     expect(shouldSync).toBe(true);
   });
 
   it('should allow sync when source is undefined', () => {
-    const source = undefined;
+    const source = undefined as string | undefined;
     const shouldSync = source !== 'gestao_scouter' && source !== 'gestao-scouter';
     expect(shouldSync).toBe(true);
   });
 
   it('should allow sync when source is null', () => {
-    const source = null;
+    const source = null as string | null;
     const shouldSync = source !== 'gestao_scouter' && source !== 'gestao-scouter';
     expect(shouldSync).toBe(true);
   });
