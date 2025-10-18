@@ -4,8 +4,8 @@
 -- Este arquivo deve ser executado no Dashboard do Supabase do projeto gestao-scouter
 -- (https://ngestyxtopvfeyenyvgt.supabase.co)
 
--- 1. Criar tabela fichas (espelho da tabela leads do TabuladorMax)
-CREATE TABLE IF NOT EXISTS public.fichas (
+-- 1. Criar tabela leads (espelho da tabela leads do TabuladorMax)
+CREATE TABLE IF NOT EXISTS public.leads (
   id bigint PRIMARY KEY,
   name text,
   responsible text,
@@ -57,40 +57,40 @@ CREATE TABLE IF NOT EXISTS public.fichas (
 );
 
 -- Comentários
-COMMENT ON TABLE public.fichas IS 'Fichas sincronizadas do TabuladorMax';
-COMMENT ON COLUMN public.fichas.id IS 'ID do lead no TabuladorMax (Bitrix ID)';
-COMMENT ON COLUMN public.fichas.sync_source IS 'Origem da última sincronização (tabuladormax ou gestao_scouter)';
-COMMENT ON COLUMN public.fichas.last_sync_at IS 'Data/hora da última sincronização';
+COMMENT ON TABLE public.leads IS 'Leads sincronizados do TabuladorMax';
+COMMENT ON COLUMN public.leads.id IS 'ID do lead no TabuladorMax (Bitrix ID)';
+COMMENT ON COLUMN public.leads.sync_source IS 'Origem da última sincronização (tabuladormax ou gestao_scouter)';
+COMMENT ON COLUMN public.leads.last_sync_at IS 'Data/hora da última sincronização';
 
 -- Índices para performance
-CREATE INDEX IF NOT EXISTS idx_fichas_updated_at ON public.fichas(updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_fichas_sync_status ON public.fichas(sync_status);
-CREATE INDEX IF NOT EXISTS idx_fichas_sync_source ON public.fichas(sync_source);
-CREATE INDEX IF NOT EXISTS idx_fichas_nome_modelo ON public.fichas(nome_modelo);
-CREATE INDEX IF NOT EXISTS idx_fichas_etapa ON public.fichas(etapa);
-CREATE INDEX IF NOT EXISTS idx_fichas_gestao_scouter ON public.fichas(gestao_scouter);
+CREATE INDEX IF NOT EXISTS idx_leads_updated_at ON public.leads(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_leads_sync_status ON public.leads(sync_status);
+CREATE INDEX IF NOT EXISTS idx_leads_sync_source ON public.leads(sync_source);
+CREATE INDEX IF NOT EXISTS idx_leads_nome_modelo ON public.leads(nome_modelo);
+CREATE INDEX IF NOT EXISTS idx_leads_etapa ON public.leads(etapa);
+CREATE INDEX IF NOT EXISTS idx_leads_gestao_scouter ON public.leads(gestao_scouter);
 
 -- 2. Habilitar Row Level Security
-ALTER TABLE public.fichas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 
 -- 3. Criar políticas de acesso (ajustar conforme necessário)
 -- Permitir leitura para usuários autenticados
-CREATE POLICY "Usuários autenticados podem ver fichas"
-  ON public.fichas FOR SELECT
+CREATE POLICY "Usuários autenticados podem ver leads"
+  ON public.leads FOR SELECT
   USING (auth.role() = 'authenticated');
 
 -- Permitir inserção via serviço (TabuladorMax)
-CREATE POLICY "Serviço pode inserir fichas"
-  ON public.fichas FOR INSERT
+CREATE POLICY "Serviço pode inserir leads"
+  ON public.leads FOR INSERT
   WITH CHECK (true);
 
 -- Permitir atualização via serviço e usuários autenticados
-CREATE POLICY "Serviço e usuários podem atualizar fichas"
-  ON public.fichas FOR UPDATE
+CREATE POLICY "Serviço e usuários podem atualizar leads"
+  ON public.leads FOR UPDATE
   USING (true);
 
 -- 4. Trigger para atualizar updated_at automaticamente
-CREATE OR REPLACE FUNCTION public.update_fichas_updated_at()
+CREATE OR REPLACE FUNCTION public.update_leads_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = now();
@@ -98,10 +98,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_update_fichas_updated_at
-  BEFORE UPDATE ON public.fichas
+CREATE TRIGGER trigger_update_leads_updated_at
+  BEFORE UPDATE ON public.leads
   FOR EACH ROW
-  EXECUTE FUNCTION public.update_fichas_updated_at();
+  EXECUTE FUNCTION public.update_leads_updated_at();
 
 -- 5. Função para sincronizar de volta ao TabuladorMax
 -- (Esta função será chamada por um trigger quando houver updates)
@@ -129,7 +129,7 @@ BEGIN
         'Content-Type', 'application/json'
       ),
       body := jsonb_build_object(
-        'ficha', row_to_json(NEW),
+        'lead', row_to_json(NEW),
         'source', 'gestao_scouter'
       )
     );
@@ -139,8 +139,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 6. Criar trigger para sincronização automática
-CREATE TRIGGER sync_ficha_to_tabuladormax_on_update
-  AFTER UPDATE ON public.fichas
+CREATE TRIGGER sync_lead_to_tabuladormax_on_update
+  AFTER UPDATE ON public.leads
   FOR EACH ROW
   WHEN (NEW.sync_source IS DISTINCT FROM 'tabuladormax')
   EXECUTE FUNCTION public.trigger_sync_to_tabuladormax();
@@ -155,13 +155,13 @@ CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 -- ============================================
 
 -- Após executar este SQL no gestao-scouter:
--- 1. Verifique se a tabela fichas foi criada: SELECT * FROM public.fichas LIMIT 1;
+-- 1. Verifique se a tabela leads foi criada: SELECT * FROM public.leads LIMIT 1;
 -- 2. Verifique se pg_net está habilitada: SELECT * FROM pg_extension WHERE extname = 'pg_net';
 -- 3. No TabuladorMax, vá para /sync-monitor e verifique a configuração
 -- 4. A sincronização deve funcionar automaticamente ao atualizar leads no TabuladorMax
 
 -- Para testar a sincronização:
 -- 1. No TabuladorMax, atualize um lead qualquer
--- 2. Verifique se aparece na tabela fichas: SELECT * FROM public.fichas ORDER BY updated_at DESC LIMIT 10;
--- 3. Atualize uma ficha no gestao-scouter: UPDATE public.fichas SET nome_modelo = 'Teste' WHERE id = [ID];
+-- 2. Verifique se aparece na tabela leads: SELECT * FROM public.leads ORDER BY updated_at DESC LIMIT 10;
+-- 3. Atualize um lead no gestao-scouter: UPDATE public.leads SET nome_modelo = 'Teste' WHERE id = [ID];
 -- 4. Verifique se a atualização chegou no TabuladorMax
