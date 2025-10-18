@@ -64,8 +64,9 @@ serve(async (req) => {
       config.anon_key
     );
 
-    // Preparar dados da ficha (espelho da tabela leads)
-    const fichaData = {
+    // Preparar dados do lead para sincronizar com gestao-scouter
+    // Loop prevention: sync_source marca que a atualização vem do TabuladorMax
+    const leadData = {
       id: lead.id,
       name: lead.name,
       responsible: lead.responsible,
@@ -117,22 +118,22 @@ serve(async (req) => {
       projectUrl: config.project_url
     });
 
-    // Verificar se existe uma ficha com ID e aplicar resolução de conflitos baseada em updated_at
-    const { data: existingFicha } = await gestaoScouterClient
-      .from('fichas')
+    // Verificar se existe um lead com ID e aplicar resolução de conflitos baseada em updated_at
+    const { data: existingLead } = await gestaoScouterClient
+      .from('leads')
       .select('id, updated_at')
       .eq('id', lead.id)
       .maybeSingle();
 
-    // Se a ficha existe e o lead é mais antigo, ignorar a atualização
-    if (existingFicha && lead.updated_at) {
-      const existingDate = new Date(existingFicha.updated_at);
+    // Se o lead existe no gestao-scouter e o lead local é mais antigo, ignorar a atualização
+    if (existingLead && lead.updated_at) {
+      const existingDate = new Date(existingLead.updated_at);
       const leadDate = new Date(lead.updated_at);
       
       if (leadDate < existingDate) {
-        console.log('⏭️ Ignorando sincronização - lead mais antigo que ficha existente:', {
+        console.log('⏭️ Ignorando sincronização - lead mais antigo que lead existente:', {
           leadId: lead.id,
-          existingDate: existingFicha.updated_at,
+          existingDate: existingLead.updated_at,
           leadDate: lead.updated_at
         });
         
@@ -152,7 +153,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             success: true, 
-            message: 'Lead ignorado - versão mais antiga que a ficha existente',
+            message: 'Lead ignorado - versão mais antiga que o lead existente',
             skipped: true
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -160,28 +161,28 @@ serve(async (req) => {
       }
     }
 
-    // Fazer upsert na tabela fichas do gestao-scouter
-    const { data: fichaResult, error: fichaError } = await gestaoScouterClient
-      .from('fichas')
-      .upsert(fichaData, { 
+    // Fazer upsert na tabela leads do gestao-scouter
+    const { data: leadResult, error: leadError } = await gestaoScouterClient
+      .from('leads')
+      .upsert(leadData, { 
         onConflict: 'id',
         ignoreDuplicates: false 
       })
       .select()
       .single();
 
-    if (fichaError) {
+    if (leadError) {
       console.error('❌ Erro ao sincronizar com gestao-scouter:', {
-        error: fichaError,
+        error: leadError,
         leadId: lead.id,
-        errorDetails: fichaError.details,
-        errorHint: fichaError.hint,
-        errorCode: fichaError.code
+        errorDetails: leadError.details,
+        errorHint: leadError.hint,
+        errorCode: leadError.code
       });
-      throw new Error(`Erro ao sincronizar: ${fichaError.message} (code: ${fichaError.code})`);
+      throw new Error(`Erro ao sincronizar: ${leadError.message} (code: ${leadError.code})`);
     }
 
-    console.log('✅ Ficha sincronizada com sucesso no gestao-scouter:', fichaResult?.id);
+    console.log('✅ Lead sincronizado com sucesso no gestao-scouter:', leadResult?.id);
 
     // Atualizar status de sincronização no TabuladorMax
     const { error: updateError } = await supabase
@@ -222,7 +223,7 @@ serve(async (req) => {
         success: true, 
         message: 'Lead sincronizado com gestao-scouter com sucesso',
         leadId: lead.id,
-        fichaId: fichaResult?.id
+        gestaoScouterLeadId: leadResult?.id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

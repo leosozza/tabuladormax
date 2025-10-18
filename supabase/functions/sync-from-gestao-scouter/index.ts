@@ -6,7 +6,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  * e sincronizar de volta para a tabela leads do TabuladorMax.
  * 
  * Esta função deve ser chamada por um webhook ou trigger do gestao-scouter
- * quando uma ficha é atualizada lá.
+ * quando um lead é atualizado lá.
+ * 
+ * Payload esperado: { lead: {...}, source: 'gestao_scouter' }
+ * Loop prevention: ignora se source === 'tabuladormax' ou 'supabase'
  */
 serve(async (req) => {
   // CORS headers
@@ -28,19 +31,26 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { ficha, source } = await req.json();
+    const body = await req.json();
+    
+    // Backward compatibility: Accept both 'lead' and legacy 'ficha' keys
+    // During transition window, if 'ficha' is present and 'lead' is not, use 'ficha'
+    const lead = body.lead || body.ficha;
+    const source = body.source;
     
     console.log('sync-from-gestao-scouter: Recebendo atualização', { 
-      fichaId: ficha?.id, 
-      source 
+      leadId: lead?.id, 
+      source,
+      legacyKey: body.ficha && !body.lead ? 'ficha' : 'lead'
     });
 
-    // Validar se a ficha tem ID
-    if (!ficha?.id) {
-      throw new Error('ID da ficha é obrigatório');
+    // Validar se o lead tem ID
+    if (!lead?.id) {
+      throw new Error('ID do lead é obrigatório');
     }
 
     // Evitar loop de sincronização - se a origem já é TabuladorMax, ignora
+    // Loop prevention: early return if source indicates this came from TabuladorMax
     if (source === 'tabuladormax' || source === 'supabase') {
       console.log('sync-from-gestao-scouter: Ignorando - origem é tabuladormax');
       return new Response(
@@ -49,83 +59,83 @@ serve(async (req) => {
       );
     }
 
-    // Preparar dados do lead (espelho da ficha)
+    // Preparar dados do lead para upsert no TabuladorMax
     const leadData = {
-      id: ficha.id,
-      name: ficha.name,
-      responsible: ficha.responsible,
-      age: ficha.age,
-      address: ficha.address,
-      scouter: ficha.scouter,
-      photo_url: ficha.photo_url,
-      date_modify: ficha.date_modify ? new Date(ficha.date_modify).toISOString() : (ficha.updated_at ? new Date(ficha.updated_at).toISOString() : null),
-      raw: ficha.raw,
+      id: lead.id,
+      name: lead.name,
+      responsible: lead.responsible,
+      age: lead.age,
+      address: lead.address,
+      scouter: lead.scouter,
+      photo_url: lead.photo_url,
+      date_modify: lead.date_modify ? new Date(lead.date_modify).toISOString() : (lead.updated_at ? new Date(lead.updated_at).toISOString() : null),
+      raw: lead.raw,
       updated_at: new Date().toISOString(),
       // Campos adicionais
-      bitrix_telemarketing_id: ficha.bitrix_telemarketing_id,
-      commercial_project_id: ficha.commercial_project_id,
-      responsible_user_id: ficha.responsible_user_id,
-      celular: ficha.celular,
-      telefone_trabalho: ficha.telefone_trabalho,
-      telefone_casa: ficha.telefone_casa,
-      etapa: ficha.etapa,
-      fonte: ficha.fonte,
-      criado: ficha.criado ? new Date(ficha.criado).toISOString() : null,
-      nome_modelo: ficha.nome_modelo,
-      local_abordagem: ficha.local_abordagem,
-      ficha_confirmada: ficha.ficha_confirmada,
-      data_criacao_ficha: ficha.data_criacao_ficha ? new Date(ficha.data_criacao_ficha).toISOString() : null,
-      data_confirmacao_ficha: ficha.data_confirmacao_ficha ? new Date(ficha.data_confirmacao_ficha).toISOString() : null,
-      presenca_confirmada: ficha.presenca_confirmada,
-      compareceu: ficha.compareceu,
-      cadastro_existe_foto: ficha.cadastro_existe_foto,
-      valor_ficha: ficha.valor_ficha,
-      data_criacao_agendamento: ficha.data_criacao_agendamento ? new Date(ficha.data_criacao_agendamento).toISOString() : null,
-      horario_agendamento: ficha.horario_agendamento,
-      data_agendamento: ficha.data_agendamento,
-      gerenciamento_funil: ficha.gerenciamento_funil,
-      status_fluxo: ficha.status_fluxo,
-      etapa_funil: ficha.etapa_funil,
-      etapa_fluxo: ficha.etapa_fluxo,
-      funil_fichas: ficha.funil_fichas,
-      status_tabulacao: ficha.status_tabulacao,
-      maxsystem_id_ficha: ficha.maxsystem_id_ficha,
-      gestao_scouter: ficha.gestao_scouter,
-      op_telemarketing: ficha.op_telemarketing,
-      data_retorno_ligacao: ficha.data_retorno_ligacao ? new Date(ficha.data_retorno_ligacao).toISOString() : null,
+      bitrix_telemarketing_id: lead.bitrix_telemarketing_id,
+      commercial_project_id: lead.commercial_project_id,
+      responsible_user_id: lead.responsible_user_id,
+      celular: lead.celular,
+      telefone_trabalho: lead.telefone_trabalho,
+      telefone_casa: lead.telefone_casa,
+      etapa: lead.etapa,
+      fonte: lead.fonte,
+      criado: lead.criado ? new Date(lead.criado).toISOString() : null,
+      nome_modelo: lead.nome_modelo,
+      local_abordagem: lead.local_abordagem,
+      ficha_confirmada: lead.ficha_confirmada,
+      data_criacao_ficha: lead.data_criacao_ficha ? new Date(lead.data_criacao_ficha).toISOString() : null,
+      data_confirmacao_ficha: lead.data_confirmacao_ficha ? new Date(lead.data_confirmacao_ficha).toISOString() : null,
+      presenca_confirmada: lead.presenca_confirmada,
+      compareceu: lead.compareceu,
+      cadastro_existe_foto: lead.cadastro_existe_foto,
+      valor_ficha: lead.valor_ficha,
+      data_criacao_agendamento: lead.data_criacao_agendamento ? new Date(lead.data_criacao_agendamento).toISOString() : null,
+      horario_agendamento: lead.horario_agendamento,
+      data_agendamento: lead.data_agendamento,
+      gerenciamento_funil: lead.gerenciamento_funil,
+      status_fluxo: lead.status_fluxo,
+      etapa_funil: lead.etapa_funil,
+      etapa_fluxo: lead.etapa_fluxo,
+      funil_fichas: lead.funil_fichas,
+      status_tabulacao: lead.status_tabulacao,
+      maxsystem_id_ficha: lead.maxsystem_id_ficha,
+      gestao_scouter: lead.gestao_scouter,
+      op_telemarketing: lead.op_telemarketing,
+      data_retorno_ligacao: lead.data_retorno_ligacao ? new Date(lead.data_retorno_ligacao).toISOString() : null,
       last_sync_at: new Date().toISOString(),
       sync_source: 'gestao_scouter', // Marca origem para evitar loop
       sync_status: 'synced'
     };
 
     console.log('🔄 Atualizando lead no TabuladorMax:', {
-      leadId: ficha.id
+      leadId: lead.id
     });
 
     // Verificar se existe um lead com ID e aplicar resolução de conflitos baseada em updated_at
     const { data: existingLead } = await supabase
       .from('leads')
       .select('id, updated_at')
-      .eq('id', ficha.id)
+      .eq('id', lead.id)
       .maybeSingle();
 
-    // Se o lead existe e a ficha é mais antiga, ignorar a atualização
-    if (existingLead && ficha.updated_at) {
+    // Se o lead existe e o lead do gestao-scouter é mais antigo, ignorar a atualização
+    if (existingLead && lead.updated_at) {
       const existingDate = new Date(existingLead.updated_at);
-      const fichaDate = new Date(ficha.updated_at);
+      const leadDate = new Date(lead.updated_at);
       
-      if (fichaDate < existingDate) {
-        console.log('⏭️ Ignorando atualização - ficha mais antiga que lead existente:', {
-          leadId: ficha.id,
+      if (leadDate < existingDate) {
+        console.log('⏭️ Ignorando atualização - lead mais antigo que lead existente:', {
+          leadId: lead.id,
           existingDate: existingLead.updated_at,
-          fichaDate: ficha.updated_at
+          leadDate: lead.updated_at
         });
         
         try {
           await supabase.from('sync_events').insert({
             event_type: 'update',
             direction: 'gestao_scouter_to_supabase',
-            lead_id: ficha.id,
+            lead_id: lead.id,
             status: 'success',
             error_message: 'Skipped - older version',
             sync_duration_ms: Date.now() - startTime
@@ -137,7 +147,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             success: true, 
-            message: 'Ficha ignorada - versão mais antiga que o lead existente',
+            message: 'Lead ignorado - versão mais antiga que o lead existente',
             skipped: true
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -158,7 +168,7 @@ serve(async (req) => {
     if (leadError) {
       console.error('❌ Erro ao atualizar lead no TabuladorMax:', {
         error: leadError,
-        leadId: ficha.id,
+        leadId: lead.id,
         errorDetails: leadError.details,
         errorHint: leadError.hint,
         errorCode: leadError.code
@@ -173,12 +183,12 @@ serve(async (req) => {
       await supabase.from('sync_events').insert({
         event_type: 'update',
         direction: 'gestao_scouter_to_supabase',
-        lead_id: ficha.id,
+        lead_id: lead.id,
         status: 'success',
         sync_duration_ms: Date.now() - startTime,
         error_message: JSON.stringify({
           action: 'sync_from_gestao_scouter',
-          lead_name: ficha.name,
+          lead_name: lead.name,
           sync_source: 'gestao_scouter',
           timestamp: new Date().toISOString()
         })
@@ -190,7 +200,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Ficha sincronizada do gestao-scouter para TabuladorMax com sucesso',
+        message: 'Lead sincronizado do gestao-scouter para TabuladorMax com sucesso',
         leadId: leadResult?.id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -201,8 +211,9 @@ serve(async (req) => {
     
     // Registrar erro de sincronização
     try {
-      const { ficha } = await req.clone().json().catch(() => ({ ficha: null }));
-      if (ficha?.id) {
+      const body = await req.clone().json().catch(() => ({ lead: null, ficha: null }));
+      const lead = body.lead || body.ficha;
+      if (lead?.id) {
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseKey);
@@ -211,7 +222,7 @@ serve(async (req) => {
           await supabase.from('sync_events').insert({
             event_type: 'update',
             direction: 'gestao_scouter_to_supabase',
-            lead_id: ficha.id,
+            lead_id: lead.id,
             status: 'error',
             error_message: errorMessage
           });
