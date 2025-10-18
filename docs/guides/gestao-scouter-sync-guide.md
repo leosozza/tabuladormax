@@ -9,7 +9,7 @@ Este documento descreve a implementação da sincronização bidirecional autom�
 ```
 ┌─────────────────┐         ┌──────────────────┐
 │  TabuladorMax   │◄────────┤  gestao-scouter  │
-│   (leads)       │────────►│    (fichas)      │
+│   (leads)       │────────►│     (leads)      │
 └─────────────────┘         └──────────────────┘
         │                            │
         │    Edge Functions          │
@@ -23,7 +23,7 @@ Este documento descreve a implementação da sincronização bidirecional autom�
 
 1. **Tabelas**
    - `leads` (TabuladorMax): Tabela principal de leads
-   - `fichas` (gestao-scouter): Espelho da tabela leads
+   - `leads` (gestao-scouter): Espelho da tabela leads
    - `gestao_scouter_config` (TabuladorMax): Configuração de sincronização
    - `sync_events` (TabuladorMax): Logs de sincronização
 
@@ -33,7 +33,7 @@ Este documento descreve a implementação da sincronização bidirecional autom�
 
 3. **Triggers SQL**
    - `trigger_sync_to_gestao_scouter`: Dispara ao atualizar leads
-   - `trigger_sync_to_tabuladormax`: Dispara ao atualizar fichas
+   - `trigger_sync_to_tabuladormax`: Dispara ao atualizar leads
 
 4. **UI Components**
    - `GestaoScouterMetrics`: Exibe métricas de sincronização
@@ -52,13 +52,13 @@ As migrações SQL já foram criadas e devem ser aplicadas automaticamente:
 # supabase/migrations/20251017012000_add_gestao_scouter_trigger.sql
 ```
 
-### 2. Criar Tabela fichas no gestao-scouter
+### 2. Criar Tabela leads no gestao-scouter
 
 Execute o script SQL no projeto gestao-scouter:
 
 ```bash
 # Copie o conteúdo do arquivo:
-docs/gestao-scouter-fichas-table.sql
+docs/gestao-scouter-leads-table.sql
 
 # Execute via Supabase Dashboard → SQL Editor
 # ou via CLI:
@@ -112,19 +112,19 @@ supabase functions deploy sync-from-gestao-scouter
 5. Edge Function:
    - Busca configuração do gestao-scouter
    - Cria cliente Supabase para gestao-scouter
-   - Faz UPSERT na tabela `fichas`
+   - Faz UPSERT na tabela `leads`
    - Marca `sync_source = 'tabuladormax'`
    - Registra evento em `sync_events`
 
 ### Fluxo gestao-scouter → TabuladorMax
 
-1. Ficha é atualizada na tabela `fichas` do gestao-scouter
-2. Trigger `sync_ficha_to_tabuladormax_on_update` é disparado
+1. Lead é atualizado na tabela `leads` do gestao-scouter
+2. Trigger `sync_lead_to_tabuladormax_on_update` é disparado
 3. Função `trigger_sync_to_tabuladormax` verifica:
    - Se `sync_source` não é `tabuladormax` (evita loop)
 4. Chama Edge Function `sync-from-gestao-scouter` do TabuladorMax
 5. Edge Function:
-   - Valida dados recebidos
+   - Valida dados recebidos (aceita payload com `lead` ou legacy `ficha`)
    - Faz UPSERT na tabela `leads`
    - Marca `sync_source = 'gestao_scouter'`
    - Registra evento em `sync_events`
@@ -231,8 +231,8 @@ SELECT * FROM pg_extension WHERE extname = 'pg_net';
 - Verificar `anon_key` na configuração
 - Verificar RLS policies na tabela `fichas`
 
-#### "Table fichas does not exist"
-- Executar script `gestao-scouter-fichas-table.sql` no projeto gestao-scouter
+#### "Table leads does not exist"
+- Executar script `gestao-scouter-leads-table.sql` no projeto gestao-scouter
 
 ## Manutenção
 
@@ -264,7 +264,7 @@ WHERE created_at < NOW() - INTERVAL '30 days'
 
 ## Campos Sincronizados
 
-A sincronização mantém **todos os campos** entre `leads` e `fichas`:
+A sincronização mantém **todos os campos** entre `leads` e `leads`:
 
 - Campos básicos: id, name, responsible, age, address, scouter, photo_url
 - Contatos: celular, telefone_trabalho, telefone_casa

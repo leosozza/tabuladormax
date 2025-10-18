@@ -36,8 +36,8 @@ export function IntegrationInstructionsDialog({
     toast.success(`${label} copiado para a área de transferência`);
   };
 
-  const triggerSQL = `-- Trigger para sincronizar fichas → TabuladorMax
-CREATE OR REPLACE FUNCTION sync_ficha_to_tabuladormax()
+  const triggerSQL = `-- Trigger para sincronizar leads → TabuladorMax
+CREATE OR REPLACE FUNCTION sync_lead_to_tabuladormax()
 RETURNS TRIGGER AS $$
 DECLARE
   tabuladormax_url TEXT := 'https://seu-tabuladormax.supabase.co/functions/v1/sync-from-gestao-scouter';
@@ -57,7 +57,7 @@ BEGIN
         'Authorization', 'Bearer ' || service_role_key
       ),
       body := jsonb_build_object(
-        'ficha', row_to_json(NEW),
+        'lead', row_to_json(NEW),
         'source', 'gestao_scouter'
       )
     );
@@ -67,13 +67,13 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Criar trigger
-CREATE TRIGGER sync_ficha_after_insert_update
-  AFTER INSERT OR UPDATE ON fichas
+CREATE TRIGGER sync_lead_after_insert_update
+  AFTER INSERT OR UPDATE ON leads
   FOR EACH ROW
-  EXECUTE FUNCTION sync_ficha_to_tabuladormax();`;
+  EXECUTE FUNCTION sync_lead_to_tabuladormax();`;
 
-  const tableSchema = `-- Estrutura da tabela fichas (espelho da tabela leads)
-CREATE TABLE IF NOT EXISTS public.fichas (
+  const tableSchema = `-- Estrutura da tabela leads (espelho da tabela leads)
+CREATE TABLE IF NOT EXISTS public.leads (
   id UUID PRIMARY KEY,
   name TEXT,
   responsible TEXT,
@@ -143,8 +143,8 @@ CREATE TABLE IF NOT EXISTS public.fichas (
               <AlertDescription>
                 <strong>Como funciona:</strong> A sincronização é bidirecional e automática. 
                 Quando um lead é criado ou atualizado no TabuladorMax, ele é sincronizado 
-                para a tabela "fichas" do Gestão Scouter. O inverso também acontece: quando 
-                uma ficha é atualizada no Gestão Scouter, ela sincroniza de volta para o TabuladorMax.
+                para a tabela "leads" do Gestão Scouter. O inverso também acontece: quando 
+                um lead é atualizado no Gestão Scouter, ele sincroniza de volta para o TabuladorMax.
               </AlertDescription>
             </Alert>
 
@@ -158,9 +158,9 @@ CREATE TABLE IF NOT EXISTS public.fichas (
                   <div className="flex-1 space-y-3">
                     <div>
                       <Badge className="mb-2">Passo 1</Badge>
-                      <h3 className="font-semibold text-lg">Criar tabela "fichas" no Gestão Scouter</h3>
+                      <h3 className="font-semibold text-lg">Criar tabela "leads" no Gestão Scouter</h3>
                       <p className="text-sm text-muted-foreground mt-1">
-                        A tabela fichas é o espelho da tabela leads do TabuladorMax
+                        A tabela leads é o espelho da tabela leads do TabuladorMax
                       </p>
                     </div>
 
@@ -199,7 +199,7 @@ CREATE TABLE IF NOT EXISTS public.fichas (
                       <Badge className="mb-2">Passo 2</Badge>
                       <h3 className="font-semibold text-lg">Configurar Trigger no Gestão Scouter</h3>
                       <p className="text-sm text-muted-foreground mt-1">
-                        O trigger detecta mudanças na tabela fichas e sincroniza de volta para o TabuladorMax
+                        O trigger detecta mudanças na tabela leads e sincroniza de volta para o TabuladorMax
                       </p>
                     </div>
 

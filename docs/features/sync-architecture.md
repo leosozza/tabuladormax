@@ -32,7 +32,7 @@
 │  2. Verifica loop (source != 'gestao_scouter')                       │
 │  3. Busca gestao_scouter_config                                      │
 │  4. Cria cliente Supabase para gestao-scouter                        │
-│  5. UPSERT na tabela fichas                                          │
+│  5. UPSERT na tabela leads                                           │
 │  6. Marca sync_source = 'tabuladormax'                               │
 │  7. Registra em sync_events                                          │
 │                                                                       │
@@ -44,11 +44,11 @@
 │                      GESTAO-SCOUTER                                   │
 │                                                                       │
 │  ┌─────────────┐                                                     │
-│  │   Fichas    │  (espelho de leads)                                 │
+│  │   Leads     │  (fonte/sincronização)                              │
 │  │   Table     │                                                     │
 │  └──────┬──────┘                                                     │
 │         │                                                            │
-│         │ Trigger: sync_ficha_to_tabuladormax_on_update             │
+│         │ Trigger: sync_lead_to_tabuladormax_on_update              │
 │         ▼                                                            │
 │  ┌──────────────────────────────────────────────────────┐           │
 │  │  trigger_sync_to_tabuladormax()                      │           │
@@ -64,7 +64,7 @@
 │                    EDGE FUNCTION                                      │
 │             sync-from-gestao-scouter                                  │
 │                                                                       │
-│  1. Recebe ficha data                                                │
+│  1. Recebe lead data (payload: { lead, source })                    │
 │  2. Verifica loop (source != 'tabuladormax')                         │
 │  3. UPSERT na tabela leads                                           │
 │  4. Marca sync_source = 'gestao_scouter'                             │
@@ -100,12 +100,12 @@
                    ▼
 ┌─────────────────────────────────────────────────────────┐
 │ Edge Function sincroniza → gestao-scouter               │
-│ Marca ficha.sync_source = 'tabuladormax'                │
+│ Marca lead.sync_source = 'tabuladormax'                 │
 └──────────────────┬──────────────────────────────────────┘
                    │
                    ▼
 ┌─────────────────────────────────────────────────────────┐
-│ Ficha atualizada no gestao-scouter                      │
+│ Lead atualizado no gestao-scouter                       │
 │ sync_source = 'tabuladormax'                             │
 └──────────────────┬──────────────────────────────────────┘
                    │
@@ -189,7 +189,7 @@ const { data: config } = await supabase
 
 // Sincroniza
 const gestaoClient = createClient(config.project_url, config.anon_key);
-await gestaoClient.from('fichas').upsert({
+await gestaoClient.from('leads').upsert({
   ...lead,
   sync_source: 'tabuladormax' // Marca origem
 });
@@ -207,7 +207,7 @@ await supabase.from('sync_events').insert({
 ```typescript
 // gestao-scouter trigger chama
 POST https://[tabuladormax].supabase.co/functions/v1/sync-from-gestao-scouter
-Body: { ficha: {...}, source: 'gestao_scouter' }
+Body: { lead: {...}, source: 'gestao_scouter' }
 
 // sync-from-gestao-scouter/index.ts
 if (source === 'tabuladormax') {
@@ -215,7 +215,7 @@ if (source === 'tabuladormax') {
 }
 
 await supabase.from('leads').upsert({
-  ...ficha,
+  ...lead,
   sync_source: 'gestao_scouter' // Marca origem
 });
 ```

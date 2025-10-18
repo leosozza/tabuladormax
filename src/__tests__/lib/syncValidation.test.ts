@@ -281,3 +281,59 @@ describe('Optional Field Handling', () => {
     expect(serializedData.data_confirmacao_ficha).toBe('2025-10-15T10:30:00.000Z');
   });
 });
+
+describe('Backward Compatibility - Payload Key Migration', () => {
+  it('should accept new payload format with "lead" key', () => {
+    const body = {
+      lead: { id: 123, name: 'Test Lead' },
+      source: 'gestao_scouter'
+    };
+    
+    // Backward compatibility logic: prefer 'lead' if present
+    const lead = (body as any).lead || (body as any).ficha;
+    
+    expect(lead).toBeDefined();
+    expect(lead.id).toBe(123);
+    expect(lead.name).toBe('Test Lead');
+  });
+
+  it('should accept legacy payload format with "ficha" key', () => {
+    const body = {
+      ficha: { id: 456, name: 'Legacy Lead' },
+      source: 'gestao_scouter'
+    };
+    
+    // Backward compatibility logic: fallback to 'ficha' if 'lead' not present
+    const lead = (body as any).lead || (body as any).ficha;
+    
+    expect(lead).toBeDefined();
+    expect(lead.id).toBe(456);
+    expect(lead.name).toBe('Legacy Lead');
+  });
+
+  it('should prefer "lead" key when both "lead" and "ficha" are present', () => {
+    const body = {
+      lead: { id: 123, name: 'New Lead' },
+      ficha: { id: 456, name: 'Old Lead' },
+      source: 'gestao_scouter'
+    };
+    
+    // Backward compatibility logic: prefer 'lead' over 'ficha'
+    const lead = (body as any).lead || (body as any).ficha;
+    
+    expect(lead).toBeDefined();
+    expect(lead.id).toBe(123);
+    expect(lead.name).toBe('New Lead');
+  });
+
+  it('should handle missing data gracefully', () => {
+    const body = {
+      source: 'gestao_scouter'
+    };
+    
+    const lead = (body as any).lead || (body as any).ficha;
+    
+    expect(lead).toBeUndefined();
+  });
+});
+

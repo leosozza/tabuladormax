@@ -2,7 +2,11 @@
 -- Tabela fichas para o projeto gestao-scouter
 -- Esta tabela é um espelho da tabela leads do TabuladorMax
 -- ============================================
-
+-- 
+-- ⚠️ DEPRECATED: Este arquivo está arquivado e foi substituído por gestao-scouter-leads-table.sql
+-- A tabela fichas foi renomeada para leads no projeto gestao-scouter.
+-- Para novos projetos, use docs/gestao-scouter-fichas-table.sql que agora referencia a tabela leads.
+--
 -- IMPORTANTE: Este script deve ser executado no projeto gestao-scouter
 -- não no projeto TabuladorMax
 
