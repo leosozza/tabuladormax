@@ -30,13 +30,7 @@ CREATE TABLE IF NOT EXISTS public.gestao_scouter_export_errors (
   response_body JSONB,
   
   -- Timestamps
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  
-  -- Índices para busca rápida
-  CONSTRAINT gestao_scouter_export_errors_job_id_fkey 
-    FOREIGN KEY (job_id) 
-    REFERENCES public.gestao_scouter_export_jobs(id) 
-    ON DELETE CASCADE
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Índices para performance

@@ -1,6 +1,97 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// Type definitions
+interface Lead {
+  id: string;
+  name?: string | null;
+  responsible?: string | null;
+  age?: string | null;
+  address?: string | null;
+  scouter?: string | null;
+  photo_url?: string | null;
+  date_modify?: string | null;
+  raw?: unknown;
+  updated_at?: string | null;
+  bitrix_telemarketing_id?: string | null;
+  commercial_project_id?: string | null;
+  responsible_user_id?: string | null;
+  celular?: string | null;
+  telefone_trabalho?: string | null;
+  telefone_casa?: string | null;
+  etapa?: string | null;
+  fonte?: string | null;
+  criado?: string | null;
+  nome_modelo?: string | null;
+  local_abordagem?: string | null;
+  ficha_confirmada?: boolean | null;
+  data_criacao_ficha?: string | null;
+  data_confirmacao_ficha?: string | null;
+  presenca_confirmada?: boolean | null;
+  compareceu?: boolean | null;
+  cadastro_existe_foto?: boolean | null;
+  valor_ficha?: number | null;
+  data_criacao_agendamento?: string | null;
+  horario_agendamento?: string | null;
+  data_agendamento?: string | null;
+  gerenciamento_funil?: string | null;
+  status_fluxo?: string | null;
+  etapa_funil?: string | null;
+  etapa_fluxo?: string | null;
+  funil_fichas?: string | null;
+  status_tabulacao?: string | null;
+  maxsystem_id_ficha?: string | null;
+  gestao_scouter?: string | null;
+  op_telemarketing?: string | null;
+  data_retorno_ligacao?: string | null;
+}
+
+interface LeadData {
+  id: string;
+  name?: string | null;
+  responsible?: string | null;
+  age?: string | null;
+  address?: string | null;
+  scouter?: string | null;
+  photo_url?: string | null;
+  date_modify?: string | null;
+  raw?: unknown;
+  updated_at: string;
+  bitrix_telemarketing_id?: string | null;
+  commercial_project_id?: string | null;
+  responsible_user_id?: string | null;
+  celular?: string | null;
+  telefone_trabalho?: string | null;
+  telefone_casa?: string | null;
+  etapa?: string | null;
+  fonte?: string | null;
+  criado?: string | null;
+  nome_modelo?: string | null;
+  local_abordagem?: string | null;
+  ficha_confirmada?: boolean | null;
+  data_criacao_ficha?: string | null;
+  data_confirmacao_ficha?: string | null;
+  presenca_confirmada?: boolean | null;
+  compareceu?: boolean | null;
+  cadastro_existe_foto?: boolean | null;
+  valor_ficha?: number | null;
+  data_criacao_agendamento?: string | null;
+  horario_agendamento?: string | null;
+  data_agendamento?: string | null;
+  gerenciamento_funil?: string | null;
+  status_fluxo?: string | null;
+  etapa_funil?: string | null;
+  etapa_fluxo?: string | null;
+  funil_fichas?: string | null;
+  status_tabulacao?: string | null;
+  maxsystem_id_ficha?: string | null;
+  gestao_scouter?: string | null;
+  op_telemarketing?: string | null;
+  data_retorno_ligacao?: string | null;
+  last_sync_at: string;
+  sync_source: string;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -239,9 +330,9 @@ async function processBatchExport(jobId: string) {
   const BATCH_SIZE = 100; // Processar 100 leads por vez
 
   // Helper function to prepare lead data based on fields_selected
-  const prepareLeadData = (lead: any, fieldsSelected: string[] | null) => {
+  const prepareLeadData = (lead: Lead, fieldsSelected: string[] | null): LeadData => {
     // All available fields
-    const allFields: Record<string, any> = {
+    const allFields: LeadData = {
       id: lead.id,
       name: lead.name,
       responsible: lead.responsible,
@@ -293,7 +384,7 @@ async function processBatchExport(jobId: string) {
     }
 
     // Filter to only selected fields, but always include id, updated_at, sync_source for proper sync
-    const selectedData: Record<string, any> = {
+    const selectedData: Partial<LeadData> = {
       id: allFields.id,
       updated_at: allFields.updated_at,
       sync_source: allFields.sync_source,
@@ -302,11 +393,11 @@ async function processBatchExport(jobId: string) {
 
     fieldsSelected.forEach(field => {
       if (field in allFields) {
-        selectedData[field] = allFields[field];
+        (selectedData as Record<string, unknown>)[field] = (allFields as Record<string, unknown>)[field];
       }
     });
 
-    return selectedData;
+    return selectedData as LeadData;
   };
 
   while (true) {

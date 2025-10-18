@@ -50,18 +50,6 @@ export function GestaoScouterExportTab() {
   const [exporting, setExporting] = useState(false);
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [selectAllFields, setSelectAllFields] = useState(true);
-  const [selectedError, setSelectedError] = useState<{
-    id: string;
-    job_id: string;
-    lead_id: string | null;
-    lead_snapshot: Record<string, unknown>;
-    fields_sent: Record<string, unknown>;
-    error_message: string;
-    error_details?: Record<string, unknown>;
-    response_status?: number;
-    response_body?: Record<string, unknown>;
-    created_at: string;
-  } | null>(null);
 
   const { data: jobs } = useQuery({
     queryKey: ["gestao-scouter-export-jobs"],
@@ -501,7 +489,6 @@ export function GestaoScouterExportTab() {
                           <DialogTrigger asChild>
                             <div 
                               className="p-3 border rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
-                              onClick={() => setSelectedError(error)}
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
