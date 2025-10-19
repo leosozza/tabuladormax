@@ -14,6 +14,7 @@ A sincronização com Gestão Scouter está **CONFIGURADA e FUNCIONAL**. As tabe
 - URL: https://supabase.com/dashboard/project/ngestyxtopvfeyenyvgt
 - Vá para: **SQL Editor**
 - Execute o arquivo: `docs/gestao-scouter-fichas-table.sql`
+  - **Nota**: O arquivo tem nome legado 'fichas-table' mas cria a tabela correta 'leads'
 
 **O que este SQL faz:**
 - ✅ Cria a tabela `leads` (espelho da tabela `leads` do TabuladorMax)
@@ -225,6 +226,7 @@ WHERE active = true;
 
 **Executar o SQL:**
 - Copie todo o conteúdo de `docs/gestao-scouter-fichas-table.sql`
+  - **Nota**: O arquivo tem nome legado mas cria a tabela correta 'leads'
 - Execute no SQL Editor do Gestão Scouter
 - Verifique: `SELECT * FROM public.leads LIMIT 1;`
 
