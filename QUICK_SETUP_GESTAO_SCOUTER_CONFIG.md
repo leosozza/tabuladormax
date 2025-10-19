@@ -114,7 +114,7 @@ async function testGestaoScouterConnection() {
   
   // Try a simple query
   const { data, error } = await gestaoClient
-    .from('fichas')  // or any table you have access to
+    .from('leads')  // Check if leads table is accessible
     .select('count')
     .limit(1);
   

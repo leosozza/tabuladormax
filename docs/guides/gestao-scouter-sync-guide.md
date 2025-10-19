@@ -229,7 +229,7 @@ SELECT * FROM pg_extension WHERE extname = 'pg_net';
 
 #### "Authentication failed"
 - Verificar `anon_key` na configuração
-- Verificar RLS policies na tabela `fichas`
+- Verificar RLS policies na tabela `leads` do gestao-scouter
 
 #### "Table leads does not exist"
 - Executar script `gestao-scouter-leads-table.sql` no projeto gestao-scouter

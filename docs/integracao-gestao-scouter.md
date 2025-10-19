@@ -35,14 +35,14 @@ A seção de configuração permite gerenciar os dados de conexão:
 
 Dialog modal completo com passo a passo para configurar a integração:
 
-#### Passo 1: Criar Tabela "fichas"
+#### Passo 1: Criar Tabela "leads"
 - Script SQL completo para criar tabela espelho da tabela `leads`
 - Inclui todos os campos necessários
 - Botão "Copiar" para facilitar uso
 
 #### Passo 2: Configurar Trigger
 - Script SQL do trigger para sincronização bidirecional
-- Detecta mudanças na tabela `fichas`
+- Detecta mudanças na tabela `leads`
 - Sincroniza automaticamente de volta para TabuladorMax
 - Alertas destacando variáveis que precisam ser substituídas
 
@@ -62,7 +62,7 @@ Funcionalidade de teste de conexão:
 - ✅ Verifica se URL e Anon Key estão preenchidos
 - ✅ Cria cliente temporário com as credenciais fornecidas
 - ✅ Tenta conectar no projeto Gestão Scouter
-- ✅ Verifica existência da tabela "fichas"
+- ✅ Verifica existência da tabela "leads"
 
 #### Feedback:
 - ✅ Sucesso: Toast verde com mensagem de confirmação
@@ -93,7 +93,7 @@ Funcionalidade de teste de conexão:
 #### TabuladorMax → Gestão Scouter:
 - Trigger existente em `leads` chama função `sync-to-gestao-scouter`
 - Edge Function valida configuração
-- Cria/atualiza ficha na tabela `fichas`
+- Cria/atualiza lead na tabela `leads`
 - Resolução de conflitos baseada em `updated_at`
 
 #### Gestão Scouter → TabuladorMax:
@@ -156,23 +156,23 @@ CREATE TABLE IF NOT EXISTS public.gestao_scouter_config (
 
 ### sync-to-gestao-scouter
 - **Entrada**: `{ lead, source }`
-- **Saída**: `{ success, message, leadId?, fichaId? }`
+- **Saída**: `{ success, message, leadId?, gestaoScouterLeadId? }`
 - **Lógica**:
   1. Evita loop verificando `source`
   2. Busca configuração ativa
   3. Cria cliente Gestão Scouter
-  4. Prepara dados da ficha
+  4. Prepara dados do lead
   5. Verifica resolução de conflitos
-  6. Faz upsert na tabela `fichas`
+  6. Faz upsert na tabela `leads`
   7. Atualiza status no lead
   8. Registra evento em `sync_events`
 
 ### sync-from-gestao-scouter
-- **Entrada**: `{ ficha, source }`
+- **Entrada**: `{ lead, source }`
 - **Saída**: `{ success, message, leadId? }`
 - **Lógica**:
   1. Evita loop verificando `source`
-  2. Valida ID da ficha
+  2. Valida ID do lead
   3. Prepara dados do lead
   4. Verifica resolução de conflitos
   5. Faz upsert na tabela `leads`
@@ -258,8 +258,8 @@ CREATE TABLE IF NOT EXISTS public.gestao_scouter_config (
    - Permite análise aprofundada de falhas
 
 5. **Uso de Tabela leads**
-   - Exportação agora usa `gestao-scouter.public.leads`
-   - Anteriormente usava `gestao-scouter.public.fichas`
+   - Exportação usa `gestao-scouter.public.leads` (tabela correta)
+   - ⚠️ Nota: Documentação e scripts antigos referenciavam `fichas`
    - Alinhamento com estrutura de dados do PR #73
 
 ### Schema Changes
