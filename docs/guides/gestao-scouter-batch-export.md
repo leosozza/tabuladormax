@@ -446,7 +446,7 @@ CREATE POLICY "Users can update own export jobs"
 - Solução: Verificar permissões RLS na tabela leads
 
 **"Erro ao exportar lead"**
-- Solução: Verificar se tabela fichas existe no gestao-scouter
+- Solução: Verificar se tabela leads existe no gestao-scouter
 - Verificar anon_key na configuração
 
 ## 🔄 Diferença: Sincronização Automática vs Exportação em Lote

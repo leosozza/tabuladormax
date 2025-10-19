@@ -330,18 +330,18 @@ export async function syncToGestaoScouter(leadData: any) {
     // Get Gestão Scouter client
     const gestaoClient = await getGestaoScouterClient();
 
-    // Transform lead data to ficha format
-    const fichaData = {
+    // Transform lead data to the correct format
+    const leadFormatted = {
       nome: leadData.name,
       telefone: leadData.phone,
       email: leadData.email,
       // ... other field mappings
     };
 
-    // Insert into Gestão Scouter
+    // Insert into Gestão Scouter leads table
     const { data, error } = await gestaoClient
-      .from('fichas')
-      .insert([fichaData])
+      .from('leads')
+      .insert([leadFormatted])
       .select()
       .single();
 
@@ -355,7 +355,7 @@ export async function syncToGestaoScouter(leadData: any) {
         entity_type: 'lead',
         entity_id: leadData.id,
         status: 'success',
-        details: { ficha_id: data.id },
+        details: { gestao_scouter_lead_id: data.id },
       });
 
     return { success: true, data };
@@ -379,22 +379,22 @@ export async function syncFromGestaoScouter() {
   try {
     const gestaoClient = await getGestaoScouterClient();
 
-    // Fetch new fichas
-    const { data: fichas, error } = await gestaoClient
-      .from('fichas')
+    // Fetch new leads from Gestão Scouter
+    const { data: leads, error } = await gestaoClient
+      .from('leads')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(100);
 
     if (error) throw error;
 
-    // Process each ficha
-    for (const ficha of fichas) {
-      // Transform ficha to lead format
+    // Process each lead
+    for (const lead of leads) {
+      // Transform lead to TabuladorMax format
       const leadData = {
-        name: ficha.nome,
-        phone: ficha.telefone,
-        email: ficha.email,
+        name: lead.nome,
+        phone: lead.telefone,
+        email: lead.email,
         sync_source: 'gestao_scouter',
         // ... other field mappings
       };
@@ -405,11 +405,11 @@ export async function syncFromGestaoScouter() {
         .upsert([leadData], { onConflict: 'phone' });
 
       if (insertError) {
-        console.error('Failed to sync ficha:', ficha.id, insertError);
+        console.error('Failed to sync lead:', lead.id, insertError);
       }
     }
 
-    return { success: true, count: fichas.length };
+    return { success: true, count: leads.length };
   } catch (error) {
     console.error('Sync from Gestão Scouter failed:', error);
     throw error;
@@ -548,7 +548,7 @@ export async function validateConfiguration(config: GestaoScouterConfig): Promis
   // Test connection
   try {
     const client = createClient(config.project_url, config.anon_key);
-    const { error } = await client.from('fichas').select('count').limit(1);
+    const { error } = await client.from('leads').select('count').limit(1);
     
     if (error) {
       throw new GestaoScouterConfigError(`Connection test failed: ${error.message}`);

@@ -16,7 +16,7 @@ A sincronização com Gestão Scouter está **CONFIGURADA e FUNCIONAL**. As tabe
 - Execute o arquivo: `docs/gestao-scouter-fichas-table.sql`
 
 **O que este SQL faz:**
-- ✅ Cria a tabela `fichas` (espelho da tabela `leads`)
+- ✅ Cria a tabela `leads` (espelho da tabela `leads` do TabuladorMax)
 - ✅ Configura RLS (Row Level Security)
 - ✅ Cria índices para performance
 - ✅ Cria trigger para sincronização automática de volta ao TabuladorMax
@@ -54,7 +54,7 @@ SELECT * FROM public.gestao_scouter_config WHERE active = true;
 
 2. No Gestão Scouter, verifique se apareceu:
    ```sql
-   SELECT * FROM public.fichas 
+   SELECT * FROM public.leads 
    WHERE id = [MESMO_ID] 
    ORDER BY updated_at DESC 
    LIMIT 1;
@@ -70,9 +70,9 @@ SELECT * FROM public.gestao_scouter_config WHERE active = true;
 
 #### 📥 Teste 2: Gestão Scouter → TabuladorMax
 
-1. No Gestão Scouter, atualize uma ficha:
+1. No Gestão Scouter, atualize um lead:
    ```sql
-   UPDATE public.fichas 
+   UPDATE public.leads 
    SET nome_modelo = 'Teste Volta' 
    WHERE id = [ID_QUALQUER];
    ```
@@ -221,12 +221,12 @@ SET anon_key = '[NOVA_CHAVE_AQUI]'
 WHERE active = true;
 ```
 
-### Problema: Tabela fichas não existe no Gestão Scouter
+### Problema: Tabela leads não existe no Gestão Scouter
 
 **Executar o SQL:**
 - Copie todo o conteúdo de `docs/gestao-scouter-fichas-table.sql`
 - Execute no SQL Editor do Gestão Scouter
-- Verifique: `SELECT * FROM public.fichas LIMIT 1;`
+- Verifique: `SELECT * FROM public.leads LIMIT 1;`
 
 ### Problema: Loop infinito de sincronização
 
@@ -241,7 +241,7 @@ LIMIT 20;
 
 -- No Gestão Scouter
 SELECT id, name, sync_source, updated_at 
-FROM fichas 
+FROM leads 
 WHERE sync_source IS NOT NULL
 ORDER BY updated_at DESC 
 LIMIT 20;
@@ -276,7 +276,7 @@ LIMIT 20;
 
 ## 🎯 Campos Sincronizados
 
-A sincronização mantém **TODOS os campos** entre `leads` e `fichas`:
+A sincronização mantém **TODOS os campos** entre as tabelas `leads` do TabuladorMax e do Gestão Scouter:
 
 ### Campos Básicos
 - id, name, responsible, age, address, scouter, photo_url
