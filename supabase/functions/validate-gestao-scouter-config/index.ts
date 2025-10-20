@@ -217,14 +217,20 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('❌ Erro na validação:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    // Não expor detalhes internos do erro para o usuário
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido durante validação';
+    
+    // Log completo apenas no console (não exposto ao usuário)
+    if (error instanceof Error && error.stack) {
+      console.error('Stack trace:', error.stack);
+    }
     
     return new Response(
       JSON.stringify({
         valid: false,
-        error: errorMessage,
+        error: 'Erro ao validar configuração. Verifique os logs para mais detalhes.',
         checks: {},
-        errors: [errorMessage],
+        errors: ['Erro interno durante validação'],
         warnings: [],
       }),
       {
