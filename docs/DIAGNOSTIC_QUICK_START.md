@@ -90,8 +90,9 @@ if (problems.length > 0) {
 // Criar alerta
 const alert = createAlert(problem);
 
-// Exportar relatório
-await downloadReport('admin', {
+// Exportar relatório (use o ID do usuário atual)
+const { data: { user } } = await supabase.auth.getUser();
+await downloadReport(user?.email || 'admin', {
   format: 'csv',
   period: { start: new Date('2025-01-01'), end: new Date() }
 });
