@@ -27,7 +27,7 @@ No Supabase Dashboard do TabuladorMax:
 Se não estiverem configuradas:
 ```bash
 # Via CLI do Supabase
-supabase secrets set SUPABASE_URL=https://gkvvtfqfggddzotxltxf.supabase.co
+supabase secrets set SUPABASE_URL=https://your-project.supabase.co
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
@@ -71,7 +71,7 @@ Execute a função de validação via Supabase CLI ou curl:
 ```bash
 # Via curl
 curl -X POST \
-  https://gkvvtfqfggddzotxltxf.supabase.co/functions/v1/validate-gestao-scouter-config \
+  https://your-project.supabase.co/functions/v1/validate-gestao-scouter-config \
   -H "Authorization: Bearer YOUR_ANON_KEY" \
   -H "Content-Type: application/json"
 ```
@@ -196,7 +196,7 @@ Caso contrário, chame manualmente:
 
 ```bash
 curl -X POST \
-  https://gkvvtfqfggddzotxltxf.supabase.co/functions/v1/sync-from-gestao-scouter \
+  https://your-project.supabase.co/functions/v1/sync-from-gestao-scouter \
   -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -249,7 +249,7 @@ WHERE active = true;
 
 ```bash
 curl -X POST \
-  https://gkvvtfqfggddzotxltxf.supabase.co/functions/v1/sync-to-gestao-scouter \
+  https://your-project.supabase.co/functions/v1/sync-to-gestao-scouter \
   -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" \
   -d '{

@@ -19,6 +19,7 @@ DECLARE
   http_response record;
   error_occurred boolean := false;
   error_message text;
+  http_timeout_ms constant integer := 10000; -- 10 segundos timeout
 BEGIN
   -- A verificação de sync_source é feita pela cláusula WHEN do trigger
   -- Este é um AFTER trigger, então não podemos modificar NEW
@@ -55,9 +56,14 @@ BEGIN
     END;
 
     -- Usar valores padrão se não encontrar (fallback)
+    -- NOTA: Idealmente este valor deveria vir de uma configuração
     IF supabase_url IS NULL THEN
-      supabase_url := 'https://gkvvtfqfggddzotxltxf.supabase.co';
-      RAISE NOTICE 'Usando SUPABASE_URL padrão: %', supabase_url;
+      supabase_url := current_setting('app.supabase_url', true);
+      IF supabase_url IS NULL THEN
+        -- Último recurso: valor padrão (deve ser configurado em produção)
+        supabase_url := 'https://gkvvtfqfggddzotxltxf.supabase.co';
+        RAISE NOTICE 'Usando SUPABASE_URL padrão: %', supabase_url;
+      END IF;
     END IF;
 
     -- Se não tiver service_key, não pode sincronizar
@@ -123,7 +129,7 @@ BEGIN
           'lead', lead_data,
           'source', 'supabase'
         ),
-        timeout_milliseconds := 10000  -- 10 segundos timeout
+        timeout_milliseconds := http_timeout_ms
       );
 
       -- Verificar status da resposta HTTP
