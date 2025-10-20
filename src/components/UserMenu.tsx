@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Shield, Bug, Users, Network } from "lucide-react";
+import { User, LogOut, Shield, Bug, Users, Network, Activity } from "lucide-react";
 import { toast } from "sonner";
 
 const UserMenu = () => {
@@ -92,6 +92,12 @@ const UserMenu = () => {
           <DropdownMenuItem onClick={() => navigate("/users")}>
             <Users className="mr-2 h-4 w-4" />
             <span>Gerenciar Usuários</span>
+          </DropdownMenuItem>
+        )}
+        {userRole === 'admin' && (
+          <DropdownMenuItem onClick={() => navigate("/diagnostic")}>
+            <Activity className="mr-2 h-4 w-4" />
+            <span>Diagnóstico do Sistema</span>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={() => navigate("/debug")}>
