@@ -104,10 +104,18 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Variáveis de ambiente não configuradas');
+      return new Response(
+        JSON.stringify({ error: 'Variáveis de ambiente não configuradas' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { action, jobId, startDate, endDate, fieldsSelected } = await req.json();
 
@@ -276,10 +284,15 @@ serve(async (req) => {
 });
 
 async function processBatchExport(jobId: string) {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  );
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Variáveis de ambiente não configuradas para processBatchExport');
+    return;
+  }
+  
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
   const { data: job } = await supabase
     .from('gestao_scouter_export_jobs')
@@ -301,12 +314,31 @@ async function processBatchExport(jobId: string) {
     .maybeSingle();
 
   if (!config) {
+    console.error('❌ Configuração do gestao-scouter não encontrada');
     await supabase.from('gestao_scouter_export_jobs').update({
       status: 'failed',
-      pause_reason: 'Configuração do gestao-scouter não encontrada'
+      pause_reason: 'Configuração do gestao-scouter não encontrada ou inativa'
     }).eq('id', jobId);
     return;
   }
+  
+  // Validar configuração
+  if (!config.project_url || !config.anon_key) {
+    console.error('❌ Configuração incompleta:', {
+      hasUrl: !!config.project_url,
+      hasKey: !!config.anon_key
+    });
+    await supabase.from('gestao_scouter_export_jobs').update({
+      status: 'failed',
+      pause_reason: 'Configuração do gestao-scouter incompleta (falta project_url ou anon_key)'
+    }).eq('id', jobId);
+    return;
+  }
+  
+  console.log('✅ Configuração encontrada:', {
+    projectUrl: config.project_url,
+    jobId
+  });
 
   // Criar cliente para gestao-scouter
   const gestaoScouterClient = createClient(
@@ -496,7 +528,15 @@ async function processBatchExport(jobId: string) {
         }
 
         if (upsertError) {
-          console.error(`❌ Erro ao exportar lead ${lead.id}:`, upsertError);
+          console.error(`❌ Erro ao exportar lead ${lead.id}:`, {
+            error: upsertError,
+            errorMessage: upsertError.message,
+            errorCode: upsertError.code,
+            errorDetails: upsertError.details,
+            errorHint: upsertError.hint,
+            leadId: lead.id,
+            leadName: lead.name
+          });
           errorCount++;
 
           // Log detalhado do erro na nova tabela
