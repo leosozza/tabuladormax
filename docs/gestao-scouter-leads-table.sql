@@ -108,7 +108,7 @@ CREATE TRIGGER trigger_update_leads_updated_at
 CREATE OR REPLACE FUNCTION public.trigger_sync_to_tabuladormax()
 RETURNS TRIGGER AS $$
 DECLARE
-  tabuladormax_url text := 'https://jstsrgyxrrlklnzgsihd.supabase.co';
+  tabuladormax_url text := 'https://gkvvtfqfggddzotxltxf.supabase.co';
   tabuladormax_function_url text;
 BEGIN
   -- Evitar loop: se a origem é tabuladormax, não sincroniza de volta

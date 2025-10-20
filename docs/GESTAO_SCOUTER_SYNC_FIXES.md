@@ -168,7 +168,7 @@ Execute a função de validação para verificar a configuração atual:
 ```bash
 # Via curl
 curl -X POST \
-  https://jstsrgyxrrlklnzgsihd.supabase.co/functions/v1/validate-gestao-scouter-config \
+  https://gkvvtfqfggddzotxltxf.supabase.co/functions/v1/validate-gestao-scouter-config \
   -H "Authorization: Bearer YOUR_ANON_KEY"
 
 # Via JavaScript

@@ -61,7 +61,7 @@ BEGIN
       supabase_url := current_setting('app.supabase_url', true);
       IF supabase_url IS NULL THEN
         -- Último recurso: valor padrão (deve ser configurado em produção)
-        supabase_url := 'https://jstsrgyxrrlklnzgsihd.supabase.co';
+        supabase_url := 'https://gkvvtfqfggddzotxltxf.supabase.co';
         RAISE NOTICE 'Usando SUPABASE_URL padrão: %', supabase_url;
       END IF;
     END IF;
