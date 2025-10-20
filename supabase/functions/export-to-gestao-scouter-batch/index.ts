@@ -503,7 +503,7 @@ async function processBatchExport(jobId: string) {
         // Preparar dados da ficha usando campos selecionados
         const leadData = prepareLeadData(lead, job.fields_selected);
 
-        // Fazer upsert na tabela leads (não fichas - PR #73)
+        // Fazer upsert na tabela leads
         const { error: upsertError, status: responseStatus } = await gestaoScouterClient
           .from('leads')
           .upsert(leadData, { 

@@ -31,7 +31,6 @@ Enhance the batch export functionality for Gestão Scouter with field selection,
 - ❌ No way to reset/retry a job
 - ❌ Couldn't delete paused jobs
 - ❌ No detailed error information
-- ❌ Used wrong table (fichas instead of leads)
 
 ### After This PR ✨
 
@@ -220,7 +219,6 @@ GestaoScouterExportTab
 | **Export Control** | All fields only | Selectable fields |
 | **Error Information** | Basic message | Full context |
 | **Job Management** | Pause/Resume | Pause/Resume/Reset/Delete |
-| **Target Table** | fichas (wrong) | leads (correct) |
 | **Error Storage** | sync_events only | Dedicated error table |
 | **Type Safety** | Some `any` types | Fully typed |
 
@@ -301,7 +299,6 @@ This PR transforms the batch export from a basic all-or-nothing operation into a
 - **Granular field control** for data privacy and performance
 - **Comprehensive error logging** for rapid debugging
 - **Flexible job management** (reset, delete)
-- **Correct table targeting** (leads, not fichas)
 - **Professional error handling** with full context
 - **Type-safe implementation** throughout
 - **Complete documentation** for users and developers

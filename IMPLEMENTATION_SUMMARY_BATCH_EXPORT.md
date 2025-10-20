@@ -95,7 +95,7 @@ CREATE TABLE gestao_scouter_export_errors (
 ```
 
 **Target Table:**
-- Exports to `gestao-scouter.public.leads` (not `fichas`)
+- Exports to `gestao-scouter.public.leads`
 - Aligns with PR #73 changes
 
 ### 3. UI Component Updates (`GestaoScouterExportTab.tsx`)
@@ -179,7 +179,6 @@ After:  [Start] → [Pause] → [Resume | Reset | Delete]
 - Documented reset and delete functions
 - Added error logging queries
 - Updated troubleshooting section
-- Changed all references from "fichas" to "leads"
 
 **integracao-gestao-scouter.md:**
 - Added "Melhorias na Exportação em Lote" section

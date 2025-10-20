@@ -175,7 +175,6 @@ This document outlines the test plan for validating the batch export enhancement
 
 **Expected Result:**
 - Data exported to `gestao-scouter.public.leads` table
-- NOT to `gestao-scouter.public.fichas` table
 - Data structure matches lead structure
 
 #### TC-5.2: Sync Source Prevention
