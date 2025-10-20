@@ -1,4 +1,4 @@
-project_id = "gkvvtfqfggddzotxltxf"
+project_id = "jstsrgyxrrlklnzgsihd"
 
 [functions.import-csv-leads]
 verify_jwt = true
