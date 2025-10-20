@@ -17,15 +17,34 @@ serve(async (req) => {
 
   try {
     const startTime = Date.now();
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Validar variáveis de ambiente
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Variáveis de ambiente não configuradas:', {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseKey
+      });
+      throw new Error('SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configurados');
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { lead, source } = await req.json();
     
-    console.log('sync-to-gestao-scouter: Recebendo requisição', { 
-      leadId: lead?.id, 
-      source 
+    // Validar payload
+    if (!lead || !lead.id) {
+      console.error('❌ Payload inválido - lead ou lead.id ausente');
+      throw new Error('Payload inválido: lead e lead.id são obrigatórios');
+    }
+    
+    console.log('🔄 sync-to-gestao-scouter: Recebendo requisição', { 
+      leadId: lead.id, 
+      leadName: lead.name,
+      source,
+      timestamp: new Date().toISOString()
     });
 
     // Evitar loop de sincronização
@@ -46,17 +65,37 @@ serve(async (req) => {
       .maybeSingle();
 
     if (configError) {
-      console.error('❌ Erro ao buscar configuração:', configError);
+      console.error('❌ Erro ao buscar configuração:', {
+        error: configError,
+        message: configError.message,
+        code: configError.code,
+        details: configError.details
+      });
       throw new Error(`Erro ao buscar configuração: ${configError.message}`);
     }
 
     if (!config) {
-      console.log('⚠️ Sincronização com gestao-scouter desabilitada');
+      console.log('⚠️ Sincronização com gestao-scouter desabilitada ou sem configuração ativa');
       return new Response(
         JSON.stringify({ success: true, message: 'Gestao-scouter sync disabled' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    // Validar configuração
+    if (!config.project_url || !config.anon_key) {
+      console.error('❌ Configuração incompleta:', {
+        hasUrl: !!config.project_url,
+        hasKey: !!config.anon_key
+      });
+      throw new Error('Configuração do gestao-scouter incompleta (falta project_url ou anon_key)');
+    }
+    
+    console.log('✅ Configuração do gestao-scouter encontrada:', {
+      projectUrl: config.project_url,
+      syncEnabled: config.sync_enabled,
+      active: config.active
+    });
 
     // Criar cliente para o projeto gestao-scouter
     const gestaoScouterClient = createClient(
@@ -175,10 +214,29 @@ serve(async (req) => {
       console.error('❌ Erro ao sincronizar com gestao-scouter:', {
         error: leadError,
         leadId: lead.id,
+        leadName: lead.name,
+        errorMessage: leadError.message,
         errorDetails: leadError.details,
         errorHint: leadError.hint,
-        errorCode: leadError.code
+        errorCode: leadError.code,
+        projectUrl: config.project_url,
+        timestamp: new Date().toISOString()
       });
+      
+      // Registrar erro detalhado
+      try {
+        await supabase.from('sync_events').insert({
+          event_type: 'update',
+          direction: 'supabase_to_gestao_scouter',
+          lead_id: lead.id,
+          status: 'error',
+          error_message: `${leadError.message} (code: ${leadError.code}, hint: ${leadError.hint || 'N/A'})`,
+          sync_duration_ms: Date.now() - startTime
+        });
+      } catch (syncErr) {
+        console.error('❌ Erro ao registrar sync_event de erro:', syncErr);
+      }
+      
       throw new Error(`Erro ao sincronizar: ${leadError.message} (code: ${leadError.code})`);
     }
 

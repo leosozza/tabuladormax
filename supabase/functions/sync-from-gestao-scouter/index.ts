@@ -27,8 +27,19 @@ serve(async (req) => {
 
   try {
     const startTime = Date.now();
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Validar variáveis de ambiente
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Variáveis de ambiente não configuradas:', {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseKey
+      });
+      throw new Error('SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configurados');
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
@@ -38,15 +49,18 @@ serve(async (req) => {
     const lead = body.lead || body.ficha;
     const source = body.source;
     
-    console.log('sync-from-gestao-scouter: Recebendo atualização', { 
-      leadId: lead?.id, 
+    console.log('🔄 sync-from-gestao-scouter: Recebendo atualização', { 
+      leadId: lead?.id,
+      leadName: lead?.name,
       source,
-      legacyKey: body.ficha && !body.lead ? 'ficha' : 'lead'
+      legacyKey: body.ficha && !body.lead ? 'ficha' : 'lead',
+      timestamp: new Date().toISOString()
     });
 
-    // Validar se o lead tem ID
-    if (!lead?.id) {
-      throw new Error('ID do lead é obrigatório');
+    // Validar payload
+    if (!lead || !lead.id) {
+      console.error('❌ Payload inválido - lead ou lead.id ausente');
+      throw new Error('Payload inválido: lead e lead.id são obrigatórios');
     }
 
     // Evitar loop de sincronização - se a origem já é TabuladorMax, ignora
@@ -169,10 +183,28 @@ serve(async (req) => {
       console.error('❌ Erro ao atualizar lead no TabuladorMax:', {
         error: leadError,
         leadId: lead.id,
+        leadName: lead.name,
+        errorMessage: leadError.message,
         errorDetails: leadError.details,
         errorHint: leadError.hint,
-        errorCode: leadError.code
+        errorCode: leadError.code,
+        timestamp: new Date().toISOString()
       });
+      
+      // Registrar erro detalhado
+      try {
+        await supabase.from('sync_events').insert({
+          event_type: 'update',
+          direction: 'gestao_scouter_to_supabase',
+          lead_id: lead.id,
+          status: 'error',
+          error_message: `${leadError.message} (code: ${leadError.code}, hint: ${leadError.hint || 'N/A'})`,
+          sync_duration_ms: Date.now() - startTime
+        });
+      } catch (syncErr) {
+        console.error('❌ Erro ao registrar sync_event de erro:', syncErr);
+      }
+      
       throw new Error(`Erro ao atualizar lead: ${leadError.message} (code: ${leadError.code})`);
     }
 
