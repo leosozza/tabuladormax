@@ -31,7 +31,7 @@ BEGIN
 
   -- Usar valores padrão se não encontrar
   IF supabase_url IS NULL THEN
-    supabase_url := 'https://gkvvtfqfggddzotxltxf.supabase.co';
+    supabase_url := 'https://jstsrgyxrrlklnzgsihd.supabase.co';
   END IF;
 
   -- Atualizar status
