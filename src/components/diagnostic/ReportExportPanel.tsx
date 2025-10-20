@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 export function ReportExportPanel() {
-  const [format, setFormat] = useState<'json' | 'csv' | 'pdf'>('csv');
+  const [exportFormat, setExportFormat] = useState<'json' | 'csv' | 'pdf'>('csv');
   const [startDate, setStartDate] = useState<Date | undefined>(
     new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 dias atrás
   );
@@ -39,7 +39,7 @@ export function ReportExportPanel() {
     setLoading(true);
     try {
       const options: ReportExportOptions = {
-        format,
+        format: exportFormat,
         includeCharts: true,
         includeLogs: true,
         period: {
@@ -52,7 +52,7 @@ export function ReportExportPanel() {
 
       toast({
         title: "Relatório exportado",
-        description: `Relatório em formato ${format.toUpperCase()} foi baixado com sucesso`,
+        description: `Relatório em formato ${exportFormat.toUpperCase()} foi baixado com sucesso`,
       });
     } catch (error) {
       toast({
@@ -136,7 +136,7 @@ export function ReportExportPanel() {
             {/* Seleção de Formato */}
             <div className="space-y-3">
               <Label>Formato de Exportação</Label>
-              <RadioGroup value={format} onValueChange={(v) => setFormat(v as typeof format)}>
+              <RadioGroup value={exportFormat} onValueChange={(v) => setExportFormat(v as typeof exportFormat)}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="csv" id="csv" />
                   <Label htmlFor="csv" className="flex items-center gap-2 cursor-pointer">

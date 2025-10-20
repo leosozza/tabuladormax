@@ -125,8 +125,8 @@ serve(async (req) => {
       result.checks.connection.message = 'Cliente criado com sucesso';
     } catch (error) {
       result.checks.connection.valid = false;
-      result.checks.connection.message = `Erro ao criar cliente: ${error.message}`;
-      result.errors.push(`Falha na conexão: ${error.message}`);
+      result.checks.connection.message = `Erro ao criar cliente: ${(error as Error).message}`;
+      result.errors.push(`Falha na conexão: ${(error as Error).message}`);
       result.valid = false;
       return new Response(JSON.stringify(result), {
         status: 500,
@@ -152,8 +152,8 @@ serve(async (req) => {
       }
     } catch (error) {
       result.checks.tableAccess.valid = false;
-      result.checks.tableAccess.message = `Exceção ao testar acesso: ${error.message}`;
-      result.errors.push(`Erro ao testar acesso: ${error.message}`);
+      result.checks.tableAccess.message = `Exceção ao testar acesso: ${(error as Error).message}`;
+      result.errors.push(`Erro ao testar acesso: ${(error as Error).message}`);
       result.valid = false;
     }
 
@@ -190,8 +190,8 @@ serve(async (req) => {
       }
     } catch (error) {
       result.checks.tableStructure.valid = false;
-      result.checks.tableStructure.message = `Exceção ao verificar estrutura: ${error.message}`;
-      result.warnings.push(`Não foi possível verificar estrutura: ${error.message}`);
+      result.checks.tableStructure.message = `Exceção ao verificar estrutura: ${(error as Error).message}`;
+      result.warnings.push(`Não foi possível verificar estrutura: ${(error as Error).message}`);
     }
 
     // Registrar resultado da validação

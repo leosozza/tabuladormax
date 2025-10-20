@@ -425,7 +425,7 @@ async function processBatchExport(jobId: string) {
 
     fieldsSelected.forEach(field => {
       if (field in allFields) {
-        (selectedData as Record<string, unknown>)[field] = (allFields as Record<string, unknown>)[field];
+        (selectedData as unknown as Record<string, unknown>)[field] = (allFields as unknown as Record<string, unknown>)[field];
       }
     });
 

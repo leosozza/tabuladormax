@@ -548,6 +548,53 @@ export type Database = {
         }
         Relationships: []
       }
+      gestao_scouter_export_errors: {
+        Row: {
+          created_at: string | null
+          error_details: Json | null
+          error_message: string
+          fields_sent: Json
+          id: string
+          job_id: string
+          lead_id: number | null
+          lead_snapshot: Json
+          response_body: Json | null
+          response_status: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_details?: Json | null
+          error_message: string
+          fields_sent: Json
+          id?: string
+          job_id: string
+          lead_id?: number | null
+          lead_snapshot: Json
+          response_body?: Json | null
+          response_status?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          error_details?: Json | null
+          error_message?: string
+          fields_sent?: Json
+          id?: string
+          job_id?: string
+          lead_id?: number | null
+          lead_snapshot?: Json
+          response_body?: Json | null
+          response_status?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gestao_scouter_export_errors_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "gestao_scouter_export_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gestao_scouter_export_jobs: {
         Row: {
           completed_at: string | null
@@ -645,6 +692,7 @@ export type Database = {
           scouter: string | null
           status_fluxo: string | null
           status_tabulacao: string | null
+          sync_error: string | null
           sync_source: string | null
           sync_status: string | null
           telefone_casa: string | null
@@ -691,6 +739,7 @@ export type Database = {
           scouter?: string | null
           status_fluxo?: string | null
           status_tabulacao?: string | null
+          sync_error?: string | null
           sync_source?: string | null
           sync_status?: string | null
           telefone_casa?: string | null
@@ -737,6 +786,7 @@ export type Database = {
           scouter?: string | null
           status_fluxo?: string | null
           status_tabulacao?: string | null
+          sync_error?: string | null
           sync_source?: string | null
           sync_status?: string | null
           telefone_casa?: string | null
