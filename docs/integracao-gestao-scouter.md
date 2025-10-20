@@ -12,8 +12,6 @@ Esta documentação descreve a implementação da área de integração de sincr
 - Separada das abas de Monitoramento, Importações e Atualização em Lote
 - Interface dedicada para gerenciar a integração com Gestão Scouter
 
-**Nota**: A partir do PR #73, a integração usa a tabela `leads` em vez de `fichas` no gestao-scouter.
-
 ### 2. Configuração do Gestão Scouter
 
 A seção de configuração permite gerenciar os dados de conexão:
@@ -258,9 +256,8 @@ CREATE TABLE IF NOT EXISTS public.gestao_scouter_config (
    - Permite análise aprofundada de falhas
 
 5. **Uso de Tabela leads**
-   - Exportação usa `gestao-scouter.public.leads` (tabela correta)
-   - ⚠️ Nota: Documentação e scripts antigos referenciavam `fichas`
-   - Alinhamento com estrutura de dados do PR #73
+   - Exportação usa `gestao-scouter.public.leads`
+   - Alinhamento com estrutura de dados padrão
 
 ### Schema Changes
 
@@ -324,7 +321,7 @@ CREATE TABLE gestao_scouter_export_errors (
 ### Erro ao testar integração:
 - Verificar URL do projeto (deve terminar com .supabase.co)
 - Verificar Anon Key (deve começar com eyJ...)
-- Verificar se tabela "leads" existe no Gestão Scouter (não "fichas")
+- Verificar se tabela "leads" existe no Gestão Scouter
 
 ### Sincronização não funciona:
 - Verificar se switches estão ativos

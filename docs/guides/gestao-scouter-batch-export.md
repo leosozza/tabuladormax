@@ -4,8 +4,6 @@
 
 Esta funcionalidade permite exportar leads existentes do TabuladorMax para a tabela **leads** do gestao-scouter em lotes, processando das datas mais recentes para as mais antigas, similar ao funcionamento da importação do Bitrix.
 
-**Nota importante**: A partir do PR #73, a integração com Gestão Scouter usa a tabela `leads` em vez de `fichas` para melhor alinhamento com a estrutura de dados.
-
 ## 🎯 Casos de Uso
 
 - **Carga Inicial**: Enviar dados históricos do TabuladorMax para o gestao-scouter pela primeira vez
@@ -196,13 +194,12 @@ pending → running → completed
 - Relacionado ao job via `job_id`
 - Permite análise pós-exportação
 
-### 5. Tabela de Destino: leads (não fichas)
+### 5. Tabela de Destino: leads
 
-**Mudança (PR #73):**
-- Antes: exportava para `gestao-scouter.public.fichas`
-- Agora: exporta para `gestao-scouter.public.leads`
-- Melhor alinhamento com estrutura de dados
-- Evita confusão de nomenclatura
+**Implementação (PR #73):**
+- Exporta para `gestao-scouter.public.leads`
+- Alinhamento com estrutura de dados padrão
+- Nomenclatura consistente em toda a plataforma
 
 ## 🎨 Interface do Usuário
 

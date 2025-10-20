@@ -112,4 +112,4 @@ $function$;
 
 -- Comentário explicativo
 COMMENT ON FUNCTION public.trigger_sync_to_gestao_scouter IS 
-  'Função que sincroniza automaticamente leads do TabuladorMax para a tabela fichas do projeto gestao-scouter via Edge Function';
+  'Função que sincroniza automaticamente leads do TabuladorMax para a tabela leads do projeto gestao-scouter via Edge Function';
