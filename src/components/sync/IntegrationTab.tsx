@@ -149,13 +149,13 @@ export function IntegrationTab() {
 
       // Try to query a simple table to test connection
       const { error } = await testClient
-        .from('fichas')
+        .from('leads')
         .select('id')
         .limit(1);
 
       if (error) {
         if (error.code === '42P01') {
-          toast.error("Tabela 'fichas' não encontrada no projeto Gestão Scouter");
+          toast.error("Tabela 'leads' não encontrada no projeto Gestão Scouter");
         } else {
           throw error;
         }
@@ -217,7 +217,7 @@ export function IntegrationTab() {
         <Info className="h-4 w-4" />
         <AlertDescription>
           <strong>Sobre esta integração:</strong> A sincronização permite que leads do TabuladorMax 
-          sejam automaticamente enviados para a tabela "fichas" do projeto Gestão Scouter, e vice-versa. 
+          sejam automaticamente enviados para a tabela "leads" do projeto Gestão Scouter, e vice-versa. 
           As atualizações são bidirecionais e automáticas quando habilitadas.
         </AlertDescription>
       </Alert>

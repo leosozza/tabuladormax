@@ -31,7 +31,7 @@ This document outlines the architectural design of the Gestão Scouter configura
            ┌──────────────────────┐
            │  Gestão Scouter      │
            │  (External Supabase) │
-           │  - fichas table      │
+           │  - leads table       │
            │  - Other tables      │
            └──────────────────────┘
 ```
