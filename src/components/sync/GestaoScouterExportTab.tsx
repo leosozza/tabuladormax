@@ -48,6 +48,25 @@ interface FieldMapping {
   tabuladormaxField: string | null;
 }
 
+// Helper function to extract error messages from various error formats
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  // Supabase Functions returns { error: string }
+  if (typeof error === 'object' && error !== null && 'error' in error) {
+    return String((error as any).error);
+  }
+  
+  // Try to convert to readable JSON
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return fallback;
+  }
+};
+
 export function GestaoScouterExportTab() {
   const queryClient = useQueryClient();
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -147,7 +166,7 @@ export function GestaoScouterExportTab() {
       queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-jobs"] });
     } catch (error: unknown) {
       console.error("Erro ao iniciar exportação:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erro ao iniciar exportação";
+      const errorMessage = getErrorMessage(error, "Erro ao iniciar exportação");
       toast.error(errorMessage);
     } finally {
       setExporting(false);
@@ -163,7 +182,7 @@ export function GestaoScouterExportTab() {
       toast.success("Exportação pausada");
       queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-jobs"] });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Erro ao pausar";
+      const errorMessage = getErrorMessage(error, "Erro ao pausar");
       toast.error(errorMessage);
     }
   };
@@ -177,7 +196,7 @@ export function GestaoScouterExportTab() {
       toast.success("Exportação retomada");
       queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-jobs"] });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Erro ao retomar";
+      const errorMessage = getErrorMessage(error, "Erro ao retomar");
       toast.error(errorMessage);
     }
   };
@@ -192,7 +211,7 @@ export function GestaoScouterExportTab() {
       queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-jobs"] });
       queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-errors"] });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Erro ao resetar";
+      const errorMessage = getErrorMessage(error, "Erro ao resetar");
       toast.error(errorMessage);
     }
   };
@@ -206,7 +225,7 @@ export function GestaoScouterExportTab() {
       toast.success("Job de exportação excluído");
       queryClient.invalidateQueries({ queryKey: ["gestao-scouter-export-jobs"] });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Erro ao excluir";
+      const errorMessage = getErrorMessage(error, "Erro ao excluir");
       toast.error(errorMessage);
     }
   };
