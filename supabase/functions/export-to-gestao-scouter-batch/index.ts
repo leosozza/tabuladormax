@@ -111,7 +111,7 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, jobId, startDate, endDate, fieldsSelected } = await req.json();
+    const { action, jobId, startDate, endDate, fieldsSelected, fieldMappings } = await req.json();
 
     if (action === 'create') {
       // Obter usuário autenticado
@@ -149,7 +149,8 @@ serve(async (req) => {
           end_date: endDate || null,
           status: 'pending',
           created_by: user.id,
-          fields_selected: fieldsSelected || null, // Array de campos selecionados ou null = todos
+          fields_selected: fieldsSelected || null, // Backward compatibility - Array de campos selecionados ou null = todos
+          field_mappings: fieldMappings || null, // NEW - Object mapping gestao fields to tabuladormax fields
         })
         .select()
         .single();
@@ -355,8 +356,8 @@ async function processBatchExport(jobId: string) {
 
   const BATCH_SIZE = 100; // Processar 100 leads por vez
 
-  // Helper function to prepare lead data - APENAS CAMPOS ESSENCIAIS
-  const prepareLeadData = (lead: Lead, fieldsSelected: string[] | null): LeadData => {
+  // Helper function to prepare lead data - supports both field selection and field mapping
+  const prepareLeadData = (lead: Lead, fieldsSelected: string[] | null, fieldMappings: Record<string, string> | null): LeadData => {
     // Mapear apenas os campos que realmente existem no Gestão Scouter
     // Baseado na estrutura básica: id, nome, scouter, projeto, etc.
     const allFields: LeadData = {
@@ -399,7 +400,49 @@ async function processBatchExport(jobId: string) {
       origem_sincronizacao: 'tabuladormax'
     };
 
-    // If no fields selected, return all fields
+    // NEW: Handle field mappings (priority over fieldsSelected)
+    if (fieldMappings && Object.keys(fieldMappings).length > 0) {
+      const mappedData: Partial<LeadData> = {
+        id: allFields.id,
+        modificado: allFields.modificado,
+        origem_sincronizacao: allFields.origem_sincronizacao,
+        ultima_sincronizacao: allFields.ultima_sincronizacao,
+      };
+
+      // Apply field mappings: gestaoField -> tabuladormaxField
+      Object.entries(fieldMappings).forEach(([gestaoField, tabField]) => {
+        // Remove 'tab_' prefix from tabuladormax field name to match Lead interface
+        const leadField = tabField.replace('tab_', '');
+        
+        // Map the value from Lead to LeadData using the mapping
+        if (leadField in lead) {
+          const value = (lead as unknown as Record<string, unknown>)[leadField];
+          
+          // Handle date conversions and special mappings
+          if (gestaoField === 'nome') {
+            (mappedData as unknown as Record<string, unknown>)['nome'] = value;
+          } else if (gestaoField === 'responsavel') {
+            (mappedData as unknown as Record<string, unknown>)['responsavel'] = value;
+          } else if (gestaoField === 'idade') {
+            (mappedData as unknown as Record<string, unknown>)['idade'] = value;
+          } else if (gestaoField === 'foto') {
+            (mappedData as unknown as Record<string, unknown>)['foto'] = value;
+          } else if (leadField === 'date_modify' || leadField === 'updated_at' || leadField === 'criado' || 
+                     leadField === 'data_criacao_ficha' || leadField === 'data_confirmacao_ficha' ||
+                     leadField === 'data_criacao_agendamento' || leadField === 'data_retorno_ligacao') {
+            // Convert dates to ISO string
+            (mappedData as unknown as Record<string, unknown>)[gestaoField] = 
+              value ? new Date(value as string).toISOString() : null;
+          } else {
+            (mappedData as unknown as Record<string, unknown>)[gestaoField] = value;
+          }
+        }
+      });
+
+      return mappedData as LeadData;
+    }
+
+    // LEGACY: Handle fieldsSelected (backward compatibility)
     if (!fieldsSelected || fieldsSelected.length === 0) {
       return allFields;
     }
@@ -489,8 +532,8 @@ async function processBatchExport(jobId: string) {
       const startTime = Date.now();
       
       try {
-        // Preparar dados da ficha usando campos selecionados
-        const leadData = prepareLeadData(lead, job.fields_selected);
+        // Preparar dados da ficha usando field mappings ou campos selecionados
+        const leadData = prepareLeadData(lead, job.fields_selected, job.field_mappings);
 
         // Fazer upsert na tabela leads
         const { error: upsertError, status: responseStatus } = await gestaoScouterClient
@@ -570,7 +613,7 @@ async function processBatchExport(jobId: string) {
             job_id: jobId,
             lead_id: lead.id,
             lead_snapshot: lead,
-            fields_sent: prepareLeadData(lead, job.fields_selected),
+            fields_sent: prepareLeadData(lead, job.fields_selected, job.field_mappings),
             error_message: errorMessage,
             error_details: err instanceof Error ? { stack: err.stack } : { raw: String(err) },
           });
