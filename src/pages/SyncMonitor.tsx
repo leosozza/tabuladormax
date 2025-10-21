@@ -50,7 +50,7 @@ export default function SyncMonitor() {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="monitoring" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 max-w-3xl">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-2 max-w-3xl">
             <TabsTrigger value="monitoring">📊 Monitoramento</TabsTrigger>
             <TabsTrigger value="integration">🔗 Integração</TabsTrigger>
             <TabsTrigger value="imports">📥 Importações</TabsTrigger>

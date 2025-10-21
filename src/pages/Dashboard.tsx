@@ -401,7 +401,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b">
         <div className="container mx-auto px-4 py-6 flex flex-col gap-4">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col gap-4">
             <div>
               <h1 className="text-3xl font-bold text-foreground">
                 Tabulador Telemarketing
@@ -410,25 +410,28 @@ const Index = () => {
                 Gerencie seus leads com eficiência
               </p>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap gap-2 items-center">
               {isAdmin && (
                 <>
                   <Button
                     variant="outline"
                     onClick={() => navigate('/sync-monitor')}
                     title="Central de Sincronização"
+                    className="min-h-[44px]"
                   >
                     <Cloud className="w-4 h-4 mr-2" />
-                    Central de Sincronização
+                    <span className="hidden sm:inline">Central de Sincronização</span>
+                    <span className="sm:hidden">Sync</span>
                   </Button>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-2 text-sm min-h-[44px]">
                     <input 
                       type="checkbox" 
                       checked={showAllUsers}
                       onChange={(e) => setShowAllUsers(e.target.checked)}
-                      className="rounded"
+                      className="rounded w-5 h-5"
                     />
-                    <span>Ver todos os usuários</span>
+                    <span className="hidden sm:inline">Ver todos os usuários</span>
+                    <span className="sm:hidden">Todos</span>
                   </label>
                 </>
               )}
@@ -438,52 +441,55 @@ const Index = () => {
 
           {/* Filter Bar */}
           <Card className="p-4">
-            <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Filtros:</span>
               </div>
               
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-muted-foreground">Data:</label>
-                <DateFilterSelector 
-                  value={dateFilter} 
-                  onChange={setDateFilter} 
-                />
-              </div>
-
-              {isAdmin && (
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-muted-foreground">Operador:</label>
-                  <Select 
-                    value={selectedOperator || 'all'} 
-                    onValueChange={(v) => setSelectedOperator(v === 'all' ? null : v)}
-                  >
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os operadores</SelectItem>
-                      {operators.map((op) => (
-                        <SelectItem key={op.id} value={op.id}>
-                          {op.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:flex-wrap">
+                <div className="flex flex-col gap-2 min-w-[200px]">
+                  <label className="text-sm text-muted-foreground">Data:</label>
+                  <DateFilterSelector 
+                    value={dateFilter} 
+                    onChange={setDateFilter} 
+                  />
                 </div>
-              )}
 
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  setDateFilter(createDateFilter('today'));
-                  setSelectedOperator(null);
-                }}
-              >
-                Limpar Filtros
-              </Button>
+                {isAdmin && (
+                  <div className="flex flex-col gap-2 min-w-[200px]">
+                    <label className="text-sm text-muted-foreground">Operador:</label>
+                    <Select 
+                      value={selectedOperator || 'all'} 
+                      onValueChange={(v) => setSelectedOperator(v === 'all' ? null : v)}
+                    >
+                      <SelectTrigger className="w-full min-h-[44px]">
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os operadores</SelectItem>
+                        {operators.map((op) => (
+                          <SelectItem key={op.id} value={op.id}>
+                            {op.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="min-h-[44px] self-start sm:self-center"
+                  onClick={() => {
+                    setDateFilter(createDateFilter('today'));
+                    setSelectedOperator(null);
+                  }}
+                >
+                  Limpar Filtros
+                </Button>
+              </div>
             </div>
           </Card>
         </div>

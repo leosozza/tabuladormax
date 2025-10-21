@@ -60,7 +60,7 @@ const UserMenu = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon">
+        <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px]">
           <User className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
