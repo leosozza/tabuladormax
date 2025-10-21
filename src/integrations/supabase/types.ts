@@ -603,6 +603,7 @@ export type Database = {
           end_date: string | null
           error_leads: number | null
           exported_leads: number | null
+          fields_selected: string[] | null
           id: string
           last_completed_date: string | null
           pause_reason: string | null
@@ -621,6 +622,7 @@ export type Database = {
           end_date?: string | null
           error_leads?: number | null
           exported_leads?: number | null
+          fields_selected?: string[] | null
           id?: string
           last_completed_date?: string | null
           pause_reason?: string | null
@@ -639,6 +641,7 @@ export type Database = {
           end_date?: string | null
           error_leads?: number | null
           exported_leads?: number | null
+          fields_selected?: string[] | null
           id?: string
           last_completed_date?: string | null
           pause_reason?: string | null
