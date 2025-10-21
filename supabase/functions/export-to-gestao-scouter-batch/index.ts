@@ -377,8 +377,20 @@ async function processBatchExport(jobId: string) {
   }> => {
     const ignoredFields: string[] = [];
     let currentData = { ...leadData };
+    const MAX_RETRIES = 10;
+    let retryCount = 0;
 
     while (true) {
+      retryCount++;
+      if (retryCount > MAX_RETRIES) {
+        console.error('❌ Excedido número máximo de tentativas - possível loop infinito');
+        return { 
+          success: false, 
+          ignoredFields, 
+          error: { message: 'Máximo de tentativas excedido - possível loop infinito' } 
+        };
+      }
+
       const { error, status } = await gestaoScouterClient
         .from('leads')
         .upsert(currentData, { onConflict: 'id', ignoreDuplicates: false });
@@ -387,10 +399,24 @@ async function processBatchExport(jobId: string) {
         return { success: true, ignoredFields };
       }
 
-      // Se erro for PGRST204 (campo não existe), remover campo e tentar novamente
-      if (error.code === 'PGRST204' || error.message.includes('column') || error.message.includes('does not exist')) {
-        // Extrair nome do campo do erro
-        const fieldMatch = error.message.match(/column "([^"]+)"/);
+      // Se erro for PGRST204 (campo não existe no schema cache), remover campo e tentar novamente
+      if (error.code === 'PGRST204' || 
+          error.message?.includes('schema cache') || 
+          error.message?.includes('column') || 
+          error.message?.includes('does not exist')) {
+        
+        // Extrair nome do campo do erro (suporta aspas simples e duplas)
+        const fieldMatch = error.message.match(/column ['"]([^'"]+)['"]/i) || 
+                           error.message.match(/['"]([^'"]+)['"] column/i);
+        
+        console.log('🔍 Erro de schema detectado:', {
+          code: error.code,
+          message: error.message,
+          fieldMatch: fieldMatch ? fieldMatch[1] : 'não detectado',
+          retryAttempt: retryCount,
+          leadId
+        });
+
         if (fieldMatch && fieldMatch[1]) {
           const problematicField = fieldMatch[1];
           console.warn(`⚠️ Campo '${problematicField}' não existe no Gestão Scouter, removendo e tentando novamente`);
@@ -400,6 +426,8 @@ async function processBatchExport(jobId: string) {
           
           // Tentar novamente sem o campo problemático
           continue;
+        } else {
+          console.error('❌ Não foi possível extrair campo problemático do erro:', error.message);
         }
       }
 
