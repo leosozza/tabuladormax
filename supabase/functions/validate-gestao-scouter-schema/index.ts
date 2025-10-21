@@ -1,5 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,63 +20,78 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
     
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !supabaseAnonKey) {
       throw new Error('Variáveis de ambiente não configuradas');
     }
+
+    console.log('🔍 Buscando campos do TabuladorMax...');
     
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Buscar campos do TabuladorMax
+    const tabResponse = await fetch(
+      `${supabaseUrl}/functions/v1/get-gestao-scouter-fields`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({ source: 'tabuladormax' }),
+      }
+    );
 
-    // Get TabuladorMax schema
-    const { data: tabFields, error: tabError } = await supabase
-      .from('information_schema.columns')
-      .select('column_name')
-      .eq('table_schema', 'public')
-      .eq('table_name', 'leads')
-      .order('column_name');
-
-    if (tabError) throw tabError;
-
-    // Get Gestão Scouter config
-    const { data: config } = await supabase
-      .from('gestao_scouter_config')
-      .select('*')
-      .eq('active', true)
-      .maybeSingle();
-
-    if (!config) {
-      throw new Error('Configuração do Gestão Scouter não encontrada');
+    if (!tabResponse.ok) {
+      const errorText = await tabResponse.text();
+      console.error('❌ Erro ao buscar campos do TabuladorMax:', errorText);
+      throw new Error(`Erro ao buscar campos do TabuladorMax: ${errorText}`);
     }
 
-    // Create client for Gestão Scouter
-    const gestaoClient = createClient(config.project_url, config.anon_key);
+    const tabData = await tabResponse.json();
+    const tabFieldNames = tabData.fields?.map((f: any) => f.name) || [];
+    console.log(`✅ TabuladorMax: ${tabFieldNames.length} campos encontrados`);
 
-    // Get Gestão Scouter schema
-    const { data: gestaoFields, error: gestaoError } = await gestaoClient
-      .from('information_schema.columns')
-      .select('column_name')
-      .eq('table_schema', 'public')
-      .eq('table_name', 'leads')
-      .order('column_name');
+    console.log('🔍 Buscando campos do Gestão Scouter...');
 
-    if (gestaoError) throw gestaoError;
+    // Buscar campos do Gestão Scouter
+    const gestaoResponse = await fetch(
+      `${supabaseUrl}/functions/v1/get-gestao-scouter-fields`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({ source: 'gestao_scouter' }),
+      }
+    );
 
-    const tabFieldNames = (tabFields || []).map((f: { column_name: string }) => f.column_name);
-    const gestaoFieldNames = (gestaoFields || []).map((f: { column_name: string }) => f.column_name);
+    if (!gestaoResponse.ok) {
+      const errorText = await gestaoResponse.text();
+      console.error('❌ Erro ao buscar campos do Gestão Scouter:', errorText);
+      throw new Error(`Erro ao buscar campos do Gestão Scouter: ${errorText}`);
+    }
 
-    // Find differences
-    const missingInGestao = tabFieldNames.filter(f => !gestaoFieldNames.includes(f));
-    const missingInTab = gestaoFieldNames.filter(f => !tabFieldNames.includes(f));
+    const gestaoData = await gestaoResponse.json();
+    const gestaoFieldNames = gestaoData.fields?.map((f: any) => f.name) || [];
+    console.log(`✅ Gestão Scouter: ${gestaoFieldNames.length} campos encontrados`);
 
-    // Generate SQL to add missing columns
+    // Encontrar diferenças
+    const missingInGestao = tabFieldNames.filter((f: string) => !gestaoFieldNames.includes(f));
+    const missingInTab = gestaoFieldNames.filter((f: string) => !tabFieldNames.includes(f));
+
+    console.log(`📊 Diferenças: ${missingInGestao.length} faltando no Gestão Scouter, ${missingInTab.length} faltando no TabuladorMax`);
+
+    // Gerar SQL sugerido
     let suggestedSql = '';
     if (missingInGestao.length > 0) {
       suggestedSql = '-- SQL para adicionar campos faltantes no Gestão Scouter:\n\n';
-      missingInGestao.forEach(field => {
+      missingInGestao.forEach((field: string) => {
         suggestedSql += `ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS ${field} TEXT;\n`;
       });
       suggestedSql += '\n-- Recarregar cache do schema:\nNOTIFY pgrst, \'reload schema\';\n';
+    } else {
+      suggestedSql = '-- Schemas estão sincronizados';
     }
 
     const result: SchemaComparisonResult = {
@@ -85,8 +99,10 @@ serve(async (req) => {
       gestao_scouter_fields: gestaoFieldNames,
       missing_in_gestao_scouter: missingInGestao,
       missing_in_tabuladormax: missingInTab,
-      suggested_sql: suggestedSql || '-- Schemas estão sincronizados',
+      suggested_sql: suggestedSql,
     };
+
+    console.log('✅ Validação de schema concluída com sucesso');
 
     return new Response(
       JSON.stringify(result),
@@ -94,7 +110,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Erro:', error);
+    console.error('❌ Erro na validação de schema:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
       JSON.stringify({ error: errorMessage }),
