@@ -8,7 +8,7 @@ import { GestaoScouterMetrics } from "@/components/sync/GestaoScouterMetrics";
 import { PeriodSelector } from "@/components/sync/PeriodSelector";
 import { SyncTimelineChart } from "@/components/sync/SyncTimelineChart";
 import { SyncDirectionChart } from "@/components/sync/SyncDirectionChart";
-import { SyncLogsTable } from "@/components/sync/SyncLogsTable";
+
 import { BitrixImportTab } from "@/components/sync/BitrixImportTab";
 import { CSVImportTab } from "@/components/sync/CSVImportTab";
 import { GestaoScouterExportTab } from "@/components/sync/GestaoScouterExportTab";
@@ -77,8 +77,6 @@ export default function SyncMonitor() {
             </div>
 
             <SyncTimelineChart period={period} />
-
-            <SyncLogsTable />
           </TabsContent>
 
           {/* Tab de Integração */}
