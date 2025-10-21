@@ -3,6 +3,15 @@ project_id = "jstsrgyxrrlklnzgsihd"
 [functions.get-leads-count]
 verify_jwt = false
 
+[functions.validate-gestao-scouter-schema]
+verify_jwt = false
+
+[functions.reload-gestao-scouter-schema-cache]
+verify_jwt = false
+
+[functions.validate-gestao-scouter-config]
+verify_jwt = false
+
 [functions.get-leads-for-sync]
 verify_jwt = false
 
@@ -43,9 +52,6 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.sync-bitrix-commercial-projects]
-verify_jwt = false
-
-[functions.sync-to-gestao-scouter]
 verify_jwt = false
 
 [functions.sync-from-gestao-scouter]

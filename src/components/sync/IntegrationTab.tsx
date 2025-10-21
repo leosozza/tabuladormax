@@ -141,32 +141,48 @@ export function IntegrationTab() {
       return;
     }
 
+    // Salvar configuração antes de testar (se ainda não foi salva)
+    if (!configId) {
+      toast.info("Salvando configuração antes de testar...");
+      await handleSaveConfig();
+    }
+
     setTesting(true);
     try {
-      // Create a temporary Supabase client with the provided credentials
-      const { createClient } = await import('@supabase/supabase-js');
-      const testClient = createClient(projectUrl.trim(), anonKey.trim());
+      // ✅ Usar Edge Function dedicada para validação completa
+      const { data, error } = await supabase.functions.invoke(
+        "validate-gestao-scouter-config"
+      );
 
-      // Try to query a simple table to test connection
-      const { error } = await testClient
-        .from('leads')
-        .select('id')
-        .limit(1);
+      if (error) throw error;
 
-      if (error) {
-        if (error.code === '42P01') {
-          toast.error("Tabela 'leads' não encontrada no projeto Gestão Scouter");
-        } else {
-          throw error;
-        }
-        return;
+      if (data.valid) {
+        toast.success("✅ Conexão validada com sucesso!", {
+          description: "Todos os testes passaram"
+        });
+      } else {
+        const errorList = data.errors.join("\n");
+        const warningList = data.warnings.length > 0 
+          ? `\n\nAvisos:\n${data.warnings.join("\n")}` 
+          : "";
+        
+        toast.error("❌ Validação falhou", {
+          description: errorList + warningList
+        });
       }
 
-      toast.success("✅ Conexão estabelecida com sucesso!");
+      // Mostrar detalhes dos checks no console
+      console.log("📊 Resultado da validação:", {
+        credentials: data.checks?.credentials,
+        connection: data.checks?.connection,
+        tableAccess: data.checks?.tableAccess,
+        tableStructure: data.checks?.tableStructure,
+      });
+
     } catch (error: unknown) {
-      console.error("Erro ao testar integração:", error);
+      console.error("Erro ao validar integração:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
-      toast.error(`❌ Falha na conexão: ${errorMessage}`);
+      toast.error(`❌ Falha na validação: ${errorMessage}`);
     } finally {
       setTesting(false);
     }

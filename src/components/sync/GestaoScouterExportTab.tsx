@@ -134,9 +134,20 @@ export function GestaoScouterExportTab() {
       });
 
       if (missingFields.length === 0) {
-        toast.success("Schema validado! Todos os campos estão sincronizados.");
+        // ✅ Recarregar cache automaticamente após validação bem-sucedida
+        console.log("🔄 Recarregando cache do schema...");
+        
+        const { error: reloadError } = await supabase.functions.invoke(
+          "reload-gestao-scouter-schema-cache"
+        );
+        
+        if (reloadError) {
+          console.warn("⚠️ Erro ao recarregar cache (não crítico):", reloadError);
+        }
+        
+        toast.success("✅ Schema validado e cache atualizado!");
       } else {
-        toast.warning(`${missingFields.length} campo(s) faltando no Gestão Scouter`);
+        toast.warning(`⚠️ ${missingFields.length} campo(s) faltando no Gestão Scouter`);
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao validar schema";

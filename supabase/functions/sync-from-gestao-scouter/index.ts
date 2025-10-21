@@ -2,14 +2,37 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
- * Edge Function para receber atualizações do projeto gestao-scouter
- * e sincronizar de volta para a tabela leads do TabuladorMax.
+ * ⚠️ IMPORTANTE: Esta função NÃO é chamada diretamente pelo frontend do TabuladorMax
  * 
- * Esta função deve ser chamada por um webhook ou trigger do gestao-scouter
- * quando um lead é atualizado lá.
+ * 🔄 PROPÓSITO:
+ * Recebe atualizações de leads do projeto Gestão Scouter via webhook/trigger
+ * e sincroniza essas mudanças de volta para o TabuladorMax.
  * 
- * Payload esperado: { lead: {...}, source: 'gestao_scouter' }
- * Loop prevention: ignora se source === 'tabuladormax' ou 'supabase'
+ * 📡 FLUXO DE SINCRONIZAÇÃO BIDIRECIONAL:
+ * 
+ * 1. Lead atualizado no Gestão Scouter
+ *    ↓
+ * 2. Trigger do banco Gestão Scouter chama esta função via webhook
+ *    ↓
+ * 3. Esta função atualiza o lead no TabuladorMax
+ *    ↓
+ * 4. Prevenção de loop: sync_source = 'gestao_scouter' evita re-sincronização
+ * 
+ * 📋 CONFIGURAÇÃO NECESSÁRIA:
+ * No projeto Gestão Scouter, criar trigger que chama:
+ * POST https://gkvvtfqfggddzotxltxf.supabase.co/functions/v1/sync-from-gestao-scouter
+ * 
+ * Payload esperado:
+ * {
+ *   "lead": { id, name, ... },
+ *   "source": "gestao_scouter"
+ * }
+ * 
+ * ⚠️ Loop Prevention:
+ * - Ignora se source === 'tabuladormax' ou 'supabase'
+ * - Marca leads atualizados com sync_source = 'gestao_scouter'
+ * 
+ * Para instruções completas, veja IntegrationInstructionsDialog.tsx
  */
 serve(async (req) => {
   // CORS headers
