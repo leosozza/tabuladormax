@@ -555,6 +555,7 @@ export type Database = {
           error_message: string
           fields_sent: Json
           id: string
+          ignored_fields: string[] | null
           job_id: string
           lead_id: number | null
           lead_snapshot: Json
@@ -567,6 +568,7 @@ export type Database = {
           error_message: string
           fields_sent: Json
           id?: string
+          ignored_fields?: string[] | null
           job_id: string
           lead_id?: number | null
           lead_snapshot: Json
@@ -579,6 +581,7 @@ export type Database = {
           error_message?: string
           fields_sent?: Json
           id?: string
+          ignored_fields?: string[] | null
           job_id?: string
           lead_id?: number | null
           lead_snapshot?: Json

@@ -48,12 +48,12 @@ interface Lead {
 // Estrutura compatível com Gestão Scouter
 interface LeadData {
   id: string;
-  nome?: string | null; // name -> nome
-  responsavel?: string | null; // responsible -> responsavel
-  idade?: string | null; // age -> idade
+  nome?: string | null;
+  responsavel?: string | null;
+  idade?: string | null;
   scouter?: string | null;
-  foto?: string | null; // photo_url -> foto
-  modificado?: string | null; // date_modify -> modificado
+  foto?: string | null;
+  modificado?: string | null;
   telefone?: string | null;
   celular?: string | null;
   telefone_trabalho?: string | null;
@@ -82,8 +82,8 @@ interface LeadData {
   maxsystem_id_ficha?: string | null;
   op_telemarketing?: string | null;
   data_retorno_ligacao?: string | null;
-  ultima_sincronizacao: string; // last_sync_at -> ultima_sincronizacao
-  origem_sincronizacao: string; // sync_source -> origem_sincronizacao
+  ultima_sincronizacao: string;
+  origem_sincronizacao: string;
 }
 
 const corsHeaders = {
@@ -92,7 +92,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -102,31 +101,21 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseKey) {
-      console.error('❌ Variáveis de ambiente não configuradas');
-      return new Response(
-        JSON.stringify({ error: 'Variáveis de ambiente não configuradas' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new Error('Variáveis de ambiente não configuradas');
     }
-    
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, jobId, startDate, endDate, fieldsSelected, fieldMappings } = await req.json();
+    const { action, startDate, endDate, fieldMappings, jobId } = await req.json();
 
     if (action === 'create') {
-      // Obter usuário autenticado
-      const authHeader = req.headers.get('Authorization')!;
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) throw new Error('Não autorizado');
+      
       const token = authHeader.replace('Bearer ', '');
-      const { data: { user } } = await supabase.auth.getUser(token);
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+      if (userError || !user) throw new Error('Usuário não autenticado');
 
-      if (!user) {
-        return new Response(
-          JSON.stringify({ error: 'Não autenticado' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Verificar se configuração do gestao-scouter está ativa
       const { data: config } = await supabase
         .from('gestao_scouter_config')
         .select('*')
@@ -135,55 +124,27 @@ serve(async (req) => {
         .maybeSingle();
 
       if (!config) {
-        return new Response(
-          JSON.stringify({ error: 'Configuração do gestao-scouter não encontrada ou inativa' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        throw new Error('Configuração do gestao-scouter não encontrada ou inativa');
       }
 
-      // Criar novo job
-      const { data: job, error } = await supabase
+      const { data: newJob, error: jobError } = await supabase
         .from('gestao_scouter_export_jobs')
         .insert({
-          start_date: startDate || new Date().toISOString().split('T')[0],
+          start_date: startDate,
           end_date: endDate || null,
           status: 'pending',
+          field_mappings: fieldMappings || null,
           created_by: user.id,
-          fields_selected: fieldsSelected || null, // Backward compatibility - Array de campos selecionados ou null = todos
-          field_mappings: fieldMappings || null, // NEW - Object mapping gestao fields to tabuladormax fields
         })
         .select()
         .single();
 
-      if (error) {
-        console.error('Erro ao criar job:', error);
-        return new Response(
-          JSON.stringify({ error: error.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      if (jobError) throw jobError;
 
-      console.log('✅ Job de exportação criado:', job.id);
-
-      // Iniciar processamento em background
-      processBatchExport(job.id);
+      processBatchExport(newJob.id);
 
       return new Response(
-        JSON.stringify({ success: true, jobId: job.id }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (action === 'resume') {
-      await supabase
-        .from('gestao_scouter_export_jobs')
-        .update({ status: 'running', pause_reason: null })
-        .eq('id', jobId);
-
-      processBatchExport(jobId);
-
-      return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ success: true, jobId: newJob.id }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -192,8 +153,7 @@ serve(async (req) => {
       await supabase
         .from('gestao_scouter_export_jobs')
         .update({ 
-          status: 'paused', 
-          pause_reason: 'Manual',
+          status: 'paused',
           paused_at: new Date().toISOString()
         })
         .eq('id', jobId);
@@ -204,8 +164,21 @@ serve(async (req) => {
       );
     }
 
+    if (action === 'resume') {
+      await supabase
+        .from('gestao_scouter_export_jobs')
+        .update({ status: 'pending', paused_at: null })
+        .eq('id', jobId);
+
+      processBatchExport(jobId);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (action === 'reset') {
-      // Reset job counters to reprocess everything
       await supabase
         .from('gestao_scouter_export_jobs')
         .update({
@@ -222,13 +195,11 @@ serve(async (req) => {
         })
         .eq('id', jobId);
 
-      // Clear errors for this job
       await supabase
         .from('gestao_scouter_export_errors')
         .delete()
         .eq('job_id', jobId);
 
-      // Start processing again
       processBatchExport(jobId);
 
       return new Response(
@@ -238,7 +209,6 @@ serve(async (req) => {
     }
 
     if (action === 'delete') {
-      // Only allow deleting paused jobs
       const { data: job } = await supabase
         .from('gestao_scouter_export_jobs')
         .select('status')
@@ -283,7 +253,7 @@ async function processBatchExport(jobId: string) {
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   
   if (!supabaseUrl || !supabaseKey) {
-    console.error('❌ Variáveis de ambiente não configuradas para processBatchExport');
+    console.error('❌ Variáveis de ambiente não configuradas');
     return;
   }
   
@@ -300,7 +270,6 @@ async function processBatchExport(jobId: string) {
     return;
   }
 
-  // Buscar configuração do gestao-scouter
   const { data: config } = await supabase
     .from('gestao_scouter_config')
     .select('*')
@@ -308,107 +277,45 @@ async function processBatchExport(jobId: string) {
     .eq('sync_enabled', true)
     .maybeSingle();
 
-  if (!config) {
-    console.error('❌ Configuração do gestao-scouter não encontrada');
+  if (!config || !config.project_url || !config.anon_key) {
     await supabase.from('gestao_scouter_export_jobs').update({
       status: 'failed',
-      pause_reason: 'Configuração do gestao-scouter não encontrada ou inativa'
+      pause_reason: 'Configuração do gestao-scouter não encontrada ou incompleta'
     }).eq('id', jobId);
     return;
   }
-  
-  // Validar configuração
-  if (!config.project_url || !config.anon_key) {
-    console.error('❌ Configuração incompleta:', {
-      hasUrl: !!config.project_url,
-      hasKey: !!config.anon_key
-    });
-    await supabase.from('gestao_scouter_export_jobs').update({
-      status: 'failed',
-      pause_reason: 'Configuração do gestao-scouter incompleta (falta project_url ou anon_key)'
-    }).eq('id', jobId);
-    return;
-  }
-  
-  console.log('✅ Configuração encontrada:', {
-    projectUrl: config.project_url,
-    jobId
-  });
 
-  // Criar cliente para gestao-scouter
-  const gestaoScouterClient = createClient(
-    config.project_url,
-    config.anon_key
-  );
+  const gestaoScouterClient = createClient(config.project_url, config.anon_key);
 
-  // ✅ Buscar campos disponíveis no Gestão Scouter ANTES de exportar
-  console.log('🔍 Validando schema do Gestão Scouter...');
-  
-  let gestaoColumns: any[] = [];
-  const { data: rpcData, error: rpcError } = await gestaoScouterClient.rpc('get_leads_table_columns');
-  
-  if (rpcError) {
-    console.warn('⚠️ RPC get_leads_table_columns não disponível, usando information_schema:', rpcError.message);
-    
-    // Fallback: query direta no information_schema
-    const { data: schemaData, error: schemaError } = await gestaoScouterClient
-      .from('information_schema.columns')
-      .select('column_name, data_type, is_nullable')
-      .eq('table_schema', 'public')
-      .eq('table_name', 'leads')
-      .order('ordinal_position');
-
-    if (schemaError) {
-      console.error('❌ Erro ao buscar schema via information_schema:', schemaError);
-      await supabase.from('gestao_scouter_export_jobs').update({
-        status: 'failed',
-        pause_reason: `Erro ao validar schema: ${schemaError.message}`
-      }).eq('id', jobId);
-      return;
-    }
-    
-    gestaoColumns = schemaData || [];
-  } else {
-    gestaoColumns = rpcData || [];
-  }
-
-  const availableFields = new Set<string>(gestaoColumns.map((col: any) => col.column_name as string));
-  console.log(`✅ Schema validado: ${availableFields.size} campos disponíveis`);
-
-  // Marcar como running
   await supabase.from('gestao_scouter_export_jobs').update({
     status: 'running',
     started_at: job.started_at || new Date().toISOString(),
   }).eq('id', jobId);
 
-  console.log('🚀 Iniciando exportação do job:', jobId);
+  console.log('🚀 Iniciando exportação resiliente do job:', jobId);
 
   let processingDate = job.processing_date || job.start_date;
   let totalProcessed = job.total_leads || 0;
   let totalExported = job.exported_leads || 0;
   let totalErrors = job.error_leads || 0;
 
-  const BATCH_SIZE = 100; // Processar 100 leads por vez
+  const BATCH_SIZE = 100;
 
-  // Helper function to prepare lead data - supports both field selection and field mapping
-  const prepareLeadData = (lead: Lead, fieldsSelected: string[] | null, fieldMappings: Record<string, string> | null, availableFields: Set<string>): LeadData => {
-    // Mapear apenas os campos que realmente existem no Gestão Scouter
-    // Baseado na estrutura básica: id, nome, scouter, projeto, etc.
+  const prepareLeadData = (lead: Lead, fieldMappings: Record<string, string> | null): LeadData => {
     const allFields: LeadData = {
       id: lead.id,
-      nome: lead.name || null, // 'name' no TabuladorMax -> 'nome' no Gestão Scouter
+      nome: lead.name || null,
       scouter: lead.scouter,
-      foto: lead.photo_url || null, // 'photo_url' -> 'foto'
-      idade: lead.age || null, // 'age' -> 'idade'
-      telefone: lead.celular || lead.telefone_trabalho || lead.telefone_casa || null,
+      responsavel: lead.responsible,
+      idade: lead.age,
+      foto: lead.photo_url,
+      modificado: lead.date_modify ? new Date(lead.date_modify).toISOString() : null,
       celular: lead.celular,
       telefone_trabalho: lead.telefone_trabalho,
       telefone_casa: lead.telefone_casa,
-      responsavel: lead.responsible || null, // 'responsible' -> 'responsavel'
       etapa: lead.etapa,
       fonte: lead.fonte,
       criado: lead.criado ? new Date(lead.criado).toISOString() : null,
-      modificado: lead.date_modify ? new Date(lead.date_modify).toISOString() : (lead.updated_at ? new Date(lead.updated_at).toISOString() : null),
       nome_modelo: lead.nome_modelo,
       local_abordagem: lead.local_abordagem,
       ficha_confirmada: lead.ficha_confirmada,
@@ -431,85 +338,77 @@ async function processBatchExport(jobId: string) {
       op_telemarketing: lead.op_telemarketing,
       data_retorno_ligacao: lead.data_retorno_ligacao ? new Date(lead.data_retorno_ligacao).toISOString() : null,
       ultima_sincronizacao: new Date().toISOString(),
-      origem_sincronizacao: 'tabuladormax'
+      origem_sincronizacao: 'batch_export',
     };
 
-    // NEW: Handle field mappings (priority over fieldsSelected)
-    if (fieldMappings && Object.keys(fieldMappings).length > 0) {
-      const mappedData: Partial<LeadData> = {
-        id: allFields.id,
-        modificado: allFields.modificado,
-        origem_sincronizacao: allFields.origem_sincronizacao,
-        ultima_sincronizacao: allFields.ultima_sincronizacao,
-      };
-
-      // Apply field mappings: gestaoField -> tabuladormaxField
-      Object.entries(fieldMappings).forEach(([gestaoField, tabField]) => {
-        // Remove 'tab_' prefix from tabuladormax field name to match Lead interface
-        const leadField = tabField.replace('tab_', '');
-        
-        // Map the value from Lead to LeadData using the mapping
-        if (leadField in lead) {
-          const value = (lead as unknown as Record<string, unknown>)[leadField];
-          
-          // Handle date conversions and special mappings
-          if (gestaoField === 'nome') {
-            (mappedData as unknown as Record<string, unknown>)['nome'] = value;
-          } else if (gestaoField === 'responsavel') {
-            (mappedData as unknown as Record<string, unknown>)['responsavel'] = value;
-          } else if (gestaoField === 'idade') {
-            (mappedData as unknown as Record<string, unknown>)['idade'] = value;
-          } else if (gestaoField === 'foto') {
-            (mappedData as unknown as Record<string, unknown>)['foto'] = value;
-          } else if (leadField === 'date_modify' || leadField === 'updated_at' || leadField === 'criado' || 
-                     leadField === 'data_criacao_ficha' || leadField === 'data_confirmacao_ficha' ||
-                     leadField === 'data_criacao_agendamento' || leadField === 'data_retorno_ligacao') {
-            // Convert dates to ISO string
-            (mappedData as unknown as Record<string, unknown>)[gestaoField] = 
-              value ? new Date(value as string).toISOString() : null;
-          } else {
-            (mappedData as unknown as Record<string, unknown>)[gestaoField] = value;
-          }
-        }
-      });
-
-      return mappedData as LeadData;
-    }
-
-    // LEGACY: Handle fieldsSelected (backward compatibility)
-    if (!fieldsSelected || fieldsSelected.length === 0) {
+    if (!fieldMappings) {
       return allFields;
     }
 
-    // Filter to only selected fields, but always include id and sync metadata
-    const selectedData: Partial<LeadData> = {
+    const mappedData: Partial<LeadData> = {
       id: allFields.id,
-      modificado: allFields.modificado,
-      origem_sincronizacao: allFields.origem_sincronizacao,
       ultima_sincronizacao: allFields.ultima_sincronizacao,
+      origem_sincronizacao: allFields.origem_sincronizacao,
     };
 
-    fieldsSelected.forEach(field => {
-      if (field in allFields) {
-        (selectedData as unknown as Record<string, unknown>)[field] = (allFields as unknown as Record<string, unknown>)[field];
+    Object.entries(fieldMappings).forEach(([gestaoField, leadField]) => {
+      if (leadField in lead) {
+        const value = (lead as unknown as Record<string, unknown>)[leadField];
+        
+        if (leadField === 'date_modify' || leadField === 'updated_at' || leadField === 'criado' || 
+            leadField === 'data_criacao_ficha' || leadField === 'data_confirmacao_ficha' ||
+            leadField === 'data_criacao_agendamento' || leadField === 'data_retorno_ligacao') {
+          (mappedData as unknown as Record<string, unknown>)[gestaoField] = 
+            value ? new Date(value as string).toISOString() : null;
+        } else {
+          (mappedData as unknown as Record<string, unknown>)[gestaoField] = value;
+        }
       }
     });
 
-    // ✅ FILTRAR apenas campos que existem no Gestão Scouter
-    const filteredData: Partial<LeadData> = {};
-    Object.entries(selectedData).forEach(([key, value]) => {
-      if (availableFields.has(key)) {
-        (filteredData as unknown as Record<string, unknown>)[key] = value;
-      } else {
-        console.warn(`⚠️ Campo '${key}' não existe no Gestão Scouter, removendo do payload`);
-      }
-    });
+    return mappedData as LeadData;
+  };
 
-    return filteredData as LeadData;
+  // Helper para tentar upsert com retry automático em caso de campo inválido
+  const resilientUpsert = async (leadData: LeadData, leadId: string): Promise<{
+    success: boolean;
+    ignoredFields: string[];
+    error?: unknown;
+  }> => {
+    const ignoredFields: string[] = [];
+    let currentData = { ...leadData };
+
+    while (true) {
+      const { error, status } = await gestaoScouterClient
+        .from('leads')
+        .upsert(currentData, { onConflict: 'id', ignoreDuplicates: false });
+
+      if (!error) {
+        return { success: true, ignoredFields };
+      }
+
+      // Se erro for PGRST204 (campo não existe), remover campo e tentar novamente
+      if (error.code === 'PGRST204' || error.message.includes('column') || error.message.includes('does not exist')) {
+        // Extrair nome do campo do erro
+        const fieldMatch = error.message.match(/column "([^"]+)"/);
+        if (fieldMatch && fieldMatch[1]) {
+          const problematicField = fieldMatch[1];
+          console.warn(`⚠️ Campo '${problematicField}' não existe no Gestão Scouter, removendo e tentando novamente`);
+          
+          delete (currentData as unknown as Record<string, unknown>)[problematicField];
+          ignoredFields.push(problematicField);
+          
+          // Tentar novamente sem o campo problemático
+          continue;
+        }
+      }
+
+      // Outro tipo de erro, não é recuperável
+      return { success: false, ignoredFields, error };
+    }
   };
 
   while (true) {
-    // Verificar se job foi pausado
     const { data: currentJob } = await supabase
       .from('gestao_scouter_export_jobs')
       .select('status')
@@ -523,7 +422,6 @@ async function processBatchExport(jobId: string) {
 
     console.log(`📅 Exportando leads de ${processingDate}...`);
 
-    // Buscar leads do dia atual do TabuladorMax
     const { data: leads, error: fetchError } = await supabase
       .from('leads')
       .select('*')
@@ -533,7 +431,6 @@ async function processBatchExport(jobId: string) {
       .limit(BATCH_SIZE);
 
     if (fetchError) {
-      console.error('Erro ao buscar leads:', fetchError);
       await supabase.from('gestao_scouter_export_jobs').update({
         status: 'failed',
         pause_reason: `Erro ao buscar leads: ${fetchError.message}`
@@ -542,19 +439,14 @@ async function processBatchExport(jobId: string) {
     }
 
     if (!leads || leads.length === 0) {
-      console.log(`✅ Data ${processingDate} concluída (0 leads)`);
-
-      // Marcar data como concluída
       await supabase.from('gestao_scouter_export_jobs').update({
         last_completed_date: processingDate,
       }).eq('id', jobId);
 
-      // Ir para o dia anterior
       const nextDate = new Date(processingDate);
       nextDate.setDate(nextDate.getDate() - 1);
       processingDate = nextDate.toISOString().split('T')[0];
 
-      // Verificar se chegou ao fim
       if (job.end_date && processingDate < job.end_date) {
         await supabase.from('gestao_scouter_export_jobs').update({
           status: 'completed',
@@ -568,7 +460,6 @@ async function processBatchExport(jobId: string) {
       continue;
     }
 
-    // Exportar leads para gestao-scouter
     let exportedCount = 0;
     let errorCount = 0;
 
@@ -576,94 +467,57 @@ async function processBatchExport(jobId: string) {
       const startTime = Date.now();
       
       try {
-        // Preparar dados da ficha usando field mappings ou campos selecionados
-        const leadData = prepareLeadData(lead, job.fields_selected, job.field_mappings, availableFields);
-
-        // Fazer upsert na tabela leads
-        const { error: upsertError, status: responseStatus } = await gestaoScouterClient
-          .from('leads')
-          .upsert(leadData, { 
-            onConflict: 'id',
-            ignoreDuplicates: false 
-          });
-
+        const leadData = prepareLeadData(lead, job.field_mappings);
+        const result = await resilientUpsert(leadData, lead.id);
         const duration = Date.now() - startTime;
 
-        // Registrar evento de sincronização
-        try {
-          await supabase.from('sync_events').insert({
-            event_type: 'update',
-            direction: 'supabase_to_gestao_scouter',
-            lead_id: lead.id,
-            status: upsertError ? 'error' : 'success',
-            sync_duration_ms: duration,
-            error_message: upsertError ? upsertError.message : null
-          });
-        } catch (syncErr) {
-          console.error('❌ Erro ao registrar sync_event:', syncErr);
-        }
+        await supabase.from('sync_events').insert({
+          event_type: 'update',
+          direction: 'supabase_to_gestao_scouter',
+          lead_id: lead.id,
+          status: result.success ? 'success' : 'error',
+          sync_duration_ms: duration,
+          error_message: result.error ? String(result.error) : null
+        });
 
-        if (upsertError) {
-          console.error(`❌ Erro ao exportar lead ${lead.id}:`, {
-            error: upsertError,
-            errorMessage: upsertError.message,
-            errorCode: upsertError.code,
-            errorDetails: upsertError.details,
-            errorHint: upsertError.hint,
-            leadId: lead.id,
-            leadName: lead.name
-          });
-          errorCount++;
-
-          // Log detalhado do erro na nova tabela
-          try {
-            await supabase.from('gestao_scouter_export_errors').insert({
-              job_id: jobId,
-              lead_id: lead.id,
-              lead_snapshot: lead, // Snapshot completo do lead
-              fields_sent: leadData, // Campos que foram enviados
-              error_message: upsertError.message,
-              error_details: {
-                code: upsertError.code,
-                details: upsertError.details,
-                hint: upsertError.hint,
-              },
-              response_status: responseStatus || null,
-            });
-          } catch (logErr) {
-            console.error('❌ Erro ao registrar erro detalhado:', logErr);
+        if (result.success) {
+          exportedCount++;
+          
+          if (result.ignoredFields.length > 0) {
+            console.log(`⚠️ Lead ${lead.id} exportado com ${result.ignoredFields.length} campo(s) ignorado(s): ${result.ignoredFields.join(', ')}`);
           }
         } else {
-          exportedCount++;
-        }
-      } catch (err) {
-        console.error('❌ Erro ao processar lead:', err);
-        errorCount++;
+          errorCount++;
 
-        // Registrar erro
-        try {
-          const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-          
-          await supabase.from('sync_events').insert({
-            event_type: 'update',
-            direction: 'supabase_to_gestao_scouter',
-            lead_id: lead.id,
-            status: 'error',
-            error_message: errorMessage
-          });
-
-          // Log detalhado do erro
           await supabase.from('gestao_scouter_export_errors').insert({
             job_id: jobId,
             lead_id: lead.id,
             lead_snapshot: lead,
-            fields_sent: prepareLeadData(lead, job.fields_selected, job.field_mappings, availableFields),
-            error_message: errorMessage,
-            error_details: err instanceof Error ? { stack: err.stack } : { raw: String(err) },
+            fields_sent: leadData,
+            ignored_fields: result.ignoredFields.length > 0 ? result.ignoredFields : null,
+            error_message: result.error instanceof Error ? result.error.message : String(result.error),
+            error_details: result.error,
           });
-        } catch (syncErr) {
-          console.error('❌ Erro ao registrar sync_event de erro:', syncErr);
         }
+      } catch (err) {
+        errorCount++;
+
+        await supabase.from('sync_events').insert({
+          event_type: 'update',
+          direction: 'supabase_to_gestao_scouter',
+          lead_id: lead.id,
+          status: 'error',
+          error_message: err instanceof Error ? err.message : String(err)
+        });
+
+        await supabase.from('gestao_scouter_export_errors').insert({
+          job_id: jobId,
+          lead_id: lead.id,
+          lead_snapshot: lead,
+          fields_sent: prepareLeadData(lead, job.field_mappings),
+          error_message: err instanceof Error ? err.message : String(err),
+          error_details: err instanceof Error ? { stack: err.stack } : { raw: String(err) },
+        });
       }
     }
 
@@ -671,40 +525,22 @@ async function processBatchExport(jobId: string) {
     totalExported += exportedCount;
     totalErrors += errorCount;
 
-    // Atualizar progresso
     await supabase.from('gestao_scouter_export_jobs').update({
       total_leads: totalProcessed,
       exported_leads: totalExported,
       error_leads: totalErrors,
       processing_date: processingDate,
-    }).eq('id', jobId);
-
-    console.log(`✅ ${exportedCount} leads exportados de ${processingDate} (total: ${totalExported})`);
-
-    // Marcar data como concluída
-    await supabase.from('gestao_scouter_export_jobs').update({
       last_completed_date: processingDate,
     }).eq('id', jobId);
 
-    // Se processou menos que BATCH_SIZE, significa que acabou os leads daquele dia
+    console.log(`✅ ${exportedCount} leads exportados de ${processingDate}`);
+
     if (leads.length < BATCH_SIZE) {
-      // Ir para o dia anterior
       const nextDate = new Date(processingDate);
       nextDate.setDate(nextDate.getDate() - 1);
       processingDate = nextDate.toISOString().split('T')[0];
 
-      console.log(`📊 Status do processamento:`, {
-        processingDate,
-        lastCompleted: processingDate,
-        endDate: job.end_date,
-        shouldStop: job.end_date ? processingDate < job.end_date : false,
-        totalExported,
-        totalErrors
-      });
-
-      // Verificar se chegou ao fim
       if (job.end_date && processingDate < job.end_date) {
-        console.log('🛑 Chegou no limite (end_date). Finalizando exportação.');
         await supabase.from('gestao_scouter_export_jobs').update({
           status: 'completed',
           completed_at: new Date().toISOString(),
@@ -715,7 +551,6 @@ async function processBatchExport(jobId: string) {
       }
     }
 
-    // Delay de 500ms entre lotes
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }

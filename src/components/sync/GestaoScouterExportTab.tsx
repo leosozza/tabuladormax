@@ -55,12 +55,6 @@ export function GestaoScouterExportTab() {
   const [exporting, setExporting] = useState(false);
   const [fieldMappingOpen, setFieldMappingOpen] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
-  const [validatingSchema, setValidatingSchema] = useState(false);
-  const [schemaValidation, setSchemaValidation] = useState<{
-    valid: boolean;
-    missingFields: string[];
-    suggestedSql: string;
-  } | null>(null);
 
   const { data: jobs } = useQuery({
     queryKey: ["gestao-scouter-export-jobs"],
@@ -119,61 +113,12 @@ export function GestaoScouterExportTab() {
     };
   }, [queryClient]);
 
-  const validateSchema = async () => {
-    try {
-      setValidatingSchema(true);
-      const { data, error } = await supabase.functions.invoke("validate-gestao-scouter-schema");
-
-      if (error) throw error;
-
-      const missingFields = data.missing_in_gestao_scouter || [];
-      setSchemaValidation({
-        valid: missingFields.length === 0,
-        missingFields,
-        suggestedSql: data.suggested_sql || "",
-      });
-
-      if (missingFields.length === 0) {
-        // ✅ Recarregar cache automaticamente após validação bem-sucedida
-        console.log("🔄 Recarregando cache do schema...");
-        
-        const { error: reloadError } = await supabase.functions.invoke(
-          "reload-gestao-scouter-schema-cache"
-        );
-        
-        if (reloadError) {
-          console.warn("⚠️ Erro ao recarregar cache (não crítico):", reloadError);
-        }
-        
-        toast.success("✅ Schema validado e cache atualizado!");
-      } else {
-        toast.warning(`⚠️ ${missingFields.length} campo(s) faltando no Gestão Scouter`);
-      }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Erro ao validar schema";
-      toast.error(errorMessage);
-    } finally {
-      setValidatingSchema(false);
-    }
-  };
-
   const handleSaveFieldMappings = (mappings: FieldMapping[]) => {
     setFieldMappings(mappings);
     toast.success(`${mappings.length} campo(s) mapeado(s) com sucesso!`);
   };
 
   const handleStartExport = async () => {
-    // ✅ Validação obrigatória de schema
-    if (!schemaValidation) {
-      toast.error("Valide o schema antes de iniciar a exportação");
-      return;
-    }
-
-    if (!schemaValidation.valid) {
-      toast.error("Corrija os campos faltantes no Gestão Scouter antes de exportar");
-      return;
-    }
-
     try {
       setExporting(true);
 
@@ -315,8 +260,9 @@ export function GestaoScouterExportTab() {
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              <strong>Importante:</strong> Esta exportação complementa a sincronização automática.
-              Use para enviar a carga inicial de dados ou leads históricos que não foram sincronizados automaticamente.
+              <strong>Exportação Resiliente:</strong> A exportação enviará os campos mapeados. 
+              Campos não existentes no Gestão Scouter serão automaticamente ignorados durante o envio.
+              Esta exportação complementa a sincronização automática.
             </AlertDescription>
           </Alert>
 
@@ -348,75 +294,6 @@ export function GestaoScouterExportTab() {
                 Deixe vazio para exportar até o início
               </p>
             </div>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-semibold">Validação de Schema</Label>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={validateSchema}
-                disabled={validatingSchema || !!activeJob}
-              >
-                {validatingSchema ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Validando...
-                  </>
-                ) : (
-                  <>
-                    <Database className="mr-2 h-4 w-4" />
-                    Validar Schema
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {schemaValidation && (
-              <Alert variant={schemaValidation.valid ? "default" : "destructive"}>
-                <div className="flex items-start gap-2">
-                  {schemaValidation.valid ? (
-                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-red-600 mt-0.5" />
-                  )}
-                  <div className="flex-1">
-                    <AlertDescription>
-                      {schemaValidation.valid ? (
-                        <p>Schemas sincronizados! Todos os campos estão disponíveis.</p>
-                      ) : (
-                        <>
-                          <p className="font-semibold mb-2">
-                            {schemaValidation.missingFields.length} campo(s) faltando no Gestão Scouter:
-                          </p>
-                          <ul className="list-disc list-inside text-sm space-y-1 mb-3">
-                            {schemaValidation.missingFields.slice(0, 5).map((field) => (
-                              <li key={field}>{field}</li>
-                            ))}
-                            {schemaValidation.missingFields.length > 5 && (
-                              <li>...e mais {schemaValidation.missingFields.length - 5}</li>
-                            )}
-                          </ul>
-                          {schemaValidation.suggestedSql && (
-                            <details className="mt-2">
-                              <summary className="cursor-pointer text-sm font-medium">
-                                Ver SQL sugerido para correção
-                              </summary>
-                              <pre className="mt-2 p-2 bg-background rounded text-xs overflow-x-auto">
-                                {schemaValidation.suggestedSql}
-                              </pre>
-                            </details>
-                          )}
-                        </>
-                      )}
-                    </AlertDescription>
-                  </div>
-                </div>
-              </Alert>
-            )}
           </div>
 
           <Separator />
@@ -453,7 +330,7 @@ export function GestaoScouterExportTab() {
 
           <Button
             onClick={handleStartExport}
-            disabled={exporting || !!activeJob || !schemaValidation?.valid}
+            disabled={exporting || !!activeJob}
             className="w-full"
           >
             {exporting ? (
@@ -468,24 +345,6 @@ export function GestaoScouterExportTab() {
               </>
             )}
           </Button>
-
-          {!schemaValidation && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Valide o schema antes de iniciar a exportação
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {schemaValidation && !schemaValidation.valid && (
-            <Alert variant="destructive">
-              <XCircle className="h-4 w-4" />
-              <AlertDescription>
-                Corrija os {schemaValidation.missingFields.length} campo(s) faltando antes de exportar
-              </AlertDescription>
-            </Alert>
-          )}
         </CardContent>
       </Card>
 
@@ -635,17 +494,26 @@ export function GestaoScouterExportTab() {
                             </DialogHeader>
                             <ScrollArea className="h-[60vh]">
                               <div className="space-y-4 pr-4">
-                                <div>
-                                  <Label className="font-semibold">Mensagem de Erro</Label>
-                                  <p className="text-sm mt-1 p-3 bg-red-50 border border-red-200 rounded">
-                                    {error.error_message}
-                                  </p>
-                                </div>
-                                
-                                <div>
-                                  <Label className="font-semibold">Lead ID</Label>
-                                  <p className="text-sm mt-1">{error.lead_id || 'N/A'}</p>
-                                </div>
+                                 <div>
+                                   <Label className="font-semibold">Mensagem de Erro</Label>
+                                   <p className="text-sm mt-1 p-3 bg-red-50 border border-red-200 rounded">
+                                     {error.error_message}
+                                   </p>
+                                 </div>
+
+                                 {error.ignored_fields && error.ignored_fields.length > 0 && (
+                                   <div>
+                                     <Label className="font-semibold text-yellow-600">Campos Ignorados Automaticamente</Label>
+                                     <p className="text-sm mt-1 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                       {error.ignored_fields.join(', ')}
+                                     </p>
+                                   </div>
+                                 )}
+                                 
+                                 <div>
+                                   <Label className="font-semibold">Lead ID</Label>
+                                   <p className="text-sm mt-1">{error.lead_id || 'N/A'}</p>
+                                 </div>
 
                                 {error.response_status && (
                                   <div>
