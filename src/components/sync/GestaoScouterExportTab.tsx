@@ -163,6 +163,17 @@ export function GestaoScouterExportTab() {
   };
 
   const handleStartExport = async () => {
+    // ✅ Validação obrigatória de schema
+    if (!schemaValidation) {
+      toast.error("Valide o schema antes de iniciar a exportação");
+      return;
+    }
+
+    if (!schemaValidation.valid) {
+      toast.error("Corrija os campos faltantes no Gestão Scouter antes de exportar");
+      return;
+    }
+
     try {
       setExporting(true);
 
@@ -442,7 +453,7 @@ export function GestaoScouterExportTab() {
 
           <Button
             onClick={handleStartExport}
-            disabled={exporting || !!activeJob}
+            disabled={exporting || !!activeJob || !schemaValidation?.valid}
             className="w-full"
           >
             {exporting ? (
@@ -457,6 +468,24 @@ export function GestaoScouterExportTab() {
               </>
             )}
           </Button>
+
+          {!schemaValidation && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Valide o schema antes de iniciar a exportação
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {schemaValidation && !schemaValidation.valid && (
+            <Alert variant="destructive">
+              <XCircle className="h-4 w-4" />
+              <AlertDescription>
+                Corrija os {schemaValidation.missingFields.length} campo(s) faltando antes de exportar
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 

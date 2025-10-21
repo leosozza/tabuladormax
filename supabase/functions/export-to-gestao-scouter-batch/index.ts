@@ -341,6 +341,22 @@ async function processBatchExport(jobId: string) {
     config.anon_key
   );
 
+  // ✅ Buscar campos disponíveis no Gestão Scouter ANTES de exportar
+  console.log('🔍 Validando schema do Gestão Scouter...');
+  const { data: gestaoColumns, error: schemaError } = await gestaoScouterClient.rpc('get_leads_table_columns');
+  
+  if (schemaError) {
+    console.error('❌ Erro ao buscar schema do Gestão Scouter:', schemaError);
+    await supabase.from('gestao_scouter_export_jobs').update({
+      status: 'failed',
+      pause_reason: `Erro ao validar schema: ${schemaError.message}`
+    }).eq('id', jobId);
+    return;
+  }
+
+  const availableFields = new Set<string>((gestaoColumns || []).map((col: any) => col.column_name as string));
+  console.log(`✅ Schema validado: ${availableFields.size} campos disponíveis`);
+
   // Marcar como running
   await supabase.from('gestao_scouter_export_jobs').update({
     status: 'running',
@@ -357,7 +373,7 @@ async function processBatchExport(jobId: string) {
   const BATCH_SIZE = 100; // Processar 100 leads por vez
 
   // Helper function to prepare lead data - supports both field selection and field mapping
-  const prepareLeadData = (lead: Lead, fieldsSelected: string[] | null, fieldMappings: Record<string, string> | null): LeadData => {
+  const prepareLeadData = (lead: Lead, fieldsSelected: string[] | null, fieldMappings: Record<string, string> | null, availableFields: Set<string>): LeadData => {
     // Mapear apenas os campos que realmente existem no Gestão Scouter
     // Baseado na estrutura básica: id, nome, scouter, projeto, etc.
     const allFields: LeadData = {
@@ -461,7 +477,17 @@ async function processBatchExport(jobId: string) {
       }
     });
 
-    return selectedData as LeadData;
+    // ✅ FILTRAR apenas campos que existem no Gestão Scouter
+    const filteredData: Partial<LeadData> = {};
+    Object.entries(selectedData).forEach(([key, value]) => {
+      if (availableFields.has(key)) {
+        (filteredData as unknown as Record<string, unknown>)[key] = value;
+      } else {
+        console.warn(`⚠️ Campo '${key}' não existe no Gestão Scouter, removendo do payload`);
+      }
+    });
+
+    return filteredData as LeadData;
   };
 
   while (true) {
@@ -533,7 +559,7 @@ async function processBatchExport(jobId: string) {
       
       try {
         // Preparar dados da ficha usando field mappings ou campos selecionados
-        const leadData = prepareLeadData(lead, job.fields_selected, job.field_mappings);
+        const leadData = prepareLeadData(lead, job.fields_selected, job.field_mappings, availableFields);
 
         // Fazer upsert na tabela leads
         const { error: upsertError, status: responseStatus } = await gestaoScouterClient
@@ -613,7 +639,7 @@ async function processBatchExport(jobId: string) {
             job_id: jobId,
             lead_id: lead.id,
             lead_snapshot: lead,
-            fields_sent: prepareLeadData(lead, job.fields_selected, job.field_mappings),
+            fields_sent: prepareLeadData(lead, job.fields_selected, job.field_mappings, availableFields),
             error_message: errorMessage,
             error_details: err instanceof Error ? { stack: err.stack } : { raw: String(err) },
           });
