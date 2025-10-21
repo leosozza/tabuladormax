@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { 
   Database, 
@@ -19,7 +20,8 @@ import {
   XCircle, 
   BookOpen,
   TestTube,
-  Link as LinkIcon
+  Link as LinkIcon,
+  ChevronDown
 } from "lucide-react";
 import { IntegrationInstructionsDialog } from "./IntegrationInstructionsDialog";
 
@@ -38,6 +40,7 @@ export function IntegrationTab() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   
   // Form state
   const [projectUrl, setProjectUrl] = useState("");
@@ -208,26 +211,6 @@ export function IntegrationTab() {
 
   return (
     <div className="space-y-6">
-      {/* Header com status */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/10 rounded-lg">
-                <Database className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <CardTitle className="text-xl">Integração Gestão Scouter</CardTitle>
-                <CardDescription>
-                  Configure a sincronização bidirecional entre TabuladorMax e Gestão Scouter
-                </CardDescription>
-              </div>
-            </div>
-            {getStatusBadge()}
-          </div>
-        </CardHeader>
-      </Card>
-
       {/* Alert informativo */}
       <Alert>
         <Info className="h-4 w-4" />
@@ -238,180 +221,204 @@ export function IntegrationTab() {
         </AlertDescription>
       </Alert>
 
-      {/* Configuração */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <LinkIcon className="w-5 h-5" />
-            Configuração da Conexão
-          </CardTitle>
-          <CardDescription>
-            Insira as credenciais do projeto Supabase Gestão Scouter
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="projectUrl">URL do Projeto Gestão Scouter</Label>
-                <Input
-                  id="projectUrl"
-                  type="url"
-                  placeholder="https://seu-projeto.supabase.co"
-                  value={projectUrl}
-                  onChange={(e) => setProjectUrl(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  URL completa do projeto Supabase (ex: https://xxxxx.supabase.co)
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="anonKey">Anon Key (chave pública)</Label>
-                <Input
-                  id="anonKey"
-                  type="password"
-                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  value={anonKey}
-                  onChange={(e) => setAnonKey(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Chave anon (pública) do projeto Gestão Scouter para autenticação
-                </p>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="active">Integração Ativa</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Desative para manter a configuração sem usar a integração
-                    </p>
-                  </div>
-                  <Switch
-                    id="active"
-                    checked={active}
-                    onCheckedChange={setActive}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="syncEnabled">Sincronização Automática</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Ative para sincronizar automaticamente novos leads e atualizações
-                    </p>
-                  </div>
-                  <Switch
-                    id="syncEnabled"
-                    checked={syncEnabled}
-                    onCheckedChange={setSyncEnabled}
-                    disabled={!active}
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleTestIntegration}
-                  disabled={testing || !projectUrl || !anonKey}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  {testing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Testando...
-                    </>
-                  ) : (
-                    <>
-                      <TestTube className="mr-2 h-4 w-4" />
-                      Testar Integração
-                    </>
-                  )}
-                </Button>
-
-                <Button
-                  onClick={() => setShowInstructions(true)}
-                  variant="outline"
-                >
-                  <BookOpen className="mr-2 h-4 w-4" />
-                  Instruções
-                </Button>
-
-                <Button
-                  onClick={handleSaveConfig}
-                  disabled={saving}
-                  className="flex-1"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Salvar Configuração
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {config && (
-                <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
-                  <p>Configuração criada em: {new Date(config.created_at).toLocaleString('pt-BR')}</p>
-                  <p>Última atualização: {new Date(config.updated_at).toLocaleString('pt-BR')}</p>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Status da Sincronização */}
-      {config && active && (
+      {/* Card Principal Colapsável */}
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
-              Status da Sincronização
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className={`text-2xl font-bold ${active ? 'text-green-600' : 'text-gray-400'}`}>
-                  {active ? '✓' : '✗'}
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-500/10 rounded-lg">
+                    <Database className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div className="text-left">
+                    <CardTitle className="text-xl">Integração Gestão Scouter</CardTitle>
+                    <CardDescription>
+                      Configure a sincronização bidirecional entre TabuladorMax e Gestão Scouter
+                    </CardDescription>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Integração</p>
-              </div>
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className={`text-2xl font-bold ${syncEnabled ? 'text-green-600' : 'text-gray-400'}`}>
-                  {syncEnabled ? '✓' : '✗'}
+                <div className="flex items-center gap-3">
+                  {getStatusBadge()}
+                  <ChevronDown className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Sincronização</p>
               </div>
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">→</div>
-                <p className="text-xs text-muted-foreground mt-1">Para Gestão</p>
+            </CardHeader>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent>
+            <CardContent className="space-y-6 pt-6 border-t">
+              {/* Configuração da Conexão */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <LinkIcon className="w-5 h-5" />
+                  <h3 className="text-lg font-semibold">Configuração da Conexão</h3>
+                </div>
+
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="projectUrl">URL do Projeto Gestão Scouter</Label>
+                      <Input
+                        id="projectUrl"
+                        type="url"
+                        placeholder="https://seu-projeto.supabase.co"
+                        value={projectUrl}
+                        onChange={(e) => setProjectUrl(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        URL completa do projeto Supabase (ex: https://xxxxx.supabase.co)
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="anonKey">Anon Key (chave pública)</Label>
+                      <Input
+                        id="anonKey"
+                        type="password"
+                        placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        value={anonKey}
+                        onChange={(e) => setAnonKey(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Chave anon (pública) do projeto Gestão Scouter para autenticação
+                      </p>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="active">Integração Ativa</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Desative para manter a configuração sem usar a integração
+                          </p>
+                        </div>
+                        <Switch
+                          id="active"
+                          checked={active}
+                          onCheckedChange={setActive}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="syncEnabled">Sincronização Automática</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Ative para sincronizar automaticamente novos leads e atualizações
+                          </p>
+                        </div>
+                        <Switch
+                          id="syncEnabled"
+                          checked={syncEnabled}
+                          onCheckedChange={setSyncEnabled}
+                          disabled={!active}
+                        />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleTestIntegration}
+                        disabled={testing || !projectUrl || !anonKey}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        {testing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Testando...
+                          </>
+                        ) : (
+                          <>
+                            <TestTube className="mr-2 h-4 w-4" />
+                            Testar Integração
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={() => setShowInstructions(true)}
+                        variant="outline"
+                      >
+                        <BookOpen className="mr-2 h-4 w-4" />
+                        Instruções
+                      </Button>
+
+                      <Button
+                        onClick={handleSaveConfig}
+                        disabled={saving}
+                        className="flex-1"
+                      >
+                        {saving ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Salvando...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            Salvar Configuração
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {config && (
+                      <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+                        <p>Configuração criada em: {new Date(config.created_at).toLocaleString('pt-BR')}</p>
+                        <p>Última atualização: {new Date(config.updated_at).toLocaleString('pt-BR')}</p>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">←</div>
-                <p className="text-xs text-muted-foreground mt-1">Do Gestão</p>
-              </div>
-            </div>
-          </CardContent>
+
+              {/* Status da Sincronização */}
+              {config && active && (
+                <>
+                  <Separator />
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                      <h3 className="text-lg font-semibold">Status da Sincronização</h3>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className={`text-2xl font-bold ${active ? 'text-green-600' : 'text-gray-400'}`}>
+                          {active ? '✓' : '✗'}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Integração</p>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className={`text-2xl font-bold ${syncEnabled ? 'text-green-600' : 'text-gray-400'}`}>
+                          {syncEnabled ? '✓' : '✗'}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Sincronização</p>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600">→</div>
+                        <p className="text-xs text-muted-foreground mt-1">Para Gestão</p>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">←</div>
+                        <p className="text-xs text-muted-foreground mt-1">Do Gestão</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </CollapsibleContent>
         </Card>
-      )}
+      </Collapsible>
 
       {/* Instructions Dialog */}
       <IntegrationInstructionsDialog
