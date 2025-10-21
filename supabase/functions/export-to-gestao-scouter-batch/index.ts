@@ -302,7 +302,7 @@ async function processBatchExport(jobId: string) {
   const BATCH_SIZE = 100;
 
   // Helper function to filter out empty fields
-  const filterEmptyFields = (data: Partial<LeadData>): LeadData => {
+  const filterEmptyFields = (data: Partial<LeadData>, includeControlFields: boolean = true): LeadData => {
     const filtered: Partial<LeadData> = { id: data.id };
     
     Object.entries(data).forEach(([key, value]) => {
@@ -312,9 +312,13 @@ async function processBatchExport(jobId: string) {
       }
     });
     
-    // Always keep control fields
-    filtered.ultima_sincronizacao = new Date().toISOString();
-    filtered.origem_sincronizacao = 'batch_export';
+    // Only add control fields if they were originally present OR if we have very few fields OR explicitly requested
+    if (includeControlFields && ('ultima_sincronizacao' in data || Object.keys(filtered).length < 5)) {
+      filtered.ultima_sincronizacao = new Date().toISOString();
+    }
+    if (includeControlFields && ('origem_sincronizacao' in data || Object.keys(filtered).length < 5)) {
+      filtered.origem_sincronizacao = 'batch_export';
+    }
     
     return filtered as LeadData;
   };
@@ -415,6 +419,32 @@ async function processBatchExport(jobId: string) {
 
       if (!error) {
         return { success: true, ignoredFields };
+      }
+
+      // TRATAR ERRO DE RLS PRIMEIRO (42501) - NÃO É RECUPERÁVEL
+      if (error.code === '42501' || error.message?.includes('row-level security')) {
+        console.error('🚨 ERRO RLS 42501 - Política incorreta no Gestão Scouter!', {
+          leadId,
+          fields: Object.keys(currentData),
+          message: error.message,
+          hint: 'Verifique se as políticas RLS no Gestão Scouter tem: USING (true) WITH CHECK (true)',
+          sql_check: 'SELECT * FROM pg_policies WHERE tablename = \'leads\''
+        });
+        
+        // Registrar erro detalhado
+        await supabase.from('gestao_scouter_export_errors').insert({
+          job_id: jobId,
+          lead_id: parseInt(leadId),
+          lead_snapshot: leadData,
+          fields_sent: currentData,
+          error_message: `RLS Error: ${error.message}`,
+          error_details: error,
+          response_status: 403,
+          ignored_fields: ignoredFields.length > 0 ? ignoredFields : null
+        });
+        
+        // NÃO fazer retry - erro de RLS não é recuperável
+        return { success: false, ignoredFields, error };
       }
 
       // Se erro for PGRST204 (campo não existe no schema cache), remover campo e tentar novamente
