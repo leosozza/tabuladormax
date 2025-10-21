@@ -74,53 +74,70 @@ serve(async (req) => {
     }
 
     // Preparar dados do lead para upsert no TabuladorMax
-    const leadData = {
-      id: lead.id,
-      name: lead.name,
-      responsible: lead.responsible,
-      age: lead.age,
-      address: lead.address,
-      scouter: lead.scouter,
-      photo_url: lead.photo_url,
-      date_modify: lead.date_modify ? new Date(lead.date_modify).toISOString() : (lead.updated_at ? new Date(lead.updated_at).toISOString() : null),
-      raw: lead.raw,
-      updated_at: new Date().toISOString(),
-      // Campos adicionais
-      bitrix_telemarketing_id: lead.bitrix_telemarketing_id,
-      commercial_project_id: lead.commercial_project_id,
-      responsible_user_id: lead.responsible_user_id,
-      celular: lead.celular,
-      telefone_trabalho: lead.telefone_trabalho,
-      telefone_casa: lead.telefone_casa,
-      etapa: lead.etapa,
-      fonte: lead.fonte,
-      criado: lead.criado ? new Date(lead.criado).toISOString() : null,
-      nome_modelo: lead.nome_modelo,
-      local_abordagem: lead.local_abordagem,
-      ficha_confirmada: lead.ficha_confirmada,
-      data_criacao_ficha: lead.data_criacao_ficha ? new Date(lead.data_criacao_ficha).toISOString() : null,
-      data_confirmacao_ficha: lead.data_confirmacao_ficha ? new Date(lead.data_confirmacao_ficha).toISOString() : null,
-      presenca_confirmada: lead.presenca_confirmada,
-      compareceu: lead.compareceu,
-      cadastro_existe_foto: lead.cadastro_existe_foto,
-      valor_ficha: lead.valor_ficha,
-      data_criacao_agendamento: lead.data_criacao_agendamento ? new Date(lead.data_criacao_agendamento).toISOString() : null,
-      horario_agendamento: lead.horario_agendamento,
-      data_agendamento: lead.data_agendamento,
-      gerenciamento_funil: lead.gerenciamento_funil,
-      status_fluxo: lead.status_fluxo,
-      etapa_funil: lead.etapa_funil,
-      etapa_fluxo: lead.etapa_fluxo,
-      funil_fichas: lead.funil_fichas,
-      status_tabulacao: lead.status_tabulacao,
-      maxsystem_id_ficha: lead.maxsystem_id_ficha,
-      gestao_scouter: lead.gestao_scouter,
-      op_telemarketing: lead.op_telemarketing,
-      data_retorno_ligacao: lead.data_retorno_ligacao ? new Date(lead.data_retorno_ligacao).toISOString() : null,
-      last_sync_at: new Date().toISOString(),
-      sync_source: 'gestao_scouter', // Marca origem para evitar loop
-      sync_status: 'synced'
+    // Filtra apenas campos que têm valor para evitar problemas de schema
+    const buildLeadData = (leadSource: any) => {
+      const data: Record<string, any> = {
+        id: leadSource.id,
+        updated_at: new Date().toISOString(),
+        last_sync_at: new Date().toISOString(),
+        sync_source: 'gestao_scouter', // Marca origem para evitar loop
+        sync_status: 'synced'
+      };
+      
+      // Adicionar campos opcionais apenas se tiverem valor
+      const optionalFields = {
+        name: leadSource.name,
+        responsible: leadSource.responsible,
+        age: leadSource.age,
+        address: leadSource.address,
+        scouter: leadSource.scouter,
+        photo_url: leadSource.photo_url,
+        date_modify: leadSource.date_modify ? new Date(leadSource.date_modify).toISOString() : (leadSource.updated_at ? new Date(leadSource.updated_at).toISOString() : null),
+        raw: leadSource.raw,
+        bitrix_telemarketing_id: leadSource.bitrix_telemarketing_id,
+        commercial_project_id: leadSource.commercial_project_id,
+        responsible_user_id: leadSource.responsible_user_id,
+        celular: leadSource.celular,
+        telefone_trabalho: leadSource.telefone_trabalho,
+        telefone_casa: leadSource.telefone_casa,
+        etapa: leadSource.etapa,
+        fonte: leadSource.fonte,
+        criado: leadSource.criado ? new Date(leadSource.criado).toISOString() : null,
+        nome_modelo: leadSource.nome_modelo,
+        local_abordagem: leadSource.local_abordagem,
+        ficha_confirmada: leadSource.ficha_confirmada,
+        data_criacao_ficha: leadSource.data_criacao_ficha ? new Date(leadSource.data_criacao_ficha).toISOString() : null,
+        data_confirmacao_ficha: leadSource.data_confirmacao_ficha ? new Date(leadSource.data_confirmacao_ficha).toISOString() : null,
+        presenca_confirmada: leadSource.presenca_confirmada,
+        compareceu: leadSource.compareceu,
+        cadastro_existe_foto: leadSource.cadastro_existe_foto,
+        valor_ficha: leadSource.valor_ficha,
+        data_criacao_agendamento: leadSource.data_criacao_agendamento ? new Date(leadSource.data_criacao_agendamento).toISOString() : null,
+        horario_agendamento: leadSource.horario_agendamento,
+        data_agendamento: leadSource.data_agendamento,
+        gerenciamento_funil: leadSource.gerenciamento_funil,
+        status_fluxo: leadSource.status_fluxo,
+        etapa_funil: leadSource.etapa_funil,
+        etapa_fluxo: leadSource.etapa_fluxo,
+        funil_fichas: leadSource.funil_fichas,
+        status_tabulacao: leadSource.status_tabulacao,
+        maxsystem_id_ficha: leadSource.maxsystem_id_ficha,
+        gestao_scouter: leadSource.gestao_scouter,
+        op_telemarketing: leadSource.op_telemarketing,
+        data_retorno_ligacao: leadSource.data_retorno_ligacao ? new Date(leadSource.data_retorno_ligacao).toISOString() : null,
+      };
+      
+      // Adiciona apenas campos com valor definido
+      for (const [key, value] of Object.entries(optionalFields)) {
+        if (value !== undefined && value !== null) {
+          data[key] = value;
+        }
+      }
+      
+      return data;
     };
+
+    const leadData = buildLeadData(lead);
 
     console.log('🔄 Atualizando lead no TabuladorMax:', {
       leadId: lead.id
@@ -180,6 +197,12 @@ serve(async (req) => {
       .single();
 
     if (leadError) {
+      // Verificar se é um erro de schema cache (coluna não encontrada)
+      const isSchemaCacheError = leadError.message?.includes('schema cache') || 
+                                  leadError.message?.includes('column') ||
+                                  leadError.code === 'PGRST204' ||
+                                  leadError.code === '42703';
+      
       console.error('❌ Erro ao atualizar lead no TabuladorMax:', {
         error: leadError,
         leadId: lead.id,
@@ -188,8 +211,23 @@ serve(async (req) => {
         errorDetails: leadError.details,
         errorHint: leadError.hint,
         errorCode: leadError.code,
-        timestamp: new Date().toISOString()
+        isSchemaCacheError,
+        timestamp: new Date().toISOString(),
+        fieldsAttempted: Object.keys(leadData)
       });
+      
+      // Se é erro de schema, fornecer mensagem mais útil
+      if (isSchemaCacheError) {
+        const schemaErrorMsg = `Schema mismatch detected: ${leadError.message}. ` +
+          `This may indicate that the TabuladorMax database schema is out of sync. ` +
+          `Please ensure the 'leads' table in TabuladorMax has all required columns.`;
+        
+        console.error('💡 Schema Error Details:', {
+          suggestion: schemaErrorMsg,
+          fieldsInPayload: Object.keys(leadData),
+          recommendedAction: 'Update TabuladorMax schema or sync from Gestão Scouter with compatible fields'
+        });
+      }
       
       // Registrar erro detalhado
       try {
@@ -198,14 +236,18 @@ serve(async (req) => {
           direction: 'gestao_scouter_to_supabase',
           lead_id: lead.id,
           status: 'error',
-          error_message: `${leadError.message} (code: ${leadError.code}, hint: ${leadError.hint || 'N/A'})`,
+          error_message: isSchemaCacheError 
+            ? `Schema mismatch: ${leadError.message}. Please check TabuladorMax schema.`
+            : `${leadError.message} (code: ${leadError.code}, hint: ${leadError.hint || 'N/A'})`,
           sync_duration_ms: Date.now() - startTime
         });
       } catch (syncErr) {
         console.error('❌ Erro ao registrar sync_event de erro:', syncErr);
       }
       
-      throw new Error(`Erro ao atualizar lead: ${leadError.message} (code: ${leadError.code})`);
+      throw new Error(isSchemaCacheError 
+        ? `Schema mismatch: ${leadError.message}. Please check TabuladorMax database schema.`
+        : `Erro ao atualizar lead: ${leadError.message} (code: ${leadError.code})`);
     }
 
     console.log('✅ Lead atualizado com sucesso no TabuladorMax:', leadResult?.id);
