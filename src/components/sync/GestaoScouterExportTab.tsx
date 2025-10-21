@@ -9,13 +9,13 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Upload, Loader2, Pause, Play, Info, Database, Clock, RotateCcw, Trash2, AlertCircle, FileText } from "lucide-react";
+import { Upload, Loader2, Pause, Play, Info, Database, Clock, RotateCcw, Trash2, AlertCircle, FileText, Settings2 } from "lucide-react";
+import { FieldMappingDialog } from "./FieldMappingDialog";
 
-// Available fields for selection
+// Available fields for selection (kept for backward compatibility)
 const AVAILABLE_FIELDS = [
   { id: "name", label: "Nome" },
   { id: "responsible", label: "Responsável" },
@@ -43,13 +43,18 @@ const AVAILABLE_FIELDS = [
   { id: "status_tabulacao", label: "Status Tabulação" },
 ];
 
+interface FieldMapping {
+  gestaoScouterField: string;
+  tabuladormaxField: string | null;
+}
+
 export function GestaoScouterExportTab() {
   const queryClient = useQueryClient();
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState("");
   const [exporting, setExporting] = useState(false);
-  const [selectedFields, setSelectedFields] = useState<string[]>([]);
-  const [selectAllFields, setSelectAllFields] = useState(true);
+  const [fieldMappingOpen, setFieldMappingOpen] = useState(false);
+  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
 
   const { data: jobs } = useQuery({
     queryKey: ["gestao-scouter-export-jobs"],
@@ -108,38 +113,31 @@ export function GestaoScouterExportTab() {
     };
   }, [queryClient]);
 
-  // Handle field selection
-  const handleFieldToggle = (fieldId: string) => {
-    setSelectedFields(prev => 
-      prev.includes(fieldId) 
-        ? prev.filter(f => f !== fieldId)
-        : [...prev, fieldId]
-    );
-    setSelectAllFields(false);
-  };
-
-  const handleSelectAllToggle = () => {
-    if (selectAllFields) {
-      setSelectAllFields(false);
-      setSelectedFields([]);
-    } else {
-      setSelectAllFields(true);
-      setSelectedFields(AVAILABLE_FIELDS.map(f => f.id));
-    }
+  const handleSaveFieldMappings = (mappings: FieldMapping[]) => {
+    setFieldMappings(mappings);
+    toast.success(`${mappings.length} campo(s) mapeado(s) com sucesso!`);
   };
 
   const handleStartExport = async () => {
     try {
       setExporting(true);
 
-      const fieldsToSend = selectAllFields ? null : selectedFields;
+      // Convert field mappings to the format expected by the backend
+      const fieldsToSend = fieldMappings.length > 0 
+        ? fieldMappings.reduce((acc, mapping) => {
+            if (mapping.tabuladormaxField) {
+              acc[mapping.gestaoScouterField] = mapping.tabuladormaxField;
+            }
+            return acc;
+          }, {} as Record<string, string>)
+        : null;
 
       const { data, error } = await supabase.functions.invoke("export-to-gestao-scouter-batch", {
         body: {
           action: "create",
           startDate,
           endDate: endDate || null,
-          fieldsSelected: fieldsToSend,
+          fieldMappings: fieldsToSend,
         },
       });
 
@@ -300,51 +298,34 @@ export function GestaoScouterExportTab() {
           <Separator />
 
           <div>
-            <Label className="text-base font-semibold mb-3 block">Campos a Exportar</Label>
+            <Label className="text-base font-semibold mb-3 block">Mapeamento de Campos</Label>
             <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="select-all"
-                  checked={selectAllFields}
-                  onCheckedChange={handleSelectAllToggle}
-                  disabled={!!activeJob}
-                />
-                <Label 
-                  htmlFor="select-all" 
-                  className="text-sm font-semibold cursor-pointer"
-                >
-                  Selecionar Todos os Campos
-                </Label>
-              </div>
-              
-              <ScrollArea className="h-48 w-full border rounded-md p-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {AVAILABLE_FIELDS.map((field) => (
-                    <div key={field.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={field.id}
-                        checked={selectAllFields || selectedFields.includes(field.id)}
-                        onCheckedChange={() => handleFieldToggle(field.id)}
-                        disabled={!!activeJob || selectAllFields}
-                      />
-                      <Label 
-                        htmlFor={field.id}
-                        className="text-sm cursor-pointer"
-                      >
-                        {field.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-              
-              <p className="text-xs text-muted-foreground">
-                {selectAllFields 
-                  ? "Todos os campos disponíveis serão exportados" 
-                  : `${selectedFields.length} campo(s) selecionado(s)`}
+              <p className="text-sm text-muted-foreground">
+                Configure o mapeamento entre os campos do Tabuladormax e do Gestão Scouter
               </p>
+              <Button
+                variant="outline"
+                onClick={() => setFieldMappingOpen(true)}
+                disabled={!!activeJob}
+                className="w-full"
+              >
+                <Settings2 className="mr-2 h-4 w-4" />
+                Configurar Mapeamento de Campos
+                {fieldMappings.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {fieldMappings.length} mapeado(s)
+                  </Badge>
+                )}
+              </Button>
             </div>
           </div>
+
+          <FieldMappingDialog
+            open={fieldMappingOpen}
+            onOpenChange={setFieldMappingOpen}
+            onSave={handleSaveFieldMappings}
+            initialMappings={fieldMappings}
+          />
 
           <Button
             onClick={handleStartExport}
