@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Upload, Loader2, Pause, Play, Info, Database, Clock, RotateCcw, Trash2, AlertCircle, FileText, Settings2, CheckCircle, XCircle } from "lucide-react";
+import { Upload, Loader2, Pause, Play, Info, Database, Clock, RotateCcw, Trash2, AlertCircle, FileText, Settings2, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { FieldMappingDialog } from "./FieldMappingDialog";
 
 // Available fields for selection (kept for backward compatibility)
@@ -72,6 +72,7 @@ export function GestaoScouterExportTab() {
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [syncingSchema, setSyncingSchema] = useState(false);
   const [fieldMappingOpen, setFieldMappingOpen] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
 
@@ -135,6 +136,51 @@ export function GestaoScouterExportTab() {
   const handleSaveFieldMappings = (mappings: FieldMapping[]) => {
     setFieldMappings(mappings);
     toast.success(`${mappings.length} campo(s) mapeado(s) com sucesso!`);
+  };
+
+  const handleSyncSchema = async () => {
+    try {
+      setSyncingSchema(true);
+      toast.info("Sincronizando schema com Gestão Scouter...");
+
+      // Get Gestão Scouter credentials from config table
+      const { data: config, error: configError } = await supabase
+        .from("gestao_scouter_config")
+        .select("project_url, anon_key")
+        .eq("active", true)
+        .single();
+
+      if (configError || !config) {
+        throw new Error('Configure primeiro as credenciais do Gestão Scouter em Configurações > Integrações.');
+      }
+
+      if (!config.project_url || !config.anon_key) {
+        throw new Error('URL ou chave do Gestão Scouter não configuradas. Configure em Configurações > Integrações.');
+      }
+
+      const { data, error } = await supabase.functions.invoke("export-schema", {
+        body: {
+          target_url: config.project_url,
+          target_api_key: config.anon_key,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success(`✅ Schema sincronizado! ${data.columns_exported} colunas exportadas`, {
+          description: `Tempo: ${data.processing_time_ms}ms`,
+        });
+      } else {
+        throw new Error(data.error || "Erro desconhecido ao sincronizar schema");
+      }
+    } catch (error: unknown) {
+      console.error("Erro ao sincronizar schema:", error);
+      const errorMessage = getErrorMessage(error, "Erro ao sincronizar schema");
+      toast.error(errorMessage);
+    } finally {
+      setSyncingSchema(false);
+    }
   };
 
   const handleStartExport = async () => {
@@ -284,6 +330,35 @@ export function GestaoScouterExportTab() {
               Esta exportação complementa a sincronização automática.
             </AlertDescription>
           </Alert>
+
+          <div className="space-y-4">
+            <div>
+              <Label className="text-base font-semibold mb-3 block">Sincronização de Schema</Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Antes de exportar, sincronize o schema para garantir que todas as colunas existem no Gestão Scouter.
+              </p>
+              <Button
+                onClick={handleSyncSchema}
+                disabled={syncingSchema || !!activeJob}
+                variant="outline"
+                className="w-full"
+              >
+                {syncingSchema ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sincronizando Schema...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Sincronizar Schema com Gestão Scouter
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <Separator />
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
