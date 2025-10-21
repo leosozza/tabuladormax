@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Upload, Loader2, Pause, Play, Info, Database, Clock, RotateCcw, Trash2, AlertCircle, FileText, Settings2 } from "lucide-react";
+import { Upload, Loader2, Pause, Play, Info, Database, Clock, RotateCcw, Trash2, AlertCircle, FileText, Settings2, CheckCircle, XCircle } from "lucide-react";
 import { FieldMappingDialog } from "./FieldMappingDialog";
 
 // Available fields for selection (kept for backward compatibility)
@@ -55,6 +55,12 @@ export function GestaoScouterExportTab() {
   const [exporting, setExporting] = useState(false);
   const [fieldMappingOpen, setFieldMappingOpen] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
+  const [validatingSchema, setValidatingSchema] = useState(false);
+  const [schemaValidation, setSchemaValidation] = useState<{
+    valid: boolean;
+    missingFields: string[];
+    suggestedSql: string;
+  } | null>(null);
 
   const { data: jobs } = useQuery({
     queryKey: ["gestao-scouter-export-jobs"],
@@ -112,6 +118,33 @@ export function GestaoScouterExportTab() {
       channel.unsubscribe();
     };
   }, [queryClient]);
+
+  const validateSchema = async () => {
+    try {
+      setValidatingSchema(true);
+      const { data, error } = await supabase.functions.invoke("validate-gestao-scouter-schema");
+
+      if (error) throw error;
+
+      const missingFields = data.missing_in_gestao_scouter || [];
+      setSchemaValidation({
+        valid: missingFields.length === 0,
+        missingFields,
+        suggestedSql: data.suggested_sql || "",
+      });
+
+      if (missingFields.length === 0) {
+        toast.success("Schema validado! Todos os campos estão sincronizados.");
+      } else {
+        toast.warning(`${missingFields.length} campo(s) faltando no Gestão Scouter`);
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao validar schema";
+      toast.error(errorMessage);
+    } finally {
+      setValidatingSchema(false);
+    }
+  };
 
   const handleSaveFieldMappings = (mappings: FieldMapping[]) => {
     setFieldMappings(mappings);
@@ -293,6 +326,75 @@ export function GestaoScouterExportTab() {
                 Deixe vazio para exportar até o início
               </p>
             </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">Validação de Schema</Label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={validateSchema}
+                disabled={validatingSchema || !!activeJob}
+              >
+                {validatingSchema ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Validando...
+                  </>
+                ) : (
+                  <>
+                    <Database className="mr-2 h-4 w-4" />
+                    Validar Schema
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {schemaValidation && (
+              <Alert variant={schemaValidation.valid ? "default" : "destructive"}>
+                <div className="flex items-start gap-2">
+                  {schemaValidation.valid ? (
+                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-600 mt-0.5" />
+                  )}
+                  <div className="flex-1">
+                    <AlertDescription>
+                      {schemaValidation.valid ? (
+                        <p>Schemas sincronizados! Todos os campos estão disponíveis.</p>
+                      ) : (
+                        <>
+                          <p className="font-semibold mb-2">
+                            {schemaValidation.missingFields.length} campo(s) faltando no Gestão Scouter:
+                          </p>
+                          <ul className="list-disc list-inside text-sm space-y-1 mb-3">
+                            {schemaValidation.missingFields.slice(0, 5).map((field) => (
+                              <li key={field}>{field}</li>
+                            ))}
+                            {schemaValidation.missingFields.length > 5 && (
+                              <li>...e mais {schemaValidation.missingFields.length - 5}</li>
+                            )}
+                          </ul>
+                          {schemaValidation.suggestedSql && (
+                            <details className="mt-2">
+                              <summary className="cursor-pointer text-sm font-medium">
+                                Ver SQL sugerido para correção
+                              </summary>
+                              <pre className="mt-2 p-2 bg-background rounded text-xs overflow-x-auto">
+                                {schemaValidation.suggestedSql}
+                              </pre>
+                            </details>
+                          )}
+                        </>
+                      )}
+                    </AlertDescription>
+                  </div>
+                </div>
+              </Alert>
+            )}
           </div>
 
           <Separator />
