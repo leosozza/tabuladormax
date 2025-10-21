@@ -9,11 +9,9 @@ import { PeriodSelector } from "@/components/sync/PeriodSelector";
 import { SyncTimelineChart } from "@/components/sync/SyncTimelineChart";
 import { SyncDirectionChart } from "@/components/sync/SyncDirectionChart";
 
-import { BitrixImportTab } from "@/components/sync/BitrixImportTab";
 import { CSVImportTab } from "@/components/sync/CSVImportTab";
-import { GestaoScouterExportTab } from "@/components/sync/GestaoScouterExportTab";
-import { BatchUpdateTab } from "@/components/sync/BatchUpdateTab";
 import { IntegrationTab } from "@/components/sync/IntegrationTab";
+import { BitrixIntegrationTab } from "@/components/sync/BitrixIntegrationTab";
 import { Period } from "@/lib/syncUtils";
 import UserMenu from "@/components/UserMenu";
 
@@ -50,11 +48,10 @@ export default function SyncMonitor() {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="monitoring" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-2 max-w-3xl">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 gap-2 max-w-3xl">
             <TabsTrigger value="monitoring">📊 Monitoramento</TabsTrigger>
             <TabsTrigger value="integration">🔗 Integração</TabsTrigger>
-            <TabsTrigger value="imports">📥 Importações</TabsTrigger>
-            <TabsTrigger value="batch-update">🔄 Atualização em Lote</TabsTrigger>
+            <TabsTrigger value="csv-import">📥 Importação CSV</TabsTrigger>
           </TabsList>
 
           {/* Tab de Monitoramento (conteúdo atual) */}
@@ -81,35 +78,25 @@ export default function SyncMonitor() {
 
           {/* Tab de Integração */}
           <TabsContent value="integration" className="space-y-6">
-            <IntegrationTab />
-          </TabsContent>
-
-          {/* Tab de Importações */}
-          <TabsContent value="imports" className="space-y-6">
-            <Tabs defaultValue="bitrix" className="space-y-6">
+            <Tabs defaultValue="gestao-scouter" className="space-y-6">
               <TabsList>
-                <TabsTrigger value="bitrix">Bitrix</TabsTrigger>
-                <TabsTrigger value="csv">CSV</TabsTrigger>
                 <TabsTrigger value="gestao-scouter">Gestão Scouter</TabsTrigger>
+                <TabsTrigger value="bitrix">Bitrix24</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="bitrix">
-                <BitrixImportTab />
-              </TabsContent>
-
-              <TabsContent value="csv">
-                <CSVImportTab />
-              </TabsContent>
-
               <TabsContent value="gestao-scouter">
-                <GestaoScouterExportTab />
+                <IntegrationTab />
+              </TabsContent>
+
+              <TabsContent value="bitrix">
+                <BitrixIntegrationTab />
               </TabsContent>
             </Tabs>
           </TabsContent>
 
-          {/* Tab de Atualização em Lote */}
-          <TabsContent value="batch-update">
-            <BatchUpdateTab />
+          {/* Tab de Importação CSV */}
+          <TabsContent value="csv-import" className="space-y-6">
+            <CSVImportTab />
           </TabsContent>
         </Tabs>
       </main>

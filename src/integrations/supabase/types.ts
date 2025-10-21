@@ -101,57 +101,6 @@ export type Database = {
           },
         ]
       }
-      batch_update_jobs: {
-        Row: {
-          completed_at: string | null
-          created_at: string | null
-          created_by: string | null
-          error_details: Json | null
-          error_rows: number | null
-          field_name: string
-          file_path: string
-          id: string
-          processed_rows: number | null
-          started_at: string | null
-          status: string
-          total_rows: number | null
-          updated_at: string | null
-          updated_rows: number | null
-        }
-        Insert: {
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          error_details?: Json | null
-          error_rows?: number | null
-          field_name: string
-          file_path: string
-          id?: string
-          processed_rows?: number | null
-          started_at?: string | null
-          status?: string
-          total_rows?: number | null
-          updated_at?: string | null
-          updated_rows?: number | null
-        }
-        Update: {
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          error_details?: Json | null
-          error_rows?: number | null
-          field_name?: string
-          file_path?: string
-          id?: string
-          processed_rows?: number | null
-          started_at?: string | null
-          status?: string
-          total_rows?: number | null
-          updated_at?: string | null
-          updated_rows?: number | null
-        }
-        Relationships: []
-      }
       bitrix_import_jobs: {
         Row: {
           batch_size: number | null

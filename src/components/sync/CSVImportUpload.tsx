@@ -3,11 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, FileText, Loader2, CheckCircle2, XCircle, Eye, Info } from "lucide-react";
+import { Upload, FileText, Loader2, CheckCircle2, XCircle, Eye, Info, Download } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface CSVImportUploadProps {
@@ -21,6 +24,7 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [syncToBitrix, setSyncToBitrix] = useState(false);
+  const [importMode, setImportMode] = useState<'insert' | 'update' | 'upsert'>('upsert');
   const [jobStatus, setJobStatus] = useState<'idle' | 'uploading' | 'processing' | 'completed' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -178,12 +182,49 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
         // Inserir batch
         if (leads.length >= BATCH_SIZE) {
           try {
-            const { error } = await supabase
-              .from('leads')
-              .upsert(leads, { onConflict: 'id' });
-
-            if (error) throw error;
-            importedRows += leads.length;
+            if (importMode === 'upsert') {
+              const { error } = await supabase
+                .from('leads')
+                .upsert(leads, { onConflict: 'id' });
+              if (error) throw error;
+              importedRows += leads.length;
+            } else if (importMode === 'insert') {
+              for (const lead of leads) {
+                const { data: existing } = await supabase
+                  .from('leads')
+                  .select('id')
+                  .eq('id', lead.id)
+                  .maybeSingle();
+                
+                if (!existing) {
+                  const { error } = await supabase.from('leads').insert([lead]);
+                  if (error) {
+                    errorRows++;
+                    errorDetails.push({ lead_id: lead.id, error: error.message });
+                  } else {
+                    importedRows++;
+                  }
+                }
+              }
+            } else if (importMode === 'update') {
+              for (const lead of leads) {
+                const { data: existing } = await supabase
+                  .from('leads')
+                  .select('id')
+                  .eq('id', lead.id)
+                  .maybeSingle();
+                
+                if (existing) {
+                  const { error } = await supabase.from('leads').update(lead).eq('id', lead.id);
+                  if (error) {
+                    errorRows++;
+                    errorDetails.push({ lead_id: lead.id, error: error.message });
+                  } else {
+                    importedRows++;
+                  }
+                }
+              }
+            }
           } catch (error: any) {
             console.error('Erro no batch:', error);
             errorRows += leads.length;
@@ -212,12 +253,49 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
       // Processar últimas linhas
       if (leads.length > 0) {
         try {
-          const { error } = await supabase
-            .from('leads')
-            .upsert(leads, { onConflict: 'id' });
-
-          if (error) throw error;
-          importedRows += leads.length;
+          if (importMode === 'upsert') {
+            const { error } = await supabase
+              .from('leads')
+              .upsert(leads, { onConflict: 'id' });
+            if (error) throw error;
+            importedRows += leads.length;
+          } else if (importMode === 'insert') {
+            for (const lead of leads) {
+              const { data: existing } = await supabase
+                .from('leads')
+                .select('id')
+                .eq('id', lead.id)
+                .maybeSingle();
+              
+              if (!existing) {
+                const { error } = await supabase.from('leads').insert([lead]);
+                if (error) {
+                  errorRows++;
+                  errorDetails.push({ lead_id: lead.id, error: error.message });
+                } else {
+                  importedRows++;
+                }
+              }
+            }
+          } else if (importMode === 'update') {
+            for (const lead of leads) {
+              const { data: existing } = await supabase
+                .from('leads')
+                .select('id')
+                .eq('id', lead.id)
+                .maybeSingle();
+              
+              if (existing) {
+                const { error } = await supabase.from('leads').update(lead).eq('id', lead.id);
+                if (error) {
+                  errorRows++;
+                  errorDetails.push({ lead_id: lead.id, error: error.message });
+                } else {
+                  importedRows++;
+                }
+              }
+            }
+          }
         } catch (error: any) {
           errorRows += leads.length;
           errorDetails.push({ count: leads.length, error: error.message });
@@ -259,8 +337,76 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
     }
   };
 
+  const downloadCSVTemplate = () => {
+    const headers = [
+      'ID',
+      'Nome do Lead',
+      'Idade',
+      'Localização',
+      'Foto do modelo',
+      'Responsável',
+      'Scouter',
+      'Etapa',
+      'Nome do Modelo',
+      'Criado',
+      'Fonte',
+      'Telefone de trabalho',
+      'Celular',
+      'Telefone de casa',
+      'Local da Abordagem',
+      'Ficha confirmada',
+      'Data de criação da Ficha',
+      'Data da confirmação de ficha',
+      'Presença Confirmada',
+      'Compareceu',
+      'Cadastro Existe Foto?',
+      'Valor da Ficha',
+      'Data da criação do agendamento',
+      'Horário do agendamento - Cliente - Campo Lista',
+      'Data do agendamento  - Cliente - Campo Data',
+      'GERENCIAMENTO FUNIL DE QUALIFICAÇAO/AGENDAMENTO',
+      'Status de Fluxo',
+      'ETAPA FUNIL QUALIFICAÇÃO/AGENDAMENTO',
+      'Etapa de fluxo',
+      'Funil Fichas',
+      'Status Tabulação',
+      'MaxSystem - ID da Ficha',
+      'Gestão de Scouter',
+      'Op Telemarketing',
+      'Data Retorno de ligação'
+    ];
+
+    const csvContent = headers.join(',') + '\n';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'modelo_importacao_leads.csv';
+    link.click();
+    
+    toast.success('Modelo CSV baixado! Preencha e faça upload.');
+  };
+
   return (
     <div className="space-y-4">
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertDescription>
+          <strong>Dica:</strong> Baixe o modelo CSV para ver todos os campos disponíveis. 
+          O campo <strong>ID</strong> é obrigatório para operações de UPDATE e UPSERT.
+        </AlertDescription>
+      </Alert>
+
+      <div className="flex justify-end">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={downloadCSVTemplate}
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Baixar Modelo CSV
+        </Button>
+      </div>
+
       {/* Upload Area */}
       <div className="border-2 border-dashed rounded-lg p-6 text-center">
         <Input
@@ -336,37 +482,87 @@ export function CSVImportUpload({ onImportComplete }: CSVImportUploadProps) {
 
       {/* Sync Control */}
       {file && (
-        <div className="flex items-start space-x-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-          <Checkbox 
-            id="sync-bitrix" 
-            checked={syncToBitrix}
-            onCheckedChange={(checked) => setSyncToBitrix(checked === true)}
-            className="mt-0.5"
-          />
-          <div className="flex-1">
-            <label htmlFor="sync-bitrix" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-              🔄 Sincronizar com Bitrix após importação
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <div className="space-y-2 text-xs">
-                      <p><strong>❌ Desmarcado:</strong> Importa apenas para o Supabase (ideal para carga inicial do Bitrix)</p>
-                      <p><strong>✅ Marcado:</strong> Importa para Supabase e sincroniza de volta com Bitrix (ideal para dados do discador)</p>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </label>
-            <p className="text-xs text-muted-foreground mt-1">
-              {syncToBitrix 
-                ? "Os leads serão atualizados no Bitrix após a importação" 
-                : "Apenas importação local (não atualiza Bitrix)"
-              }
-            </p>
+        <div className="space-y-4">
+          <div className="flex items-start space-x-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <Checkbox 
+              id="sync-bitrix" 
+              checked={syncToBitrix}
+              onCheckedChange={(checked) => setSyncToBitrix(checked === true)}
+              className="mt-0.5"
+            />
+            <div className="flex-1">
+              <label htmlFor="sync-bitrix" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                🔄 Sincronizar com Bitrix após importação
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-2 text-xs">
+                        <p><strong>❌ Desmarcado:</strong> Importa apenas para o TabuladorMax (ideal para carga inicial do Bitrix)</p>
+                        <p><strong>✅ Marcado:</strong> Importa para TabuladorMax e sincroniza de volta com Bitrix (ideal para dados do discador)</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </label>
+              <p className="text-xs text-muted-foreground mt-1">
+                {syncToBitrix 
+                  ? "Os leads serão atualizados no Bitrix após a importação" 
+                  : "Apenas importação local (não atualiza Bitrix)"
+                }
+              </p>
+            </div>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Modo de Importação</CardTitle>
+              <CardDescription className="text-xs">
+                Escolha como os dados serão processados no TabuladorMax
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup value={importMode} onValueChange={(v) => setImportMode(v as any)}>
+                <div className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-accent cursor-pointer">
+                  <RadioGroupItem value="upsert" id="upsert" className="mt-0.5" />
+                  <div className="flex-1">
+                    <Label htmlFor="upsert" className="cursor-pointer font-medium">
+                      🔄 UPSERT (Mesclar) - Recomendado
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Insere novos leads ou atualiza se já existir (baseado no ID)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-accent cursor-pointer">
+                  <RadioGroupItem value="insert" id="insert" className="mt-0.5" />
+                  <div className="flex-1">
+                    <Label htmlFor="insert" className="cursor-pointer font-medium">
+                      ➕ INSERT (Apenas Novos)
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Insere apenas leads que ainda não existem. Ignora IDs duplicados.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-accent cursor-pointer">
+                  <RadioGroupItem value="update" id="update" className="mt-0.5" />
+                  <div className="flex-1">
+                    <Label htmlFor="update" className="cursor-pointer font-medium">
+                      🔄 UPDATE (Apenas Atualizar)
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Atualiza apenas leads existentes. Ignora IDs que não existem. <strong>Útil para planilhas do discador.</strong>
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
+            </CardContent>
+          </Card>
         </div>
       )}
 
