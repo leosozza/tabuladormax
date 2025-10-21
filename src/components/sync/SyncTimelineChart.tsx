@@ -2,21 +2,33 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
-import { Period, getPeriodConfig, groupDataByPeriod } from "@/lib/syncUtils";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
+import { Period, getPeriodConfig, groupDataByPeriodAndDirection } from "@/lib/syncUtils";
 
 interface SyncTimelineChartProps {
   period: Period;
 }
 
 const chartConfig = {
-  success: {
-    label: "Sucesso",
-    color: "hsl(var(--chart-1))",
+  bitrix_to_supabase: {
+    label: "Bitrix → TabuladorMax",
+    color: "#3b82f6",
   },
-  error: {
-    label: "Erro",
-    color: "hsl(var(--chart-2))",
+  supabase_to_bitrix: {
+    label: "TabuladorMax → Bitrix",
+    color: "#10b981",
+  },
+  supabase_to_gestao_scouter: {
+    label: "TabuladorMax → Gestão Scouter",
+    color: "#8b5cf6",
+  },
+  gestao_scouter_to_supabase: {
+    label: "Gestão Scouter → TabuladorMax",
+    color: "#f59e0b",
+  },
+  csv_import: {
+    label: "CSV → TabuladorMax",
+    color: "#6366f1",
   },
 };
 
@@ -40,7 +52,7 @@ export function SyncTimelineChart({ period }: SyncTimelineChartProps) {
         sample: data?.slice(0, 3) 
       });
       
-      return groupDataByPeriod(data, period);
+      return groupDataByPeriodAndDirection(data, period);
     },
     refetchInterval: period === 'minute' ? 10000 : 30000
   });
@@ -58,7 +70,7 @@ export function SyncTimelineChart({ period }: SyncTimelineChartProps) {
             <p className="text-muted-foreground">Carregando...</p>
           </div>
         ) : chartData && chartData.length > 0 ? (
-          <ChartContainer config={chartConfig} className="h-[300px]">
+          <ChartContainer config={chartConfig} className="h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -71,17 +83,47 @@ export function SyncTimelineChart({ period }: SyncTimelineChartProps) {
                 />
                 <YAxis />
                 <ChartTooltip content={<ChartTooltipContent />} />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                  iconType="line"
+                />
                 <Line 
                   type="monotone" 
-                  dataKey="success" 
-                  stroke="hsl(var(--chart-1))" 
+                  dataKey="bitrix_to_supabase" 
+                  name="Bitrix → TabuladorMax"
+                  stroke="#3b82f6"
                   strokeWidth={2}
                   dot={{ r: 3 }}
                 />
                 <Line 
                   type="monotone" 
-                  dataKey="error" 
-                  stroke="hsl(var(--chart-2))" 
+                  dataKey="supabase_to_bitrix" 
+                  name="TabuladorMax → Bitrix"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="supabase_to_gestao_scouter" 
+                  name="TabuladorMax → Gestão Scouter"
+                  stroke="#8b5cf6"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="gestao_scouter_to_supabase" 
+                  name="Gestão Scouter → TabuladorMax"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="csv_import" 
+                  name="CSV → TabuladorMax"
+                  stroke="#6366f1"
                   strokeWidth={2}
                   dot={{ r: 3 }}
                 />
@@ -89,8 +131,14 @@ export function SyncTimelineChart({ period }: SyncTimelineChartProps) {
             </ResponsiveContainer>
           </ChartContainer>
         ) : (
-          <div className="h-[300px] flex items-center justify-center">
-            <p className="text-muted-foreground">Nenhum dado disponível</p>
+          <div className="h-[350px] flex items-center justify-center flex-col gap-2">
+            <p className="text-muted-foreground text-center">
+              📊 Nenhuma sincronização registrada neste período
+            </p>
+            <p className="text-xs text-muted-foreground text-center max-w-md">
+              As sincronizações são registradas automaticamente quando ocorrem importações do Bitrix,
+              exportações para o Gestão Scouter ou atualizações via CSV.
+            </p>
           </div>
         )}
       </CardContent>

@@ -132,6 +132,68 @@ export const calculateMetrics = (data: SyncEvent[] | null) => {
   };
 };
 
+export interface GroupedDataByDirection {
+  period: string;
+  bitrix_to_supabase: number;
+  supabase_to_bitrix: number;
+  supabase_to_gestao_scouter: number;
+  gestao_scouter_to_supabase: number;
+  csv_import: number;
+  total: number;
+}
+
+export const groupDataByPeriodAndDirection = (
+  data: SyncEvent[] | null,
+  period: Period
+): GroupedDataByDirection[] => {
+  if (!data || data.length === 0) {
+    console.warn('⚠️ groupDataByPeriodAndDirection: No data to group');
+    return [];
+  }
+
+  console.log(`📊 Grouping ${data.length} events by ${period} and direction`);
+  
+  const config = getPeriodConfig(period);
+  const grouped = new Map<string, {
+    bitrix_to_supabase: number;
+    supabase_to_bitrix: number;
+    supabase_to_gestao_scouter: number;
+    gestao_scouter_to_supabase: number;
+    csv_import: number;
+  }>();
+
+  data.forEach((event) => {
+    const date = new Date(event.created_at);
+    const key = format(date, config.format);
+    
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        bitrix_to_supabase: 0,
+        supabase_to_bitrix: 0,
+        supabase_to_gestao_scouter: 0,
+        gestao_scouter_to_supabase: 0,
+        csv_import: 0
+      });
+    }
+    
+    const current = grouped.get(key)!;
+    const direction = event.direction as keyof typeof current;
+    if (direction in current) {
+      current[direction]++;
+    }
+  });
+
+  const result = Array.from(grouped.entries()).map(([period, counts]) => ({
+    period,
+    ...counts,
+    total: Object.values(counts).reduce((sum, val) => sum + val, 0)
+  })).sort((a, b) => a.period.localeCompare(b.period));
+
+  console.log(`✅ Grouped into ${result.length} periods:`, result.slice(0, 5));
+  
+  return result;
+};
+
 export const groupByDirection = (data: SyncEvent[] | null) => {
   if (!data || data.length === 0) return [];
 
