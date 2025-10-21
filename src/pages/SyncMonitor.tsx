@@ -59,23 +59,24 @@ export default function SyncMonitor() {
 
           {/* Tab de Monitoramento (conteúdo atual) */}
           <TabsContent value="monitoring" className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Métricas em Tempo Real - Bitrix</h2>
-              <MetricsCards />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Métricas em Tempo Real - Bitrix</h2>
+                <MetricsCards />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Métricas - Gestão Scouter</h2>
+                <GestaoScouterMetrics />
+              </div>
             </div>
 
-            <div className="mt-8">
-              <GestaoScouterMetrics />
-            </div>
+            <SyncDirectionChart />
 
             <div className="flex items-center gap-4">
               <PeriodSelector value={period} onChange={setPeriod} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SyncTimelineChart period={period} />
-              <SyncDirectionChart />
-            </div>
+            <SyncTimelineChart period={period} />
 
             <SyncLogsTable />
           </TabsContent>
