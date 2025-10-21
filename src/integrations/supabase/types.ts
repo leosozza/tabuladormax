@@ -603,6 +603,7 @@ export type Database = {
           end_date: string | null
           error_leads: number | null
           exported_leads: number | null
+          field_mappings: Json | null
           fields_selected: string[] | null
           id: string
           last_completed_date: string | null
@@ -622,6 +623,7 @@ export type Database = {
           end_date?: string | null
           error_leads?: number | null
           exported_leads?: number | null
+          field_mappings?: Json | null
           fields_selected?: string[] | null
           id?: string
           last_completed_date?: string | null
@@ -641,6 +643,7 @@ export type Database = {
           end_date?: string | null
           error_leads?: number | null
           exported_leads?: number | null
+          field_mappings?: Json | null
           fields_selected?: string[] | null
           id?: string
           last_completed_date?: string | null
@@ -1021,6 +1024,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_leads_table_columns: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          column_name: string
+          data_type: string
+          is_nullable: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

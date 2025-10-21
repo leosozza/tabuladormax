@@ -45,15 +45,13 @@ serve(async (req) => {
       // Create client for Gestão Scouter
       const gestaoClient = createClient(config.project_url, config.anon_key);
 
-      // Get schema
-      const { data: columns, error } = await gestaoClient
-        .from('information_schema.columns')
-        .select('column_name, data_type, is_nullable')
-        .eq('table_schema', 'public')
-        .eq('table_name', 'leads')
-        .order('ordinal_position');
+      // Use RPC to get schema (safer than direct information_schema access)
+      const { data: columns, error } = await gestaoClient.rpc('get_leads_table_columns');
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao buscar schema do Gestão Scouter:', error);
+        throw error;
+      }
 
       const fields: FieldInfo[] = (columns || []).map((col: { column_name: string; data_type: string; is_nullable: string }) => ({
         name: col.column_name,
@@ -61,21 +59,21 @@ serve(async (req) => {
         type: col.data_type,
         required: col.is_nullable === 'NO',
       }));
+
+      console.log(`✅ Gestão Scouter: ${fields.length} campos encontrados`);
 
       return new Response(
         JSON.stringify({ fields }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
-      // Get TabuladorMax fields
-      const { data: columns, error } = await supabase
-        .from('information_schema.columns')
-        .select('column_name, data_type, is_nullable')
-        .eq('table_schema', 'public')
-        .eq('table_name', 'leads')
-        .order('ordinal_position');
+      // Get TabuladorMax fields using RPC
+      const { data: columns, error } = await supabase.rpc('get_leads_table_columns');
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao buscar schema do TabuladorMax:', error);
+        throw error;
+      }
 
       const fields: FieldInfo[] = (columns || []).map((col: { column_name: string; data_type: string; is_nullable: string }) => ({
         name: col.column_name,
@@ -83,6 +81,8 @@ serve(async (req) => {
         type: col.data_type,
         required: col.is_nullable === 'NO',
       }));
+
+      console.log(`✅ TabuladorMax: ${fields.length} campos encontrados`);
 
       return new Response(
         JSON.stringify({ fields }),
@@ -91,7 +91,7 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('Erro:', error);
+    console.error('❌ Erro geral:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
       JSON.stringify({ error: errorMessage }),
