@@ -301,6 +301,24 @@ async function processBatchExport(jobId: string) {
 
   const BATCH_SIZE = 100;
 
+  // Helper function to filter out empty fields
+  const filterEmptyFields = (data: Partial<LeadData>): LeadData => {
+    const filtered: Partial<LeadData> = { id: data.id };
+    
+    Object.entries(data).forEach(([key, value]) => {
+      // Keep fields with real values (not null, undefined, or empty string)
+      if (value !== null && value !== undefined && value !== '') {
+        (filtered as any)[key] = value;
+      }
+    });
+    
+    // Always keep control fields
+    filtered.ultima_sincronizacao = new Date().toISOString();
+    filtered.origem_sincronizacao = 'batch_export';
+    
+    return filtered as LeadData;
+  };
+
   const prepareLeadData = (lead: Lead, fieldMappings: Record<string, string> | null): LeadData => {
     const allFields: LeadData = {
       id: lead.id,
@@ -342,7 +360,7 @@ async function processBatchExport(jobId: string) {
     };
 
     if (!fieldMappings) {
-      return allFields;
+      return filterEmptyFields(allFields);
     }
 
     const mappedData: Partial<LeadData> = {
@@ -366,7 +384,7 @@ async function processBatchExport(jobId: string) {
       }
     });
 
-    return mappedData as LeadData;
+    return filterEmptyFields(mappedData as LeadData);
   };
 
   // Helper para tentar upsert com retry automático em caso de campo inválido
