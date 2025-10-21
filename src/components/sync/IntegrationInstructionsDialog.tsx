@@ -148,6 +148,16 @@ CREATE TABLE IF NOT EXISTS public.leads (
               </AlertDescription>
             </Alert>
 
+            {/* Aviso Importante */}
+            <Alert className="bg-green-500/10 border-green-500/20">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription>
+                <strong>✅ Importante:</strong> Você NÃO precisa criar Edge Functions no Gestão Scouter. 
+                O SQL fornecido abaixo (tabela + trigger) é tudo que você precisa executar no Gestão Scouter. 
+                Toda a lógica de sincronização já está implementada aqui no TabuladorMax.
+              </AlertDescription>
+            </Alert>
+
             {/* Passo 1 */}
             <Card>
               <CardContent className="pt-6">
