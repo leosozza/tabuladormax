@@ -59,13 +59,13 @@ export default function SyncMonitor() {
 
           {/* Tab de Monitoramento (conteúdo atual) */}
           <TabsContent value="monitoring" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
               <div>
                 <h2 className="text-xl font-semibold mb-4">Métricas em Tempo Real - Bitrix</h2>
                 <MetricsCards />
               </div>
+              
               <div>
-                <h2 className="text-xl font-semibold mb-4">Métricas - Gestão Scouter</h2>
                 <GestaoScouterMetrics />
               </div>
             </div>
