@@ -45,19 +45,16 @@ interface Lead {
   data_retorno_ligacao?: string | null;
 }
 
+// Estrutura compatível com Gestão Scouter
 interface LeadData {
   id: string;
-  name?: string | null;
-  responsible?: string | null;
-  age?: string | null;
+  nome?: string | null; // name -> nome
+  responsavel?: string | null; // responsible -> responsavel
+  idade?: string | null; // age -> idade
   scouter?: string | null;
-  photo_url?: string | null;
-  date_modify?: string | null;
-  raw?: unknown;
-  updated_at: string;
-  bitrix_telemarketing_id?: string | null;
-  commercial_project_id?: string | null;
-  responsible_user_id?: string | null;
+  foto?: string | null; // photo_url -> foto
+  modificado?: string | null; // date_modify -> modificado
+  telefone?: string | null;
   celular?: string | null;
   telefone_trabalho?: string | null;
   telefone_casa?: string | null;
@@ -83,11 +80,10 @@ interface LeadData {
   funil_fichas?: string | null;
   status_tabulacao?: string | null;
   maxsystem_id_ficha?: string | null;
-  gestao_scouter?: string | null;
   op_telemarketing?: string | null;
   data_retorno_ligacao?: string | null;
-  last_sync_at: string;
-  sync_source: string;
+  ultima_sincronizacao: string; // last_sync_at -> ultima_sincronizacao
+  origem_sincronizacao: string; // sync_source -> origem_sincronizacao
 }
 
 const corsHeaders = {
@@ -359,28 +355,25 @@ async function processBatchExport(jobId: string) {
 
   const BATCH_SIZE = 100; // Processar 100 leads por vez
 
-  // Helper function to prepare lead data based on fields_selected
+  // Helper function to prepare lead data - APENAS CAMPOS ESSENCIAIS
   const prepareLeadData = (lead: Lead, fieldsSelected: string[] | null): LeadData => {
-    // All available fields - REMOVIDO 'address' pois não existe no Gestão Scouter
+    // Mapear apenas os campos que realmente existem no Gestão Scouter
+    // Baseado na estrutura básica: id, nome, scouter, projeto, etc.
     const allFields: LeadData = {
       id: lead.id,
-      name: lead.name,
-      responsible: lead.responsible,
-      age: lead.age,
+      nome: lead.name || null, // 'name' no TabuladorMax -> 'nome' no Gestão Scouter
       scouter: lead.scouter,
-      photo_url: lead.photo_url,
-      date_modify: lead.date_modify ? new Date(lead.date_modify).toISOString() : (lead.updated_at ? new Date(lead.updated_at).toISOString() : null),
-      raw: lead.raw,
-      updated_at: lead.updated_at ? new Date(lead.updated_at).toISOString() : new Date().toISOString(),
-      bitrix_telemarketing_id: lead.bitrix_telemarketing_id,
-      commercial_project_id: lead.commercial_project_id,
-      responsible_user_id: lead.responsible_user_id,
+      foto: lead.photo_url || null, // 'photo_url' -> 'foto'
+      idade: lead.age || null, // 'age' -> 'idade'
+      telefone: lead.celular || lead.telefone_trabalho || lead.telefone_casa || null,
       celular: lead.celular,
       telefone_trabalho: lead.telefone_trabalho,
       telefone_casa: lead.telefone_casa,
+      responsavel: lead.responsible || null, // 'responsible' -> 'responsavel'
       etapa: lead.etapa,
       fonte: lead.fonte,
       criado: lead.criado ? new Date(lead.criado).toISOString() : null,
+      modificado: lead.date_modify ? new Date(lead.date_modify).toISOString() : (lead.updated_at ? new Date(lead.updated_at).toISOString() : null),
       nome_modelo: lead.nome_modelo,
       local_abordagem: lead.local_abordagem,
       ficha_confirmada: lead.ficha_confirmada,
@@ -400,11 +393,10 @@ async function processBatchExport(jobId: string) {
       funil_fichas: lead.funil_fichas,
       status_tabulacao: lead.status_tabulacao,
       maxsystem_id_ficha: lead.maxsystem_id_ficha,
-      gestao_scouter: lead.gestao_scouter,
       op_telemarketing: lead.op_telemarketing,
       data_retorno_ligacao: lead.data_retorno_ligacao ? new Date(lead.data_retorno_ligacao).toISOString() : null,
-      last_sync_at: new Date().toISOString(),
-      sync_source: 'tabuladormax'
+      ultima_sincronizacao: new Date().toISOString(),
+      origem_sincronizacao: 'tabuladormax'
     };
 
     // If no fields selected, return all fields
@@ -412,12 +404,12 @@ async function processBatchExport(jobId: string) {
       return allFields;
     }
 
-    // Filter to only selected fields, but always include id, updated_at, sync_source for proper sync
+    // Filter to only selected fields, but always include id and sync metadata
     const selectedData: Partial<LeadData> = {
       id: allFields.id,
-      updated_at: allFields.updated_at,
-      sync_source: allFields.sync_source,
-      last_sync_at: allFields.last_sync_at,
+      modificado: allFields.modificado,
+      origem_sincronizacao: allFields.origem_sincronizacao,
+      ultima_sincronizacao: allFields.ultima_sincronizacao,
     };
 
     fieldsSelected.forEach(field => {
