@@ -395,6 +395,7 @@ async function processBatchExport(jobId: string) {
   const resilientUpsert = async (leadData: LeadData, leadId: string): Promise<{
     success: boolean;
     ignoredFields: string[];
+    isNewRecord: boolean;
     error?: unknown;
   }> => {
     const ignoredFields: string[] = [];
@@ -402,13 +403,23 @@ async function processBatchExport(jobId: string) {
     const MAX_RETRIES = 10;
     let retryCount = 0;
 
+    // ✨ Verificar se lead já existe no Gestão Scouter
+    const { data: existingLead } = await gestaoScouterClient
+      .from('leads')
+      .select('id')
+      .eq('id', leadId)
+      .maybeSingle();
+    
+    const isNewRecord = !existingLead;
+
     while (true) {
       retryCount++;
       if (retryCount > MAX_RETRIES) {
         console.error('❌ Excedido número máximo de tentativas - possível loop infinito');
         return { 
           success: false, 
-          ignoredFields, 
+          ignoredFields,
+          isNewRecord,
           error: { message: 'Máximo de tentativas excedido - possível loop infinito' } 
         };
       }
@@ -418,7 +429,7 @@ async function processBatchExport(jobId: string) {
         .upsert(currentData, { onConflict: 'id', ignoreDuplicates: false });
 
       if (!error) {
-        return { success: true, ignoredFields };
+        return { success: true, ignoredFields, isNewRecord };
       }
 
       // TRATAR ERRO DE RLS PRIMEIRO (42501) - NÃO É RECUPERÁVEL
@@ -444,7 +455,7 @@ async function processBatchExport(jobId: string) {
         });
         
         // NÃO fazer retry - erro de RLS não é recuperável
-        return { success: false, ignoredFields, error };
+        return { success: false, ignoredFields, isNewRecord, error };
       }
 
       // Se erro for PGRST204 (campo não existe no schema cache), remover campo e tentar novamente
@@ -480,7 +491,7 @@ async function processBatchExport(jobId: string) {
       }
 
       // Outro tipo de erro, não é recuperável
-      return { success: false, ignoredFields, error };
+      return { success: false, ignoredFields, isNewRecord, error };
     }
   };
 
@@ -548,7 +559,7 @@ async function processBatchExport(jobId: string) {
         const duration = Date.now() - startTime;
 
         await supabase.from('sync_events').insert({
-          event_type: 'update',
+          event_type: result.isNewRecord ? 'insert' : 'update',
           direction: 'supabase_to_gestao_scouter',
           lead_id: lead.id,
           status: result.success ? 'success' : 'error',
@@ -559,8 +570,11 @@ async function processBatchExport(jobId: string) {
         if (result.success) {
           exportedCount++;
           
+          const operationType = result.isNewRecord ? 'criado' : 'atualizado';
           if (result.ignoredFields.length > 0) {
-            console.log(`⚠️ Lead ${lead.id} exportado com ${result.ignoredFields.length} campo(s) ignorado(s): ${result.ignoredFields.join(', ')}`);
+            console.log(`⚠️ Lead ${lead.id} ${operationType} com ${result.ignoredFields.length} campo(s) ignorado(s): ${result.ignoredFields.join(', ')}`);
+          } else {
+            console.log(`✅ Lead ${lead.id} ${operationType} com sucesso`);
           }
         } else {
           errorCount++;
