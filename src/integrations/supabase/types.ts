@@ -1027,6 +1027,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_leads_schema: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          column_default: string
+          column_name: string
+          data_type: string
+          is_nullable: string
+        }[]
+      }
       get_leads_table_columns: {
         Args: Record<PropertyKey, never>
         Returns: {
