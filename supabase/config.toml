@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.export-to-gestao-scouter-batch]
 verify_jwt = true
+
+[functions.export-schema]
+verify_jwt = false
