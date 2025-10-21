@@ -7,7 +7,6 @@ interface Lead {
   name?: string | null;
   responsible?: string | null;
   age?: string | null;
-  address?: string | null;
   scouter?: string | null;
   photo_url?: string | null;
   date_modify?: string | null;
@@ -51,7 +50,6 @@ interface LeadData {
   name?: string | null;
   responsible?: string | null;
   age?: string | null;
-  address?: string | null;
   scouter?: string | null;
   photo_url?: string | null;
   date_modify?: string | null;
@@ -363,13 +361,12 @@ async function processBatchExport(jobId: string) {
 
   // Helper function to prepare lead data based on fields_selected
   const prepareLeadData = (lead: Lead, fieldsSelected: string[] | null): LeadData => {
-    // All available fields
+    // All available fields - REMOVIDO 'address' pois não existe no Gestão Scouter
     const allFields: LeadData = {
       id: lead.id,
       name: lead.name,
       responsible: lead.responsible,
       age: lead.age,
-      address: lead.address,
       scouter: lead.scouter,
       photo_url: lead.photo_url,
       date_modify: lead.date_modify ? new Date(lead.date_modify).toISOString() : (lead.updated_at ? new Date(lead.updated_at).toISOString() : null),
