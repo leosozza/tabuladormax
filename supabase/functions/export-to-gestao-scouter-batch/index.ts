@@ -343,18 +343,36 @@ async function processBatchExport(jobId: string) {
 
   // ✅ Buscar campos disponíveis no Gestão Scouter ANTES de exportar
   console.log('🔍 Validando schema do Gestão Scouter...');
-  const { data: gestaoColumns, error: schemaError } = await gestaoScouterClient.rpc('get_leads_table_columns');
   
-  if (schemaError) {
-    console.error('❌ Erro ao buscar schema do Gestão Scouter:', schemaError);
-    await supabase.from('gestao_scouter_export_jobs').update({
-      status: 'failed',
-      pause_reason: `Erro ao validar schema: ${schemaError.message}`
-    }).eq('id', jobId);
-    return;
+  let gestaoColumns: any[] = [];
+  const { data: rpcData, error: rpcError } = await gestaoScouterClient.rpc('get_leads_table_columns');
+  
+  if (rpcError) {
+    console.warn('⚠️ RPC get_leads_table_columns não disponível, usando information_schema:', rpcError.message);
+    
+    // Fallback: query direta no information_schema
+    const { data: schemaData, error: schemaError } = await gestaoScouterClient
+      .from('information_schema.columns')
+      .select('column_name, data_type, is_nullable')
+      .eq('table_schema', 'public')
+      .eq('table_name', 'leads')
+      .order('ordinal_position');
+
+    if (schemaError) {
+      console.error('❌ Erro ao buscar schema via information_schema:', schemaError);
+      await supabase.from('gestao_scouter_export_jobs').update({
+        status: 'failed',
+        pause_reason: `Erro ao validar schema: ${schemaError.message}`
+      }).eq('id', jobId);
+      return;
+    }
+    
+    gestaoColumns = schemaData || [];
+  } else {
+    gestaoColumns = rpcData || [];
   }
 
-  const availableFields = new Set<string>((gestaoColumns || []).map((col: any) => col.column_name as string));
+  const availableFields = new Set<string>(gestaoColumns.map((col: any) => col.column_name as string));
   console.log(`✅ Schema validado: ${availableFields.size} campos disponíveis`);
 
   // Marcar como running

@@ -58,15 +58,33 @@ serve(async (req) => {
     // Criar cliente para Gestão Scouter
     const gestaoClient = createClient(config.project_url, config.anon_key);
 
-    // Buscar campos do Gestão Scouter usando RPC
-    const { data: gestaoColumns, error: gestaoError } = await gestaoClient.rpc('get_leads_table_columns');
+    // ✅ Tentar RPC primeiro, com fallback para information_schema
+    let gestaoColumns: any[] = [];
+    
+    const { data: rpcData, error: rpcError } = await gestaoClient.rpc('get_leads_table_columns');
+    
+    if (rpcError) {
+      console.warn('⚠️ RPC get_leads_table_columns não disponível, usando information_schema:', rpcError.message);
+      
+      // Fallback: query direta no information_schema
+      const { data: schemaData, error: schemaError } = await gestaoClient
+        .from('information_schema.columns')
+        .select('column_name, data_type, is_nullable')
+        .eq('table_schema', 'public')
+        .eq('table_name', 'leads')
+        .order('ordinal_position');
 
-    if (gestaoError) {
-      console.error('❌ Erro ao buscar schema do Gestão Scouter:', gestaoError);
-      throw new Error(`Erro ao buscar campos do Gestão Scouter: ${gestaoError.message}`);
+      if (schemaError) {
+        console.error('❌ Erro ao buscar schema via information_schema:', schemaError);
+        throw new Error(`Erro ao buscar campos do Gestão Scouter: ${schemaError.message}`);
+      }
+      
+      gestaoColumns = schemaData || [];
+    } else {
+      gestaoColumns = rpcData || [];
     }
 
-    const gestaoFieldNames = (gestaoColumns || []).map((col: any) => col.column_name);
+    const gestaoFieldNames = gestaoColumns.map((col: any) => col.column_name);
     console.log(`✅ Gestão Scouter: ${gestaoFieldNames.length} campos encontrados`);
 
     // Encontrar diferenças
