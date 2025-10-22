@@ -38,9 +38,10 @@ interface BitrixFieldMappingDialogProps {
 
 interface DraggableBitrixFieldProps {
   field: { id: string; label: string };
+  onHide?: (fieldId: string) => void;
 }
 
-function DraggableBitrixField({ field }: DraggableBitrixFieldProps) {
+function DraggableBitrixField({ field, onHide }: DraggableBitrixFieldProps) {
   const {
     attributes,
     listeners,
@@ -62,12 +63,25 @@ function DraggableBitrixField({ field }: DraggableBitrixFieldProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 p-2 border rounded-md bg-card hover:bg-accent cursor-move transition-colors"
-      {...attributes}
-      {...listeners}
+      className="flex items-center gap-2 p-2 border rounded-md bg-card hover:bg-accent transition-colors group"
     >
-      <GripVertical className="w-4 h-4 text-muted-foreground" />
-      <span className="text-sm flex-1">{field.label}</span>
+      <div className="flex items-center gap-2 flex-1 cursor-move" {...attributes} {...listeners}>
+        <GripVertical className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm flex-1">{field.label}</span>
+      </div>
+      {onHide && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onHide(field.id);
+          }}
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -134,7 +148,9 @@ export function BitrixFieldMappingDialog({
   const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTabFields, setSearchTabFields] = useState("");
+  const [searchBitrixFields, setSearchBitrixFields] = useState("");
+  const [hiddenBitrixFields, setHiddenBitrixFields] = useState<Set<string>>(new Set());
 
   // Buscar campos do Bitrix
   const { data: bitrixFields, isLoading: loadingBitrix } = useQuery({
@@ -350,14 +366,29 @@ export function BitrixFieldMappingDialog({
     toast.info('Todos os mapeamentos foram removidos');
   };
 
+  const handleHideBitrixField = (fieldId: string) => {
+    setHiddenBitrixFields(prev => {
+      const newSet = new Set(prev);
+      newSet.add(fieldId);
+      return newSet;
+    });
+    toast.info('Campo ocultado da lista');
+  };
+
+  const handleShowAllBitrixFields = () => {
+    setHiddenBitrixFields(new Set());
+    toast.success('Todos os campos foram restaurados');
+  };
+
   const activeField = bitrixFields?.find((f) => f.id === activeId);
 
   const filteredBitrixFields = bitrixFields?.filter((field) =>
-    field.label.toLowerCase().includes(searchTerm.toLowerCase())
+    !hiddenBitrixFields.has(field.id) &&
+    field.label.toLowerCase().includes(searchBitrixFields.toLowerCase())
   ) || [];
 
   const filteredTabFields = tabuladormaxFields?.filter((field: any) =>
-    field.name.toLowerCase().includes(searchTerm.toLowerCase())
+    field.name.toLowerCase().includes(searchTabFields.toLowerCase())
   ) || [];
 
   const totalMapped = Object.keys(mappings).length;
@@ -399,17 +430,6 @@ export function BitrixFieldMappingDialog({
           </AlertDescription>
         </Alert>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar campos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
         <DndContext
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}
@@ -422,6 +442,15 @@ export function BitrixFieldMappingDialog({
               <Label className="text-base font-semibold mb-3 block">
                 Campos TabuladorMax - Destino ({totalMapped} mapeados)
               </Label>
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar campos destino..."
+                  value={searchTabFields}
+                  onChange={(e) => setSearchTabFields(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
               <ScrollArea className="h-[500px] border rounded-md p-4">
                 <div className="space-y-3">
                   {filteredTabFields.map((field: any) => {
@@ -443,9 +472,30 @@ export function BitrixFieldMappingDialog({
 
             {/* Right Column - Bitrix Fields (Origem) */}
             <div>
-              <Label className="text-base font-semibold mb-3 block">
-                Campos Bitrix - Origem
-              </Label>
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-base font-semibold">
+                  Campos Bitrix - Origem
+                </Label>
+                {hiddenBitrixFields.size > 0 && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleShowAllBitrixFields}
+                    className="h-8"
+                  >
+                    Mostrar {hiddenBitrixFields.size} oculto(s)
+                  </Button>
+                )}
+              </div>
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar campos origem..."
+                  value={searchBitrixFields}
+                  onChange={(e) => setSearchBitrixFields(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
               <ScrollArea className="h-[500px] border rounded-md p-4">
                 {loadingBitrix ? (
                   <div className="text-sm text-muted-foreground text-center py-8">
@@ -461,6 +511,7 @@ export function BitrixFieldMappingDialog({
                         <DraggableBitrixField
                           key={field.id}
                           field={field}
+                          onHide={handleHideBitrixField}
                         />
                       ))}
                     </div>
