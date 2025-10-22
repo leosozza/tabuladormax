@@ -2,15 +2,16 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { ArrowLeft } from "lucide-react";
 import { MetricsCards } from "@/components/sync/MetricsCards";
 import { GestaoScouterMetrics } from "@/components/sync/GestaoScouterMetrics";
 import { PeriodSelector } from "@/components/sync/PeriodSelector";
 import { SyncTimelineChart } from "@/components/sync/SyncTimelineChart";
 import { SyncDirectionChart } from "@/components/sync/SyncDirectionChart";
-
 import { CSVImportTab } from "@/components/sync/CSVImportTab";
 import { IntegrationTab } from "@/components/sync/IntegrationTab";
+import { GestaoScouterExportTab } from "@/components/sync/GestaoScouterExportTab";
 import { BitrixIntegrationTab } from "@/components/sync/BitrixIntegrationTab";
 import { Period } from "@/lib/syncUtils";
 import UserMenu from "@/components/UserMenu";
@@ -78,20 +79,20 @@ export default function SyncMonitor() {
 
           {/* Tab de Integração */}
           <TabsContent value="integration" className="space-y-6">
-            <Tabs defaultValue="gestao-scouter" className="space-y-6">
-              <TabsList>
-                <TabsTrigger value="gestao-scouter">Gestão Scouter</TabsTrigger>
-                <TabsTrigger value="bitrix">Bitrix24</TabsTrigger>
-              </TabsList>
+            {/* Painel 1: Gestão Scouter */}
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-foreground">Integração Gestão Scouter</h2>
+              <IntegrationTab />
+              <GestaoScouterExportTab />
+            </div>
 
-              <TabsContent value="gestao-scouter">
-                <IntegrationTab />
-              </TabsContent>
+            <Separator className="my-8" />
 
-              <TabsContent value="bitrix">
-                <BitrixIntegrationTab />
-              </TabsContent>
-            </Tabs>
+            {/* Painel 2: Bitrix24 */}
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-foreground">Integração Bitrix24</h2>
+              <BitrixIntegrationTab />
+            </div>
           </TabsContent>
 
           {/* Tab de Importação CSV */}
