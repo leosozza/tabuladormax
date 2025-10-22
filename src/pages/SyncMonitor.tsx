@@ -81,7 +81,6 @@ export default function SyncMonitor() {
           <TabsContent value="integration" className="space-y-6">
             {/* Painel 1: Gestão Scouter */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-foreground">Integração Gestão Scouter</h2>
               <IntegrationTab />
               <GestaoScouterExportTab />
             </div>
@@ -89,10 +88,7 @@ export default function SyncMonitor() {
             <Separator className="my-8" />
 
             {/* Painel 2: Bitrix24 */}
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-foreground">Integração Bitrix24</h2>
-              <BitrixIntegrationTab />
-            </div>
+            <BitrixIntegrationTab />
           </TabsContent>
 
           {/* Tab de Importação CSV */}
