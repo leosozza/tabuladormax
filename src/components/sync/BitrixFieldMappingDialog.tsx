@@ -125,21 +125,27 @@ function MappingRow({ tabuladormaxField, mappedBitrixFields, onRemove, isOver, b
         <div className="space-y-1">
           {mappedBitrixFields
             .sort((a, b) => a.priority - b.priority)
-            .map((mapping, index) => (
-              <div key={mapping.bitrixField} className="flex items-center justify-between gap-2 p-2 bg-muted rounded">
-                <Badge variant="outline" className="text-xs">
-                  {index + 1}º - {getBitrixFieldLabel(mapping.bitrixField)}
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemove(mapping.bitrixField)}
-                  className="h-6 w-6 p-0"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
+            .map((mapping, index) => {
+              const label = getBitrixFieldLabel(mapping.bitrixField);
+              return (
+                <div key={mapping.bitrixField} className="flex items-center justify-between gap-2 p-2 bg-muted rounded">
+                  <div className="flex-1 min-w-0">
+                    <Badge variant="outline" className="text-xs">
+                      {index + 1}º
+                    </Badge>
+                    <span className="text-xs ml-2 truncate">{label}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRemove(mapping.bitrixField)}
+                    className="h-6 w-6 p-0 flex-shrink-0"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              );
+            })}
         </div>
       )}
     </div>
