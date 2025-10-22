@@ -314,31 +314,40 @@ export function BitrixFieldMappingDialog({
     if (!bitrixFields || !tabuladormaxFields) return;
 
     const autoMappings: Record<string, Array<{ bitrixField: string; priority: number }>> = {};
+    let mappedCount = 0;
 
     tabuladormaxFields.forEach((tabField: any) => {
-      // Tentar match exato
+      // Tentar match exato (prioridade 1)
       const exactMatch = bitrixFields.find(bf => 
         bf.name.toLowerCase() === tabField.name.toLowerCase()
       );
 
       if (exactMatch) {
         autoMappings[tabField.name] = [{ bitrixField: exactMatch.name, priority: 0 }];
+        mappedCount++;
         return;
       }
 
-      // Tentar match parcial
-      const partialMatch = bitrixFields.find(bf => 
-        bf.name.toLowerCase().includes(tabField.name.toLowerCase()) ||
-        tabField.name.toLowerCase().includes(bf.name.toLowerCase())
-      );
+      // Tentar match sem underscores/espaços (prioridade 2)
+      const normalizedTabName = tabField.name.toLowerCase().replace(/[_\s]/g, '');
+      const normalizedMatch = bitrixFields.find(bf => {
+        const normalizedBitrixName = bf.name.toLowerCase().replace(/[_\s]/g, '');
+        return normalizedBitrixName === normalizedTabName;
+      });
 
-      if (partialMatch) {
-        autoMappings[tabField.name] = [{ bitrixField: partialMatch.name, priority: 0 }];
+      if (normalizedMatch) {
+        autoMappings[tabField.name] = [{ bitrixField: normalizedMatch.name, priority: 0 }];
+        mappedCount++;
       }
     });
 
     setMappings(autoMappings);
-    toast.success('Mapeamento automático aplicado!');
+    toast.success(`${mappedCount} campo(s) mapeado(s) automaticamente!`);
+  };
+
+  const handleClearMappings = () => {
+    setMappings({});
+    toast.info('Todos os mapeamentos foram removidos');
   };
 
   const activeField = bitrixFields?.find((f) => f.id === activeId);
@@ -364,10 +373,21 @@ export function BitrixFieldMappingDialog({
                 Arraste os campos do Bitrix (direita) para os campos do TabuladorMax (esquerda)
               </DialogDescription>
             </div>
-            <Button onClick={handleAutoMap} variant="outline" size="sm" disabled={loadingBitrix || loadingMappings}>
-              <Wand2 className="mr-2 h-4 w-4" />
-              Auto-Mapear
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleClearMappings} 
+                variant="outline" 
+                size="sm" 
+                disabled={loadingBitrix || loadingMappings || Object.keys(mappings).length === 0}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Limpar
+              </Button>
+              <Button onClick={handleAutoMap} variant="outline" size="sm" disabled={loadingBitrix || loadingMappings}>
+                <Wand2 className="mr-2 h-4 w-4" />
+                Auto-Mapear
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
