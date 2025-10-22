@@ -3,8 +3,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, CheckCircle2, XCircle, Database } from "lucide-react";
 import { subHours } from "date-fns";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 export function GestaoScouterMetrics() {
+  const [showErrors, setShowErrors] = useState(false);
+
   const { data: metrics } = useQuery({
     queryKey: ['gestao-scouter-metrics'],
     queryFn: async () => {
@@ -72,6 +83,28 @@ export function GestaoScouterMetrics() {
 
   const isEnabled = config?.active && config?.sync_enabled;
 
+  // Buscar erros de sincronização detalhados
+  const { data: errors } = useQuery({
+    queryKey: ['gestao-scouter-errors'],
+    queryFn: async () => {
+      const last24h = subHours(new Date(), 24);
+      
+      const { data, error } = await supabase
+        .from('sync_events')
+        .select('*')
+        .eq('status', 'error')
+        .in('direction', ['supabase_to_gestao_scouter', 'gestao_scouter_to_supabase'])
+        .gte('created_at', last24h.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(100);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: showErrors,
+    refetchInterval: 10000
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -99,7 +132,10 @@ export function GestaoScouterMetrics() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className="cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => setShowErrors(true)}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-red-500/10 rounded-full">
@@ -141,6 +177,68 @@ export function GestaoScouterMetrics() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={showErrors} onOpenChange={setShowErrors}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Erros de Sincronização - Gestão Scouter (últimas 24h)</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[60vh] pr-4">
+            {!errors || errors.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhum erro encontrado nas últimas 24 horas
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {errors.map((error) => (
+                  <Card key={error.id} className="border-red-200">
+                    <CardContent className="pt-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant="destructive" className="text-xs">
+                                {error.direction === 'supabase_to_gestao_scouter' 
+                                  ? '→ Gestão Scouter' 
+                                  : '← Gestão Scouter'}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                Lead ID: {error.lead_id}
+                              </Badge>
+                            </div>
+                            
+                            <div className="text-xs text-muted-foreground mb-2">
+                              {new Date(error.created_at).toLocaleString('pt-BR')}
+                              {error.sync_duration_ms && (
+                                <span className="ml-2">
+                                  • Duração: {error.sync_duration_ms}ms
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="bg-red-50 dark:bg-red-950/20 p-3 rounded-md">
+                              <p className="text-sm font-medium text-red-900 dark:text-red-100 mb-1">
+                                Erro:
+                              </p>
+                              <p className="text-sm text-red-700 dark:text-red-300 font-mono whitespace-pre-wrap">
+                                {error.error_message || 'Erro desconhecido'}
+                              </p>
+                            </div>
+
+                            <div className="mt-2 text-xs">
+                              <span className="font-medium">Tipo:</span> {error.event_type}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
