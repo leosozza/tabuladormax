@@ -92,13 +92,19 @@ interface MappingRowProps {
   onDrop: (bitrixField: string) => void;
   onRemove: (bitrixField: string) => void;
   isOver: boolean;
+  bitrixFields?: Array<{ id: string; label: string; name: string; type: string }>;
 }
 
-function MappingRow({ tabuladormaxField, mappedBitrixFields, onRemove, isOver }: MappingRowProps) {
+function MappingRow({ tabuladormaxField, mappedBitrixFields, onRemove, isOver, bitrixFields }: MappingRowProps) {
   const { setNodeRef } = useDroppable({
     id: `drop-${tabuladormaxField}`,
     data: { tabuladormaxField },
   });
+
+  const getBitrixFieldLabel = (fieldId: string) => {
+    const field = bitrixFields?.find(f => f.name === fieldId || f.id === fieldId);
+    return field?.label || fieldId;
+  };
 
   return (
     <div 
@@ -122,7 +128,7 @@ function MappingRow({ tabuladormaxField, mappedBitrixFields, onRemove, isOver }:
             .map((mapping, index) => (
               <div key={mapping.bitrixField} className="flex items-center justify-between gap-2 p-2 bg-muted rounded">
                 <Badge variant="outline" className="text-xs">
-                  {index + 1}º - {mapping.bitrixField}
+                  {index + 1}º - {getBitrixFieldLabel(mapping.bitrixField)}
                 </Badge>
                 <Button
                   variant="ghost"
@@ -463,6 +469,7 @@ export function BitrixFieldMappingDialog({
                         onDrop={(bitrixField) => {}}
                         onRemove={(bitrixField) => handleRemoveMapping(field.name, bitrixField)}
                         isOver={isOver}
+                        bitrixFields={bitrixFields}
                       />
                     );
                   })}
