@@ -54,13 +54,9 @@ Deno.serve(async (req) => {
 
     console.log('🔍 Lendo schema local da tabela leads...');
 
-    // Read local schema directly from information_schema
+    // Read local schema using RPC function
     const { data: localColumns, error: localError } = await localClient
-      .from('information_schema.columns')
-      .select('column_name, data_type, is_nullable, column_default')
-      .eq('table_schema', 'public')
-      .eq('table_name', 'leads')
-      .order('ordinal_position');
+      .rpc('get_table_columns', { table_name: 'leads' });
 
     if (localError) {
       throw new Error(`Erro ao ler schema local: ${localError.message}`);

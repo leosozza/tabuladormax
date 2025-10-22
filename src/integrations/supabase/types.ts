@@ -1023,6 +1023,15 @@ export type Database = {
           is_nullable: string
         }[]
       }
+      get_table_columns: {
+        Args: { table_name: string }
+        Returns: {
+          column_default: string
+          column_name: string
+          data_type: string
+          is_nullable: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
