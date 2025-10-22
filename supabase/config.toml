@@ -1,5 +1,11 @@
 project_id = "jstsrgyxrrlklnzgsihd"
 
+[functions.get-leads-count]
+verify_jwt = false
+
+[functions.get-leads-for-sync]
+verify_jwt = false
+
 [functions.validate-gestao-scouter-schema]
 verify_jwt = false
 
