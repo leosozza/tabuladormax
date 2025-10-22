@@ -216,15 +216,23 @@ serve(async (req) => {
       responsibleName
     });
 
-    // 3. PREPARAR DADOS PARA UPSERT
-    const leadData = {
+    // 3. BUSCAR MAPEAMENTOS CONFIGURADOS
+    const { data: fieldMappings, error: mappingError } = await supabase
+      .from('bitrix_field_mappings')
+      .select('*')
+      .order('tabuladormax_field', { ascending: true })
+      .order('priority', { ascending: true });
+
+    if (mappingError) {
+      console.error('❌ Erro ao buscar mapeamentos:', mappingError);
+      throw mappingError;
+    }
+
+    console.log(`📋 ${fieldMappings?.length || 0} mapeamentos encontrados`);
+
+    // 4. APLICAR MAPEAMENTOS DINÂMICOS
+    const leadData: any = {
       id: Number(leadId),
-      name: lead.NAME || lead.TITLE || null,
-      age: lead.UF_IDADE ? Number(lead.UF_IDADE) : null,
-      address: lead.UF_LOCAL || lead.ADDRESS || null,
-      photo_url: lead.UF_PHOTO || lead.PHOTO || null,
-      responsible: responsibleName || lead.UF_RESPONSAVEL || lead.ASSIGNED_BY_NAME || null,
-      scouter: lead.UF_SCOUTER || null,
       raw: lead,
       sync_source: 'bitrix',
       sync_status: 'synced',
@@ -234,6 +242,55 @@ serve(async (req) => {
       responsible_user_id: responsibleUserId,
       bitrix_telemarketing_id: bitrixTelemarketingId
     };
+
+    // Agrupar mapeamentos por campo de destino
+    const mappingsByField = (fieldMappings || []).reduce((acc, mapping) => {
+      if (!acc[mapping.tabuladormax_field]) {
+        acc[mapping.tabuladormax_field] = [];
+      }
+      acc[mapping.tabuladormax_field].push(mapping);
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    // Para cada campo do TabuladorMax, aplicar a primeira fonte não-vazia
+    for (const [tabuladorField, mappings] of Object.entries(mappingsByField)) {
+      for (const mapping of (mappings as any[])) {
+        let value = lead[mapping.bitrix_field];
+        
+        // Aplicar transformação se definida
+        if (value !== null && value !== undefined && value !== '' && mapping.transform_function) {
+          try {
+            if (mapping.transform_function === 'toNumber') {
+              value = Number(value);
+            } else if (mapping.transform_function === 'toString') {
+              value = String(value);
+            } else if (mapping.transform_function === 'toBoolean') {
+              value = value === '1' || value === 'Y' || value === true;
+            } else if (mapping.transform_function === 'toDate') {
+              value = value; // Manter como está, Postgres converterá
+            } else if (mapping.transform_function === 'toTimestamp') {
+              value = value; // Manter como está, Postgres converterá
+            }
+          } catch (e) {
+            console.warn(`⚠️ Erro ao transformar ${mapping.bitrix_field}:`, e);
+          }
+        }
+        
+        // Se encontrou valor, usar e parar (fallback automático)
+        if (value !== null && value !== undefined && value !== '') {
+          leadData[tabuladorField] = value;
+          console.log(`✅ ${tabuladorField} = ${mapping.bitrix_field} (prioridade ${mapping.priority})`);
+          break; // Usar apenas o primeiro não-vazio
+        }
+      }
+    }
+
+    // Garantir que 'responsible' seja preenchido se possível (fallback final)
+    if (!leadData.responsible && responsibleName) {
+      leadData.responsible = responsibleName;
+    }
+
+    console.log('📝 Lead mapeado:', leadData);
 
 
     // Upsert no Supabase

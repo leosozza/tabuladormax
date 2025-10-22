@@ -101,6 +101,36 @@ export type Database = {
           },
         ]
       }
+      bitrix_field_mappings: {
+        Row: {
+          bitrix_field: string
+          created_at: string | null
+          id: string
+          priority: number | null
+          tabuladormax_field: string
+          transform_function: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bitrix_field: string
+          created_at?: string | null
+          id?: string
+          priority?: number | null
+          tabuladormax_field: string
+          transform_function?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bitrix_field?: string
+          created_at?: string | null
+          id?: string
+          priority?: number | null
+          tabuladormax_field?: string
+          transform_function?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       bitrix_import_jobs: {
         Row: {
           batch_size: number | null

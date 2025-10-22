@@ -1,17 +1,43 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BitrixImportTab } from "./BitrixImportTab";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, ExternalLink, ChevronDown, Zap, Info } from "lucide-react";
+import { CheckCircle2, ExternalLink, ChevronDown, Zap, Info, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Separator } from "@/components/ui/separator";
 import { useState } from "react";
+import { BitrixFieldMappingDialog } from "./BitrixFieldMappingDialog";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export function BitrixIntegrationTab() {
   const webhookUrl = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/";
   const [isOpen, setIsOpen] = useState(false);
+  const [showMappingDialog, setShowMappingDialog] = useState(false);
+
+  // Buscar estatísticas dos mapeamentos
+  const { data: mappingStats } = useQuery({
+    queryKey: ['bitrix-mapping-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bitrix_field_mappings')
+        .select('*');
+      
+      if (error) throw error;
+      
+      const uniqueFields = new Set(data?.map(m => m.tabuladormax_field) || []);
+      const lastUpdate = data?.length > 0 
+        ? new Date(Math.max(...data.map(m => new Date(m.updated_at).getTime()))).toLocaleString('pt-BR')
+        : 'Nunca';
+      
+      return {
+        count: uniqueFields.size,
+        lastUpdate
+      };
+    }
+  });
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -86,6 +112,37 @@ export function BitrixIntegrationTab() {
 
             <Separator className="my-6" />
 
+            {/* Seção de Mapeamento de Campos */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Mapeamento de Campos</h3>
+              <p className="text-sm text-muted-foreground">
+                Configure como os campos do Bitrix são mapeados para o TabuladorMax
+              </p>
+              
+              <Button 
+                variant="outline" 
+                onClick={() => setShowMappingDialog(true)}
+                className="w-full"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Configurar Mapeamento de Campos
+              </Button>
+              
+              {/* Mostrar resumo dos mapeamentos atuais */}
+              <Card className="bg-muted/50">
+                <CardContent className="pt-4">
+                  <div className="text-sm space-y-1">
+                    <p><strong>Campos mapeados:</strong> {mappingStats?.count || 0}</p>
+                    <p className="text-muted-foreground text-xs">
+                      Última atualização: {mappingStats?.lastUpdate || 'Nunca'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Separator className="my-6" />
+
             {/* Importação do Bitrix */}
             <div>
               <h3 className="text-lg font-semibold mb-4">Importar Dados do Bitrix24</h3>
@@ -94,6 +151,15 @@ export function BitrixIntegrationTab() {
           </CardContent>
         </CollapsibleContent>
       </Card>
+
+      {/* Dialog de mapeamento */}
+      <BitrixFieldMappingDialog
+        open={showMappingDialog}
+        onOpenChange={setShowMappingDialog}
+        onSave={() => {
+          // Invalidar cache para atualizar estatísticas
+        }}
+      />
     </Collapsible>
   );
 }
