@@ -11,7 +11,6 @@ import { SyncTimelineChart } from "@/components/sync/SyncTimelineChart";
 import { SyncDirectionChart } from "@/components/sync/SyncDirectionChart";
 import { CSVImportTab } from "@/components/sync/CSVImportTab";
 import { IntegrationTab } from "@/components/sync/IntegrationTab";
-import { GestaoScouterExportTab } from "@/components/sync/GestaoScouterExportTab";
 import { BitrixIntegrationTab } from "@/components/sync/BitrixIntegrationTab";
 import { Period } from "@/lib/syncUtils";
 import UserMenu from "@/components/UserMenu";
@@ -80,10 +79,7 @@ export default function SyncMonitor() {
           {/* Tab de Integração */}
           <TabsContent value="integration" className="space-y-6">
             {/* Painel 1: Gestão Scouter */}
-            <div className="space-y-6">
-              <IntegrationTab />
-              <GestaoScouterExportTab />
-            </div>
+            <IntegrationTab />
 
             <Separator className="my-8" />
 

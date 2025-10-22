@@ -23,6 +23,8 @@ import {
   Link as LinkIcon,
   ChevronDown
 } from "lucide-react";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { GestaoScouterExportTab } from "./GestaoScouterExportTab";
 import { IntegrationInstructionsDialog } from "./IntegrationInstructionsDialog";
 
 interface GestaoScouterConfig {
@@ -210,18 +212,7 @@ export function IntegrationTab() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Alert informativo */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Sobre esta integração:</strong> A sincronização permite que leads do TabuladorMax 
-          sejam automaticamente enviados para a tabela "leads" do projeto Gestão Scouter, e vice-versa. 
-          As atualizações são bidirecionais e automáticas quando habilitadas.
-        </AlertDescription>
-      </Alert>
-
-      {/* Card Principal Colapsável */}
+    <>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <Card>
           <CollapsibleTrigger className="w-full">
@@ -232,7 +223,24 @@ export function IntegrationTab() {
                     <Database className="w-6 h-6 text-purple-600" />
                   </div>
                   <div className="text-left">
-                    <CardTitle className="text-xl">Integração Gestão Scouter</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-xl">Integração Gestão Scouter</CardTitle>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80">
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-semibold">Sobre esta integração</h4>
+                            <p className="text-sm text-muted-foreground">
+                              A sincronização permite que leads do TabuladorMax sejam automaticamente 
+                              enviados para a tabela "leads" do projeto Gestão Scouter, e vice-versa. 
+                              As atualizações são bidirecionais e automáticas quando habilitadas.
+                            </p>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
                     <CardDescription>
                       Configure a sincronização bidirecional entre TabuladorMax e Gestão Scouter
                     </CardDescription>
@@ -415,6 +423,10 @@ export function IntegrationTab() {
                   </div>
                 </>
               )}
+
+              {/* Exportação em Lote */}
+              <Separator />
+              <GestaoScouterExportTab />
             </CardContent>
           </CollapsibleContent>
         </Card>
@@ -425,6 +437,6 @@ export function IntegrationTab() {
         open={showInstructions}
         onOpenChange={setShowInstructions}
       />
-    </div>
+    </>
   );
 }

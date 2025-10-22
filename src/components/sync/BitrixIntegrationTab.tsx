@@ -1,10 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BitrixImportTab } from "./BitrixImportTab";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, ExternalLink, ChevronDown, Zap } from "lucide-react";
+import { CheckCircle2, ExternalLink, ChevronDown, Zap, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Separator } from "@/components/ui/separator";
 import { useState } from "react";
 
@@ -24,7 +25,24 @@ export function BitrixIntegrationTab() {
                   <Zap className="w-6 h-6 text-orange-600" />
                 </div>
                 <div className="text-left">
-                  <CardTitle className="text-xl">Integração Bitrix24</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-xl">Integração Bitrix24</CardTitle>
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80">
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold">Sobre esta integração</h4>
+                          <p className="text-sm text-muted-foreground">
+                            A integração com Bitrix24 permite sincronização bidirecional de leads, 
+                            projetos comerciais e telemarketings entre TabuladorMax e Bitrix24. 
+                            Todas as atualizações são automáticas via webhook.
+                          </p>
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
                   <CardDescription>
                     Configure a sincronização bidirecional entre TabuladorMax e Bitrix24
                   </CardDescription>
