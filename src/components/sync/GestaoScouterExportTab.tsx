@@ -460,13 +460,13 @@ export function GestaoScouterExportTab() {
               <div className="flex justify-between text-sm">
                 <span>Progresso</span>
                 <span className="font-mono">
-                  {activeJob.exported_leads || 0} / {activeJob.total_leads || 0} leads
+                  {(activeJob.exported_leads || 0) + (activeJob.error_leads || 0)} / {activeJob.total_leads || 0} leads
                 </span>
               </div>
               <Progress
                 value={
                   activeJob.total_leads
-                    ? (activeJob.exported_leads / activeJob.total_leads) * 100
+                    ? (((activeJob.exported_leads || 0) + (activeJob.error_leads || 0)) / activeJob.total_leads) * 100
                     : 0
                 }
                 className="h-2"
@@ -475,8 +475,14 @@ export function GestaoScouterExportTab() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <p className="text-muted-foreground">Total Processado</p>
+                <p className="text-muted-foreground">Total Encontrado</p>
                 <p className="text-lg font-semibold">{activeJob.total_leads || 0}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Processados</p>
+                <p className="text-lg font-semibold">
+                  {(activeJob.exported_leads || 0) + (activeJob.error_leads || 0)}
+                </p>
               </div>
               <div>
                 <p className="text-muted-foreground">Exportados</p>
@@ -490,12 +496,13 @@ export function GestaoScouterExportTab() {
                   {activeJob.error_leads || 0}
                 </p>
               </div>
-              <div>
-                <p className="text-muted-foreground">Data Atual</p>
-                <p className="text-sm font-mono">
-                  {activeJob.processing_date || activeJob.start_date}
-                </p>
-              </div>
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              <p className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                <span>Processando: {activeJob.processing_date || activeJob.start_date}</span>
+              </p>
             </div>
 
             <Separator />

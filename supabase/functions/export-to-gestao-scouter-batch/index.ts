@@ -127,6 +127,21 @@ serve(async (req) => {
         throw new Error('Configuração do gestao-scouter não encontrada ou inativa');
       }
 
+      // Contar total de leads no intervalo de datas
+      const endDateFilter = endDate || new Date().toISOString().split('T')[0];
+      const { count: totalLeadsCount, error: countError } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .gte('updated_at', `${startDate}T00:00:00`)
+        .lte('updated_at', `${endDateFilter}T23:59:59.999`);
+
+      if (countError) {
+        console.error('Erro ao contar leads:', countError);
+        throw new Error(`Erro ao contar leads: ${countError.message}`);
+      }
+
+      console.log(`📊 Total de leads encontrados no intervalo: ${totalLeadsCount || 0}`);
+
       const { data: newJob, error: jobError } = await supabase
         .from('gestao_scouter_export_jobs')
         .insert({
@@ -135,6 +150,7 @@ serve(async (req) => {
           status: 'pending',
           field_mappings: fieldMappings || null,
           created_by: user.id,
+          total_leads: totalLeadsCount || 0,
         })
         .select()
         .single();
@@ -179,13 +195,19 @@ serve(async (req) => {
     }
 
     if (action === 'reset') {
+      // Buscar o job para manter o total_leads original
+      const { data: existingJob } = await supabase
+        .from('gestao_scouter_export_jobs')
+        .select('total_leads')
+        .eq('id', jobId)
+        .single();
+
       await supabase
         .from('gestao_scouter_export_jobs')
         .update({
           status: 'pending',
           processing_date: null,
           last_completed_date: null,
-          total_leads: 0,
           exported_leads: 0,
           error_leads: 0,
           pause_reason: null,
@@ -295,7 +317,6 @@ async function processBatchExport(jobId: string) {
   console.log('🚀 Iniciando exportação resiliente do job:', jobId);
 
   let processingDate = job.processing_date || job.start_date;
-  let totalProcessed = job.total_leads || 0;
   let totalExported = job.exported_leads || 0;
   let totalErrors = job.error_leads || 0;
 
@@ -611,12 +632,10 @@ async function processBatchExport(jobId: string) {
       }
     }
 
-    totalProcessed += leads.length;
     totalExported += exportedCount;
     totalErrors += errorCount;
 
     await supabase.from('gestao_scouter_export_jobs').update({
-      total_leads: totalProcessed,
       exported_leads: totalExported,
       error_leads: totalErrors,
       processing_date: processingDate,
