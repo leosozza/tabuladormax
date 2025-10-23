@@ -7,9 +7,9 @@ export interface DateFilter {
 }
 
 export interface GestaoFilters {
-  dateFilter: DateFilter;
-  projectId: string | null;
-  scouterId: string | null;
+  dateFilter?: DateFilter;
+  projectId?: string | null;
+  scouterId?: string | null;
 }
 
 export interface DashboardFilters {
