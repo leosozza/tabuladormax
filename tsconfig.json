@@ -5,7 +5,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@/modules/*": ["./src/modules/*"]
+      "@/modules/*": ["./src/modules/*"],
+      "@gestao-scouter/*": ["./modules/gestao-scouter/src/*"]
     },
     "noImplicitAny": false,
     "noUnusedParameters": false,
