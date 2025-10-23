@@ -1,42 +1,60 @@
-// Gestão Scouter Module Entry Point - Placeholder
-// This file should be replaced when the gestao-scouter code is integrated
-// The real App component from gestao-scouter should be exported here as default
-
 import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertCircle, Package } from 'lucide-react';
 
-const GestaoScouterApp: React.FC = () => {
+const GestaoScouterPlaceholder: React.FC = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center p-8 max-w-2xl">
-        <div className="text-6xl mb-6">🔍</div>
-        <h1 className="text-3xl font-bold mb-4">Gestão Scouter Module</h1>
-        <p className="text-gray-600 mb-6">
-          Este é um placeholder para o módulo Gestão Scouter.
-        </p>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-          <p className="text-sm text-yellow-800">
-            <strong>Para desenvolvedores:</strong> Execute o script de merge ou copie o código do gestao-scouter
-            para esta pasta e substitua este arquivo App.tsx pelo componente principal do gestao-scouter.
-          </p>
-        </div>
-        <div className="text-left bg-gray-100 rounded-lg p-4">
-          <p className="text-sm font-mono mb-2">
-            ./scripts/merge_gestao_into_tabuladormax.sh /path/to/gestao-scouter
-          </p>
-          <p className="text-xs text-gray-600">ou</p>
-          <p className="text-sm font-mono mt-2">
-            git subtree add --prefix=src/modules/gestao [repo-url] [branch] --squash
-          </p>
-        </div>
-        <button
-          onClick={() => window.location.href = '/'}
-          className="mt-6 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-        >
-          Voltar para Home
-        </button>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-4">
+      <Card className="max-w-2xl w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3 text-3xl">
+            <Package className="w-8 h-8 text-green-600" />
+            Gestão Scouter - Em Configuração
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-yellow-800 mb-2">Módulo Gestão Scouter Detectado</p>
+              <p className="text-yellow-700">
+                O código fonte está disponível em <code className="bg-yellow-100 px-1 rounded">modules/gestao-scouter/</code>
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <h3 className="font-semibold text-foreground text-base">Próximos Passos para Integração:</h3>
+            
+            <ol className="list-decimal list-inside space-y-2 pl-2">
+              <li>Configurar path aliases do gestao-scouter no tsconfig principal</li>
+              <li>Ajustar imports para resolver @/ corretamente</li>
+              <li>Mesclar variáveis de ambiente (.env.local já configurado)</li>
+              <li>Testar navegação entre módulos</li>
+            </ol>
+
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+              <p className="text-blue-800 text-xs font-mono">
+                Ambiente: Supabase separados<br/>
+                Tabulador: gkvvtfqfggddzotxltxf<br/>
+                Gestão: jstsrgyxrrlklnzgsihd
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button onClick={() => window.location.href = '/'} variant="outline" className="flex-1">
+              Voltar para Home
+            </Button>
+            <Button onClick={() => window.location.href = '/tabulador'} className="flex-1">
+              Acessar Tabulador
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
-export default GestaoScouterApp;
+export default GestaoScouterPlaceholder;

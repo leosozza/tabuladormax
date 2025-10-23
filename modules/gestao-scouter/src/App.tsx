@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PWABadge } from "@/components/PWABadge";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import { GlobalErrorCaptureHandler } from "@/components/ai-debug/GlobalErrorCaptureHandler";
 
 // Lazy load page components for better code splitting
@@ -43,14 +43,12 @@ const App = () => (
         <Toaster />
         <Sonner />
         <PWABadge />
-        <BrowserRouter>
+        <BrowserRouter basename="/scouter">
           <Suspense fallback={<LoadingSpinner />}>
             <GlobalErrorCaptureHandler />
             <Routes>
-              {/* Rotas públicas */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              {/* Rotas protegidas */}
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/projecao" element={<ProtectedRoute><ProjecaoPage /></ProtectedRoute>} />
               <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
@@ -60,11 +58,6 @@ const App = () => (
               <Route path="/configuracoes" element={<ProtectedRoute><ConfiguracoesPage /></ProtectedRoute>} />
               <Route path="/sync-monitor" element={<ProtectedRoute><SyncMonitor /></ProtectedRoute>} />
               <Route path="/bitrix-callback" element={<ProtectedRoute><BitrixCallback /></ProtectedRoute>} />
-              {/* TestFichas route disabled - functionality now in /area-de-abordagem */}
-              {/* <Route path="/test-fichas" element={<ProtectedRoute><TestFichas /></ProtectedRoute>} /> */}
-              {/* DashboardBuilder and AdvancedDashboard routes removed - functionality now unified in main Dashboard */}
-              {/* <Route path="/dashboard-builder" element={<ProtectedRoute><DashboardBuilder /></ProtectedRoute>} /> */}
-              {/* <Route path="/dashboard-advanced" element={<ProtectedRoute><AdvancedDashboard /></ProtectedRoute>} /> */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

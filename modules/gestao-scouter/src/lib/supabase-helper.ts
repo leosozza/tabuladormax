@@ -1,43 +1,36 @@
-// Temporary wrapper to bypass TypeScript errors until migrations are run
-import { supabase as baseSupabase } from '@/integrations/supabase/client';
+// Gestão Scouter Supabase Client
+import { createClient } from '@supabase/supabase-js';
 
-// Get Supabase URL from environment variable directly since supabaseUrl is protected
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_URL = import.meta.env.VITE_GESTAO_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_GESTAO_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Log Supabase connection initialization
-console.log('🔌 [Supabase] Inicializando cliente Supabase');
-console.log('📡 [Supabase] URL:', SUPABASE_URL);
-console.log('🔑 [Supabase] Cliente configurado com persistência de sessão');
+console.log('🔌 [Gestão Scouter] Inicializando cliente Supabase');
+console.log('📡 [Gestão Scouter] URL:', SUPABASE_URL);
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+  }
+}) as any;
 
 // Test connection on initialization
 (async () => {
   try {
-    console.log('🧪 [Supabase] Testando conexão...');
+    console.log('🧪 [Gestão Scouter] Testando conexão...');
     
-    // Get count of all records in leads table
-    const { data, error, count } = await baseSupabase
+    const { data, error, count } = await supabase
       .from('leads')
       .select('id', { count: 'exact', head: true });
     
     if (error) {
-      console.error('❌ [Supabase] Erro no teste de conexão:', error);
+      console.error('❌ [Gestão Scouter] Erro no teste de conexão:', error);
     } else {
-      console.log('✅ [Supabase] Conexão estabelecida com sucesso');
-      console.log(`📊 [Supabase] Total de registros na tabela "leads": ${count ?? 0}`);
-      
-      if (count === 0) {
-        console.warn('⚠️ [Supabase] A tabela "leads" está VAZIA!');
-        console.warn('💡 [Supabase] Para adicionar dados de teste, execute no Supabase SQL Editor:');
-        console.warn(`
-INSERT INTO leads (nome, scouter, projeto, etapa, criado) VALUES
-  ('João Silva', 'Maria Santos', 'Projeto Alpha', 'Contato', NOW()),
-  ('Ana Costa', 'Pedro Lima', 'Projeto Beta', 'Agendado', NOW() - INTERVAL '1 day');
-        `);
-      }
+      console.log('✅ [Gestão Scouter] Conexão estabelecida com sucesso');
+      console.log(`📊 [Gestão Scouter] Total de registros na tabela "leads": ${count ?? 0}`);
     }
   } catch (err) {
-    console.error('❌ [Supabase] Exceção ao testar conexão:', err);
+    console.error('❌ [Gestão Scouter] Exceção ao testar conexão:', err);
   }
 })();
-
-export const supabase = baseSupabase as any;
