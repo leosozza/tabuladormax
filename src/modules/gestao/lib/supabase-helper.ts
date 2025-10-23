@@ -1,19 +1,10 @@
-// Gestão Scouter Supabase Client
-import { createClient } from '@supabase/supabase-js';
+// Gestão Scouter usa o MESMO cliente Supabase do TabuladorMax
+// Re-exporta o cliente unificado mantendo compatibilidade
+import { supabase as tabuladorSupabase } from '@/integrations/supabase/client';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+console.log('🔌 [Gestão Scouter] Usando cliente Supabase compartilhado (TabuladorMax)');
 
-console.log('🔌 [Gestão Scouter] Inicializando cliente Supabase compartilhado (TabuladorMax)');
-console.log('📡 [Gestão Scouter] URL:', SUPABASE_URL);
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
-}) as any;
+export const supabase = tabuladorSupabase;
 
 // Test connection on initialization
 (async () => {
