@@ -8,8 +8,18 @@ import LeadsChart from "@/components/gestao/dashboard/LeadsChart";
 import ConversionFunnel from "@/components/gestao/dashboard/ConversionFunnel";
 import ScouterPerformance from "@/components/gestao/dashboard/ScouterPerformance";
 import StatusDistribution from "@/components/gestao/dashboard/StatusDistribution";
+import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
+import { GestaoFilters } from "@/types/filters";
+import { createDateFilter } from "@/lib/dateUtils";
+import { useState } from "react";
 
 export default function GestaoHome() {
+  const [filters, setFilters] = useState<GestaoFilters>({
+    dateFilter: createDateFilter('month'),
+    projectId: null,
+    scouterId: null
+  });
+
   return (
     <div className="flex min-h-screen bg-background">
       <GestaoSidebar />
@@ -19,6 +29,8 @@ export default function GestaoHome() {
           <h1 className="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral do sistema de gestão de leads</p>
         </div>
+
+        <GestaoFiltersComponent filters={filters} onChange={setFilters} />
 
         <StatsComparison />
 

@@ -12,6 +12,9 @@ import { CheckCircle2, XCircle, SkipForward, Download, WifiOff } from "lucide-re
 import { toast } from "@/hooks/use-toast";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
+import { GestaoFilters } from "@/types/filters";
+import { createDateFilter } from "@/lib/dateUtils";
 
 export default function AnaliseLeads() {
   const queryClient = useQueryClient();
@@ -21,18 +24,39 @@ export default function AnaliseLeads() {
   const cardRef = useRef<HTMLDivElement>(null);
   const { canInstall, promptInstall, isInstalled } = useInstallPrompt();
   const isOnline = useOnlineStatus();
+  const [filters, setFilters] = useState<GestaoFilters>({
+    dateFilter: createDateFilter('month'),
+    projectId: null,
+    scouterId: null
+  });
 
   // Buscar leads não analisados
   const { data: leads, isLoading } = useQuery({
-    queryKey: ["leads-pending-analysis"],
+    queryKey: ["leads-pending-analysis", filters],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("leads")
         .select("*")
         .is("qualidade_lead", null)
         .order("criado", { ascending: false })
         .limit(50);
+
+      // Filtro de data
+      query = query
+        .gte("criado", filters.dateFilter.startDate.toISOString())
+        .lte("criado", filters.dateFilter.endDate.toISOString());
+
+      // Filtro de projeto
+      if (filters.projectId) {
+        query = query.eq("commercial_project_id", filters.projectId);
+      }
+
+      // Filtro de scouter
+      if (filters.scouterId) {
+        query = query.eq("scouter", filters.scouterId);
+      }
       
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -199,6 +223,8 @@ export default function AnaliseLeads() {
             </Badge>
           )}
         </div>
+
+        <GestaoFiltersComponent filters={filters} onChange={setFilters} />
 
         {/* Estatísticas da Sessão */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

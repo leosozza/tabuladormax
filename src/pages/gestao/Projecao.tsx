@@ -7,23 +7,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TrendingUp, DollarSign, Target, Calendar } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
+import { GestaoFilters } from "@/types/filters";
+import { createDateFilter } from "@/lib/dateUtils";
 
 export default function GestaoProjecao() {
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [filters, setFilters] = useState<GestaoFilters>({
+    dateFilter: createDateFilter('month'),
+    projectId: null,
+    scouterId: null
+  });
   
   const { data: projectionData, isLoading } = useQuery({
-    queryKey: ["gestao-projection", selectedMonth],
+    queryKey: ["gestao-projection", filters],
     queryFn: async () => {
-      const monthDate = new Date(selectedMonth + "-01");
-      const start = startOfMonth(monthDate);
-      const end = endOfMonth(monthDate);
-      
-      const { data: leads, error } = await supabase
+      let query = supabase
         .from("leads")
         .select("*")
-        .gte("criado", start.toISOString())
-        .lte("criado", end.toISOString());
+        .gte("criado", filters.dateFilter.startDate.toISOString())
+        .lte("criado", filters.dateFilter.endDate.toISOString());
+
+      // Filtro de projeto
+      if (filters.projectId) {
+        query = query.eq("commercial_project_id", filters.projectId);
+      }
+
+      // Filtro de scouter
+      if (filters.scouterId) {
+        query = query.eq("scouter", filters.scouterId);
+      }
       
+      const { data: leads, error } = await query;
       if (error) throw error;
       
       const confirmed = leads?.filter(l => l.ficha_confirmada).length || 0;
@@ -41,38 +55,17 @@ export default function GestaoProjecao() {
     },
   });
 
-  const months = Array.from({ length: 6 }, (_, i) => {
-    const date = subMonths(new Date(), i);
-    return {
-      value: format(date, "yyyy-MM"),
-      label: format(date, "MMMM 'de' yyyy", { locale: ptBR })
-    };
-  });
-
   return (
     <div className="flex min-h-screen bg-background">
       <GestaoSidebar />
       
       <div className="flex-1 p-8">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Projeções</h1>
-            <p className="text-muted-foreground">Análise de performance e metas</p>
-          </div>
-          
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[240px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {months.map(month => (
-                <SelectItem key={month.value} value={month.value}>
-                  {month.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Projeções</h1>
+          <p className="text-muted-foreground">Análise de performance e metas</p>
         </div>
+
+        <GestaoFiltersComponent filters={filters} onChange={setFilters} />
 
         {isLoading ? (
           <div className="text-center py-12">Carregando projeções...</div>

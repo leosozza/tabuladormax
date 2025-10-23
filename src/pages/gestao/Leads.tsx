@@ -9,14 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Download, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
+import { GestaoFilters } from "@/types/filters";
+import { createDateFilter } from "@/lib/dateUtils";
 
 export default function GestaoLeads() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [filters, setFilters] = useState<GestaoFilters>({
+    dateFilter: createDateFilter('month'),
+    projectId: null,
+    scouterId: null
+  });
   
   const { data: leads, isLoading } = useQuery({
-    queryKey: ["gestao-leads", searchTerm],
+    queryKey: ["gestao-leads", searchTerm, filters],
     queryFn: async () => {
       let query = supabase
         .from("leads")
@@ -26,6 +34,21 @@ export default function GestaoLeads() {
       
       if (searchTerm) {
         query = query.or(`name.ilike.%${searchTerm}%,celular.ilike.%${searchTerm}%,scouter.ilike.%${searchTerm}%`);
+      }
+
+      // Filtro de data
+      query = query
+        .gte("criado", filters.dateFilter.startDate.toISOString())
+        .lte("criado", filters.dateFilter.endDate.toISOString());
+
+      // Filtro de projeto
+      if (filters.projectId) {
+        query = query.eq("commercial_project_id", filters.projectId);
+      }
+
+      // Filtro de scouter
+      if (filters.scouterId) {
+        query = query.eq("scouter", filters.scouterId);
       }
       
       const { data, error } = await query;
@@ -72,6 +95,8 @@ export default function GestaoLeads() {
             Exportar CSV
           </Button>
         </div>
+
+        <GestaoFiltersComponent filters={filters} onChange={setFilters} />
 
         <div className="mb-6 flex gap-4">
           <div className="relative flex-1">
