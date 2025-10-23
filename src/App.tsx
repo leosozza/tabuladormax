@@ -8,6 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 // Páginas do Tabulador
 import Auth from "./pages/Auth";
 import Home from "./pages/Home";
+import HomeChoice from "./pages/HomeChoice";
 import Debug from "./pages/Debug";
 import LeadTab from "./pages/LeadTab";
 import Dashboard from "./pages/Dashboard";
@@ -36,8 +37,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Rotas do Tabulador (rotas diretas - comportamento original) */}
-          <Route path="/" element={<Home />} />
+          {/* Rota inicial - redireciona para escolha de módulo */}
+          <Route path="/" element={<ProtectedRoute><HomeChoice /></ProtectedRoute>} />
+          <Route path="/home-choice" element={<ProtectedRoute><HomeChoice /></ProtectedRoute>} />
+          
+          {/* Auth (pública) */}
           <Route path="/auth" element={<Auth />} />
           <Route path="/debug" element={<ProtectedRoute><Debug /></ProtectedRoute>} />
           <Route path="/lead" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />

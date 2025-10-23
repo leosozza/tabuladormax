@@ -18,6 +18,7 @@ const Auth = () => {
   const [displayName, setDisplayName] = useState("");
   const [telemarketingId, setTelemarketingId] = useState<number>();
   const [pendingTelemarketingName, setPendingTelemarketingName] = useState<string | null>(null);
+  const [newUserDepartment, setNewUserDepartment] = useState<'telemarketing' | 'scouter' | 'administrativo'>('telemarketing');
   const [showTelemarketingModal, setShowTelemarketingModal] = useState(false);
   const [oauthUser, setOauthUser] = useState<{ id: string; user_metadata?: Record<string, unknown> } | null>(null);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
@@ -145,7 +146,33 @@ const Auth = () => {
             await createAgentMapping(session.user.id, telemarketingId, null, null);
           }
           
-          navigate("/");
+          // Redirecionar baseado no departamento
+          const { data: deptData } = await supabase
+            .from('user_departments')
+            .select('department')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+
+          const isAdmin = roleData?.role === 'admin';
+          const department = deptData?.department;
+
+          if (isAdmin) {
+            navigate('/home-choice');
+          } else if (department === 'telemarketing') {
+            navigate('/lead');
+          } else if (department === 'scouter') {
+            navigate('/scouter');
+          } else if (department === 'administrativo') {
+            navigate('/dashboard');
+          } else {
+            navigate('/home-choice');
+          }
         }
       }
     });
@@ -240,6 +267,7 @@ const Auth = () => {
           data: {
             display_name: displayName,
             telemarketing_id: finalTelemarketingId,
+            department: newUserDepartment,
           },
         },
       });
@@ -318,7 +346,40 @@ const Auth = () => {
       }
 
       toast.success("Login realizado com sucesso!");
-      navigate("/");
+      
+      // Redirecionar baseado no departamento
+      const { data: { user: loggedUser } } = await supabase.auth.getUser();
+      
+      if (loggedUser) {
+        const { data: deptData } = await supabase
+          .from('user_departments')
+          .select('department')
+          .eq('user_id', loggedUser.id)
+          .maybeSingle();
+
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', loggedUser.id)
+          .maybeSingle();
+
+        const isAdmin = roleData?.role === 'admin';
+        const department = deptData?.department;
+
+        if (isAdmin) {
+          navigate('/home-choice');
+        } else if (department === 'telemarketing') {
+          navigate('/lead');
+        } else if (department === 'scouter') {
+          navigate('/scouter');
+        } else if (department === 'administrativo') {
+          navigate('/dashboard');
+        } else {
+          navigate('/home-choice');
+        }
+      } else {
+        navigate('/');
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao fazer login";
       console.error('❌ Erro ao fazer login:', error);
@@ -465,7 +526,40 @@ const Auth = () => {
       }
 
       setShowTelemarketingModal(false);
-      navigate("/");
+      
+      // Redirecionar baseado no departamento
+      const { data: { user: oauthLoggedUser } } = await supabase.auth.getUser();
+      
+      if (oauthLoggedUser) {
+        const { data: deptData } = await supabase
+          .from('user_departments')
+          .select('department')
+          .eq('user_id', oauthLoggedUser.id)
+          .maybeSingle();
+
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', oauthLoggedUser.id)
+          .maybeSingle();
+
+        const isAdmin = roleData?.role === 'admin';
+        const department = deptData?.department;
+
+        if (isAdmin) {
+          navigate('/home-choice');
+        } else if (department === 'telemarketing') {
+          navigate('/lead');
+        } else if (department === 'scouter') {
+          navigate('/scouter');
+        } else if (department === 'administrativo') {
+          navigate('/dashboard');
+        } else {
+          navigate('/home-choice');
+        }
+      } else {
+        navigate('/');
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao salvar configuração";
       console.error('❌ Erro ao salvar configuração:', error);

@@ -798,6 +798,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_departments: {
+        Row: {
+          created_at: string
+          department: Database["public"]["Enums"]["app_department"]
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          department?: Database["public"]["Enums"]["app_department"]
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          department?: Database["public"]["Enums"]["app_department"]
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -859,6 +883,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_department: "telemarketing" | "scouter" | "administrativo"
       app_role: "admin" | "manager" | "agent" | "supervisor"
       permission_scope: "global" | "department" | "own"
     }
@@ -988,6 +1013,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_department: ["telemarketing", "scouter", "administrativo"],
       app_role: ["admin", "manager", "agent", "supervisor"],
       permission_scope: ["global", "department", "own"],
     },
