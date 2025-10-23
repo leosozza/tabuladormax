@@ -190,10 +190,28 @@ export default function AreaMap({
       fillOpacity: 0.2
     });
 
-    // Contar leads dentro do polígono
+    // Contar leads dentro do polígono usando point-in-polygon
     const leadsInArea = leads.filter(lead => {
       const point = L.latLng(lead.lat, lead.lng);
-      return polygon.getBounds().contains(point);
+      // Usar o método interno do Leaflet para verificar se o ponto está dentro do polígono
+      const bounds = polygon.getBounds();
+      if (!bounds.contains(point)) return false;
+      
+      // Verificação adicional: ponto dentro do polígono
+      let inside = false;
+      const x = lead.lng;
+      const y = lead.lat;
+      const vs = drawingPoints.map(p => [p.lng, p.lat]);
+      
+      for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+        const xi = vs[i][0], yi = vs[i][1];
+        const xj = vs[j][0], yj = vs[j][1];
+        
+        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      
+      return inside;
     });
 
     const areaId = `area-${Date.now()}`;

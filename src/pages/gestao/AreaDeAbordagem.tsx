@@ -27,16 +27,20 @@ export default function GestaoAreaDeAbordagem() {
         .from("leads")
         .select("id, name, address, local_abordagem, scouter, status_fluxo, commercial_project_id, criado");
 
-      // Aplicar filtros
+      // Aplicar filtros de data
       if (filters.dateFilter?.startDate) {
         query = query.gte("criado", filters.dateFilter.startDate.toISOString());
       }
       if (filters.dateFilter?.endDate) {
         query = query.lte("criado", filters.dateFilter.endDate.toISOString());
       }
+      
+      // Aplicar filtro de projeto
       if (filters.projectId) {
         query = query.eq("commercial_project_id", filters.projectId);
       }
+      
+      // Aplicar filtro de scouter
       if (filters.scouterId) {
         query = query.eq("scouter", filters.scouterId);
       }
@@ -44,9 +48,12 @@ export default function GestaoAreaDeAbordagem() {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Geocodificar endereços (cache simples)
+      // Geocodificar endereços (cache simples + rate limiting)
       const geocodedLeads: LeadMapLocation[] = [];
       const geocodeCache = new Map<string, { lat: number; lng: number }>();
+
+      // Adicionar delay entre requests para respeitar rate limit do Nominatim
+      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
       for (const lead of data || []) {
         if (!lead.address) continue;
@@ -57,6 +64,8 @@ export default function GestaoAreaDeAbordagem() {
           if (result) {
             coords = result;
             geocodeCache.set(lead.address, coords);
+            // Delay de 1 segundo entre requests (politica do Nominatim)
+            await delay(1000);
           }
         }
 
@@ -83,23 +92,28 @@ export default function GestaoAreaDeAbordagem() {
     queryFn: async () => {
       let query = supabase
         .from("leads")
-        .select("local_abordagem, address, scouter");
+        .select("local_abordagem, address, scouter")
+        .not("local_abordagem", "is", null);
 
-      // Aplicar filtros
+      // Aplicar filtros de data
       if (filters.dateFilter?.startDate) {
         query = query.gte("criado", filters.dateFilter.startDate.toISOString());
       }
       if (filters.dateFilter?.endDate) {
         query = query.lte("criado", filters.dateFilter.endDate.toISOString());
       }
+      
+      // Aplicar filtro de projeto
       if (filters.projectId) {
         query = query.eq("commercial_project_id", filters.projectId);
       }
+      
+      // Aplicar filtro de scouter
       if (filters.scouterId) {
         query = query.eq("scouter", filters.scouterId);
       }
 
-      const { data, error } = await query.not("local_abordagem", "is", null);
+      const { data, error } = await query;
       if (error) throw error;
 
       // Agrupar por local de abordagem

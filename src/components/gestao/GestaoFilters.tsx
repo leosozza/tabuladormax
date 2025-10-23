@@ -16,8 +16,8 @@ interface GestaoFiltersProps {
 }
 
 export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps) {
-  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(filters.dateFilter.startDate);
-  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(filters.dateFilter.endDate);
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(filters.dateFilter?.startDate);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(filters.dateFilter?.endDate);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   // Buscar projetos comerciais
@@ -57,7 +57,8 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
       const newFilter = createDateFilter(preset as any);
       onChange({ ...filters, dateFilter: newFilter });
     } else {
-      onChange({ ...filters, dateFilter: { ...filters.dateFilter, preset: 'custom' } });
+      const currentFilter = filters.dateFilter || createDateFilter('month');
+      onChange({ ...filters, dateFilter: { ...currentFilter, preset: 'custom' } });
     }
   };
 
@@ -78,6 +79,8 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
   };
 
   const getDisplayText = () => {
+    if (!filters.dateFilter) return 'Selecione';
+    
     if (filters.dateFilter.preset === 'custom') {
       return `${formatDateForDisplay(filters.dateFilter.startDate)} - ${formatDateForDisplay(filters.dateFilter.endDate)}`;
     }
@@ -100,7 +103,7 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
       <div className="flex items-center gap-2">
         <label className="text-sm font-medium text-muted-foreground">Período:</label>
         <Select 
-          value={filters.dateFilter.preset} 
+          value={filters.dateFilter?.preset || 'month'} 
           onValueChange={handlePresetChange}
         >
           <SelectTrigger className="w-[160px]">
@@ -114,7 +117,7 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
           </SelectContent>
         </Select>
 
-        {filters.dateFilter.preset === 'custom' && (
+        {filters.dateFilter?.preset === 'custom' && (
           <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -208,7 +211,7 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
       </div>
 
       {/* Botão Limpar Filtros */}
-      {(filters.projectId || filters.scouterId || filters.dateFilter.preset !== 'month') && (
+      {(filters.projectId || filters.scouterId || filters.dateFilter?.preset !== 'month') && (
         <Button
           variant="ghost"
           size="sm"
