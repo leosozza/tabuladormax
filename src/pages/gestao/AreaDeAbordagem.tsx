@@ -4,9 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import GestaoSidebar from "@/components/gestao/Sidebar";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import AreaMap, { LeadMapLocation, DrawnArea } from "@/components/gestao/AreaMap";
+import ScouterLocationMap from "@/components/gestao/maps/ScouterLocationMap";
+import HeatmapFichasMap from "@/components/gestao/maps/HeatmapFichasMap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Users, TrendingUp, Target, BarChart3 } from "lucide-react";
+import { MapPin, Users, TrendingUp, Target, BarChart3, Radio, Flame } from "lucide-react";
 import { geocodeAddress } from "@/hooks/useGeolocation";
 import { createDateFilter } from "@/lib/dateUtils";
 import type { GestaoFilters as FilterType } from "@/types/filters";
@@ -215,23 +217,85 @@ export default function GestaoAreaDeAbordagem() {
           </Card>
         </div>
 
-        {/* Tabs: Mapa e Análise */}
-        <Tabs defaultValue="map" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="map">
+        {/* Tabs: 3 Tipos de Mapas */}
+        <Tabs defaultValue="scouters" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsTrigger value="scouters">
+              <Radio className="w-4 h-4 mr-2" />
+              Scouters em Tempo Real
+            </TabsTrigger>
+            <TabsTrigger value="heatmap">
+              <Flame className="w-4 h-4 mr-2" />
+              Mapa de Calor - Fichas
+            </TabsTrigger>
+            <TabsTrigger value="areas">
               <MapPin className="w-4 h-4 mr-2" />
-              Mapa Unificado
+              Desenho de Áreas
             </TabsTrigger>
             <TabsTrigger value="analysis">
               <BarChart3 className="w-4 h-4 mr-2" />
-              Análise de Áreas
+              Análise Estatística
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="map" className="space-y-4">
+          {/* Mapa 1: Localização em Tempo Real de Scouters */}
+          <TabsContent value="scouters" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Mapa Interativo com Clustering</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Radio className="w-5 h-5 text-green-600" />
+                  Localização em Tempo Real dos Scouters
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Veja onde seus scouters estão atuando no momento e quantos leads cada um captou
+                </p>
+              </CardHeader>
+              <CardContent>
+                <ScouterLocationMap
+                  projectId={filters.projectId}
+                  scouterId={filters.scouterId}
+                  dateRange={{
+                    startDate: filters.dateFilter.startDate,
+                    endDate: filters.dateFilter.endDate,
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Mapa 2: Mapa de Calor de Fichas */}
+          <TabsContent value="heatmap" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-orange-600" />
+                  Mapa de Calor - Fichas Confirmadas
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Visualize as áreas com maior concentração de fichas confirmadas e comparecimentos
+                </p>
+              </CardHeader>
+              <CardContent>
+                <HeatmapFichasMap
+                  projectId={filters.projectId}
+                  scouterId={filters.scouterId}
+                  dateRange={{
+                    startDate: filters.dateFilter.startDate,
+                    endDate: filters.dateFilter.endDate,
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Mapa 3: Desenho de Áreas */}
+          <TabsContent value="areas" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-blue-600" />
+                  Análise com Desenho de Áreas
+                </CardTitle>
                 <p className="text-sm text-muted-foreground">
                   Clique em "Desenhar Área" para delimitar regiões e analisar leads dentro delas
                 </p>
