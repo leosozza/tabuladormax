@@ -1,11 +1,16 @@
 {
   "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" },
+    { "path": "./packages/gestao-scouter/tsconfig.json" }
+  ],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@/modules/*": ["./src/modules/*"]
+      "@/modules/*": ["./src/modules/*"],
+      "@gestao-scouter/*": ["./packages/gestao-scouter/src/*"]
     },
     "noImplicitAny": false,
     "noUnusedParameters": false,

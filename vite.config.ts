@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@/modules": path.resolve(__dirname, "./src/modules"),
+      "@gestao-scouter": path.resolve(__dirname, "./packages/gestao-scouter/src"),
     },
   },
 }));

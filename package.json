@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,7 +14,9 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "dev:gestao-scouter": "npm run dev --workspace=packages/gestao-scouter",
+    "build:gestao-scouter": "npm run build --workspace=packages/gestao-scouter"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
