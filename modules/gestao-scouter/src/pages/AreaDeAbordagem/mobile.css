@@ -1,0 +1,195 @@
+/**
+ * Mobile-first CSS for Fichas Module
+ * Ensures touch-friendly controls and responsive layout
+ */
+
+/* Ensure buttons are touch-friendly (minimum 44x44px) */
+.map-control-button,
+.touch-manipulation {
+  min-width: 44px;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent panels from blocking map interaction during drawing */
+.leaflet-container.drawing-mode .floating-panel,
+.leaflet-container.drawing-mode [class*="panel"] {
+  pointer-events: none !important;
+}
+
+/* But allow Geoman toolbar to remain interactive */
+.leaflet-container.drawing-mode .leaflet-pm-toolbar,
+.leaflet-container.drawing-mode .leaflet-pm-draw {
+  pointer-events: auto !important;
+}
+
+/* Body class for drawing state - blocks other interactive elements */
+body.body--drawing .floating-panel,
+body.body--drawing [class*="panel"]:not(.leaflet-pm-toolbar) {
+  pointer-events: none !important;
+  opacity: 0.7;
+}
+
+/* Responsive controls panel */
+.controls-panel {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  max-width: 100%;
+  z-index: 1000;
+}
+
+@media (min-width: 768px) {
+  .controls-panel {
+    left: auto;
+    right: 20px;
+    max-width: 400px;
+  }
+}
+
+/* Summary panel responsive */
+.summary-panel {
+  font-size: 14px;
+  max-height: 50vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .summary-panel {
+    max-height: 60vh;
+    font-size: 13px;
+  }
+  
+  /* Make sure buttons stack nicely on mobile */
+  .button-group {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  /* Reduce padding on mobile */
+  .controls-panel {
+    padding: 12px;
+  }
+}
+
+/* Cluster markers - ensure they're visible and clickable */
+.marker-cluster {
+  cursor: pointer;
+}
+
+.marker-cluster-small div {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+.marker-cluster-medium div {
+  width: 50px;
+  height: 50px;
+  font-size: 16px;
+}
+
+.marker-cluster-large div {
+  width: 60px;
+  height: 60px;
+  font-size: 18px;
+}
+
+/* Leaflet popup mobile optimization */
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+}
+
+.leaflet-popup-content {
+  margin: 10px;
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .leaflet-popup-content {
+    min-width: 200px;
+    font-size: 13px;
+  }
+}
+
+/* Drawing feedback */
+.leaflet-container.drawing-mode {
+  cursor: crosshair !important;
+}
+
+.leaflet-container.drawing-mode * {
+  cursor: crosshair !important;
+}
+
+/* Smooth transitions */
+.map-control-button,
+.touch-manipulation,
+.controls-panel,
+.summary-panel {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Focus states for accessibility */
+.map-control-button:focus,
+.touch-manipulation:focus {
+  outline: 2px solid #4096ff;
+  outline-offset: 2px;
+}
+
+/* Scrollbar styling for summary panel */
+.summary-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.summary-panel::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.summary-panel::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.summary-panel::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Fullscreen mode styles */
+.fullscreen-container {
+  position: relative;
+}
+
+.fullscreen-container:fullscreen,
+.fullscreen-container:-webkit-full-screen,
+.fullscreen-container:-moz-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  background: white;
+}
+
+.fullscreen-container:fullscreen .leaflet-container,
+.fullscreen-container:-webkit-full-screen .leaflet-container,
+.fullscreen-container:-moz-full-screen .leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Fullscreen button styles - now part of unified button group */
+.fullscreen-button {
+  cursor: pointer;
+}
+
+
+/* Heat layer styles */
+.leaflet-heatmap-layer {
+  pointer-events: none;
+}
+
+/* Ensure heat layers work properly */
+canvas.leaflet-zoom-animated {
+  pointer-events: none;
+}
