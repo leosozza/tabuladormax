@@ -497,179 +497,6 @@ export type Database = {
         }
         Relationships: []
       }
-      gestao_scouter_config: {
-        Row: {
-          active: boolean
-          anon_key: string
-          created_at: string
-          id: string
-          project_url: string
-          sync_enabled: boolean
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          anon_key: string
-          created_at?: string
-          id?: string
-          project_url: string
-          sync_enabled?: boolean
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          anon_key?: string
-          created_at?: string
-          id?: string
-          project_url?: string
-          sync_enabled?: boolean
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      gestao_scouter_export_errors: {
-        Row: {
-          created_at: string | null
-          error_details: Json | null
-          error_message: string
-          fields_sent: Json
-          id: string
-          ignored_fields: string[] | null
-          job_id: string
-          lead_id: number | null
-          lead_snapshot: Json
-          response_body: Json | null
-          response_status: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          error_details?: Json | null
-          error_message: string
-          fields_sent: Json
-          id?: string
-          ignored_fields?: string[] | null
-          job_id: string
-          lead_id?: number | null
-          lead_snapshot: Json
-          response_body?: Json | null
-          response_status?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          error_details?: Json | null
-          error_message?: string
-          fields_sent?: Json
-          id?: string
-          ignored_fields?: string[] | null
-          job_id?: string
-          lead_id?: number | null
-          lead_snapshot?: Json
-          response_body?: Json | null
-          response_status?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gestao_scouter_export_errors_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "gestao_scouter_export_jobs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gestao_scouter_export_jobs: {
-        Row: {
-          completed_at: string | null
-          created_at: string
-          created_by: string | null
-          end_date: string | null
-          error_leads: number | null
-          exported_leads: number | null
-          field_mappings: Json | null
-          fields_selected: string[] | null
-          id: string
-          last_completed_date: string | null
-          pause_reason: string | null
-          paused_at: string | null
-          processing_date: string | null
-          start_date: string
-          started_at: string | null
-          status: string
-          total_leads: number | null
-          updated_at: string
-        }
-        Insert: {
-          completed_at?: string | null
-          created_at?: string
-          created_by?: string | null
-          end_date?: string | null
-          error_leads?: number | null
-          exported_leads?: number | null
-          field_mappings?: Json | null
-          fields_selected?: string[] | null
-          id?: string
-          last_completed_date?: string | null
-          pause_reason?: string | null
-          paused_at?: string | null
-          processing_date?: string | null
-          start_date: string
-          started_at?: string | null
-          status?: string
-          total_leads?: number | null
-          updated_at?: string
-        }
-        Update: {
-          completed_at?: string | null
-          created_at?: string
-          created_by?: string | null
-          end_date?: string | null
-          error_leads?: number | null
-          exported_leads?: number | null
-          field_mappings?: Json | null
-          fields_selected?: string[] | null
-          id?: string
-          last_completed_date?: string | null
-          pause_reason?: string | null
-          paused_at?: string | null
-          processing_date?: string | null
-          start_date?: string
-          started_at?: string | null
-          status?: string
-          total_leads?: number | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      gestao_scouter_field_mappings: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          id: string
-          is_default: boolean | null
-          mappings: Json
-          name: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          is_default?: boolean | null
-          mappings: Json
-          name: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          is_default?: boolean | null
-          mappings?: Json
-          name?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       leads: {
         Row: {
           address: string | null
@@ -710,9 +537,6 @@ export type Database = {
           scouter: string | null
           status_fluxo: string | null
           status_tabulacao: string | null
-          sync_error: string | null
-          sync_source: string | null
-          sync_status: string | null
           telefone_casa: string | null
           telefone_trabalho: string | null
           updated_at: string | null
@@ -757,9 +581,6 @@ export type Database = {
           scouter?: string | null
           status_fluxo?: string | null
           status_tabulacao?: string | null
-          sync_error?: string | null
-          sync_source?: string | null
-          sync_status?: string | null
           telefone_casa?: string | null
           telefone_trabalho?: string | null
           updated_at?: string | null
@@ -804,9 +625,6 @@ export type Database = {
           scouter?: string | null
           status_fluxo?: string | null
           status_tabulacao?: string | null
-          sync_error?: string | null
-          sync_source?: string | null
-          sync_status?: string | null
           telefone_casa?: string | null
           telefone_trabalho?: string | null
           updated_at?: string | null
@@ -1007,7 +825,7 @@ export type Database = {
     }
     Functions: {
       get_leads_schema: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           column_default: string
           column_name: string
@@ -1016,7 +834,7 @@ export type Database = {
         }[]
       }
       get_leads_table_columns: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           column_name: string
           data_type: string

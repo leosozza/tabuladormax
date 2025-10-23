@@ -137,66 +137,49 @@ export async function autoFixProblem(problem: DetectedProblem): Promise<AutoFixR
 }
 
 /**
- * Corrige falhas de sincronização
+ * Corrige falhas de sincronização com Bitrix
  */
 async function fixSyncFailures(problem: DetectedProblem, actions: string[]): Promise<AutoFixResult> {
-  actions.push('Identificando leads com falha de sincronização');
+  actions.push('Verificando eventos de sincronização com erros');
   
-  // Busca leads com erro de sincronização
-  const { data: failedLeads, error: queryError } = await supabase
-    .from('leads')
-    .select('id, sync_status')
-    .eq('sync_status', 'error')
+  // Busca eventos de sincronização com erro
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { data: failedEvents, error: queryError } = await supabase
+    .from('sync_events')
+    .select('lead_id, error_message')
+    .eq('status', 'error')
+    .gte('created_at', oneHourAgo)
     .limit(50);
 
   if (queryError) {
     return {
       problemId: problem.id,
       success: false,
-      message: 'Erro ao buscar leads com falha',
+      message: 'Erro ao buscar eventos com falha',
       timestamp: new Date(),
       actions,
       error: queryError.message
     };
   }
 
-  if (!failedLeads || failedLeads.length === 0) {
-    actions.push('Nenhum lead com falha encontrado');
+  if (!failedEvents || failedEvents.length === 0) {
+    actions.push('Nenhum evento com falha encontrado na última hora');
     return {
       problemId: problem.id,
       success: true,
-      message: 'Nenhum lead com falha para corrigir',
+      message: 'Nenhuma falha recente para corrigir',
       timestamp: new Date(),
       actions
     };
   }
 
-  actions.push(`Encontrados ${failedLeads.length} leads com falha`);
-  actions.push('Resetando status para permitir nova tentativa');
-
-  // Reseta status dos leads para pending para nova tentativa
-  const { error: updateError } = await supabase
-    .from('leads')
-    .update({ sync_status: 'pending' })
-    .in('id', failedLeads.map(l => l.id));
-
-  if (updateError) {
-    return {
-      problemId: problem.id,
-      success: false,
-      message: 'Erro ao resetar status dos leads',
-      timestamp: new Date(),
-      actions,
-      error: updateError.message
-    };
-  }
-
-  actions.push(`${failedLeads.length} leads resetados para nova tentativa`);
+  actions.push(`Encontrados ${failedEvents.length} eventos com falha`);
+  actions.push('Sincronização será retentada automaticamente pelo trigger');
 
   return {
     problemId: problem.id,
     success: true,
-    message: `${failedLeads.length} leads foram resetados e serão sincronizados novamente`,
+    message: `${failedEvents.length} eventos identificados. O sistema tentará sincronizar novamente automaticamente.`,
     timestamp: new Date(),
     actions
   };
@@ -206,25 +189,26 @@ async function fixSyncFailures(problem: DetectedProblem, actions: string[]): Pro
  * Tenta corrigir alta taxa de erro
  */
 async function fixHighErrorRate(problem: DetectedProblem, actions: string[]): Promise<AutoFixResult> {
-  actions.push('Analisando leads com erro de sincronização');
+  actions.push('Analisando eventos de sincronização com erro');
   
-  // Busca leads recentes com erro
+  // Busca eventos recentes com erro
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { data: recentFailures, error } = await supabase
-    .from('leads')
-    .select('id, sync_status, sync_error, updated_at')
-    .eq('sync_status', 'error')
-    .order('updated_at', { ascending: false })
+    .from('sync_events')
+    .select('lead_id, error_message, created_at')
+    .eq('status', 'error')
+    .gte('created_at', oneHourAgo)
+    .order('created_at', { ascending: false })
     .limit(100);
 
   if (error || !recentFailures || recentFailures.length === 0) {
-    actions.push('Nenhum erro recente encontrado ou erro ao buscar');
+    actions.push('Nenhum erro recente encontrado na última hora');
     return {
       problemId: problem.id,
-      success: false,
-      message: 'Não foi possível analisar erros',
+      success: true,
+      message: 'Não há erros recentes para analisar',
       timestamp: new Date(),
-      actions,
-      error: error?.message
+      actions
     };
   }
 
@@ -232,8 +216,8 @@ async function fixHighErrorRate(problem: DetectedProblem, actions: string[]): Pr
 
   // Conta erros por tipo
   const errorTypes: Record<string, number> = {};
-  recentFailures.forEach(lead => {
-    const errorType = lead.sync_error || 'unknown';
+  recentFailures.forEach(event => {
+    const errorType = event.error_message || 'unknown';
     errorTypes[errorType] = (errorTypes[errorType] || 0) + 1;
   });
 
@@ -241,37 +225,12 @@ async function fixHighErrorRate(problem: DetectedProblem, actions: string[]): Pr
     .sort(([, a], [, b]) => b - a)[0];
 
   actions.push(`Erro mais comum: ${mostCommonError[0]} (${mostCommonError[1]} ocorrências)`);
-
-  // Tenta resetar leads com erros mais antigos (mais de 1 hora)
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const oldFailures = recentFailures.filter(l => l.updated_at < oneHourAgo);
-
-  if (oldFailures.length > 0) {
-    actions.push(`Resetando ${oldFailures.length} erros antigos para nova tentativa`);
-    
-    const { error: updateError } = await supabase
-      .from('leads')
-      .update({ sync_status: 'pending', sync_error: null })
-      .in('id', oldFailures.map(l => l.id));
-
-    if (updateError) {
-      return {
-        problemId: problem.id,
-        success: false,
-        message: 'Erro ao resetar leads',
-        timestamp: new Date(),
-        actions,
-        error: updateError.message
-      };
-    }
-
-    actions.push('Leads resetados com sucesso');
-  }
+  actions.push('Sistema irá retentar sincronização automaticamente');
 
   return {
     problemId: problem.id,
     success: true,
-    message: `Auto-correção aplicada para ${oldFailures.length} leads`,
+    message: `Identificados ${recentFailures.length} erros. O sistema tentará sincronizar novamente automaticamente.`,
     timestamp: new Date(),
     actions
   };

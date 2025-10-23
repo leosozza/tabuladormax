@@ -61,46 +61,49 @@ async function checkDatabaseConnection(): Promise<HealthCheck> {
 }
 
 /**
- * Verifica o status de sincronização
+ * Verifica o status de sincronização com Bitrix
  */
 async function checkSyncStatus(): Promise<HealthCheck> {
   const startTime = Date.now();
   
   try {
-    // Busca leads com status de sync
-    const { data: leads, error } = await supabase
-      .from('leads')
-      .select('sync_status, updated_at')
-      .order('updated_at', { ascending: false })
+    // Verifica eventos de sync recentes com Bitrix
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: events, error } = await supabase
+      .from('sync_events')
+      .select('status')
+      .gte('created_at', oneHourAgo)
+      .eq('direction', 'bitrix')
+      .order('created_at', { ascending: false })
       .limit(100);
 
     const responseTime = Date.now() - startTime;
 
     if (error) {
       return {
-        name: 'Sync Status',
-        status: 'critical',
+        name: 'Bitrix Sync',
+        status: 'warning',
         message: `Erro ao verificar sincronização: ${error.message}`,
         lastChecked: new Date(),
         responseTime,
       };
     }
 
-    if (!leads || leads.length === 0) {
+    if (!events || events.length === 0) {
       return {
-        name: 'Sync Status',
+        name: 'Bitrix Sync',
         status: 'warning',
-        message: 'Nenhum lead encontrado',
+        message: 'Nenhum evento de sincronização na última hora',
         lastChecked: new Date(),
         responseTime,
       };
     }
 
-    const failedCount = leads.filter(l => l.sync_status === 'error').length;
-    const failureRate = (failedCount / leads.length) * 100;
+    const failedCount = events.filter(e => e.status === 'error').length;
+    const failureRate = (failedCount / events.length) * 100;
 
     let status: HealthStatus = 'healthy';
-    let message = 'Sincronização operando normalmente';
+    let message = 'Sincronização com Bitrix operando normalmente';
 
     if (failureRate > 50) {
       status = 'critical';
@@ -111,21 +114,21 @@ async function checkSyncStatus(): Promise<HealthCheck> {
     }
 
     return {
-      name: 'Sync Status',
+      name: 'Bitrix Sync',
       status,
       message,
       lastChecked: new Date(),
       responseTime,
       details: { 
-        totalLeads: leads.length, 
+        totalEvents: events.length, 
         failedCount, 
         failureRate: failureRate.toFixed(2) 
       }
     };
   } catch (error) {
     return {
-      name: 'Sync Status',
-      status: 'critical',
+      name: 'Bitrix Sync',
+      status: 'warning',
       message: 'Erro ao verificar sincronização',
       lastChecked: new Date(),
       responseTime: Date.now() - startTime,
@@ -214,28 +217,37 @@ async function checkRecentSyncEvents(): Promise<HealthCheck> {
  */
 async function collectSystemMetrics(): Promise<SystemMetrics> {
   try {
-    // Busca estatísticas dos leads
-    const { data: leads } = await supabase
+    // Busca estatísticas gerais dos leads
+    const { count: totalLeads } = await supabase
       .from('leads')
-      .select('sync_status, updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(1000);
+      .select('*', { count: 'exact', head: true });
 
-    const totalLeads = leads?.length || 0;
-    const syncSuccess = leads?.filter(l => l.sync_status === 'synced').length || 0;
-    const syncFailures = leads?.filter(l => l.sync_status === 'error').length || 0;
-    const syncPending = leads?.filter(l => l.sync_status === 'pending').length || 0;
+    // Busca eventos de sync recentes (última hora)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: syncEvents } = await supabase
+      .from('sync_events')
+      .select('status, created_at')
+      .gte('created_at', oneHourAgo);
+
+    const syncSuccess = syncEvents?.filter(e => e.status === 'success').length || 0;
+    const syncFailures = syncEvents?.filter(e => e.status === 'error').length || 0;
+    const syncPending = 0; // Não temos mais fila de sync
     
-    const errorRate = totalLeads > 0 ? (syncFailures / totalLeads) * 100 : 0;
-    const lastSyncTime = leads?.[0]?.updated_at ? new Date(leads[0].updated_at) : undefined;
+    const errorRate = syncEvents && syncEvents.length > 0 
+      ? (syncFailures / syncEvents.length) * 100 
+      : 0;
+    
+    const lastSyncTime = syncEvents?.[0]?.created_at 
+      ? new Date(syncEvents[0].created_at) 
+      : undefined;
 
-    // Busca usuários ativos (usuários que acessaram nas últimas 24h seria ideal, mas não temos essa info)
+    // Busca usuários ativos
     const { count: activeUsers } = await supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true });
 
     return {
-      totalLeads,
+      totalLeads: totalLeads || 0,
       syncSuccess,
       syncFailures,
       syncPending,

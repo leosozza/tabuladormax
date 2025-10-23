@@ -58,9 +58,6 @@ interface LeadRow {
   commercial_project_id: string | null;
   responsible_user_id: string | null;
   bitrix_telemarketing_id: number | null;
-  sync_status: string | null;
-  sync_source: string | null;
-  last_sync_at: string | null;
   date_modify: string | null;
 }
 
@@ -766,11 +763,6 @@ const Index = () => {
                       {visibleColumns.date_modify && (
                         <TableCell>
                           {lead.date_modify ? format(new Date(lead.date_modify), 'dd/MM/yyyy HH:mm') : '-'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.last_sync_at && (
-                        <TableCell>
-                          {lead.last_sync_at ? format(new Date(lead.last_sync_at), 'dd/MM/yyyy HH:mm') : '-'}
                         </TableCell>
                       )}
                       {visibleColumns.responsible && (
