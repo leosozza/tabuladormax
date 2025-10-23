@@ -66,7 +66,10 @@ tabuladormax/
 │   ├── pages/          # Application pages/routes
 │   ├── lib/            # Core libraries (flows-v2, etc.)
 │   ├── handlers/       # Business logic handlers
+│   ├── modules/        # Application modules (tabulador, gestao)
 │   └── types/          # TypeScript type definitions
+├── modules/            # Monorepo modules
+│   └── gestao-scouter/ # Gestao Scouter module (integration in progress)
 ├── supabase/
 │   ├── functions/      # Edge Functions (Deno)
 │   └── migrations/     # Database migrations
@@ -74,8 +77,27 @@ tabuladormax/
 │   ├── features/       # Feature documentation
 │   ├── guides/         # How-to guides
 │   └── archived/       # Historical docs
+├── scripts/            # Build and integration scripts
 └── public/             # Static assets
 ```
+
+## Modules
+
+### Gestão Scouter Module
+
+⚠️ **Integration Status**: In Progress
+
+The Gestão Scouter module is being integrated into this monorepo while preserving its full commit history. 
+
+**Location**: `modules/gestao-scouter/`
+**Status**: See [GESTAO_SCOUTER_INTEGRATION_BLOCKED.md](./GESTAO_SCOUTER_INTEGRATION_BLOCKED.md) for current status
+**Documentation**: [modules/gestao-scouter/README.md](./modules/gestao-scouter/README.md)
+
+The integration will provide:
+- Unified lead management across both systems
+- Preserved commit history from the original repository
+- Monorepo workspace structure
+- Shared dependencies and build configuration
 
 ## Deployment
 
