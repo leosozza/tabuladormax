@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, XCircle, SkipForward } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 export default function AnaliseLeads() {
   const queryClient = useQueryClient();
@@ -78,13 +78,13 @@ export default function AnaliseLeads() {
       queryClient.invalidateQueries({ queryKey: ["analysis-session-stats"] });
       
       if (variables.quality === "aprovado") {
-        toast.success("Lead aprovado!");
+        toast({ title: "Lead aprovado!", variant: "default" });
       } else if (variables.quality === "rejeitado") {
-        toast.error("Lead rejeitado");
+        toast({ title: "Lead rejeitado", variant: "destructive" });
       }
     },
     onError: () => {
-      toast.error("Erro ao analisar lead");
+      toast({ title: "Erro ao analisar lead", variant: "destructive" });
     },
   });
 
@@ -113,7 +113,7 @@ export default function AnaliseLeads() {
       setCurrentIndex(currentIndex + 1);
     } else {
       setCurrentIndex(0);
-      toast.success("Todos os leads foram analisados!");
+      toast({ title: "Todos os leads foram analisados!", variant: "default" });
     }
   };
 

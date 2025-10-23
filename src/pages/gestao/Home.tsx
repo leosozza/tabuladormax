@@ -7,65 +7,9 @@ import StatsComparison from "@/components/gestao/dashboard/StatsComparison";
 import LeadsChart from "@/components/gestao/dashboard/LeadsChart";
 import ConversionFunnel from "@/components/gestao/dashboard/ConversionFunnel";
 import ScouterPerformance from "@/components/gestao/dashboard/ScouterPerformance";
+import StatusDistribution from "@/components/gestao/dashboard/StatusDistribution";
 
 export default function GestaoHome() {
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ["gestao-stats"],
-    queryFn: async () => {
-      const { count: totalLeads } = await supabase
-        .from("leads")
-        .select("*", { count: "exact", head: true });
-      
-      const { count: confirmedLeads } = await supabase
-        .from("leads")
-        .select("*", { count: "exact", head: true })
-        .eq("ficha_confirmada", true);
-      
-      const { count: presentLeads } = await supabase
-        .from("leads")
-        .select("*", { count: "exact", head: true })
-        .eq("compareceu", true);
-
-      return {
-        totalLeads: totalLeads || 0,
-        confirmedLeads: confirmedLeads || 0,
-        presentLeads: presentLeads || 0,
-        conversionRate: totalLeads ? ((presentLeads || 0) / totalLeads * 100).toFixed(1) : "0"
-      };
-    },
-  });
-
-  const statCards = [
-    {
-      title: "Total de Leads",
-      value: stats?.totalLeads || 0,
-      icon: Users,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100"
-    },
-    {
-      title: "Fichas Confirmadas",
-      value: stats?.confirmedLeads || 0,
-      icon: FileText,
-      color: "text-green-600",
-      bgColor: "bg-green-100"
-    },
-    {
-      title: "Comparecimentos",
-      value: stats?.presentLeads || 0,
-      icon: Activity,
-      color: "text-purple-600",
-      bgColor: "bg-purple-100"
-    },
-    {
-      title: "Taxa de Conversão",
-      value: `${stats?.conversionRate}%`,
-      icon: TrendingUp,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100"
-    }
-  ];
-
   return (
     <div className="flex min-h-screen bg-background">
       <GestaoSidebar />
@@ -83,8 +27,9 @@ export default function GestaoHome() {
           <ConversionFunnel />
         </div>
 
-        <div className="mt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
           <ScouterPerformance />
+          <StatusDistribution />
         </div>
       </div>
     </div>

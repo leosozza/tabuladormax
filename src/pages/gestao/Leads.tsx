@@ -2,14 +2,18 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import GestaoSidebar from "@/components/gestao/Sidebar";
+import LeadDetailModal from "@/components/gestao/LeadDetailModal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Download } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Search, Download, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 export default function GestaoLeads() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   
   const { data: leads, isLoading } = useQuery({
     queryKey: ["gestao-leads", searchTerm],
@@ -94,12 +98,13 @@ export default function GestaoLeads() {
                   <TableHead>Status</TableHead>
                   <TableHead>Ficha Confirmada</TableHead>
                   <TableHead>Data Criação</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {leads?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Nenhum lead encontrado
                     </TableCell>
                   </TableRow>
@@ -110,9 +115,7 @@ export default function GestaoLeads() {
                       <TableCell>{lead.celular || "-"}</TableCell>
                       <TableCell>{lead.scouter || "-"}</TableCell>
                       <TableCell>
-                        <span className="px-2 py-1 rounded-full text-xs bg-secondary text-secondary-foreground">
-                          {lead.status_tabulacao || "Sem status"}
-                        </span>
+                        <Badge variant="secondary">{lead.status_tabulacao || "Sem status"}</Badge>
                       </TableCell>
                       <TableCell>
                         {lead.ficha_confirmada ? (
@@ -123,6 +126,18 @@ export default function GestaoLeads() {
                       </TableCell>
                       <TableCell>
                         {lead.criado ? format(new Date(lead.criado), "dd/MM/yyyy HH:mm") : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedLead(lead);
+                            setModalOpen(true);
+                          }}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -138,6 +153,12 @@ export default function GestaoLeads() {
           </div>
         )}
       </div>
+
+      <LeadDetailModal
+        lead={selectedLead}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+      />
     </div>
   );
 }

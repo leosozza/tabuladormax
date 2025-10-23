@@ -27,6 +27,8 @@ import GestaoScouters from "./pages/gestao/Scouters";
 import GestaoProjecao from "./pages/gestao/Projecao";
 import GestaoPagamentos from "./pages/gestao/Pagamentos";
 import GestaoArea from "./pages/gestao/AreaDeAbordagem";
+import GestaoAnaliseLeads from "./pages/gestao/AnaliseLeads";
+import GestaoRelatorios from "./pages/gestao/Relatorios";
 
 const queryClient = new QueryClient();
 
@@ -56,10 +58,12 @@ const App = () => (
           {/* Rotas do Gestão Scouter (prefixo /scouter) */}
           <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />
           <Route path="/scouter/leads" element={<ProtectedRoute><GestaoLeads /></ProtectedRoute>} />
+          <Route path="/scouter/analise" element={<ProtectedRoute><GestaoAnaliseLeads /></ProtectedRoute>} />
           <Route path="/scouter/scouters" element={<ProtectedRoute><GestaoScouters /></ProtectedRoute>} />
           <Route path="/scouter/projecao" element={<ProtectedRoute><GestaoProjecao /></ProtectedRoute>} />
           <Route path="/scouter/pagamentos" element={<ProtectedRoute><GestaoPagamentos /></ProtectedRoute>} />
           <Route path="/scouter/area" element={<ProtectedRoute><GestaoArea /></ProtectedRoute>} />
+          <Route path="/scouter/relatorios" element={<ProtectedRoute><GestaoRelatorios /></ProtectedRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
