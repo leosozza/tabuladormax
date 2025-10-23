@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import GestaoSidebar from "@/components/gestao/Sidebar";
@@ -8,12 +8,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, XCircle, SkipForward } from "lucide-react";
+import { CheckCircle2, XCircle, SkipForward, Download, WifiOff } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 export default function AnaliseLeads() {
   const queryClient = useQueryClient();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const { canInstall, promptInstall, isInstalled } = useInstallPrompt();
+  const isOnline = useOnlineStatus();
 
   // Buscar leads não analisados
   const { data: leads, isLoading } = useQuery({
@@ -117,14 +124,80 @@ export default function AnaliseLeads() {
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.touches[0].clientX);
+    
+    if (cardRef.current) {
+      const diff = e.touches[0].clientX - touchStart;
+      cardRef.current.style.transform = `translateX(${diff}px) rotate(${diff * 0.1}deg)`;
+      
+      if (diff > 100) {
+        cardRef.current.style.borderColor = 'hsl(var(--success))';
+      } else if (diff < -100) {
+        cardRef.current.style.borderColor = 'hsl(var(--destructive))';
+      } else {
+        cardRef.current.style.borderColor = 'transparent';
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    const swipeDistance = touchStart - touchEnd;
+    const minSwipeDistance = 100;
+
+    if (cardRef.current) {
+      cardRef.current.style.transform = '';
+      cardRef.current.style.borderColor = '';
+    }
+
+    if (swipeDistance > minSwipeDistance) {
+      handleReject();
+    } else if (swipeDistance < -minSwipeDistance) {
+      handleApprove();
+    }
+
+    setTouchStart(0);
+    setTouchEnd(0);
+  };
+
   return (
     <div className="flex min-h-screen bg-background">
       <GestaoSidebar />
       
+      {!isOnline && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-warning text-warning-foreground py-2 px-4 text-center flex items-center justify-center gap-2">
+          <WifiOff className="w-4 h-4" />
+          Modo Offline - As alterações serão sincronizadas quando reconectar
+        </div>
+      )}
+      
       <div className="flex-1 p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Análise de Leads</h1>
-          <p className="text-muted-foreground">Avalie a qualidade dos leads captados</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Análise de Leads</h1>
+            <p className="text-muted-foreground">Avalie a qualidade dos leads captados</p>
+          </div>
+          
+          {canInstall && !isInstalled && (
+            <Button
+              onClick={promptInstall}
+              variant="outline"
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Instalar App
+            </Button>
+          )}
+          
+          {isInstalled && (
+            <Badge variant="secondary" className="gap-2">
+              ✅ App Instalado
+            </Badge>
+          )}
         </div>
 
         {/* Estatísticas da Sessão */}
@@ -210,7 +283,15 @@ export default function AnaliseLeads() {
           </Card>
         ) : (
           <div className="max-w-2xl mx-auto">
-            <LeadCard lead={currentLead} />
+            <div 
+              ref={cardRef}
+              className="swipe-card touch-none transition-transform border-4 rounded-lg"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <LeadCard lead={currentLead} />
+            </div>
             
             {/* Ações de Swipe */}
             <SwipeActions
