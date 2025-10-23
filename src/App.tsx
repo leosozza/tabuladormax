@@ -29,6 +29,7 @@ import GestaoPagamentos from "./pages/gestao/Pagamentos";
 import GestaoArea from "./pages/gestao/AreaDeAbordagem";
 import GestaoAnaliseLeads from "./pages/gestao/AnaliseLeads";
 import GestaoRelatorios from "./pages/gestao/Relatorios";
+import Install from "./pages/Install";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
           
           {/* Auth (pública) */}
           <Route path="/auth" element={<Auth />} />
+          <Route path="/install" element={<Install />} />
           <Route path="/debug" element={<ProtectedRoute><Debug /></ProtectedRoute>} />
           <Route path="/lead" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

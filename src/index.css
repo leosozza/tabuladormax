@@ -111,3 +111,30 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* PWA Otimizações Mobile */
+@media (display-mode: standalone) {
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Animações de swipe */
+.swipe-card {
+  touch-action: pan-y;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.swipe-card.swiping {
+  transition: none;
+}
+
+/* Feedback tátil */
+@media (hover: none) {
+  button:active {
+    transform: scale(0.95);
+  }
+}
