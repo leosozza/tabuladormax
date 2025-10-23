@@ -13,6 +13,10 @@ dist-ssr
 *.local
 coverage
 
+# Temporary files
+*.zip
+tmp-*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
