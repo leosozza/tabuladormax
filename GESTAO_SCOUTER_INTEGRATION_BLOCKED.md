@@ -19,9 +19,28 @@ fatal: Authentication failed for 'https://github.com/leosozza/gestao-scouter.git
    - Access granted via GitHub token/credentials, OR
    - Provided as an alternative source (ZIP, tar, different repo URL)
 
-### Steps to Complete Integration
+### Quick Start: Automated Integration
 
-Once repository access is available, execute the following commands:
+Once repository access is available, run the complete integration script:
+
+```bash
+cd /home/runner/work/tabuladormax/tabuladormax
+./scripts/complete_gestao_integration.sh
+```
+
+This script will:
+- ✅ Verify repository access
+- ✅ Fetch gestao-scouter with history
+- ✅ Import using git subtree (or fallback to merge + read-tree)
+- ✅ Add workspaces configuration
+- ✅ Install dependencies
+- ✅ Run build validation
+- ✅ Verify history preservation
+- ✅ Create final integration commit
+
+### Manual Steps (Alternative)
+
+If you prefer to execute steps manually, follow these commands:
 
 #### 1. Fetch the Repository with History
 ```bash
