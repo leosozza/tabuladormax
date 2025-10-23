@@ -28,12 +28,9 @@ export default function GestaoAreaDeAbordagem() {
         .select("id, name, address, local_abordagem, scouter, status_fluxo, commercial_project_id, criado");
 
       // Aplicar filtros de data
-      if (filters.dateFilter?.startDate) {
-        query = query.gte("criado", filters.dateFilter.startDate.toISOString());
-      }
-      if (filters.dateFilter?.endDate) {
-        query = query.lte("criado", filters.dateFilter.endDate.toISOString());
-      }
+      query = query
+        .gte("criado", filters.dateFilter.startDate.toISOString())
+        .lte("criado", filters.dateFilter.endDate.toISOString());
       
       // Aplicar filtro de projeto
       if (filters.projectId) {
@@ -96,12 +93,9 @@ export default function GestaoAreaDeAbordagem() {
         .not("local_abordagem", "is", null);
 
       // Aplicar filtros de data
-      if (filters.dateFilter?.startDate) {
-        query = query.gte("criado", filters.dateFilter.startDate.toISOString());
-      }
-      if (filters.dateFilter?.endDate) {
-        query = query.lte("criado", filters.dateFilter.endDate.toISOString());
-      }
+      query = query
+        .gte("criado", filters.dateFilter.startDate.toISOString())
+        .lte("criado", filters.dateFilter.endDate.toISOString());
       
       // Aplicar filtro de projeto
       if (filters.projectId) {
