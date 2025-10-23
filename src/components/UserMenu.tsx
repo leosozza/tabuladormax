@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Shield, Bug, Users, Network, Activity } from "lucide-react";
+import { User, LogOut, Shield, Bug, Users, Network, Activity, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 const UserMenu = () => {
@@ -100,6 +100,11 @@ const UserMenu = () => {
             <span>Diagnóstico do Sistema</span>
           </DropdownMenuItem>
         )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate("/scouter")}>
+          <FileText className="mr-2 h-4 w-4" />
+          <span>Gestão Scouter</span>
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate("/debug")}>
           <Bug className="mr-2 h-4 w-4" />
           <span>Modo Debug</span>

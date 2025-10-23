@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Bug } from "lucide-react";
+import { Bug, Users } from "lucide-react";
 import { extractChatwootData, extractAssigneeData, saveChatwootContact } from "@/lib/chatwoot";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -195,6 +195,15 @@ export default function Home() {
         </p>
         
         <div className="flex justify-center gap-4">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/scouter')}
+            className="gap-2"
+          >
+            <Users className="w-4 h-4" />
+            Gestão Scouter
+          </Button>
+          
           <Button 
             variant="outline" 
             onClick={() => navigate('/debug')}

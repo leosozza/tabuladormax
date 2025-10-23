@@ -1,39 +1,122 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import GestaoSidebar from "@/components/gestao/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Users } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Users, TrendingUp, Award } from "lucide-react";
 
 export default function GestaoScouters() {
-  const navigate = useNavigate();
+  const { data: scoutersData, isLoading } = useQuery({
+    queryKey: ["gestao-scouters"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("scouter")
+        .not("scouter", "is", null);
+      
+      if (error) throw error;
+      
+      // Agrupar por scouter e contar
+      const scouterCounts = data.reduce((acc: any, lead) => {
+        const scouter = lead.scouter || "Sem Scouter";
+        if (!acc[scouter]) {
+          acc[scouter] = 0;
+        }
+        acc[scouter]++;
+        return acc;
+      }, {});
+      
+      return Object.entries(scouterCounts)
+        .map(([name, count]) => ({ name, leadsCount: count }))
+        .sort((a: any, b: any) => b.leadsCount - a.leadsCount);
+    },
+  });
+
+  const totalLeads = scoutersData?.reduce((sum: number, s: any) => sum + s.leadsCount, 0) || 0;
+  const totalScouters = scoutersData?.length || 0;
+  const avgLeadsPerScouter = totalScouters > 0 ? (totalLeads / totalScouters).toFixed(1) : "0";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8 flex items-center gap-4">
-          <Button onClick={() => navigate('/scouter')} variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Scouters</h1>
-            <p className="text-gray-600">Gerencie sua equipe de scouters</p>
-          </div>
+    <div className="flex min-h-screen bg-background">
+      <GestaoSidebar />
+      
+      <div className="flex-1 p-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Scouters</h1>
+          <p className="text-muted-foreground">Performance e estatísticas da equipe</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Equipe de Scouters
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-12 text-gray-500">
-              <Users className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg">Funcionalidade de scouters em desenvolvimento</p>
-              <p className="text-sm mt-2">A gestão de scouters será exibida aqui em breve</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total de Scouters
+              </CardTitle>
+              <Users className="w-5 h-5 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{totalScouters}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total de Leads
+              </CardTitle>
+              <TrendingUp className="w-5 h-5 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{totalLeads}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Média por Scouter
+              </CardTitle>
+              <Award className="w-5 h-5 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{avgLeadsPerScouter}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {isLoading ? (
+          <div className="text-center py-12">Carregando scouters...</div>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance Individual</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Posição</TableHead>
+                    <TableHead>Nome do Scouter</TableHead>
+                    <TableHead className="text-right">Leads Capturados</TableHead>
+                    <TableHead className="text-right">% do Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {scoutersData?.map((scouter: any, index: number) => (
+                    <TableRow key={scouter.name}>
+                      <TableCell className="font-medium">#{index + 1}</TableCell>
+                      <TableCell>{scouter.name}</TableCell>
+                      <TableCell className="text-right font-semibold">{scouter.leadsCount}</TableCell>
+                      <TableCell className="text-right">
+                        {((scouter.leadsCount / totalLeads) * 100).toFixed(1)}%
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
