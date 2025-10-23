@@ -501,6 +501,7 @@ export type Database = {
         Row: {
           address: string | null
           age: number | null
+          analisado_por: string | null
           bitrix_telemarketing_id: number | null
           cadastro_existe_foto: boolean | null
           celular: string | null
@@ -508,6 +509,7 @@ export type Database = {
           compareceu: boolean | null
           criado: string | null
           data_agendamento: string | null
+          data_analise: string | null
           data_confirmacao_ficha: string | null
           data_criacao_agendamento: string | null
           data_criacao_ficha: string | null
@@ -531,6 +533,7 @@ export type Database = {
           op_telemarketing: string | null
           photo_url: string | null
           presenca_confirmada: boolean | null
+          qualidade_lead: string | null
           raw: Json | null
           responsible: string | null
           responsible_user_id: string | null
@@ -545,6 +548,7 @@ export type Database = {
         Insert: {
           address?: string | null
           age?: number | null
+          analisado_por?: string | null
           bitrix_telemarketing_id?: number | null
           cadastro_existe_foto?: boolean | null
           celular?: string | null
@@ -552,6 +556,7 @@ export type Database = {
           compareceu?: boolean | null
           criado?: string | null
           data_agendamento?: string | null
+          data_analise?: string | null
           data_confirmacao_ficha?: string | null
           data_criacao_agendamento?: string | null
           data_criacao_ficha?: string | null
@@ -575,6 +580,7 @@ export type Database = {
           op_telemarketing?: string | null
           photo_url?: string | null
           presenca_confirmada?: boolean | null
+          qualidade_lead?: string | null
           raw?: Json | null
           responsible?: string | null
           responsible_user_id?: string | null
@@ -589,6 +595,7 @@ export type Database = {
         Update: {
           address?: string | null
           age?: number | null
+          analisado_por?: string | null
           bitrix_telemarketing_id?: number | null
           cadastro_existe_foto?: boolean | null
           celular?: string | null
@@ -596,6 +603,7 @@ export type Database = {
           compareceu?: boolean | null
           criado?: string | null
           data_agendamento?: string | null
+          data_analise?: string | null
           data_confirmacao_ficha?: string | null
           data_criacao_agendamento?: string | null
           data_criacao_ficha?: string | null
@@ -619,6 +627,7 @@ export type Database = {
           op_telemarketing?: string | null
           photo_url?: string | null
           presenca_confirmada?: boolean | null
+          qualidade_lead?: string | null
           raw?: Json | null
           responsible?: string | null
           responsible_user_id?: string | null

@@ -3,6 +3,10 @@ import { Users, FileText, TrendingUp, DollarSign, MapPin, Activity } from "lucid
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import GestaoSidebar from "@/components/gestao/Sidebar";
+import StatsComparison from "@/components/gestao/dashboard/StatsComparison";
+import LeadsChart from "@/components/gestao/dashboard/LeadsChart";
+import ConversionFunnel from "@/components/gestao/dashboard/ConversionFunnel";
+import ScouterPerformance from "@/components/gestao/dashboard/ScouterPerformance";
 
 export default function GestaoHome() {
   const { data: stats, isLoading } = useQuery({
@@ -72,30 +76,16 @@ export default function GestaoHome() {
           <p className="text-muted-foreground">Visão geral do sistema de gestão de leads</p>
         </div>
 
-        {isLoading ? (
-          <div className="text-center py-12">Carregando estatísticas...</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {statCards.map((stat) => {
-              const Icon = stat.icon;
-              return (
-                <Card key={stat.title} className="hover:shadow-lg transition-shadow">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      {stat.title}
-                    </CardTitle>
-                    <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                      <Icon className={`w-5 h-5 ${stat.color}`} />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{stat.value}</div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+        <StatsComparison />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+          <LeadsChart />
+          <ConversionFunnel />
+        </div>
+
+        <div className="mt-8">
+          <ScouterPerformance />
+        </div>
       </div>
     </div>
   );

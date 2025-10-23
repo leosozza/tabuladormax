@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Users, TrendingUp, DollarSign, MapPin, ArrowLeft } from "lucide-react";
+import { Home, Users, TrendingUp, DollarSign, MapPin, ArrowLeft, Heart, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function GestaoSidebar() {
@@ -10,10 +10,12 @@ export default function GestaoSidebar() {
   const navItems = [
     { path: "/scouter", label: "Dashboard", icon: Home },
     { path: "/scouter/leads", label: "Leads", icon: Users },
+    { path: "/scouter/analise", label: "Análise de Leads", icon: Heart },
     { path: "/scouter/scouters", label: "Scouters", icon: Users },
     { path: "/scouter/projecao", label: "Projeção", icon: TrendingUp },
     { path: "/scouter/pagamentos", label: "Pagamentos", icon: DollarSign },
     { path: "/scouter/area", label: "Área de Abordagem", icon: MapPin },
+    { path: "/scouter/relatorios", label: "Relatórios", icon: FileText },
   ];
 
   return (

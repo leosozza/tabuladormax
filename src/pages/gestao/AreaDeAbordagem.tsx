@@ -134,16 +134,12 @@ export default function GestaoAreaDeAbordagem() {
         <div className="mt-8">
           <Card>
             <CardHeader>
-              <CardTitle>Mapa de Calor (Em Desenvolvimento)</CardTitle>
+              <CardTitle>Mapa de Distribuição</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <MapPin className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg">Visualização de mapa em breve</p>
-                  <p className="text-sm mt-2">Integração com mapas será adicionada</p>
-                </div>
-              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Visualização geográfica dos leads será implementada em breve
+              </p>
             </CardContent>
           </Card>
         </div>
