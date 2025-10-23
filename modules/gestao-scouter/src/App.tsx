@@ -3,11 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { PWABadge } from "@/components/PWABadge";
+import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { GlobalErrorCaptureHandler } from "@/components/ai-debug/GlobalErrorCaptureHandler";
 
 // Lazy load page components for better code splitting
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -42,26 +40,22 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <PWABadge />
-        <BrowserRouter basename="/scouter">
-          <Suspense fallback={<LoadingSpinner />}>
-            <GlobalErrorCaptureHandler />
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/projecao" element={<ProtectedRoute><ProjecaoPage /></ProtectedRoute>} />
-              <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
-              <Route path="/scouters" element={<ProtectedRoute><Scouters /></ProtectedRoute>} />
-              <Route path="/pagamentos" element={<ProtectedRoute><Pagamentos /></ProtectedRoute>} />
-              <Route path="/area-de-abordagem" element={<ProtectedRoute><AreaDeAbordagem /></ProtectedRoute>} />
-              <Route path="/configuracoes" element={<ProtectedRoute><ConfiguracoesPage /></ProtectedRoute>} />
-              <Route path="/sync-monitor" element={<ProtectedRoute><SyncMonitor /></ProtectedRoute>} />
-              <Route path="/bitrix-callback" element={<ProtectedRoute><BitrixCallback /></ProtectedRoute>} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
+        <Suspense fallback={<LoadingSpinner />}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/projecao" element={<ProtectedRoute><ProjecaoPage /></ProtectedRoute>} />
+            <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+            <Route path="/scouters" element={<ProtectedRoute><Scouters /></ProtectedRoute>} />
+            <Route path="/pagamentos" element={<ProtectedRoute><Pagamentos /></ProtectedRoute>} />
+            <Route path="/area-de-abordagem" element={<ProtectedRoute><AreaDeAbordagem /></ProtectedRoute>} />
+            <Route path="/configuracoes" element={<ProtectedRoute><ConfiguracoesPage /></ProtectedRoute>} />
+            <Route path="/sync-monitor" element={<ProtectedRoute><SyncMonitor /></ProtectedRoute>} />
+            <Route path="/bitrix-callback" element={<ProtectedRoute><BitrixCallback /></ProtectedRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
