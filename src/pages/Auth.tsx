@@ -166,7 +166,7 @@ const Auth = () => {
             navigate('/home-choice');
           } else if (department === 'telemarketing') {
             navigate('/lead');
-          } else if (department === 'scouter') {
+          } else if (department === 'scouters') {
             navigate('/scouter');
           } else if (department === 'administrativo') {
             navigate('/dashboard');
@@ -370,7 +370,7 @@ const Auth = () => {
           navigate('/home-choice');
         } else if (department === 'telemarketing') {
           navigate('/lead');
-        } else if (department === 'scouter') {
+        } else if (department === 'scouters') {
           navigate('/scouter');
         } else if (department === 'administrativo') {
           navigate('/dashboard');
@@ -550,7 +550,7 @@ const Auth = () => {
           navigate('/home-choice');
         } else if (department === 'telemarketing') {
           navigate('/lead');
-        } else if (department === 'scouter') {
+        } else if (department === 'scouters') {
           navigate('/scouter');
         } else if (department === 'administrativo') {
           navigate('/dashboard');

@@ -892,7 +892,11 @@ export type Database = {
       }
     }
     Enums: {
-      app_department: "telemarketing" | "scouter" | "administrativo"
+      app_department:
+        | "telemarketing"
+        | "scouters"
+        | "administrativo"
+        | "analise"
       app_role: "admin" | "manager" | "agent" | "supervisor"
       permission_scope: "global" | "department" | "own"
     }
@@ -1022,7 +1026,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_department: ["telemarketing", "scouter", "administrativo"],
+      app_department: [
+        "telemarketing",
+        "scouters",
+        "administrativo",
+        "analise",
+      ],
       app_role: ["admin", "manager", "agent", "supervisor"],
       permission_scope: ["global", "department", "own"],
     },

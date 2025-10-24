@@ -22,6 +22,7 @@ interface UserWithRole {
   display_name: string;
   created_at: string;
   role: 'admin' | 'manager' | 'supervisor' | 'agent';
+  department?: 'administrativo' | 'analise' | 'telemarketing' | 'scouters';
   telemarketing_name?: string;
   telemarketing_id?: number;
   project_name?: string;
@@ -85,6 +86,12 @@ export default function Users() {
   const [editingProjectUserId, setEditingProjectUserId] = useState("");
   const [newProjectId, setNewProjectId] = useState("");
   const [pendingProjectName, setPendingProjectName] = useState<string | null>(null);
+  
+  // Edit department
+  const [editDepartmentDialogOpen, setEditDepartmentDialogOpen] = useState(false);
+  const [editingDepartmentUserId, setEditingDepartmentUserId] = useState("");
+  const [newDepartment, setNewDepartment] = useState<'administrativo' | 'analise' | 'telemarketing' | 'scouters'>('telemarketing');
+  const [updatingDepartment, setUpdatingDepartment] = useState(false);
   
   // Data for dropdowns
   const [projects, setProjects] = useState<CommercialProject[]>([]);
@@ -327,6 +334,12 @@ export default function Users() {
       .select('user_id, role')
       .in('user_id', userIds);
 
+    // QUERY 2.5: Buscar todos os departamentos em lote
+    const { data: departmentsData } = await supabase
+      .from('user_departments')
+      .select('user_id, department')
+      .in('user_id', userIds);
+
     // QUERY 3: Buscar todos os mapeamentos em lote
     const { data: mappingsData } = await supabase
       .from('agent_telemarketing_mapping')
@@ -387,6 +400,10 @@ export default function Users() {
       (rolesData || []).map(r => [r.user_id, r.role])
     );
 
+    const departmentsMap = new Map(
+      (departmentsData || []).map(d => [d.user_id, d.department])
+    );
+
     const mappingsMap = new Map(
       (mappingsData || []).map(m => [m.tabuladormax_user_id, m])
     );
@@ -394,6 +411,7 @@ export default function Users() {
     // Merge dos resultados em memória
     const usersWithRoles: UserWithRole[] = profiles.map(profile => {
       const roleData = rolesMap.get(profile.id);
+      const departmentData = departmentsMap.get(profile.id);
       const mappingData = mappingsMap.get(profile.id);
       
       const projectName = mappingData?.commercial_project_id 
@@ -407,6 +425,7 @@ export default function Users() {
       return {
         ...profile,
         role: roleData as any || 'agent',
+        department: departmentData as any,
         telemarketing_name: mappingData?.bitrix_telemarketing_name,
         telemarketing_id: mappingData?.bitrix_telemarketing_id,
         project_name: projectName,
@@ -874,6 +893,39 @@ export default function Users() {
     }
   };
 
+  const openEditDepartmentDialog = (user: UserWithRole) => {
+    setEditingDepartmentUserId(user.id);
+    setNewDepartment(user.department || 'telemarketing');
+    setEditDepartmentDialogOpen(true);
+  };
+
+  const handleSaveDepartment = async () => {
+    if (!editingDepartmentUserId) {
+      toast.error('Usuário não encontrado');
+      return;
+    }
+
+    setUpdatingDepartment(true);
+    
+    try {
+      const { error } = await supabase
+        .from('user_departments')
+        .update({ department: newDepartment })
+        .eq('user_id', editingDepartmentUserId);
+
+      if (error) throw error;
+
+      toast.success('✅ Departamento atualizado com sucesso!');
+      setEditDepartmentDialogOpen(false);
+      loadUsers();
+    } catch (error) {
+      console.error('Erro ao atualizar departamento:', error);
+      toast.error('Erro ao atualizar departamento');
+    } finally {
+      setUpdatingDepartment(false);
+    }
+  };
+
   const openEditSupervisorDialog = async (user: UserWithRole) => {
     console.log('🚀 [openEditSupervisorDialog] Iniciando para usuário:', {
       id: user.id,
@@ -1221,6 +1273,7 @@ export default function Users() {
                       </th>
                       <th className="p-3 text-left text-sm font-medium">Email</th>
                       <th className="p-3 text-left text-sm font-medium">Nome</th>
+                      <th className="p-3 text-left text-sm font-medium">Departamento</th>
                       <th className="p-3 text-left text-sm font-medium">Projeto</th>
                       <th className="p-3 text-left text-sm font-medium">Supervisor</th>
                       <th className="p-3 text-left text-sm font-medium">Telemarketing</th>
@@ -1244,6 +1297,15 @@ export default function Users() {
                           title="Duplo clique para editar"
                         >
                           {user.display_name || <span className="text-muted-foreground italic">Sem nome</span>}
+                        </td>
+                        <td 
+                          className="p-3 text-sm cursor-pointer hover:bg-muted/30" 
+                          onDoubleClick={() => currentUserRole === 'admin' && openEditDepartmentDialog(user)}
+                          title={currentUserRole === 'admin' ? "Duplo clique para editar" : ""}
+                        >
+                          <Badge variant="secondary">
+                            {user.department || 'telemarketing'}
+                          </Badge>
                         </td>
                          <td 
                            className="p-3 text-sm cursor-pointer hover:bg-muted/30" 
@@ -1803,6 +1865,51 @@ export default function Users() {
                 disabled={batchEditLoading || !batchEditValue}
               >
                 {batchEditLoading ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog para editar departamento */}
+        <Dialog open={editDepartmentDialogOpen} onOpenChange={setEditDepartmentDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Departamento</DialogTitle>
+              <DialogDescription>
+                Escolha o novo departamento para o usuário.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="department">Departamento</Label>
+                <Select value={newDepartment} onValueChange={(value: any) => setNewDepartment(value)}>
+                  <SelectTrigger id="department">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="administrativo">Administrativo</SelectItem>
+                    <SelectItem value="analise">Análise</SelectItem>
+                    <SelectItem value="telemarketing">Telemarketing</SelectItem>
+                    <SelectItem value="scouters">Scouters</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setEditDepartmentDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSaveDepartment}
+                disabled={updatingDepartment}
+              >
+                {updatingDepartment ? 'Salvando...' : 'Salvar'}
               </Button>
             </div>
           </DialogContent>
