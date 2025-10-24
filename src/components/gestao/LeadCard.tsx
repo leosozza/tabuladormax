@@ -1,13 +1,11 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User, MapPin, Calendar, Phone } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { useTinderCardConfig } from "@/hooks/useTinderCardConfig";
 import { ALL_LEAD_FIELDS } from "@/config/leadFields";
 
 interface LeadCardProps {
-  lead: any; // Dynamic lead object
+  lead: Record<string, unknown>; // Dynamic lead object
 }
 
 export default function LeadCard({ lead }: LeadCardProps) {
