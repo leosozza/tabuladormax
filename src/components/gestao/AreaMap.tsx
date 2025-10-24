@@ -4,9 +4,10 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
+import * as turf from "@turf/turf";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Save } from "lucide-react";
+import { Pencil, Trash2, Save, Square, Circle } from "lucide-react";
 
 // Corrigir ícones padrão do Leaflet
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -55,10 +56,12 @@ export default function AreaMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const markerClusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [drawMode, setDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
   const [drawingPoints, setDrawingPoints] = useState<L.LatLng[]>([]);
   const [drawnAreas, setDrawnAreas] = useState<DrawnArea[]>([]);
-  const currentPolygonRef = useRef<L.Polyline | null>(null);
+  const currentPolygonRef = useRef<L.Polyline | L.Rectangle | null>(null);
   const areasLayerRef = useRef<L.LayerGroup | null>(null);
+  const rectangleStartRef = useRef<L.LatLng | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -143,25 +146,49 @@ export default function AreaMap({
     if (!isDrawing || !mapRef.current) return;
 
     const newPoint = e.latlng;
-    setDrawingPoints(prev => [...prev, newPoint]);
 
-    // Desenhar linha temporária
-    if (currentPolygonRef.current) {
-      mapRef.current.removeLayer(currentPolygonRef.current);
+    if (drawMode === 'rectangle') {
+      // Para retângulo, usar dois cliques
+      if (!rectangleStartRef.current) {
+        rectangleStartRef.current = newPoint;
+        setDrawingPoints([newPoint]);
+      } else {
+        // Segundo clique - finalizar retângulo
+        const bounds = L.latLngBounds(rectangleStartRef.current, newPoint);
+        const rectanglePoints = [
+          bounds.getSouthWest(),
+          bounds.getNorthWest(),
+          bounds.getNorthEast(),
+          bounds.getSouthEast(),
+        ];
+        setDrawingPoints(rectanglePoints);
+        finishDrawingRectangle(rectanglePoints);
+        rectangleStartRef.current = null;
+      }
+    } else {
+      // Modo polígono - adicionar pontos sequencialmente
+      setDrawingPoints(prev => [...prev, newPoint]);
+
+      // Desenhar linha temporária
+      if (currentPolygonRef.current) {
+        mapRef.current.removeLayer(currentPolygonRef.current);
+      }
+
+      const allPoints = [...drawingPoints, newPoint];
+      currentPolygonRef.current = L.polyline(allPoints, {
+        color: '#3b82f6',
+        weight: 3,
+        opacity: 0.7,
+        dashArray: '10, 5'
+      }).addTo(mapRef.current);
     }
-
-    const allPoints = [...drawingPoints, newPoint];
-    currentPolygonRef.current = L.polyline(allPoints, {
-      color: '#3b82f6',
-      weight: 3,
-      opacity: 0.7,
-      dashArray: '10, 5'
-    }).addTo(mapRef.current);
   };
 
-  const startDrawing = () => {
+  const startDrawing = (mode: 'polygon' | 'rectangle' = 'polygon') => {
     setIsDrawing(true);
+    setDrawMode(mode);
     setDrawingPoints([]);
+    rectangleStartRef.current = null;
     if (currentPolygonRef.current && mapRef.current) {
       mapRef.current.removeLayer(currentPolygonRef.current);
       currentPolygonRef.current = null;
@@ -171,10 +198,60 @@ export default function AreaMap({
   const cancelDrawing = () => {
     setIsDrawing(false);
     setDrawingPoints([]);
+    rectangleStartRef.current = null;
     if (currentPolygonRef.current && mapRef.current) {
       mapRef.current.removeLayer(currentPolygonRef.current);
       currentPolygonRef.current = null;
     }
+  };
+
+  const finishDrawingRectangle = (rectanglePoints: L.LatLng[]) => {
+    if (!mapRef.current || !areasLayerRef.current) return;
+
+    // Criar polígono permanente
+    const polygon = L.polygon(rectanglePoints, {
+      color: '#10b981',
+      weight: 2,
+      fillOpacity: 0.2
+    });
+
+    // Contar leads usando Turf.js
+    const polygonCoords = rectanglePoints.map(p => [p.lng, p.lat]);
+    polygonCoords.push(polygonCoords[0]);
+    const turfPolygon = turf.polygon([polygonCoords]);
+
+    const leadsInArea = leads.filter(lead => {
+      const point = turf.point([lead.lng, lead.lat]);
+      return turf.booleanPointInPolygon(point, turfPolygon);
+    });
+
+    const areaId = `area-${Date.now()}`;
+    const newArea: DrawnArea = {
+      id: areaId,
+      name: `Área ${drawnAreas.length + 1}`,
+      bounds: rectanglePoints,
+      leadCount: leadsInArea.length
+    };
+
+    // Adicionar popup ao polígono
+    polygon.bindPopup(`
+      <div class="p-2">
+        <p class="font-bold">${newArea.name}</p>
+        <p class="text-sm">${newArea.leadCount} leads nesta área</p>
+      </div>
+    `);
+
+    polygon.addTo(areasLayerRef.current);
+    
+    setDrawnAreas(prev => [...prev, newArea]);
+    
+    if (onAreaCreated) {
+      onAreaCreated(newArea);
+    }
+    
+    setIsDrawing(false);
+    setDrawingPoints([]);
+    rectangleStartRef.current = null;
   };
 
   const finishDrawing = () => {
@@ -190,28 +267,15 @@ export default function AreaMap({
       fillOpacity: 0.2
     });
 
-    // Contar leads dentro do polígono usando point-in-polygon
+    // Contar leads dentro do polígono usando Turf.js
+    // Converter o polígono Leaflet para formato GeoJSON para o Turf
+    const polygonCoords = drawingPoints.map(p => [p.lng, p.lat]);
+    polygonCoords.push(polygonCoords[0]); // Fechar o polígono
+    const turfPolygon = turf.polygon([polygonCoords]);
+
     const leadsInArea = leads.filter(lead => {
-      const point = L.latLng(lead.lat, lead.lng);
-      // Usar o método interno do Leaflet para verificar se o ponto está dentro do polígono
-      const bounds = polygon.getBounds();
-      if (!bounds.contains(point)) return false;
-      
-      // Verificação adicional: ponto dentro do polígono
-      let inside = false;
-      const x = lead.lng;
-      const y = lead.lat;
-      const vs = drawingPoints.map(p => [p.lng, p.lat]);
-      
-      for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-        const xi = vs[i][0], yi = vs[i][1];
-        const xj = vs[j][0], yj = vs[j][1];
-        
-        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
-      }
-      
-      return inside;
+      const point = turf.point([lead.lng, lead.lat]);
+      return turf.booleanPointInPolygon(point, turfPolygon);
     });
 
     const areaId = `area-${Date.now()}`;
@@ -270,19 +334,29 @@ export default function AreaMap({
       {/* Controles de desenho */}
       <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
         {!isDrawing ? (
-          <Button onClick={startDrawing} size="sm" className="shadow-lg">
-            <Pencil className="w-4 h-4 mr-2" />
-            Desenhar Área
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => startDrawing('polygon')} size="sm" className="shadow-lg">
+              <Pencil className="w-4 h-4 mr-2" />
+              Desenhar Polígono
+            </Button>
+            <Button onClick={() => startDrawing('rectangle')} size="sm" className="shadow-lg" variant="outline">
+              <Square className="w-4 h-4 mr-2" />
+              Desenhar Retângulo
+            </Button>
+          </div>
         ) : (
           <div className="flex flex-col gap-2 bg-white p-2 rounded-lg shadow-lg">
             <Badge variant="secondary" className="justify-center">
-              {drawingPoints.length} pontos
+              {drawMode === 'rectangle' 
+                ? (rectangleStartRef.current ? '2° canto' : '1° canto')
+                : `${drawingPoints.length} pontos`}
             </Badge>
-            <Button onClick={finishDrawing} size="sm" disabled={drawingPoints.length < 3}>
-              <Save className="w-4 h-4 mr-2" />
-              Finalizar
-            </Button>
+            {drawMode === 'polygon' && (
+              <Button onClick={finishDrawing} size="sm" disabled={drawingPoints.length < 3}>
+                <Save className="w-4 h-4 mr-2" />
+                Finalizar
+              </Button>
+            )}
             <Button onClick={cancelDrawing} size="sm" variant="destructive">
               <Trash2 className="w-4 h-4 mr-2" />
               Cancelar
