@@ -50,13 +50,19 @@ export default function AdvancedDashboard() {
     },
   ]);
 
+  // TODO: Implement widget edit functionality
+  const handleEditWidget = (widget: DashboardWidget) => {
+    // Future implementation: Open modal with widget configuration
+    console.log('Edit widget:', widget);
+  };
+
   const gridWidgets: GridWidget[] = widgets.map((widget, idx) => ({
     id: widget.id,
     title: widget.title,
     component: (
       <DynamicWidget 
         config={widget} 
-        onEdit={(w) => console.log('Edit widget:', w)} 
+        onEdit={handleEditWidget}
         onDelete={(id) => setWidgets(prev => prev.filter(w => w.id !== id))}
       />
     ),

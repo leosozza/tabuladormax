@@ -332,7 +332,8 @@ export default function AreaMap({
       `${area.bounds.length} pontos`
     ]);
     
-    autoTable(doc, {
+    // Use autoTable with proper typing
+    (doc as typeof doc & { autoTable: typeof autoTable }).autoTable({
       head: [['#', 'Nome da Área', 'Leads', 'Pontos']],
       body: tableData,
       startY: 45,
@@ -366,16 +367,20 @@ export default function AreaMap({
     document.body.removeChild(link);
   };
 
-  // Expor função de deletar para o window
+  // Store area deletion handler to avoid window pollution
+  const deleteAreaRef = useRef<Map<string, () => void>>(new Map());
+
+  // Update area deletion handlers
   useEffect(() => {
-    (window as any).deleteArea = (areaId: string) => {
-      setDrawnAreas(prev => prev.filter(a => a.id !== areaId));
-      if (onAreaDeleted) {
-        onAreaDeleted(areaId);
-      }
-      // Recriar layers (simplificado - em produção, manter referências)
-    };
-  }, [onAreaDeleted]);
+    drawnAreas.forEach(area => {
+      deleteAreaRef.current.set(area.id, () => {
+        setDrawnAreas(prev => prev.filter(a => a.id !== area.id));
+        if (onAreaDeleted) {
+          onAreaDeleted(area.id);
+        }
+      });
+    });
+  }, [drawnAreas, onAreaDeleted]);
 
   return (
     <div className="relative">
