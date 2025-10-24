@@ -5,9 +5,11 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import * as turf from "@turf/turf";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Save, Square, Circle } from "lucide-react";
+import { Pencil, Trash2, Save, Square, FileDown, FileSpreadsheet } from "lucide-react";
 
 // Corrigir ícones padrão do Leaflet
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -291,18 +293,16 @@ export default function AreaMap({
       <div class="p-2">
         <p class="font-bold">${newArea.name}</p>
         <p class="text-sm">${newArea.leadCount} leads nesta área</p>
-        <button 
-          class="mt-2 px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-          onclick="window.deleteArea('${areaId}')"
-        >
-          Deletar Área
-        </button>
       </div>
     `);
 
     polygon.addTo(areasLayerRef.current);
     
     setDrawnAreas(prev => [...prev, newArea]);
+    
+    if (onAreaCreated) {
+      onAreaCreated(newArea);
+    }
     
     // Limpar desenho temporário
     if (currentPolygonRef.current) {
@@ -312,10 +312,58 @@ export default function AreaMap({
     
     setIsDrawing(false);
     setDrawingPoints([]);
+  };
 
-    if (onAreaCreated) {
-      onAreaCreated(newArea);
-    }
+  // Exportar áreas para PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text('Relatório de Áreas de Abordagem', 14, 22);
+    
+    doc.setFontSize(11);
+    doc.text(`Total de Áreas: ${drawnAreas.length}`, 14, 32);
+    doc.text(`Total de Leads: ${leads.length}`, 14, 38);
+    
+    const tableData = drawnAreas.map((area, idx) => [
+      idx + 1,
+      area.name,
+      area.leadCount,
+      `${area.bounds.length} pontos`
+    ]);
+    
+    autoTable(doc, {
+      head: [['#', 'Nome da Área', 'Leads', 'Pontos']],
+      body: tableData,
+      startY: 45,
+    });
+    
+    doc.save('areas-abordagem.pdf');
+  };
+
+  // Exportar áreas para CSV
+  const exportToCSV = () => {
+    const headers = ['Área', 'Quantidade de Leads', 'Coordenadas'];
+    const rows = drawnAreas.map(area => [
+      area.name,
+      area.leadCount,
+      area.bounds.map(b => `${b.lat},${b.lng}`).join(';')
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'areas-abordagem.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Expor função de deletar para o window
@@ -376,6 +424,16 @@ export default function AreaMap({
                 <span className="font-semibold">{area.leadCount} leads</span>
               </div>
             ))}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button onClick={exportToPDF} size="sm" variant="outline" className="flex-1">
+              <FileDown className="w-3 h-3 mr-1" />
+              PDF
+            </Button>
+            <Button onClick={exportToCSV} size="sm" variant="outline" className="flex-1">
+              <FileSpreadsheet className="w-3 h-3 mr-1" />
+              CSV
+            </Button>
           </div>
         </div>
       )}
