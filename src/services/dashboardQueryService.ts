@@ -37,13 +37,13 @@ export async function executeDashboardQuery(widget: DashboardWidget): Promise<an
     query = query.in('scouter', filters.scouter);
   }
   if (filters?.projeto?.length) {
-    query = query.in('commercial_project_id', filters.projeto);
+    query = (query as any).in('commercial_project_id', filters.projeto);
   }
   if (filters?.supervisor?.length) {
-    query = query.in('supervisor', filters.supervisor);
+    query = (query as any).in('supervisor', filters.supervisor);
   }
   if (filters?.etapa?.length) {
-    query = query.in('etapa', filters.etapa);
+    query = (query as any).in('etapa', filters.etapa);
   }
   
   const { data, error } = await query;

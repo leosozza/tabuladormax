@@ -20,7 +20,17 @@ export function ApexLineChart({ title, categories, series, height = 350 }: ApexL
     chart: {
       type: 'line',
       zoom: { enabled: true },
-      toolbar: { show: true }
+      toolbar: { 
+        show: true,
+        tools: {
+          download: true,
+          zoom: true,
+          zoomin: true,
+          zoomout: true,
+          pan: true,
+          reset: true
+        }
+      }
     },
     dataLabels: { enabled: false },
     stroke: { curve: 'smooth', width: 3 },
@@ -33,19 +43,50 @@ export function ApexLineChart({ title, categories, series, height = 350 }: ApexL
       }
     },
     yaxis: {
+      title: {
+        text: 'Quantidade',
+        style: {
+          color: 'hsl(var(--muted-foreground))',
+        }
+      },
       labels: {
         style: {
           colors: 'hsl(var(--muted-foreground))',
-        }
+        },
+        formatter: (val) => Math.floor(val).toString()
       }
     },
-    colors: ['hsl(var(--primary))', 'hsl(var(--chart-2))'],
-    markers: { size: 5, hover: { size: 7 } },
+    colors: ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))'],
+    markers: { 
+      size: 5, 
+      hover: { size: 7 },
+      strokeWidth: 2,
+      strokeColors: '#fff'
+    },
     grid: {
       borderColor: 'hsl(var(--border))',
     },
     tooltip: {
-      theme: 'light'
+      theme: 'light',
+      shared: true,
+      intersect: false,
+      y: {
+        formatter: (val) => `${val} leads`,
+        title: {
+          formatter: (seriesName) => `${seriesName}:`
+        }
+      },
+      x: {
+        show: true
+      }
+    },
+    legend: {
+      show: series.length > 1,
+      position: 'top',
+      horizontalAlign: 'center',
+      labels: {
+        colors: 'hsl(var(--muted-foreground))'
+      }
     }
   };
   

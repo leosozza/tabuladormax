@@ -43,32 +43,32 @@ export default function LeadCard({ lead }: LeadCardProps) {
     return null;
   };
 
-  const photoUrl = lead[config.photoField];
-  const mainValues = config.mainFields.map(key => ({ key, value: getFieldValue(key) }));
-  const detailValues = config.detailFields.map(key => ({ key, value: getFieldValue(key), label: getFieldLabel(key) }));
-  const badgeValues = config.badgeFields.map(key => ({ key, value: getFieldValue(key) })).filter(v => v.value);
+  const photoUrl = String(lead[config.photoField] || '');
+  const mainValues = config.mainFields.map(key => ({ key, value: String(getFieldValue(key) || '') }));
+  const detailValues = config.detailFields.map(key => ({ key, value: String(getFieldValue(key) || ''), label: getFieldLabel(key) }));
+  const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
 
   return (
-    <Card className="w-full max-w-md mx-auto overflow-hidden border-2">
+    <Card className="w-full max-w-md mx-auto overflow-hidden border-2 shadow-lg">
       {/* Foto do Lead */}
       <div className="relative aspect-[3/4] bg-muted overflow-hidden">
         {photoUrl ? (
           <img
             src={photoUrl}
-            alt={lead.name || "Lead"}
+            alt={String(lead.name || "Lead")}
             className="w-full h-full object-cover"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <User className="w-24 h-24 text-muted-foreground opacity-20" />
+            <User className="w-16 h-16 md:w-24 md:h-24 text-muted-foreground opacity-20" />
           </div>
         )}
         
         {/* Badges de Status */}
         {badgeValues.length > 0 && (
-          <div className="absolute top-4 right-4 flex flex-col gap-2">
+          <div className="absolute top-2 right-2 md:top-4 md:right-4 flex flex-col gap-2">
             {badgeValues.map((badge, idx) => (
-              <Badge key={idx} variant="secondary" className="backdrop-blur-sm bg-background/80">
+              <Badge key={idx} variant="secondary" className="backdrop-blur-sm bg-background/80 text-xs md:text-sm">
                 {badge.value}
               </Badge>
             ))}
@@ -77,9 +77,9 @@ export default function LeadCard({ lead }: LeadCardProps) {
       </div>
 
       {/* Informações do Lead */}
-      <CardContent className="p-6 space-y-4">
+      <CardContent className="p-4 md:p-6 space-y-3 md:space-y-4">
         <div>
-          <h3 className="text-2xl font-bold mb-1">
+          <h3 className="text-xl md:text-2xl font-bold mb-1 truncate">
             {mainValues[0]?.value || "Sem nome"}
           </h3>
           {mainValues[1]?.value && (
@@ -87,17 +87,17 @@ export default function LeadCard({ lead }: LeadCardProps) {
           )}
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2 md:space-y-3">
           {detailValues.map((detail, idx) => {
             if (!detail.value) return null;
             
             const icon = getFieldIcon(detail.key);
             
             return (
-              <div key={idx} className="flex items-start gap-2 text-sm">
+              <div key={idx} className="flex items-start gap-2 text-xs md:text-sm">
                 {icon}
-                <span className="font-medium">{detail.label}:</span>
-                <span className="text-muted-foreground flex-1">{detail.value}</span>
+                <span className="font-medium whitespace-nowrap">{detail.label}:</span>
+                <span className="text-muted-foreground flex-1 break-words">{detail.value}</span>
               </div>
             );
           })}

@@ -9,19 +9,30 @@ interface UseLeadsParams {
   scouter?: string;
   etapa?: string;
   withGeo?: boolean;
+  columns?: string[]; // Dynamic column selection
+  page?: number; // Pagination support
+  pageSize?: number; // Page size for pagination
 }
 
+const DEFAULT_PAGE_SIZE = 50;
+
 export function useLeads(params: UseLeadsParams = {}) {
-  const queryKey = ['leads', params];
-  const startTime = performance.now();
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+  const columns = params.columns?.join(',') || '*';
 
   return useQuery({
     queryKey,
     queryFn: async () => {
+      // Calculate pagination offset
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
       let query = supabase
         .from('leads')
-        .select('*')
-        .order('criado', { ascending: false });
+        .select(columns, { count: 'exact' })
+        .order('criado', { ascending: false })
+        .range(from, to);
 
       // Apply date filters using 'criado' (date field)
       if (params.startDate) {
@@ -31,7 +42,7 @@ export function useLeads(params: UseLeadsParams = {}) {
         query = query.lte('criado', params.endDate);
       }
       if (params.projeto) {
-        query = query.eq('projetos', params.projeto);
+        (query as any) = (query as any).eq('projetos', params.projeto);
       }
       if (params.scouter) {
         query = query.ilike('scouter', `%${params.scouter}%`);
@@ -44,7 +55,7 @@ export function useLeads(params: UseLeadsParams = {}) {
       }
 
       // Execute query
-      const { data, error } = await query;
+      const { data, error, count } = await query;
 
       if (error) {
         console.error('[useLeads] Erro ao buscar leads:', error);
@@ -63,22 +74,13 @@ export function useLeads(params: UseLeadsParams = {}) {
         throw error;
       }
 
-      // Record success metric
-      const duration = performance.now() - startTime;
-      const dataSize = data ? JSON.stringify(data).length : 0;
-      
-      performanceMonitor.recordQueryPerformance({
-        queryKey: JSON.stringify(queryKey),
-        value: duration,
-        status: 'success',
-        dataSize,
-        metadata: {
-          recordCount: data?.length || 0,
-          hasFilters: Object.keys(params).length > 0,
-        },
-      });
-
-      return data || [];
+      return { 
+        data: data || [], 
+        count: count || 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count || 0) / pageSize)
+      };
     },
     staleTime: 30000,
   });

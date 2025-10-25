@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 
 // Corrigir ícones padrão do Leaflet
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -127,10 +128,38 @@ export default function LeadMap({
   }, [leads, center, zoom]);
 
   return (
-    <div 
-      ref={containerRef} 
-      className="w-full h-full rounded-lg"
-      style={{ minHeight: "500px" }}
-    />
+    <div className="relative">
+      {/* Lead counter overlay */}
+      <div className="absolute top-4 left-4 z-[1000]">
+        <Badge variant="secondary" className="bg-white/95 backdrop-blur shadow-lg text-base px-4 py-2">
+          <span className="font-bold">{leads.length}</span> {leads.length === 1 ? 'lead' : 'leads'} no mapa
+        </Badge>
+      </div>
+
+      {/* Map legend */}
+      {leads.length > 0 && (
+        <div className="absolute bottom-4 right-4 z-[1000]">
+          <Card className="p-3 bg-white/95 backdrop-blur shadow-lg">
+            <h3 className="font-semibold text-sm mb-2">Legenda</h3>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-500 rounded-full opacity-60"></div>
+                <span>Clusters (múltiplos leads)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-blue-600 rounded" style={{ transform: 'rotate(45deg)' }}></div>
+                <span>Lead individual</span>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+      
+      <div 
+        ref={containerRef} 
+        className="w-full h-full rounded-lg"
+        style={{ minHeight: "500px" }}
+      />
+    </div>
   );
 }

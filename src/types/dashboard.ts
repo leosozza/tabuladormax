@@ -53,7 +53,6 @@ export interface WidgetFilters {
   etapa?: string[];
 }
 
-// Sistema de fórmulas personalizadas
 export type FormulaOperator = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | 'percent' | 'divide' | 'multiply' | 'subtract' | 'add';
 
 export interface CustomFormula {
@@ -63,32 +62,30 @@ export interface CustomFormula {
   description?: string;
 }
 
-// Configurações de layout para drag & drop
 export interface WidgetLayout {
-  x: number;      // Posição X no grid (0-11)
-  y: number;      // Posição Y no grid
-  w: number;      // Largura em colunas do grid (1-12)
-  h: number;      // Altura em unidades do grid
-  minW?: number;  // Largura mínima
-  minH?: number;  // Altura mínima
-  maxW?: number;  // Largura máxima
-  maxH?: number;  // Altura máxima
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  minH?: number;
+  maxW?: number;
+  maxH?: number;
 }
 
-// Configurações visuais avançadas
 export interface WidgetTheme {
-  colorScheme?: string[];           // Paleta de cores personalizada
-  backgroundColor?: string;         // Cor de fundo
-  textColor?: string;              // Cor do texto
-  borderColor?: string;            // Cor da borda
-  borderWidth?: number;            // Largura da borda
-  borderRadius?: number;           // Raio da borda
-  showLegend?: boolean;            // Mostrar legenda
+  colorScheme?: string[];
+  backgroundColor?: string;
+  textColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  borderRadius?: number;
+  showLegend?: boolean;
   legendPosition?: 'top' | 'bottom' | 'left' | 'right';
-  showGrid?: boolean;              // Mostrar grade
-  showLabels?: boolean;            // Mostrar rótulos
-  fontSize?: number;               // Tamanho da fonte
-  fontFamily?: string;             // Família da fonte
+  showGrid?: boolean;
+  showLabels?: boolean;
+  fontSize?: number;
+  fontFamily?: string;
 }
 
 export interface DashboardWidget {
@@ -99,15 +96,15 @@ export interface DashboardWidget {
   metrics: MetricType[];
   chartType: ChartType;
   filters?: WidgetFilters;
-  dateGrouping?: DateGrouping; // Para dimensão 'data'
-  limit?: number; // Limitar resultados (ex: top 10 scouters)
-  sortBy?: MetricType; // Ordenar por métrica específica
+  dateGrouping?: DateGrouping;
+  limit?: number;
+  sortBy?: MetricType;
   sortOrder?: 'asc' | 'desc';
-  layout?: WidgetLayout; // Posição e tamanho no grid
-  theme?: WidgetTheme; // Configurações visuais
-  customFormula?: CustomFormula; // Fórmula personalizada
-  refreshInterval?: number; // Intervalo de atualização em ms
-  drilldownEnabled?: boolean; // Permite drill-down nos dados
+  layout?: WidgetLayout;
+  theme?: WidgetTheme;
+  customFormula?: CustomFormula;
+  refreshInterval?: number;
+  drilldownEnabled?: boolean;
 }
 
 export interface DashboardConfig {
@@ -125,15 +122,14 @@ export interface DashboardConfig {
     accentColor?: string;
   };
   layout?: {
-    cols: number;        // Número de colunas no grid (padrão: 12)
-    rowHeight: number;   // Altura de cada linha em px (padrão: 100)
+    cols: number;
+    rowHeight: number;
     compactType?: 'vertical' | 'horizontal' | null;
   };
   autoRefresh?: boolean;
   refreshInterval?: number;
 }
 
-// Labels amigáveis para a UI
 export const DIMENSION_LABELS: Record<DimensionType, string> = {
   scouter: 'Scouter',
   projeto: 'Projeto',

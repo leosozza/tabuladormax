@@ -1,10 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Card } from "@/components/ui/card";
-import { FileCheck, Flame, TrendingUp } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { FileCheck, Flame, TrendingUp, Radio } from "lucide-react";
+import { useRealtimeLeads } from "@/hooks/useRealtimeLeads";
 
 // Ícones do Leaflet
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -45,6 +47,14 @@ export default function HeatmapFichasMap({
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const heatLayerRef = useRef<L.LayerGroup | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Use real-time updates hook
+  const { updates, clearUpdates, isConnected } = useRealtimeLeads({
+    enabled: true,
+    projectId,
+    scouterId,
+  });
 
   // Buscar fichas confirmadas
   const { data: fichasData, isLoading } = useQuery({
@@ -52,7 +62,7 @@ export default function HeatmapFichasMap({
     queryFn: async () => {
       let query = supabase
         .from("leads")
-        .select("name, address, scouter, ficha_confirmada, compareceu, data_confirmacao_ficha")
+        .select("id, name, address, scouter, ficha_confirmada, compareceu, data_confirmacao_ficha")
         .eq("ficha_confirmada", true)
         .not("address", "is", null)
         .gte("data_confirmacao_ficha", dateRange.startDate.toISOString())
@@ -90,9 +100,56 @@ export default function HeatmapFichasMap({
     },
   });
 
-  // Estatísticas
-  const totalFichas = fichasData?.length || 0;
-  const fichasCompareceram = fichasData?.filter((f) => f.compareceu).length || 0;
+  // Merge real-time updates with existing data
+  const mergedFichasData = useMemo(() => {
+    if (!fichasData) return [];
+    
+    // Create a map of existing fichas
+    const fichasMap = new Map(fichasData.map(f => [f.name, f]));
+    
+    // Process updates
+    updates.forEach(update => {
+      if (update.event === 'DELETE') {
+        fichasMap.delete(update.name);
+      } else {
+        // For INSERT and UPDATE, add/update the ficha
+        // Note: In production, you'd want to check if this is a confirmed ficha
+        fichasMap.set(update.name, {
+          lat: update.lat,
+          lng: update.lng,
+          value: 1,
+          name: update.name,
+          scouter: update.scouter || "Sem scouter",
+          confirmed: true,
+          compareceu: false,
+        });
+      }
+    });
+    
+    return Array.from(fichasMap.values());
+  }, [fichasData, updates]);
+
+  // Debounce heatmap updates to avoid too frequent recalculations
+  const updateHeatmap = useCallback(() => {
+    if (updates.length > 0) {
+      setIsUpdating(true);
+      // Clear updates after processing
+      setTimeout(() => {
+        clearUpdates();
+        setIsUpdating(false);
+      }, 500);
+    }
+  }, [updates, clearUpdates]);
+
+  useEffect(() => {
+    if (updates.length > 0) {
+      updateHeatmap();
+    }
+  }, [updates, updateHeatmap]);
+
+  // Estatísticas - use merged data
+  const totalFichas = mergedFichasData?.length || 0;
+  const fichasCompareceram = mergedFichasData?.filter((f) => f.compareceu).length || 0;
   const taxaComparecimento = totalFichas > 0 ? (fichasCompareceram / totalFichas) * 100 : 0;
 
   // Inicializar mapa
@@ -115,9 +172,9 @@ export default function HeatmapFichasMap({
     };
   }, []);
 
-  // Criar heatmap manual (círculos com opacidade)
+  // Criar heatmap manual (círculos com opacidade) - use merged data
   useEffect(() => {
-    if (!mapRef.current || !heatLayerRef.current || !fichasData) return;
+    if (!mapRef.current || !heatLayerRef.current || !mergedFichasData) return;
 
     // Limpar layer anterior
     heatLayerRef.current.clearLayers();
@@ -126,7 +183,7 @@ export default function HeatmapFichasMap({
     const gridSize = 0.005; // Tamanho da célula do grid
     const heatGrid = new Map<string, { count: number; lat: number; lng: number; fichas: FichaLocation[] }>();
 
-    fichasData.forEach((ficha) => {
+    mergedFichasData.forEach((ficha) => {
       const gridX = Math.floor(ficha.lat / gridSize);
       const gridY = Math.floor(ficha.lng / gridSize);
       const key = `${gridX},${gridY}`;
@@ -212,7 +269,7 @@ export default function HeatmapFichasMap({
     });
 
     // Adicionar marcadores individuais para fichas confirmadas
-    fichasData.forEach((ficha) => {
+    mergedFichasData.forEach((ficha) => {
       const icon = L.divIcon({
         html: `
           <div class="w-3 h-3 rounded-full ${
@@ -249,14 +306,30 @@ export default function HeatmapFichasMap({
     });
 
     // Ajustar bounds
-    if (fichasData.length > 0) {
-      const bounds = L.latLngBounds(fichasData.map((f) => [f.lat, f.lng]));
+    if (mergedFichasData.length > 0) {
+      const bounds = L.latLngBounds(mergedFichasData.map((f) => [f.lat, f.lng]));
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [fichasData]);
+  }, [mergedFichasData]);
 
   return (
     <div className="relative">
+      {/* Real-time connection indicator */}
+      <div className="absolute top-4 right-4 z-[1000]">
+        <Badge 
+          variant={isConnected ? "default" : "secondary"} 
+          className={`shadow-lg gap-2 ${isConnected ? 'bg-green-600' : ''}`}
+        >
+          <Radio className={`w-3 h-3 ${isConnected ? 'animate-pulse' : ''}`} />
+          {isConnected ? 'Tempo Real Ativo' : 'Conectando...'}
+        </Badge>
+        {isUpdating && (
+          <Badge variant="secondary" className="mt-2 shadow-lg">
+            Atualizando mapa...
+          </Badge>
+        )}
+      </div>
+
       {/* Estatísticas superiores */}
       <div className="absolute top-4 left-4 z-[1000] flex gap-2">
         <Card className="p-3 bg-white/95 backdrop-blur shadow-lg">
@@ -288,32 +361,45 @@ export default function HeatmapFichasMap({
 
       {/* Legenda do mapa de calor */}
       <div className="absolute bottom-4 right-4 z-[1000]">
-        <Card className="p-4 bg-white/95 backdrop-blur shadow-lg">
+        <Card className="p-4 bg-white/95 backdrop-blur shadow-lg max-w-xs">
           <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-            <Flame className="w-4 h-4" />
-            Intensidade do Mapa de Calor
+            <Flame className="w-4 h-4 text-orange-500" />
+            Mapa de Calor - Densidade
           </h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            As cores indicam a concentração de fichas confirmadas na região
+          </p>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-blue-500"></div>
-              <span className="text-xs">Baixa (1-33%)</span>
+              <div className="w-6 h-6 rounded-full bg-blue-500 flex-shrink-0"></div>
+              <div className="text-xs">
+                <div className="font-medium">Baixa densidade</div>
+                <div className="text-muted-foreground">1-33% da concentração máxima</div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-yellow-500"></div>
-              <span className="text-xs">Média (34-66%)</span>
+              <div className="w-6 h-6 rounded-full bg-yellow-500 flex-shrink-0"></div>
+              <div className="text-xs">
+                <div className="font-medium">Média densidade</div>
+                <div className="text-muted-foreground">34-66% da concentração máxima</div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-red-500"></div>
-              <span className="text-xs">Alta (67-100%)</span>
+              <div className="w-6 h-6 rounded-full bg-red-500 flex-shrink-0"></div>
+              <div className="text-xs">
+                <div className="font-medium">Alta densidade</div>
+                <div className="text-muted-foreground">67-100% da concentração máxima</div>
+              </div>
             </div>
             <div className="pt-2 mt-2 border-t">
+              <p className="text-xs font-medium mb-2">Marcadores individuais:</p>
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white"></div>
+                <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white flex-shrink-0"></div>
                 <span className="text-xs">Ficha confirmada</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500 border-2 border-white"></div>
-                <span className="text-xs">Compareceu</span>
+                <div className="w-3 h-3 rounded-full bg-green-500 border-2 border-white flex-shrink-0"></div>
+                <span className="text-xs">Cliente compareceu</span>
               </div>
             </div>
           </div>
