@@ -1028,7 +1028,6 @@ const Config = () => {
           onRemoveSubAdditionalField={removeSubAdditionalField}
           onUpdateSubAdditionalField={updateSubAdditionalField}
         />
-      </Card>
     </AdminPageLayout>
   );
 };
