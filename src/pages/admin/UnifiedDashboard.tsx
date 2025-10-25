@@ -39,8 +39,21 @@ export default function UnifiedDashboard() {
   const [refreshKey, setRefreshKey] = useState(0);
   const navigate = useNavigate();
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'healthy':
+        return 'Saudável';
+      case 'warning':
+        return 'Atenção';
+      case 'critical':
+        return 'Crítico';
+      default:
+        return 'Desconhecido';
+    }
+  };
+
   // Fetch system statistics using React Query
-  const { data: stats, isLoading, error, refetch } = useQuery<SystemStats>({
+  const { data: stats, isLoading, error } = useQuery<SystemStats>({
     queryKey: ['admin-dashboard-stats', refreshKey],
     queryFn: async () => {
       // Fetch users count
@@ -68,9 +81,9 @@ export default function UnifiedDashboard() {
       let systemStatus: 'healthy' | 'warning' | 'critical' = 'healthy';
       
       // Simple health check: if we got all data, system is healthy
-      if (!usersCount && !logsCount && !leadsCount) {
+      if (usersCount === null && logsCount === null && leadsCount === null) {
         systemStatus = 'critical';
-      } else if (!usersCount || !logsCount || !leadsCount) {
+      } else if (usersCount === null || logsCount === null || leadsCount === null) {
         systemStatus = 'warning';
       }
 
@@ -86,7 +99,6 @@ export default function UnifiedDashboard() {
 
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
-    refetch();
   };
 
   const getStatusIcon = (status: string) => {
@@ -198,7 +210,7 @@ export default function UnifiedDashboard() {
               <div className="flex items-center gap-2">
                 {stats && getStatusIcon(stats.systemStatus)}
                 <Badge variant={stats ? getStatusBadgeVariant(stats.systemStatus) : 'outline'}>
-                  {isLoading ? '...' : stats?.systemStatus || 'unknown'}
+                  {isLoading ? '...' : stats ? getStatusLabel(stats.systemStatus) : 'Desconhecido'}
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
