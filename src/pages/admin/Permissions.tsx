@@ -4,11 +4,13 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Shield, Save } from "lucide-react";
+import { Shield, Save, Route } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Permission, RolePermission, PermissionScope, AppRole } from "@/types/database-extensions";
 import { AdminPageLayout } from "@/components/layouts/AdminPageLayout";
+import RoutePermissionsManager from "@/components/admin/RoutePermissionsManager";
 
 const SCOPE_LABELS: Record<PermissionScope, string> = {
   global: "Global (Todos)",
@@ -146,105 +148,125 @@ export default function Permissions() {
 
   return (
     <AdminPageLayout
-      title="Permissões por Role"
-      description="Configure o escopo de acesso para cada role"
+      title="Gerenciar Permissões"
+      description="Configure permissões por recurso ou por página"
       backTo="/admin"
-      actions={
-        <Button onClick={handleSave} disabled={saving || changes.size === 0}>
-          <Save className="h-4 w-4 mr-2" />
-          Salvar {changes.size > 0 && `(${changes.size})`}
-        </Button>
-      }
     >
-      <Card className="p-6">
-        {loading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {Object.entries(groupedPermissions).map(([resource, perms]) => (
-              <div key={resource}>
-                <h3 className="text-lg font-semibold mb-3 capitalize flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  {resource}
-                </h3>
+      <Tabs defaultValue="resources" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="resources" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Por Recurso
+          </TabsTrigger>
+          <TabsTrigger value="routes" className="flex items-center gap-2">
+            <Route className="h-4 w-4" />
+            Por Página
+          </TabsTrigger>
+        </TabsList>
 
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[200px]">Permissão</TableHead>
-                        {roles.map(role => (
-                          <TableHead key={role} className="text-center capitalize">
-                            {role}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {perms.map(perm => (
-                        <TableRow key={perm.id}>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{perm.label}</div>
-                              {perm.description && (
-                                <div className="text-xs text-muted-foreground">{perm.description}</div>
-                              )}
-                            </div>
-                          </TableCell>
-                          {roles.map(role => {
-                            const currentScope = getScopeForRolePermission(role, perm.id);
-                            return (
-                              <TableCell key={role} className="text-center">
-                                <Select
-                                  value={currentScope}
-                                  onValueChange={(value) => 
-                                    handleScopeChange(role, perm.id, value as PermissionScope)
-                                  }
-                                >
-                                  <SelectTrigger className={getScopeColor(currentScope)}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {SCOPE_OPTIONS.map(scope => (
-                                      <SelectItem 
-                                        key={scope} 
-                                        value={scope}
-                                        className={getScopeColor(scope)}
-                                      >
-                                        {SCOPE_LABELS[scope]}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+        <TabsContent value="resources" className="space-y-4">
+          <div className="flex justify-end">
+            <Button onClick={handleSave} disabled={saving || changes.size === 0}>
+              <Save className="h-4 w-4 mr-2" />
+              Salvar {changes.size > 0 && `(${changes.size})`}
+            </Button>
+          </div>
+
+          <Card className="p-6">
+            {loading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
               </div>
-            ))}
-          </div>
-        )}
-      </Card>
+            ) : (
+              <div className="space-y-8">
+                {Object.entries(groupedPermissions).map(([resource, perms]) => (
+                  <div key={resource}>
+                    <h3 className="text-lg font-semibold mb-3 capitalize flex items-center gap-2">
+                      <Shield className="h-5 w-5" />
+                      {resource}
+                    </h3>
 
-      <Card className="p-4 bg-muted/50">
-        <h4 className="font-semibold mb-2">Legenda de Escopos</h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-          {SCOPE_OPTIONS.map(scope => (
-            <div key={scope} className="flex items-center gap-2">
-              <span className={getScopeColor(scope)}>●</span>
-              <span className="font-medium">{SCOPE_LABELS[scope]}</span>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[200px]">Permissão</TableHead>
+                            {roles.map(role => (
+                              <TableHead key={role} className="text-center capitalize">
+                                {role}
+                              </TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {perms.map(perm => (
+                            <TableRow key={perm.id}>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{perm.label}</div>
+                                  {perm.description && (
+                                    <div className="text-xs text-muted-foreground">{perm.description}</div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              {roles.map(role => {
+                                const currentScope = getScopeForRolePermission(role, perm.id);
+                                return (
+                                  <TableCell key={role} className="text-center">
+                                    <Select
+                                      value={currentScope}
+                                      onValueChange={(value) => 
+                                        handleScopeChange(role, perm.id, value as PermissionScope)
+                                      }
+                                    >
+                                      <SelectTrigger className={getScopeColor(currentScope)}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {SCOPE_OPTIONS.map(scope => (
+                                          <SelectItem 
+                                            key={scope} 
+                                            value={scope}
+                                            className={getScopeColor(scope)}
+                                          >
+                                            {SCOPE_LABELS[scope]}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                );
+                              })}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card className="p-4 bg-muted/50">
+            <h4 className="font-semibold mb-2">Legenda de Escopos</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+              {SCOPE_OPTIONS.map(scope => (
+                <div key={scope} className="flex items-center gap-2">
+                  <span className={getScopeColor(scope)}>●</span>
+                  <span className="font-medium">{SCOPE_LABELS[scope]}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </Card>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="routes">
+          <RoutePermissionsManager />
+        </TabsContent>
+      </Tabs>
     </AdminPageLayout>
   );
 }

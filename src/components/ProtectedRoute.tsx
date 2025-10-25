@@ -2,24 +2,30 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
+import { useRoutePermission } from "@/hooks/useRoutePermission";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
   requireManager?: boolean;
   requireSupervisor?: boolean;
+  checkRoutePermission?: boolean;
 }
 
 const ProtectedRoute = ({ 
   children, 
   requireAdmin, 
   requireManager,
-  requireSupervisor
+  requireSupervisor,
+  checkRoutePermission = false
 }: ProtectedRouteProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "manager" | "supervisor" | "agent" | null>(null);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Hook para verificar permissão de rota (novo sistema)
+  const { canAccess: routeAllowed, loading: routeLoading } = useRoutePermission();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -32,8 +38,17 @@ const ProtectedRoute = ({
 
       setUser(session.user);
 
-      // Check role if required
-      if (requireAdmin || requireManager) {
+      // Se usa novo sistema de permissões por rota
+      if (checkRoutePermission) {
+        if (!routeLoading) {
+          setHasAccess(routeAllowed);
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Check role if required (sistema antigo)
+      if (requireAdmin || requireManager || requireSupervisor) {
         const { data: roles, error } = await supabase
           .from("user_roles")
           .select("role")
@@ -86,9 +101,9 @@ const ProtectedRoute = ({
     );
 
     return () => subscription.unsubscribe();
-  }, [requireAdmin, requireManager, requireSupervisor]);
+  }, [requireAdmin, requireManager, requireSupervisor, checkRoutePermission, routeAllowed, routeLoading]);
 
-  if (loading) {
+  if (loading || (checkRoutePermission && routeLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">Carregando...</div>
