@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { performanceMonitor } from '@/lib/monitoring';
 
 interface UseLeadsParams {
   startDate?: string;
@@ -21,7 +22,7 @@ export function useLeads(params: UseLeadsParams = {}) {
   const columns = params.columns?.join(',') || '*';
 
   return useQuery({
-    queryKey: ['leads', params],
+    queryKey,
     queryFn: async () => {
       // Calculate pagination offset
       const from = (page - 1) * pageSize;
@@ -58,6 +59,18 @@ export function useLeads(params: UseLeadsParams = {}) {
 
       if (error) {
         console.error('[useLeads] Erro ao buscar leads:', error);
+        
+        // Record error metric
+        performanceMonitor.recordQueryPerformance({
+          queryKey: JSON.stringify(queryKey),
+          value: performance.now() - startTime,
+          status: 'error',
+          metadata: {
+            errorMessage: error.message,
+            errorCode: error.code,
+          },
+        });
+        
         throw error;
       }
 

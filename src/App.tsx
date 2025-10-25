@@ -19,6 +19,7 @@ import Users from "./pages/Users";
 import AgentMapping from "./pages/AgentMapping";
 import Permissions from "./pages/Permissions";
 import Diagnostic from "./pages/Diagnostic";
+import PerformanceMonitoring from "./pages/PerformanceMonitoring";
 import NotFound from "./pages/NotFound";
 
 // Páginas do Gestão Scouter
@@ -58,6 +59,7 @@ const App = () => (
           <Route path="/logs" element={<ProtectedRoute requireManager><Logs /></ProtectedRoute>} />
           <Route path="/agent-mapping" element={<ProtectedRoute requireManager><AgentMapping /></ProtectedRoute>} />
           <Route path="/diagnostic" element={<ProtectedRoute requireAdmin><Diagnostic /></ProtectedRoute>} />
+          <Route path="/monitoring" element={<ProtectedRoute requireManager><PerformanceMonitoring /></ProtectedRoute>} />
 
           {/* Rotas do Gestão Scouter (prefixo /scouter) */}
           <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />
