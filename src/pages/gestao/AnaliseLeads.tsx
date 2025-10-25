@@ -4,14 +4,17 @@ import { supabase } from "@/integrations/supabase/client";
 import GestaoSidebar from "@/components/gestao/Sidebar";
 import LeadCard from "@/components/gestao/LeadCard";
 import SwipeActions from "@/components/gestao/SwipeActions";
+import UndoButton from "@/components/gestao/UndoButton";
+import ActionFeedbackOverlay from "@/components/gestao/ActionFeedbackOverlay";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, XCircle, SkipForward, Download, WifiOff } from "lucide-react";
+import { CheckCircle2, XCircle, SkipForward, Download, WifiOff, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useUndoAction } from "@/hooks/useUndoAction";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
@@ -21,9 +24,12 @@ export default function AnaliseLeads() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<"approved" | "rejected" | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const { canInstall, promptInstall, isInstalled } = useInstallPrompt();
   const isOnline = useOnlineStatus();
+  const { recordAction, clearUndo, isUndoAvailable, lastAction } = useUndoAction({ timeoutMs: 5000 });
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('month'),
     projectId: null,
@@ -103,10 +109,19 @@ export default function AnaliseLeads() {
         .eq("id", leadId);
 
       if (error) throw error;
+      return { leadId, quality };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["leads-pending-analysis"] });
       queryClient.invalidateQueries({ queryKey: ["analysis-session-stats"] });
+      
+      // Record action for undo
+      recordAction(variables.leadId, variables.quality);
+      
+      // Show visual feedback
+      setFeedbackType(variables.quality === "aprovado" ? "approved" : "rejected");
+      setShowFeedback(true);
+      setTimeout(() => setShowFeedback(false), 800);
       
       if (variables.quality === "aprovado") {
         toast({ title: "Lead aprovado!", variant: "default" });
@@ -114,8 +129,51 @@ export default function AnaliseLeads() {
         toast({ title: "Lead rejeitado", variant: "destructive" });
       }
     },
-    onError: () => {
-      toast({ title: "Erro ao analisar lead", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ 
+        title: "Erro ao analisar lead", 
+        description: error.message || "Não foi possível processar a análise. Tente novamente.",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Mutation para desfazer análise
+  const undoMutation = useMutation({
+    mutationFn: async (leadId: number) => {
+      const { error } = await supabase
+        .from("leads")
+        .update({
+          qualidade_lead: null,
+          analisado_por: null,
+          data_analise: null,
+        })
+        .eq("id", leadId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads-pending-analysis"] });
+      queryClient.invalidateQueries({ queryKey: ["analysis-session-stats"] });
+      
+      // Move back to previous lead
+      if (currentIndex > 0) {
+        setCurrentIndex(currentIndex - 1);
+      }
+      
+      clearUndo();
+      toast({ 
+        title: "Ação desfeita com sucesso", 
+        description: "O lead voltou para análise pendente.",
+        variant: "default" 
+      });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Erro ao desfazer ação", 
+        description: error.message || "Não foi possível desfazer a ação. Tente novamente.",
+        variant: "destructive" 
+      });
     },
   });
 
@@ -136,7 +194,14 @@ export default function AnaliseLeads() {
   };
 
   const handleSkip = () => {
+    // Clear undo when skipping
+    clearUndo();
     goToNext();
+  };
+
+  const handleUndo = () => {
+    if (!lastAction) return;
+    undoMutation.mutate(lastAction.leadId);
   };
 
   const goToNext = () => {
@@ -290,8 +355,9 @@ export default function AnaliseLeads() {
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p>Carregando leads...</p>
+              <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+              <p className="text-lg font-medium">Carregando leads...</p>
+              <p className="text-sm text-muted-foreground mt-2">Buscando próximos leads para análise</p>
             </div>
           </div>
         ) : !currentLead ? (
@@ -324,11 +390,11 @@ export default function AnaliseLeads() {
               onApprove={handleApprove}
               onReject={handleReject}
               onSkip={handleSkip}
-              disabled={analyzeMutation.isPending}
+              disabled={analyzeMutation.isPending || undoMutation.isPending}
             />
 
             {/* Legenda */}
-            <div className="flex justify-center gap-6 mt-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap justify-center gap-4 md:gap-6 mt-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-green-500" />
                 <span>Aprovar (Lead de qualidade)</span>
@@ -345,6 +411,20 @@ export default function AnaliseLeads() {
           </div>
         )}
       </div>
+
+      {/* Action Feedback Overlay */}
+      <ActionFeedbackOverlay 
+        isVisible={showFeedback} 
+        type={feedbackType}
+      />
+
+      {/* Undo Button */}
+      <UndoButton
+        onUndo={handleUndo}
+        isVisible={isUndoAvailable && !undoMutation.isPending}
+        lastActionType={lastAction?.quality === "aprovado" ? "approved" : "rejected"}
+        disabled={undoMutation.isPending}
+      />
     </div>
   );
 }

@@ -26,10 +26,20 @@ export function ApexBarChart({ title, categories, series, height = 350 }: ApexBa
       bar: {
         horizontal: false,
         columnWidth: '55%',
-        borderRadius: 8
+        borderRadius: 8,
+        dataLabels: {
+          position: 'top'
+        }
       }
     },
-    dataLabels: { enabled: false },
+    dataLabels: { 
+      enabled: true,
+      offsetY: -20,
+      style: {
+        fontSize: '12px',
+        colors: ['hsl(var(--foreground))']
+      }
+    },
     stroke: { show: true, width: 2, colors: ['transparent'] },
     xaxis: { 
       categories,
@@ -40,22 +50,47 @@ export function ApexBarChart({ title, categories, series, height = 350 }: ApexBa
       }
     },
     yaxis: { 
-      title: { text: 'Quantidade' },
+      title: { 
+        text: 'Quantidade',
+        style: {
+          color: 'hsl(var(--muted-foreground))',
+        }
+      },
       labels: {
         style: {
           colors: 'hsl(var(--muted-foreground))',
-        }
+        },
+        formatter: (val) => Math.floor(val).toString()
       }
     },
     fill: { opacity: 1 },
     tooltip: {
       theme: 'light',
-      y: { formatter: (val) => `${val} leads` }
+      y: { 
+        formatter: (val) => `${val} leads`,
+        title: {
+          formatter: (seriesName) => `${seriesName}:`
+        }
+      },
+      x: {
+        formatter: (val, opts) => {
+          const category = categories[opts.dataPointIndex];
+          return category ? `${category}` : '';
+        }
+      }
     },
     colors: ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))'],
     grid: {
       borderColor: 'hsl(var(--border))',
       row: { colors: ['transparent', 'transparent'], opacity: 0.5 }
+    },
+    legend: {
+      show: series.length > 1,
+      position: 'top',
+      horizontalAlign: 'center',
+      labels: {
+        colors: 'hsl(var(--muted-foreground))'
+      }
     }
   };
 
