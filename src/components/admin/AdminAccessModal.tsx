@@ -17,6 +17,7 @@ import {
   UserCog,
   Activity,
   Cloud,
+  LayoutDashboard,
 } from 'lucide-react';
 
 interface AdminAccessModalProps {
@@ -25,6 +26,13 @@ interface AdminAccessModalProps {
 }
 
 const adminOptions = [
+  {
+    path: '/admin/dashboard',
+    icon: LayoutDashboard,
+    title: 'Dashboard Unificado',
+    description: 'Visão geral completa do sistema',
+    color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+  },
   {
     path: '/admin/users',
     icon: Users,

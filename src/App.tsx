@@ -26,6 +26,7 @@ import Diagnostic from "./pages/admin/Diagnostic";
 import Diagnostics from "./pages/admin/Diagnostics";
 import PerformanceMonitoring from "./pages/admin/PerformanceMonitoring";
 import SyncMonitor from "./pages/admin/SyncMonitor";
+import UnifiedDashboard from "./pages/admin/UnifiedDashboard";
 
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
@@ -63,6 +64,7 @@ const App = () => (
           
           {/* Rotas Administrativas */}
           <Route path="/admin" element={<ProtectedRoute requireManager><AdminHub /></ProtectedRoute>} />
+          <Route path="/admin/dashboard" element={<ProtectedRoute requireManager><UnifiedDashboard /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute requireSupervisor><Users /></ProtectedRoute>} />
           <Route path="/admin/permissions" element={<ProtectedRoute requireAdmin><Permissions /></ProtectedRoute>} />
           <Route path="/admin/config" element={<ProtectedRoute requireManager><Config /></ProtectedRoute>} />
