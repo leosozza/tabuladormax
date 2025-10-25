@@ -23,6 +23,7 @@ import Users from "./pages/admin/Users";
 import AgentMapping from "./pages/admin/AgentMapping";
 import Permissions from "./pages/admin/Permissions";
 import Diagnostic from "./pages/admin/Diagnostic";
+import Diagnostics from "./pages/admin/Diagnostics";
 import PerformanceMonitoring from "./pages/admin/PerformanceMonitoring";
 import SyncMonitor from "./pages/admin/SyncMonitor";
 
@@ -68,6 +69,7 @@ const App = () => (
           <Route path="/admin/logs" element={<ProtectedRoute requireManager><Logs /></ProtectedRoute>} />
           <Route path="/admin/agent-mapping" element={<ProtectedRoute requireManager><AgentMapping /></ProtectedRoute>} />
           <Route path="/admin/diagnostic" element={<ProtectedRoute requireAdmin><Diagnostic /></ProtectedRoute>} />
+          <Route path="/admin/diagnostics" element={<ProtectedRoute requireAdmin><Diagnostics /></ProtectedRoute>} />
           <Route path="/admin/monitoring" element={<ProtectedRoute requireManager><PerformanceMonitoring /></ProtectedRoute>} />
           <Route path="/admin/sync-monitor" element={<ProtectedRoute requireManager><SyncMonitor /></ProtectedRoute>} />
 
