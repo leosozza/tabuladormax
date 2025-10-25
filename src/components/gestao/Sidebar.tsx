@@ -19,13 +19,13 @@ export default function GestaoSidebar() {
   ];
 
   return (
-    <div className="w-64 bg-gradient-to-b from-green-900 to-green-950 text-white min-h-screen flex flex-col">
-      <div className="p-6">
-        <h2 className="text-2xl font-bold mb-2">Gestão Scouter</h2>
-        <p className="text-sm text-green-200">Gerenciamento de Leads</p>
+    <div className="w-64 bg-sidebar border-r border-sidebar-border min-h-screen flex flex-col">
+      <div className="p-6 border-b border-sidebar-border">
+        <h2 className="text-2xl font-bold mb-2 text-sidebar-foreground">Gestão Scouter</h2>
+        <p className="text-sm text-sidebar-foreground/70">Gerenciamento de Leads</p>
       </div>
       
-      <nav className="flex-1 px-3">
+      <nav className="flex-1 px-3 py-4">
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -33,10 +33,10 @@ export default function GestaoSidebar() {
               key={item.path}
               to={item.path}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors",
+                "flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all duration-200",
                 isActive(item.path)
-                  ? "bg-green-700 text-white font-medium"
-                  : "text-green-100 hover:bg-green-800/50"
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-md"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
             >
               <Icon className="w-5 h-5" />
@@ -46,13 +46,13 @@ export default function GestaoSidebar() {
         })}
       </nav>
       
-      <div className="p-4 border-t border-green-800">
+      <div className="p-4 border-t border-sidebar-border">
         <Link
-          to="/"
-          className="flex items-center gap-2 text-sm text-green-200 hover:text-white transition-colors"
+          to="/home-choice"
+          className="flex items-center gap-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Voltar para Tabulador
+          Voltar ao Menu
         </Link>
       </div>
     </div>
