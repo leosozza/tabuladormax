@@ -109,7 +109,6 @@ export default function AnaliseLeads() {
         .eq("id", leadId);
 
       if (error) throw error;
-      return { leadId, quality };
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["leads-pending-analysis"] });
