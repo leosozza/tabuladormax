@@ -28,8 +28,9 @@ export function PermissionsTabs() {
       if (error) throw error;
 
       setSchemaCacheValid(data?.valid || false);
-    } catch (error: any) {
-      console.error("Erro ao validar cache do schema:", error);
+    } catch (error) {
+      const err = error as Error;
+      console.error("Erro ao validar cache do schema:", err);
       toast.error("Erro ao validar cache do schema");
       setSchemaCacheValid(false);
     } finally {

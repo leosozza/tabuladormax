@@ -64,9 +64,10 @@ export function AutoRepairPanel() {
       } else {
         toast.error("Falha ao aplicar correção automática");
       }
-    } catch (error: any) {
-      console.error("Error applying auto-fix:", error);
-      toast.error("Erro ao aplicar correção: " + error.message);
+    } catch (error) {
+      const err = error as Error;
+      console.error("Error applying auto-fix:", err);
+      toast.error("Erro ao aplicar correção: " + err.message);
     } finally {
       setFixing(null);
     }
