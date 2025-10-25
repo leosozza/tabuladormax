@@ -21,14 +21,10 @@ export function unionPolygons(polygons: turf.Feature<turf.Polygon>[]): turf.Feat
   if (polygons.length === 1) return polygons[0];
   
   try {
-    let result = polygons[0];
-    for (let i = 1; i < polygons.length; i++) {
-      const union = turf.union(result, polygons[i]);
-      if (union) {
-        result = union as turf.Feature<turf.Polygon | turf.MultiPolygon>;
-      }
-    }
-    return result;
+    // In Turf v7, union accepts a FeatureCollection
+    const featureCollection = turf.featureCollection(polygons);
+    const result = turf.union(featureCollection);
+    return result as turf.Feature<turf.Polygon | turf.MultiPolygon>;
   } catch (error) {
     console.error("Error unioning polygons:", error);
     return null;
