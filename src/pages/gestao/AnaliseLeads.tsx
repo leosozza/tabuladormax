@@ -158,15 +158,20 @@ export default function AnaliseLeads() {
       // Move back to previous lead
       if (currentIndex > 0) {
         setCurrentIndex(currentIndex - 1);
+        clearUndo();
+        toast({ 
+          title: "Ação desfeita com sucesso", 
+          description: "O lead voltou para análise pendente.",
+          variant: "default" 
+        });
+      } else {
+        clearUndo();
+        toast({
+          title: "Você já está no primeiro lead",
+          description: "Não é possível voltar mais.",
+          variant: "default"
+        });
       }
-      
-      clearUndo();
-      toast({ 
-        title: "Ação desfeita com sucesso", 
-        description: "O lead voltou para análise pendente.",
-        variant: "default" 
-      });
-    },
     onError: (error: Error) => {
       toast({ 
         title: "Erro ao desfazer ação", 
