@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useDashboard } from '@/hooks/useDashboard';
 import { DynamicWidget } from '@/components/dashboard/DynamicWidget';
 import { QueryBuilder } from '@/components/dashboard/QueryBuilder';
-import { GridLayout, GridWidget } from '@/components/dashboard/builder/GridLayout';
+import { DraggableGridLayout, DraggableWidget } from '@/components/dashboard/DraggableGridLayout';
 import type { DashboardConfig, DashboardWidget } from '@/types/dashboard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -135,6 +135,21 @@ export default function DashboardManager() {
     });
   };
 
+  const handleReorderWidgets = (reorderedWidgets: DraggableWidget[]) => {
+    if (!selectedDashboard) return;
+
+    // Reconstruir widgets mantendo configurações originais
+    const updatedWidgets = reorderedWidgets.map(dw => {
+      const originalWidget = selectedDashboard.widgets.find(w => w.id === dw.id);
+      return originalWidget!;
+    });
+
+    updateDashboard({
+      id: selectedDashboard.id,
+      config: { widgets: updatedWidgets },
+    });
+  };
+
   const handleDeleteDashboard = () => {
     if (!selectedDashboard) return;
 
@@ -143,7 +158,7 @@ export default function DashboardManager() {
     setShowDeleteDialog(false);
   };
 
-  const gridWidgets: GridWidget[] = selectedDashboard?.widgets.map((widget, idx) => ({
+  const draggableWidgets: DraggableWidget[] = selectedDashboard?.widgets.map((widget) => ({
     id: widget.id,
     title: widget.title,
     component: (
@@ -258,8 +273,13 @@ export default function DashboardManager() {
             </Card>
           )}
 
-          {gridWidgets.length > 0 ? (
-            <GridLayout widgets={gridWidgets} gap={6} />
+          {draggableWidgets.length > 0 ? (
+            <DraggableGridLayout 
+              widgets={draggableWidgets} 
+              onReorder={handleReorderWidgets}
+              gap={6}
+              editable={true}
+            />
           ) : (
             <Card>
               <CardContent className="py-16 text-center">
