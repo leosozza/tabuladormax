@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Chart from 'react-apexcharts';
 import { ApexOptions } from 'apexcharts';
+import { useChartPerformance } from '@/lib/monitoring';
 
 interface ApexBarChartProps {
   title: string;
@@ -10,6 +11,11 @@ interface ApexBarChartProps {
 }
 
 export function ApexBarChart({ title, categories, series, height = 350 }: ApexBarChartProps) {
+  // Calculate total data points
+  const dataPoints = series.reduce((sum, s) => sum + s.data.length, 0);
+  
+  // Monitor chart performance
+  useChartPerformance('apex', dataPoints, [series, categories]);
   const options: ApexOptions = {
     chart: {
       type: 'bar',

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { performanceMonitor } from '@/lib/monitoring';
 
 interface UseLeadsParams {
   startDate?: string;
@@ -11,8 +12,11 @@ interface UseLeadsParams {
 }
 
 export function useLeads(params: UseLeadsParams = {}) {
+  const queryKey = ['leads', params];
+  const startTime = performance.now();
+
   return useQuery({
-    queryKey: ['leads', params],
+    queryKey,
     queryFn: async () => {
       let query = supabase
         .from('leads')
@@ -44,8 +48,35 @@ export function useLeads(params: UseLeadsParams = {}) {
 
       if (error) {
         console.error('[useLeads] Erro ao buscar leads:', error);
+        
+        // Record error metric
+        performanceMonitor.recordQueryPerformance({
+          queryKey: JSON.stringify(queryKey),
+          value: performance.now() - startTime,
+          status: 'error',
+          metadata: {
+            errorMessage: error.message,
+            errorCode: error.code,
+          },
+        });
+        
         throw error;
       }
+
+      // Record success metric
+      const duration = performance.now() - startTime;
+      const dataSize = data ? JSON.stringify(data).length : 0;
+      
+      performanceMonitor.recordQueryPerformance({
+        queryKey: JSON.stringify(queryKey),
+        value: duration,
+        status: 'success',
+        dataSize,
+        metadata: {
+          recordCount: data?.length || 0,
+          hasFilters: Object.keys(params).length > 0,
+        },
+      });
 
       return data || [];
     },

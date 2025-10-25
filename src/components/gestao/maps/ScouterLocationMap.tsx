@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { User, MapPin, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useChartPerformance } from "@/lib/monitoring";
 
 // Ícones personalizados para scouters
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -113,6 +114,10 @@ export default function ScouterLocationMap({
     },
     refetchInterval: 30000, // Atualizar a cada 30 segundos
   });
+
+  // Monitor map performance
+  const dataPoints = scouterLocations?.length || 0;
+  useChartPerformance('leaflet', dataPoints, [scouterLocations]);
 
   // Inicializar mapa
   useEffect(() => {
