@@ -10,6 +10,8 @@ interface ApexDonutChartProps {
 }
 
 export function ApexDonutChart({ title, labels, series, height = 350 }: ApexDonutChartProps) {
+  const total = series.reduce((a, b) => a + b, 0);
+  
   const options: ApexOptions = {
     chart: {
       type: 'donut',
@@ -20,11 +22,20 @@ export function ApexDonutChart({ title, labels, series, height = 350 }: ApexDonu
       position: 'bottom',
       labels: {
         colors: 'hsl(var(--muted-foreground))',
+      },
+      formatter: (label: string, opts: { seriesIndex: number; w: { globals: { series: number[] } } }) => {
+        const value = opts.w.globals.series[opts.seriesIndex];
+        const percentage = ((value / total) * 100).toFixed(1);
+        return `${label}: ${value} (${percentage}%)`;
       }
     },
     dataLabels: {
       enabled: true,
-      formatter: (val: number) => `${val.toFixed(1)}%`
+      formatter: (val: number) => `${val.toFixed(1)}%`,
+      style: {
+        fontSize: '14px',
+        fontWeight: 'bold'
+      }
     },
     plotOptions: {
       pie: {
@@ -32,10 +43,26 @@ export function ApexDonutChart({ title, labels, series, height = 350 }: ApexDonu
           size: '65%',
           labels: {
             show: true,
+            name: {
+              show: true,
+              fontSize: '16px',
+              fontWeight: 600,
+              color: 'hsl(var(--foreground))'
+            },
+            value: {
+              show: true,
+              fontSize: '24px',
+              fontWeight: 'bold',
+              color: 'hsl(var(--foreground))',
+              formatter: (val) => val.toString()
+            },
             total: {
               show: true,
-              label: 'Total',
-              formatter: () => `${series.reduce((a, b) => a + b, 0)}`
+              label: 'Total de Leads',
+              fontSize: '14px',
+              fontWeight: 600,
+              color: 'hsl(var(--muted-foreground))',
+              formatter: () => `${total}`
             }
           }
         }
@@ -44,7 +71,13 @@ export function ApexDonutChart({ title, labels, series, height = 350 }: ApexDonu
     tooltip: {
       theme: 'light',
       y: {
-        formatter: (val) => `${val} leads`
+        formatter: (val) => {
+          const percentage = ((val / total) * 100).toFixed(1);
+          return `${val} leads (${percentage}%)`;
+        },
+        title: {
+          formatter: (seriesName) => `${seriesName}:`
+        }
       }
     }
   };

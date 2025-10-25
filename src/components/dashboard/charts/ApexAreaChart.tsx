@@ -13,8 +13,18 @@ export function ApexAreaChart({ title, categories, series, height = 350 }: ApexA
   const options: ApexOptions = {
     chart: {
       type: 'area',
-      toolbar: { show: true },
-      animations: { enabled: true }
+      toolbar: { 
+        show: true,
+        tools: {
+          download: true,
+          zoom: true,
+          zoomin: true,
+          zoomout: true,
+          pan: true,
+          reset: true
+        }
+      },
+      animations: { enabled: true, speed: 800 }
     },
     dataLabels: { enabled: false },
     stroke: { curve: 'smooth', width: 2 },
@@ -35,10 +45,17 @@ export function ApexAreaChart({ title, categories, series, height = 350 }: ApexA
       }
     },
     yaxis: {
+      title: {
+        text: 'Quantidade',
+        style: {
+          color: 'hsl(var(--muted-foreground))',
+        }
+      },
       labels: {
         style: {
           colors: 'hsl(var(--muted-foreground))',
-        }
+        },
+        formatter: (val) => Math.floor(val).toString()
       }
     },
     colors: ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))'],
@@ -46,7 +63,32 @@ export function ApexAreaChart({ title, categories, series, height = 350 }: ApexA
       borderColor: 'hsl(var(--border))',
     },
     tooltip: {
-      theme: 'light'
+      theme: 'light',
+      shared: true,
+      intersect: false,
+      y: {
+        formatter: (val) => `${val} leads`,
+        title: {
+          formatter: (seriesName) => `${seriesName}:`
+        }
+      },
+      x: {
+        show: true
+      }
+    },
+    legend: {
+      show: series.length > 1,
+      position: 'top',
+      horizontalAlign: 'center',
+      labels: {
+        colors: 'hsl(var(--muted-foreground))'
+      }
+    },
+    markers: {
+      size: 0,
+      hover: {
+        size: 5
+      }
     }
   };
   
