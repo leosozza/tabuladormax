@@ -465,8 +465,8 @@ export default function AreaMap({
       `${area.bounds.length} pontos`
     ]);
     
-    // Use autoTable with proper typing
-    (doc as typeof doc & { autoTable: typeof autoTable }).autoTable({
+    // Use autoTable directly on the doc
+    autoTable(doc, {
       head: [['#', 'Nome da Área', 'Leads', 'Pontos']],
       body: tableData,
       startY: 45,

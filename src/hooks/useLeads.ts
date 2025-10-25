@@ -41,7 +41,7 @@ export function useLeads(params: UseLeadsParams = {}) {
         query = query.lte('criado', params.endDate);
       }
       if (params.projeto) {
-        query = query.eq('projetos', params.projeto);
+        (query as any) = (query as any).eq('projetos', params.projeto);
       }
       if (params.scouter) {
         query = query.ilike('scouter', `%${params.scouter}%`);

@@ -62,7 +62,7 @@ export function useRealtimeLeads(options: UseRealtimeLeadsOptions = {}) {
           
           try {
             // Fetch the complete lead data if needed
-            const leadId = payload.new?.id || payload.old?.id;
+            const leadId = (payload.new as any)?.id || (payload.old as any)?.id;
             if (!leadId) return;
 
             // For DELETE events, we don't need to fetch
@@ -81,7 +81,7 @@ export function useRealtimeLeads(options: UseRealtimeLeadsOptions = {}) {
             // For INSERT and UPDATE, fetch complete data with geocoding
             const { data: lead, error } = await supabase
               .from("leads")
-              .select("id, name, address, local_abordagem, scouter, status_fluxo")
+              .select("id, name, address, local_abordagem, scouter, status_fluxo, commercial_project_id")
               .eq("id", leadId)
               .single();
 
@@ -91,10 +91,10 @@ export function useRealtimeLeads(options: UseRealtimeLeadsOptions = {}) {
             }
 
             // Apply filters
-            if (projectId && lead.commercial_project_id !== projectId) {
+            if (projectId && (lead as any).commercial_project_id !== projectId) {
               return;
             }
-            if (scouterId && lead.scouter !== scouterId) {
+            if (scouterId && (lead as any).scouter !== scouterId) {
               return;
             }
 

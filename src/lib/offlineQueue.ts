@@ -87,7 +87,7 @@ class OfflineQueueDB {
       const transaction = this.db!.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const index = store.index('synced');
-      const request = index.getAll(false);
+      const request = index.getAll(IDBKeyRange.only(0));
 
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -166,7 +166,7 @@ class OfflineQueueDB {
       const transaction = this.db!.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const index = store.index('synced');
-      const request = index.count(false);
+      const request = index.count(IDBKeyRange.only(0));
 
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);

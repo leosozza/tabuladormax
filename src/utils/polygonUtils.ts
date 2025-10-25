@@ -1,10 +1,13 @@
 import * as turf from "@turf/turf";
 import L from "leaflet";
 
+type TurfFeature = ReturnType<typeof turf.polygon>;
+type TurfPolygon = TurfFeature['geometry'];
+
 /**
  * Convert Leaflet LatLng array to Turf polygon
  */
-export function leafletToTurfPolygon(bounds: L.LatLng[]): turf.Feature<turf.Polygon> {
+export function leafletToTurfPolygon(bounds: L.LatLng[]): TurfFeature {
   const coords = bounds.map(b => [b.lng, b.lat]);
   // Close the polygon if not already closed
   if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
@@ -16,7 +19,7 @@ export function leafletToTurfPolygon(bounds: L.LatLng[]): turf.Feature<turf.Poly
 /**
  * Union multiple polygons into a single multipolygon or polygon
  */
-export function unionPolygons(polygons: turf.Feature<turf.Polygon>[]): turf.Feature<turf.Polygon | turf.MultiPolygon> | null {
+export function unionPolygons(polygons: TurfFeature[]): ReturnType<typeof turf.union> | null {
   if (polygons.length === 0) return null;
   if (polygons.length === 1) return polygons[0];
   
@@ -24,7 +27,7 @@ export function unionPolygons(polygons: turf.Feature<turf.Polygon>[]): turf.Feat
     // In Turf v7, union accepts a FeatureCollection
     const featureCollection = turf.featureCollection(polygons);
     const result = turf.union(featureCollection);
-    return result as turf.Feature<turf.Polygon | turf.MultiPolygon>;
+    return result;
   } catch (error) {
     console.error("Error unioning polygons:", error);
     return null;
@@ -36,7 +39,7 @@ export function unionPolygons(polygons: turf.Feature<turf.Polygon>[]): turf.Feat
  */
 export function isPointInAnyPolygon(
   point: { lat: number; lng: number },
-  polygons: turf.Feature<turf.Polygon>[]
+  polygons: TurfFeature[]
 ): boolean {
   if (polygons.length === 0) return false;
   
@@ -57,7 +60,7 @@ export function isPointInAnyPolygon(
  */
 export function isPointInUnionedPolygon(
   point: { lat: number; lng: number },
-  unionedPolygon: turf.Feature<turf.Polygon | turf.MultiPolygon>
+  unionedPolygon: ReturnType<typeof turf.union>
 ): boolean {
   const turfPoint = turf.point([point.lng, point.lat]);
   return turf.booleanPointInPolygon(turfPoint, unionedPolygon);
@@ -68,7 +71,7 @@ export function isPointInUnionedPolygon(
  */
 export function filterItemsInPolygons<T extends { lat: number; lng: number }>(
   items: T[],
-  polygons: turf.Feature<turf.Polygon>[]
+  polygons: TurfFeature[]
 ): T[] {
   if (polygons.length === 0) return items;
   
@@ -78,16 +81,18 @@ export function filterItemsInPolygons<T extends { lat: number; lng: number }>(
 /**
  * Get bounding box for multiple polygons
  */
-export function getPolygonsBounds(polygons: turf.Feature<turf.Polygon>[]): L.LatLngBounds | null {
+export function getPolygonsBounds(polygons: TurfFeature[]): L.LatLngBounds | null {
   if (polygons.length === 0) return null;
   
   const allCoords: L.LatLng[] = [];
   
   polygons.forEach(polygon => {
-    const coords = polygon.geometry.coordinates[0];
-    coords.forEach(([lng, lat]) => {
-      allCoords.push(L.latLng(lat, lng));
-    });
+    if (polygon.geometry.type === 'Polygon') {
+      const coords = polygon.geometry.coordinates[0];
+      coords.forEach(([lng, lat]) => {
+        allCoords.push(L.latLng(lat, lng));
+      });
+    }
   });
   
   return L.latLngBounds(allCoords);
@@ -96,14 +101,14 @@ export function getPolygonsBounds(polygons: turf.Feature<turf.Polygon>[]): L.Lat
 /**
  * Calculate area of a polygon in square meters
  */
-export function calculatePolygonArea(polygon: turf.Feature<turf.Polygon>): number {
+export function calculatePolygonArea(polygon: TurfFeature): number {
   return turf.area(polygon);
 }
 
 /**
  * Calculate total area of multiple polygons (with union to avoid overlap)
  */
-export function calculateTotalArea(polygons: turf.Feature<turf.Polygon>[]): number {
+export function calculateTotalArea(polygons: TurfFeature[]): number {
   if (polygons.length === 0) return 0;
   
   const unioned = unionPolygons(polygons);

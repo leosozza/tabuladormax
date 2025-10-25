@@ -43,10 +43,10 @@ export default function LeadCard({ lead }: LeadCardProps) {
     return null;
   };
 
-  const photoUrl = lead[config.photoField];
-  const mainValues = config.mainFields.map(key => ({ key, value: getFieldValue(key) }));
-  const detailValues = config.detailFields.map(key => ({ key, value: getFieldValue(key), label: getFieldLabel(key) }));
-  const badgeValues = config.badgeFields.map(key => ({ key, value: getFieldValue(key) })).filter(v => v.value);
+  const photoUrl = String(lead[config.photoField] || '');
+  const mainValues = config.mainFields.map(key => ({ key, value: String(getFieldValue(key) || '') }));
+  const detailValues = config.detailFields.map(key => ({ key, value: String(getFieldValue(key) || ''), label: getFieldLabel(key) }));
+  const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
 
   return (
     <Card className="w-full max-w-md mx-auto overflow-hidden border-2">
@@ -55,7 +55,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
         {photoUrl ? (
           <img
             src={photoUrl}
-            alt={lead.name || "Lead"}
+            alt={String(lead.name || "Lead")}
             className="w-full h-full object-cover"
           />
         ) : (
