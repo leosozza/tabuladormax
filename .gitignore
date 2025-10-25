@@ -7,9 +7,6 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Exception: Allow supabase/functions/diagnostics/logs
-!supabase/functions/diagnostics/logs/
-
 node_modules
 dist
 dist-ssr

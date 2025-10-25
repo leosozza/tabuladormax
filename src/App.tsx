@@ -3,9 +3,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 
-// Páginas do Tabulador
+// Páginas do Tabulador (carregamento síncrono - rotas frequentes)
 import Auth from "./pages/Auth";
 import Home from "./pages/Home";
 import HomeChoice from "./pages/HomeChoice";
@@ -14,19 +16,23 @@ import LeadTab from "./pages/LeadTab";
 import Dashboard from "./pages/Dashboard";
 import DashboardManager from "./pages/DashboardManager";
 import NotFound from "./pages/NotFound";
+import Forbidden from "./pages/Forbidden";
 
-// Páginas Administrativas
+// Páginas Administrativas (carregamento síncrono - exceto diagnostics e permissions)
 import AdminHub from "./pages/admin/AdminHub";
 import Config from "./pages/admin/Config";
 import Logs from "./pages/admin/Logs";
 import Users from "./pages/admin/Users";
 import AgentMapping from "./pages/admin/AgentMapping";
-import Permissions from "./pages/admin/Permissions";
 import Diagnostic from "./pages/admin/Diagnostic";
-import Diagnostics from "./pages/admin/Diagnostics";
 import PerformanceMonitoring from "./pages/admin/PerformanceMonitoring";
 import SyncMonitor from "./pages/admin/SyncMonitor";
 import UnifiedDashboard from "./pages/admin/UnifiedDashboard";
+
+// Code-splitting: Páginas admin de diagnósticos (carregamento lazy)
+// Benefício: Reduz bundle inicial, carrega apenas quando acessado por admins
+const Diagnostics = lazy(() => import("./pages/admin/Diagnostics"));
+const Permissions = lazy(() => import("./pages/admin/Permissions"));
 
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
@@ -38,6 +44,16 @@ import GestaoArea from "./pages/gestao/AreaDeAbordagem";
 import GestaoAnaliseLeads from "./pages/gestao/AnaliseLeads";
 import GestaoRelatorios from "./pages/gestao/Relatorios";
 import Install from "./pages/Install";
+
+// Loading component para Suspense
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+      <p className="text-muted-foreground">Carregando...</p>
+    </div>
+  </div>
+);
 
 const queryClient = new QueryClient();
 
@@ -66,12 +82,27 @@ const App = () => (
           <Route path="/admin" element={<ProtectedRoute requireManager><AdminHub /></ProtectedRoute>} />
           <Route path="/admin/dashboard" element={<ProtectedRoute requireManager><UnifiedDashboard /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute requireSupervisor><Users /></ProtectedRoute>} />
-          <Route path="/admin/permissions" element={<ProtectedRoute requireAdmin><Permissions /></ProtectedRoute>} />
+          
+          {/* Rotas Admin com Code-Splitting e AdminRoute Guard */}
+          <Route path="/admin/permissions" element={
+            <AdminRoute>
+              <Suspense fallback={<LoadingFallback />}>
+                <Permissions />
+              </Suspense>
+            </AdminRoute>
+          } />
+          <Route path="/admin/diagnostics" element={
+            <AdminRoute>
+              <Suspense fallback={<LoadingFallback />}>
+                <Diagnostics />
+              </Suspense>
+            </AdminRoute>
+          } />
+          
           <Route path="/admin/config" element={<ProtectedRoute requireManager><Config /></ProtectedRoute>} />
           <Route path="/admin/logs" element={<ProtectedRoute requireManager><Logs /></ProtectedRoute>} />
           <Route path="/admin/agent-mapping" element={<ProtectedRoute requireManager><AgentMapping /></ProtectedRoute>} />
           <Route path="/admin/diagnostic" element={<ProtectedRoute requireAdmin><Diagnostic /></ProtectedRoute>} />
-          <Route path="/admin/diagnostics" element={<ProtectedRoute requireAdmin><Diagnostics /></ProtectedRoute>} />
           <Route path="/admin/monitoring" element={<ProtectedRoute requireManager><PerformanceMonitoring /></ProtectedRoute>} />
           <Route path="/admin/sync-monitor" element={<ProtectedRoute requireManager><SyncMonitor /></ProtectedRoute>} />
 
@@ -86,6 +117,7 @@ const App = () => (
           <Route path="/scouter/relatorios" element={<ProtectedRoute><GestaoRelatorios /></ProtectedRoute>} />
 
           {/* 404 */}
+          <Route path="/403" element={<Forbidden />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

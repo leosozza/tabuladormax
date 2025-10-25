@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
+import { splitVendorChunkPlugin } from 'vite';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -13,6 +14,9 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     mode === "development" && componentTagger(),
+    // Code-splitting: Separar vendor chunks automaticamente
+    // Benefício: Melhora cache do navegador ao separar código de terceiros
+    splitVendorChunkPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'icons/*.png'],
@@ -119,6 +123,55 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@/modules": path.resolve(__dirname, "./src/modules"),
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Code-splitting manual: Separar libs pesadas em chunks individuais
+        // Estratégia de otimização:
+        // 1. 'react-core': React e React-DOM juntos (sempre usados)
+        // 2. 'ui-radix': Componentes Radix UI (UI library pesada)
+        // 3. 'charts': Bibliotecas de gráficos (apexcharts, recharts)
+        // 4. 'maps': Bibliotecas de mapas (leaflet, turf)
+        // 5. 'vendor': Outras dependências
+        // Benefício: Melhor cache e carregamento paralelo
+        manualChunks: (id) => {
+          // React core (sempre carregado)
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'react-core';
+          }
+          // Radix UI components (UI pesada)
+          if (id.includes('node_modules/@radix-ui')) {
+            return 'ui-radix';
+          }
+          // Bibliotecas de gráficos
+          if (id.includes('node_modules/apexcharts') || 
+              id.includes('node_modules/react-apexcharts') ||
+              id.includes('node_modules/recharts')) {
+            return 'charts';
+          }
+          // Bibliotecas de mapas
+          if (id.includes('node_modules/leaflet') || 
+              id.includes('node_modules/@turf') ||
+              id.includes('node_modules/react-leaflet')) {
+            return 'maps';
+          }
+          // Router e query (infraestrutura)
+          if (id.includes('node_modules/react-router') || 
+              id.includes('node_modules/@tanstack/react-query')) {
+            return 'routing';
+          }
+          // Supabase (backend client)
+          if (id.includes('node_modules/@supabase')) {
+            return 'supabase';
+          }
+          // Demais dependências node_modules
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+        },
+      },
     },
   },
 }));
