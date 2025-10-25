@@ -8,16 +8,30 @@ interface UseLeadsParams {
   scouter?: string;
   etapa?: string;
   withGeo?: boolean;
+  columns?: string[]; // Dynamic column selection
+  page?: number; // Pagination support
+  pageSize?: number; // Page size for pagination
 }
 
+const DEFAULT_PAGE_SIZE = 50;
+
 export function useLeads(params: UseLeadsParams = {}) {
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+  const columns = params.columns?.join(',') || '*';
+
   return useQuery({
     queryKey: ['leads', params],
     queryFn: async () => {
+      // Calculate pagination offset
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
       let query = supabase
         .from('leads')
-        .select('*')
-        .order('criado', { ascending: false });
+        .select(columns, { count: 'exact' })
+        .order('criado', { ascending: false })
+        .range(from, to);
 
       // Apply date filters using 'criado' (date field)
       if (params.startDate) {
@@ -40,14 +54,20 @@ export function useLeads(params: UseLeadsParams = {}) {
       }
 
       // Execute query
-      const { data, error } = await query;
+      const { data, error, count } = await query;
 
       if (error) {
         console.error('[useLeads] Erro ao buscar leads:', error);
         throw error;
       }
 
-      return data || [];
+      return { 
+        data: data || [], 
+        count: count || 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count || 0) / pageSize)
+      };
     },
     staleTime: 30000,
   });
