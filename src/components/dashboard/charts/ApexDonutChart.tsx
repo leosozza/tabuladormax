@@ -23,7 +23,7 @@ export function ApexDonutChart({ title, labels, series, height = 350 }: ApexDonu
       labels: {
         colors: 'hsl(var(--muted-foreground))',
       },
-      formatter: (label: string, opts: any) => {
+      formatter: (label: string, opts: { seriesIndex: number; w: { globals: { series: number[] } } }) => {
         const value = opts.w.globals.series[opts.seriesIndex];
         const percentage = ((value / total) * 100).toFixed(1);
         return `${label}: ${value} (${percentage}%)`;
@@ -71,7 +71,7 @@ export function ApexDonutChart({ title, labels, series, height = 350 }: ApexDonu
     tooltip: {
       theme: 'light',
       y: {
-        formatter: (val, opts) => {
+        formatter: (val) => {
           const percentage = ((val / total) * 100).toFixed(1);
           return `${val} leads (${percentage}%)`;
         },
