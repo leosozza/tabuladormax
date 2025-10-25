@@ -294,7 +294,7 @@ class PerformanceMonitor {
     let filtered = this.metrics;
 
     if (filter?.name) {
-      filtered = filtered.filter(m => m.name.includes(filter.name!));
+      filtered = filtered.filter(m => m.name.includes(filter.name));
     }
 
     if (filter?.since) {
