@@ -11,12 +11,16 @@ import { DIMENSION_LABELS, METRIC_LABELS } from '@/types/dashboard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { BarChart3, LineChart as LineChartIcon, Table2, PieChart, FileText, AreaChart } from 'lucide-react';
+import { BarChart3, LineChart as LineChartIcon, Table2, PieChart, FileText, AreaChart, Gauge, Grid3x3 } from 'lucide-react';
 import { ApexBarChart } from './charts/ApexBarChart';
 import { ApexLineChart } from './charts/ApexLineChart';
 import { ApexAreaChart } from './charts/ApexAreaChart';
 import { ApexPieChart } from './charts/ApexPieChart';
 import { ApexDonutChart } from './charts/ApexDonutChart';
+import { ApexGaugeChart } from './charts/ApexGaugeChart';
+import { ApexHeatmapChart } from './charts/ApexHeatmapChart';
+import { ApexTreemapChart } from './charts/ApexTreemapChart';
+import { PivotTable } from './charts/PivotTable';
 import {
   Table,
   TableBody,
@@ -48,6 +52,10 @@ export function DynamicWidget({ config, onEdit, onDelete }: DynamicWidgetProps) 
       case 'donut': return <PieChart className="h-4 w-4" />;
       case 'table': return <Table2 className="h-4 w-4" />;
       case 'kpi_card': return <FileText className="h-4 w-4" />;
+      case 'gauge': return <Gauge className="h-4 w-4" />;
+      case 'heatmap': return <Grid3x3 className="h-4 w-4" />;
+      case 'treemap': return <Grid3x3 className="h-4 w-4" />;
+      case 'pivot': return <Table2 className="h-4 w-4" />;
       default: return null;
     }
   };
@@ -143,6 +151,64 @@ export function DynamicWidget({ config, onEdit, onDelete }: DynamicWidgetProps) 
               Média: {avg.toFixed(2)}
             </div>
           </div>
+        );
+      }
+      
+      case 'gauge': {
+        // Para gauge, mostrar valor da primeira métrica como porcentagem ou valor absoluto
+        const metric = config.metrics[0];
+        const total = data.reduce((sum, d) => sum + (Number(d[metric]) || 0), 0);
+        const avg = data.length > 0 ? total / data.length : 0;
+        
+        // Se métrica for porcentagem, usar valor direto, senão usar média
+        const isPercentMetric = metric.includes('percent');
+        const gaugeValue = isPercentMetric ? avg : total;
+        const gaugeMax = isPercentMetric ? 100 : Math.max(gaugeValue * 1.5, 100);
+        
+        return (
+          <ApexGaugeChart 
+            title={METRIC_LABELS[metric]} 
+            value={gaugeValue}
+            max={gaugeMax}
+            height={300}
+            unit={isPercentMetric ? '%' : ''}
+          />
+        );
+      }
+      
+      case 'heatmap': {
+        // Para heatmap, usar primeira métrica e criar série por categoria
+        const metric = config.metrics[0];
+        const series = data.map(d => ({
+          name: String(d[config.dimension]),
+          data: [{ x: METRIC_LABELS[metric], y: Number(d[metric]) || 0 }]
+        }));
+        
+        return <ApexHeatmapChart title="" series={series} height={300} />;
+      }
+      
+      case 'treemap': {
+        // Para treemap, usar primeira métrica
+        const metric = config.metrics[0];
+        const series = [{
+          name: METRIC_LABELS[metric],
+          data: data.map(d => ({
+            x: String(d[config.dimension]),
+            y: Number(d[metric]) || 0
+          }))
+        }];
+        
+        return <ApexTreemapChart title="" series={series} height={300} />;
+      }
+      
+      case 'pivot': {
+        // Para pivot table, passar dados brutos
+        return (
+          <PivotTable 
+            data={data}
+            title={config.title}
+            description={config.subtitle}
+          />
         );
       }
       

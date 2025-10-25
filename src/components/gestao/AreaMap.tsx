@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -9,7 +9,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Save, Square, FileDown, FileSpreadsheet } from "lucide-react";
+import { Pencil, Trash2, Save, Square, FileDown, FileSpreadsheet, Layers, Eye, EyeOff } from "lucide-react";
+import { filterItemsInPolygons, leafletToTurfPolygon, unionPolygons, calculateTotalArea } from "@/utils/polygonUtils";
 
 // Corrigir ícones padrão do Leaflet
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -37,6 +38,9 @@ export interface DrawnArea {
   name: string;
   bounds: L.LatLng[];
   leadCount: number;
+  selected?: boolean;
+  color?: string;
+  polygon?: L.Polygon;
 }
 
 interface AreaMapProps {
@@ -45,6 +49,7 @@ interface AreaMapProps {
   zoom?: number;
   onAreaCreated?: (area: DrawnArea) => void;
   onAreaDeleted?: (areaId: string) => void;
+  onAreasSelectionChanged?: (selectedAreas: DrawnArea[], filteredLeads: LeadMapLocation[]) => void;
 }
 
 export default function AreaMap({ 
@@ -52,7 +57,8 @@ export default function AreaMap({
   center = [-15.7801, -47.9292],
   zoom = 12,
   onAreaCreated,
-  onAreaDeleted
+  onAreaDeleted,
+  onAreasSelectionChanged
 }: AreaMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,9 +67,34 @@ export default function AreaMap({
   const [drawMode, setDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
   const [drawingPoints, setDrawingPoints] = useState<L.LatLng[]>([]);
   const [drawnAreas, setDrawnAreas] = useState<DrawnArea[]>([]);
+  const [selectedAreaIds, setSelectedAreaIds] = useState<Set<string>>(new Set());
   const currentPolygonRef = useRef<L.Polyline | L.Rectangle | null>(null);
   const areasLayerRef = useRef<L.LayerGroup | null>(null);
+  const polygonRefsRef = useRef<Map<string, L.Polygon>>(new Map());
   const rectangleStartRef = useRef<L.LatLng | null>(null);
+
+  // Available colors for polygons
+  const polygonColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+
+  // Memoized filtered leads based on selected areas
+  const filteredLeads = useMemo(() => {
+    if (selectedAreaIds.size === 0) {
+      return leads;
+    }
+
+    const selectedAreas = drawnAreas.filter(area => selectedAreaIds.has(area.id));
+    const selectedPolygons = selectedAreas.map(area => leafletToTurfPolygon(area.bounds));
+    
+    return filterItemsInPolygons(leads, selectedPolygons);
+  }, [leads, drawnAreas, selectedAreaIds]);
+
+  // Notify parent of selection changes
+  useEffect(() => {
+    if (onAreasSelectionChanged) {
+      const selectedAreas = drawnAreas.filter(area => selectedAreaIds.has(area.id));
+      onAreasSelectionChanged(selectedAreas, filteredLeads);
+    }
+  }, [selectedAreaIds, drawnAreas, filteredLeads, onAreasSelectionChanged]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -118,8 +149,9 @@ export default function AreaMap({
       }
     });
 
-    // Adicionar marcadores
-    leads.forEach(lead => {
+    // Adicionar marcadores - usar filteredLeads em vez de leads
+    const leadsToShow = selectedAreaIds.size > 0 ? filteredLeads : leads;
+    leadsToShow.forEach(lead => {
       const marker = L.marker([lead.lat, lead.lng]);
       
       const popupContent = `
@@ -138,11 +170,11 @@ export default function AreaMap({
     mapRef.current.addLayer(markerClusterRef.current);
 
     // Ajustar bounds se houver leads
-    if (leads.length > 0) {
-      const bounds = L.latLngBounds(leads.map(l => [l.lat, l.lng]));
+    if (leadsToShow.length > 0) {
+      const bounds = L.latLngBounds(leadsToShow.map(l => [l.lat, l.lng]));
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [leads]);
+  }, [leads, filteredLeads, selectedAreaIds]);
 
   const handleMapClick = (e: L.LeafletMouseEvent) => {
     if (!isDrawing || !mapRef.current) return;
@@ -210,9 +242,12 @@ export default function AreaMap({
   const finishDrawingRectangle = (rectanglePoints: L.LatLng[]) => {
     if (!mapRef.current || !areasLayerRef.current) return;
 
+    const areaId = `area-${Date.now()}`;
+    const color = polygonColors[drawnAreas.length % polygonColors.length];
+
     // Criar polígono permanente
     const polygon = L.polygon(rectanglePoints, {
-      color: '#10b981',
+      color: color,
       weight: 2,
       fillOpacity: 0.2
     });
@@ -227,12 +262,14 @@ export default function AreaMap({
       return turf.booleanPointInPolygon(point, turfPolygon);
     });
 
-    const areaId = `area-${Date.now()}`;
     const newArea: DrawnArea = {
       id: areaId,
       name: `Área ${drawnAreas.length + 1}`,
       bounds: rectanglePoints,
-      leadCount: leadsInArea.length
+      leadCount: leadsInArea.length,
+      selected: true,
+      color: color,
+      polygon: polygon
     };
 
     // Adicionar popup ao polígono
@@ -243,9 +280,16 @@ export default function AreaMap({
       </div>
     `);
 
+    // Add click handler to toggle selection
+    polygon.on('click', () => {
+      toggleAreaSelection(areaId);
+    });
+
     polygon.addTo(areasLayerRef.current);
+    polygonRefsRef.current.set(areaId, polygon);
     
     setDrawnAreas(prev => [...prev, newArea]);
+    setSelectedAreaIds(prev => new Set([...prev, areaId]));
     
     if (onAreaCreated) {
       onAreaCreated(newArea);
@@ -262,9 +306,12 @@ export default function AreaMap({
       return;
     }
 
+    const areaId = `area-${Date.now()}`;
+    const color = polygonColors[drawnAreas.length % polygonColors.length];
+
     // Criar polígono permanente
     const polygon = L.polygon(drawingPoints, {
-      color: '#10b981',
+      color: color,
       weight: 2,
       fillOpacity: 0.2
     });
@@ -280,12 +327,14 @@ export default function AreaMap({
       return turf.booleanPointInPolygon(point, turfPolygon);
     });
 
-    const areaId = `area-${Date.now()}`;
     const newArea: DrawnArea = {
       id: areaId,
       name: `Área ${drawnAreas.length + 1}`,
       bounds: drawingPoints,
-      leadCount: leadsInArea.length
+      leadCount: leadsInArea.length,
+      selected: true,
+      color: color,
+      polygon: polygon
     };
 
     // Adicionar popup ao polígono
@@ -296,9 +345,16 @@ export default function AreaMap({
       </div>
     `);
 
+    // Add click handler to toggle selection
+    polygon.on('click', () => {
+      toggleAreaSelection(areaId);
+    });
+
     polygon.addTo(areasLayerRef.current);
+    polygonRefsRef.current.set(areaId, polygon);
     
     setDrawnAreas(prev => [...prev, newArea]);
+    setSelectedAreaIds(prev => new Set([...prev, areaId]));
     
     if (onAreaCreated) {
       onAreaCreated(newArea);
@@ -312,6 +368,83 @@ export default function AreaMap({
     
     setIsDrawing(false);
     setDrawingPoints([]);
+  };
+
+  // Toggle area selection
+  const toggleAreaSelection = (areaId: string) => {
+    setSelectedAreaIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(areaId)) {
+        newSet.delete(areaId);
+      } else {
+        newSet.add(areaId);
+      }
+      return newSet;
+    });
+
+    // Update polygon style
+    const polygon = polygonRefsRef.current.get(areaId);
+    const area = drawnAreas.find(a => a.id === areaId);
+    if (polygon && area) {
+      const isSelected = !selectedAreaIds.has(areaId);
+      polygon.setStyle({
+        fillOpacity: isSelected ? 0.3 : 0.1,
+        weight: isSelected ? 3 : 2,
+        dashArray: isSelected ? undefined : '5, 5'
+      });
+    }
+  };
+
+  // Delete area
+  const deleteArea = (areaId: string) => {
+    const polygon = polygonRefsRef.current.get(areaId);
+    if (polygon && mapRef.current) {
+      mapRef.current.removeLayer(polygon);
+      polygonRefsRef.current.delete(areaId);
+    }
+
+    setDrawnAreas(prev => prev.filter(a => a.id !== areaId));
+    setSelectedAreaIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(areaId);
+      return newSet;
+    });
+
+    if (onAreaDeleted) {
+      onAreaDeleted(areaId);
+    }
+  };
+
+  // Select/deselect all areas
+  const toggleAllAreas = () => {
+    if (selectedAreaIds.size === drawnAreas.length) {
+      // Deselect all
+      setSelectedAreaIds(new Set());
+      drawnAreas.forEach(area => {
+        const polygon = polygonRefsRef.current.get(area.id);
+        if (polygon) {
+          polygon.setStyle({
+            fillOpacity: 0.1,
+            weight: 2,
+            dashArray: '5, 5'
+          });
+        }
+      });
+    } else {
+      // Select all
+      const allIds = drawnAreas.map(a => a.id);
+      setSelectedAreaIds(new Set(allIds));
+      drawnAreas.forEach(area => {
+        const polygon = polygonRefsRef.current.get(area.id);
+        if (polygon) {
+          polygon.setStyle({
+            fillOpacity: 0.3,
+            weight: 3,
+            dashArray: undefined
+          });
+        }
+      });
+    }
   };
 
   // Exportar áreas para PDF
@@ -374,13 +507,19 @@ export default function AreaMap({
   useEffect(() => {
     drawnAreas.forEach(area => {
       deleteAreaRef.current.set(area.id, () => {
-        setDrawnAreas(prev => prev.filter(a => a.id !== area.id));
-        if (onAreaDeleted) {
-          onAreaDeleted(area.id);
-        }
+        deleteArea(area.id);
       });
     });
-  }, [drawnAreas, onAreaDeleted]);
+  }, [drawnAreas]);
+
+  // Calculate stats for selected areas
+  const selectedAreas = drawnAreas.filter(area => selectedAreaIds.has(area.id));
+  const totalSelectedLeads = filteredLeads.length;
+  const totalArea = useMemo(() => {
+    if (selectedAreas.length === 0) return 0;
+    const polygons = selectedAreas.map(area => leafletToTurfPolygon(area.bounds));
+    return calculateTotalArea(polygons) / 1000000; // Convert to km²
+  }, [selectedAreas]);
 
   return (
     <div className="relative">
@@ -418,17 +557,79 @@ export default function AreaMap({
         )}
       </div>
 
-      {/* Legenda de áreas */}
+      {/* Legenda de áreas com seleção múltipla */}
       {drawnAreas.length > 0 && (
-        <div className="absolute bottom-4 right-4 z-[1000] bg-white p-3 rounded-lg shadow-lg max-w-xs">
-          <h3 className="font-bold text-sm mb-2">Áreas Desenhadas</h3>
-          <div className="space-y-1 max-h-40 overflow-y-auto">
-            {drawnAreas.map(area => (
-              <div key={area.id} className="flex justify-between text-xs border-b pb-1">
-                <span>{area.name}</span>
-                <span className="font-semibold">{area.leadCount} leads</span>
+        <div className="absolute bottom-4 right-4 z-[1000] bg-white p-3 rounded-lg shadow-lg max-w-sm">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold text-sm flex items-center gap-2">
+              <Layers className="w-4 h-4" />
+              Áreas Desenhadas ({selectedAreaIds.size}/{drawnAreas.length})
+            </h3>
+            <Button onClick={toggleAllAreas} size="sm" variant="ghost" className="h-6 px-2">
+              {selectedAreaIds.size === drawnAreas.length ? (
+                <EyeOff className="w-3 h-3" />
+              ) : (
+                <Eye className="w-3 h-3" />
+              )}
+            </Button>
+          </div>
+
+          {selectedAreaIds.size > 0 && (
+            <div className="mb-2 p-2 bg-blue-50 rounded text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Leads filtrados:</span>
+                <span className="font-semibold text-blue-600">{totalSelectedLeads}</span>
               </div>
-            ))}
+              {totalArea > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Área total:</span>
+                  <span className="font-semibold text-blue-600">{totalArea.toFixed(2)} km²</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-1 max-h-40 overflow-y-auto mb-3">
+            {drawnAreas.map(area => {
+              const isSelected = selectedAreaIds.has(area.id);
+              return (
+                <div 
+                  key={area.id} 
+                  className={`flex items-center justify-between text-xs border-b pb-1 cursor-pointer hover:bg-gray-50 p-1 rounded transition-colors ${
+                    isSelected ? 'bg-blue-50 border-blue-200' : ''
+                  }`}
+                  onClick={() => toggleAreaSelection(area.id)}
+                >
+                  <div className="flex items-center gap-2 flex-1">
+                    <div 
+                      className="w-3 h-3 rounded border-2"
+                      style={{ 
+                        backgroundColor: isSelected ? area.color : 'transparent',
+                        borderColor: area.color,
+                        opacity: isSelected ? 1 : 0.5
+                      }}
+                    />
+                    <span className={isSelected ? 'font-semibold' : ''}>{area.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`${isSelected ? 'font-semibold text-blue-600' : ''}`}>
+                      {area.leadCount} leads
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 w-5 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteArea(area.id);
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
           <div className="mt-3 flex gap-2">
             <Button onClick={exportToPDF} size="sm" variant="outline" className="flex-1">

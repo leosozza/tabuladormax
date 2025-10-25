@@ -10,14 +10,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, XCircle, SkipForward, Download, WifiOff, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, SkipForward, Download, WifiOff, Settings2, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { useUndoAction } from "@/hooks/useUndoAction";
+import { useOfflineQueue } from "@/hooks/useOfflineQueue";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
+import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal";
 
 export default function AnaliseLeads() {
   const queryClient = useQueryClient();
@@ -29,7 +30,8 @@ export default function AnaliseLeads() {
   const cardRef = useRef<HTMLDivElement>(null);
   const { canInstall, promptInstall, isInstalled } = useInstallPrompt();
   const isOnline = useOnlineStatus();
-  const { recordAction, clearUndo, isUndoAvailable, lastAction } = useUndoAction({ timeoutMs: 5000 });
+  const { pendingCount, isSyncing, addToQueue, syncPendingEvaluations } = useOfflineQueue();
+  const [configModalOpen, setConfigModalOpen] = useState(false);
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('month'),
     projectId: null,
@@ -99,6 +101,13 @@ export default function AnaliseLeads() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
+      // If offline, queue the evaluation
+      if (!isOnline) {
+        await addToQueue(leadId, quality, user.id);
+        return;
+      }
+
+      // If online, save directly
       const { error } = await supabase
         .from("leads")
         .update({
@@ -110,9 +119,12 @@ export default function AnaliseLeads() {
 
       if (error) throw error;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["leads-pending-analysis"] });
-      queryClient.invalidateQueries({ queryKey: ["analysis-session-stats"] });
+    onSuccess: (_, variables) => {
+      // Only invalidate if online (queued items don't affect the current view)
+      if (isOnline) {
+        queryClient.invalidateQueries({ queryKey: ["leads-pending-analysis"] });
+        queryClient.invalidateQueries({ queryKey: ["analysis-session-stats"] });
+      }
       
       // Record action for undo
       recordAction(variables.leadId, variables.quality);
@@ -123,61 +135,14 @@ export default function AnaliseLeads() {
       setTimeout(() => setShowFeedback(false), 800);
       
       if (variables.quality === "aprovado") {
-        toast({ title: "Lead aprovado!", variant: "default" });
+        toast({ title: isOnline ? "Lead aprovado!" : "Lead aprovado (offline)", variant: "default" });
       } else if (variables.quality === "rejeitado") {
-        toast({ title: "Lead rejeitado", variant: "destructive" });
+        toast({ title: isOnline ? "Lead rejeitado" : "Lead rejeitado (offline)", variant: "destructive" });
       }
     },
-    onError: (error: Error) => {
-      toast({ 
-        title: "Erro ao analisar lead", 
-        description: error.message || "Não foi possível processar a análise. Tente novamente.",
-        variant: "destructive" 
-      });
-    },
-  });
-
-  // Mutation para desfazer análise
-  const undoMutation = useMutation({
-    mutationFn: async (leadId: number) => {
-      const { error } = await supabase
-        .from("leads")
-        .update({
-          qualidade_lead: null,
-          analisado_por: null,
-          data_analise: null,
-        })
-        .eq("id", leadId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["leads-pending-analysis"] });
-      queryClient.invalidateQueries({ queryKey: ["analysis-session-stats"] });
-      
-      // Move back to previous lead
-      if (currentIndex > 0) {
-        setCurrentIndex(currentIndex - 1);
-        clearUndo();
-        toast({ 
-          title: "Ação desfeita com sucesso", 
-          description: "O lead voltou para análise pendente.",
-          variant: "default" 
-        });
-      } else {
-        clearUndo();
-        toast({
-          title: "Você já está no primeiro lead",
-          description: "Não é possível voltar mais.",
-          variant: "default"
-        });
-      }
-    onError: (error: Error) => {
-      toast({ 
-        title: "Erro ao desfazer ação", 
-        description: error.message || "Não foi possível desfazer a ação. Tente novamente.",
-        variant: "destructive" 
-      });
+    onError: (error) => {
+      console.error('[AnaliseLeads] Error analyzing lead:', error);
+      toast({ title: "Erro ao analisar lead", variant: "destructive" });
     },
   });
 
@@ -265,6 +230,28 @@ export default function AnaliseLeads() {
         <div className="fixed top-0 left-0 right-0 z-50 bg-warning text-warning-foreground py-2 px-4 text-center flex items-center justify-center gap-2">
           <WifiOff className="w-4 h-4" />
           Modo Offline - As alterações serão sincronizadas quando reconectar
+          {pendingCount > 0 && (
+            <Badge variant="secondary" className="ml-2">
+              {pendingCount} pendente{pendingCount > 1 ? 's' : ''}
+            </Badge>
+          )}
+        </div>
+      )}
+      
+      {isOnline && pendingCount > 0 && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white py-2 px-4 text-center flex items-center justify-center gap-2">
+          <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+          {isSyncing ? 'Sincronizando...' : `${pendingCount} avaliação(ões) aguardando sincronização`}
+          {!isSyncing && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={syncPendingEvaluations}
+              className="ml-2 h-6"
+            >
+              Sincronizar agora
+            </Button>
+          )}
         </div>
       )}
       
@@ -275,22 +262,33 @@ export default function AnaliseLeads() {
             <p className="text-muted-foreground">Avalie a qualidade dos leads captados</p>
           </div>
           
-          {canInstall && !isInstalled && (
+          <div className="flex items-center gap-3">
             <Button
-              onClick={promptInstall}
+              onClick={() => setConfigModalOpen(true)}
               variant="outline"
               className="gap-2"
             >
-              <Download className="w-4 h-4" />
-              Instalar App
+              <Settings2 className="w-4 h-4" />
+              Configurar Cartão
             </Button>
-          )}
-          
-          {isInstalled && (
-            <Badge variant="secondary" className="gap-2">
-              ✅ App Instalado
-            </Badge>
-          )}
+            
+            {canInstall && !isInstalled && (
+              <Button
+                onClick={promptInstall}
+                variant="outline"
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Instalar App
+              </Button>
+            )}
+            
+            {isInstalled && (
+              <Badge variant="secondary" className="gap-2">
+                ✅ App Instalado
+              </Badge>
+            )}
+          </div>
         </div>
 
         <GestaoFiltersComponent filters={filters} onChange={setFilters} />
@@ -415,19 +413,11 @@ export default function AnaliseLeads() {
           </div>
         )}
       </div>
-
-      {/* Action Feedback Overlay */}
-      <ActionFeedbackOverlay 
-        isVisible={showFeedback} 
-        type={feedbackType}
-      />
-
-      {/* Undo Button */}
-      <UndoButton
-        onUndo={handleUndo}
-        isVisible={isUndoAvailable && !undoMutation.isPending}
-        lastActionType={lastAction?.quality === "aprovado" ? "approved" : "rejected"}
-        disabled={undoMutation.isPending}
+      
+      {/* Configuration Modal */}
+      <TinderCardConfigModal 
+        open={configModalOpen} 
+        onOpenChange={setConfigModalOpen} 
       />
     </div>
   );
