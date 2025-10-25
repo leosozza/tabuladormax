@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-type AppDepartment = 'telemarketing' | 'scouter' | 'administrativo';
+type AppDepartment = 'telemarketing' | 'scouters' | 'administrativo';
 type AppRole = 'admin' | 'manager' | 'supervisor' | 'agent';
 
 interface DepartmentAccess {
@@ -75,7 +75,7 @@ export const useDepartmentAccess = (): DepartmentAccess => {
         } else {
           // Outros usuários só acessam seu departamento
           canAccessTelemarketing = department === 'telemarketing';
-          canAccessScouter = department === 'scouter';
+          canAccessScouter = department === 'scouters';
           canAccessAdmin = department === 'administrativo';
         }
 

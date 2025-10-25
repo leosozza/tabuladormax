@@ -78,7 +78,17 @@ export function useLeads(params: UseLeadsParams = {}) {
         throw error;
       }
 
-      return { 
+      // Record successful query performance
+      performanceMonitor.recordQueryPerformance({
+        queryKey: JSON.stringify(queryKey),
+        value: performance.now() - startTime,
+        status: 'success',
+        metadata: {
+          resultCount: data?.length || 0,
+        },
+      });
+
+      return {
         data: data || [], 
         count: count || 0,
         page,

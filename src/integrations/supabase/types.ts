@@ -521,12 +521,15 @@ export type Database = {
           ficha_confirmada: boolean | null
           fonte: string | null
           funil_fichas: string | null
+          geocoded_at: string | null
           gerenciamento_funil: string | null
           gestao_scouter: string | null
           horario_agendamento: string | null
           id: number
           last_sync_at: string | null
+          latitude: number | null
           local_abordagem: string | null
+          longitude: number | null
           maxsystem_id_ficha: string | null
           name: string | null
           nome_modelo: string | null
@@ -540,6 +543,8 @@ export type Database = {
           scouter: string | null
           status_fluxo: string | null
           status_tabulacao: string | null
+          sync_source: string | null
+          sync_status: string | null
           telefone_casa: string | null
           telefone_trabalho: string | null
           updated_at: string | null
@@ -568,12 +573,15 @@ export type Database = {
           ficha_confirmada?: boolean | null
           fonte?: string | null
           funil_fichas?: string | null
+          geocoded_at?: string | null
           gerenciamento_funil?: string | null
           gestao_scouter?: string | null
           horario_agendamento?: string | null
           id: number
           last_sync_at?: string | null
+          latitude?: number | null
           local_abordagem?: string | null
+          longitude?: number | null
           maxsystem_id_ficha?: string | null
           name?: string | null
           nome_modelo?: string | null
@@ -587,6 +595,8 @@ export type Database = {
           scouter?: string | null
           status_fluxo?: string | null
           status_tabulacao?: string | null
+          sync_source?: string | null
+          sync_status?: string | null
           telefone_casa?: string | null
           telefone_trabalho?: string | null
           updated_at?: string | null
@@ -615,12 +625,15 @@ export type Database = {
           ficha_confirmada?: boolean | null
           fonte?: string | null
           funil_fichas?: string | null
+          geocoded_at?: string | null
           gerenciamento_funil?: string | null
           gestao_scouter?: string | null
           horario_agendamento?: string | null
           id?: number
           last_sync_at?: string | null
+          latitude?: number | null
           local_abordagem?: string | null
+          longitude?: number | null
           maxsystem_id_ficha?: string | null
           name?: string | null
           nome_modelo?: string | null
@@ -634,6 +647,8 @@ export type Database = {
           scouter?: string | null
           status_fluxo?: string | null
           status_tabulacao?: string | null
+          sync_source?: string | null
+          sync_status?: string | null
           telefone_casa?: string | null
           telefone_trabalho?: string | null
           updated_at?: string | null

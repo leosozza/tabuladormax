@@ -120,9 +120,6 @@ export const getTelemarketingId = async (
   }
 
   try {
-    // Importar supabase apenas quando necessário
-    const { supabase } = await import("@/integrations/supabase/client");
-    
     // Tentar buscar mapeamento por email ou userId
     let query = supabase
       .from('agent_telemarketing_mapping')

@@ -423,6 +423,14 @@ export default function AnaliseLeads() {
               disabled={analyzeMutation.isPending || undoMutation.isPending}
             />
 
+            {/* Botão de Desfazer */}
+            <UndoButton
+              onUndo={handleUndo}
+              isVisible={isUndoAvailable}
+              lastActionType={lastAction?.quality === "aprovado" ? "approved" : "rejected"}
+              disabled={undoMutation.isPending}
+            />
+
             {/* Legenda */}
             <div className="flex flex-wrap justify-center gap-4 md:gap-6 mt-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
