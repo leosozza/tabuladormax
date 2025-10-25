@@ -1,137 +1,117 @@
 /**
- * Dashboard Avançado - Exemplo de uso dos novos componentes
- * Demonstra o uso de widgets dinâmicos com ApexCharts e GridLayout
+ * Dashboard Avançado - Integração com o novo sistema de dashboard
+ * Demonstra o uso do DashboardManager com persistência
  */
 
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useDashboard } from '@/hooks/useDashboard';
 import { DynamicWidget } from '@/components/dashboard/DynamicWidget';
-import { GridLayout, GridWidget } from '@/components/dashboard/builder/GridLayout';
-import type { DashboardWidget } from '@/types/dashboard';
+import { DraggableGridLayout, DraggableWidget } from '@/components/dashboard/DraggableGridLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, BarChart3 } from 'lucide-react';
+import { Plus, LayoutDashboard, Settings } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdvancedDashboard() {
-  const [widgets, setWidgets] = useState<DashboardWidget[]>([
-    {
-      id: 'widget-1',
-      title: 'Leads por Scouter',
-      dimension: 'scouter',
-      metrics: ['count_distinct_id'],
-      chartType: 'bar',
-      sortBy: 'count_distinct_id',
-      sortOrder: 'desc',
-      limit: 10,
-    },
-    {
-      id: 'widget-2',
-      title: 'Taxa de Confirmação',
-      dimension: 'scouter',
-      metrics: ['count_confirmadas', 'count_all'],
-      chartType: 'line',
-      sortBy: 'count_confirmadas',
-      sortOrder: 'desc',
-      limit: 10,
-    },
-    {
-      id: 'widget-3',
-      title: 'Distribuição por Status',
-      dimension: 'ficha_confirmada',
-      metrics: ['count_all'],
-      chartType: 'pie',
-    },
-    {
-      id: 'widget-4',
-      title: 'Total de Leads',
-      dimension: 'scouter',
-      metrics: ['count_all'],
-      chartType: 'kpi_card',
-    },
-  ]);
+  const navigate = useNavigate();
+  const { dashboards, isLoading } = useDashboard();
 
-  // TODO: Implement widget edit functionality
-  const handleEditWidget = (widget: DashboardWidget) => {
-    // Future implementation: Open modal with widget configuration
-    console.log('Edit widget:', widget);
-  };
+  // Usar o primeiro dashboard ou dashboard padrão
+  const activeDashboard = dashboards.find(d => d.is_default) || dashboards[0];
 
-  const gridWidgets: GridWidget[] = widgets.map((widget, idx) => ({
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <Skeleton className="h-12 w-64" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+        </div>
+      </div>
+    );
+  }
+
+  const draggableWidgets: DraggableWidget[] = activeDashboard?.widgets.map((widget) => ({
     id: widget.id,
     title: widget.title,
-    component: (
-      <DynamicWidget 
-        config={widget} 
-        onEdit={handleEditWidget}
-        onDelete={(id) => setWidgets(prev => prev.filter(w => w.id !== id))}
-      />
-    ),
+    component: <DynamicWidget config={widget} />,
     size: {
-      cols: idx === 3 ? 12 : 6, // KPI card ocupa largura total
-      rows: idx === 3 ? 2 : 4,
+      cols: widget.layout?.w || 6,
+      rows: widget.layout?.h || 4,
     },
-  }));
+  })) || [];
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard Avançado</h1>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <LayoutDashboard className="w-8 h-8" />
+            Dashboard Avançado
+          </h1>
           <p className="text-muted-foreground mt-1">
-            Visualize dados com gráficos dinâmicos e personalizáveis
+            {activeDashboard?.description || 'Visualize dados com gráficos dinâmicos e personalizáveis'}
           </p>
         </div>
-        <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          Adicionar Widget
+        <Button onClick={() => navigate('/dashboard-manager')}>
+          <Settings className="w-4 h-4 mr-2" />
+          Gerenciar Dashboards
         </Button>
       </div>
 
-      {/* Tabs para diferentes visualizações */}
-      <Tabs defaultValue="analytics" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="analytics">
-            <BarChart3 className="w-4 h-4 mr-2" />
-            Analytics
-          </TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="analytics" className="space-y-6 mt-6">
-          {/* Grid de widgets */}
-          <GridLayout widgets={gridWidgets} gap={6} />
-        </TabsContent>
-
-        <TabsContent value="performance" className="space-y-6 mt-6">
+      {/* Dashboard Content */}
+      {activeDashboard ? (
+        draggableWidgets.length > 0 ? (
+          <DraggableGridLayout 
+            widgets={draggableWidgets}
+            gap={6}
+            editable={false}
+          />
+        ) : (
           <Card>
-            <CardHeader>
-              <CardTitle>Performance dos Scouters</CardTitle>
-              <CardDescription>
-                Métricas de desempenho e comparação entre equipes
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-center py-8">
-                Em desenvolvimento - Adicione widgets de performance aqui
+            <CardContent className="py-16 text-center">
+              <Settings className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhum widget configurado</h3>
+              <p className="text-muted-foreground mb-4">
+                Configure seu dashboard no gerenciador
               </p>
+              <Button onClick={() => navigate('/dashboard-manager')}>
+                <Plus className="w-4 h-4 mr-2" />
+                Ir para Gerenciador
+              </Button>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        )
+      ) : (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <LayoutDashboard className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum dashboard criado</h3>
+            <p className="text-muted-foreground mb-4">
+              Crie seu primeiro dashboard personalizado
+            </p>
+            <Button onClick={() => navigate('/dashboard-manager')}>
+              <Plus className="w-4 h-4 mr-2" />
+              Criar Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Info card */}
       <Card className="bg-muted/50">
         <CardHeader>
-          <CardTitle className="text-lg">Sobre este Dashboard</CardTitle>
+          <CardTitle className="text-lg">Recursos do Dashboard</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           <ul className="list-disc list-inside space-y-2">
-            <li>Widgets dinâmicos baseados em queries configuráveis</li>
-            <li>Gráficos ApexCharts com suporte a múltiplos tipos</li>
-            <li>Layout responsivo com grid customizável</li>
-            <li>Filtros por data, projeto, scouter e mais</li>
-            <li>Exportação de dados em PDF e CSV</li>
+            <li>✅ Persistência automática de configurações</li>
+            <li>✅ 13+ tipos de visualização (gráficos, tabelas, gauges)</li>
+            <li>✅ Query Builder visual sem necessidade de código</li>
+            <li>✅ Filtros avançados por data, projeto, scouter</li>
+            <li>✅ Cache inteligente com React Query</li>
+            <li>✅ Suporte a múltiplos dashboards personalizados</li>
           </ul>
         </CardContent>
       </Card>

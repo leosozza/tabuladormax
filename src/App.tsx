@@ -12,6 +12,7 @@ import HomeChoice from "./pages/HomeChoice";
 import Debug from "./pages/Debug";
 import LeadTab from "./pages/LeadTab";
 import Dashboard from "./pages/Dashboard";
+import DashboardManager from "./pages/DashboardManager";
 import Config from "./pages/Config";
 import Logs from "./pages/Logs";
 import Users from "./pages/Users";
@@ -50,6 +51,7 @@ const App = () => (
           <Route path="/debug" element={<ProtectedRoute><Debug /></ProtectedRoute>} />
           <Route path="/lead" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard-manager" element={<ProtectedRoute><DashboardManager /></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute requireSupervisor><Users /></ProtectedRoute>} />
           <Route path="/permissions" element={<ProtectedRoute requireAdmin><Permissions /></ProtectedRoute>} />
           <Route path="/config" element={<ProtectedRoute requireManager><Config /></ProtectedRoute>} />
