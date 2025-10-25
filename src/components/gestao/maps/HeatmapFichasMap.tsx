@@ -288,32 +288,45 @@ export default function HeatmapFichasMap({
 
       {/* Legenda do mapa de calor */}
       <div className="absolute bottom-4 right-4 z-[1000]">
-        <Card className="p-4 bg-white/95 backdrop-blur shadow-lg">
+        <Card className="p-4 bg-white/95 backdrop-blur shadow-lg max-w-xs">
           <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-            <Flame className="w-4 h-4" />
-            Intensidade do Mapa de Calor
+            <Flame className="w-4 h-4 text-orange-500" />
+            Mapa de Calor - Densidade
           </h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            As cores indicam a concentração de fichas confirmadas na região
+          </p>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-blue-500"></div>
-              <span className="text-xs">Baixa (1-33%)</span>
+              <div className="w-6 h-6 rounded-full bg-blue-500 flex-shrink-0"></div>
+              <div className="text-xs">
+                <div className="font-medium">Baixa densidade</div>
+                <div className="text-muted-foreground">1-33% da concentração máxima</div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-yellow-500"></div>
-              <span className="text-xs">Média (34-66%)</span>
+              <div className="w-6 h-6 rounded-full bg-yellow-500 flex-shrink-0"></div>
+              <div className="text-xs">
+                <div className="font-medium">Média densidade</div>
+                <div className="text-muted-foreground">34-66% da concentração máxima</div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-red-500"></div>
-              <span className="text-xs">Alta (67-100%)</span>
+              <div className="w-6 h-6 rounded-full bg-red-500 flex-shrink-0"></div>
+              <div className="text-xs">
+                <div className="font-medium">Alta densidade</div>
+                <div className="text-muted-foreground">67-100% da concentração máxima</div>
+              </div>
             </div>
             <div className="pt-2 mt-2 border-t">
+              <p className="text-xs font-medium mb-2">Marcadores individuais:</p>
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white"></div>
+                <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white flex-shrink-0"></div>
                 <span className="text-xs">Ficha confirmada</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500 border-2 border-white"></div>
-                <span className="text-xs">Compareceu</span>
+                <div className="w-3 h-3 rounded-full bg-green-500 border-2 border-white flex-shrink-0"></div>
+                <span className="text-xs">Cliente compareceu</span>
               </div>
             </div>
           </div>
