@@ -39,7 +39,7 @@ export default function UndoButton({
         clearInterval(interval);
         setIsAnimating(false);
       }
-    }, 16); // ~60fps
+    }, 50); // ~20fps, smoother and more efficient
 
     return () => clearInterval(interval);
   }, [isVisible, timeoutMs]);
