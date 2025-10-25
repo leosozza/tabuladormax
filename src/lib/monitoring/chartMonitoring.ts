@@ -68,7 +68,7 @@ export function useChartPerformance(
       });
     }
     updateTimeRef.current = performance.now();
-  }, dependencies);
+  }, [...dependencies]);
 
   return {
     markRenderComplete: () => {
