@@ -14,6 +14,12 @@ import type {
 } from './types';
 import { DEFAULT_MONITORING_CONFIG } from './types';
 
+// Layout Shift Entry interface for CLS measurement
+interface LayoutShift extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
+}
+
 class PerformanceMonitor {
   private config: MonitoringConfig = DEFAULT_MONITORING_CONFIG;
   private metrics: PerformanceMetric[] = [];

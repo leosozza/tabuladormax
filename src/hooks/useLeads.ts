@@ -20,10 +20,14 @@ export function useLeads(params: UseLeadsParams = {}) {
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
   const columns = params.columns?.join(',') || '*';
+  
+  const queryKey = ['leads', params];
 
   return useQuery({
     queryKey,
     queryFn: async () => {
+      const startTime = performance.now();
+      
       // Calculate pagination offset
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;

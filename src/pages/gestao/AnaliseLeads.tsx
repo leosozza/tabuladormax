@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, XCircle, SkipForward, Download, WifiOff, Settings2, RefreshCw } from "lucide-react";
+import { CheckCircle2, XCircle, SkipForward, Download, WifiOff, Settings2, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -19,6 +19,7 @@ import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
 import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal";
+import { useUndoAction } from "@/hooks/useUndoAction";
 
 export default function AnaliseLeads() {
   const queryClient = useQueryClient();
@@ -37,6 +38,7 @@ export default function AnaliseLeads() {
     projectId: null,
     scouterId: null
   });
+  const { recordAction, clearUndo, lastAction, isUndoAvailable } = useUndoAction({ timeoutMs: 5000 });
 
   // Buscar leads não analisados
   const { data: leads, isLoading } = useQuery({
@@ -92,6 +94,32 @@ export default function AnaliseLeads() {
         approved: data?.filter(l => l.qualidade_lead === "aprovado").length || 0,
         rejected: data?.filter(l => l.qualidade_lead === "rejeitado").length || 0,
       };
+    },
+  });
+
+  // Mutation para desfazer análise
+  const undoMutation = useMutation({
+    mutationFn: async (leadId: number) => {
+      const { error } = await supabase
+        .from("leads")
+        .update({
+          qualidade_lead: null,
+          analisado_por: null,
+          data_analise: null,
+        })
+        .eq("id", leadId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads-pending-analysis"] });
+      queryClient.invalidateQueries({ queryKey: ["analysis-session-stats"] });
+      clearUndo();
+      toast({ title: "Análise desfeita com sucesso", variant: "default" });
+    },
+    onError: (error) => {
+      console.error('[AnaliseLeads] Error undoing analysis:', error);
+      toast({ title: "Erro ao desfazer análise", variant: "destructive" });
     },
   });
 
