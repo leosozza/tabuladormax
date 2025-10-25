@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Phone, Target, Lock, Building2 } from 'lucide-react';
 import { useDepartmentAccess } from '@/hooks/useDepartmentAccess';
+import { TelemarketingAccessModal } from '@/components/telemarketing/TelemarketingAccessModal';
 
 const HomeChoice: React.FC = () => {
   const navigate = useNavigate();
@@ -14,6 +15,8 @@ const HomeChoice: React.FC = () => {
     isAdmin,
     loading
   } = useDepartmentAccess();
+
+  const [telemarketingModalOpen, setTelemarketingModalOpen] = useState(false);
 
   // Redirecionamento automático se só tem acesso a um módulo
   React.useEffect(() => {
@@ -64,7 +67,7 @@ const HomeChoice: React.FC = () => {
                 ? 'cursor-pointer border-primary/20 hover:border-primary/50' 
                 : 'opacity-50 cursor-not-allowed'
             }`}
-            onClick={() => canAccessTelemarketing && navigate('/lead')}
+            onClick={() => canAccessTelemarketing && setTelemarketingModalOpen(true)}
           >
             {!canAccessTelemarketing && (
               <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
@@ -80,7 +83,7 @@ const HomeChoice: React.FC = () => {
                 <div>
                   <CardTitle className="text-xl">Telemarketing</CardTitle>
                   <CardDescription className="text-sm mt-1">
-                    Gestão de Leads
+                    Leads e Dashboard
                   </CardDescription>
                 </div>
               </div>
@@ -94,7 +97,7 @@ const HomeChoice: React.FC = () => {
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                  Integração Bitrix24
+                  Dashboard de métricas
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
@@ -235,6 +238,12 @@ const HomeChoice: React.FC = () => {
           <p>Sistema Integrado v2.0</p>
         </div>
       </div>
+
+      {/* Modal Telemarketing */}
+      <TelemarketingAccessModal 
+        open={telemarketingModalOpen} 
+        onOpenChange={setTelemarketingModalOpen} 
+      />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { User, MapPin, Phone, Filter, Settings2, Eye, EyeOff, Cloud, Loader2 } from "lucide-react";
+import { User, MapPin, Phone, Filter, Settings2, Eye, EyeOff, Loader2 } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -408,29 +408,25 @@ const Index = () => {
               </p>
             </div>
             <div className="flex flex-wrap gap-2 items-center">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/lead')}
+                className="gap-2"
+              >
+                <Phone className="w-4 h-4" />
+                Gestão de Leads
+              </Button>
               {isAdmin && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate('/sync-monitor')}
-                    title="Central de Sincronização"
-                    className="min-h-[44px]"
-                  >
-                    <Cloud className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Central de Sincronização</span>
-                    <span className="sm:hidden">Sync</span>
-                  </Button>
-                  <label className="flex items-center gap-2 text-sm min-h-[44px]">
-                    <input 
-                      type="checkbox" 
-                      checked={showAllUsers}
-                      onChange={(e) => setShowAllUsers(e.target.checked)}
-                      className="rounded w-5 h-5"
-                    />
-                    <span className="hidden sm:inline">Ver todos os usuários</span>
-                    <span className="sm:hidden">Todos</span>
-                  </label>
-                </>
+                <label className="flex items-center gap-2 text-sm min-h-[44px]">
+                  <input 
+                    type="checkbox" 
+                    checked={showAllUsers}
+                    onChange={(e) => setShowAllUsers(e.target.checked)}
+                    className="rounded w-5 h-5"
+                  />
+                  <span className="hidden sm:inline">Ver todos os usuários</span>
+                  <span className="sm:hidden">Todos</span>
+                </label>
               )}
               <UserMenu />
             </div>
