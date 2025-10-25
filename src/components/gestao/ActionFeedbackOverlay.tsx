@@ -62,7 +62,7 @@ export default function ActionFeedbackOverlay({
       </div>
       
       {/* Text */}
-      <div className="absolute bottom-1/3 text-center">
+      <div className="absolute bottom-12 sm:bottom-24 text-center">
         <p 
           className={cn(
             "text-3xl font-bold",
