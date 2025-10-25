@@ -1,0 +1,2 @@
+# Este arquivo mantém o diretório logs/ no repositório sem versionar arquivos de log
+# Logs gerados pelas edge functions não devem ser versionados por questões de segurança
