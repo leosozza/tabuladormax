@@ -22,6 +22,8 @@ export default function ActionFeedbackOverlay({
         setShow(false);
       }, duration);
       return () => clearTimeout(timer);
+    } else {
+      setShow(false);
     }
   }, [isVisible, type, duration]);
 
