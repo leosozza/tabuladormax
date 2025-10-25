@@ -7,8 +7,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Exception: Allow supabase/functions/diagnostics/logs
-!supabase/functions/diagnostics/logs/
+# Não versionar logs das edge functions
+# O diretório é mantido vazio com .keep
+supabase/functions/diagnostics/logs/*.log
+supabase/functions/diagnostics/logs/*.txt
 
 node_modules
 dist
