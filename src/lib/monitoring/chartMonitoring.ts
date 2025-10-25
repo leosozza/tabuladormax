@@ -38,7 +38,7 @@ export function useChartPerformance(
         hasMonitored.current = true;
       }
     };
-  }, []);
+  }, [chartType, dataPoints]);
 
   // Track render complete
   useEffect(() => {
