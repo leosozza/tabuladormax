@@ -1,18 +1,49 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { 
+  getCorsHeaders, 
+  handleCorsPrelight,
+  checkRateLimit,
+  rateLimitResponse 
+} from '../_shared/security.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-shared-secret',
-};
+/**
+ * Reload Gestão Scouter Schema Cache Endpoint
+ * 
+ * Recarrega o cache de schema do PostgREST do projeto Gestão Scouter
+ * 
+ * IMPORTANTE: Este endpoint usa autenticação baseada em segredo compartilhado (RELOAD_SCHEMA_SECRET)
+ * ao invés de autenticação de usuário, pois é destinado a ser chamado por sistemas automatizados.
+ * 
+ * ⚠️ SEGURANÇA CRÍTICA:
+ * - NÃO chamar este endpoint diretamente do cliente (browser)
+ * - Usar apenas de sistemas backend confiáveis ou jobs agendados
+ * - Manter RELOAD_SCHEMA_SECRET seguro e rotacioná-lo regularmente
+ * 
+ * Autenticação:
+ * - Header: x-shared-secret: <RELOAD_SCHEMA_SECRET>
+ * - OU Body JSON: { "secret": "<RELOAD_SCHEMA_SECRET>" }
+ * 
+ * Segurança:
+ * 1. CORS restrito baseado em ambiente (ALLOWED_ORIGINS)
+ * 2. Autenticação via segredo compartilhado (RELOAD_SCHEMA_SECRET)
+ * 3. Rate limiting in-memory por IP
+ */
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // 1. Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPrelight();
   }
 
-  // Only allow POST requests
+  const corsHeaders = getCorsHeaders();
+
+  // 2. Rate limiting check - mais restritivo para este endpoint crítico
+  if (!checkRateLimit(req)) {
+    return rateLimitResponse();
+  }
+
+  // 3. Method validation - only POST allowed
   if (req.method !== 'POST') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
@@ -24,18 +55,18 @@ serve(async (req) => {
   }
 
   try {
-    // Get expected secret from environment variable
+    // 4. Validate RELOAD_SCHEMA_SECRET configuration
     const expectedSecret = Deno.env.get('RELOAD_SCHEMA_SECRET');
     
     if (!expectedSecret) {
-      console.error('[reload-schema-cache] RELOAD_SCHEMA_SECRET not configured');
+      console.error('[reload-schema-cache] ❌ RELOAD_SCHEMA_SECRET not configured');
       return new Response(
         JSON.stringify({ error: 'Server configuration error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get secret from header or JSON body
+    // 5. Extract secret from header or JSON body
     let providedSecret = req.headers.get('x-shared-secret');
     
     if (!providedSecret) {
@@ -47,17 +78,18 @@ serve(async (req) => {
       }
     }
 
-    // Validate secret
+    // 6. Validate secret
     if (!providedSecret || providedSecret !== expectedSecret) {
-      console.warn('[reload-schema-cache] Unauthorized access attempt');
+      console.warn('[reload-schema-cache] ⚠️ Unauthorized access attempt - invalid secret');
       return new Response(
         JSON.stringify({ error: 'Unauthorized: Invalid or missing secret' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('[reload-schema-cache] Valid secret provided, proceeding with reload');
+    console.log('[reload-schema-cache] ✅ Valid secret provided, proceeding with reload');
 
+    // 7. Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
@@ -67,7 +99,7 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get Gestão Scouter config
+    // 8. Get Gestão Scouter config
     const { data: config } = await supabase
       .from('gestao_scouter_config')
       .select('*')
@@ -78,10 +110,10 @@ serve(async (req) => {
       throw new Error('Configuração do Gestão Scouter não encontrada');
     }
 
-    // Create client for Gestão Scouter with service role
+    // 9. Create client for Gestão Scouter with service role
     const gestaoClient = createClient(config.project_url, config.anon_key);
 
-    // Execute NOTIFY command to reload schema cache
+    // 10. Execute NOTIFY command to reload schema cache
     const { error } = await gestaoClient.rpc('notify_pgrst_reload');
 
     if (error) {
@@ -98,7 +130,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('[reload-schema-cache] Schema cache reload successful');
+    console.log('[reload-schema-cache] ✅ Schema cache reload successful');
 
     return new Response(
       JSON.stringify({ ok: true, message: 'Cache recarregado com sucesso' }),
@@ -106,7 +138,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('[reload-schema-cache] Error:', error);
+    console.error('[reload-schema-cache] ❌ Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
       JSON.stringify({ error: errorMessage }),
