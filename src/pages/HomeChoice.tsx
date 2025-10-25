@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Phone, Target, Lock, Building2 } from 'lucide-react';
 import { useDepartmentAccess } from '@/hooks/useDepartmentAccess';
 import { TelemarketingAccessModal } from '@/components/telemarketing/TelemarketingAccessModal';
+import { AdminAccessModal } from '@/components/admin/AdminAccessModal';
 
 const HomeChoice: React.FC = () => {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ const HomeChoice: React.FC = () => {
   } = useDepartmentAccess();
 
   const [telemarketingModalOpen, setTelemarketingModalOpen] = useState(false);
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
 
   // Redirecionamento automático se só tem acesso a um módulo
   React.useEffect(() => {
@@ -177,7 +179,7 @@ const HomeChoice: React.FC = () => {
                 ? 'cursor-pointer border-primary/20 hover:border-primary/50' 
                 : 'opacity-50 cursor-not-allowed'
             }`}
-            onClick={() => canAccessAdmin && navigate('/dashboard')}
+            onClick={() => canAccessAdmin && setAdminModalOpen(true)}
           >
             {!canAccessAdmin && (
               <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
@@ -239,10 +241,14 @@ const HomeChoice: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal Telemarketing */}
+      {/* Modals */}
       <TelemarketingAccessModal 
         open={telemarketingModalOpen} 
         onOpenChange={setTelemarketingModalOpen} 
+      />
+      <AdminAccessModal 
+        open={adminModalOpen} 
+        onOpenChange={setAdminModalOpen} 
       />
     </div>
   );

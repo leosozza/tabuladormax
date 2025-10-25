@@ -13,14 +13,18 @@ import Debug from "./pages/Debug";
 import LeadTab from "./pages/LeadTab";
 import Dashboard from "./pages/Dashboard";
 import DashboardManager from "./pages/DashboardManager";
-import Config from "./pages/Config";
-import Logs from "./pages/Logs";
-import Users from "./pages/Users";
-import AgentMapping from "./pages/AgentMapping";
-import Permissions from "./pages/Permissions";
-import Diagnostic from "./pages/Diagnostic";
-import PerformanceMonitoring from "./pages/PerformanceMonitoring";
 import NotFound from "./pages/NotFound";
+
+// Páginas Administrativas
+import AdminHub from "./pages/admin/AdminHub";
+import Config from "./pages/admin/Config";
+import Logs from "./pages/admin/Logs";
+import Users from "./pages/admin/Users";
+import AgentMapping from "./pages/admin/AgentMapping";
+import Permissions from "./pages/admin/Permissions";
+import Diagnostic from "./pages/admin/Diagnostic";
+import PerformanceMonitoring from "./pages/admin/PerformanceMonitoring";
+import SyncMonitor from "./pages/admin/SyncMonitor";
 
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
@@ -50,16 +54,22 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/install" element={<Install />} />
           <Route path="/debug" element={<ProtectedRoute><Debug /></ProtectedRoute>} />
+          
+          {/* Telemarketing */}
           <Route path="/lead" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/dashboard-manager" element={<ProtectedRoute><DashboardManager /></ProtectedRoute>} />
-          <Route path="/users" element={<ProtectedRoute requireSupervisor><Users /></ProtectedRoute>} />
-          <Route path="/permissions" element={<ProtectedRoute requireAdmin><Permissions /></ProtectedRoute>} />
-          <Route path="/config" element={<ProtectedRoute requireManager><Config /></ProtectedRoute>} />
-          <Route path="/logs" element={<ProtectedRoute requireManager><Logs /></ProtectedRoute>} />
-          <Route path="/agent-mapping" element={<ProtectedRoute requireManager><AgentMapping /></ProtectedRoute>} />
-          <Route path="/diagnostic" element={<ProtectedRoute requireAdmin><Diagnostic /></ProtectedRoute>} />
-          <Route path="/monitoring" element={<ProtectedRoute requireManager><PerformanceMonitoring /></ProtectedRoute>} />
+          
+          {/* Rotas Administrativas */}
+          <Route path="/admin" element={<ProtectedRoute requireManager><AdminHub /></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute requireSupervisor><Users /></ProtectedRoute>} />
+          <Route path="/admin/permissions" element={<ProtectedRoute requireAdmin><Permissions /></ProtectedRoute>} />
+          <Route path="/admin/config" element={<ProtectedRoute requireManager><Config /></ProtectedRoute>} />
+          <Route path="/admin/logs" element={<ProtectedRoute requireManager><Logs /></ProtectedRoute>} />
+          <Route path="/admin/agent-mapping" element={<ProtectedRoute requireManager><AgentMapping /></ProtectedRoute>} />
+          <Route path="/admin/diagnostic" element={<ProtectedRoute requireAdmin><Diagnostic /></ProtectedRoute>} />
+          <Route path="/admin/monitoring" element={<ProtectedRoute requireManager><PerformanceMonitoring /></ProtectedRoute>} />
+          <Route path="/admin/sync-monitor" element={<ProtectedRoute requireManager><SyncMonitor /></ProtectedRoute>} />
 
           {/* Rotas do Gestão Scouter (prefixo /scouter) */}
           <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />
