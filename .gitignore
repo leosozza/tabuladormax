@@ -1,5 +1,5 @@
-# Logs
-logs
+# Logs (general)
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,8 +7,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Exception: Allow supabase/functions/diagnostics/logs
-!supabase/functions/diagnostics/logs/
+# Não versionar logs das edge functions, mas manter estrutura de diretórios
+# O diretório é mantido vazio com .keep
+supabase/functions/diagnostics/logs/*.log
+supabase/functions/diagnostics/logs/*.txt
+# Exceção: permitir arquivo .keep
+!supabase/functions/diagnostics/logs/.keep
 
 node_modules
 dist
