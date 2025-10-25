@@ -26,13 +26,13 @@ CREATE TABLE IF NOT EXISTS performance_metrics (
   value DECIMAL NOT NULL,
   unit TEXT NOT NULL,
   metadata JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
-  -- Indexes for efficient queries
-  INDEX idx_metrics_name (metric_name),
-  INDEX idx_metrics_type (metric_type),
-  INDEX idx_metrics_created_at (created_at)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Indexes for performance_metrics
+CREATE INDEX IF NOT EXISTS idx_metrics_name ON performance_metrics(metric_name);
+CREATE INDEX IF NOT EXISTS idx_metrics_type ON performance_metrics(metric_type);
+CREATE INDEX IF NOT EXISTS idx_metrics_created_at ON performance_metrics(created_at);
 
 -- Table for storing performance alerts
 CREATE TABLE IF NOT EXISTS performance_alerts (
@@ -46,13 +46,13 @@ CREATE TABLE IF NOT EXISTS performance_alerts (
   acknowledged BOOLEAN DEFAULT FALSE,
   acknowledged_at TIMESTAMPTZ,
   acknowledged_by UUID REFERENCES auth.users(id),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
-  -- Indexes for efficient queries
-  INDEX idx_alerts_level (alert_level),
-  INDEX idx_alerts_acknowledged (acknowledged),
-  INDEX idx_alerts_created_at (created_at)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Indexes for performance_alerts
+CREATE INDEX IF NOT EXISTS idx_alerts_level ON performance_alerts(alert_level);
+CREATE INDEX IF NOT EXISTS idx_alerts_acknowledged ON performance_alerts(acknowledged);
+CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON performance_alerts(created_at);
 
 -- Table for storing query performance logs
 CREATE TABLE IF NOT EXISTS query_performance_logs (
@@ -64,13 +64,13 @@ CREATE TABLE IF NOT EXISTS query_performance_logs (
   cached BOOLEAN DEFAULT FALSE,
   error_message TEXT,
   metadata JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
-  -- Indexes for efficient queries
-  INDEX idx_query_logs_key (query_key),
-  INDEX idx_query_logs_duration (duration_ms),
-  INDEX idx_query_logs_created_at (created_at)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Indexes for query_performance_logs
+CREATE INDEX IF NOT EXISTS idx_query_logs_key ON query_performance_logs(query_key);
+CREATE INDEX IF NOT EXISTS idx_query_logs_duration ON query_performance_logs(duration_ms);
+CREATE INDEX IF NOT EXISTS idx_query_logs_created_at ON query_performance_logs(created_at);
 
 -- Table for storing edge function telemetry
 CREATE TABLE IF NOT EXISTS edge_function_telemetry (
@@ -82,13 +82,13 @@ CREATE TABLE IF NOT EXISTS edge_function_telemetry (
   memory_used_bytes BIGINT,
   error_message TEXT,
   metadata JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
-  -- Indexes for efficient queries
-  INDEX idx_edge_telemetry_name (function_name),
-  INDEX idx_edge_telemetry_status (status),
-  INDEX idx_edge_telemetry_created_at (created_at)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Indexes for edge_function_telemetry
+CREATE INDEX IF NOT EXISTS idx_edge_telemetry_name ON edge_function_telemetry(function_name);
+CREATE INDEX IF NOT EXISTS idx_edge_telemetry_status ON edge_function_telemetry(status);
+CREATE INDEX IF NOT EXISTS idx_edge_telemetry_created_at ON edge_function_telemetry(created_at);
 
 -- View for slow queries (queries taking >2 seconds)
 CREATE OR REPLACE VIEW slow_queries AS
