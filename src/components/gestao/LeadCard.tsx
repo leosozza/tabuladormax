@@ -1,34 +1,60 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, MapPin, Calendar, Phone, DollarSign } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-
-interface Lead {
-  id: number;
-  name: string | null;
-  photo_url: string | null;
-  scouter: string | null;
-  local_abordagem: string | null;
-  address: string | null;
-  celular: string | null;
-  data_criacao_ficha: string | null;
-  valor_ficha: number | null;
-  etapa: string | null;
-}
+import { User, MapPin, Calendar, Phone } from "lucide-react";
+import { useTinderCardConfig } from "@/hooks/useTinderCardConfig";
+import { ALL_LEAD_FIELDS } from "@/config/leadFields";
 
 interface LeadCardProps {
-  lead: Lead;
+  lead: Record<string, unknown>; // Dynamic lead object
 }
 
 export default function LeadCard({ lead }: LeadCardProps) {
+  const { config } = useTinderCardConfig();
+
+  const getFieldLabel = (key: string) => {
+    const field = ALL_LEAD_FIELDS.find(f => f.key === key);
+    return field?.label || key;
+  };
+
+  const getFieldValue = (key: string) => {
+    const value = lead[key];
+    const field = ALL_LEAD_FIELDS.find(f => f.key === key);
+    
+    if (!value) return null;
+    
+    // Use the formatter from the field config if available
+    if (field?.formatter) {
+      return field.formatter(value, lead);
+    }
+    
+    return value;
+  };
+
+  const getFieldIcon = (key: string) => {
+    if (key.includes('local') || key.includes('address') || key.includes('localizacao')) {
+      return <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
+    }
+    if (key.includes('telefone') || key.includes('celular')) {
+      return <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
+    }
+    if (key.includes('data') || key.includes('criado')) {
+      return <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
+    }
+    return null;
+  };
+
+  const photoUrl = lead[config.photoField];
+  const mainValues = config.mainFields.map(key => ({ key, value: getFieldValue(key) }));
+  const detailValues = config.detailFields.map(key => ({ key, value: getFieldValue(key), label: getFieldLabel(key) }));
+  const badgeValues = config.badgeFields.map(key => ({ key, value: getFieldValue(key) })).filter(v => v.value);
+
   return (
     <Card className="w-full max-w-md mx-auto overflow-hidden border-2">
       {/* Foto do Lead */}
       <div className="relative aspect-[3/4] bg-muted overflow-hidden">
-        {lead.photo_url ? (
+        {photoUrl ? (
           <img
-            src={lead.photo_url}
+            src={photoUrl}
             alt={lead.name || "Lead"}
             className="w-full h-full object-cover"
           />
@@ -38,12 +64,14 @@ export default function LeadCard({ lead }: LeadCardProps) {
           </div>
         )}
         
-        {/* Badge de Status */}
-        {lead.etapa && (
-          <div className="absolute top-4 right-4">
-            <Badge variant="secondary" className="backdrop-blur-sm bg-background/80">
-              {lead.etapa}
-            </Badge>
+        {/* Badges de Status */}
+        {badgeValues.length > 0 && (
+          <div className="absolute top-4 right-4 flex flex-col gap-2">
+            {badgeValues.map((badge, idx) => (
+              <Badge key={idx} variant="secondary" className="backdrop-blur-sm bg-background/80">
+                {badge.value}
+              </Badge>
+            ))}
           </div>
         )}
       </div>
@@ -51,56 +79,28 @@ export default function LeadCard({ lead }: LeadCardProps) {
       {/* Informações do Lead */}
       <CardContent className="p-6 space-y-4">
         <div>
-          <h3 className="text-2xl font-bold mb-1">{lead.name || "Sem nome"}</h3>
-          {lead.scouter && (
-            <p className="text-sm text-muted-foreground">Captado por: {lead.scouter}</p>
+          <h3 className="text-2xl font-bold mb-1">
+            {mainValues[0]?.value || "Sem nome"}
+          </h3>
+          {mainValues[1]?.value && (
+            <p className="text-sm text-muted-foreground">{mainValues[1].value}</p>
           )}
         </div>
 
         <div className="space-y-3">
-          {lead.local_abordagem && (
-            <div className="flex items-center gap-2 text-sm">
-              <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              <span className="font-medium">Local:</span>
-              <span className="text-muted-foreground">{lead.local_abordagem}</span>
-            </div>
-          )}
-
-          {lead.address && (
-            <div className="flex items-start gap-2 text-sm">
-              <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-              <span className="font-medium">Endereço:</span>
-              <span className="text-muted-foreground flex-1">{lead.address}</span>
-            </div>
-          )}
-
-          {lead.celular && (
-            <div className="flex items-center gap-2 text-sm">
-              <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              <span className="font-medium">Celular:</span>
-              <span className="text-muted-foreground">{lead.celular}</span>
-            </div>
-          )}
-
-          {lead.data_criacao_ficha && (
-            <div className="flex items-center gap-2 text-sm">
-              <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              <span className="font-medium">Cadastro:</span>
-              <span className="text-muted-foreground">
-                {format(new Date(lead.data_criacao_ficha), "dd/MM/yyyy", { locale: ptBR })}
-              </span>
-            </div>
-          )}
-
-          {lead.valor_ficha && (
-            <div className="flex items-center gap-2 text-sm">
-              <DollarSign className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              <span className="font-medium">Valor:</span>
-              <span className="text-muted-foreground">
-                R$ {lead.valor_ficha.toFixed(2)}
-              </span>
-            </div>
-          )}
+          {detailValues.map((detail, idx) => {
+            if (!detail.value) return null;
+            
+            const icon = getFieldIcon(detail.key);
+            
+            return (
+              <div key={idx} className="flex items-start gap-2 text-sm">
+                {icon}
+                <span className="font-medium">{detail.label}:</span>
+                <span className="text-muted-foreground flex-1">{detail.value}</span>
+              </div>
+            );
+          })}
         </div>
       </CardContent>
     </Card>

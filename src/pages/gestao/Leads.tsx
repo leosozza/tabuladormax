@@ -3,15 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import GestaoSidebar from "@/components/gestao/Sidebar";
 import LeadDetailModal from "@/components/gestao/LeadDetailModal";
+import { LeadColumnSelector } from "@/components/gestao/LeadColumnSelector";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Search, Download, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
+import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
+import { ALL_LEAD_FIELDS } from "@/config/leadFields";
 
 export default function GestaoLeads() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -22,6 +24,7 @@ export default function GestaoLeads() {
     projectId: null,
     scouterId: null
   });
+  const { visibleColumns } = useLeadColumnConfig();
   
   const { data: leads, isLoading } = useQuery({
     queryKey: ["gestao-leads", searchTerm, filters],
@@ -57,19 +60,26 @@ export default function GestaoLeads() {
     },
   });
 
+  // Get visible field configurations
+  const visibleFields = ALL_LEAD_FIELDS.filter(field => visibleColumns.includes(field.key));
+
   const handleExport = () => {
     if (!leads) return;
     
-    const csv = [
-      ["Nome", "Telefone", "Scouter", "Status", "Data Criação"],
-      ...leads.map(lead => [
-        lead.name || "",
-        lead.celular || "",
-        lead.scouter || "",
-        lead.status_tabulacao || "",
-        lead.criado ? format(new Date(lead.criado), "dd/MM/yyyy") : ""
-      ])
-    ].map(row => row.join(",")).join("\n");
+    const headers = visibleFields.map(field => field.label);
+    const rows = leads.map(lead => 
+      visibleFields.map(field => {
+        const value = lead[field.key];
+        if (field.formatter && value) {
+          const formatted = field.formatter(value, lead);
+          // Convert ReactNode to string for CSV
+          return typeof formatted === 'string' ? formatted : String(formatted);
+        }
+        return value || "";
+      })
+    );
+    
+    const csv = [headers, ...rows].map(row => row.join(",")).join("\n");
     
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -108,50 +118,44 @@ export default function GestaoLeads() {
               className="pl-10"
             />
           </div>
+          <LeadColumnSelector />
         </div>
 
         {isLoading ? (
           <div className="text-center py-12">Carregando leads...</div>
         ) : (
-          <div className="border rounded-lg bg-card">
+          <div className="border rounded-lg bg-card overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Scouter</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ficha Confirmada</TableHead>
-                  <TableHead>Data Criação</TableHead>
+                  {visibleFields.map((field) => (
+                    <TableHead key={field.key}>{field.label}</TableHead>
+                  ))}
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {leads?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={visibleFields.length + 1} className="text-center py-8 text-muted-foreground">
                       Nenhum lead encontrado
                     </TableCell>
                   </TableRow>
                 ) : (
                   leads?.map((lead) => (
                     <TableRow key={lead.id}>
-                      <TableCell className="font-medium">{lead.name || "-"}</TableCell>
-                      <TableCell>{lead.celular || "-"}</TableCell>
-                      <TableCell>{lead.scouter || "-"}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{lead.status_tabulacao || "Sem status"}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {lead.ficha_confirmada ? (
-                          <span className="text-green-600 font-medium">Sim</span>
-                        ) : (
-                          <span className="text-muted-foreground">Não</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {lead.criado ? format(new Date(lead.criado), "dd/MM/yyyy HH:mm") : "-"}
-                      </TableCell>
+                      {visibleFields.map((field) => {
+                        const value = lead[field.key];
+                        const formattedValue = field.formatter 
+                          ? field.formatter(value, lead) 
+                          : value || "-";
+                        
+                        return (
+                          <TableCell key={field.key} className={field.key === 'name' ? 'font-medium' : ''}>
+                            {formattedValue}
+                          </TableCell>
+                        );
+                      })}
                       <TableCell className="text-right">
                         <Button
                           size="sm"
