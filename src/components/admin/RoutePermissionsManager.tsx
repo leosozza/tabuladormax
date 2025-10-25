@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Save, Filter } from "lucide-react";
+import { Save, Filter, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ReloadSchemaCacheButton } from "./ReloadSchemaCacheButton";
 import type { AppRole, Department } from "@/types/database-extensions";
 
 interface AppRoute {
@@ -65,6 +67,7 @@ export default function RoutePermissionsManager() {
   const [saving, setSaving] = useState(false);
   const [changes, setChanges] = useState<Map<string, boolean>>(new Map());
   const [filterModule, setFilterModule] = useState<string>("all");
+  const [schemaCacheError, setSchemaCacheError] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -90,9 +93,17 @@ export default function RoutePermissionsManager() {
 
       setRoutes(routesRes.data as any || []);
       setPermissions(permsRes.data as any || []);
-    } catch (error) {
+      setSchemaCacheError(false);
+    } catch (error: any) {
       console.error("Erro ao carregar dados:", error);
-      toast.error("Erro ao carregar permissões de rota");
+      
+      // Detectar erro de schema cache
+      if (error?.code === 'PGRST205' || error?.message?.includes('schema cache')) {
+        setSchemaCacheError(true);
+        toast.error("Tabelas não encontradas no cache. Clique em 'Recarregar Schema Cache'");
+      } else {
+        toast.error("Erro ao carregar permissões de rota");
+      }
     } finally {
       setLoading(false);
     }
@@ -201,6 +212,20 @@ export default function RoutePermissionsManager() {
 
   return (
     <div className="space-y-4">
+      {schemaCacheError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Erro de Schema Cache</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              As tabelas <code>app_routes</code> e <code>route_permissions</code> não foram encontradas no cache do Supabase.
+              Isso acontece após criar novas tabelas. Clique no botão ao lado para recarregar.
+            </span>
+            <ReloadSchemaCacheButton />
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4" />
