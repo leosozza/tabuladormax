@@ -9,8 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { TelemarketingSelector } from "@/components/TelemarketingSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Search, Link as LinkIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
+import { AdminPageLayout } from "@/components/layouts/AdminPageLayout";
 
 interface AgentMapping {
   id: string;
@@ -203,7 +204,11 @@ export default function AgentMapping() {
   });
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <AdminPageLayout
+      title="Mapeamento Agente ↔ Telemarketing"
+      description="Vincule agentes do Chatwoot ou usuários TabuladorMax aos operadores de telemarketing do Bitrix24"
+      backTo="/admin"
+    >
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -378,6 +383,6 @@ export default function AgentMapping() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </AdminPageLayout>
   );
 }

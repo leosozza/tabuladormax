@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, User as UserIcon, Key, Copy, Check, Edit2, Plus, Building2, Users as UsersIcon } from "lucide-react";
+import { Shield, User as UserIcon, Key, Copy, Check, Edit2, Plus, Building2, Users as UsersIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,9 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import UserMenu from "@/components/UserMenu";
 import { TelemarketingSelector } from "@/components/TelemarketingSelector";
 import { CommercialProjectBitrixSelector } from "@/components/CommercialProjectBitrixSelector";
+import { AdminPageLayout } from "@/components/layouts/AdminPageLayout";
 
 interface UserWithRole {
   id: string;
@@ -1171,38 +1171,21 @@ export default function Users() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-card border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">
-                  👥 Gerenciar Usuários
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                  Visualize e gerencie usuários do sistema
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleSyncProjects}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                🔄 Sincronizar Projetos
-              </Button>
-              <UserMenu />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 space-y-6">
+    <AdminPageLayout
+      title="Gerenciar Usuários"
+      description="Visualize e gerencie usuários do sistema"
+      backTo="/admin"
+      actions={
+        <Button
+          onClick={handleSyncProjects}
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          🔄 Sincronizar Projetos
+        </Button>
+      }
+    >
+      <div className="space-y-6">
         {/* Filtros e Botão Criar */}
         <div className="flex flex-wrap gap-4 items-center justify-between">
           <div className="flex flex-wrap gap-3">
@@ -1914,7 +1897,7 @@ export default function Users() {
             </div>
           </DialogContent>
         </Dialog>
-      </main>
-    </div>
+      </div>
+    </AdminPageLayout>
   );
 }

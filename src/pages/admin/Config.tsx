@@ -1,7 +1,5 @@
 import { useState, useEffect, type DragEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Save, RefreshCcw, Loader2, GripVertical, Edit, Copy } from "lucide-react";
-import UserMenu from "@/components/UserMenu";
+import { Plus, Trash2, Save, RefreshCcw, Loader2, GripVertical, Edit, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ButtonEditDialog } from "@/components/ButtonEditDialog";
 import { CategoryManager } from "@/components/CategoryManager";
+import { AdminPageLayout } from "@/components/layouts/AdminPageLayout";
 
 interface SubButton {
   subLabel: string;
@@ -182,7 +181,6 @@ interface Category {
 }
 
 const Config = () => {
-  const navigate = useNavigate();
   const [buttons, setButtons] = useState<ButtonConfig[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [bitrixFields, setBitrixFields] = useState<BitrixField[]>([]);
@@ -819,48 +817,36 @@ const Config = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="container mx-auto max-w-6xl">
-        <div className="flex justify-between items-center mb-6">
-          <Button variant="outline" onClick={() => navigate(`/dashboard`)} className="gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
+    <AdminPageLayout
+      title="Configuração de Botões"
+      description="Organize os botões por categoria e configure suas ações clicando duas vezes em cada botão"
+      backTo="/admin"
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={loadFields} disabled={loadingFields}>
+            <RefreshCcw className="w-4 h-4 mr-2" />
+            {loadingFields ? "Atualizando..." : "Atualizar campos"}
           </Button>
-          <UserMenu />
+          <Button onClick={addButton} variant="outline">
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar Botão
+          </Button>
+          <Button onClick={saveConfig} disabled={saving}>
+            {saving ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Salvando...
+              </span>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" /> Salvar Tudo
+              </>
+            )}
+          </Button>
         </div>
-
-        <Card className="p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold">⚙️ Configuração de Botões</h1>
-              <p className="text-sm text-muted-foreground">
-                Organize os botões por categoria e configure suas ações clicando duas vezes em cada botão.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={loadFields} disabled={loadingFields}>
-                <RefreshCcw className="w-4 h-4 mr-2" />
-                {loadingFields ? "Atualizando..." : "Atualizar campos"}
-              </Button>
-              <Button onClick={addButton} variant="outline">
-                <Plus className="w-4 h-4 mr-2" />
-                Adicionar Botão
-              </Button>
-              <Button onClick={saveConfig} disabled={saving}>
-                {saving ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Salvando...
-                  </span>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" /> Salvar Tudo
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          <CategoryManager 
+      }
+    >
+      <Card className="p-6">
+          <CategoryManager
             categories={categories} 
             onCategoriesChange={loadCategories}
           />
@@ -1042,8 +1028,8 @@ const Config = () => {
           onRemoveSubAdditionalField={removeSubAdditionalField}
           onUpdateSubAdditionalField={updateSubAdditionalField}
         />
-      </div>
-    </div>
+      </Card>
+    </AdminPageLayout>
   );
 };
 

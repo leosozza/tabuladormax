@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Shield, Save } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Permission, RolePermission, PermissionScope, AppRole } from "@/types/database-extensions";
+import { AdminPageLayout } from "@/components/layouts/AdminPageLayout";
 
 const SCOPE_LABELS: Record<PermissionScope, string> = {
   global: "Global (Todos)",
@@ -144,19 +145,17 @@ export default function Permissions() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Permissões por Role</h1>
-          <p className="text-muted-foreground">Configure o escopo de acesso para cada role</p>
-        </div>
-
+    <AdminPageLayout
+      title="Permissões por Role"
+      description="Configure o escopo de acesso para cada role"
+      backTo="/admin"
+      actions={
         <Button onClick={handleSave} disabled={saving || changes.size === 0}>
           <Save className="h-4 w-4 mr-2" />
           Salvar {changes.size > 0 && `(${changes.size})`}
         </Button>
-      </div>
-
+      }
+    >
       <Card className="p-6">
         {loading ? (
           <div className="space-y-3">
@@ -246,6 +245,6 @@ export default function Permissions() {
           ))}
         </div>
       </Card>
-    </div>
+    </AdminPageLayout>
   );
 }

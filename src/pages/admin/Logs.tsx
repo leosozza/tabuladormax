@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Filter, Columns } from "lucide-react";
-import UserMenu from "@/components/UserMenu";
+import { Filter, Columns } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { AdminPageLayout } from "@/components/layouts/AdminPageLayout";
 
 interface LogEntry {
   id: string;
@@ -50,7 +49,6 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
 ];
 
 const Logs = () => {
-  const navigate = useNavigate();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
@@ -168,29 +166,17 @@ const Logs = () => {
   const visibleColumns = columns.filter(col => col.visible);
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="container mx-auto max-w-7xl">
-        <div className="flex justify-between items-center mb-6">
-          <Button
-            variant="outline"
-            onClick={() => navigate('/dashboard')}
-            className="gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
-          </Button>
-          <UserMenu />
-        </div>
-
-        <Card className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">🧾 Logs de Ações</h1>
-            <div className="flex gap-2">
-              <Button onClick={loadLogs} variant="outline">
-                Atualizar
-              </Button>
-            </div>
-          </div>
+    <AdminPageLayout
+      title="Logs de Ações"
+      description="Visualize e filtre os logs de ações do sistema"
+      backTo="/admin"
+      actions={
+        <Button onClick={loadLogs} variant="outline">
+          Atualizar
+        </Button>
+      }
+    >
+      <Card className="p-6">
 
           {/* Filters Section */}
           <div className="mb-6 p-4 bg-muted/50 rounded-lg">
@@ -396,8 +382,7 @@ const Logs = () => {
             </div>
           )}
         </Card>
-      </div>
-    </div>
+    </AdminPageLayout>
   );
 };
 
