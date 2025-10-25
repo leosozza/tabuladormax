@@ -75,14 +75,14 @@ export default function UndoButton({
         
         {/* Progress bar */}
         <div 
-          className="absolute bottom-0 left-0 h-1 bg-primary/30 rounded-full transition-all"
-          style={{ width: `${progress}%` }}
+          className="absolute bottom-0 left-0 w-full h-1 bg-primary/30 rounded-full overflow-hidden"
         >
           <div 
             className={cn(
-              "h-full rounded-full",
+              "h-full rounded-full transition-all",
               lastActionType === "approved" ? "bg-green-500" : "bg-red-500"
             )}
+            style={{ width: `${progress}%` }}
           />
         </div>
       </div>
