@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
-import { splitVendorChunkPlugin } from 'vite';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -14,9 +13,6 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     mode === "development" && componentTagger(),
-    // Code-splitting: Separar vendor chunks automaticamente
-    // Melhora cache do navegador - vendors mudam menos frequentemente que código da aplicação
-    splitVendorChunkPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'icons/*.png'],
@@ -125,67 +121,4 @@ export default defineConfig(({ mode }) => ({
       "@/modules": path.resolve(__dirname, "./src/modules"),
     },
   },
-  build: {
-    rollupOptions: {
-      output: {
-        /**
-         * Code-splitting manual para otimizar carregamento
-         * Estratégia:
-         * - react-core: React e ReactDOM (usados em toda aplicação)
-         * - ui-components: Componentes Radix UI (usados extensivamente)
-         * - charts: Bibliotecas de gráficos (pesadas, usadas em dashboards)
-         * - maps: Bibliotecas de mapas (pesadas, usadas em módulo de área)
-         * - utils: Bibliotecas utilitárias menores
-         * 
-         * Benefícios:
-         * - Chunks menores e mais cacheáveis
-         * - Carregamento paralelo otimizado
-         * - Melhor performance em atualizações (só recarrega chunks modificados)
-         */
-        manualChunks: (id) => {
-          // React core libraries
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'react-core';
-          }
-          
-          // UI component library (Radix UI + shadcn)
-          if (id.includes('@radix-ui')) {
-            return 'ui-components';
-          }
-          
-          // Chart libraries (heavy dependencies)
-          if (id.includes('apexcharts') || id.includes('recharts') || id.includes('react-apexcharts')) {
-            return 'charts';
-          }
-          
-          // Map libraries (heavy dependencies)
-          if (id.includes('leaflet') || id.includes('react-leaflet') || id.includes('@turf')) {
-            return 'maps';
-          }
-          
-          // Router
-          if (id.includes('react-router')) {
-            return 'router';
-          }
-          
-          // Form libraries
-          if (id.includes('react-hook-form') || id.includes('@hookform')) {
-            return 'forms';
-          }
-          
-          // Supabase
-          if (id.includes('@supabase')) {
-            return 'supabase';
-          }
-          
-          // Other heavy libraries
-          if (id.includes('jspdf') || id.includes('date-fns')) {
-            return 'utils';
-          }
-        }
-      }
-    },
-    // Aumentar limite de warning para chunks grandes (mapas e gráficos são pesados)
-    chunkSizeWarningLimit: 1000,
-  }
 }));
