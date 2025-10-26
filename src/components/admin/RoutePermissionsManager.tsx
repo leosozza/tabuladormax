@@ -19,8 +19,7 @@ interface AppRoute {
   name: string;
   description: string | null;
   module: string;
-  icon: string | null;
-  sort_order: number;
+  active: boolean;
 }
 
 interface RoutePermission {
@@ -81,7 +80,7 @@ export default function RoutePermissionsManager() {
           .from("app_routes" as any)
           .select("*")
           .eq("active", true)
-          .order("module, sort_order"),
+          .order("module, name"),
         supabase
           .from("route_permissions" as any)
           .select("*"),
