@@ -26,15 +26,15 @@ interface AppRoute {
 interface RoutePermission {
   id: string;
   route_id: string;
-  department: Department | null;
-  role: AppRole | null;
-  allowed: boolean;
+  department: string;
+  role: string;
+  can_access: boolean;
 }
 
 interface PermissionKey {
   routeId: string;
-  department: Department | null;
-  role: AppRole | null;
+  department: string | null;
+  role: string | null;
 }
 
 const DEPARTMENTS = ["telemarketing", "scouters", "administrativo"] as const;
@@ -54,10 +54,9 @@ const DEPT_LABELS: Record<string, string> = {
 };
 
 const MODULE_COLORS: Record<string, string> = {
-  telemarketing: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-  scouter: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
   admin: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-  geral: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
+  tabulador: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  gestao: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
 };
 
 export default function RoutePermissionsManager() {
@@ -109,11 +108,11 @@ export default function RoutePermissionsManager() {
     }
   };
 
-  const getPermissionKey = (routeId: string, dept: Department | null, role: AppRole | null): string => {
+  const getPermissionKey = (routeId: string, dept: string | null, role: string | null): string => {
     return `${routeId}-${dept || 'null'}-${role || 'null'}`;
   };
 
-  const isPermissionAllowed = (routeId: string, dept: Department | null, role: AppRole | null): boolean => {
+  const isPermissionAllowed = (routeId: string, dept: string | null, role: string | null): boolean => {
     const key = getPermissionKey(routeId, dept, role);
     
     if (changes.has(key)) {
@@ -126,10 +125,10 @@ export default function RoutePermissionsManager() {
            p.role === role
     );
 
-    return perm?.allowed || false;
+    return perm?.can_access || false;
   };
 
-  const handlePermissionChange = (routeId: string, dept: Department | null, role: AppRole | null, allowed: boolean) => {
+  const handlePermissionChange = (routeId: string, dept: string | null, role: string | null, allowed: boolean) => {
     const key = getPermissionKey(routeId, dept, role);
     setChanges(prev => new Map(prev).set(key, allowed));
   };
@@ -151,14 +150,14 @@ export default function RoutePermissionsManager() {
 
         const existingPerm = permissions.find(
           p => p.route_id === routeId && 
-               p.department === (dept as unknown as Department | null) && 
-               p.role === (role as unknown as AppRole | null)
+               p.department === dept && 
+               p.role === role
         );
 
         if (existingPerm) {
           const { error } = await supabase
             .from("route_permissions" as any)
-            .update({ allowed })
+            .update({ can_access: allowed })
             .eq("id", existingPerm.id);
 
           if (error) throw error;
@@ -169,7 +168,7 @@ export default function RoutePermissionsManager() {
               route_id: routeId,
               department: dept,
               role: role,
-              allowed,
+              can_access: allowed,
             } as any);
 
           if (error) throw error;
@@ -235,10 +234,9 @@ export default function RoutePermissionsManager() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Módulos</SelectItem>
-              <SelectItem value="telemarketing">Telemarketing</SelectItem>
-              <SelectItem value="scouter">Scouter</SelectItem>
-              <SelectItem value="admin">Administrativo</SelectItem>
-              <SelectItem value="geral">Geral</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="tabulador">Tabulador</SelectItem>
+              <SelectItem value="gestao">Gestão Scouter</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -265,7 +263,7 @@ export default function RoutePermissionsManager() {
         {modules.map(module => (
           <div key={module}>
             <div className="flex items-center gap-2 mb-3">
-              <Badge className={MODULE_COLORS[module] || MODULE_COLORS.geral}>
+              <Badge className={MODULE_COLORS[module] || "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"}>
                 {module.charAt(0).toUpperCase() + module.slice(1)}
               </Badge>
               <span className="text-sm text-muted-foreground">
@@ -306,7 +304,7 @@ export default function RoutePermissionsManager() {
                       </TableCell>
                       {DEPARTMENTS.map(dept =>
                         ROLES.map(role => {
-                          const isAllowed = isPermissionAllowed(route.id, dept as unknown as Department, role);
+                          const isAllowed = isPermissionAllowed(route.id, dept, role);
                           const isAdmin = role === 'admin';
                           
                           return (
@@ -316,7 +314,7 @@ export default function RoutePermissionsManager() {
                                   checked={isAllowed}
                                   disabled={isAdmin}
                                   onCheckedChange={(checked) => 
-                                    handlePermissionChange(route.id, dept as unknown as Department, role, checked === true)
+                                    handlePermissionChange(route.id, dept, role, checked === true)
                                   }
                                 />
                               </div>
