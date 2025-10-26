@@ -10,7 +10,8 @@ import { HealthCheckPanel } from '@/components/diagnostic/HealthCheckPanel';
 import { ProblemsPanel } from '@/components/diagnostic/ProblemsPanel';
 import { AlertsPanel } from '@/components/diagnostic/AlertsPanel';
 import { PerformanceMonitoringDashboard } from '@/components/monitoring/PerformanceMonitoringDashboard';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { LogsPanel } from '@/components/admin/Diagnostics/LogsPanel';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -129,226 +130,197 @@ export default function UnifiedDashboard() {
 
   return (
     <AdminPageLayout
-      title="Dashboard Unificado"
-      description="Visão geral completa do sistema com diagnósticos, monitoramento e logs"
-      actions={
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Atualizar
-        </Button>
-      }
+      title=""
+      description=""
+      backTo="/admin"
     >
-      <div className="space-y-6">
-        {/* Error Alert */}
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Erro ao carregar estatísticas: {error instanceof Error ? error.message : 'Erro desconhecido'}
-            </AlertDescription>
-          </Alert>
-        )}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Monitoramento & Diagnósticos</CardTitle>
+              <CardDescription>
+                Sistema unificado de monitoramento, diagnósticos e logs
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* Error Alert */}
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Erro ao carregar estatísticas: {error instanceof Error ? error.message : 'Erro desconhecido'}
+                </AlertDescription>
+              </Alert>
+            )}
 
-        {/* Overview Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Usuários</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {isLoading ? '...' : stats?.usersCount || 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Agentes cadastrados no sistema
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Logs</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {isLoading ? '...' : stats?.logsCount || 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Registros de atividade
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Leads</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {isLoading ? '...' : stats?.leadsCount || 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Leads no sistema
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Status do Sistema</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                {stats && getStatusIcon(stats.systemStatus)}
-                <Badge variant={stats ? getStatusBadgeVariant(stats.systemStatus) : 'outline'}>
-                  {isLoading ? '...' : stats ? getStatusLabel(stats.systemStatus) : 'Desconhecido'}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Status geral da aplicação
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="health">Saúde do Sistema</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="problems">Problemas</TabsTrigger>
-            <TabsTrigger value="logs">Logs</TabsTrigger>
-          </TabsList>
-
-          {/* Visão Geral Tab */}
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Quick Actions */}
+            {/* Overview Cards */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
-                <CardHeader>
-                  <CardTitle>Ações Rápidas</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => navigate('/admin/users')}
-                  >
-                    <Users className="w-4 h-4 mr-2" />
-                    Gerenciar Usuários
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => navigate('/admin/logs')}
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Ver Todos os Logs
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => navigate('/admin/config')}
-                  >
-                    <Activity className="w-4 h-4 mr-2" />
-                    Configurações
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => navigate('/admin/permissions')}
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Permissões
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Recent Activity Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Atividade Recente</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Usuários</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Sistema operando normalmente</p>
-                        <p className="text-xs text-muted-foreground">
-                          Última atualização: {new Date().toLocaleTimeString()}
-                        </p>
-                      </div>
-                      <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div className="pt-4 border-t">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => navigate('/admin/monitoring')}
-                      >
-                        Ver Monitoramento Completo
-                        <ExternalLink className="w-4 h-4 ml-2" />
-                      </Button>
-                    </div>
+                  <div className="text-2xl font-bold">
+                    {isLoading ? '...' : stats?.usersCount || 0}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Agentes cadastrados no sistema
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Logs</CardTitle>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {isLoading ? '...' : stats?.logsCount || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Registros de atividade
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Leads</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {isLoading ? '...' : stats?.leadsCount || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Leads no sistema
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Status do Sistema</CardTitle>
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2">
+                    {stats && getStatusIcon(stats.systemStatus)}
+                    <Badge variant={stats ? getStatusBadgeVariant(stats.systemStatus) : 'outline'}>
+                      {isLoading ? '...' : stats ? getStatusLabel(stats.systemStatus) : 'Desconhecido'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Status geral da aplicação
+                  </p>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
 
-          {/* Saúde do Sistema Tab */}
-          <TabsContent value="health" className="space-y-4">
-            <HealthCheckPanel />
-          </TabsContent>
+            {/* Main Content Tabs */}
+            <Tabs defaultValue="overview" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+                <TabsTrigger value="monitoring">Monitoramento</TabsTrigger>
+                <TabsTrigger value="diagnostics">Diagnósticos</TabsTrigger>
+                <TabsTrigger value="logs">Logs</TabsTrigger>
+              </TabsList>
 
-          {/* Performance Tab */}
-          <TabsContent value="performance" className="space-y-4">
-            <PerformanceMonitoringDashboard />
-          </TabsContent>
+              {/* Visão Geral Tab */}
+              <TabsContent value="overview" className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Quick Actions */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Ações Rápidas</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={() => navigate('/admin/users')}
+                      >
+                        <Users className="w-4 h-4 mr-2" />
+                        Gerenciar Usuários
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={() => navigate('/admin/config')}
+                      >
+                        <Activity className="w-4 h-4 mr-2" />
+                        Configurações
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={() => navigate('/admin/permissions')}
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Permissões
+                      </Button>
+                    </CardContent>
+                  </Card>
 
-          {/* Problemas Tab */}
-          <TabsContent value="problems" className="space-y-4">
-            <div className="grid gap-6">
-              <ProblemsPanel />
-              <AlertsPanel />
-            </div>
-          </TabsContent>
-
-          {/* Logs Tab */}
-          <TabsContent value="logs" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Logs do Sistema</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center space-y-4 py-8">
-                  <FileText className="w-12 h-12 mx-auto text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Total de {stats?.logsCount || 0} registros de logs no sistema
-                    </p>
-                    <Button onClick={() => navigate('/admin/logs')}>
-                      Ver Página Completa de Logs
-                      <ExternalLink className="w-4 h-4 ml-2" />
-                    </Button>
-                  </div>
+                  {/* Recent Activity Summary */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Atividade Recente</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-4">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">Sistema operando normalmente</p>
+                            <p className="text-xs text-muted-foreground">
+                              Última atualização: {new Date().toLocaleTimeString()}
+                            </p>
+                          </div>
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+              </TabsContent>
+
+              {/* Monitoramento Tab */}
+              <TabsContent value="monitoring" className="space-y-4">
+                <PerformanceMonitoringDashboard />
+              </TabsContent>
+
+              {/* Diagnósticos Tab */}
+              <TabsContent value="diagnostics" className="space-y-4">
+                <div className="grid gap-6">
+                  <HealthCheckPanel />
+                  <ProblemsPanel />
+                  <AlertsPanel />
+                </div>
+              </TabsContent>
+
+              {/* Logs Tab */}
+              <TabsContent value="logs" className="space-y-4">
+                <LogsPanel />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </CardContent>
+      </Card>
     </AdminPageLayout>
   );
 }

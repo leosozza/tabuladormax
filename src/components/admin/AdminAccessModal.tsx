@@ -29,8 +29,8 @@ const adminOptions = [
   {
     path: '/admin/dashboard',
     icon: LayoutDashboard,
-    title: 'Dashboard Unificado',
-    description: 'Visão geral completa do sistema',
+    title: 'Monitoramento & Diagnósticos',
+    description: 'Monitoramento, diagnósticos e logs unificados',
     color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
   },
   {
@@ -62,32 +62,11 @@ const adminOptions = [
     color: 'bg-red-500/10 text-red-600 dark:text-red-400',
   },
   {
-    path: '/admin/monitoring',
-    icon: Activity,
-    title: 'Monitoramento',
-    description: 'Performance do sistema',
-    color: 'bg-green-500/10 text-green-600 dark:text-green-400',
-  },
-  {
     path: '/admin/sync-monitor',
     icon: Cloud,
     title: 'Sincronização',
     description: 'Central de sincronização',
     color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
-  },
-  {
-    path: '/admin/diagnostic',
-    icon: AlertTriangle,
-    title: 'Diagnóstico',
-    description: 'Diagnóstico do sistema',
-    color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
-  },
-  {
-    path: '/admin/logs',
-    icon: FileText,
-    title: 'Logs',
-    description: 'Logs do sistema',
-    color: 'bg-gray-500/10 text-gray-600 dark:text-gray-400',
   },
 ];
 
