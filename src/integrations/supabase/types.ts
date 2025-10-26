@@ -101,6 +101,39 @@ export type Database = {
           },
         ]
       }
+      app_routes: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          module: string
+          name: string
+          path: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          module: string
+          name: string
+          path: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          module?: string
+          name?: string
+          path?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bitrix_field_mappings: {
         Row: {
           bitrix_field: string
@@ -789,6 +822,44 @@ export type Database = {
           },
         ]
       }
+      route_permissions: {
+        Row: {
+          can_access: boolean
+          created_at: string
+          department: Database["public"]["Enums"]["app_department"]
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          route_id: string
+          updated_at: string
+        }
+        Insert: {
+          can_access?: boolean
+          created_at?: string
+          department: Database["public"]["Enums"]["app_department"]
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          route_id: string
+          updated_at?: string
+        }
+        Update: {
+          can_access?: boolean
+          created_at?: string
+          department?: Database["public"]["Enums"]["app_department"]
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          route_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_permissions_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "app_routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_events: {
         Row: {
           created_at: string | null
@@ -872,6 +943,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_route: {
+        Args: { _route_path: string; _user_id: string }
+        Returns: boolean
+      }
       get_leads_schema: {
         Args: never
         Returns: {

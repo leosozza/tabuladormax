@@ -58,14 +58,14 @@ export default function UnifiedDashboard() {
     queryFn: async () => {
       // Fetch users count
       const { count: usersCount, error: usersError } = await supabase
-        .from('agents')
+        .from('profiles')
         .select('*', { count: 'exact', head: true });
 
       if (usersError) throw usersError;
 
       // Fetch logs count
       const { count: logsCount, error: logsError } = await supabase
-        .from('lead_logs')
+        .from('actions_log')
         .select('*', { count: 'exact', head: true });
 
       if (logsError) throw logsError;
