@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllLeads } from '@/lib/supabaseUtils';
 import type { DashboardWidget, DimensionType, MetricType, DateGrouping } from '@/types/dashboard';
 import { format, startOfWeek, startOfMonth, startOfYear, startOfQuarter } from 'date-fns';
 
@@ -21,37 +22,32 @@ interface ProcessedMetrics {
 export async function executeDashboardQuery(widget: DashboardWidget): Promise<any[]> {
   const { filters } = widget;
   
-  // Build query
-  let query = supabase.from('leads').select('*');
-  
-  query = query.or('deleted.is.false,deleted.is.null');
-  
-  // Aplicar filtros
-  if (filters?.dataInicio) {
-    query = query.gte('criado', filters.dataInicio);
-  }
-  if (filters?.dataFim) {
-    query = query.lte('criado', filters.dataFim);
-  }
-  if (filters?.scouter?.length) {
-    query = query.in('scouter', filters.scouter);
-  }
-  if (filters?.projeto?.length) {
-    query = (query as any).in('commercial_project_id', filters.projeto);
-  }
-  if (filters?.supervisor?.length) {
-    query = (query as any).in('supervisor', filters.supervisor);
-  }
-  if (filters?.etapa?.length) {
-    query = (query as any).in('etapa', filters.etapa);
-  }
-  
-  const { data, error } = await query;
-  
-  if (error) {
-    console.error('Error executing dashboard query:', error);
-    throw error;
-  }
+  // Build query using fetchAllLeads to handle pagination automatically
+  const data = await fetchAllLeads(supabase, '*', (query) => {
+    query = query.or('deleted.is.false,deleted.is.null');
+    
+    // Aplicar filtros
+    if (filters?.dataInicio) {
+      query = query.gte('criado', filters.dataInicio);
+    }
+    if (filters?.dataFim) {
+      query = query.lte('criado', filters.dataFim);
+    }
+    if (filters?.scouter?.length) {
+      query = query.in('scouter', filters.scouter);
+    }
+    if (filters?.projeto?.length) {
+      query = query.in('commercial_project_id', filters.projeto);
+    }
+    if (filters?.supervisor?.length) {
+      query = query.in('supervisor', filters.supervisor);
+    }
+    if (filters?.etapa?.length) {
+      query = query.in('etapa', filters.etapa);
+    }
+    
+    return query;
+  });
   
   // Processar agrupamento e métricas
   return processMetrics(data || [], widget);

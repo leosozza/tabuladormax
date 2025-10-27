@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
@@ -15,11 +16,11 @@ export default function StatusDistribution() {
   const { data: chartData, isLoading } = useQuery({
     queryKey: ["status-distribution"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("etapa");
-      
-      if (error) throw error;
+      // Fetch all leads with pagination to ensure we get more than 1000 records
+      const data = await fetchAllLeads(
+        supabase,
+        "etapa"
+      );
       
       // Agrupar por etapa
       const grouped = new Map<string, number>();

@@ -1,23 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import GestaoSidebar from "@/components/gestao/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, TrendingUp, Award } from "lucide-react";
 
+interface ScouterData {
+  name: string;
+  leadsCount: number;
+}
+
 export default function GestaoScouters() {
   const { data: scoutersData, isLoading } = useQuery({
     queryKey: ["gestao-scouters"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("scouter")
-        .not("scouter", "is", null);
-      
-      if (error) throw error;
+      // Fetch all leads with pagination to ensure we get more than 1000 records
+      const data = await fetchAllLeads<{ scouter: string }>(
+        supabase,
+        "scouter",
+        (query) => query.not("scouter", "is", null)
+      );
       
       // Agrupar por scouter e contar
-      const scouterCounts = data.reduce((acc: any, lead) => {
+      const scouterCounts = data.reduce((acc: Record<string, number>, lead) => {
         const scouter = lead.scouter || "Sem Scouter";
         if (!acc[scouter]) {
           acc[scouter] = 0;
@@ -27,12 +33,12 @@ export default function GestaoScouters() {
       }, {});
       
       return Object.entries(scouterCounts)
-        .map(([name, count]) => ({ name, leadsCount: count }))
-        .sort((a: any, b: any) => b.leadsCount - a.leadsCount);
+        .map(([name, count]) => ({ name, leadsCount: count as number }))
+        .sort((a, b) => b.leadsCount - a.leadsCount);
     },
   });
 
-  const totalLeads = scoutersData?.reduce((sum: number, s: any) => sum + s.leadsCount, 0) || 0;
+  const totalLeads = scoutersData?.reduce((sum: number, s: ScouterData) => sum + s.leadsCount, 0) || 0;
   const totalScouters = scoutersData?.length || 0;
   const avgLeadsPerScouter = totalScouters > 0 ? (totalLeads / totalScouters).toFixed(1) : "0";
 
@@ -102,7 +108,7 @@ export default function GestaoScouters() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {scoutersData?.map((scouter: any, index: number) => (
+                  {scoutersData?.map((scouter: ScouterData, index: number) => (
                     <TableRow key={scouter.name}>
                       <TableCell className="font-medium">#{index + 1}</TableCell>
                       <TableCell>{scouter.name}</TableCell>

@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FileText, TrendingUp, DollarSign, MapPin, Activity } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 import StatsComparison from "@/components/gestao/dashboard/StatsComparison";
 import LeadsChart from "@/components/gestao/dashboard/LeadsChart";
@@ -24,22 +25,26 @@ export default function GestaoHome() {
   const { data: stats } = useQuery({
     queryKey: ["gestao-home-stats", filters],
     queryFn: async () => {
-      let query = supabase
-        .from("leads")
-        .select("*")
-        .gte("criado", filters.dateFilter.startDate.toISOString())
-        .lte("criado", filters.dateFilter.endDate.toISOString());
+      // Fetch all leads with pagination to ensure we get more than 1000 records
+      const data = await fetchAllLeads(
+        supabase,
+        "*",
+        (query) => {
+          query = query
+            .gte("criado", filters.dateFilter.startDate.toISOString())
+            .lte("criado", filters.dateFilter.endDate.toISOString());
 
-      if (filters.projectId) {
-        query = query.eq("commercial_project_id", filters.projectId);
-      }
+          if (filters.projectId) {
+            query = query.eq("commercial_project_id", filters.projectId);
+          }
 
-      if (filters.scouterId) {
-        query = query.eq("scouter", filters.scouterId);
-      }
+          if (filters.scouterId) {
+            query = query.eq("scouter", filters.scouterId);
+          }
 
-      const { data, error } = await query;
-      if (error) throw error;
+          return query;
+        }
+      );
 
       const total = data.length;
       const confirmados = data.filter(l => l.ficha_confirmada).length;

@@ -1,18 +1,25 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+
+interface LeadPerformanceData {
+  scouter: string;
+  ficha_confirmada?: boolean;
+  compareceu?: boolean;
+}
 
 export default function ScouterPerformance() {
   const { data: performanceData, isLoading } = useQuery({
     queryKey: ["scouter-performance"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("scouter, ficha_confirmada, compareceu")
-        .not("scouter", "is", null);
-      
-      if (error) throw error;
+      // Fetch all leads with pagination to ensure we get more than 1000 records
+      const data = await fetchAllLeads<LeadPerformanceData>(
+        supabase,
+        "scouter, ficha_confirmada, compareceu",
+        (query) => query.not("scouter", "is", null)
+      );
       
       // Agrupar por scouter
       const grouped = new Map<string, { total: number; confirmados: number; compareceram: number }>();
