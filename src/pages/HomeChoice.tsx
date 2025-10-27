@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Phone, Target, Lock, Building2 } from 'lucide-react';
+import { Phone, Target, Lock, Building2, Handshake } from 'lucide-react';
 import { useDepartmentAccess } from '@/hooks/useDepartmentAccess';
 import { TelemarketingAccessModal } from '@/components/telemarketing/TelemarketingAccessModal';
 import { AdminAccessModal } from '@/components/admin/AdminAccessModal';
@@ -61,7 +61,7 @@ const HomeChoice: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
           {/* Card Telemarketing */}
           <Card 
             className={`group relative overflow-hidden transition-all duration-300 hover:shadow-xl ${
@@ -168,6 +168,50 @@ const HomeChoice: React.FC = () => {
                 disabled={!canAccessScouter}
               >
                 {canAccessScouter ? 'Acessar' : 'Sem Acesso'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Card Agenciamento */}
+          <Card 
+            className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer border-primary/20 hover:border-primary/50"
+            onClick={() => navigate('/agenciamento')}
+          >
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-green-500/10 rounded-lg group-hover:bg-green-500/20 transition-colors">
+                  <Handshake className="w-5 h-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Agenciamento</CardTitle>
+                  <CardDescription className="text-sm mt-1">
+                    Gestão de Negociações
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              <ul className="text-sm text-muted-foreground space-y-2 mb-6">
+                <li className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                  Gestão completa de negociações
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                  Cálculos automáticos e condições comerciais
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                  Integração com produtos Bitrix24
+                </li>
+              </ul>
+              <Button 
+                variant="default"
+                className="w-full"
+                size="lg"
+              >
+                Acessar
               </Button>
             </CardContent>
           </Card>

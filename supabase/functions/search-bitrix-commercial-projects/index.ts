@@ -7,16 +7,18 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+interface BitrixProduct {
+  ID: string;
+  NAME: string;
+}
+
 interface BitrixItem {
-  id: number;
+  id: string;
   title: string;
 }
 
 interface BitrixResponse {
-  result?: {
-    items?: BitrixItem[];
-    total?: number;
-  };
+  result?: BitrixProduct[];
   error?: string;
   error_description?: string;
 }
@@ -40,105 +42,52 @@ serve(async (req) => {
     }
 
     const trimmedSearch = searchTerm.trim();
-    console.log(`🔍 Buscando projetos comerciais: "${trimmedSearch}"`);
+    console.log(`🔍 Buscando produtos no Bitrix24: "${trimmedSearch}"`);
 
-    const baseUrl = 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.item.list.json';
+    // Using crm.product.list.json to search for products as per requirements
+    const baseUrl = 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.product.list.json';
     
     let allResults: BitrixItem[] = [];
-    let exactMatches: BitrixItem[] = [];
-    let prefixMatches: BitrixItem[] = [];
 
-    async function fetchWithFilter(filterParam: string, start = 0): Promise<BitrixResponse> {
-      const url = `${baseUrl}?entityTypeId=1120&select[]=title&select[]=id${filterParam}&start=${start}`;
+    // Fetch products with filter
+    console.log(`📍 Buscando produtos com filtro: "${trimmedSearch}"`);
+    try {
+      // Sanitize search term to prevent potential issues
+      const sanitizedSearch = trimmedSearch.replace(/[<>'"]/g, '');
+      
+      // Build filter for product name search
+      const url = `${baseUrl}?filter[NAME]=%${encodeURIComponent(sanitizedSearch)}%&select[]=ID&select[]=NAME&order[NAME]=ASC`;
+      console.log(`🔗 URL de busca: ${url}`);
+      
       const response = await fetch(url);
       
       if (!response.ok) {
-        throw new Error(`Erro ao buscar dados do Bitrix24: ${response.status}`);
+        throw new Error(`Erro ao buscar produtos do Bitrix24: ${response.status}`);
       }
 
-      return await response.json();
-    }
-
-    // Passo 1: Busca exata
-    console.log(`📍 Tentando busca exata por: "${trimmedSearch}"`);
-    try {
-      const exactFilter = `&filter[%title]=${encodeURIComponent(trimmedSearch)}`;
-      const exactData = await fetchWithFilter(exactFilter);
+      const data: BitrixResponse = await response.json();
       
-      if (exactData.result?.items && exactData.result.items.length > 0) {
-        exactMatches = exactData.result.items;
-        console.log(`✅ Encontradas ${exactMatches.length} correspondências exatas`);
+      if (data.error) {
+        throw new Error(data.error_description || data.error);
+      }
+
+      // Handle response - products API returns an array directly in result
+      if (Array.isArray(data.result)) {
+        allResults = data.result.map((product: BitrixProduct) => ({
+          id: product.ID,
+          title: product.NAME
+        }));
+        console.log(`✅ Encontrados ${allResults.length} produtos`);
+      } else {
+        console.error(`⚠️ Formato de resposta inesperado:`, data);
+        throw new Error('Formato de resposta da API Bitrix24 inesperado');
       }
     } catch (error) {
-      console.log(`⚠️ Busca exata falhou: ${error}`);
+      console.log(`⚠️ Busca de produtos falhou: ${error}`);
+      throw error;
     }
 
-    // Passo 2: Busca por prefixo
-    if (exactMatches.length === 0 && trimmedSearch.length >= 3) {
-      const prefix = trimmedSearch.substring(0, 3);
-      console.log(`📍 Buscando nomes que começam com: "${prefix}"`);
-      
-      try {
-        const prefixFilter = `&filter[%title]=${encodeURIComponent(prefix)}`;
-        let start = 0;
-        const maxResults = 50;
-        
-        while (start < maxResults) {
-          const prefixData = await fetchWithFilter(prefixFilter, start);
-          
-          if (!prefixData.result?.items || prefixData.result.items.length === 0) {
-            break;
-          }
-
-          const filtered = prefixData.result.items.filter(item => 
-            item.title.toLowerCase().startsWith(prefix.toLowerCase())
-          );
-          
-          prefixMatches.push(...filtered);
-          
-          if (prefixData.result.items.length < 50 || prefixMatches.length >= maxResults) {
-            break;
-          }
-          
-          start += 50;
-        }
-        
-        prefixMatches = prefixMatches.slice(0, maxResults);
-        console.log(`✅ Encontradas ${prefixMatches.length} correspondências por prefixo`);
-      } catch (error) {
-        console.log(`⚠️ Busca por prefixo falhou: ${error}`);
-      }
-    }
-
-    // Passo 3: Buscar tudo e filtrar localmente (se nada foi encontrado ainda)
-    if (exactMatches.length === 0 && prefixMatches.length === 0) {
-      console.log(`📍 Buscando todos os projetos para filtrar localmente`);
-      try {
-        const allData = await fetchWithFilter('', 0);
-        
-        if (allData.result?.items) {
-          const localMatches = allData.result.items.filter(item =>
-            item.title.toLowerCase().includes(trimmedSearch.toLowerCase())
-          );
-          allResults = localMatches.slice(0, 50);
-          console.log(`✅ Encontradas ${allResults.length} correspondências por filtro local`);
-        }
-      } catch (error) {
-        console.log(`⚠️ Busca geral falhou: ${error}`);
-      }
-    }
-
-    // Combinar resultados (só combina se não temos resultados do Passo 3)
-    if (allResults.length === 0) {
-      allResults = [...exactMatches];
-      if (prefixMatches.length > 0) {
-        const exactIds = new Set(exactMatches.map(m => m.id));
-        const uniquePrefixMatches = prefixMatches.filter(m => !exactIds.has(m.id));
-        allResults.push(...uniquePrefixMatches);
-      }
-    }
-
-    console.log(`📊 Total de resultados encontrados: ${allResults.length}`);
+    console.log(`📊 Total de produtos encontrados: ${allResults.length}`);
 
     // Criar cliente Supabase
     const supabaseClient = createClient(
@@ -149,7 +98,7 @@ serve(async (req) => {
     // Mapear IDs do Bitrix para UUIDs do Supabase
     const bitrixIds = allResults.map(item => item.id.toString());
 
-    console.log(`🔍 Buscando UUIDs no Supabase para ${bitrixIds.length} projetos`);
+    console.log(`🔍 Buscando UUIDs no Supabase para ${bitrixIds.length} produtos`);
 
     const { data: supabaseProjects, error: dbError } = await supabaseClient
       .from('commercial_projects')
@@ -157,26 +106,26 @@ serve(async (req) => {
       .in('code', bitrixIds);
 
     if (dbError) {
-      console.error('❌ Erro ao buscar projetos no Supabase:', dbError);
+      console.error('❌ Erro ao buscar produtos no Supabase:', dbError);
       throw dbError;
     }
 
-    console.log(`✅ Encontrados ${supabaseProjects?.length || 0} projetos no Supabase`);
+    console.log(`✅ Encontrados ${supabaseProjects?.length || 0} produtos no Supabase`);
 
     // Criar mapa de code (Bitrix ID) -> UUID (Supabase)
     const codeToUuidMap = new Map(
       supabaseProjects?.map(p => [p.code, p.id]) || []
     );
 
-    // Identificar projetos ausentes no Supabase
+    // Identificar produtos ausentes no Supabase
     const missingProjects = allResults.filter(item => {
       const bitrixIdStr = item.id.toString();
       return !codeToUuidMap.has(bitrixIdStr);
     });
 
-    // Criar projetos ausentes automaticamente
+    // Criar produtos ausentes automaticamente
     if (missingProjects.length > 0) {
-      console.log(`💾 Criando ${missingProjects.length} projetos ausentes no Supabase...`);
+      console.log(`💾 Criando ${missingProjects.length} produtos ausentes no Supabase...`);
       
       const projectsToInsert = missingProjects.map(p => ({
         code: p.id.toString(),
@@ -192,9 +141,9 @@ serve(async (req) => {
       if (!insertError && newProjects) {
         // Atualizar o mapa com os novos UUIDs
         newProjects.forEach(p => codeToUuidMap.set(p.code, p.id));
-        console.log(`✅ ${newProjects.length} projetos criados com sucesso`);
+        console.log(`✅ ${newProjects.length} produtos criados com sucesso`);
       } else if (insertError) {
-        console.error('❌ Erro ao criar projetos:', insertError);
+        console.error('❌ Erro ao criar produtos:', insertError);
       }
     }
 
@@ -205,7 +154,7 @@ serve(async (req) => {
         const supabaseUuid = codeToUuidMap.get(bitrixIdStr);
         
         if (!supabaseUuid) {
-          console.log(`⚠️ Projeto "${item.title}" (Bitrix ID: ${bitrixIdStr}) não encontrado no Supabase`);
+          console.log(`⚠️ Produto "${item.title}" (Bitrix ID: ${bitrixIdStr}) não encontrado no Supabase`);
           return null;
         }
         
@@ -216,7 +165,7 @@ serve(async (req) => {
       })
       .filter((item): item is { id: string; title: string } => item !== null);
 
-    console.log(`✅ ${resultsWithStringIds.length} projetos mapeados para UUIDs`);
+    console.log(`✅ ${resultsWithStringIds.length} produtos mapeados para UUIDs`);
 
     return new Response(
       JSON.stringify({ 
@@ -231,7 +180,7 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('❌ Erro ao buscar projetos:', error);
+    console.error('❌ Erro ao buscar produtos:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     
     return new Response(
