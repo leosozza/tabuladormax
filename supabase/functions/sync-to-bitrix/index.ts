@@ -57,20 +57,78 @@ serve(async (req) => {
       fields: lead.raw || {}
     };
 
+    // Array para rastrear mapeamentos aplicados
+    const appliedMappings: any[] = [];
+
     // Sobrescrever campos mapeados se atualizados
-    if (lead.name) bitrixPayload.fields.NAME = lead.name;
-    if (lead.age) bitrixPayload.fields.UF_IDADE = lead.age;
-    if (lead.address) bitrixPayload.fields.UF_LOCAL = lead.address;
-    if (lead.photo_url) bitrixPayload.fields.UF_PHOTO = lead.photo_url;
-    if (lead.responsible) bitrixPayload.fields.UF_RESPONSAVEL = lead.responsible;
-    if (lead.scouter) bitrixPayload.fields.UF_SCOUTER = lead.scouter;
+    if (lead.name) {
+      bitrixPayload.fields.NAME = lead.name;
+      appliedMappings.push({
+        tabuladormax_field: 'name',
+        bitrix_field: 'NAME',
+        value: lead.name,
+        transformed: false
+      });
+    }
+    if (lead.age) {
+      bitrixPayload.fields.UF_IDADE = lead.age;
+      appliedMappings.push({
+        tabuladormax_field: 'age',
+        bitrix_field: 'UF_IDADE',
+        value: lead.age,
+        transformed: false
+      });
+    }
+    if (lead.address) {
+      bitrixPayload.fields.UF_LOCAL = lead.address;
+      appliedMappings.push({
+        tabuladormax_field: 'address',
+        bitrix_field: 'UF_LOCAL',
+        value: lead.address,
+        transformed: false
+      });
+    }
+    if (lead.photo_url) {
+      bitrixPayload.fields.UF_PHOTO = lead.photo_url;
+      appliedMappings.push({
+        tabuladormax_field: 'photo_url',
+        bitrix_field: 'UF_PHOTO',
+        value: lead.photo_url,
+        transformed: false
+      });
+    }
+    if (lead.responsible) {
+      bitrixPayload.fields.UF_RESPONSAVEL = lead.responsible;
+      appliedMappings.push({
+        tabuladormax_field: 'responsible',
+        bitrix_field: 'UF_RESPONSAVEL',
+        value: lead.responsible,
+        transformed: false
+      });
+    }
+    if (lead.scouter) {
+      bitrixPayload.fields.UF_SCOUTER = lead.scouter;
+      appliedMappings.push({
+        tabuladormax_field: 'scouter',
+        bitrix_field: 'UF_SCOUTER',
+        value: lead.scouter,
+        transformed: false
+      });
+    }
     if (lead.bitrix_telemarketing_id) {
       bitrixPayload.fields.PARENT_ID_1144 = lead.bitrix_telemarketing_id;
+      appliedMappings.push({
+        tabuladormax_field: 'bitrix_telemarketing_id',
+        bitrix_field: 'PARENT_ID_1144',
+        value: lead.bitrix_telemarketing_id,
+        transformed: false
+      });
     }
 
     console.log('🔄 Sincronizando com Bitrix:', {
       leadId: lead.id,
       fieldsCount: Object.keys(bitrixPayload.fields).length,
+      mappedFieldsCount: appliedMappings.length,
       webhook: webhookUrl
     });
 
@@ -104,13 +162,17 @@ serve(async (req) => {
       console.error('sync-to-bitrix: Erro ao atualizar status no Supabase', updateError);
     }
 
-    // Registrar evento de sincronização
+    // Registrar evento de sincronização com mapeamentos
     await supabase.from('sync_events').insert({
       event_type: 'update',
       direction: 'supabase_to_bitrix',
       lead_id: lead.id,
       status: 'success',
-      sync_duration_ms: Date.now() - startTime
+      sync_duration_ms: Date.now() - startTime,
+      field_mappings: {
+        supabase_to_bitrix: appliedMappings
+      },
+      fields_synced_count: appliedMappings.length
     });
 
     return new Response(

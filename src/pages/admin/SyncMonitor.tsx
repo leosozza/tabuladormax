@@ -3,10 +3,13 @@ import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { RefreshCw, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { FieldMappingDisplay } from '@/components/sync/FieldMappingDisplay';
+import { SyncFieldMappings } from '@/lib/fieldMappingUtils';
 
 interface SyncEvent {
   id: string;
@@ -16,6 +19,8 @@ interface SyncEvent {
   error_message: string | null;
   created_at: string;
   sync_duration_ms: number | null;
+  field_mappings: SyncFieldMappings | null;
+  fields_synced_count: number | null;
 }
 
 export default function SyncMonitor() {
@@ -167,36 +172,62 @@ export default function SyncMonitor() {
           ) : (
             <div className="space-y-3">
               {syncEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                >
-                  <div className="mt-0.5">{getStatusIcon(event.status)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm">
-                        {event.event_type || 'Sincronização'}
-                      </span>
-                      <Badge variant="outline" className="text-xs">
-                        {event.direction}
-                      </Badge>
-                      <Badge className={`text-xs ${getStatusColor(event.status)}`}>
-                        {event.status}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(event.created_at), 'dd/MM/yyyy HH:mm:ss')}
-                      {event.sync_duration_ms && (
-                        <span className="ml-2">• {event.sync_duration_ms}ms</span>
-                      )}
-                    </p>
-                    {event.error_message && (
-                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                        {event.error_message}
+                <Collapsible key={event.id}>
+                  <div className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                    <div className="mt-0.5">{getStatusIcon(event.status)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm">
+                          {event.event_type || 'Sincronização'}
+                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          {event.direction}
+                        </Badge>
+                        <Badge className={`text-xs ${getStatusColor(event.status)}`}>
+                          {event.status}
+                        </Badge>
+                        {event.fields_synced_count !== null && event.fields_synced_count > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {event.fields_synced_count} campos
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {format(new Date(event.created_at), 'dd/MM/yyyy HH:mm:ss')}
+                        {event.sync_duration_ms && (
+                          <span className="ml-2">• {event.sync_duration_ms}ms</span>
+                        )}
                       </p>
-                    )}
+                      {event.error_message && (
+                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                          {event.error_message}
+                        </p>
+                      )}
+                      
+                      {/* Field Mappings Section */}
+                      {event.field_mappings && event.status === 'success' && (
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mt-2 h-7 text-xs"
+                          >
+                            <ChevronDown className="w-3 h-3 mr-1" />
+                            Ver campos sincronizados
+                          </Button>
+                        </CollapsibleTrigger>
+                      )}
+                      
+                      <CollapsibleContent className="mt-3">
+                        {event.field_mappings && (
+                          <div className="border-t pt-3">
+                            <FieldMappingDisplay mappings={event.field_mappings} />
+                          </div>
+                        )}
+                      </CollapsibleContent>
+                    </div>
                   </div>
-                </div>
+                </Collapsible>
               ))}
             </div>
           )}
