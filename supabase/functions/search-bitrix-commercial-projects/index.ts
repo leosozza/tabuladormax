@@ -18,10 +18,7 @@ interface BitrixItem {
 }
 
 interface BitrixResponse {
-  result?: BitrixProduct[] | {
-    items?: BitrixItem[];
-    total?: number;
-  };
+  result?: BitrixProduct[];
   error?: string;
   error_description?: string;
 }
@@ -55,8 +52,11 @@ serve(async (req) => {
     // Fetch products with filter
     console.log(`📍 Buscando produtos com filtro: "${trimmedSearch}"`);
     try {
+      // Sanitize search term to prevent potential issues
+      const sanitizedSearch = trimmedSearch.replace(/[<>'"]/g, '');
+      
       // Build filter for product name search
-      const url = `${baseUrl}?filter[NAME]=%${encodeURIComponent(trimmedSearch)}%&select[]=ID&select[]=NAME&order[NAME]=ASC`;
+      const url = `${baseUrl}?filter[NAME]=%${encodeURIComponent(sanitizedSearch)}%&select[]=ID&select[]=NAME&order[NAME]=ASC`;
       console.log(`🔗 URL de busca: ${url}`);
       
       const response = await fetch(url);
@@ -79,7 +79,8 @@ serve(async (req) => {
         }));
         console.log(`✅ Encontrados ${allResults.length} produtos`);
       } else {
-        console.log(`⚠️ Formato de resposta inesperado:`, data);
+        console.error(`⚠️ Formato de resposta inesperado:`, data);
+        throw new Error('Formato de resposta da API Bitrix24 inesperado');
       }
     } catch (error) {
       console.log(`⚠️ Busca de produtos falhou: ${error}`);

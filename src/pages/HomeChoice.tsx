@@ -61,7 +61,7 @@ const HomeChoice: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
           {/* Card Telemarketing */}
           <Card 
             className={`group relative overflow-hidden transition-all duration-300 hover:shadow-xl ${
