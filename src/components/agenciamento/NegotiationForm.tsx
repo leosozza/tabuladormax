@@ -29,7 +29,6 @@ import {
   calculateNegotiationValues,
   validatePaymentMethods,
 } from '@/services/agenciamentoService';
-import { CommercialProjectBitrixSelector } from '@/components/CommercialProjectBitrixSelector';
 import { EnhancedPaymentMethodsSelector } from './EnhancedPaymentMethodsSelector';
 import { NegotiationSummaryPanel } from './NegotiationSummaryPanel';
 import { BitrixProductSelector } from './BitrixProductSelector';
@@ -43,7 +42,6 @@ const negotiationSchema = z.object({
   client_email: z.string().email('Email inválido').optional().or(z.literal('')),
   client_phone: z.string().optional(),
   client_document: z.string().optional(),
-  bitrix_project_id: z.string().optional(),
   base_value: z.coerce.number().min(0, 'Valor base deve ser maior ou igual a zero'),
   discount_percentage: z.coerce.number().min(0).max(100, 'Desconto deve estar entre 0 e 100%').optional(),
   additional_fees: z.coerce.number().min(0, 'Taxas devem ser maior ou igual a zero').optional(),
@@ -81,7 +79,6 @@ export function NegotiationForm({
   const [calculatedValues, setCalculatedValues] = useState<ReturnType<
     typeof calculateNegotiationValues
   > | null>(null);
-  const [pendingProjectName, setPendingProjectName] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<BitrixProduct | null>(null);
 
   const form = useForm<NegotiationFormValues>({
@@ -93,7 +90,6 @@ export function NegotiationForm({
       client_email: initialData?.client_email || '',
       client_phone: initialData?.client_phone || '',
       client_document: initialData?.client_document || '',
-      bitrix_project_id: initialData?.bitrix_project_id || '',
       base_value: initialData?.base_value || 0,
       discount_percentage: initialData?.discount_percentage || 0,
       additional_fees: initialData?.additional_fees || 0,
@@ -221,16 +217,6 @@ export function NegotiationForm({
                   {...form.register('description')}
                   placeholder="Descrição detalhada da negociação..."
                   rows={3}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="bitrix_project_id">Projeto Comercial (Bitrix24)</Label>
-                <CommercialProjectBitrixSelector
-                  value={form.watch('bitrix_project_id')}
-                  onChange={(value) => form.setValue('bitrix_project_id', value)}
-                  onPendingCreate={setPendingProjectName}
-                  defaultSearchValue={pendingProjectName || ''}
                 />
               </div>
             </CardContent>
