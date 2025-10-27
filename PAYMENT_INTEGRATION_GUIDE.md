@@ -133,8 +133,10 @@ interface Negotiation {
 
 ### Endpoint Base
 ```
-https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/
+https://{your-instance}.bitrix24.com.br/rest/{user_id}/{webhook_token}/
 ```
+
+**Nota de Segurança**: As credenciais de API devem ser configuradas como variáveis de ambiente e nunca expostas no código ou documentação.
 
 ### Métodos Disponíveis
 
@@ -181,10 +183,10 @@ try {
 ```
 
 ### Mensagens de Erro Comuns
-- "Falha ao buscar produtos do Bitrix" - Erro de rede
-- "Não foi possível conectar ao Bitrix" - Timeout ou conexão perdida
-- "Produto não encontrado" - ID inválido
-- "Acesso negado" - Problema de autenticação
+- **Network Error**: "Falha ao buscar produtos do Bitrix" - Erro de rede ou timeout
+- **Connection Error**: "Não foi possível conectar ao Bitrix" - Timeout ou conexão perdida
+- **Not Found**: "Produto não encontrado" - ID de produto inválido
+- **Authentication**: "Acesso negado" - Problema de autenticação ou credenciais inválidas
 
 ## Validações
 
@@ -292,12 +294,20 @@ function NegotiationExample() {
 
 ## Próximas Melhorias
 
-- [ ] Suporte para descontos personalizados do Bitrix24
-- [ ] Histórico de preços do produto
+### Alta Prioridade (P0)
 - [ ] Integração com estoque do Bitrix24
-- [ ] Suporte para variações de produto
+- [ ] Suporte para descontos personalizados do Bitrix24
+
+### Média Prioridade (P1)
+- [ ] Histórico de preços do produto
 - [ ] Cálculo de impostos baseado no produto
 - [ ] Geração automática de contratos
+
+### Baixa Prioridade (P2)
+- [ ] Suporte para variações de produto
+- [ ] Relatórios de vendas por produto
+
+**Nota**: Prioridades sujeitas a mudanças conforme necessidades do negócio.
 
 ## Suporte e Contribuição
 
