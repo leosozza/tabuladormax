@@ -199,3 +199,176 @@ export async function getLeadStatuses(): Promise<Array<{ ID: string; NAME: strin
     throw new BitrixError('Não foi possível buscar etapas do Bitrix');
   }
 }
+
+// Product API Types
+export interface BitrixProduct {
+  ID: string;
+  NAME: string;
+  PRICE: number;
+  CURRENCY_ID: string;
+  DESCRIPTION?: string;
+  SECTION_ID?: string;
+  CATALOG_ID?: string;
+  VAT_INCLUDED?: 'Y' | 'N';
+  VAT_ID?: string;
+  MEASURE?: number;
+  ACTIVE?: 'Y' | 'N';
+  [key: string]: any;
+}
+
+export interface BitrixProductPrice {
+  PRODUCT_ID: string;
+  PRICE: number;
+  CURRENCY: string;
+  PRICE_SCALE?: number;
+  EXTRA_ID?: string;
+  [key: string]: any;
+}
+
+/**
+ * Listar produtos do catálogo Bitrix24
+ */
+export async function listProducts(params?: { 
+  limit?: number;
+  filter?: Record<string, any>;
+}): Promise<BitrixProduct[]> {
+  const limit = params?.limit || 50;
+  
+  try {
+    let url = `https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.product.list.json?select[]=*&order[NAME]=ASC`;
+    
+    // Adicionar filtros se fornecidos
+    if (params?.filter) {
+      Object.entries(params.filter).forEach(([key, value]) => {
+        url += `&filter[${key}]=${encodeURIComponent(value)}`;
+      });
+    }
+    
+    const response = await fetch(url, { method: 'GET' });
+    
+    if (!response.ok) {
+      throw new BitrixError('Falha ao buscar produtos do Bitrix');
+    }
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new BitrixError(data.error_description || 'Erro do Bitrix');
+    }
+    
+    const products = (data.result || []).slice(0, limit);
+    
+    // Normalizar dados do produto
+    return products.map((product: any) => {
+      const normalizedPrice = parseFloat(product.PRICE) || 0;
+      return {
+        ...product,
+        ID: product.ID,
+        NAME: product.NAME || 'Produto sem nome',
+        PRICE: normalizedPrice,
+        CURRENCY_ID: product.CURRENCY_ID || 'BRL',
+        DESCRIPTION: product.DESCRIPTION,
+        SECTION_ID: product.SECTION_ID,
+        CATALOG_ID: product.CATALOG_ID,
+        VAT_INCLUDED: product.VAT_INCLUDED,
+        VAT_ID: product.VAT_ID,
+        MEASURE: product.MEASURE,
+        ACTIVE: product.ACTIVE,
+      };
+    });
+  } catch (error) {
+    if (error instanceof BitrixError) throw error;
+    throw new BitrixError('Não foi possível conectar ao Bitrix para buscar produtos');
+  }
+}
+
+/**
+ * Buscar um produto específico do Bitrix24
+ */
+export async function getProduct(id: string | number): Promise<BitrixProduct> {
+  try {
+    const response = await fetch(
+      `https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.product.get.json?id=${id}`,
+      { method: 'GET' }
+    );
+    
+    if (!response.ok) {
+      throw new BitrixError('Falha ao buscar produto do Bitrix');
+    }
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new BitrixError(data.error_description || 'Erro do Bitrix');
+    }
+    
+    const product = data.result;
+    
+    const normalizedPrice = parseFloat(product.PRICE) || 0;
+    
+    return {
+      ...product,
+      ID: product.ID,
+      NAME: product.NAME || 'Produto sem nome',
+      PRICE: normalizedPrice,
+      CURRENCY_ID: product.CURRENCY_ID || 'BRL',
+      DESCRIPTION: product.DESCRIPTION,
+      SECTION_ID: product.SECTION_ID,
+      CATALOG_ID: product.CATALOG_ID,
+      VAT_INCLUDED: product.VAT_INCLUDED,
+      VAT_ID: product.VAT_ID,
+      MEASURE: product.MEASURE,
+      ACTIVE: product.ACTIVE,
+    };
+  } catch (error) {
+    if (error instanceof BitrixError) throw error;
+    throw new BitrixError('Não foi possível buscar produto do Bitrix');
+  }
+}
+
+/**
+ * Buscar preço de um produto com descontos aplicados
+ */
+export async function getProductPrice(productId: string | number): Promise<BitrixProductPrice> {
+  try {
+    // Primeiro buscar o produto
+    const product = await getProduct(productId);
+    
+    // Retornar estrutura de preço
+    return {
+      PRODUCT_ID: product.ID,
+      PRICE: product.PRICE,
+      CURRENCY: product.CURRENCY_ID,
+    };
+  } catch (error) {
+    if (error instanceof BitrixError) throw error;
+    throw new BitrixError('Não foi possível buscar preço do produto');
+  }
+}
+
+/**
+ * Buscar produtos em linha de pedido/negócio
+ */
+export async function getProductRows(entityType: 'deal' | 'lead', entityId: string | number): Promise<any[]> {
+  try {
+    const response = await fetch(
+      `https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.${entityType}.productrows.get.json?id=${entityId}`,
+      { method: 'GET' }
+    );
+    
+    if (!response.ok) {
+      throw new BitrixError('Falha ao buscar produtos do pedido');
+    }
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new BitrixError(data.error_description || 'Erro do Bitrix');
+    }
+    
+    return data.result || [];
+  } catch (error) {
+    if (error instanceof BitrixError) throw error;
+    throw new BitrixError('Não foi possível buscar produtos do pedido');
+  }
+}

@@ -52,6 +52,7 @@ export interface Negotiation {
   bitrix_project_id?: string | null;
   bitrix_contact_id?: string | null;
   bitrix_company_id?: string | null;
+  bitrix_product_id?: string | null; // ID do produto selecionado do Bitrix24
 
   // Basic Information
   title: string;
@@ -172,6 +173,7 @@ export interface NegotiationFormData {
 
   // Bitrix24 Integration
   bitrix_project_id?: string;
+  bitrix_product_id?: string; // ID do produto selecionado do Bitrix24
 
   // Commercial Conditions
   base_value: number;
