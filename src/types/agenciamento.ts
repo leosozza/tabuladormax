@@ -16,6 +16,7 @@ export type PaymentMethod =
   | 'debit_card'
   | 'bank_transfer'
   | 'pix'
+  | 'boleto'
   | 'check'
   | 'financing'
   | 'installments'
@@ -38,6 +39,9 @@ export interface SelectedPaymentMethod {
   percentage: number; // Percentage of total to be paid with this method
   amount?: number; // Calculated amount
   notes?: string;
+  // Enhanced properties for amount-based payment flow
+  installments?: number; // Number of installments for this specific payment method
+  installment_value?: number; // Value of each installment for this payment method
 }
 
 export interface Negotiation {
@@ -237,6 +241,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   debit_card: 'Cartão de Débito',
   bank_transfer: 'Transferência Bancária',
   pix: 'PIX',
+  boleto: 'Boleto',
   check: 'Cheque',
   financing: 'Financiamento',
   installments: 'Parcelamento',
