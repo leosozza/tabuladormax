@@ -39,6 +39,9 @@ import GestaoAnaliseLeads from "./pages/gestao/AnaliseLeads";
 import GestaoRelatorios from "./pages/gestao/Relatorios";
 import Install from "./pages/Install";
 
+// Agenciamento Module
+import Agenciamento from "./pages/Agenciamento";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -74,6 +77,9 @@ const App = () => (
           <Route path="/admin/diagnostics" element={<ProtectedRoute requireAdmin><Diagnostics /></ProtectedRoute>} />
           <Route path="/admin/monitoring" element={<ProtectedRoute requireManager><PerformanceMonitoring /></ProtectedRoute>} />
           <Route path="/admin/sync-monitor" element={<ProtectedRoute requireManager><SyncMonitor /></ProtectedRoute>} />
+
+          {/* Agenciamento (Negotiations) */}
+          <Route path="/agenciamento" element={<ProtectedRoute><Agenciamento /></ProtectedRoute>} />
 
           {/* Rotas do Gestão Scouter (prefixo /scouter) */}
           <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />
