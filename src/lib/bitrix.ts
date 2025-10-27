@@ -259,20 +259,23 @@ export async function listProducts(params?: {
     const products = (data.result || []).slice(0, limit);
     
     // Normalizar dados do produto
-    return products.map((product: any) => ({
-      ID: product.ID,
-      NAME: product.NAME || 'Produto sem nome',
-      PRICE: parseFloat(product.PRICE) || 0,
-      CURRENCY_ID: product.CURRENCY_ID || 'BRL',
-      DESCRIPTION: product.DESCRIPTION,
-      SECTION_ID: product.SECTION_ID,
-      CATALOG_ID: product.CATALOG_ID,
-      VAT_INCLUDED: product.VAT_INCLUDED,
-      VAT_ID: product.VAT_ID,
-      MEASURE: product.MEASURE,
-      ACTIVE: product.ACTIVE,
-      ...product,
-    }));
+    return products.map((product: any) => {
+      const normalizedPrice = parseFloat(product.PRICE) || 0;
+      return {
+        ...product,
+        ID: product.ID,
+        NAME: product.NAME || 'Produto sem nome',
+        PRICE: normalizedPrice,
+        CURRENCY_ID: product.CURRENCY_ID || 'BRL',
+        DESCRIPTION: product.DESCRIPTION,
+        SECTION_ID: product.SECTION_ID,
+        CATALOG_ID: product.CATALOG_ID,
+        VAT_INCLUDED: product.VAT_INCLUDED,
+        VAT_ID: product.VAT_ID,
+        MEASURE: product.MEASURE,
+        ACTIVE: product.ACTIVE,
+      };
+    });
   } catch (error) {
     if (error instanceof BitrixError) throw error;
     throw new BitrixError('Não foi possível conectar ao Bitrix para buscar produtos');
@@ -301,10 +304,13 @@ export async function getProduct(id: string | number): Promise<BitrixProduct> {
     
     const product = data.result;
     
+    const normalizedPrice = parseFloat(product.PRICE) || 0;
+    
     return {
+      ...product,
       ID: product.ID,
       NAME: product.NAME || 'Produto sem nome',
-      PRICE: parseFloat(product.PRICE) || 0,
+      PRICE: normalizedPrice,
       CURRENCY_ID: product.CURRENCY_ID || 'BRL',
       DESCRIPTION: product.DESCRIPTION,
       SECTION_ID: product.SECTION_ID,
@@ -313,7 +319,6 @@ export async function getProduct(id: string | number): Promise<BitrixProduct> {
       VAT_ID: product.VAT_ID,
       MEASURE: product.MEASURE,
       ACTIVE: product.ACTIVE,
-      ...product,
     };
   } catch (error) {
     if (error instanceof BitrixError) throw error;

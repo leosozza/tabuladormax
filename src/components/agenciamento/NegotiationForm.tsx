@@ -30,7 +30,7 @@ import {
   validatePaymentMethods,
 } from '@/services/agenciamentoService';
 import { CommercialProjectBitrixSelector } from '@/components/CommercialProjectBitrixSelector';
-import { PaymentMethodsSelector } from './PaymentMethodsSelector';
+import { EnhancedPaymentConfig } from './EnhancedPaymentConfig';
 import { NegotiationSummaryPanel } from './NegotiationSummaryPanel';
 import { BitrixProductSelector } from './BitrixProductSelector';
 import type { BitrixProduct } from '@/lib/bitrix';
@@ -453,20 +453,12 @@ export function NegotiationForm({
             </CardContent>
           </Card>
 
-          {/* Payment Methods */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Formas de Pagamento</CardTitle>
-              <CardDescription>Selecione as formas de pagamento e percentuais</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PaymentMethodsSelector
-                value={paymentMethods}
-                onChange={setPaymentMethods}
-                totalValue={calculatedValues?.total_value || 0}
-              />
-            </CardContent>
-          </Card>
+          {/* Payment Methods - Enhanced with Down Payment */}
+          <EnhancedPaymentConfig
+            value={paymentMethods}
+            onChange={setPaymentMethods}
+            totalValue={calculatedValues?.total_value || 0}
+          />
 
           {/* Installments */}
           <Card>
