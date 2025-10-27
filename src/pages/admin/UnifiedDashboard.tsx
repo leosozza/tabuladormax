@@ -138,9 +138,9 @@ export default function UnifiedDashboard() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Monitoramento & Diagnósticos</CardTitle>
+              <CardTitle>Monitoramento de Performance</CardTitle>
               <CardDescription>
-                Sistema unificado de monitoramento, diagnósticos e logs
+                Acompanhe métricas de performance, carga e bottlenecks do sistema
               </CardDescription>
             </div>
             <Button

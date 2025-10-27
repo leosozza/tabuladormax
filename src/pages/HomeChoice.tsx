@@ -54,10 +54,10 @@ const HomeChoice: React.FC = () => {
         {/* Minimal Header */}
         <div className="text-center mb-16">
           <h1 className="text-6xl md:text-7xl font-extrabold mb-6 bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent tracking-tight">
-            Sistema Integrado
+            Maxconnect
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-            {isAdmin ? 'Escolha seu espaço de trabalho' : 'Acesse sua área'}
+            Conectando ambientes de trabalhos da Max Fama
           </p>
         </div>
 
@@ -85,7 +85,7 @@ const HomeChoice: React.FC = () => {
                 <div>
                   <CardTitle className="text-xl">Telemarketing</CardTitle>
                   <CardDescription className="text-sm mt-1">
-                    Leads e Dashboard
+                    Gestão de Leads e Atendimento
                   </CardDescription>
                 </div>
               </div>
@@ -95,15 +95,15 @@ const HomeChoice: React.FC = () => {
               <ul className="text-sm text-muted-foreground space-y-2 mb-6">
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                  Gestão de leads
+                  Gestão completa de leads e conversões
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                  Dashboard de métricas
+                  Dashboard com métricas e KPIs
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                  Importação CSV
+                  Importação e sincronização de dados
                 </li>
               </ul>
               <Button 
@@ -140,7 +140,7 @@ const HomeChoice: React.FC = () => {
                 <div>
                   <CardTitle className="text-xl">Gestão Scouter</CardTitle>
                   <CardDescription className="text-sm mt-1">
-                    Gestão de Scouts
+                    Gestão de Scouts e Abordagens
                   </CardDescription>
                 </div>
               </div>
@@ -150,15 +150,15 @@ const HomeChoice: React.FC = () => {
               <ul className="text-sm text-muted-foreground space-y-2 mb-6">
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
-                  Gestão de scouts
+                  Gerenciamento de scouts em campo
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
-                  Dashboard
+                  Mapas e áreas de abordagem
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
-                  Relatórios
+                  Análise de performance e relatórios
                 </li>
               </ul>
               <Button 
@@ -195,7 +195,7 @@ const HomeChoice: React.FC = () => {
                 <div>
                   <CardTitle className="text-xl">Administrativo</CardTitle>
                   <CardDescription className="text-sm mt-1">
-                    Gestão Administrativa
+                    Gestão do Sistema
                   </CardDescription>
                 </div>
               </div>
@@ -205,15 +205,15 @@ const HomeChoice: React.FC = () => {
               <ul className="text-sm text-muted-foreground space-y-2 mb-6">
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-accent"></div>
-                  Gestão de usuários
+                  Gestão de usuários e permissões
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-accent"></div>
-                  Configurações
+                  Configurações e integrações
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-accent"></div>
-                  Relatórios
+                  Monitoramento e diagnósticos
                 </li>
               </ul>
               <Button 
@@ -237,7 +237,7 @@ const HomeChoice: React.FC = () => {
         )}
 
         <div className="mt-8 text-center text-xs text-muted-foreground">
-          <p>Sistema Integrado v2.0</p>
+          <p>Maxconnect v2.0</p>
         </div>
       </div>
 
