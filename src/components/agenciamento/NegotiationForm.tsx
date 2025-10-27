@@ -30,7 +30,7 @@ import {
   validatePaymentMethods,
 } from '@/services/agenciamentoService';
 import { CommercialProjectBitrixSelector } from '@/components/CommercialProjectBitrixSelector';
-import { EnhancedPaymentConfig } from './EnhancedPaymentConfig';
+import { EnhancedPaymentMethodsSelector } from './EnhancedPaymentMethodsSelector';
 import { NegotiationSummaryPanel } from './NegotiationSummaryPanel';
 import { BitrixProductSelector } from './BitrixProductSelector';
 import type { BitrixProduct } from '@/lib/bitrix';
@@ -149,10 +149,22 @@ export function NegotiationForm({
   };
 
   const handleFormSubmit = async (values: NegotiationFormValues) => {
-    // Validate payment methods
-    const validation = validatePaymentMethods(paymentMethods);
-    if (!validation.valid) {
-      toast.error(validation.message);
+    // Validate payment methods for amount-based flow
+    const netTotal = calculatedValues?.final_value || 0;
+    const totalAllocated = paymentMethods.reduce((sum, pm) => sum + (pm.amount || 0), 0);
+    const remainingBalance = netTotal - totalAllocated;
+    
+    if (paymentMethods.length === 0) {
+      toast.error('Adicione pelo menos uma forma de pagamento');
+      return;
+    }
+    
+    if (Math.abs(remainingBalance) > 0.01) {
+      if (remainingBalance > 0) {
+        toast.error(`Falta alocar R$ ${remainingBalance.toFixed(2)} em formas de pagamento`);
+      } else {
+        toast.error(`Valor excedido em R$ ${Math.abs(remainingBalance).toFixed(2)}`);
+      }
       return;
     }
 
@@ -453,12 +465,21 @@ export function NegotiationForm({
             </CardContent>
           </Card>
 
-          {/* Payment Methods - Enhanced with Down Payment */}
-          <EnhancedPaymentConfig
-            value={paymentMethods}
-            onChange={setPaymentMethods}
-            totalValue={calculatedValues?.total_value || 0}
-          />
+          {/* Payment Methods */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Formas de Pagamento</CardTitle>
+              <CardDescription>Defina os valores e parcelas para cada método de pagamento</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <EnhancedPaymentMethodsSelector
+                value={paymentMethods}
+                onChange={setPaymentMethods}
+                totalValue={calculatedValues?.final_value || 0}
+                discountValue={calculatedValues?.discount_value || 0}
+              />
+            </CardContent>
+          </Card>
 
           {/* Installments */}
           <Card>
