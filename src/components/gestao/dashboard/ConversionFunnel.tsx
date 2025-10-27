@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
@@ -14,11 +15,11 @@ export default function ConversionFunnel() {
   const { data: funnelData, isLoading } = useQuery({
     queryKey: ["conversion-funnel"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("ficha_confirmada, compareceu");
-      
-      if (error) throw error;
+      // Fetch all leads with pagination to ensure we get more than 1000 records
+      const data = await fetchAllLeads(
+        supabase,
+        "ficha_confirmada, compareceu"
+      );
       
       const total = data.length;
       const confirmados = data.filter(l => l.ficha_confirmada).length;

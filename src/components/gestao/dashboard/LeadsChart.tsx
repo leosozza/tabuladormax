@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
@@ -12,12 +13,12 @@ export default function LeadsChart() {
       const days = 30;
       const startDate = startOfDay(subDays(new Date(), days));
       
-      const { data, error } = await supabase
-        .from("leads")
-        .select("criado, ficha_confirmada, compareceu")
-        .gte("criado", startDate.toISOString());
-      
-      if (error) throw error;
+      // Fetch all leads with pagination to ensure we get more than 1000 records
+      const data = await fetchAllLeads(
+        supabase,
+        "criado, ficha_confirmada, compareceu",
+        (query) => query.gte("criado", startDate.toISOString())
+      );
       
       // Agrupar por dia
       const grouped = new Map<string, { total: number; confirmados: number; compareceram: number }>();
