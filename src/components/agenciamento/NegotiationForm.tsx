@@ -20,7 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { Loader2, Save, Calculator, AlertCircle } from 'lucide-react';
-import type { NegotiationFormData, SelectedPaymentMethod, PaymentMethod } from '@/types/agenciamento';
+import type { NegotiationFormData, SelectedPaymentMethod, PaymentMethod, PaymentFrequency } from '@/types/agenciamento';
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_FREQUENCY_LABELS,
@@ -109,27 +109,23 @@ export function NegotiationForm({
     },
   });
 
-  const watchedValues = form.watch([
-    'base_value',
-    'discount_percentage',
-    'additional_fees',
-    'tax_percentage',
-    'installments_number',
-  ]);
+  // Watch individual values for automatic calculations
+  const baseValue = form.watch('base_value');
+  const discountPercentage = form.watch('discount_percentage');
+  const additionalFees = form.watch('additional_fees');
+  const taxPercentage = form.watch('tax_percentage');
+  const installmentsNumber = form.watch('installments_number');
 
   // Auto-calculate values when inputs change
   useEffect(() => {
-    const [base_value, discount_percentage, additional_fees, tax_percentage, installments_number] =
-      watchedValues;
-
-    if (base_value >= 0) {
+    if (baseValue >= 0) {
       try {
         const calculated = calculateNegotiationValues({
-          base_value: Number(base_value) || 0,
-          discount_percentage: Number(discount_percentage) || 0,
-          additional_fees: Number(additional_fees) || 0,
-          tax_percentage: Number(tax_percentage) || 0,
-          installments_number: Number(installments_number) || 1,
+          base_value: Number(baseValue) || 0,
+          discount_percentage: Number(discountPercentage) || 0,
+          additional_fees: Number(additionalFees) || 0,
+          tax_percentage: Number(taxPercentage) || 0,
+          installments_number: Number(installmentsNumber) || 1,
           payment_methods: paymentMethods,
         });
         setCalculatedValues(calculated);
@@ -137,8 +133,7 @@ export function NegotiationForm({
         console.error('Error calculating values:', error);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedValues[0], watchedValues[1], watchedValues[2], watchedValues[3], watchedValues[4], paymentMethods]);
+  }, [baseValue, discountPercentage, additionalFees, taxPercentage, installmentsNumber, paymentMethods]);
 
   const handleFormSubmit = async (values: NegotiationFormValues) => {
     // Validate payment methods
@@ -455,7 +450,7 @@ export function NegotiationForm({
                   <Select
                     value={form.watch('payment_frequency')}
                     onValueChange={(value) =>
-                      form.setValue('payment_frequency', value as 'monthly' | 'weekly' | 'biweekly' | 'quarterly' | 'yearly')
+                      form.setValue('payment_frequency', value as PaymentFrequency)
                     }
                   >
                     <SelectTrigger>
