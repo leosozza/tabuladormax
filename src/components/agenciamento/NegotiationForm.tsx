@@ -137,7 +137,8 @@ export function NegotiationForm({
         console.error('Error calculating values:', error);
       }
     }
-  }, [...watchedValues, paymentMethods]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedValues[0], watchedValues[1], watchedValues[2], watchedValues[3], watchedValues[4], paymentMethods]);
 
   const handleFormSubmit = async (values: NegotiationFormValues) => {
     // Validate payment methods
@@ -454,7 +455,7 @@ export function NegotiationForm({
                   <Select
                     value={form.watch('payment_frequency')}
                     onValueChange={(value) =>
-                      form.setValue('payment_frequency', value as any)
+                      form.setValue('payment_frequency', value as 'monthly' | 'weekly' | 'biweekly' | 'quarterly' | 'yearly')
                     }
                   >
                     <SelectTrigger>
