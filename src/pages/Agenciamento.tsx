@@ -35,6 +35,8 @@ import {
   MoreVertical,
   Edit,
   Trash2,
+  LayoutGrid,
+  List as ListIcon,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -57,6 +59,9 @@ import {
 } from '@/services/agenciamentoService';
 import { NegotiationForm } from '@/components/agenciamento/NegotiationForm';
 import { NegotiationDetailsDialog } from '@/components/agenciamento/NegotiationDetailsDialog';
+import { NegotiationList } from '@/components/agenciamento/NegotiationList';
+import { NegotiationStats } from '@/components/agenciamento/NegotiationStats';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Agenciamento() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -64,6 +69,7 @@ export default function Agenciamento() {
   const [viewingNegotiation, setViewingNegotiation] = useState<Negotiation | null>(null);
   const [statusFilter, setStatusFilter] = useState<NegotiationStatus | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const queryClient = useQueryClient();
 
@@ -188,6 +194,9 @@ export default function Agenciamento() {
         </Button>
       </div>
 
+      {/* Statistics */}
+      <NegotiationStats negotiations={filteredNegotiations} />
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -219,6 +228,22 @@ export default function Agenciamento() {
                 ))}
               </SelectContent>
             </Select>
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('list')}
+              >
+                <ListIcon className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -239,6 +264,16 @@ export default function Agenciamento() {
             </p>
           </CardContent>
         </Card>
+      ) : viewMode === 'list' ? (
+        <NegotiationList
+          negotiations={filteredNegotiations}
+          onView={(negotiation) => setViewingNegotiation(negotiation)}
+          onEdit={(negotiation) => setEditingNegotiation(negotiation)}
+          onDelete={(id) => handleDelete(id)}
+          onApprove={(id) => approveMutation.mutate(id)}
+          onComplete={(id) => completeMutation.mutate(id)}
+          onCancel={(id) => cancelMutation.mutate(id)}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredNegotiations.map((negotiation) => (
