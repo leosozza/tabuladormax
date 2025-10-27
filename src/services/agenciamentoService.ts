@@ -124,6 +124,7 @@ export async function createNegotiation(data: NegotiationFormData): Promise<Nego
     client_phone: data.client_phone,
     client_document: data.client_document,
     bitrix_project_id: data.bitrix_project_id,
+    bitrix_product_id: data.bitrix_product_id,
     base_value: calculation.base_value,
     discount_percentage: calculation.discount_percentage,
     discount_value: calculation.discount_value,

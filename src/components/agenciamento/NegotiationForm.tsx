@@ -19,7 +19,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Loader2, Save, Calculator, AlertCircle } from 'lucide-react';
+import { Loader2, Save, Calculator, AlertCircle, CheckCircle } from 'lucide-react';
 import type { NegotiationFormData, SelectedPaymentMethod, PaymentMethod, PaymentFrequency } from '@/types/agenciamento';
 import {
   PAYMENT_METHOD_LABELS,
@@ -32,6 +32,8 @@ import {
 import { CommercialProjectBitrixSelector } from '@/components/CommercialProjectBitrixSelector';
 import { PaymentMethodsSelector } from './PaymentMethodsSelector';
 import { NegotiationSummaryPanel } from './NegotiationSummaryPanel';
+import { BitrixProductSelector } from './BitrixProductSelector';
+import type { BitrixProduct } from '@/lib/bitrix';
 
 // Validation schema
 const negotiationSchema = z.object({
@@ -80,6 +82,7 @@ export function NegotiationForm({
     typeof calculateNegotiationValues
   > | null>(null);
   const [pendingProjectName, setPendingProjectName] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<BitrixProduct | null>(null);
 
   const form = useForm<NegotiationFormValues>({
     resolver: zodResolver(negotiationSchema),
@@ -135,6 +138,16 @@ export function NegotiationForm({
     }
   }, [baseValue, discountPercentage, additionalFees, taxPercentage, installmentsNumber, paymentMethods]);
 
+  // Handler for when a product is selected from Bitrix
+  const handleProductSelect = (product: BitrixProduct | null) => {
+    setSelectedProduct(product);
+    if (product) {
+      // Update base value with product price from Bitrix
+      form.setValue('base_value', product.PRICE);
+      toast.success(`Produto "${product.NAME}" selecionado do Bitrix24`);
+    }
+  };
+
   const handleFormSubmit = async (values: NegotiationFormValues) => {
     // Validate payment methods
     const validation = validatePaymentMethods(paymentMethods);
@@ -146,6 +159,7 @@ export function NegotiationForm({
     try {
       const formData: NegotiationFormData = {
         ...values,
+        bitrix_product_id: selectedProduct?.ID,
         payment_methods: paymentMethods,
         discount_percentage: values.discount_percentage || 0,
         additional_fees: values.additional_fees || 0,
@@ -338,6 +352,25 @@ export function NegotiationForm({
 
         {/* Right Column - Financial */}
         <div className="space-y-6">
+          {/* Product Selection from Bitrix24 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calculator className="h-5 w-5" />
+                Produto (Bitrix24)
+              </CardTitle>
+              <CardDescription>
+                Selecione um produto do catálogo Bitrix24 para preencher automaticamente o valor
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BitrixProductSelector
+                value={selectedProduct?.ID}
+                onChange={handleProductSelect}
+              />
+            </CardContent>
+          </Card>
+
           {/* Commercial Values */}
           <Card>
             <CardHeader>
@@ -356,7 +389,14 @@ export function NegotiationForm({
                   step="0.01"
                   {...form.register('base_value')}
                   placeholder="0.00"
+                  className={selectedProduct ? 'border-green-300 bg-green-50' : ''}
                 />
+                {selectedProduct && (
+                  <p className="text-sm text-green-600 mt-1 flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Valor obtido do produto Bitrix24: {selectedProduct.NAME}
+                  </p>
+                )}
                 {form.formState.errors.base_value && (
                   <p className="text-sm text-red-500 mt-1">
                     {form.formState.errors.base_value.message}
