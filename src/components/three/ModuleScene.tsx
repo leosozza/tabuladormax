@@ -54,7 +54,11 @@ const Explosion: React.FC<{
   const materialsRef = useRef<THREE.MeshStandardMaterial[]>([]);
   const meshesRef = useRef<THREE.Mesh[]>([]);
   const progressRef = useRef(0);
-  useEffect(() => { progressRef.current = 0; }, [active]);
+
+  useEffect(() => {
+    progressRef.current = 0;
+  }, [active]);
+
   useFrame((_, dt) => {
     if (!active || !groupRef.current) return;
     progressRef.current += dt / duration;
@@ -74,6 +78,7 @@ const Explosion: React.FC<{
     });
     if (p >= 1 && onComplete) onComplete();
   });
+
   return (
     <group ref={groupRef} visible={active}>
       {shards.map((s, i) => (
@@ -112,6 +117,7 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
   const [hovered, setHovered] = useState(false);
   const [exploding, setExploding] = useState(false);
   const navigate = useNavigate();
+
   useEffect(() => {
     const el = document.body;
     if (!el) return;
@@ -122,6 +128,7 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
     }
     return () => { el.style.cursor = ''; };
   }, [hovered, isAccessible, exploding]);
+
   useFrame((state, dt) => {
     if (!meshRef.current) return;
     meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime + position[0]) * 0.12;
