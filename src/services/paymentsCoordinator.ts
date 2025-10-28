@@ -179,7 +179,7 @@ export async function executeBatchPayment(
   total_payments: number;
   success_count: number;
   error_count: number;
-  errors: any[];
+  errors: Array<{ error: string; lead_id?: number; payment?: PaymentItem }>;
   method: 'rpc' | 'fallback';
 }> {
   // Generate batch ID if not provided
@@ -213,7 +213,7 @@ export async function executeBatchPayment(
     
     let success_count = 0;
     let error_count = 0;
-    const errors: any[] = [];
+    const errors: Array<{ error: string; lead_id?: number; payment?: PaymentItem }> = [];
 
     for (const payment of payments) {
       try {
@@ -258,10 +258,11 @@ export async function executeBatchPayment(
         if (insertError) throw insertError;
 
         success_count++;
-      } catch (err: any) {
+      } catch (err) {
         error_count++;
+        const errorMessage = err instanceof Error ? err.message : String(err);
         errors.push({
-          error: err.message,
+          error: errorMessage,
           lead_id: payment.lead_id,
           payment,
         });

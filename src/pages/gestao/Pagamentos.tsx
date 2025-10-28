@@ -184,10 +184,11 @@ export default function GestaoPagamentos() {
         );
         console.error("Payment errors:", result.errors);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error processing batch payment:", error);
+      const errorMessage = error instanceof Error ? error.message : "Tente novamente mais tarde.";
       toast.error("Erro ao processar pagamento", {
-        description: error.message || "Tente novamente mais tarde.",
+        description: errorMessage,
       });
     } finally {
       setIsProcessingPayment(false);
