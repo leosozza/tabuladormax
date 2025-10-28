@@ -24,48 +24,6 @@ export function stripTagFromName(name: string | undefined | null): string | unde
 }
 
 /**
- * Parse Brazilian currency values to number
- * Accepts strings like "R$ 6,00", "1.234,56", or numeric values
- * @param raw - Value to parse (can be string, number, null, or undefined)
- * @returns Parsed number value or 0 if invalid
- * @example
- * parseBrazilianCurrency("R$ 6,00") // returns 6.00
- * parseBrazilianCurrency("1.234,56") // returns 1234.56
- * parseBrazilianCurrency(6) // returns 6
- * parseBrazilianCurrency(null) // returns 0
- */
-export function parseBrazilianCurrency(raw: string | number | null | undefined): number {
-  // Handle null/undefined
-  if (raw === null || raw === undefined) {
-    return 0;
-  }
-  
-  // If already a number, return it
-  if (typeof raw === 'number') {
-    return isNaN(raw) ? 0 : raw;
-  }
-  
-  // If not a string, return 0
-  if (typeof raw !== 'string') {
-    return 0;
-  }
-  
-  // Remove R$ symbol and whitespace
-  let cleanValue = raw.replace(/R\$\s?/g, '').trim();
-  
-  // Remove thousand separators (dots)
-  cleanValue = cleanValue.replace(/\./g, '');
-  
-  // Replace decimal comma with dot
-  cleanValue = cleanValue.replace(',', '.');
-  
-  // Parse to float
-  const parsed = parseFloat(cleanValue);
-  
-  return isNaN(parsed) ? 0 : parsed;
-}
-
-/**
  * Parse a Brazilian Real currency string to a number
  * @param value - String in format "R$ 1.234,56" or "1.234,56"
  * @returns Parsed number value or 0 if invalid
@@ -92,6 +50,37 @@ export function parseCurrencyBR(value: string): number {
   const parsed = parseFloat(cleanValue);
   
   return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Parse Brazilian currency values to number
+ * Accepts strings like "R$ 6,00", "1.234,56", or numeric values
+ * @param raw - Value to parse (can be string, number, null, or undefined)
+ * @returns Parsed number value or 0 if invalid
+ * @example
+ * parseBrazilianCurrency("R$ 6,00") // returns 6.00
+ * parseBrazilianCurrency("1.234,56") // returns 1234.56
+ * parseBrazilianCurrency(6) // returns 6
+ * parseBrazilianCurrency(null) // returns 0
+ */
+export function parseBrazilianCurrency(raw: string | number | null | undefined): number {
+  // Handle null/undefined
+  if (raw === null || raw === undefined) {
+    return 0;
+  }
+  
+  // If already a number, return it
+  if (typeof raw === 'number') {
+    return isNaN(raw) ? 0 : raw;
+  }
+  
+  // If not a string, return 0
+  if (typeof raw !== 'string') {
+    return 0;
+  }
+  
+  // Reuse existing parseCurrencyBR for string parsing
+  return parseCurrencyBR(raw);
 }
 
 /**
