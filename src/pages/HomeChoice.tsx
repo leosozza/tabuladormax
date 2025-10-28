@@ -54,6 +54,15 @@ const HomeChoice: React.FC = () => {
         )}
       </div>
 
+        <div className="mt-8 text-center text-xs text-muted-foreground">
+          <p>Maxconnect v2.0</p>
+          <a
+            href="/three-selector"
+            className="mt-2 inline-block text-primary hover:underline"
+          >
+            Experimentar visualização 3D
+          </a>
+        </div>
       {/* Instructions overlay */}
       <div className="absolute bottom-8 left-0 right-0 z-10 text-center px-4">
         <p className="text-sm text-gray-400">
