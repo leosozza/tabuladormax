@@ -69,7 +69,7 @@ describe('Field Mapping Utils', () => {
           {
             bitrix_field: 'UF_IDADE',
             tabuladormax_field: 'age',
-            value: 25,
+            value: '25', // String value for consistency
             transformed: true,
           },
         ],
@@ -150,7 +150,8 @@ describe('Field Mapping Utils', () => {
 
       const formatted = formatFieldMappingsForDisplay(mappings);
 
-      expect(formatted[0].value).toHaveLength(50); // 47 + '...'
+      // Value is truncated to 47 chars + '...' = 50 chars total
+      expect(formatted[0].value).toHaveLength(50);
       expect(formatted[0].value).toContain('...');
     });
   });
