@@ -258,7 +258,7 @@ export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing
         <ModuleBox position={[-1.5, 0, 0]} color="#4c1d95" label="Gestão Scouter" description="Scouting Management System" route="/scouter" icon="🎯" isAccessible={canAccessScouter} />
         <ModuleBox position={[1.5, 0, 0]} color="#065f46" label="Agenciamento" description="Gestão de Negociações" route="/agenciamento" icon="🤝" isAccessible={true} />
         <ModuleBox position={[4.5, 0, 0]} color="#b45309" label="Administrativo" description="Gestão do Sistema" route="/admin" icon="🏢" isAccessible={canAccessAdmin} />
-        <OrbitControls enablePan={false} enableZoom={true} enableRotate={false} minDistance={6} maxDistance={12} />
+        <OrbitControls enablePan={false} enableZoom={true} enableRotate={true} minDistance={6} maxDistance={12} />
       </Canvas>
     </div>
   );
