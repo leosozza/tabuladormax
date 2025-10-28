@@ -1,9 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float, OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
-import { useDepartmentAccess } from '@/hooks/useDepartmentAccess';
 
 // 3D Module Card Component
 interface ModuleCardProps {
@@ -111,13 +109,6 @@ const Particles: React.FC = () => {
 
 // Main Scene Component
 const ModuleSelectorScene: React.FC = () => {
-  const navigate = useNavigate();
-  const { canAccessTelemarketing, canAccessScouter, loading } = useDepartmentAccess();
-
-  if (loading) {
-    return null;
-  }
-
   return (
     <>
       <PerspectiveCamera makeDefault position={[0, 0, 8]} />
@@ -143,8 +134,8 @@ const ModuleSelectorScene: React.FC = () => {
         color="#3b82f6"
         title="Tabulador"
         description="Lead Management & Automation"
-        onClick={() => navigate('/lead')}
-        locked={!canAccessTelemarketing}
+        onClick={() => console.log('Tabulador clicked')}
+        locked={false}
       />
       
       {/* Gestão Scouter Module */}
@@ -153,28 +144,15 @@ const ModuleSelectorScene: React.FC = () => {
         color="#8b5cf6"
         title="Gestão Scouter"
         description="Scouting Management System"
-        onClick={() => navigate('/scouter')}
-        locked={!canAccessScouter}
+        onClick={() => console.log('Gestão Scouter clicked')}
+        locked={false}
       />
     </>
   );
 };
 
 // Main Component
-const ThreeModuleSelector: React.FC = () => {
-  const { loading } = useDepartmentAccess();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-white">Carregando módulos...</p>
-        </div>
-      </div>
-    );
-  }
-
+const ThreeModuleSelectorDemo: React.FC = () => {
   return (
     <div className="h-screen w-screen bg-gray-900 relative">
       {/* Title Overlay */}
@@ -209,17 +187,14 @@ const ThreeModuleSelector: React.FC = () => {
         </p>
       </div>
       
-      {/* Back to Classic View Link */}
+      {/* Demo Badge */}
       <div className="absolute top-8 right-8 z-10">
-        <a
-          href="/home-choice"
-          className="text-white/70 hover:text-white text-sm underline transition-colors"
-        >
-          Visualização Clássica
-        </a>
+        <div className="bg-blue-500/20 border border-blue-500 text-blue-300 px-4 py-2 rounded-lg text-sm">
+          Demo Version
+        </div>
       </div>
     </div>
   );
 };
 
-export default ThreeModuleSelector;
+export default ThreeModuleSelectorDemo;

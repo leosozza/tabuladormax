@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import Home from "./pages/Home";
 import HomeChoice from "./pages/HomeChoice";
 import ThreeModuleSelector from "./pages/ThreeModuleSelector";
+import ThreeModuleSelectorDemo from "./pages/ThreeModuleSelectorDemo";
 import Debug from "./pages/Debug";
 import LeadTab from "./pages/LeadTab";
 import Dashboard from "./pages/Dashboard";
@@ -59,6 +60,7 @@ const App = () => (
           
           {/* Auth (pública) */}
           <Route path="/auth" element={<Auth />} />
+          <Route path="/demo-three" element={<ThreeModuleSelectorDemo />} />
           <Route path="/install" element={<Install />} />
           <Route path="/debug" element={<ProtectedRoute><Debug /></ProtectedRoute>} />
           
