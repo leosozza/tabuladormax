@@ -134,7 +134,7 @@ const ModuleSelectorScene: React.FC = () => {
         color="#3b82f6"
         title="Tabulador"
         description="Lead Management & Automation"
-        onClick={() => console.log('Tabulador clicked')}
+        onClick={() => alert('Demo: Tabulador module would navigate to /lead')}
         locked={false}
       />
       
@@ -144,7 +144,7 @@ const ModuleSelectorScene: React.FC = () => {
         color="#8b5cf6"
         title="Gestão Scouter"
         description="Scouting Management System"
-        onClick={() => console.log('Gestão Scouter clicked')}
+        onClick={() => alert('Demo: Gestão Scouter module would navigate to /scouter')}
         locked={false}
       />
     </>

@@ -1,6 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
+// Note: Text and Environment components from drei were replaced with HTML overlays
+// for better compatibility with React 18 and to avoid Three.js r0.180 compatibility issues
 import { Float, OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { useDepartmentAccess } from '@/hooks/useDepartmentAccess';
