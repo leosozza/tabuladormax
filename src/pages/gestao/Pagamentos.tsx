@@ -359,7 +359,7 @@ export default function GestaoPagamentos() {
                         <TableCell>{stripTagFromName(payment.scouter) || "-"}</TableCell>
                         <TableCell>{payment.num_fichas || "-"}</TableCell>
                         <TableCell className="font-semibold">
-                          {formatCurrency(payment.valor_ficha)}
+                          {formatCurrency(parseBrazilianCurrency(payment.valor_ficha))}
                         </TableCell>
                         <TableCell>
                           {payment.ficha_confirmada ? (
