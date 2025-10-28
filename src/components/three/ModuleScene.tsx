@@ -24,12 +24,11 @@ type Shard = {
 const Explosion: React.FC<{
   color: string;
   active: boolean;
-  duration?: number; // seconds
+  duration?: number;
   onComplete?: () => void;
 }> = ({ color, active, duration = 0.85, onComplete }) => {
   const groupRef = useRef<THREE.Group>(null);
   const shardCount = 42;
-
   const shards = useMemo<Shard[]>(() => {
     const arr: Shard[] = [];
     for (let i = 0; i < shardCount; i++) {
@@ -52,7 +51,6 @@ const Explosion: React.FC<{
     }
     return arr;
   }, []);
-
   const materialsRef = useRef<THREE.MeshStandardMaterial[]>([]);
   const meshesRef = useRef<THREE.Mesh[]>([]);
   const progressRef = useRef(0);
@@ -63,31 +61,21 @@ const Explosion: React.FC<{
 
   useFrame((_, dt) => {
     if (!active || !groupRef.current) return;
-
-    // progress
     progressRef.current += dt / duration;
     const p = Math.min(progressRef.current, 1);
-
-    // update shards
     shards.forEach((s, i) => {
       s.position.addScaledVector(s.velocity, dt);
       const m = meshesRef.current[i];
       if (!m) return;
-
       m.position.copy(s.position);
       m.rotation.x += s.rotVel.x * dt;
       m.rotation.y += s.rotVel.y * dt;
       m.rotation.z += s.rotVel.z * dt;
-
       const mat = materialsRef.current[i];
-      if (mat) {
-        mat.opacity = 1 - p;
-      }
-
+      if (mat) { mat.opacity = 1 - p; }
       const scale = s.size * (1 - p * 0.4);
       m.scale.setScalar(scale);
     });
-
     if (p >= 1 && onComplete) onComplete();
   });
 
@@ -130,44 +118,26 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
   const [exploding, setExploding] = useState(false);
   const navigate = useNavigate();
 
-  // pointer cursor on hover
   useEffect(() => {
     const el = document.body;
     if (!el) return;
     if (hovered && isAccessible && !exploding) {
       el.style.cursor = 'pointer';
-      return () => { el.style.cursor = ''; };
+    } else {
+      el.style.cursor = '';
     }
-    el.style.cursor = '';
     return () => { el.style.cursor = ''; };
   }, [hovered, isAccessible, exploding]);
 
   useFrame((state, dt) => {
     if (!meshRef.current) return;
-
-    // gentle float
-    meshRef.current.position.y =
-      position[1] + Math.sin(state.clock.elapsedTime + position[0]) * 0.12;
-
-    // base spin + stronger on hover
+    meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime + position[0]) * 0.12;
     const baseSpin = hovered ? 0.01 : 0.002;
     meshRef.current.rotation.y += baseSpin;
-
-    // per-panel tilt following pointer
     const tx = hovered ? state.pointer.y * 0.18 : 0;
     const ty = hovered ? -state.pointer.x * 0.28 : 0;
-    meshRef.current.rotation.x = THREE.MathUtils.lerp(
-      meshRef.current.rotation.x,
-      tx,
-      0.12
-    );
-    meshRef.current.rotation.z = THREE.MathUtils.lerp(
-      meshRef.current.rotation.z,
-      ty * 0.3,
-      0.12
-    );
-
-    // shrink/fade original box when exploding
+    meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, tx, 0.12);
+    meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, ty * 0.3, 0.12);
     if (exploding && materialRef.current) {
       const mat = materialRef.current;
       mat.transparent = true;
@@ -176,14 +146,45 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
       meshRef.current.scale.setScalar(s);
     }
   });
-
   const handleClick = () => {
     if (!isAccessible || exploding) return;
     setExploding(true);
   };
-
-  const distanceFactor = 10; // stable overlay size
-
+  const distanceFactor = 10;
+  
+  const labelStyle: React.CSSProperties = {
+    pointerEvents: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    color: '#ffffff',
+    fontWeight: 700,
+    textShadow: '0 2px 12px rgba(0,0,0,0.6)',
+    fontSize: 'clamp(14px, 1.6vw, 20px)',
+    letterSpacing: 0.2,
+    filter: isAccessible ? 'none' : 'grayscale(1) opacity(0.6)'
+  };
+  
+  const iconStyle: React.CSSProperties = {
+    fontSize: 'clamp(18px, 2.2vw, 28px)',
+    lineHeight: 1
+  };
+  
+  const descriptionStyle: React.CSSProperties = {
+    pointerEvents: 'none',
+    color: isAccessible ? '#cfcfcf' : '#7b7b7b',
+    textAlign: 'center',
+    fontSize: 'clamp(10px, 1.2vw, 14px)',
+    maxWidth: 220
+  };
+  
+  const lockStyle: React.CSSProperties = {
+    pointerEvents: 'none',
+    color: '#ff6868',
+    fontSize: 'clamp(10px, 1.1vw, 13px)',
+    fontWeight: 600
+  };
+  
   return (
     <group position={position}>
       <mesh
@@ -205,63 +206,19 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
           opacity={1}
         />
       </mesh>
-
-      {/* explosion shards */}
-      <Explosion
-        color={color}
-        active={exploding}
-        duration={0.85}
-        onComplete={() => navigate(route)}
-      />
-
-      {/* icon + title on the same line */}
+      <Explosion color={color} active={exploding} duration={0.85} onComplete={() => navigate(route)} />
       <Html center transform distanceFactor={distanceFactor} position={[0, 1.6, 0]}>
-        <div
-          style={{
-            pointerEvents: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#ffffff',
-            fontWeight: 700,
-            textShadow: '0 2px 12px rgba(0,0,0,0.6)',
-            fontSize: 'clamp(14px, 1.6vw, 20px)',
-            letterSpacing: 0.2,
-            filter: isAccessible ? 'none' : 'grayscale(1) opacity(0.6)',
-          }}
-        >
-          <span style={{ fontSize: 'clamp(18px, 2.2vw, 28px)', lineHeight: 1 }}>{icon}</span>
+        <div style={labelStyle}>
+          <span style={iconStyle}>{icon}</span>
           <span>{label}</span>
         </div>
       </Html>
-
-      {/* description below */}
       <Html center transform distanceFactor={distanceFactor} position={[0, -1.7, 0]}>
-        <div
-          style={{
-            pointerEvents: 'none',
-            color: isAccessible ? '#cfcfcf' : '#7b7b7b',
-            textAlign: 'center',
-            fontSize: 'clamp(10px, 1.2vw, 14px)',
-            maxWidth: 220,
-          }}
-        >
-          {description}
-        </div>
+        <div style={descriptionStyle}>{description}</div>
       </Html>
-
       {!isAccessible && (
         <Html center transform distanceFactor={distanceFactor} position={[0, -2.1, 0]}>
-          <div
-            style={{
-              pointerEvents: 'none',
-              color: '#ff6868',
-              fontSize: 'clamp(10px, 1.1vw, 13px)',
-              fontWeight: 600,
-            }}
-          >
-            🔒 Sem acesso
-          </div>
+          <div style={lockStyle}>🔒 Sem acesso</div>
         </Html>
       )}
     </group>
@@ -270,7 +227,6 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
 
 function BackgroundStars({ count = 700 }) {
   const pointsRef = useRef<THREE.Points>(null);
-
   const positions = useMemo(() => {
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -280,13 +236,7 @@ function BackgroundStars({ count = 700 }) {
     }
     return pos;
   }, [count]);
-
-  useFrame((state) => {
-    if (pointsRef.current) {
-      pointsRef.current.rotation.y = state.clock.elapsedTime * 0.02;
-    }
-  });
-
+  useFrame((state) => { if (pointsRef.current) { pointsRef.current.rotation.y = state.clock.elapsedTime * 0.02; } });
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
@@ -303,69 +253,18 @@ interface ModuleSceneProps {
   canAccessAdmin: boolean;
 }
 
-export const ModuleScene: React.FC<ModuleSceneProps> = ({
-  canAccessTelemarketing,
-  canAccessScouter,
-  canAccessAdmin,
-}) => {
+export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing, canAccessScouter, canAccessAdmin }) => {
   return (
     <div className="w-full h-screen">
-      <Canvas
-        camera={{ position: [0, 0, 9], fov: 50 }}
-        dpr={[1, 2]}
-        shadows
-        style={{ background: 'linear-gradient(to bottom, #0a0a1a, #1a1a2e)' }}
-      >
-        {/* lights */}
+      <Canvas camera={{ position: [0, 0, 9], fov: 50 }} dpr={[1, 2]} shadows style={{ background: 'linear-gradient(to bottom, #0a0a1a, #1a1a2e)' }}>
         <ambientLight intensity={0.6} />
         <pointLight position={[10, 10, 10]} intensity={0.9} />
         <pointLight position={[-8, -8, -6]} intensity={0.5} color="#4444ff" />
-
-        {/* background */}
         <BackgroundStars />
-
-        {/* same-line modules */}
-        <ModuleBox
-          position={[-4.5, 0, 0]}
-          color="#1e3a8a"
-          label="Tabulador"
-          description="Lead Management & Automation"
-          route="/lead"
-          icon="📞"
-          isAccessible={canAccessTelemarketing}
-        />
-
-        <ModuleBox
-          position={[-1.5, 0, 0]}
-          color="#4c1d95"
-          label="Gestão Scouter"
-          description="Scouting Management System"
-          route="/scouter"
-          icon="🎯"
-          isAccessible={canAccessScouter}
-        />
-
-        <ModuleBox
-          position={[1.5, 0, 0]}
-          color="#065f46"
-          label="Agenciamento"
-          description="Gestão de Negociações"
-          route="/agenciamento"
-          icon="🤝"
-          isAccessible={true}
-        />
-
-        <ModuleBox
-          position={[4.5, 0, 0]}
-          color="#b45309"
-          label="Administrativo"
-          description="Gestão do Sistema"
-          route="/admin"
-          icon="🏢"
-          isAccessible={canAccessAdmin}
-        />
-
-        {/* controls: no global rotation, only zoom */}
+        <ModuleBox position={[-4.5, 0, 0]} color="#1e3a8a" label="Tabulador" description="Lead Management & Automation" route="/lead" icon="📞" isAccessible={canAccessTelemarketing} />
+        <ModuleBox position={[-1.5, 0, 0]} color="#4c1d95" label="Gestão Scouter" description="Scouting Management System" route="/scouter" icon="🎯" isAccessible={canAccessScouter} />
+        <ModuleBox position={[1.5, 0, 0]} color="#065f46" label="Agenciamento" description="Gestão de Negociações" route="/agenciamento" icon="🤝" isAccessible={true} />
+        <ModuleBox position={[4.5, 0, 0]} color="#b45309" label="Administrativo" description="Gestão do Sistema" route="/admin" icon="🏢" isAccessible={canAccessAdmin} />
         <OrbitControls enablePan={false} enableZoom={true} enableRotate={false} minDistance={6} maxDistance={12} />
       </Canvas>
     </div>
