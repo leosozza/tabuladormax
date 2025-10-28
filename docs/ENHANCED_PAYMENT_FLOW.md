@@ -1,217 +1,307 @@
-# Enhanced Payment Flow - Implementation Guide
+# Enhanced Payment Flow Documentation
 
 ## Overview
 
-This document describes the enhanced payment flow implementation that allows users to configure payments with specific amounts and per-method installment plans.
+This document describes the enhanced payment flow implementation for the TabuladorMax application. The enhancement adds batch payment processing capabilities, payment calculation features (ajuda de custo and faltas), and a modal-based confirmation UI to the Pagamentos page.
 
-## Problem Statement
+## Features Implemented
 
-The previous payment flow used a percentage-based distribution system which didn't match real-world payment scenarios. Users needed the ability to:
+### 1. SQL Migrations
 
-1. Choose a product (e.g., Package B1 for R$ 5,000)
-2. Apply a discount (e.g., R$ 500)
-3. Configure a down payment with a specific method (e.g., R$ 500 via PIX)
-4. Add additional payment methods with specific amounts and installments (e.g., R$ 2,000 on credit card, 12x)
-5. Complete the payment with remaining balance on another method (e.g., R$ 2,000 via boleto, 12x)
+Two SQL migration files have been created under the `sql/` directory:
 
-## Solution
+#### `sql/add_project_payment_settings_and_payments_table.sql`
+- Adds payment configuration fields to the `projects` table:
+  - `valor_ficha_base`: Base value for fichas
+  - `ajuda_custo_valor`: Daily cost assistance amount
+  - `ajuda_custo_enabled`: Enable/disable cost assistance
+  - `desconto_falta_valor`: Deduction amount per absence
+  - `desconto_falta_enabled`: Enable/disable absence deductions
+- Creates the `payments_records` table to track individual payment transactions
+- Includes comprehensive indexing for performance
+- Implements Row Level Security (RLS) with appropriate policies
 
-### Key Components
+#### `sql/rpc/pay_fichas_transaction.sql`
+- Creates an RPC function `pay_fichas_transaction` for atomic batch payment processing
+- Uses `SECURITY DEFINER` to bypass RLS when needed
+- Handles transaction rollback on errors
+- Returns detailed results including success/error counts
 
-#### 1. Enhanced Types (`src/types/agenciamento.ts`)
+### 2. Payment Services and Utilities
 
-Extended the `SelectedPaymentMethod` interface to support:
-- Individual installment configuration per method
-- Calculated installment values
-- Backward compatibility with percentage-based system
+#### `src/utils/formatters.ts`
+- `parseCurrencyBR()`: Parses Brazilian Real currency strings to numbers
+- `formatCurrency()`: Formats numbers as BRL currency strings
+- `formatNumber()`: Formats numbers with Brazilian separators
 
-```typescript
-export interface SelectedPaymentMethod {
-  method: PaymentMethod;
-  percentage: number;
-  amount?: number;
-  notes?: string;
-  installments?: number;
-  installment_value?: number;
-}
+#### `src/services/paymentsCoordinator.ts`
+- `calculateDaysWorked()`: Calculates days worked between two dates
+- `calculateAjudaCustoForScouter()`: Calculates cost assistance based on days worked
+- `calculateFaltasForScouter()`: Calculates absence deductions (placeholder for future implementation)
+- `executeBatchPayment()`: Executes batch payment with RPC fallback
+
+### 3. UI Components
+
+#### `src/components/gestao/PaymentConfirmModal.tsx`
+- Modal dialog for confirming batch payments
+- Groups payments by scouter
+- Shows detailed breakdown:
+  - Number of leads and fichas
+  - Ficha values
+  - Cost assistance (ajuda de custo)
+  - Absence deductions (faltas)
+  - Gross and net amounts
+- Grand totals across all scouters
+
+#### `src/pages/gestao/Pagamentos.tsx` (Enhanced)
+- Added checkbox-based selection for pending payments
+- "Select All" functionality for pending payments
+- "Pagar Selecionados" button to trigger batch payment
+- Integration with PaymentConfirmModal
+- Automatic data refresh after successful payment using react-query invalidation
+- Toast notifications for success/error feedback
+
+## Migration Steps
+
+### Step 1: Run SQL Migrations
+
+1. Log into your Supabase Dashboard
+2. Navigate to SQL Editor
+3. Execute the migrations in this order:
+
+   **First:** Run `sql/add_project_payment_settings_and_payments_table.sql`
+   ```sql
+   -- Copy and paste the contents of the file into the SQL editor
+   ```
+
+   **Second:** Run `sql/rpc/pay_fichas_transaction.sql`
+   ```sql
+   -- Copy and paste the contents of the file into the SQL editor
+   ```
+
+4. After both migrations, reload the PostgREST schema cache:
+   - Go to Settings > API > PostgREST Settings
+   - Click "Reload schema cache"
+   - Or execute: `NOTIFY pgrst, 'reload schema'`
+
+### Step 2: Configure Project Payment Settings (Optional)
+
+If your project uses cost assistance or absence deductions, update the project settings:
+
+```sql
+UPDATE public.projects
+SET 
+  valor_ficha_base = 50.00,
+  ajuda_custo_valor = 10.00,
+  ajuda_custo_enabled = true,
+  desconto_falta_valor = 5.00,
+  desconto_falta_enabled = false
+WHERE id = '<your-project-id>';
 ```
 
-Added `boleto` as a payment method type.
+### Step 3: Verify RLS Policies
 
-#### 2. EnhancedPaymentMethodsSelector Component
+The migrations create default RLS policies. Review and adjust them based on your security requirements:
 
-A new React component (`src/components/agenciamento/EnhancedPaymentMethodsSelector.tsx`) that provides:
+- **payments_records table**: Allows authenticated users to view, service role to insert/update
+- **leads table**: Should already have appropriate policies from previous migrations
 
-**Features:**
-- **Amount-based input**: Users specify exact amounts instead of percentages
-- **Per-method installments**: Each payment method has its own installment configuration (1-48x)
-- **Real-time validation**: Immediate feedback on remaining balance
-- **Mobile-first design**: Responsive layout optimized for mobile devices
-- **Visual feedback**: Color-coded status indicators
-  - 🟢 Green: Payment complete (total matches exactly)
-  - 🟡 Yellow: Pending (balance remaining)
-  - 🔴 Red: Overflow (amount exceeds total)
-- **Max button**: Quick-fill remaining balance
-- **Inline editing**: Update amounts and installments directly
+### Step 4: Test the Application
 
-**Props:**
-```typescript
-interface EnhancedPaymentMethodsSelectorProps {
-  value: SelectedPaymentMethod[];
-  onChange: (methods: SelectedPaymentMethod[]) => void;
-  totalValue: number;
-  discountValue?: number;
-  downPaymentLabel?: string;
-}
-```
+1. Navigate to the Pagamentos page in the Gestão section
+2. Verify that pending payments show checkboxes
+3. Select one or more pending payments
+4. Click "Pagar Selecionados"
+5. Review the payment summary in the modal
+6. Confirm the payment
+7. Verify that:
+   - Toast notification appears
+   - Payments are marked as confirmed
+   - Page data refreshes automatically
 
-#### 3. Updated NegotiationForm
+## RLS Considerations
 
-The `NegotiationForm` component now uses `EnhancedPaymentMethodsSelector` instead of the percentage-based `PaymentMethodsSelector`.
+### SECURITY DEFINER Function
 
-**Validation:**
-- Ensures at least one payment method is added
-- Validates that total allocated equals net total (within 0.01 tolerance)
-- Prevents submission when amounts are invalid
+The `pay_fichas_transaction` RPC function uses `SECURITY DEFINER`, which means:
 
-### Usage Example
+- The function executes with the privileges of the user who created it (typically a superuser or service_role)
+- This bypasses RLS policies, allowing batch operations even with strict RLS
+- **Important:** Only create this function using a privileged account (postgres user or service_role)
 
-```tsx
-import { EnhancedPaymentMethodsSelector } from '@/components/agenciamento';
+### Alternative Approaches
 
-<EnhancedPaymentMethodsSelector
-  value={paymentMethods}
-  onChange={setPaymentMethods}
-  totalValue={5000}
-  discountValue={500}
-/>
-```
+If you prefer not to use `SECURITY DEFINER`:
 
-This configuration creates a scenario where:
-- Total value: R$ 5,000
-- Discount: R$ 500
-- Net total to allocate: R$ 4,500
+1. **Backend Service**: Call the batch operations from a backend service using the service_role key
+2. **Adjust RLS Policies**: Modify RLS policies on `leads` and `payments_records` to allow batch operations from authenticated users
+3. **Client-side Fallback**: The implementation already includes a fallback that uses individual insert/update operations
 
-## User Flow
+## QA Checklist
 
-### Step 1: View Available Balance
-User sees the net total and available balance at the top of the component.
+### Pre-deployment Testing
 
-### Step 2: Add Payment Method
-1. Select payment method (PIX, Credit Card, Boleto, etc.)
-2. Enter amount (or use "Max" button to fill remaining balance)
-3. Choose number of installments (1-48x)
-4. Click "Adicionar"
+- [ ] SQL migrations execute without errors
+- [ ] Schema cache is reloaded successfully
+- [ ] `payments_records` table created with all columns and indexes
+- [ ] RPC function `pay_fichas_transaction` is accessible
+- [ ] Project payment settings fields exist in `projects` table (if applicable)
 
-### Step 3: View Summary
-- Each payment method is displayed as a card showing:
-  - Payment method name with icon
-  - Amount in bold
-  - Installment details (e.g., "12x de R$ 166,67" or "À vista")
-  - Inline edit controls
+### Functional Testing
 
-### Step 4: Edit or Remove
-- Update amounts or installments directly in the cards
-- Remove payment methods with the trash icon
+#### Selection Features
+- [ ] Checkboxes appear only for pending payments
+- [ ] Individual payment selection works correctly
+- [ ] "Select All" checkbox selects all pending payments
+- [ ] "Select All" checkbox deselects when clicked again
+- [ ] Selected count badge shows correct number
+- [ ] "Pagar Selecionados" button is disabled when no payments selected
 
-### Step 5: Validate and Submit
-- Status indicator shows completion status
-- Form submission is blocked until payment allocation is complete
-- Error messages guide the user to fix any issues
+#### Payment Modal
+- [ ] Modal opens when "Pagar Selecionados" is clicked
+- [ ] Payments are grouped by scouter correctly
+- [ ] Each scouter group shows:
+  - [ ] Lead count
+  - [ ] Ficha count and value
+  - [ ] Cost assistance (if enabled)
+  - [ ] Absence deductions (if enabled)
+  - [ ] Net amount
+- [ ] Grand totals are calculated correctly
+- [ ] Warning message is displayed
+- [ ] "Cancelar" button closes modal without action
+- [ ] "Confirmar Pagamento" button is disabled during processing
 
-## Responsive Design
+#### Payment Processing
+- [ ] Payment processing shows loading state
+- [ ] Success toast appears on successful payment
+- [ ] Error toast appears on failed payment
+- [ ] Page data refreshes automatically after success
+- [ ] Selected items are cleared after success
+- [ ] Modal closes after successful payment
+- [ ] Leads are marked as `ficha_confirmada = true`
+- [ ] `data_confirmacao_ficha` is set correctly
+- [ ] Payment records are inserted into `payments_records` table
 
-### Desktop (≥ 640px)
-- Horizontal layout for form fields
-- Side-by-side payment method cards
-- Full labels and spacing
+#### Payment Calculations
+- [ ] Days worked calculated correctly (data_criacao_ficha to now)
+- [ ] Cost assistance calculated when enabled: `dias_trabalhados * ajuda_custo_por_dia`
+- [ ] Absence deductions calculated when enabled (currently returns 0)
+- [ ] Gross amount = fichas + cost assistance
+- [ ] Net amount = gross amount - deductions
+- [ ] Values formatted as BRL currency (R$ X.XXX,XX)
 
-### Mobile (< 640px)
-- Vertical stacking of form fields
-- Full-width payment method cards
-- Touch-friendly button sizes
-- Optimized spacing for readability
+### Data Integrity
+- [ ] Payment records have correct `batch_id`
+- [ ] All payments in a batch share the same `batch_id`
+- [ ] Foreign key constraints are respected
+- [ ] No orphaned payment records
+- [ ] Transaction rollback works on error (all or nothing)
 
-## Testing
+### Error Handling
+- [ ] RPC errors fall back to individual operations
+- [ ] Individual operation errors are logged
+- [ ] Partial failures are reported correctly
+- [ ] Network errors show appropriate messages
+- [ ] Missing project settings don't break payment flow (uses defaults)
 
-Comprehensive test suite with 14 test cases covering:
-- Empty state rendering
-- Balance calculations with discounts
-- Status indicators (pending, complete, overflow)
-- Payment method display with/without installments
-- Multiple payment methods scenario from problem statement
-- Validation logic
-- Boleto payment method support
+### Performance
+- [ ] Large batch payments (50+ items) complete in reasonable time
+- [ ] Page remains responsive during payment processing
+- [ ] Query invalidation doesn't cause excessive refetching
+- [ ] Indexes on `payments_records` improve query performance
 
-Run tests:
-```bash
-npm run test -- src/__tests__/components/EnhancedPaymentMethodsSelector.test.tsx
-```
+### UI/UX
+- [ ] Modal is responsive on mobile devices
+- [ ] Currency values are formatted correctly
+- [ ] Loading states are clear and visible
+- [ ] Success/error messages are clear and actionable
+- [ ] Modal can be dismissed with Escape key
+- [ ] Focus management is correct
 
-## Accessibility
+### Security
+- [ ] Only authenticated users can access payment features
+- [ ] RLS policies prevent unauthorized access to payment records
+- [ ] SECURITY DEFINER function validates inputs properly
+- [ ] No SQL injection vulnerabilities in RPC function
+- [ ] User permissions are checked appropriately
 
-- Semantic HTML structure
-- Proper ARIA labels
-- Keyboard navigation support
-- Screen reader friendly
-- High contrast color scheme
-- Focus indicators
+### Edge Cases
+- [ ] Empty selection handled gracefully
+- [ ] Single payment works correctly
+- [ ] Payments with missing scouter name handled (shows "Não informado")
+- [ ] Payments with null `commercial_project_id` handled
+- [ ] Payments with missing `data_criacao_ficha` handled (days worked = 0)
+- [ ] Duplicate batch ID handling (if any)
 
-## Browser Support
+## Known Limitations and Future Enhancements
 
-- Modern browsers (Chrome, Firefox, Safari, Edge)
-- Mobile browsers (iOS Safari, Chrome Mobile)
-- Progressive enhancement approach
+### Current Limitations
 
-## Future Enhancements
+1. **Absence Detection**: The `calculateFaltasForScouter` function is a placeholder and always returns 0 faltas. Full implementation requires:
+   - Attendance tracking system
+   - Expected work days calculation
+   - Business rules for absence detection
 
-Potential improvements for future iterations:
-1. **Payment schedule view**: Visual timeline of payment due dates
-2. **Interest calculation**: Automatic interest calculation for installments
-3. **Payment method recommendations**: Suggest optimal payment distribution
-4. **Save templates**: Allow users to save common payment configurations
-5. **Export functionality**: Generate payment schedules as PDF/Excel
-6. **Integration with payment gateways**: Real-time payment processing
+2. **Single Project Settings**: Currently assumes a single project or default settings. Multi-project scenarios may need project-specific settings lookup.
 
-## Migration Guide
+3. **Payment Reversal**: No built-in mechanism to reverse/cancel completed payments. This would need to be added as a separate feature.
 
-### From Percentage-Based to Amount-Based
+### Future Enhancements
 
-The new component maintains backward compatibility with the percentage field, which is automatically calculated from the amount:
+1. **Payment History View**: Add a detailed view of payment records from `payments_records` table
+2. **Payment Reports**: Generate reports by period, scouter, or project
+3. **Bulk Actions**: Add ability to filter and pay by date range, project, or scouter
+4. **Payment Export**: Export payment records to Excel/PDF
+5. **Attendance Integration**: Integrate with an attendance tracking system for automatic falta calculation
+6. **Payment Approval Workflow**: Add multi-step approval process for large payments
+7. **Payment Notifications**: Email/SMS notifications to scouters when payments are confirmed
 
-```typescript
-percentage = (amount / netTotal) * 100
-```
+## Troubleshooting
 
-Existing data structures work without migration, but forms using the old `PaymentMethodsSelector` should be updated to use `EnhancedPaymentMethodsSelector` for better UX.
+### RPC Function Not Found
 
-### Code Changes Required
+**Problem:** Error calling `pay_fichas_transaction` function
 
-1. **Import**: Replace `PaymentMethodsSelector` with `EnhancedPaymentMethodsSelector`
-2. **Props**: Update to use `totalValue` and `discountValue` instead of a single `totalValue` prop
-3. **Validation**: Update validation logic to check amount-based allocation instead of percentage
+**Solution:**
+1. Verify the function was created: `SELECT * FROM pg_proc WHERE proname = 'pay_fichas_transaction'`
+2. Reload PostgREST schema cache
+3. Check function permissions: `GRANT EXECUTE ON FUNCTION public.pay_fichas_transaction TO authenticated`
 
-## Support
+### RLS Policy Errors
 
-For questions or issues related to this implementation, please:
-1. Check this documentation first
-2. Review the test cases for usage examples
-3. Open an issue in the repository with the label `payment-flow`
+**Problem:** Permission denied errors when updating leads or inserting payment records
 
-## Screenshots
+**Solution:**
+1. Review RLS policies on `leads` and `payments_records` tables
+2. Ensure the RPC function uses `SECURITY DEFINER`
+3. Verify the function was created by a privileged user
 
-### Desktop View
-![Payment Flow Desktop](https://github.com/user-attachments/assets/6d13d044-1032-4654-b0ab-1912f26829df)
+### Payment Calculation Errors
 
-### Mobile View  
-![Payment Flow Mobile](https://github.com/user-attachments/assets/a579fd28-bd27-4b46-a112-46ca9637e8e7)
+**Problem:** Incorrect amounts in payment calculations
 
-## Changelog
+**Solution:**
+1. Check project payment settings in the database
+2. Verify `data_criacao_ficha` and `data_confirmacao_ficha` are set correctly
+3. Review calculation logic in `paymentsCoordinator.ts`
 
-### Version 1.0.0 (2025-10-27)
-- Initial implementation of enhanced payment flow
-- Amount-based payment allocation
-- Per-method installment configuration
-- Mobile-first responsive design
-- Comprehensive test coverage
-- Added boleto payment method
+### Transaction Rollback Issues
+
+**Problem:** Partial payments processed despite errors
+
+**Solution:**
+1. Verify RPC function is being used (check console logs for "Using fallback method")
+2. Check that RPC function has proper error handling
+3. Ensure all operations within RPC are in the same transaction
+
+## Support and Maintenance
+
+For issues or questions:
+1. Check the implementation files for inline documentation
+2. Review console logs for error details
+3. Verify SQL migrations were executed correctly
+4. Check Supabase logs for RPC function errors
+
+## Summary
+
+This enhanced payment flow provides a robust, user-friendly solution for batch payment processing in TabuladorMax. The implementation follows best practices for database transactions, security (RLS), and user experience, while maintaining compatibility with the existing codebase.

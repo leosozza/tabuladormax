@@ -1,15 +1,32 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import GestaoSidebar from "@/components/gestao/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { DollarSign, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DollarSign, CheckCircle, Clock, AlertCircle, Wallet } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import PaymentConfirmModal from "@/components/gestao/PaymentConfirmModal";
+import { formatCurrency } from "@/utils/formatters";
+import {
+  executeBatchPayment,
+  calculateAjudaCustoForScouter,
+  calculateFaltasForScouter,
+  type PaymentItem,
+  type ProjectPaymentSettings,
+  type LeadForPayment,
+} from "@/services/paymentsCoordinator";
 
 export default function GestaoPagamentos() {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(new Set());
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   
   const { data: payments, isLoading } = useQuery({
     queryKey: ["gestao-payments", searchTerm],
@@ -30,9 +47,153 @@ export default function GestaoPagamentos() {
     },
   });
 
+  // Get project settings for payment calculations
+  const { data: projectSettings } = useQuery({
+    queryKey: ["project-payment-settings"],
+    queryFn: async () => {
+      // Note: This assumes a single project or default settings
+      // In production, you might need to fetch settings per project
+      const { data, error } = await supabase
+        .from("projects")
+        .select("valor_ficha_base, ajuda_custo_valor, ajuda_custo_enabled, desconto_falta_valor, desconto_falta_enabled")
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) {
+        console.warn("Could not fetch project settings:", error);
+        return null;
+      }
+      return data as ProjectPaymentSettings | null;
+    },
+  });
+
   const totalValue = payments?.reduce((sum, p) => sum + (Number(p.valor_ficha) || 0), 0) || 0;
   const paidCount = payments?.filter(p => p.ficha_confirmada).length || 0;
   const pendingCount = (payments?.length || 0) - paidCount;
+
+  // Filter pending payments only for selection
+  const pendingPayments = payments?.filter(p => !p.ficha_confirmada) || [];
+  const selectedPayments = pendingPayments.filter(p => selectedLeadIds.has(p.id));
+
+  // Toggle individual selection
+  const toggleSelection = (leadId: number) => {
+    setSelectedLeadIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(leadId)) {
+        newSet.delete(leadId);
+      } else {
+        newSet.add(leadId);
+      }
+      return newSet;
+    });
+  };
+
+  // Toggle select all pending
+  const toggleSelectAll = () => {
+    if (selectedLeadIds.size === pendingPayments.length && pendingPayments.length > 0) {
+      setSelectedLeadIds(new Set());
+    } else {
+      setSelectedLeadIds(new Set(pendingPayments.map(p => p.id)));
+    }
+  };
+
+  const isAllSelected = pendingPayments.length > 0 && selectedLeadIds.size === pendingPayments.length;
+  const isSomeSelected = selectedLeadIds.size > 0 && !isAllSelected;
+
+  // Prepare payment items for batch processing
+  const preparePaymentItems = (): PaymentItem[] => {
+    return selectedPayments.map(lead => {
+      const valorFicha = Number(lead.valor_ficha) || 0;
+      const numFichas = 1; // Assuming 1 ficha per lead
+      const valorFichasTotal = valorFicha * numFichas;
+
+      // Calculate ajuda de custo
+      const ajudaCusto = calculateAjudaCustoForScouter(
+        lead as LeadForPayment,
+        projectSettings
+      );
+
+      // Calculate faltas
+      const faltas = calculateFaltasForScouter(
+        lead as LeadForPayment,
+        projectSettings
+      );
+
+      // Calculate totals
+      const valorBruto = valorFichasTotal + ajudaCusto.ajuda_custo_total;
+      const valorDescontos = faltas.desconto_faltas_total;
+      const valorLiquido = valorBruto - valorDescontos;
+
+      return {
+        lead_id: lead.id,
+        scouter: lead.scouter || "Não informado",
+        commercial_project_id: lead.commercial_project_id,
+        num_fichas: numFichas,
+        valor_ficha: valorFicha,
+        valor_fichas_total: valorFichasTotal,
+        dias_trabalhados: ajudaCusto.dias_trabalhados,
+        ajuda_custo_por_dia: ajudaCusto.ajuda_custo_por_dia,
+        ajuda_custo_total: ajudaCusto.ajuda_custo_total,
+        num_faltas: faltas.num_faltas,
+        desconto_falta_unitario: faltas.desconto_falta_unitario,
+        desconto_faltas_total: faltas.desconto_faltas_total,
+        valor_bruto: valorBruto,
+        valor_descontos: valorDescontos,
+        valor_liquido: valorLiquido,
+        status: "paid",
+      };
+    });
+  };
+
+  // Handle payment confirmation
+  const handleConfirmPayment = async () => {
+    const paymentItems = preparePaymentItems();
+    
+    if (paymentItems.length === 0) {
+      toast.error("Nenhum pagamento selecionado");
+      return;
+    }
+
+    setIsProcessingPayment(true);
+
+    try {
+      const result = await executeBatchPayment(paymentItems);
+
+      if (result.success) {
+        toast.success(
+          `Pagamento realizado com sucesso! ${result.success_count} fichas processadas.`,
+          {
+            description: `Método: ${result.method === 'rpc' ? 'RPC' : 'Fallback'}`,
+          }
+        );
+
+        // Clear selections
+        setSelectedLeadIds(new Set());
+        
+        // Refetch payments data
+        await queryClient.invalidateQueries({ queryKey: ["gestao-payments"] });
+        
+        // Close modal
+        setIsPaymentModalOpen(false);
+      } else {
+        toast.error(
+          `Erro ao processar pagamentos. ${result.error_count} falhas.`,
+          {
+            description: "Verifique o console para detalhes.",
+          }
+        );
+        console.error("Payment errors:", result.errors);
+      }
+    } catch (error) {
+      console.error("Error processing batch payment:", error);
+      const errorMessage = error instanceof Error ? error.message : "Tente novamente mais tarde.";
+      toast.error("Erro ao processar pagamento", {
+        description: errorMessage,
+      });
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -53,7 +214,7 @@ export default function GestaoPagamentos() {
               <DollarSign className="w-5 h-5 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">R$ {totalValue.toFixed(2)}</div>
+              <div className="text-3xl font-bold">{formatCurrency(totalValue)}</div>
             </CardContent>
           </Card>
 
@@ -84,14 +245,26 @@ export default function GestaoPagamentos() {
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <CardTitle>Histórico de Pagamentos</CardTitle>
-              <Input
-                placeholder="Buscar por nome ou scouter..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-[300px]"
-              />
+              <div className="flex items-center gap-3">
+                <Input
+                  placeholder="Buscar por nome ou scouter..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-[300px]"
+                />
+                {selectedLeadIds.size > 0 && (
+                  <Button
+                    onClick={() => setIsPaymentModalOpen(true)}
+                    disabled={selectedLeadIds.size === 0}
+                    className="gap-2"
+                  >
+                    <Wallet className="w-4 h-4" />
+                    Pagar Selecionados ({selectedLeadIds.size})
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -101,6 +274,15 @@ export default function GestaoPagamentos() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Selecionar todos os pendentes"
+                        disabled={pendingPayments.length === 0}
+                        className={isSomeSelected ? "data-[state=checked]:bg-primary/50" : ""}
+                      />
+                    </TableHead>
                     <TableHead>Lead</TableHead>
                     <TableHead>Scouter</TableHead>
                     <TableHead>Valor</TableHead>
@@ -111,17 +293,26 @@ export default function GestaoPagamentos() {
                 <TableBody>
                   {payments?.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         Nenhum pagamento encontrado
                       </TableCell>
                     </TableRow>
                   ) : (
                     payments?.map((payment) => (
                       <TableRow key={payment.id}>
+                        <TableCell>
+                          {!payment.ficha_confirmada && (
+                            <Checkbox
+                              checked={selectedLeadIds.has(payment.id)}
+                              onCheckedChange={() => toggleSelection(payment.id)}
+                              aria-label={`Selecionar ${payment.name}`}
+                            />
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{payment.name || "-"}</TableCell>
                         <TableCell>{payment.scouter || "-"}</TableCell>
                         <TableCell className="font-semibold">
-                          R$ {Number(payment.valor_ficha || 0).toFixed(2)}
+                          {formatCurrency(payment.valor_ficha)}
                         </TableCell>
                         <TableCell>
                           {payment.ficha_confirmada ? (
@@ -150,6 +341,15 @@ export default function GestaoPagamentos() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Payment Confirmation Modal */}
+      <PaymentConfirmModal
+        open={isPaymentModalOpen}
+        onOpenChange={setIsPaymentModalOpen}
+        payments={preparePaymentItems()}
+        onConfirm={handleConfirmPayment}
+        isProcessing={isProcessingPayment}
+      />
     </div>
   );
 }
