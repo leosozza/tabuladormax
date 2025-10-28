@@ -37,7 +37,12 @@ export default function SyncMonitor() {
         .limit(50);
 
       if (error) throw error;
-      setSyncEvents(data || []);
+      // Cast field_mappings from Json to SyncFieldMappings
+      const typedData: SyncEvent[] = (data || []).map(event => ({
+        ...event,
+        field_mappings: event.field_mappings as SyncFieldMappings | null
+      }));
+      setSyncEvents(typedData);
     } catch (error) {
       console.error('Erro ao carregar eventos:', error);
       toast.error('Erro ao carregar eventos de sincronização');

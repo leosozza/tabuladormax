@@ -25,8 +25,8 @@ export default function StatusDistribution() {
       // Agrupar por etapa
       const grouped = new Map<string, number>();
       
-      data?.forEach((lead) => {
-        const etapa = lead.etapa || "Sem etapa";
+      data?.forEach((lead: any) => {
+        const etapa = (lead.etapa as string) || "Sem etapa";
         grouped.set(etapa, (grouped.get(etapa) || 0) + 1);
       });
       

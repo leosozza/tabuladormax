@@ -28,9 +28,9 @@ export default function LeadsChart() {
         grouped.set(date, { total: 0, confirmados: 0, compareceram: 0 });
       }
       
-      data?.forEach((lead) => {
+      data?.forEach((lead: any) => {
         if (!lead.criado) return;
-        const date = format(new Date(lead.criado), "yyyy-MM-dd");
+        const date = format(new Date(lead.criado as string), "yyyy-MM-dd");
         const current = grouped.get(date);
         if (current) {
           current.total++;

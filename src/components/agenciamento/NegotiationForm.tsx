@@ -166,6 +166,9 @@ export function NegotiationForm({
 
     try {
       const formData: NegotiationFormData = {
+        title: values.title || '',
+        client_name: values.client_name || '',
+        base_value: values.base_value || 0,
         ...values,
         bitrix_product_id: selectedProduct?.ID,
         payment_methods: paymentMethods,

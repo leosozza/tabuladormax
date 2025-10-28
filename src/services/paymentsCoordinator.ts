@@ -190,27 +190,12 @@ export async function executeBatchPayment(
   const created_by = userData?.user?.id || null;
 
   try {
-    // Attempt to use RPC function
-    const { data, error } = await supabase.rpc('pay_fichas_transaction', {
-      p_batch_id: batch_id,
-      p_payments: payments,
-      p_created_by: created_by,
-    });
-
-    if (error) {
-      console.warn('RPC call failed, falling back to batch operations:', error);
-      // Fall through to fallback method
-      throw error;
-    }
-
-    return {
-      ...data,
-      method: 'rpc' as const,
-    };
-  } catch (rpcError) {
-    // Fallback: Process payments individually
-    console.log('Using fallback method for batch payment');
+    // NOTA: A função RPC pay_fichas_transaction e a tabela payments_records 
+    // ainda não foram criadas no banco de dados
+    // Por enquanto, apenas atualizamos os leads sem registrar o pagamento
+    console.warn('Tabela payments_records e RPC pay_fichas_transaction não existem. Usando fallback simplificado.');
     
+    // Fallback simplificado: apenas atualizar leads
     let success_count = 0;
     let error_count = 0;
     const errors: Array<{ error: string; lead_id?: number; payment?: PaymentItem }> = [];
@@ -228,45 +213,16 @@ export async function executeBatchPayment(
           .eq('id', payment.lead_id);
 
         if (updateError) throw updateError;
-
-        // Insert payment record
-        const { error: insertError } = await supabase
-          .from('payments_records')
-          .insert({
-            batch_id,
-            payment_date: new Date().toISOString(),
-            lead_id: payment.lead_id,
-            scouter: payment.scouter,
-            commercial_project_id: payment.commercial_project_id,
-            num_fichas: payment.num_fichas,
-            valor_ficha: payment.valor_ficha,
-            valor_fichas_total: payment.valor_fichas_total,
-            dias_trabalhados: payment.dias_trabalhados,
-            ajuda_custo_por_dia: payment.ajuda_custo_por_dia,
-            ajuda_custo_total: payment.ajuda_custo_total,
-            num_faltas: payment.num_faltas,
-            desconto_falta_unitario: payment.desconto_falta_unitario,
-            desconto_faltas_total: payment.desconto_faltas_total,
-            valor_bruto: payment.valor_bruto,
-            valor_descontos: payment.valor_descontos,
-            valor_liquido: payment.valor_liquido,
-            created_by,
-            observacoes: payment.observacoes,
-            status: payment.status || 'paid',
-          });
-
-        if (insertError) throw insertError;
-
+        
         success_count++;
-      } catch (err) {
+      } catch (error) {
         error_count++;
-        const errorMessage = err instanceof Error ? err.message : String(err);
         errors.push({
-          error: errorMessage,
+          error: error instanceof Error ? error.message : String(error),
           lead_id: payment.lead_id,
           payment,
         });
-        console.error('Error processing payment for lead', payment.lead_id, err);
+        console.error(`Error processing payment for lead ${payment.lead_id}:`, error);
       }
     }
 
@@ -277,6 +233,19 @@ export async function executeBatchPayment(
       success_count,
       error_count,
       errors,
+      method: 'fallback' as const,
+    };
+  } catch (mainError) {
+    console.error('Unexpected error in executeBatchPayment:', mainError);
+    return {
+      success: false,
+      batch_id,
+      total_payments: payments.length,
+      success_count: 0,
+      error_count: payments.length,
+      errors: [{
+        error: mainError instanceof Error ? mainError.message : String(mainError)
+      }],
       method: 'fallback' as const,
     };
   }

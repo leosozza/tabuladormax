@@ -54,7 +54,7 @@ export function FieldMappingDisplay({ mappings, compact = false }: FieldMappingD
               {mapping.to}
             </code>
             {mapping.transformed && (
-              <Sparkles className="w-3 h-3 text-yellow-600 flex-shrink-0" title="Valor transformado" />
+              <Sparkles className="w-3 h-3 text-yellow-600 flex-shrink-0" aria-label="Valor transformado" />
             )}
             <span className="text-xs text-muted-foreground truncate ml-auto max-w-[200px]">
               {mapping.value}

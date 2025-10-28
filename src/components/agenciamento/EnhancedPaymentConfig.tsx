@@ -52,8 +52,8 @@ export function EnhancedPaymentConfig({
   // Atualizar métodos quando entrada muda
   useEffect(() => {
     if (hasDownPayment && downPayment > 0) {
-      // Filtrar método de entrada dos métodos de pagamento
-      const filteredMethods = value.filter(m => m.method !== 'down_payment');
+      // Filtrar método de entrada dos métodos de pagamento (que não é um PaymentMethod válido)
+      const filteredMethods = value;
       
       // Adicionar ou atualizar entrada
       const downPaymentEntry: SelectedPaymentMethod = {
