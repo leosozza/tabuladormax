@@ -252,10 +252,14 @@ serve(async (req) => {
       return acc;
     }, {} as Record<string, any[]>);
 
+    // Array para rastrear mapeamentos aplicados
+    const appliedMappings: any[] = [];
+
     // Para cada campo do TabuladorMax, aplicar a primeira fonte não-vazia
     for (const [tabuladorField, mappings] of Object.entries(mappingsByField)) {
       for (const mapping of (mappings as any[])) {
         let value = lead[mapping.bitrix_field];
+        const originalValue = value;
         
         // Aplicar transformação se definida
         if (value !== null && value !== undefined && value !== '' && mapping.transform_function) {
@@ -279,6 +283,14 @@ serve(async (req) => {
         // Se encontrou valor, usar e parar (fallback automático)
         if (value !== null && value !== undefined && value !== '') {
           leadData[tabuladorField] = value;
+          appliedMappings.push({
+            bitrix_field: mapping.bitrix_field,
+            tabuladormax_field: tabuladorField,
+            value: value,
+            transformed: !!mapping.transform_function,
+            transform_function: mapping.transform_function,
+            priority: mapping.priority
+          });
           console.log(`✅ ${tabuladorField} = ${mapping.bitrix_field} (prioridade ${mapping.priority})`);
           break; // Usar apenas o primeiro não-vazio
         }
@@ -288,9 +300,17 @@ serve(async (req) => {
     // Garantir que 'responsible' seja preenchido se possível (fallback final)
     if (!leadData.responsible && responsibleName) {
       leadData.responsible = responsibleName;
+      appliedMappings.push({
+        bitrix_field: 'PARENT_ID_1144',
+        tabuladormax_field: 'responsible',
+        value: responsibleName,
+        transformed: false,
+        priority: 999
+      });
     }
 
     console.log('📝 Lead mapeado:', leadData);
+    console.log('📊 Mapeamentos aplicados:', appliedMappings.length);
 
 
     // Upsert no Supabase
@@ -307,13 +327,17 @@ serve(async (req) => {
 
     console.log('✅ Lead sincronizado no Supabase:', upsertedLead);
 
-    // Registrar evento de sincronização
+    // Registrar evento de sincronização com mapeamentos
     await supabase.from('sync_events').insert({
       event_type: event.includes('ADD') ? 'create' : event.includes('UPDATE') ? 'update' : 'delete',
       direction: 'bitrix_to_supabase',
       lead_id: parseInt(leadId),
       status: 'success',
-      sync_duration_ms: Date.now() - startTime
+      sync_duration_ms: Date.now() - startTime,
+      field_mappings: {
+        bitrix_to_supabase: appliedMappings
+      },
+      fields_synced_count: appliedMappings.length
     });
 
     return new Response(
