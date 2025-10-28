@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRecords } from "@/lib/supabaseUtils";
 import GestaoSidebar from "@/components/gestao/Sidebar";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import AreaMap, { LeadMapLocation, DrawnArea } from "@/components/gestao/AreaMap";
@@ -25,27 +26,39 @@ export default function GestaoAreaDeAbordagem() {
   const { data: leadsData, isLoading: leadsLoading } = useQuery({
     queryKey: ["gestao-area-leads", filters],
     queryFn: async () => {
-      let query = supabase
-        .from("leads")
-        .select("id, name, address, local_abordagem, scouter, status_fluxo, commercial_project_id, criado");
-
-      // Aplicar filtros de data
-      query = query
-        .gte("criado", filters.dateFilter.startDate.toISOString())
-        .lte("criado", filters.dateFilter.endDate.toISOString());
-      
-      // Aplicar filtro de projeto
-      if (filters.projectId) {
-        query = query.eq("commercial_project_id", filters.projectId);
-      }
-      
-      // Aplicar filtro de scouter
-      if (filters.scouterId) {
-        query = query.eq("scouter", filters.scouterId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
+      // Usar fetchAllRecords para buscar TODOS os leads sem limite de 1000
+      const data = await fetchAllRecords<{
+        id: number;
+        name: string | null;
+        address: string | null;
+        local_abordagem: string | null;
+        scouter: string | null;
+        status_fluxo: string | null;
+        commercial_project_id: string | null;
+        criado: string | null;
+      }>(
+        supabase,
+        "leads",
+        "id, name, address, local_abordagem, scouter, status_fluxo, commercial_project_id, criado",
+        (query) => {
+          // Aplicar filtros de data
+          query = query
+            .gte("criado", filters.dateFilter.startDate.toISOString())
+            .lte("criado", filters.dateFilter.endDate.toISOString());
+          
+          // Aplicar filtro de projeto
+          if (filters.projectId) {
+            query = query.eq("commercial_project_id", filters.projectId);
+          }
+          
+          // Aplicar filtro de scouter
+          if (filters.scouterId) {
+            query = query.eq("scouter", filters.scouterId);
+          }
+          
+          return query;
+        }
+      );
 
       // Geocodificar endereços (cache simples + rate limiting)
       const geocodedLeads: LeadMapLocation[] = [];
@@ -54,7 +67,7 @@ export default function GestaoAreaDeAbordagem() {
       // Adicionar delay entre requests para respeitar rate limit do Nominatim
       const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-      for (const lead of data || []) {
+      for (const lead of data) {
         if (!lead.address) continue;
 
         let coords = geocodeCache.get(lead.address);
@@ -89,28 +102,36 @@ export default function GestaoAreaDeAbordagem() {
   const { data: areasData, isLoading: areasLoading } = useQuery({
     queryKey: ["gestao-areas", filters],
     queryFn: async () => {
-      let query = supabase
-        .from("leads")
-        .select("local_abordagem, address, scouter")
-        .not("local_abordagem", "is", null);
-
-      // Aplicar filtros de data
-      query = query
-        .gte("criado", filters.dateFilter.startDate.toISOString())
-        .lte("criado", filters.dateFilter.endDate.toISOString());
-      
-      // Aplicar filtro de projeto
-      if (filters.projectId) {
-        query = query.eq("commercial_project_id", filters.projectId);
-      }
-      
-      // Aplicar filtro de scouter
-      if (filters.scouterId) {
-        query = query.eq("scouter", filters.scouterId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
+      // Usar fetchAllRecords para buscar TODOS os leads sem limite de 1000
+      const data = await fetchAllRecords<{
+        local_abordagem: string | null;
+        address: string | null;
+        scouter: string | null;
+      }>(
+        supabase,
+        "leads",
+        "local_abordagem, address, scouter",
+        (query) => {
+          query = query.not("local_abordagem", "is", null);
+          
+          // Aplicar filtros de data
+          query = query
+            .gte("criado", filters.dateFilter.startDate.toISOString())
+            .lte("criado", filters.dateFilter.endDate.toISOString());
+          
+          // Aplicar filtro de projeto
+          if (filters.projectId) {
+            query = query.eq("commercial_project_id", filters.projectId);
+          }
+          
+          // Aplicar filtro de scouter
+          if (filters.scouterId) {
+            query = query.eq("scouter", filters.scouterId);
+          }
+          
+          return query;
+        }
+      );
 
       // Agrupar por local de abordagem
       const areaCounts = data.reduce((acc: any, lead) => {

@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRecords } from "@/lib/supabaseUtils";
+import type { Database } from "@/integrations/supabase/types";
 import GestaoSidebar from "@/components/gestao/Sidebar";
+import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
+import { createDateFilter } from "@/lib/dateUtils";
+import type { GestaoFilters as FilterType } from "@/types/filters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -27,45 +32,66 @@ export default function GestaoPagamentos() {
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(new Set());
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showPaidOnly, setShowPaidOnly] = useState(false);
+  const [filters, setFilters] = useState<FilterType>({
+    dateFilter: createDateFilter('month'),
+    projectId: null,
+    scouterId: null,
+  });
+  
+  type LeadRow = Database['public']['Tables']['leads']['Row'];
   
   const { data: payments, isLoading } = useQuery({
-    queryKey: ["gestao-payments", searchTerm],
+    queryKey: ["gestao-payments", searchTerm, filters, showPaidOnly],
     queryFn: async () => {
-      let query = supabase
-        .from("leads")
-        .select("*")
-        .not("valor_ficha", "is", null)
-        .order("data_confirmacao_ficha", { ascending: false });
+      // Usar fetchAllRecords para buscar TODOS os pagamentos sem limite de 1000
+      const data = await fetchAllRecords<LeadRow>(
+        supabase,
+        "leads",
+        "*",
+        (query) => {
+          query = query.not("valor_ficha", "is", null);
+          
+          // Filtro de busca por nome ou scouter
+          if (searchTerm) {
+            query = query.or(`name.ilike.%${searchTerm}%,scouter.ilike.%${searchTerm}%`);
+          }
+          
+          // Aplicar filtros de data
+          query = query
+            .gte("criado", filters.dateFilter.startDate.toISOString())
+            .lte("criado", filters.dateFilter.endDate.toISOString());
+          
+          // Aplicar filtro de projeto
+          if (filters.projectId) {
+            query = query.eq("commercial_project_id", filters.projectId);
+          }
+          
+          // Aplicar filtro de scouter
+          if (filters.scouterId) {
+            query = query.eq("scouter", filters.scouterId);
+          }
+          
+          // Filtro de ficha paga
+          if (showPaidOnly) {
+            query = query.eq("ficha_confirmada", true);
+          }
+          
+          return query;
+        }
+      );
       
-      if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,scouter.ilike.%${searchTerm}%`);
-      }
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
+      // Ordenar por data de confirmação
+      return data.sort((a, b) => {
+        const dateA = a.data_confirmacao_ficha ? new Date(a.data_confirmacao_ficha as string).getTime() : 0;
+        const dateB = b.data_confirmacao_ficha ? new Date(b.data_confirmacao_ficha as string).getTime() : 0;
+        return dateB - dateA;
+      });
     },
   });
 
-  // Get project settings for payment calculations
-  const { data: projectSettings } = useQuery({
-    queryKey: ["project-payment-settings"],
-    queryFn: async () => {
-      // Note: This assumes a single project or default settings
-      // In production, you might need to fetch settings per project
-      const { data, error } = await supabase
-        .from("projects")
-        .select("valor_ficha_base, ajuda_custo_valor, ajuda_custo_enabled, desconto_falta_valor, desconto_falta_enabled")
-        .limit(1)
-        .maybeSingle();
-      
-      if (error) {
-        console.warn("Could not fetch project settings:", error);
-        return null;
-      }
-      return data as ProjectPaymentSettings | null;
-    },
-  });
+  // Get project settings for payment calculations (tabela projects não existe ainda)
+  const projectSettings: ProjectPaymentSettings | null = null;
 
   const totalValue = payments?.reduce((sum, p) => sum + (Number(p.valor_ficha) || 0), 0) || 0;
   const paidCount = payments?.filter(p => p.ficha_confirmada).length || 0;
@@ -205,6 +231,14 @@ export default function GestaoPagamentos() {
           <p className="text-muted-foreground">Controle financeiro de fichas</p>
         </div>
 
+        {/* Filtros */}
+        <div className="mb-6">
+          <GestaoFiltersComponent 
+            filters={filters}
+            onChange={setFilters}
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -247,13 +281,23 @@ export default function GestaoPagamentos() {
           <CardHeader>
             <div className="flex items-center justify-between flex-wrap gap-4">
               <CardTitle>Histórico de Pagamentos</CardTitle>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <Input
                   placeholder="Buscar por nome ou scouter..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-[300px]"
                 />
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="show-paid"
+                    checked={showPaidOnly}
+                    onCheckedChange={(checked) => setShowPaidOnly(checked === true)}
+                  />
+                  <label htmlFor="show-paid" className="text-sm font-medium cursor-pointer">
+                    Apenas Pagas
+                  </label>
+                </div>
                 {selectedLeadIds.size > 0 && (
                   <Button
                     onClick={() => setIsPaymentModalOpen(true)}
