@@ -117,9 +117,9 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
     if (!el) return;
     if (hovered && isAccessible && !exploding) {
       el.style.cursor = 'pointer';
-      return () => { el.style.cursor = ''; };
+    } else {
+      el.style.cursor = '';
     }
-    el.style.cursor = '';
     return () => { el.style.cursor = ''; };
   }, [hovered, isAccessible, exploding]);
   useFrame((state, dt) => {
@@ -144,6 +144,40 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
     setExploding(true);
   };
   const distanceFactor = 10;
+  
+  const labelStyle: React.CSSProperties = {
+    pointerEvents: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    color: '#ffffff',
+    fontWeight: 700,
+    textShadow: '0 2px 12px rgba(0,0,0,0.6)',
+    fontSize: 'clamp(14px, 1.6vw, 20px)',
+    letterSpacing: 0.2,
+    filter: isAccessible ? 'none' : 'grayscale(1) opacity(0.6)'
+  };
+  
+  const iconStyle: React.CSSProperties = {
+    fontSize: 'clamp(18px, 2.2vw, 28px)',
+    lineHeight: 1
+  };
+  
+  const descriptionStyle: React.CSSProperties = {
+    pointerEvents: 'none',
+    color: isAccessible ? '#cfcfcf' : '#7b7b7b',
+    textAlign: 'center',
+    fontSize: 'clamp(10px, 1.2vw, 14px)',
+    maxWidth: 220
+  };
+  
+  const lockStyle: React.CSSProperties = {
+    pointerEvents: 'none',
+    color: '#ff6868',
+    fontSize: 'clamp(10px, 1.1vw, 13px)',
+    fontWeight: 600
+  };
+  
   return (
     <group position={position}>
       <mesh
@@ -167,17 +201,17 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
       </mesh>
       <Explosion color={color} active={exploding} duration={0.85} onComplete={() => navigate(route)} />
       <Html center transform distanceFactor={distanceFactor} position={[0, 1.6, 0]}>
-        <div style={{ pointerEvents: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#ffffff', fontWeight: 700, textShadow: '0 2px 12px rgba(0,0,0,0.6)', fontSize: 'clamp(14px, 1.6vw, 20px)', letterSpacing: 0.2, filter: isAccessible ? 'none' : 'grayscale(1) opacity(0.6)' }}>
-          <span style={{ fontSize: 'clamp(18px, 2.2vw, 28px)', lineHeight: 1 }}>{icon}</span>
+        <div style={labelStyle}>
+          <span style={iconStyle}>{icon}</span>
           <span>{label}</span>
         </div>
       </Html>
       <Html center transform distanceFactor={distanceFactor} position={[0, -1.7, 0]}>
-        <div style={{ pointerEvents: 'none', color: isAccessible ? '#cfcfcf' : '#7b7b7b', textAlign: 'center', fontSize: 'clamp(10px, 1.2vw, 14px)', maxWidth: 220 }}>{description}</div>
+        <div style={descriptionStyle}>{description}</div>
       </Html>
       {!isAccessible && (
         <Html center transform distanceFactor={distanceFactor} position={[0, -2.1, 0]}>
-          <div style={{ pointerEvents: 'none', color: '#ff6868', fontSize: 'clamp(10px, 1.1vw, 13px)', fontWeight: 600 }}>🔒 Sem acesso</div>
+          <div style={lockStyle}>🔒 Sem acesso</div>
         </Html>
       )}
     </group>
