@@ -9,6 +9,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import Home from "./pages/Home";
 import HomeChoice from "./pages/HomeChoice";
+import ThreeModuleSelector from "./pages/ThreeModuleSelector";
 import Debug from "./pages/Debug";
 import LeadTab from "./pages/LeadTab";
 import Dashboard from "./pages/Dashboard";
@@ -52,8 +53,9 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           {/* Rota inicial - redireciona para escolha de módulo */}
-          <Route path="/" element={<ProtectedRoute><HomeChoice /></ProtectedRoute>} />
+          <Route path="/" element={<ProtectedRoute><ThreeModuleSelector /></ProtectedRoute>} />
           <Route path="/home-choice" element={<ProtectedRoute><HomeChoice /></ProtectedRoute>} />
+          <Route path="/three-selector" element={<ProtectedRoute><ThreeModuleSelector /></ProtectedRoute>} />
           
           {/* Auth (pública) */}
           <Route path="/auth" element={<Auth />} />
