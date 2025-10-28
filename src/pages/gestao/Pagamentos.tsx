@@ -16,8 +16,7 @@ import { DollarSign, CheckCircle, Clock, AlertCircle, Wallet } from "lucide-reac
 import { format } from "date-fns";
 import { toast } from "sonner";
 import PaymentConfirmModal from "@/components/gestao/PaymentConfirmModal";
-import { formatCurrency } from "@/utils/formatters";
-import { stripTagFromName, parseBrazilianCurrency } from "@/utils/paymentHelpers";
+import { formatCurrency, stripTagFromName, parseBrazilianCurrency } from "@/utils/formatters";
 import {
   executeBatchPayment,
   calculateAjudaCustoForScouter,
@@ -94,7 +93,7 @@ export default function GestaoPagamentos() {
   // Get project settings for payment calculations (tabela projects não existe ainda)
   const projectSettings: ProjectPaymentSettings | null = null;
 
-  const totalValue = payments?.reduce((sum, p) => sum + (parseBrazilianCurrency(p.valor_ficha) * (Number(p.num_fichas) || 1)), 0) || 0;
+  const totalValue = payments?.reduce((sum, p) => sum + parseBrazilianCurrency(p.valor_ficha), 0) || 0;
   const paidCount = payments?.filter(p => p.ficha_confirmada).length || 0;
   const pendingCount = (payments?.length || 0) - paidCount;
 
@@ -130,7 +129,7 @@ export default function GestaoPagamentos() {
   // Prepare payment items for batch processing
   const preparePaymentItems = (): PaymentItem[] => {
     return selectedPayments.map(lead => {
-      const scouter = stripTagFromName(lead.scouter) || 'Não informado';
+      const scouter = stripTagFromName(lead.scouter) || "Não informado";
       const valorFicha = parseBrazilianCurrency(lead.valor_ficha);
       const numFichas = Number(lead.num_fichas) || 1;
       const valorFichasTotal = valorFicha * numFichas;
@@ -331,7 +330,7 @@ export default function GestaoPagamentos() {
                     </TableHead>
                     <TableHead>Lead</TableHead>
                     <TableHead>Scouter</TableHead>
-                    <TableHead>Qtd</TableHead>
+                    <TableHead>Qtd. Fichas</TableHead>
                     <TableHead>Valor</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data Confirmação</TableHead>
@@ -358,7 +357,7 @@ export default function GestaoPagamentos() {
                         </TableCell>
                         <TableCell className="font-medium">{payment.name || "-"}</TableCell>
                         <TableCell>{stripTagFromName(payment.scouter) || "-"}</TableCell>
-                        <TableCell>{Number(payment.num_fichas) || 1}</TableCell>
+                        <TableCell>{payment.num_fichas || "-"}</TableCell>
                         <TableCell className="font-semibold">
                           {formatCurrency(parseBrazilianCurrency(payment.valor_ficha))}
                         </TableCell>
