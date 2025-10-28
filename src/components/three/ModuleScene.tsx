@@ -1,7 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Text, OrbitControls, Box } from '@react-three/drei';
+import { Html, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface ModuleBoxProps {
@@ -14,141 +14,288 @@ interface ModuleBoxProps {
   isAccessible: boolean;
 }
 
-const ModuleBox: React.FC<ModuleBoxProps> = ({ 
-  position, 
-  color, 
-  label, 
-  description, 
-  route, 
+type Shard = {
+  position: THREE.Vector3;
+  velocity: THREE.Vector3;
+  rotVel: THREE.Vector3;
+  size: number;
+};
+
+const Explosion: React.FC<{
+  color: string;
+  active: boolean;
+  duration?: number; // seconds
+  onComplete?: () => void;
+}> = ({ color, active, duration = 0.85, onComplete }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const shardCount = 42;
+
+  const shards = useMemo<Shard[]>(() => {
+    const arr: Shard[] = [];
+    for (let i = 0; i < shardCount; i++) {
+      const dir = new THREE.Vector3(
+        (Math.random() - 0.5),
+        (Math.random() - 0.5),
+        (Math.random() - 0.5)
+      ).normalize();
+      const speed = 3 + Math.random() * 3;
+      arr.push({
+        position: new THREE.Vector3(0, 0, 0),
+        velocity: dir.multiplyScalar(speed),
+        rotVel: new THREE.Vector3(
+          (Math.random() - 0.5) * 6,
+          (Math.random() - 0.5) * 6,
+          (Math.random() - 0.5) * 6
+        ),
+        size: 0.08 + Math.random() * 0.22
+      });
+    }
+    return arr;
+  }, []);
+
+  const materialsRef = useRef<THREE.MeshStandardMaterial[]>([]);
+  const meshesRef = useRef<THREE.Mesh[]>([]);
+  const progressRef = useRef(0);
+
+  useEffect(() => {
+    progressRef.current = 0;
+  }, [active]);
+
+  useFrame((_, dt) => {
+    if (!active || !groupRef.current) return;
+
+    // progress
+    progressRef.current += dt / duration;
+    const p = Math.min(progressRef.current, 1);
+
+    // update shards
+    shards.forEach((s, i) => {
+      s.position.addScaledVector(s.velocity, dt);
+      const m = meshesRef.current[i];
+      if (!m) return;
+
+      m.position.copy(s.position);
+      m.rotation.x += s.rotVel.x * dt;
+      m.rotation.y += s.rotVel.y * dt;
+      m.rotation.z += s.rotVel.z * dt;
+
+      const mat = materialsRef.current[i];
+      if (mat) {
+        mat.opacity = 1 - p;
+      }
+
+      const scale = s.size * (1 - p * 0.4);
+      m.scale.setScalar(scale);
+    });
+
+    if (p >= 1 && onComplete) onComplete();
+  });
+
+  return (
+    <group ref={groupRef} visible={active}>
+      {shards.map((s, i) => (
+        <mesh
+          key={i}
+          ref={(el) => { if (el) meshesRef.current[i] = el; }}
+          position={[0, 0, 0]}
+          castShadow
+        >
+          <boxGeometry args={[s.size, s.size, s.size]} />
+          <meshStandardMaterial
+            ref={(el) => { if (el) materialsRef.current[i] = el; }}
+            color={color}
+            metalness={0.35}
+            roughness={0.35}
+            transparent
+            opacity={1}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
+const ModuleBox: React.FC<ModuleBoxProps> = ({
+  position,
+  color,
+  label,
+  description,
+  route,
   icon,
-  isAccessible 
+  isAccessible,
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
   const [hovered, setHovered] = useState(false);
+  const [exploding, setExploding] = useState(false);
   const navigate = useNavigate();
 
-  useFrame((state) => {
-    if (meshRef.current) {
-      // Gentle floating animation
-      meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime + position[0]) * 0.1;
-      
-      // Rotate on hover
-      if (hovered) {
-        meshRef.current.rotation.y += 0.02;
-      }
+  // pointer cursor on hover
+  useEffect(() => {
+    const el = document.body;
+    if (!el) return;
+    if (hovered && isAccessible && !exploding) {
+      el.style.cursor = 'pointer';
+      return () => { el.style.cursor = ''; };
+    }
+    el.style.cursor = '';
+    return () => { el.style.cursor = ''; };
+  }, [hovered, isAccessible, exploding]);
+
+  useFrame((state, dt) => {
+    if (!meshRef.current) return;
+
+    // gentle float
+    meshRef.current.position.y =
+      position[1] + Math.sin(state.clock.elapsedTime + position[0]) * 0.12;
+
+    // base spin + stronger on hover
+    const baseSpin = hovered ? 0.01 : 0.002;
+    meshRef.current.rotation.y += baseSpin;
+
+    // per-panel tilt following pointer
+    const tx = hovered ? state.pointer.y * 0.18 : 0;
+    const ty = hovered ? -state.pointer.x * 0.28 : 0;
+    meshRef.current.rotation.x = THREE.MathUtils.lerp(
+      meshRef.current.rotation.x,
+      tx,
+      0.12
+    );
+    meshRef.current.rotation.z = THREE.MathUtils.lerp(
+      meshRef.current.rotation.z,
+      ty * 0.3,
+      0.12
+    );
+
+    // shrink/fade original box when exploding
+    if (exploding && materialRef.current) {
+      const mat = materialRef.current;
+      mat.transparent = true;
+      mat.opacity = Math.max(0, mat.opacity - dt * 2);
+      const s = Math.max(0, (meshRef.current.scale.x || 1) - dt * 1.8);
+      meshRef.current.scale.setScalar(s);
     }
   });
 
   const handleClick = () => {
-    if (isAccessible) {
-      navigate(route);
-    }
+    if (!isAccessible || exploding) return;
+    setExploding(true);
   };
+
+  const distanceFactor = 10; // stable overlay size
 
   return (
     <group position={position}>
-      <Box
+      <mesh
         ref={meshRef}
-        args={[2, 2, 2]}
         onClick={handleClick}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
+        castShadow
+        receiveShadow
       >
+        <boxGeometry args={[2.4, 2.4, 0.32]} />
         <meshStandardMaterial
-          color={hovered && isAccessible ? color : isAccessible ? new THREE.Color(color).multiplyScalar(0.8) : '#555'}
-          roughness={0.3}
-          metalness={0.6}
-          emissive={hovered && isAccessible ? color : '#000'}
-          emissiveIntensity={hovered && isAccessible ? 0.3 : 0}
+          ref={materialRef}
+          color={isAccessible ? color : '#3a3a3a'}
+          metalness={0.4}
+          roughness={0.2}
+          emissive={isAccessible ? color : '#000000'}
+          emissiveIntensity={hovered && isAccessible ? 0.25 : 0.08}
+          opacity={1}
         />
-      </Box>
-      
-      {/* Label */}
-      <Text
-        position={[0, 1.5, 0]}
-        fontSize={0.3}
-        color={isAccessible ? '#ffffff' : '#888888'}
-        anchorX="center"
-        anchorY="middle"
-      >
-        {label}
-      </Text>
-      
-      {/* Icon/Emoji */}
-      <Text
-        position={[0, 0, 1.1]}
-        fontSize={0.8}
-        color="#ffffff"
-        anchorX="center"
-        anchorY="middle"
-      >
-        {icon}
-      </Text>
-      
-      {/* Description */}
-      <Text
-        position={[0, -1.5, 0]}
-        fontSize={0.15}
-        color={isAccessible ? '#cccccc' : '#666666'}
-        anchorX="center"
-        anchorY="middle"
-        maxWidth={2}
-      >
-        {description}
-      </Text>
-      
-      {!isAccessible && (
-        <Text
-          position={[0, -1.9, 0]}
-          fontSize={0.12}
-          color="#ff6666"
-          anchorX="center"
-          anchorY="middle"
+      </mesh>
+
+      {/* explosion shards */}
+      <Explosion
+        color={color}
+        active={exploding}
+        duration={0.85}
+        onComplete={() => navigate(route)}
+      />
+
+      {/* icon + title on the same line */}
+      <Html center transform distanceFactor={distanceFactor} position={[0, 1.6, 0]}>
+        <div
+          style={{
+            pointerEvents: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: '#ffffff',
+            fontWeight: 700,
+            textShadow: '0 2px 12px rgba(0,0,0,0.6)',
+            fontSize: 'clamp(14px, 1.6vw, 20px)',
+            letterSpacing: 0.2,
+            filter: isAccessible ? 'none' : 'grayscale(1) opacity(0.6)',
+          }}
         >
-          🔒 Sem Acesso
-        </Text>
+          <span style={{ fontSize: 'clamp(18px, 2.2vw, 28px)', lineHeight: 1 }}>{icon}</span>
+          <span>{label}</span>
+        </div>
+      </Html>
+
+      {/* description below */}
+      <Html center transform distanceFactor={distanceFactor} position={[0, -1.7, 0]}>
+        <div
+          style={{
+            pointerEvents: 'none',
+            color: isAccessible ? '#cfcfcf' : '#7b7b7b',
+            textAlign: 'center',
+            fontSize: 'clamp(10px, 1.2vw, 14px)',
+            maxWidth: 220,
+          }}
+        >
+          {description}
+        </div>
+      </Html>
+
+      {!isAccessible && (
+        <Html center transform distanceFactor={distanceFactor} position={[0, -2.1, 0]}>
+          <div
+            style={{
+              pointerEvents: 'none',
+              color: '#ff6868',
+              fontSize: 'clamp(10px, 1.1vw, 13px)',
+              fontWeight: 600,
+            }}
+          >
+            🔒 Sem acesso
+          </div>
+        </Html>
       )}
     </group>
   );
 };
 
-interface BackgroundStarsProps {
-  count?: number;
-}
+function BackgroundStars({ count = 700 }) {
+  const pointsRef = useRef<THREE.Points>(null);
 
-const BackgroundStars: React.FC<BackgroundStarsProps> = ({ count = 200 }) => {
-  const points = useRef<THREE.Points>(null);
-
-  const particlesPosition = React.useMemo(() => {
-    const positions = new Float32Array(count * 3);
+  const positions = useMemo(() => {
+    const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 50;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 50;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 50;
+      pos[i * 3] = (Math.random() - 0.5) * 40;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 40;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 40;
     }
-    return positions;
+    return pos;
   }, [count]);
 
   useFrame((state) => {
-    if (points.current) {
-      points.current.rotation.y = state.clock.elapsedTime * 0.02;
+    if (pointsRef.current) {
+      pointsRef.current.rotation.y = state.clock.elapsedTime * 0.02;
     }
   });
 
   return (
-    <points ref={points}>
+    <points ref={pointsRef}>
       <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={particlesPosition.length / 3}
-          array={particlesPosition}
-          itemSize={3}
-        />
+        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
       </bufferGeometry>
-      <pointsMaterial size={0.05} color="#ffffff" transparent opacity={0.6} />
+      <pointsMaterial size={0.04} color="#ffffff" transparent opacity={0.55} />
     </points>
   );
-};
+}
 
 interface ModuleSceneProps {
   canAccessTelemarketing: boolean;
@@ -159,81 +306,70 @@ interface ModuleSceneProps {
 export const ModuleScene: React.FC<ModuleSceneProps> = ({
   canAccessTelemarketing,
   canAccessScouter,
-  canAccessAdmin
+  canAccessAdmin,
 }) => {
   return (
     <div className="w-full h-screen">
       <Canvas
-        camera={{ position: [0, 0, 8], fov: 50 }}
+        camera={{ position: [0, 0, 9], fov: 50 }}
+        dpr={[1, 2]}
+        shadows
         style={{ background: 'linear-gradient(to bottom, #0a0a1a, #1a1a2e)' }}
       >
-        {/* Lighting */}
-        <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} intensity={1} />
-        <pointLight position={[-10, -10, -10]} intensity={0.5} color="#4444ff" />
-        <spotLight
-          position={[0, 10, 0]}
-          angle={0.3}
-          penumbra={1}
-          intensity={1}
-          castShadow
-        />
-        
-        {/* Background Stars */}
-        <BackgroundStars count={300} />
-        
-        {/* Module Boxes */}
+        {/* lights */}
+        <ambientLight intensity={0.6} />
+        <pointLight position={[10, 10, 10]} intensity={0.9} />
+        <pointLight position={[-8, -8, -6]} intensity={0.5} color="#4444ff" />
+
+        {/* background */}
+        <BackgroundStars />
+
+        {/* same-line modules */}
         <ModuleBox
-          position={[-3, 0, 0]}
-          color="#3b82f6"
+          position={[-4.5, 0, 0]}
+          color="#1e3a8a"
           label="Tabulador"
-          description="Lead management and automation"
+          description="Lead Management & Automation"
           route="/lead"
           icon="📞"
           isAccessible={canAccessTelemarketing}
         />
-        
+
         <ModuleBox
-          position={[3, 0, 0]}
-          color="#8b5cf6"
+          position={[-1.5, 0, 0]}
+          color="#4c1d95"
           label="Gestão Scouter"
-          description="Scouting management system"
+          description="Scouting Management System"
           route="/scouter"
           icon="🎯"
           isAccessible={canAccessScouter}
         />
-        
+
         <ModuleBox
-          position={[0, 3, -2]}
-          color="#10b981"
+          position={[1.5, 0, 0]}
+          color="#065f46"
           label="Agenciamento"
           description="Gestão de Negociações"
           route="/agenciamento"
           icon="🤝"
           isAccessible={true}
         />
-        
+
         <ModuleBox
-          position={[0, -3, -2]}
-          color="#f59e0b"
+          position={[4.5, 0, 0]}
+          color="#b45309"
           label="Administrativo"
           description="Gestão do Sistema"
           route="/admin"
           icon="🏢"
           isAccessible={canAccessAdmin}
         />
-        
-        {/* Controls */}
-        <OrbitControls
-          enableZoom={true}
-          enablePan={true}
-          enableRotate={true}
-          minDistance={5}
-          maxDistance={15}
-          autoRotate={true}
-          autoRotateSpeed={0.5}
-        />
+
+        {/* controls: no global rotation, only zoom */}
+        <OrbitControls enablePan={false} enableZoom={true} enableRotate={false} minDistance={6} maxDistance={12} />
       </Canvas>
     </div>
   );
 };
+
+export default ModuleScene;
