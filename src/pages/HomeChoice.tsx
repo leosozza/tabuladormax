@@ -23,6 +23,11 @@ interface Planet {
   ringMesh?: THREE.Mesh;
 }
 
+// Animation constants
+const TEXT_ROTATION_SPEED = 0.0005;
+const TEXT_OFFSET_MAX = 1.0;
+const PARTICLE_COUNT = 5000; // Reduced for better performance
+
 // Create canvas texture with text label (MAXFAMA)
 const makeSunLabelTexture = (text: string, width: number, height: number): THREE.CanvasTexture => {
   const canvas = document.createElement('canvas');
@@ -43,7 +48,7 @@ const makeSunLabelTexture = (text: string, width: number, height: number): THREE
   ctx.fillRect(0, 0, width, height);
 
   // Add noise/texture for fiery effect
-  for (let i = 0; i < 8000; i++) {
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
     const x = Math.random() * width;
     const y = Math.random() * height;
     const radius = Math.random() * 3;
@@ -334,8 +339,8 @@ const HomeChoice: React.FC = () => {
 
       // Rotate sun and increment text offset for rotating label
       sun.rotation.y += 0.001;
-      sunUniforms.uTextOffset.value += 0.0005; // Rotate text around sun
-      if (sunUniforms.uTextOffset.value > 1.0) {
+      sunUniforms.uTextOffset.value += TEXT_ROTATION_SPEED;
+      if (sunUniforms.uTextOffset.value > TEXT_OFFSET_MAX) {
         sunUniforms.uTextOffset.value = 0.0;
       }
 
@@ -389,9 +394,18 @@ const HomeChoice: React.FC = () => {
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(animationId);
       
+      // Dispose planet resources
       planets.forEach((planet) => {
         if (planet.label) {
           planet.label.remove();
+        }
+        if (planet.mesh) {
+          planet.mesh.geometry.dispose();
+          (planet.mesh.material as THREE.Material).dispose();
+        }
+        if (planet.ringMesh) {
+          planet.ringMesh.geometry.dispose();
+          (planet.ringMesh.material as THREE.Material).dispose();
         }
       });
       
