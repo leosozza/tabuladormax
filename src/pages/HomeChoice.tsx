@@ -23,6 +23,59 @@ interface Planet {
   ringMesh?: THREE.Mesh;
 }
 
+// Create canvas texture with text label (MAXFAMA)
+const makeSunLabelTexture = (text: string, width: number, height: number): THREE.CanvasTexture => {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+
+  // Create fiery sun base texture with radial gradient
+  const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width / 2);
+  gradient.addColorStop(0, '#ffffff');
+  gradient.addColorStop(0.1, '#ffff00');
+  gradient.addColorStop(0.3, '#ffaa00');
+  gradient.addColorStop(0.5, '#ff6600');
+  gradient.addColorStop(0.7, '#ff3300');
+  gradient.addColorStop(1, '#880000');
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  // Add noise/texture for fiery effect
+  for (let i = 0; i < 8000; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const radius = Math.random() * 3;
+    const opacity = Math.random() * 0.3;
+    
+    ctx.fillStyle = `rgba(255, 200, 0, ${opacity})`;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw text label in the equator region (middle of canvas)
+  ctx.font = `bold ${height / 8}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  // Draw text with glow effect
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+  ctx.shadowBlur = 20;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(text, width / 2, height / 2);
+  
+  // Draw text again for stronger effect
+  ctx.shadowBlur = 10;
+  ctx.fillText(text, width / 2, height / 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  return texture;
+};
+
 const HomeChoice: React.FC = () => {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,7 +85,7 @@ const HomeChoice: React.FC = () => {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const container = containerRef.current; // Store ref for cleanup
+    const container = containerRef.current;
 
     // Scene setup
     const scene = new THREE.Scene();
@@ -56,53 +109,60 @@ const HomeChoice: React.FC = () => {
     pointLight.position.set(0, 0, 0);
     scene.add(pointLight);
 
-    // Create fiery sun with procedural canvas texture
-    const createSunTexture = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
-      const ctx = canvas.getContext('2d')!;
-
-      // Create radial gradient for fiery sun
-      const gradient = ctx.createRadialGradient(256, 256, 0, 256, 256, 256);
-      gradient.addColorStop(0, '#ffffff');
-      gradient.addColorStop(0.1, '#ffff00');
-      gradient.addColorStop(0.3, '#ffaa00');
-      gradient.addColorStop(0.5, '#ff6600');
-      gradient.addColorStop(0.7, '#ff3300');
-      gradient.addColorStop(1, '#880000');
-
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 512, 512);
-
-      // Add noise/texture
-      for (let i = 0; i < 5000; i++) {
-        const x = Math.random() * 512;
-        const y = Math.random() * 512;
-        const radius = Math.random() * 3;
-        const opacity = Math.random() * 0.3;
-        
-        ctx.fillStyle = `rgba(255, 200, 0, ${opacity})`;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      return new THREE.CanvasTexture(canvas);
+    // Create sun with text label texture
+    const sunTexture = makeSunLabelTexture('MAXFAMA', 2048, 1024);
+    const sunGeometry = new THREE.SphereGeometry(2, 64, 64);
+    
+    // Sun shader with text mapping and rotation
+    const sunUniforms = {
+      uTextMap: { value: sunTexture },
+      uTextOffset: { value: 0.0 },
+      uEmissiveColor: { value: new THREE.Color(0xff6600) },
+      uEmissiveIntensity: { value: 0.8 }
     };
 
-    const sunTexture = createSunTexture();
-    const sunGeometry = new THREE.SphereGeometry(2, 32, 32);
-    const sunMaterial = new THREE.MeshBasicMaterial({
-      map: sunTexture,
-      emissive: new THREE.Color(0xff6600),
-      emissiveIntensity: 0.8
+    const sunMaterial = new THREE.ShaderMaterial({
+      uniforms: sunUniforms,
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        
+        void main() {
+          vUv = uv;
+          vNormal = normalize(normalMatrix * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uTextMap;
+        uniform float uTextOffset;
+        uniform vec3 uEmissiveColor;
+        uniform float uEmissiveIntensity;
+        
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        
+        void main() {
+          // Sample the sun texture with rotating offset
+          vec2 uv = vUv;
+          uv.x = fract(uv.x + uTextOffset);
+          
+          vec4 texColor = texture2D(uTextMap, uv);
+          
+          // Apply emissive glow
+          vec3 emissive = uEmissiveColor * uEmissiveIntensity;
+          vec3 finalColor = texColor.rgb + emissive * 0.5;
+          
+          gl_FragColor = vec4(finalColor, 1.0);
+        }
+      `
     });
+
     const sun = new THREE.Mesh(sunGeometry, sunMaterial);
     scene.add(sun);
 
-    // Sun corona/glow
-    const coronaGeometry = new THREE.SphereGeometry(2.5, 32, 32);
+    // Sun corona/glow with enhanced shader
+    const coronaGeometry = new THREE.SphereGeometry(2.5, 64, 64);
     const coronaMaterial = new THREE.ShaderMaterial({
       uniforms: {
         c: { value: 0.3 },
@@ -133,7 +193,7 @@ const HomeChoice: React.FC = () => {
     const corona = new THREE.Mesh(coronaGeometry, coronaMaterial);
     scene.add(corona);
 
-    // Planet configuration
+    // Planet configuration with realistic colors and sizes
     const planets: Planet[] = [
       { name: 'Telemarketing', color: 0x3b82f6, size: 0.5, distance: 6, speed: 0.5, angle: 0 },
       { name: 'Scouter', color: 0x8b5cf6, size: 0.5, distance: 6, speed: 0.5, angle: Math.PI / 2 },
@@ -272,8 +332,12 @@ const HomeChoice: React.FC = () => {
     const animate = () => {
       animationId = requestAnimationFrame(animate);
 
-      // Rotate sun
+      // Rotate sun and increment text offset for rotating label
       sun.rotation.y += 0.001;
+      sunUniforms.uTextOffset.value += 0.0005; // Rotate text around sun
+      if (sunUniforms.uTextOffset.value > 1.0) {
+        sunUniforms.uTextOffset.value = 0.0;
+      }
 
       // Update planet positions
       planets.forEach((planet) => {
@@ -336,6 +400,11 @@ const HomeChoice: React.FC = () => {
       }
       
       renderer.dispose();
+      sunTexture.dispose();
+      sunGeometry.dispose();
+      sunMaterial.dispose();
+      coronaGeometry.dispose();
+      coronaMaterial.dispose();
     };
   }, [navigate]);
 
