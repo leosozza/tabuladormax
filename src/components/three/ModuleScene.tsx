@@ -425,7 +425,6 @@ function BackgroundStars({ count = 1500 }) {
   const layer1Ref = useRef<THREE.Points>(null);
   const layer2Ref = useRef<THREE.Points>(null);
   const layer3Ref = useRef<THREE.Points>(null);
-  const materialRef = useRef<THREE.PointsMaterial>(null);
   
   const createStarLayer = (layerCount: number, radiusMin: number, radiusMax: number) => {
     const pos = new Float32Array(layerCount * 3);
