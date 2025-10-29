@@ -1,6 +1,6 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -100,6 +100,102 @@ const Explosion: React.FC<{
         </mesh>
       ))}
     </group>
+  );
+};
+
+// Comet component that follows mouse/touch with trail
+type TailParticle = {
+  position: THREE.Vector3;
+  velocity: THREE.Vector3;
+  life: number;
+  scale: number;
+};
+
+const Comet: React.FC = () => {
+  const { camera, size, scene } = useThree();
+  const cometRef = useRef<THREE.Sprite | null>(null);
+  const mouseTarget = useRef(new THREE.Vector3(0, 0, 0));
+  const cometPos = useRef(new THREE.Vector3(0, 0, 0));
+  const tail = useRef<TailParticle[]>([]);
+  const lastEmit = useRef(0);
+  const worldPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), []);
+  const raycaster = useMemo(() => new THREE.Raycaster(), []);
+
+  // Track mouse/touch position
+  useEffect(() => {
+    const pointerToWorld = (clientX: number, clientY: number) => {
+      const x = (clientX / size.width) * 2 - 1;
+      const y = -(clientY / size.height) * 2 + 1;
+      raycaster.setFromCamera({ x, y }, camera);
+      const intersection = new THREE.Vector3();
+      raycaster.ray.intersectPlane(worldPlane, intersection);
+      return intersection;
+    };
+
+    const onMove = (e: PointerEvent | TouchEvent) => {
+      if ('touches' in e && e.touches[0]) {
+        const touch = e.touches[0];
+        const pos = pointerToWorld(touch.clientX, touch.clientY);
+        if (pos) mouseTarget.current.copy(pos);
+      } else if ('clientX' in e) {
+        const pos = pointerToWorld(e.clientX, e.clientY);
+        if (pos) mouseTarget.current.copy(pos);
+      }
+    };
+
+    window.addEventListener('pointermove', onMove as any);
+    window.addEventListener('touchmove', onMove as any, { passive: true });
+    
+    return () => {
+      window.removeEventListener('pointermove', onMove as any);
+      window.removeEventListener('touchmove', onMove as any);
+    };
+  }, [camera, size, raycaster, worldPlane]);
+
+  useFrame((state, dt) => {
+    if (!cometRef.current) return;
+
+    // Smoothly follow mouse
+    cometPos.current.lerp(mouseTarget.current, 0.18);
+    cometRef.current.position.copy(cometPos.current);
+
+    // Spawn trail particles
+    const now = state.clock.elapsedTime * 1000;
+    if (now - lastEmit.current > 16) { // ~60 fps
+      const scale = 0.28 + Math.random() * 0.18;
+      tail.current.push({
+        position: cometPos.current.clone(),
+        velocity: new THREE.Vector3((Math.random() - 0.5) * 0.02, (Math.random() - 0.5) * 0.02, 0),
+        life: 1.0,
+        scale
+      });
+      lastEmit.current = now;
+    }
+
+    // Update and cleanup tail particles
+    for (let i = tail.current.length - 1; i >= 0; i--) {
+      const p = tail.current[i];
+      p.life -= dt * 1.2;
+      p.position.add(p.velocity);
+      p.scale *= 0.995;
+      
+      if (p.life <= 0) {
+        tail.current.splice(i, 1);
+      }
+    }
+  });
+
+  return (
+    <>
+      <sprite ref={cometRef} scale={[0.22, 0.22, 1]}>
+        <spriteMaterial color={0xffffff} opacity={1} depthWrite={false} transparent />
+      </sprite>
+      {tail.current.map((p, i) => (
+        <sprite key={`trail-${i}`} position={p.position} scale={[p.scale, p.scale, 1]}>
+          <spriteMaterial color={0xbfeee7} opacity={Math.max(p.life, 0)} depthWrite={false} transparent />
+        </sprite>
+      ))}
+    </>
   );
 };
 
@@ -534,6 +630,7 @@ export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing
         <pointLight position={[-10, -8, -6]} intensity={0.6} color="#5555ff" />
         <spotLight position={[0, 15, 0]} angle={0.5} intensity={0.4} penumbra={1} castShadow />
         <BackgroundStars />
+        <Comet />
         
         <ModuleBox 
           position={[-7, 0, 0]} 
