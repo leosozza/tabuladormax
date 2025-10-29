@@ -12,7 +12,6 @@ interface ModuleBoxProps {
   route: string;
   icon: string;
   isAccessible: boolean;
-  icons: string[]; // Multiple icons representing functions
 }
 
 type Shard = {
@@ -112,27 +111,12 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
   route,
   icon,
   isAccessible,
-  icons,
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
-  const iconGroupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const [exploding, setExploding] = useState(false);
   const navigate = useNavigate();
-
-  // Create icon positions in a circular pattern
-  const iconPositions = useMemo(() => {
-    const radius = 0.85;
-    return icons.map((_, i) => {
-      const angle = (i / icons.length) * Math.PI * 2;
-      return {
-        x: Math.cos(angle) * radius,
-        y: Math.sin(angle) * radius,
-        z: 0.25
-      };
-    });
-  }, [icons]);
 
   useEffect(() => {
     const el = document.body;
@@ -154,11 +138,6 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
     const ty = hovered ? -state.pointer.x * 0.28 : 0;
     meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, tx, 0.12);
     meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, ty * 0.3, 0.12);
-    
-    // Rotate icon group independently for visual interest
-    if (iconGroupRef.current && isAccessible) {
-      iconGroupRef.current.rotation.z = -meshRef.current.rotation.y * 0.5;
-    }
     
     if (exploding && materialRef.current) {
       const mat = materialRef.current;
@@ -229,33 +208,18 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
         />
       </mesh>
 
-      {/* Inner function icons in circular pattern */}
+      {/* Central icon sphere */}
       {isAccessible && (
-        <group ref={iconGroupRef}>
-          {icons.map((iconText, i) => (
-            <group key={i} position={[iconPositions[i].x, iconPositions[i].y, iconPositions[i].z]}>
-              <mesh>
-                <sphereGeometry args={[0.14, 16, 16]} />
-                <meshStandardMaterial
-                  color={hovered ? "#ffffff" : color}
-                  emissive={color}
-                  emissiveIntensity={hovered ? 0.9 : 0.5}
-                  metalness={0.6}
-                  roughness={0.2}
-                />
-              </mesh>
-              <Html center transform distanceFactor={8} position={[0, 0, 0.05]}>
-                <div style={{ 
-                  fontSize: '12px', 
-                  pointerEvents: 'none',
-                  textShadow: '0 1px 4px rgba(0,0,0,0.8)'
-                }}>
-                  {iconText}
-                </div>
-              </Html>
-            </group>
-          ))}
-        </group>
+        <mesh position={[0, 0, 0.25]}>
+          <sphereGeometry args={[0.5, 32, 32]} />
+          <meshStandardMaterial
+            color={hovered ? "#ffffff" : color}
+            emissive={color}
+            emissiveIntensity={hovered ? 1.2 : 0.6}
+            metalness={0.7}
+            roughness={0.15}
+          />
+        </mesh>
       )}
 
       {/* Glowing particles on hover */}
@@ -340,7 +304,6 @@ export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing
           route="/lead" 
           icon="📞" 
           isAccessible={canAccessTelemarketing}
-          icons={['📊', '📞', '✉️', '📈', '🔔', '⚡']}
         />
         <ModuleBox 
           position={[-2.3, 0, 0]} 
@@ -350,7 +313,6 @@ export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing
           route="/scouter" 
           icon="🎯" 
           isAccessible={canAccessScouter}
-          icons={['🗺️', '📍', '👥', '📋', '💰', '📊']}
         />
         <ModuleBox 
           position={[2.3, 0, 0]} 
@@ -360,7 +322,6 @@ export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing
           route="/agenciamento" 
           icon="🤝" 
           isAccessible={true}
-          icons={['💼', '💵', '📝', '📊', '✅', '🔄']}
         />
         <ModuleBox 
           position={[7, 0, 0]} 
@@ -370,7 +331,6 @@ export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing
           route="/admin" 
           icon="🏢" 
           isAccessible={canAccessAdmin}
-          icons={['👤', '🔐', '⚙️', '📈', '🔧', '📊']}
         />
         <OrbitControls 
           enablePan={false} 
