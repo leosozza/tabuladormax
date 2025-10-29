@@ -164,6 +164,7 @@ const HomeChoice: React.FC = () => {
     });
 
     const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    sunMaterial.needsUpdate = true; // Ensure material updates after texture assignment
     scene.add(sun);
 
     // Sun corona/glow with enhanced shader
