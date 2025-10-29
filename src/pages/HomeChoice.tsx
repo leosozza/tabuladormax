@@ -28,6 +28,12 @@ const TEXT_ROTATION_SPEED = 0.0005;
 const TEXT_OFFSET_MAX = 1.0;
 const PARTICLE_COUNT = 5000; // Reduced for better performance
 
+// Procedural texture parameters
+const PLANET_BASE_SCALE = 8.0;
+const PLANET_BASE_MULTIPLIER = 0.5;
+const PLANET_DETAIL_SCALE = 20.0;
+const PLANET_DETAIL_MULTIPLIER = 0.3;
+
 // Create canvas texture with text label (MAXFAMA)
 const makeSunLabelTexture = (text: string, width: number, height: number): THREE.CanvasTexture => {
   const canvas = document.createElement('canvas');
@@ -174,13 +180,14 @@ const HomeChoice: React.FC = () => {
           return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
         }
         
-        // Fractal Brownian Motion
+        // Fractal Brownian Motion (optimized for performance)
         float fbm(vec2 p) {
           float value = 0.0;
           float amplitude = 0.5;
           float frequency = 1.0;
           
-          for(int i = 0; i < 6; i++) {
+          // Reduced to 4 iterations for better performance on lower-end devices
+          for(int i = 0; i < 4; i++) {
             value += amplitude * noise(p * frequency);
             frequency *= 2.0;
             amplitude *= 0.5;
@@ -274,14 +281,18 @@ const HomeChoice: React.FC = () => {
     ];
 
     // Create planets and labels with procedural textures
-    planets.forEach((planet) => {
+    planets.forEach((planet, index) => {
       const geometry = new THREE.SphereGeometry(planet.size, 32, 32);
       
-      // Create procedural planet shader
+      // Create procedural planet shader with randomized time offset for variation
       const planetMaterial = new THREE.ShaderMaterial({
         uniforms: {
           uColor: { value: new THREE.Color(planet.color) },
-          uTime: { value: 0 }
+          uTime: { value: Math.random() * 100.0 }, // Random offset for variation
+          uBaseScale: { value: PLANET_BASE_SCALE },
+          uBaseMultiplier: { value: PLANET_BASE_MULTIPLIER },
+          uDetailScale: { value: PLANET_DETAIL_SCALE },
+          uDetailMultiplier: { value: PLANET_DETAIL_MULTIPLIER }
         },
         vertexShader: `
           varying vec2 vUv;
@@ -302,6 +313,10 @@ const HomeChoice: React.FC = () => {
           
           uniform vec3 uColor;
           uniform float uTime;
+          uniform float uBaseScale;
+          uniform float uBaseMultiplier;
+          uniform float uDetailScale;
+          uniform float uDetailMultiplier;
           
           varying vec2 vUv;
           varying vec3 vNormal;
@@ -333,12 +348,12 @@ const HomeChoice: React.FC = () => {
           }
           
           void main() {
-            // Procedural surface pattern
-            float pattern = noise3D(vPosition * 8.0);
-            pattern = pattern * 0.5 + 0.5;
+            // Procedural surface pattern with configurable parameters
+            float pattern = noise3D(vPosition * uBaseScale);
+            pattern = pattern * uBaseMultiplier + uBaseMultiplier;
             
             // Add secondary detail layer
-            float detail = noise3D(vPosition * 20.0) * 0.3;
+            float detail = noise3D(vPosition * uDetailScale) * uDetailMultiplier;
             
             // Combine patterns
             vec3 baseColor = uColor;
