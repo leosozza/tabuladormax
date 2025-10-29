@@ -309,7 +309,7 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
       >
-        <boxGeometry args={[2.4, 2.4, 0.32]} />
+        <sphereGeometry args={[0.9, 32, 32]} />
         <meshStandardMaterial
           ref={materialRef}
           transparent
@@ -318,141 +318,155 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
         />
       </mesh>
 
-      {/* Central icon - Different shapes per module */}
+      {/* Central icon - Large glossy sphere with icon inside */}
       {isAccessible && (
         <group ref={iconGroupRef} position={[0, 0, 0.25]}>
-          {/* Phone icon for Tabulador */}
+          {/* Main glossy sphere */}
+          <mesh position={[0, 0, 0]}>
+            <sphereGeometry args={[0.9, 64, 64]} />
+            <meshPhysicalMaterial
+              color={color}
+              emissive={color}
+              emissiveIntensity={hovered ? 0.4 : 0.2}
+              metalness={0.1}
+              roughness={0.05}
+              transmission={0.3}
+              thickness={0.5}
+              clearcoat={1.0}
+              clearcoatRoughness={0.1}
+              transparent={true}
+              opacity={0.9}
+            />
+          </mesh>
+
+          {/* Icon symbol inside sphere - Phone for Tabulador */}
           {icon === "📞" && (
             <>
-              <mesh position={[0, 0, 0]}>
-                <cylinderGeometry args={[0.35, 0.35, 0.7, 32]} />
+              <mesh position={[0, 0.15, 0]} rotation={[0, 0, -Math.PI / 6]}>
+                <cylinderGeometry args={[0.18, 0.18, 0.45, 32]} />
                 <meshStandardMaterial
-                  color={hovered ? "#ffffff" : color}
-                  emissive={color}
-                  emissiveIntensity={hovered ? 1.4 : 0.8}
-                  metalness={0.8}
-                  roughness={0.1}
+                  color="#ffffff"
+                  emissive="#ffffff"
+                  emissiveIntensity={hovered ? 1.2 : 0.7}
+                  metalness={0.3}
+                  roughness={0.3}
                 />
               </mesh>
-              <mesh position={[0.15, 0.25, 0]}>
-                <sphereGeometry args={[0.12, 16, 16]} />
+              <mesh position={[0.1, 0.35, 0]}>
+                <sphereGeometry args={[0.08, 16, 16]} />
                 <meshStandardMaterial
-                  color={hovered ? "#ffffff" : color}
-                  emissive={color}
-                  emissiveIntensity={hovered ? 1.6 : 0.9}
-                  metalness={0.8}
-                  roughness={0.1}
+                  color="#ffffff"
+                  emissive="#ffffff"
+                  emissiveIntensity={hovered ? 1.3 : 0.8}
+                  metalness={0.3}
+                  roughness={0.3}
                 />
               </mesh>
             </>
           )}
           
-          {/* Target icon for Gestão Scouter */}
+          {/* Icon symbol - Target for Gestão Scouter */}
           {icon === "🎯" && (
             <>
-              <mesh position={[0, 0, 0]}>
-                <torusGeometry args={[0.5, 0.08, 16, 32]} />
+              <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.4, 0.05, 16, 32]} />
                 <meshStandardMaterial
-                  color={hovered ? "#ffffff" : color}
-                  emissive={color}
-                  emissiveIntensity={hovered ? 1.4 : 0.8}
-                  metalness={0.8}
-                  roughness={0.1}
+                  color="#ff4444"
+                  emissive="#ff4444"
+                  emissiveIntensity={hovered ? 1.2 : 0.7}
+                  metalness={0.3}
+                  roughness={0.3}
+                />
+              </mesh>
+              <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.25, 0.04, 16, 32]} />
+                <meshStandardMaterial
+                  color="#ffffff"
+                  emissive="#ffffff"
+                  emissiveIntensity={hovered ? 1.3 : 0.8}
+                  metalness={0.3}
+                  roughness={0.3}
                 />
               </mesh>
               <mesh position={[0, 0, 0]}>
-                <torusGeometry args={[0.3, 0.06, 16, 32]} />
+                <sphereGeometry args={[0.1, 16, 16]} />
                 <meshStandardMaterial
-                  color={hovered ? "#ffffff" : color}
-                  emissive={color}
-                  emissiveIntensity={hovered ? 1.5 : 0.9}
-                  metalness={0.8}
-                  roughness={0.1}
-                />
-              </mesh>
-              <mesh position={[0, 0, 0]}>
-                <sphereGeometry args={[0.12, 16, 16]} />
-                <meshStandardMaterial
-                  color={hovered ? "#ffffff" : color}
-                  emissive={color}
-                  emissiveIntensity={hovered ? 1.6 : 1.0}
-                  metalness={0.9}
-                  roughness={0.05}
+                  color="#ff4444"
+                  emissive="#ff4444"
+                  emissiveIntensity={hovered ? 1.4 : 0.9}
+                  metalness={0.3}
+                  roughness={0.3}
                 />
               </mesh>
             </>
           )}
           
-          {/* Handshake icon for Agenciamento */}
+          {/* Icon symbol - Grid for Agenciamento */}
           {icon === "🤝" && (
             <>
-              <mesh position={[-0.2, 0, 0]} rotation={[0, 0, Math.PI / 6]}>
-                <boxGeometry args={[0.15, 0.6, 0.15]} />
-                <meshStandardMaterial
-                  color={hovered ? "#ffffff" : color}
-                  emissive={color}
-                  emissiveIntensity={hovered ? 1.4 : 0.8}
-                  metalness={0.8}
-                  roughness={0.1}
-                />
-              </mesh>
-              <mesh position={[0.2, 0, 0]} rotation={[0, 0, -Math.PI / 6]}>
-                <boxGeometry args={[0.15, 0.6, 0.15]} />
-                <meshStandardMaterial
-                  color={hovered ? "#ffffff" : color}
-                  emissive={color}
-                  emissiveIntensity={hovered ? 1.4 : 0.8}
-                  metalness={0.8}
-                  roughness={0.1}
-                />
-              </mesh>
-              <mesh position={[0, 0, 0]}>
-                <sphereGeometry args={[0.25, 16, 16]} />
-                <meshStandardMaterial
-                  color={hovered ? "#ffffff" : color}
-                  emissive={color}
-                  emissiveIntensity={hovered ? 1.6 : 1.0}
-                  metalness={0.9}
-                  roughness={0.05}
-                />
-              </mesh>
+              {/* Grid pattern - 2x2 */}
+              {[-0.18, 0.18].map((x, xi) => 
+                [-0.18, 0.18].map((y, yi) => (
+                  <mesh key={`grid-${xi}-${yi}`} position={[x, y, 0]}>
+                    <boxGeometry args={[0.28, 0.28, 0.08]} />
+                    <meshStandardMaterial
+                      color="#ffffff"
+                      emissive="#ffffff"
+                      emissiveIntensity={hovered ? 1.2 : 0.7}
+                      metalness={0.3}
+                      roughness={0.3}
+                    />
+                  </mesh>
+                ))
+              )}
             </>
           )}
           
-          {/* Building icon for Administrativo */}
+          {/* Icon symbol - Tools for Administrativo */}
           {icon === "🏢" && (
             <>
-              <mesh position={[0, 0, 0]}>
-                <boxGeometry args={[0.6, 0.8, 0.4]} />
+              {/* Wrench */}
+              <mesh position={[-0.15, 0, 0]} rotation={[0, 0, Math.PI / 4]}>
+                <boxGeometry args={[0.12, 0.5, 0.08]} />
                 <meshStandardMaterial
-                  color={hovered ? "#ffffff" : color}
-                  emissive={color}
-                  emissiveIntensity={hovered ? 1.4 : 0.8}
-                  metalness={0.8}
-                  roughness={0.1}
+                  color="#cccccc"
+                  emissive="#cccccc"
+                  emissiveIntensity={hovered ? 1.2 : 0.7}
+                  metalness={0.5}
+                  roughness={0.3}
                 />
               </mesh>
-              {/* Windows */}
-              {[-0.2, 0, 0.2].map((x, i) => (
-                <React.Fragment key={i}>
-                  <mesh position={[x, 0.15, 0.21]}>
-                    <boxGeometry args={[0.08, 0.08, 0.02]} />
-                    <meshStandardMaterial
-                      color="#ffffff"
-                      emissive="#ffffff"
-                      emissiveIntensity={hovered ? 2.0 : 1.2}
-                    />
-                  </mesh>
-                  <mesh position={[x, -0.15, 0.21]}>
-                    <boxGeometry args={[0.08, 0.08, 0.02]} />
-                    <meshStandardMaterial
-                      color="#ffffff"
-                      emissive="#ffffff"
-                      emissiveIntensity={hovered ? 2.0 : 1.2}
-                    />
-                  </mesh>
-                </React.Fragment>
-              ))}
+              <mesh position={[-0.15, 0.3, 0]} rotation={[0, 0, Math.PI / 4]}>
+                <boxGeometry args={[0.2, 0.08, 0.08]} />
+                <meshStandardMaterial
+                  color="#cccccc"
+                  emissive="#cccccc"
+                  emissiveIntensity={hovered ? 1.2 : 0.7}
+                  metalness={0.5}
+                  roughness={0.3}
+                />
+              </mesh>
+              {/* Gear */}
+              <mesh position={[0.18, 0, 0]}>
+                <torusGeometry args={[0.18, 0.05, 8, 8]} />
+                <meshStandardMaterial
+                  color="#cccccc"
+                  emissive="#cccccc"
+                  emissiveIntensity={hovered ? 1.2 : 0.7}
+                  metalness={0.5}
+                  roughness={0.3}
+                />
+              </mesh>
+              <mesh position={[0.18, 0, 0]}>
+                <sphereGeometry args={[0.08, 16, 16]} />
+                <meshStandardMaterial
+                  color="#cccccc"
+                  emissive="#cccccc"
+                  emissiveIntensity={hovered ? 1.3 : 0.8}
+                  metalness={0.5}
+                  roughness={0.3}
+                />
+              </mesh>
             </>
           )}
         </group>
@@ -461,10 +475,10 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
       {/* Always-visible orbiting particles around the icon */}
       {isAccessible && (
         <group ref={orbitingGroupRef} position={[0, 0, 0.25]}>
-          {/* Ring of 8 orbiting particles */}
+          {/* Ring of larger orbiting particles */}
           {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
             const angle = (i / 8) * Math.PI * 2;
-            const radius = 1.2;
+            const radius = 1.35;
             return (
               <mesh 
                 key={`orbit-${i}`} 
@@ -474,14 +488,39 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
                   0
                 ]}
               >
-                <sphereGeometry args={[0.08, 16, 16]} />
+                <sphereGeometry args={[0.12, 16, 16]} />
                 <meshStandardMaterial
                   color={color}
                   emissive={color}
-                  emissiveIntensity={hovered ? 2.2 : 1.5}
+                  emissiveIntensity={hovered ? 2.5 : 1.8}
                   toneMapped={false}
                   transparent
-                  opacity={hovered ? 1.0 : 0.85}
+                  opacity={hovered ? 1.0 : 0.9}
+                />
+              </mesh>
+            );
+          })}
+          {/* Additional smaller particles for depth */}
+          {[0, 1, 2, 3].map((i) => {
+            const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
+            const radius = 1.55;
+            return (
+              <mesh 
+                key={`orbit-small-${i}`} 
+                position={[
+                  Math.cos(angle) * radius, 
+                  Math.sin(angle) * radius, 
+                  0
+                ]}
+              >
+                <sphereGeometry args={[0.08, 12, 12]} />
+                <meshStandardMaterial
+                  color={color}
+                  emissive={color}
+                  emissiveIntensity={hovered ? 2.0 : 1.4}
+                  toneMapped={false}
+                  transparent
+                  opacity={hovered ? 0.9 : 0.7}
                 />
               </mesh>
             );
