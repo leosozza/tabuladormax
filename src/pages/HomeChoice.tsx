@@ -122,6 +122,8 @@ const HomeChoice: React.FC = () => {
     const sunUniforms = {
       uTextMap: { value: sunTexture },
       uTextOffset: { value: 0.0 },
+      uTextStrength: { value: 0.7 },
+      uTime: { value: 0.0 },
       uEmissiveColor: { value: new THREE.Color(0xff6600) },
       uEmissiveIntensity: { value: 0.8 }
     };
@@ -131,32 +133,136 @@ const HomeChoice: React.FC = () => {
       vertexShader: `
         varying vec2 vUv;
         varying vec3 vNormal;
+        varying vec3 vPosition;
         
         void main() {
           vUv = uv;
           vNormal = normalize(normalMatrix * normal);
+          vPosition = position;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
         uniform sampler2D uTextMap;
         uniform float uTextOffset;
+        uniform float uTextStrength;
+        uniform float uTime;
         uniform vec3 uEmissiveColor;
         uniform float uEmissiveIntensity;
         
         varying vec2 vUv;
         varying vec3 vNormal;
+        varying vec3 vPosition;
+        
+        // Noise functions for FBM
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+        
+        float snoise(vec3 v) {
+          const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+          const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+          vec3 i  = floor(v + dot(v, C.yyy));
+          vec3 x0 = v - i + dot(i, C.xxx);
+          vec3 g = step(x0.yzx, x0.xyz);
+          vec3 l = 1.0 - g;
+          vec3 i1 = min(g.xyz, l.zxy);
+          vec3 i2 = max(g.xyz, l.zxy);
+          vec3 x1 = x0 - i1 + C.xxx;
+          vec3 x2 = x0 - i2 + C.yyy;
+          vec3 x3 = x0 - D.yyy;
+          i = mod289(i);
+          vec4 p = permute(permute(permute(
+                    i.z + vec4(0.0, i1.z, i2.z, 1.0))
+                  + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+                  + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+          float n_ = 0.142857142857;
+          vec3 ns = n_ * D.wyz - D.xzx;
+          vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+          vec4 x_ = floor(j * ns.z);
+          vec4 y_ = floor(j - 7.0 * x_);
+          vec4 x = x_ *ns.x + ns.yyyy;
+          vec4 y = y_ *ns.x + ns.yyyy;
+          vec4 h = 1.0 - abs(x) - abs(y);
+          vec4 b0 = vec4(x.xy, y.xy);
+          vec4 b1 = vec4(x.zw, y.zw);
+          vec4 s0 = floor(b0)*2.0 + 1.0;
+          vec4 s1 = floor(b1)*2.0 + 1.0;
+          vec4 sh = -step(h, vec4(0.0));
+          vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+          vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+          vec3 p0 = vec3(a0.xy, h.x);
+          vec3 p1 = vec3(a0.zw, h.y);
+          vec3 p2 = vec3(a1.xy, h.z);
+          vec3 p3 = vec3(a1.zw, h.w);
+          vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+          p0 *= norm.x;
+          p1 *= norm.y;
+          p2 *= norm.z;
+          p3 *= norm.w;
+          vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+          m = m * m;
+          return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+        }
+        
+        // FBM (Fractional Brownian Motion)
+        float fbm(vec3 p) {
+          float value = 0.0;
+          float amplitude = 0.5;
+          float frequency = 1.0;
+          for(int i = 0; i < 4; i++) {
+            value += amplitude * snoise(p * frequency);
+            frequency *= 2.0;
+            amplitude *= 0.5;
+          }
+          return value;
+        }
+        
+        // Domain warping
+        vec3 domainWarp(vec3 p, float time) {
+          vec3 q = vec3(
+            fbm(p + vec3(0.0, 0.0, time * 0.1)),
+            fbm(p + vec3(5.2, 1.3, time * 0.1)),
+            fbm(p + vec3(3.1, 4.7, time * 0.1))
+          );
+          vec3 r = vec3(
+            fbm(p + 4.0 * q + vec3(1.7, 9.2, time * 0.15)),
+            fbm(p + 4.0 * q + vec3(8.3, 2.8, time * 0.15)),
+            fbm(p + 4.0 * q + vec3(4.5, 6.1, time * 0.15))
+          );
+          return p + r * 0.3;
+        }
         
         void main() {
+          // Apply domain warping for fiery effect
+          vec3 warpedPos = domainWarp(vPosition * 2.0, uTime);
+          float noise = fbm(warpedPos);
+          
           // Sample the sun texture with rotating offset
           vec2 uv = vUv;
           uv.x = fract(uv.x + uTextOffset);
-          
           vec4 texColor = texture2D(uTextMap, uv);
+          
+          // Create fiery base color with noise
+          vec3 sunColor1 = vec3(1.0, 0.9, 0.0);  // bright yellow
+          vec3 sunColor2 = vec3(1.0, 0.4, 0.0);  // orange
+          vec3 sunColor3 = vec3(0.8, 0.1, 0.0);  // red
+          
+          float noiseValue = noise * 0.5 + 0.5;
+          vec3 fireColor = mix(sunColor3, sunColor2, noiseValue);
+          fireColor = mix(fireColor, sunColor1, pow(noiseValue, 2.0));
+          
+          // Blend text with fiery surface
+          vec3 finalColor = mix(fireColor, texColor.rgb, texColor.a * uTextStrength);
           
           // Apply emissive glow
           vec3 emissive = uEmissiveColor * uEmissiveIntensity;
-          vec3 finalColor = texColor.rgb + emissive * 0.5;
+          finalColor += emissive * 0.3;
+          
+          // Add intensity based on surface normal for depth
+          float intensity = dot(vNormal, vec3(0.0, 0.0, 1.0));
+          finalColor *= 0.7 + 0.3 * intensity;
           
           gl_FragColor = vec4(finalColor, 1.0);
         }
@@ -164,7 +270,8 @@ const HomeChoice: React.FC = () => {
     });
 
     const sun = new THREE.Mesh(sunGeometry, sunMaterial);
-    sunMaterial.needsUpdate = true; // Ensure material updates after texture assignment
+    // Call needsUpdate after assigning texture as per requirements
+    sunMaterial.needsUpdate = true;
     scene.add(sun);
 
     // Sun corona/glow with enhanced shader
@@ -199,6 +306,53 @@ const HomeChoice: React.FC = () => {
     const corona = new THREE.Mesh(coronaGeometry, coronaMaterial);
     scene.add(corona);
 
+    // Planet factory with procedural textures
+    const createPlanetTexture = (baseColor: THREE.Color, seed: number): THREE.DataTexture => {
+      const size = 512;
+      const data = new Uint8Array(size * size * 4);
+      
+      // Simple noise-based procedural texture
+      for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+          const x = i / size;
+          const y = j / size;
+          
+          // Generate noise pattern
+          const noise1 = Math.sin(x * 10.0 + seed) * Math.cos(y * 10.0 + seed);
+          const noise2 = Math.sin(x * 20.0 + seed * 2) * Math.cos(y * 20.0 + seed * 2);
+          const noise = (noise1 + noise2 * 0.5) * 0.5 + 0.5;
+          
+          // Apply to color
+          const idx = (i + j * size) * 4;
+          data[idx] = baseColor.r * 255 * (0.7 + noise * 0.3);
+          data[idx + 1] = baseColor.g * 255 * (0.7 + noise * 0.3);
+          data[idx + 2] = baseColor.b * 255 * (0.7 + noise * 0.3);
+          data[idx + 3] = 255;
+        }
+      }
+      
+      const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+      texture.needsUpdate = true;
+      return texture;
+    };
+    
+    const createPlanet = (planet: Planet): THREE.Mesh => {
+      const geometry = new THREE.SphereGeometry(planet.size, 32, 32);
+      const baseColor = new THREE.Color(planet.color);
+      const texture = createPlanetTexture(baseColor, planet.angle);
+      
+      const material = new THREE.MeshStandardMaterial({
+        map: texture,
+        color: planet.color,
+        metalness: 0.5,
+        roughness: 0.3,
+        emissive: planet.color,
+        emissiveIntensity: 0.3
+      });
+      
+      return new THREE.Mesh(geometry, material);
+    };
+
     // Planet configuration with realistic colors and sizes
     const planets: Planet[] = [
       { name: 'Telemarketing', color: 0x3b82f6, size: 0.5, distance: 6, speed: 0.5, angle: 0 },
@@ -209,15 +363,7 @@ const HomeChoice: React.FC = () => {
 
     // Create planets and labels
     planets.forEach((planet) => {
-      const geometry = new THREE.SphereGeometry(planet.size, 32, 32);
-      const material = new THREE.MeshStandardMaterial({
-        color: planet.color,
-        metalness: 0.5,
-        roughness: 0.3,
-        emissive: planet.color,
-        emissiveIntensity: 0.3
-      });
-      const mesh = new THREE.Mesh(geometry, material);
+      const mesh = createPlanet(planet);
       scene.add(mesh);
       planet.mesh = mesh;
 
@@ -344,6 +490,9 @@ const HomeChoice: React.FC = () => {
       if (sunUniforms.uTextOffset.value > TEXT_OFFSET_MAX) {
         sunUniforms.uTextOffset.value = 0.0;
       }
+      
+      // Update time uniform for FBM animation
+      sunUniforms.uTime.value += 0.01;
 
       // Update planet positions
       planets.forEach((planet) => {
