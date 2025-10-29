@@ -131,7 +131,7 @@ export default function GestaoPagamentos() {
     return selectedPayments.map(lead => {
       const scouter = stripTagFromName(lead.scouter) || "Não informado";
       const valorFicha = parseBrazilianCurrency(lead.valor_ficha);
-      const numFichas = Number(lead.num_fichas) || 1;
+      const numFichas = (lead as any).num_fichas ? Number((lead as any).num_fichas) : 1;
       const valorFichasTotal = valorFicha * numFichas;
 
       // Calculate ajuda de custo
@@ -357,7 +357,7 @@ export default function GestaoPagamentos() {
                         </TableCell>
                         <TableCell className="font-medium">{payment.name || "-"}</TableCell>
                         <TableCell>{stripTagFromName(payment.scouter) || "-"}</TableCell>
-                        <TableCell>{payment.num_fichas || "-"}</TableCell>
+                        <TableCell>{(payment as any).num_fichas || "1"}</TableCell>
                         <TableCell className="font-semibold">
                           {formatCurrency(parseBrazilianCurrency(payment.valor_ficha))}
                         </TableCell>
