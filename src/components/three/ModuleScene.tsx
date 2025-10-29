@@ -113,6 +113,7 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
   isAccessible,
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
+  const iconGroupRef = useRef<THREE.Group>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
   const [hovered, setHovered] = useState(false);
   const [exploding, setExploding] = useState(false);
@@ -138,6 +139,17 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
     const ty = hovered ? -state.pointer.x * 0.28 : 0;
     meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, tx, 0.12);
     meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, ty * 0.3, 0.12);
+    
+    // Animate icon group
+    if (iconGroupRef.current) {
+      iconGroupRef.current.rotation.y = state.clock.elapsedTime * 0.5;
+      if (hovered) {
+        const scale = 1 + Math.sin(state.clock.elapsedTime * 3) * 0.1;
+        iconGroupRef.current.scale.setScalar(scale);
+      } else {
+        iconGroupRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), 0.1);
+      }
+    }
     
     if (exploding && materialRef.current) {
       const mat = materialRef.current;
@@ -208,34 +220,185 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
         />
       </mesh>
 
-      {/* Central icon sphere */}
+      {/* Central icon - Different shapes per module */}
       {isAccessible && (
-        <mesh position={[0, 0, 0.25]}>
-          <sphereGeometry args={[0.5, 32, 32]} />
-          <meshStandardMaterial
-            color={hovered ? "#ffffff" : color}
-            emissive={color}
-            emissiveIntensity={hovered ? 1.2 : 0.6}
-            metalness={0.7}
-            roughness={0.15}
-          />
-        </mesh>
+        <group ref={iconGroupRef} position={[0, 0, 0.25]}>
+          {/* Phone icon for Tabulador */}
+          {icon === "📞" && (
+            <>
+              <mesh position={[0, 0, 0]}>
+                <cylinderGeometry args={[0.35, 0.35, 0.7, 32]} />
+                <meshStandardMaterial
+                  color={hovered ? "#ffffff" : color}
+                  emissive={color}
+                  emissiveIntensity={hovered ? 1.4 : 0.8}
+                  metalness={0.8}
+                  roughness={0.1}
+                />
+              </mesh>
+              <mesh position={[0.15, 0.25, 0]}>
+                <sphereGeometry args={[0.12, 16, 16]} />
+                <meshStandardMaterial
+                  color={hovered ? "#ffffff" : color}
+                  emissive={color}
+                  emissiveIntensity={hovered ? 1.6 : 0.9}
+                  metalness={0.8}
+                  roughness={0.1}
+                />
+              </mesh>
+            </>
+          )}
+          
+          {/* Target icon for Gestão Scouter */}
+          {icon === "🎯" && (
+            <>
+              <mesh position={[0, 0, 0]}>
+                <torusGeometry args={[0.5, 0.08, 16, 32]} />
+                <meshStandardMaterial
+                  color={hovered ? "#ffffff" : color}
+                  emissive={color}
+                  emissiveIntensity={hovered ? 1.4 : 0.8}
+                  metalness={0.8}
+                  roughness={0.1}
+                />
+              </mesh>
+              <mesh position={[0, 0, 0]}>
+                <torusGeometry args={[0.3, 0.06, 16, 32]} />
+                <meshStandardMaterial
+                  color={hovered ? "#ffffff" : color}
+                  emissive={color}
+                  emissiveIntensity={hovered ? 1.5 : 0.9}
+                  metalness={0.8}
+                  roughness={0.1}
+                />
+              </mesh>
+              <mesh position={[0, 0, 0]}>
+                <sphereGeometry args={[0.12, 16, 16]} />
+                <meshStandardMaterial
+                  color={hovered ? "#ffffff" : color}
+                  emissive={color}
+                  emissiveIntensity={hovered ? 1.6 : 1.0}
+                  metalness={0.9}
+                  roughness={0.05}
+                />
+              </mesh>
+            </>
+          )}
+          
+          {/* Handshake icon for Agenciamento */}
+          {icon === "🤝" && (
+            <>
+              <mesh position={[-0.2, 0, 0]} rotation={[0, 0, Math.PI / 6]}>
+                <boxGeometry args={[0.15, 0.6, 0.15]} />
+                <meshStandardMaterial
+                  color={hovered ? "#ffffff" : color}
+                  emissive={color}
+                  emissiveIntensity={hovered ? 1.4 : 0.8}
+                  metalness={0.8}
+                  roughness={0.1}
+                />
+              </mesh>
+              <mesh position={[0.2, 0, 0]} rotation={[0, 0, -Math.PI / 6]}>
+                <boxGeometry args={[0.15, 0.6, 0.15]} />
+                <meshStandardMaterial
+                  color={hovered ? "#ffffff" : color}
+                  emissive={color}
+                  emissiveIntensity={hovered ? 1.4 : 0.8}
+                  metalness={0.8}
+                  roughness={0.1}
+                />
+              </mesh>
+              <mesh position={[0, 0, 0]}>
+                <sphereGeometry args={[0.25, 16, 16]} />
+                <meshStandardMaterial
+                  color={hovered ? "#ffffff" : color}
+                  emissive={color}
+                  emissiveIntensity={hovered ? 1.6 : 1.0}
+                  metalness={0.9}
+                  roughness={0.05}
+                />
+              </mesh>
+            </>
+          )}
+          
+          {/* Building icon for Administrativo */}
+          {icon === "🏢" && (
+            <>
+              <mesh position={[0, 0, 0]}>
+                <boxGeometry args={[0.6, 0.8, 0.4]} />
+                <meshStandardMaterial
+                  color={hovered ? "#ffffff" : color}
+                  emissive={color}
+                  emissiveIntensity={hovered ? 1.4 : 0.8}
+                  metalness={0.8}
+                  roughness={0.1}
+                />
+              </mesh>
+              {/* Windows */}
+              {[-0.2, 0, 0.2].map((x, i) => (
+                <React.Fragment key={i}>
+                  <mesh position={[x, 0.15, 0.21]}>
+                    <boxGeometry args={[0.08, 0.08, 0.02]} />
+                    <meshStandardMaterial
+                      color="#ffffff"
+                      emissive="#ffffff"
+                      emissiveIntensity={hovered ? 2.0 : 1.2}
+                    />
+                  </mesh>
+                  <mesh position={[x, -0.15, 0.21]}>
+                    <boxGeometry args={[0.08, 0.08, 0.02]} />
+                    <meshStandardMaterial
+                      color="#ffffff"
+                      emissive="#ffffff"
+                      emissiveIntensity={hovered ? 2.0 : 1.2}
+                    />
+                  </mesh>
+                </React.Fragment>
+              ))}
+            </>
+          )}
+        </group>
       )}
 
-      {/* Glowing particles on hover */}
+      {/* Glowing particles on hover - Orbiting effect */}
       {hovered && isAccessible && (
         <>
           {[[-1.2, 1.2], [1.2, 1.2], [-1.2, -1.2], [1.2, -1.2]].map((pos, i) => (
             <mesh key={i} position={[pos[0], pos[1], 0.25]}>
-              <sphereGeometry args={[0.08, 16, 16]} />
+              <sphereGeometry args={[0.1, 16, 16]} />
               <meshStandardMaterial
                 color={color}
                 emissive={color}
-                emissiveIntensity={1.5}
+                emissiveIntensity={2.0}
                 toneMapped={false}
               />
             </mesh>
           ))}
+          {/* Additional ring particles for enhanced effect */}
+          {[0, 1, 2, 3, 4, 5].map((i) => {
+            const angle = (i / 6) * Math.PI * 2;
+            const radius = 1.0;
+            return (
+              <mesh 
+                key={`ring-${i}`} 
+                position={[
+                  Math.cos(angle) * radius, 
+                  Math.sin(angle) * radius, 
+                  0.3
+                ]}
+              >
+                <sphereGeometry args={[0.06, 12, 12]} />
+                <meshStandardMaterial
+                  color={color}
+                  emissive={color}
+                  emissiveIntensity={1.8}
+                  toneMapped={false}
+                  transparent
+                  opacity={0.8}
+                />
+              </mesh>
+            );
+          })}
         </>
       )}
 
@@ -258,24 +421,57 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
   );
 };
 
-function BackgroundStars({ count = 700 }) {
+function BackgroundStars({ count = 1200 }) {
   const pointsRef = useRef<THREE.Points>(null);
-  const positions = useMemo(() => {
+  const materialRef = useRef<THREE.PointsMaterial>(null);
+  
+  const { positions, sizes } = useMemo(() => {
     const pos = new Float32Array(count * 3);
+    const siz = new Float32Array(count);
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 40;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 40;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 40;
+      // Create layered star field with depth
+      const radius = 15 + Math.random() * 25;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.random() * Math.PI;
+      
+      pos[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      pos[i * 3 + 2] = radius * Math.cos(phi);
+      
+      // Variable star sizes for depth perception
+      siz[i] = 0.02 + Math.random() * 0.08;
     }
-    return pos;
+    return { positions: pos, sizes: siz };
   }, [count]);
-  useFrame((state) => { if (pointsRef.current) { pointsRef.current.rotation.y = state.clock.elapsedTime * 0.02; } });
+  
+  useFrame((state) => {
+    if (pointsRef.current && materialRef.current) {
+      // Rotate stars based on camera movement for parallax effect
+      const rotationSpeed = 0.015;
+      pointsRef.current.rotation.y = state.clock.elapsedTime * rotationSpeed;
+      pointsRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.3) * 0.05;
+      
+      // Subtle opacity pulsing
+      const basePulse = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
+      materialRef.current.opacity = 0.6 + basePulse;
+    }
+  });
+  
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-size" count={count} array={sizes} itemSize={1} />
       </bufferGeometry>
-      <pointsMaterial size={0.04} color="#ffffff" transparent opacity={0.55} />
+      <pointsMaterial 
+        ref={materialRef}
+        size={0.04} 
+        color="#ffffff" 
+        transparent 
+        opacity={0.6}
+        sizeAttenuation={true}
+        depthWrite={false}
+      />
     </points>
   );
 }
