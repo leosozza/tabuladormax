@@ -421,16 +421,18 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
   );
 };
 
-function BackgroundStars({ count = 1200 }) {
-  const pointsRef = useRef<THREE.Points>(null);
+function BackgroundStars({ count = 1500 }) {
+  const layer1Ref = useRef<THREE.Points>(null);
+  const layer2Ref = useRef<THREE.Points>(null);
+  const layer3Ref = useRef<THREE.Points>(null);
   const materialRef = useRef<THREE.PointsMaterial>(null);
   
-  const { positions, sizes } = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    const siz = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      // Create layered star field with depth
-      const radius = 15 + Math.random() * 25;
+  const createStarLayer = (layerCount: number, radiusMin: number, radiusMax: number) => {
+    const pos = new Float32Array(layerCount * 3);
+    const siz = new Float32Array(layerCount);
+    for (let i = 0; i < layerCount; i++) {
+      // Create spherical star field distribution
+      const radius = radiusMin + Math.random() * (radiusMax - radiusMin);
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.random() * Math.PI;
       
@@ -438,41 +440,83 @@ function BackgroundStars({ count = 1200 }) {
       pos[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
       pos[i * 3 + 2] = radius * Math.cos(phi);
       
-      // Variable star sizes for depth perception
-      siz[i] = 0.02 + Math.random() * 0.08;
+      // Variable star sizes based on distance (closer = larger)
+      const distanceFactor = 1 - (radius - radiusMin) / (radiusMax - radiusMin);
+      siz[i] = 0.03 + Math.random() * 0.1 * distanceFactor;
     }
     return { positions: pos, sizes: siz };
-  }, [count]);
+  };
+  
+  const layer1 = useMemo(() => createStarLayer(count / 3, 15, 25), [count]);
+  const layer2 = useMemo(() => createStarLayer(count / 3, 25, 35), [count]);
+  const layer3 = useMemo(() => createStarLayer(count / 3, 35, 45), [count]);
   
   useFrame((state) => {
-    if (pointsRef.current && materialRef.current) {
-      // Rotate stars based on camera movement for parallax effect
-      const rotationSpeed = 0.015;
-      pointsRef.current.rotation.y = state.clock.elapsedTime * rotationSpeed;
-      pointsRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.3) * 0.05;
-      
-      // Subtle opacity pulsing
-      const basePulse = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
-      materialRef.current.opacity = 0.6 + basePulse;
+    // Multi-layer parallax effect - each layer rotates at different speed
+    if (layer1Ref.current) {
+      layer1Ref.current.rotation.y = state.clock.elapsedTime * 0.025;
+      layer1Ref.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.4) * 0.08;
+    }
+    if (layer2Ref.current) {
+      layer2Ref.current.rotation.y = state.clock.elapsedTime * 0.018;
+      layer2Ref.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.3) * 0.05;
+    }
+    if (layer3Ref.current) {
+      layer3Ref.current.rotation.y = state.clock.elapsedTime * 0.012;
+      layer3Ref.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.2) * 0.03;
     }
   });
   
   return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-        <bufferAttribute attach="attributes-size" count={count} array={sizes} itemSize={1} />
-      </bufferGeometry>
-      <pointsMaterial 
-        ref={materialRef}
-        size={0.04} 
-        color="#ffffff" 
-        transparent 
-        opacity={0.6}
-        sizeAttenuation={true}
-        depthWrite={false}
-      />
-    </points>
+    <>
+      {/* Near layer - fastest, brightest */}
+      <points ref={layer1Ref}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" count={count / 3} array={layer1.positions} itemSize={3} />
+          <bufferAttribute attach="attributes-size" count={count / 3} array={layer1.sizes} itemSize={1} />
+        </bufferGeometry>
+        <pointsMaterial 
+          size={0.05} 
+          color="#ffffff" 
+          transparent 
+          opacity={0.8}
+          sizeAttenuation={true}
+          depthWrite={false}
+        />
+      </points>
+      
+      {/* Mid layer */}
+      <points ref={layer2Ref}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" count={count / 3} array={layer2.positions} itemSize={3} />
+          <bufferAttribute attach="attributes-size" count={count / 3} array={layer2.sizes} itemSize={1} />
+        </bufferGeometry>
+        <pointsMaterial 
+          size={0.04} 
+          color="#ffffff" 
+          transparent 
+          opacity={0.6}
+          sizeAttenuation={true}
+          depthWrite={false}
+        />
+      </points>
+      
+      {/* Far layer - slowest, dimmest */}
+      <points ref={layer3Ref}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" count={count / 3} array={layer3.positions} itemSize={3} />
+          <bufferAttribute attach="attributes-size" count={count / 3} array={layer3.sizes} itemSize={1} />
+        </bufferGeometry>
+        <pointsMaterial 
+          size={0.03} 
+          color="#ffffff" 
+          transparent 
+          opacity={0.4}
+          sizeAttenuation={true}
+          depthWrite={false}
+        />
+      </points>
+    </>
   );
 }
 
