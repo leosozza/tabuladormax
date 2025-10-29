@@ -123,7 +123,8 @@ const HomeChoice: React.FC = () => {
       uTextMap: { value: sunTexture },
       uTextOffset: { value: 0.0 },
       uEmissiveColor: { value: new THREE.Color(0xff6600) },
-      uEmissiveIntensity: { value: 0.8 }
+      uEmissiveIntensity: { value: 0.8 },
+      uTime: { value: 0.0 }
     };
 
     const sunMaterial = new THREE.ShaderMaterial({
@@ -131,32 +132,98 @@ const HomeChoice: React.FC = () => {
       vertexShader: `
         varying vec2 vUv;
         varying vec3 vNormal;
+        varying vec3 vPosition;
         
         void main() {
           vUv = uv;
           vNormal = normalize(normalMatrix * normal);
+          vPosition = position;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
+        #ifdef GL_ES
+        precision highp float;
+        #endif
+        
         uniform sampler2D uTextMap;
         uniform float uTextOffset;
         uniform vec3 uEmissiveColor;
         uniform float uEmissiveIntensity;
+        uniform float uTime;
         
         varying vec2 vUv;
         varying vec3 vNormal;
+        varying vec3 vPosition;
+        
+        // FBM noise functions for realistic sun surface
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+        }
+        
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          
+          float a = hash(i);
+          float b = hash(i + vec2(1.0, 0.0));
+          float c = hash(i + vec2(0.0, 1.0));
+          float d = hash(i + vec2(1.0, 1.0));
+          
+          return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+        }
+        
+        // Fractal Brownian Motion
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amplitude = 0.5;
+          float frequency = 1.0;
+          
+          for(int i = 0; i < 6; i++) {
+            value += amplitude * noise(p * frequency);
+            frequency *= 2.0;
+            amplitude *= 0.5;
+          }
+          
+          return value;
+        }
+        
+        // Domain warping for more organic patterns
+        vec2 domainWarp(vec2 p) {
+          vec2 q = vec2(fbm(p + vec2(0.0, 0.0)), fbm(p + vec2(5.2, 1.3)));
+          return vec2(fbm(p + 4.0 * q + vec2(1.7, 9.2)), fbm(p + 4.0 * q + vec2(8.3, 2.8)));
+        }
         
         void main() {
-          // Sample the sun texture with rotating offset
+          // Sample the sun texture with rotating offset for MAXFAMA label
           vec2 uv = vUv;
           uv.x = fract(uv.x + uTextOffset);
           
           vec4 texColor = texture2D(uTextMap, uv);
           
+          // Create FBM-based sun surface with domain warping
+          vec2 warpedUv = domainWarp(vUv * 3.0 + uTextOffset * 0.5 + uTime * 0.02);
+          float pattern = fbm(vUv * 5.0 + warpedUv * 2.0 + uTime * 0.05);
+          
+          // Create fiery color gradient based on noise
+          vec3 sunColor1 = vec3(1.0, 0.8, 0.2); // bright yellow
+          vec3 sunColor2 = vec3(1.0, 0.4, 0.0); // orange
+          vec3 sunColor3 = vec3(0.8, 0.1, 0.0); // dark red
+          
+          vec3 fbmColor = mix(sunColor3, sunColor2, pattern);
+          fbmColor = mix(fbmColor, sunColor1, pow(pattern, 2.0));
+          
+          // Blend text label with FBM surface
+          vec3 finalColor = mix(fbmColor, texColor.rgb, texColor.a * 0.7);
+          
           // Apply emissive glow
           vec3 emissive = uEmissiveColor * uEmissiveIntensity;
-          vec3 finalColor = texColor.rgb + emissive * 0.5;
+          finalColor += emissive * 0.3;
+          
+          // Add brightness variation based on normal (limb darkening)
+          float fresnel = pow(1.0 - max(0.0, dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.0);
+          finalColor += fresnel * vec3(1.0, 0.5, 0.0) * 0.3;
           
           gl_FragColor = vec4(finalColor, 1.0);
         }
@@ -206,17 +273,91 @@ const HomeChoice: React.FC = () => {
       { name: 'Administrativo', color: 0xef4444, size: 0.5, distance: 6, speed: 0.5, angle: (3 * Math.PI) / 2 }
     ];
 
-    // Create planets and labels
+    // Create planets and labels with procedural textures
     planets.forEach((planet) => {
       const geometry = new THREE.SphereGeometry(planet.size, 32, 32);
-      const material = new THREE.MeshStandardMaterial({
-        color: planet.color,
-        metalness: 0.5,
-        roughness: 0.3,
-        emissive: planet.color,
-        emissiveIntensity: 0.3
+      
+      // Create procedural planet shader
+      const planetMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: new THREE.Color(planet.color) },
+          uTime: { value: 0 }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          varying vec3 vNormal;
+          varying vec3 vPosition;
+          
+          void main() {
+            vUv = uv;
+            vNormal = normalize(normalMatrix * normal);
+            vPosition = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          #ifdef GL_ES
+          precision highp float;
+          #endif
+          
+          uniform vec3 uColor;
+          uniform float uTime;
+          
+          varying vec2 vUv;
+          varying vec3 vNormal;
+          varying vec3 vPosition;
+          
+          // Simple noise function
+          float hash(vec3 p) {
+            return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+          }
+          
+          float noise3D(vec3 p) {
+            vec3 i = floor(p);
+            vec3 f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            
+            return mix(
+              mix(
+                mix(hash(i), hash(i + vec3(1.0, 0.0, 0.0)), f.x),
+                mix(hash(i + vec3(0.0, 1.0, 0.0)), hash(i + vec3(1.0, 1.0, 0.0)), f.x),
+                f.y
+              ),
+              mix(
+                mix(hash(i + vec3(0.0, 0.0, 1.0)), hash(i + vec3(1.0, 0.0, 1.0)), f.x),
+                mix(hash(i + vec3(0.0, 1.0, 1.0)), hash(i + vec3(1.0, 1.0, 1.0)), f.x),
+                f.y
+              ),
+              f.z
+            );
+          }
+          
+          void main() {
+            // Procedural surface pattern
+            float pattern = noise3D(vPosition * 8.0);
+            pattern = pattern * 0.5 + 0.5;
+            
+            // Add secondary detail layer
+            float detail = noise3D(vPosition * 20.0) * 0.3;
+            
+            // Combine patterns
+            vec3 baseColor = uColor;
+            vec3 darkColor = uColor * 0.5;
+            vec3 finalColor = mix(darkColor, baseColor, pattern + detail);
+            
+            // Add rim lighting
+            float fresnel = pow(1.0 - max(0.0, dot(vNormal, vec3(0.0, 0.0, 1.0))), 3.0);
+            finalColor += fresnel * uColor * 0.4;
+            
+            // Add subtle emissive
+            finalColor += uColor * 0.1;
+            
+            gl_FragColor = vec4(finalColor, 1.0);
+          }
+        `
       });
-      const mesh = new THREE.Mesh(geometry, material);
+      
+      const mesh = new THREE.Mesh(geometry, planetMaterial);
       scene.add(mesh);
       planet.mesh = mesh;
 
@@ -340,6 +481,7 @@ const HomeChoice: React.FC = () => {
       // Rotate sun and increment text offset for rotating label
       sun.rotation.y += 0.001;
       sunUniforms.uTextOffset.value += TEXT_ROTATION_SPEED;
+      sunUniforms.uTime.value += 0.01;
       if (sunUniforms.uTextOffset.value > TEXT_OFFSET_MAX) {
         sunUniforms.uTextOffset.value = 0.0;
       }
@@ -353,6 +495,12 @@ const HomeChoice: React.FC = () => {
         if (planet.mesh) {
           planet.mesh.position.set(x, 0, z);
           planet.mesh.rotation.y += 0.02;
+          
+          // Update time uniform for procedural animation
+          const material = planet.mesh.material as THREE.ShaderMaterial;
+          if (material.uniforms && material.uniforms.uTime) {
+            material.uniforms.uTime.value += 0.01;
+          }
         }
 
         if (planet.ringMesh) {
