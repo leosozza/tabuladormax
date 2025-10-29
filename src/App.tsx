@@ -60,12 +60,13 @@ const App = () => (
           <Route path="/install" element={<Install />} />
           <Route path="/debug" element={<ProtectedRoute><Debug /></ProtectedRoute>} />
           
-          {/* Telemarketing */}
+          {/* Telemarketing - Connected to 3D solar system planet button */}
           <Route path="/lead" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />
+          <Route path="/telemarketing" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/dashboard-manager" element={<ProtectedRoute><DashboardManager /></ProtectedRoute>} />
           
-          {/* Rotas Administrativas */}
+          {/* Rotas Administrativas - Connected to 3D solar system planet button */}
           <Route path="/admin" element={<ProtectedRoute requireManager><AdminHub /></ProtectedRoute>} />
           <Route path="/admin/dashboard" element={<ProtectedRoute requireManager><UnifiedDashboard /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute requireSupervisor><Users /></ProtectedRoute>} />
@@ -78,10 +79,10 @@ const App = () => (
           <Route path="/admin/monitoring" element={<ProtectedRoute requireManager><PerformanceMonitoring /></ProtectedRoute>} />
           <Route path="/admin/sync-monitor" element={<ProtectedRoute requireManager><SyncMonitor /></ProtectedRoute>} />
 
-          {/* Agenciamento (Negotiations) */}
+          {/* Agenciamento (Negotiations) - Connected to 3D solar system planet button */}
           <Route path="/agenciamento" element={<ProtectedRoute><Agenciamento /></ProtectedRoute>} />
 
-          {/* Rotas do Gestão Scouter (prefixo /scouter) */}
+          {/* Rotas do Gestão Scouter (prefixo /scouter) - Connected to 3D solar system planet button */}
           <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />
           <Route path="/scouter/leads" element={<ProtectedRoute><GestaoLeads /></ProtectedRoute>} />
           <Route path="/scouter/analise" element={<ProtectedRoute><GestaoAnaliseLeads /></ProtectedRoute>} />
