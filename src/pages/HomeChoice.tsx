@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import './home-choice.css';
 
-// Planet configuration with links (keeps the "vínculo com lovable" routes)
+// Planet configuration with links to internal routes
+// These routes connect to the 3D solar system planet buttons
+// Each planet redirects to its corresponding module when clicked
 const LINKS = {
-  Telemarketing: '/lead',
-  Scouter: '/scouter',
-  Agendamento: '/agenciamento',
-  Administrativo: '/admin'
+  Telemarketing: '/telemarketing', // Points to LeadTab (Tabulador module)
+  Scouter: '/scouter',             // Points to GestaoHome (Gestão Scouter module)
+  Agendamento: '/agenciamento',    // Points to Agenciamento (Negotiations module)
+  Administrativo: '/admin'         // Points to AdminHub (Administrative module)
 };
 
 interface Planet {
@@ -439,6 +441,8 @@ const HomeChoice: React.FC = () => {
       if (animatingRef.current || !hoveredPlanet) return;
 
       const planet = hoveredPlanet;
+      // Get the route link from LINKS configuration
+      // This connects the clicked planet to its corresponding internal route
       const link = LINKS[planet.name as keyof typeof LINKS];
       if (!link) return;
 
@@ -463,7 +467,8 @@ const HomeChoice: React.FC = () => {
         if (progress < 1) {
           requestAnimationFrame(animateCamera);
         } else {
-          // navigate to the linked route
+          // Navigate to the linked route using React Router (SPA navigation)
+          // This avoids full page reload and maintains app state
           navigate(link);
         }
       };
