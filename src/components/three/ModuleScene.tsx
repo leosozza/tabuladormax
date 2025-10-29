@@ -210,6 +210,7 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const iconGroupRef = useRef<THREE.Group>(null);
+  const orbitingGroupRef = useRef<THREE.Group>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
   const [hovered, setHovered] = useState(false);
   const [exploding, setExploding] = useState(false);
@@ -245,6 +246,11 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
       } else {
         iconGroupRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), 0.1);
       }
+    }
+    
+    // Animate orbiting particles
+    if (orbitingGroupRef.current && isAccessible) {
+      orbitingGroupRef.current.rotation.z = state.clock.elapsedTime * 0.8;
     }
     
     if (exploding && materialRef.current) {
@@ -296,23 +302,19 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
   
   return (
     <group position={position}>
+      {/* Invisible clickable mesh for interaction - no visible geometry */}
       <mesh
         ref={meshRef}
         onClick={handleClick}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
-        castShadow
-        receiveShadow
       >
         <boxGeometry args={[2.4, 2.4, 0.32]} />
         <meshStandardMaterial
           ref={materialRef}
-          color={isAccessible ? color : '#3a3a3a'}
-          metalness={0.5}
-          roughness={0.15}
-          emissive={isAccessible ? color : '#000000'}
-          emissiveIntensity={hovered && isAccessible ? 0.35 : 0.12}
-          opacity={1}
+          transparent
+          opacity={0}
+          depthWrite={false}
         />
       </mesh>
 
@@ -456,46 +458,35 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
         </group>
       )}
 
-      {/* Glowing particles on hover - Orbiting effect */}
-      {hovered && isAccessible && (
-        <>
-          {[[-1.2, 1.2], [1.2, 1.2], [-1.2, -1.2], [1.2, -1.2]].map((pos, i) => (
-            <mesh key={i} position={[pos[0], pos[1], 0.25]}>
-              <sphereGeometry args={[0.1, 16, 16]} />
-              <meshStandardMaterial
-                color={color}
-                emissive={color}
-                emissiveIntensity={2.0}
-                toneMapped={false}
-              />
-            </mesh>
-          ))}
-          {/* Additional ring particles for enhanced effect */}
-          {[0, 1, 2, 3, 4, 5].map((i) => {
-            const angle = (i / 6) * Math.PI * 2;
-            const radius = 1.0;
+      {/* Always-visible orbiting particles around the icon */}
+      {isAccessible && (
+        <group ref={orbitingGroupRef} position={[0, 0, 0.25]}>
+          {/* Ring of 8 orbiting particles */}
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+            const angle = (i / 8) * Math.PI * 2;
+            const radius = 1.2;
             return (
               <mesh 
-                key={`ring-${i}`} 
+                key={`orbit-${i}`} 
                 position={[
                   Math.cos(angle) * radius, 
                   Math.sin(angle) * radius, 
-                  0.3
+                  0
                 ]}
               >
-                <sphereGeometry args={[0.06, 12, 12]} />
+                <sphereGeometry args={[0.08, 16, 16]} />
                 <meshStandardMaterial
                   color={color}
                   emissive={color}
-                  emissiveIntensity={1.8}
+                  emissiveIntensity={hovered ? 2.2 : 1.5}
                   toneMapped={false}
                   transparent
-                  opacity={0.8}
+                  opacity={hovered ? 1.0 : 0.85}
                 />
               </mesh>
             );
           })}
-        </>
+        </group>
       )}
 
       <Explosion color={color} active={exploding} duration={0.85} onComplete={() => navigate(route)} />
