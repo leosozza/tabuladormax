@@ -32,6 +32,8 @@ const HomeChoice: React.FC = () => {
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const container = containerRef.current; // Store ref for cleanup
+
     // Scene setup
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
@@ -45,7 +47,7 @@ const HomeChoice: React.FC = () => {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
-    containerRef.current.appendChild(renderer.domElement);
+    container.appendChild(renderer.domElement);
 
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
@@ -171,7 +173,7 @@ const HomeChoice: React.FC = () => {
       label.textContent = planet.name;
       label.style.position = 'absolute';
       label.style.pointerEvents = 'none';
-      containerRef.current?.appendChild(label);
+      container.appendChild(label);
       planet.label = label;
     });
 
@@ -329,8 +331,8 @@ const HomeChoice: React.FC = () => {
         }
       });
       
-      if (containerRef.current) {
-        containerRef.current.removeChild(renderer.domElement);
+      if (container) {
+        container.removeChild(renderer.domElement);
       }
       
       renderer.dispose();
