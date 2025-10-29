@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import './home-choice.css';
 
-// Planet configuration with links
+// Planet configuration with links (keeps the "vínculo com lovable" routes)
 const LINKS = {
-  'Telemarketing': '/lead',
-  'Scouter': '/scouter',
-  'Agendamento': '/agenciamento',
-  'Administrativo': '/admin'
+  Telemarketing: '/lead',
+  Scouter: '/scouter',
+  Agendamento: '/agenciamento',
+  Administrativo: '/admin'
 };
 
 interface Planet {
@@ -26,9 +26,9 @@ interface Planet {
 // Animation constants
 const TEXT_ROTATION_SPEED = 0.0005;
 const TEXT_OFFSET_MAX = 1.0;
-const PARTICLE_COUNT = 5000; // Reduced for better performance
+const PARTICLE_COUNT = 5000; // Reduced for performance
 
-// Procedural texture parameters
+// Procedural texture parameters (kept for planet generator even if simple)
 const PLANET_BASE_SCALE = 8.0;
 const PLANET_BASE_MULTIPLIER = 0.5;
 const PLANET_DETAIL_SCALE = 20.0;
@@ -41,7 +41,7 @@ const makeSunLabelTexture = (text: string, width: number, height: number): THREE
   canvas.height = height;
   const ctx = canvas.getContext('2d')!;
 
-  // Create fiery sun base texture with radial gradient
+  // Fiery radial gradient base
   const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width / 2);
   gradient.addColorStop(0, '#ffffff');
   gradient.addColorStop(0.1, '#ffff00');
@@ -53,59 +53,50 @@ const makeSunLabelTexture = (text: string, width: number, height: number): THREE
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
-  // Add noise/texture for fiery effect
+  // Add noisy particles for texture
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const x = Math.random() * width;
     const y = Math.random() * height;
     const radius = Math.random() * 3;
-    const opacity = Math.random() * 0.3;
-    
-    ctx.fillStyle = `rgba(255, 200, 0, ${opacity})`;
+    const opacity = Math.random() * 0.25;
+
+    ctx.fillStyle = `rgba(255, ${150 + Math.floor(Math.random() * 100)}, 0, ${opacity})`;
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Draw text label in the equator region (middle of canvas)
-  ctx.font = `bold ${height / 8}px Arial`;
+  // Draw text label in the middle with glow
+  ctx.font = `bold ${Math.floor(height / 8)}px Arial`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  
-  // Draw text with glow effect
-  ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+  ctx.shadowColor = 'rgba(255,255,255,0.85)';
   ctx.shadowBlur = 20;
   ctx.fillStyle = '#ffffff';
   ctx.fillText(text, width / 2, height / 2);
-  
-  // Draw text again for stronger effect
   ctx.shadowBlur = 10;
   ctx.fillText(text, width / 2, height / 2);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
   return texture;
 };
 
 const HomeChoice: React.FC = () => {
   const navigate = useNavigate();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
   const animatingRef = useRef(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
-
     const container = containerRef.current;
 
-    // Scene setup
+    // Scene, camera, renderer
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      60,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 15;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -113,24 +104,26 @@ const HomeChoice: React.FC = () => {
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
-    // Lighting
+    // Lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
     scene.add(ambientLight);
     const pointLight = new THREE.PointLight(0xffffff, 1.5, 100);
     pointLight.position.set(0, 0, 0);
     scene.add(pointLight);
 
-    // Create sun with text label texture
+    // Sun texture and geometry
     const sunTexture = makeSunLabelTexture('MAXFAMA', 2048, 1024);
     const sunGeometry = new THREE.SphereGeometry(2, 64, 64);
-    
-    // Sun shader with text mapping and rotation
-    const sunUniforms = {
+
+    // Sun shader: FBM-like surface + rotating text label
+    // The shader below uses snoise-based FBM helper and domain warping to produce a fiery surface.
+    const sunUniforms: any = {
       uTextMap: { value: sunTexture },
       uTextOffset: { value: 0.0 },
+      uTextStrength: { value: 0.7 },
+      uTime: { value: 0.0 },
       uEmissiveColor: { value: new THREE.Color(0xff6600) },
-      uEmissiveIntensity: { value: 0.8 },
-      uTime: { value: 0.0 }
+      uEmissiveIntensity: { value: 0.8 }
     };
 
     const sunMaterial = new THREE.ShaderMaterial({
@@ -139,7 +132,6 @@ const HomeChoice: React.FC = () => {
         varying vec2 vUv;
         varying vec3 vNormal;
         varying vec3 vPosition;
-        
         void main() {
           vUv = uv;
           vNormal = normalize(normalMatrix * normal);
@@ -148,99 +140,140 @@ const HomeChoice: React.FC = () => {
         }
       `,
       fragmentShader: `
-        #ifdef GL_ES
         precision highp float;
-        #endif
-        
         uniform sampler2D uTextMap;
         uniform float uTextOffset;
+        uniform float uTextStrength;
+        uniform float uTime;
         uniform vec3 uEmissiveColor;
         uniform float uEmissiveIntensity;
-        uniform float uTime;
-        
+
         varying vec2 vUv;
         varying vec3 vNormal;
         varying vec3 vPosition;
-        
-        // FBM noise functions for realistic sun surface
-        float hash(vec2 p) {
-          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+
+        // Classic 3D simplex/snoise helpers (adapted)
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+        float snoise(vec3 v) {
+          const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+          const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+          vec3 i  = floor(v + dot(v, C.yyy));
+          vec3 x0 = v - i + dot(i, C.xxx);
+          vec3 g = step(x0.yzx, x0.xyz);
+          vec3 l = 1.0 - g;
+          vec3 i1 = min(g.xyz, l.zxy);
+          vec3 i2 = max(g.xyz, l.zxy);
+          vec3 x1 = x0 - i1 + C.xxx;
+          vec3 x2 = x0 - i2 + C.yyy;
+          vec3 x3 = x0 - D.yyy;
+          i = mod289(i);
+          vec4 p = permute(permute(permute(
+                    i.z + vec4(0.0, i1.z, i2.z, 1.0))
+                  + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+                  + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+          float n_ = 0.142857142857;
+          vec3 ns = n_ * D.wyz - D.xzx;
+          vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+          vec4 x_ = floor(j * ns.z);
+          vec4 y_ = floor(j - 7.0 * x_);
+          vec4 x = x_ * ns.x + ns.yyyy;
+          vec4 y = y_ * ns.x + ns.yyyy;
+          vec4 h = 1.0 - abs(x) - abs(y);
+          vec4 b0 = vec4(x.xy, y.xy);
+          vec4 b1 = vec4(x.zw, y.zw);
+          vec4 s0 = floor(b0)*2.0 + 1.0;
+          vec4 s1 = floor(b1)*2.0 + 1.0;
+          vec4 sh = -step(h, vec4(0.0));
+          vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+          vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+          vec3 p0 = vec3(a0.xy, h.x);
+          vec3 p1 = vec3(a0.zw, h.y);
+          vec3 p2 = vec3(a1.xy, h.z);
+          vec3 p3 = vec3(a1.zw, h.w);
+          vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+          p0 *= norm.x;
+          p1 *= norm.y;
+          p2 *= norm.z;
+          p3 *= norm.w;
+          vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+          m = m * m;
+          return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
         }
-        
-        float noise(vec2 p) {
-          vec2 i = floor(p);
-          vec2 f = fract(p);
-          f = f * f * (3.0 - 2.0 * f);
-          
-          float a = hash(i);
-          float b = hash(i + vec2(1.0, 0.0));
-          float c = hash(i + vec2(0.0, 1.0));
-          float d = hash(i + vec2(1.0, 1.0));
-          
-          return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-        }
-        
-        // Fractal Brownian Motion (optimized for performance)
-        float fbm(vec2 p) {
+
+        // FBM using snoise
+        float fbm(vec3 p) {
           float value = 0.0;
           float amplitude = 0.5;
           float frequency = 1.0;
-          
-          // Reduced to 4 iterations for better performance on lower-end devices
-          for(int i = 0; i < 4; i++) {
-            value += amplitude * noise(p * frequency);
+          // 4 octaves is a good balance
+          for (int i = 0; i < 4; i++) {
+            value += amplitude * snoise(p * frequency);
             frequency *= 2.0;
             amplitude *= 0.5;
           }
-          
           return value;
         }
-        
-        // Domain warping for more organic patterns
-        vec2 domainWarp(vec2 p) {
-          vec2 q = vec2(fbm(p + vec2(0.0, 0.0)), fbm(p + vec2(5.2, 1.3)));
-          return vec2(fbm(p + 4.0 * q + vec2(1.7, 9.2)), fbm(p + 4.0 * q + vec2(8.3, 2.8)));
+
+        // Domain warp to get more organic fiery shapes
+        vec3 domainWarp(vec3 p, float time) {
+          vec3 q = vec3(
+            fbm(p + vec3(0.0, 0.0, time * 0.12)),
+            fbm(p + vec3(5.2, 1.3, time * 0.12)),
+            fbm(p + vec3(3.1, 4.7, time * 0.12))
+          );
+          vec3 r = vec3(
+            fbm(p + 4.0 * q + vec3(1.7, 9.2, time * 0.18)),
+            fbm(p + 4.0 * q + vec3(8.3, 2.8, time * 0.18)),
+            fbm(p + 4.0 * q + vec3(4.5, 6.1, time * 0.18))
+          );
+          return p + r * 0.35;
         }
-        
+
         void main() {
-          // Sample the sun texture with rotating offset for MAXFAMA label
+          // Compute warped noise based on 3D position + time for animation
+          vec3 warped = domainWarp(vPosition * 1.8, uTime);
+          float n = fbm(warped);
+
+          // Sample the text map (repeat horizontally) for MAXFAMA "belt"
           vec2 uv = vUv;
           uv.x = fract(uv.x + uTextOffset);
-          
-          vec4 texColor = texture2D(uTextMap, uv);
-          
-          // Create FBM-based sun surface with domain warping
-          vec2 warpedUv = domainWarp(vUv * 3.0 + uTextOffset * 0.5 + uTime * 0.02);
-          float pattern = fbm(vUv * 5.0 + warpedUv * 2.0 + uTime * 0.05);
-          
-          // Create fiery color gradient based on noise
-          vec3 sunColor1 = vec3(1.0, 0.8, 0.2); // bright yellow
-          vec3 sunColor2 = vec3(1.0, 0.4, 0.0); // orange
-          vec3 sunColor3 = vec3(0.8, 0.1, 0.0); // dark red
-          
-          vec3 fbmColor = mix(sunColor3, sunColor2, pattern);
-          fbmColor = mix(fbmColor, sunColor1, pow(pattern, 2.0));
-          
-          // Blend text label with FBM surface
-          vec3 finalColor = mix(fbmColor, texColor.rgb, texColor.a * 0.7);
-          
-          // Apply emissive glow
-          vec3 emissive = uEmissiveColor * uEmissiveIntensity;
-          finalColor += emissive * 0.3;
-          
-          // Add brightness variation based on normal (limb darkening)
+          vec4 textColor = texture2D(uTextMap, uv);
+
+          // Build fiery colors using noise
+          vec3 col1 = vec3(1.0, 0.9, 0.0);
+          vec3 col2 = vec3(1.0, 0.45, 0.0);
+          vec3 col3 = vec3(0.8, 0.12, 0.0);
+          float noiseValue = clamp(n * 0.5 + 0.5, 0.0, 1.0);
+          vec3 fire = mix(col3, col2, noiseValue);
+          fire = mix(fire, col1, pow(noiseValue, 2.0));
+
+          // Blend text (use text alpha and uTextStrength to control dominance)
+          vec3 blended = mix(fire, textColor.rgb, textColor.a * uTextStrength);
+
+          // Emissive + rim for depth
+          vec3 emissive = uEmissiveColor * uEmissiveIntensity * 0.3;
           float fresnel = pow(1.0 - max(0.0, dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.0);
-          finalColor += fresnel * vec3(1.0, 0.5, 0.0) * 0.3;
-          
-          gl_FragColor = vec4(finalColor, 1.0);
+          blended += fresnel * vec3(1.0, 0.55, 0.0) * 0.28;
+          blended += emissive;
+
+          // Slight intensity modulation by surface normal
+          float intensity = dot(normalize(vNormal), vec3(0.0, 0.0, 1.0));
+          blended *= 0.7 + 0.3 * intensity;
+
+          gl_FragColor = vec4(blended, 1.0);
         }
       `
     });
 
+    sunMaterial.needsUpdate = true;
     const sun = new THREE.Mesh(sunGeometry, sunMaterial);
     scene.add(sun);
 
-    // Sun corona/glow with enhanced shader
+    // Corona/glow
     const coronaGeometry = new THREE.SphereGeometry(2.5, 64, 64);
     const coronaMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -272,111 +305,71 @@ const HomeChoice: React.FC = () => {
     const corona = new THREE.Mesh(coronaGeometry, coronaMaterial);
     scene.add(corona);
 
-    // Planet configuration with realistic colors and sizes
+    // Planet procedural texture generator (simple DataTexture)
+    const createPlanetTexture = (baseColor: THREE.Color, seed: number): THREE.DataTexture => {
+      const size = 512;
+      const data = new Uint8Array(size * size * 4);
+
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const u = x / size;
+          const v = y / size;
+
+          // Two-layer sin/cos noise to create bands/patches (cheap)
+          const n1 = Math.sin(u * 10 + seed) * Math.cos(v * 10 + seed);
+          const n2 = Math.sin(u * 20 + seed * 1.7) * Math.cos(v * 20 + seed * 1.7);
+          let noise = (n1 + 0.5 * n2) * 0.5 + 0.5;
+          noise = Math.min(Math.max(noise, 0), 1);
+
+          const idx = (x + y * size) * 4;
+          data[idx] = Math.floor(baseColor.r * 255 * (0.7 + noise * 0.3));
+          data[idx + 1] = Math.floor(baseColor.g * 255 * (0.7 + noise * 0.3));
+          data[idx + 2] = Math.floor(baseColor.b * 255 * (0.7 + noise * 0.3));
+          data[idx + 3] = 255;
+        }
+      }
+
+      const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+      tex.needsUpdate = true;
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    };
+
+    const createPlanet = (planet: Planet): THREE.Mesh => {
+      const geometry = new THREE.SphereGeometry(planet.size, 32, 32);
+      const baseColor = new THREE.Color(planet.color);
+      const texture = createPlanetTexture(baseColor, planet.angle + Math.random() * 10);
+
+      const material = new THREE.MeshStandardMaterial({
+        map: texture,
+        color: planet.color,
+        metalness: 0.3,
+        roughness: 0.7,
+        emissive: new THREE.Color(0x000000),
+        emissiveIntensity: 0.0
+      });
+
+      return new THREE.Mesh(geometry, material);
+    };
+
+    // Planet list
     const planets: Planet[] = [
-      { name: 'Telemarketing', color: 0x3b82f6, size: 0.5, distance: 6, speed: 0.5, angle: 0 },
-      { name: 'Scouter', color: 0x8b5cf6, size: 0.5, distance: 6, speed: 0.5, angle: Math.PI / 2 },
-      { name: 'Agendamento', color: 0x10b981, size: 0.5, distance: 6, speed: 0.5, angle: Math.PI },
-      { name: 'Administrativo', color: 0xef4444, size: 0.5, distance: 6, speed: 0.5, angle: (3 * Math.PI) / 2 }
+      { name: 'Telemarketing', color: 0x3b82f6, size: 0.6, distance: 6, speed: 0.5, angle: 0 },
+      { name: 'Scouter', color: 0x8b5cf6, size: 0.6, distance: 8, speed: 0.38, angle: Math.PI / 2 },
+      { name: 'Agendamento', color: 0x10b981, size: 0.6, distance: 10, speed: 0.3, angle: Math.PI },
+      { name: 'Administrativo', color: 0xef4444, size: 0.6, distance: 12, speed: 0.22, angle: (3 * Math.PI) / 2 }
     ];
 
-    // Create planets and labels with procedural textures
-    planets.forEach((planet, index) => {
-      const geometry = new THREE.SphereGeometry(planet.size, 32, 32);
-      
-      // Create procedural planet shader with randomized time offset for variation
-      const planetMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-          uColor: { value: new THREE.Color(planet.color) },
-          uTime: { value: Math.random() * 100.0 }, // Random offset for variation
-          uBaseScale: { value: PLANET_BASE_SCALE },
-          uBaseMultiplier: { value: PLANET_BASE_MULTIPLIER },
-          uDetailScale: { value: PLANET_DETAIL_SCALE },
-          uDetailMultiplier: { value: PLANET_DETAIL_MULTIPLIER }
-        },
-        vertexShader: `
-          varying vec2 vUv;
-          varying vec3 vNormal;
-          varying vec3 vPosition;
-          
-          void main() {
-            vUv = uv;
-            vNormal = normalize(normalMatrix * normal);
-            vPosition = position;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          #ifdef GL_ES
-          precision highp float;
-          #endif
-          
-          uniform vec3 uColor;
-          uniform float uTime;
-          uniform float uBaseScale;
-          uniform float uBaseMultiplier;
-          uniform float uDetailScale;
-          uniform float uDetailMultiplier;
-          
-          varying vec2 vUv;
-          varying vec3 vNormal;
-          varying vec3 vPosition;
-          
-          // Simple noise function
-          float hash(vec3 p) {
-            return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-          }
-          
-          float noise3D(vec3 p) {
-            vec3 i = floor(p);
-            vec3 f = fract(p);
-            f = f * f * (3.0 - 2.0 * f);
-            
-            return mix(
-              mix(
-                mix(hash(i), hash(i + vec3(1.0, 0.0, 0.0)), f.x),
-                mix(hash(i + vec3(0.0, 1.0, 0.0)), hash(i + vec3(1.0, 1.0, 0.0)), f.x),
-                f.y
-              ),
-              mix(
-                mix(hash(i + vec3(0.0, 0.0, 1.0)), hash(i + vec3(1.0, 0.0, 1.0)), f.x),
-                mix(hash(i + vec3(0.0, 1.0, 1.0)), hash(i + vec3(1.0, 1.0, 1.0)), f.x),
-                f.y
-              ),
-              f.z
-            );
-          }
-          
-          void main() {
-            // Procedural surface pattern with configurable parameters
-            float pattern = noise3D(vPosition * uBaseScale);
-            pattern = pattern * uBaseMultiplier + uBaseMultiplier;
-            
-            // Add secondary detail layer
-            float detail = noise3D(vPosition * uDetailScale) * uDetailMultiplier;
-            
-            // Combine patterns
-            vec3 baseColor = uColor;
-            vec3 darkColor = uColor * 0.5;
-            vec3 finalColor = mix(darkColor, baseColor, pattern + detail);
-            
-            // Add rim lighting
-            float fresnel = pow(1.0 - max(0.0, dot(vNormal, vec3(0.0, 0.0, 1.0))), 3.0);
-            finalColor += fresnel * uColor * 0.4;
-            
-            // Add subtle emissive
-            finalColor += uColor * 0.1;
-            
-            gl_FragColor = vec4(finalColor, 1.0);
-          }
-        `
-      });
-      
-      const mesh = new THREE.Mesh(geometry, planetMaterial);
+    // Create planets, rings and labels
+    planets.forEach((planet) => {
+      const mesh = createPlanet(planet);
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
       scene.add(mesh);
       planet.mesh = mesh;
 
-      // Create hover ring (initially invisible)
+      // Hover ring
       const ringGeometry = new THREE.RingGeometry(planet.size * 1.2, planet.size * 1.5, 32);
       const ringMaterial = new THREE.MeshBasicMaterial({
         color: planet.color,
@@ -388,12 +381,13 @@ const HomeChoice: React.FC = () => {
       scene.add(ring);
       planet.ringMesh = ring;
 
-      // Create label
+      // Label (HTML element)
       const label = document.createElement('div');
       label.className = 'planet-label';
       label.textContent = planet.name;
       label.style.position = 'absolute';
       label.style.pointerEvents = 'none';
+      label.style.transform = 'translate(-50%, -50%)';
       container.appendChild(label);
       planet.label = label;
     });
@@ -410,14 +404,12 @@ const HomeChoice: React.FC = () => {
       mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(
-        planets.map((p) => p.mesh!).filter(Boolean)
-      );
+      const intersects = raycaster.intersectObjects(planets.map((p) => p.mesh!).filter(Boolean));
 
-      // Reset all rings
-      planets.forEach((planet) => {
-        if (planet.ringMesh) {
-          (planet.ringMesh.material as THREE.MeshBasicMaterial).opacity = 0;
+      // Reset rings
+      planets.forEach((p) => {
+        if (p.ringMesh) {
+          (p.ringMesh.material as THREE.MeshBasicMaterial).opacity = 0;
         }
       });
 
@@ -425,24 +417,20 @@ const HomeChoice: React.FC = () => {
         const found = planets.find((p) => p.mesh === intersects[0].object);
         if (found) {
           hoveredPlanet = found;
-          // Show ring glow
           if (found.ringMesh) {
             (found.ringMesh.material as THREE.MeshBasicMaterial).opacity = 0.6;
           }
-          // Show tooltip
           if (tooltipRef.current) {
             tooltipRef.current.textContent = found.name;
             tooltipRef.current.style.display = 'block';
-            tooltipRef.current.style.left = event.clientX + 10 + 'px';
-            tooltipRef.current.style.top = event.clientY + 10 + 'px';
+            tooltipRef.current.style.left = event.clientX + 12 + 'px';
+            tooltipRef.current.style.top = event.clientY + 12 + 'px';
           }
           document.body.style.cursor = 'pointer';
         }
       } else {
         hoveredPlanet = null;
-        if (tooltipRef.current) {
-          tooltipRef.current.style.display = 'none';
-        }
+        if (tooltipRef.current) tooltipRef.current.style.display = 'none';
         document.body.style.cursor = 'default';
       }
     };
@@ -452,23 +440,20 @@ const HomeChoice: React.FC = () => {
 
       const planet = hoveredPlanet;
       const link = LINKS[planet.name as keyof typeof LINKS];
-      
       if (!link) return;
 
       animatingRef.current = true;
       document.body.style.cursor = 'default';
-      if (tooltipRef.current) {
-        tooltipRef.current.style.display = 'none';
-      }
+      if (tooltipRef.current) tooltipRef.current.style.display = 'none';
 
-      // Fly-in animation
+      // Fly in animation: move camera towards planet
       const startPos = camera.position.clone();
-      const targetPos = planet.mesh!.position.clone().normalize().multiplyScalar(3);
+      const targetPos = planet.mesh!.position.clone().normalize().multiplyScalar(3.0);
       const duration = 1500;
-      const startTime = Date.now();
+      const startTime = performance.now();
 
-      const animateCamera = () => {
-        const elapsed = Date.now() - startTime;
+      const animateCamera = (t: number) => {
+        const elapsed = t - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
 
@@ -478,44 +463,37 @@ const HomeChoice: React.FC = () => {
         if (progress < 1) {
           requestAnimationFrame(animateCamera);
         } else {
+          // navigate to the linked route
           navigate(link);
         }
       };
 
-      animateCamera();
+      requestAnimationFrame(animateCamera);
     };
 
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('click', onClick);
 
     // Animation loop
-    let animationId: number;
+    let animationId = 0;
     const animate = () => {
       animationId = requestAnimationFrame(animate);
 
-      // Rotate sun and increment text offset for rotating label
-      sun.rotation.y += 0.001;
+      // Rotate sun and update its uniforms for animation
+      sun.rotation.y += 0.0012;
       sunUniforms.uTextOffset.value += TEXT_ROTATION_SPEED;
+      if (sunUniforms.uTextOffset.value > TEXT_OFFSET_MAX) sunUniforms.uTextOffset.value = 0.0;
       sunUniforms.uTime.value += 0.01;
-      if (sunUniforms.uTextOffset.value > TEXT_OFFSET_MAX) {
-        sunUniforms.uTextOffset.value = 0.0;
-      }
 
-      // Update planet positions
+      // Update planets: orbit + rotation + labels + rings
       planets.forEach((planet) => {
         planet.angle += planet.speed * 0.01;
         const x = Math.cos(planet.angle) * planet.distance;
         const z = Math.sin(planet.angle) * planet.distance;
-        
+
         if (planet.mesh) {
           planet.mesh.position.set(x, 0, z);
           planet.mesh.rotation.y += 0.02;
-          
-          // Update time uniform for procedural animation
-          const material = planet.mesh.material as THREE.ShaderMaterial;
-          if (material.uniforms && material.uniforms.uTime) {
-            material.uniforms.uTime.value += 0.01;
-          }
         }
 
         if (planet.ringMesh) {
@@ -523,16 +501,16 @@ const HomeChoice: React.FC = () => {
           planet.ringMesh.lookAt(camera.position);
         }
 
-        // Update label position
+        // Update label position in screen space
         if (planet.label && planet.mesh) {
           const vector = planet.mesh.position.clone();
           vector.project(camera);
-          
+
           const screenX = (vector.x * 0.5 + 0.5) * window.innerWidth;
           const screenY = (-(vector.y * 0.5) + 0.5) * window.innerHeight;
-          
-          planet.label.style.left = screenX + 'px';
-          planet.label.style.top = screenY + 50 + 'px';
+
+          planet.label.style.left = `${screenX}px`;
+          planet.label.style.top = `${screenY + 50}px`;
         }
       });
 
@@ -541,13 +519,12 @@ const HomeChoice: React.FC = () => {
 
     animate();
 
-    // Handle resize
+    // Resize handling
     const onResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     };
-
     window.addEventListener('resize', onResize);
 
     // Cleanup
@@ -556,13 +533,16 @@ const HomeChoice: React.FC = () => {
       window.removeEventListener('click', onClick);
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(animationId);
-      
-      // Dispose planet resources
+
+      // Dispose resources: geometries, textures, materials, dom labels
       planets.forEach((planet) => {
         if (planet.label) {
           planet.label.remove();
         }
         if (planet.mesh) {
+          if ((planet.mesh.material as any).map) {
+            ((planet.mesh.material as any).map as THREE.Texture).dispose();
+          }
           planet.mesh.geometry.dispose();
           (planet.mesh.material as THREE.Material).dispose();
         }
@@ -571,17 +551,18 @@ const HomeChoice: React.FC = () => {
           (planet.ringMesh.material as THREE.Material).dispose();
         }
       });
-      
-      if (container) {
-        container.removeChild(renderer.domElement);
-      }
-      
-      renderer.dispose();
+
+      // Dispose sun and corona
       sunTexture.dispose();
       sunGeometry.dispose();
       sunMaterial.dispose();
       coronaGeometry.dispose();
       coronaMaterial.dispose();
+
+      if (container && renderer.domElement.parentElement === container) {
+        container.removeChild(renderer.domElement);
+      }
+      renderer.dispose();
     };
   }, [navigate]);
 
@@ -590,7 +571,7 @@ const HomeChoice: React.FC = () => {
       <div className="watermark">Maxconnect</div>
       <div className="stars-overlay"></div>
       <div ref={containerRef} className="canvas-container"></div>
-      <div ref={tooltipRef} className="planet-tooltip"></div>
+      <div ref={tooltipRef} className="planet-tooltip" style={{ display: 'none' }}></div>
     </div>
   );
 };
