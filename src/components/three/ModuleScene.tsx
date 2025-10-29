@@ -12,6 +12,7 @@ interface ModuleBoxProps {
   route: string;
   icon: string;
   isAccessible: boolean;
+  icons: string[]; // Multiple icons representing functions
 }
 
 type Shard = {
@@ -111,12 +112,27 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
   route,
   icon,
   isAccessible,
+  icons,
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const iconGroupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const [exploding, setExploding] = useState(false);
   const navigate = useNavigate();
+
+  // Create icon positions in a circular pattern
+  const iconPositions = useMemo(() => {
+    const radius = 0.85;
+    return icons.map((_, i) => {
+      const angle = (i / icons.length) * Math.PI * 2;
+      return {
+        x: Math.cos(angle) * radius,
+        y: Math.sin(angle) * radius,
+        z: 0.25
+      };
+    });
+  }, [icons]);
 
   useEffect(() => {
     const el = document.body;
@@ -132,12 +148,18 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
   useFrame((state, dt) => {
     if (!meshRef.current) return;
     meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime + position[0]) * 0.12;
-    const baseSpin = hovered ? 0.01 : 0.002;
+    const baseSpin = hovered ? 0.015 : 0.003;
     meshRef.current.rotation.y += baseSpin;
     const tx = hovered ? state.pointer.y * 0.18 : 0;
     const ty = hovered ? -state.pointer.x * 0.28 : 0;
     meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, tx, 0.12);
     meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, ty * 0.3, 0.12);
+    
+    // Rotate icon group independently for visual interest
+    if (iconGroupRef.current && isAccessible) {
+      iconGroupRef.current.rotation.z = -meshRef.current.rotation.y * 0.5;
+    }
+    
     if (exploding && materialRef.current) {
       const mat = materialRef.current;
       mat.transparent = true;
@@ -199,13 +221,60 @@ const ModuleBox: React.FC<ModuleBoxProps> = ({
         <meshStandardMaterial
           ref={materialRef}
           color={isAccessible ? color : '#3a3a3a'}
-          metalness={0.4}
-          roughness={0.2}
+          metalness={0.5}
+          roughness={0.15}
           emissive={isAccessible ? color : '#000000'}
-          emissiveIntensity={hovered && isAccessible ? 0.25 : 0.08}
+          emissiveIntensity={hovered && isAccessible ? 0.35 : 0.12}
           opacity={1}
         />
       </mesh>
+
+      {/* Inner function icons in circular pattern */}
+      {isAccessible && (
+        <group ref={iconGroupRef}>
+          {icons.map((iconText, i) => (
+            <group key={i} position={[iconPositions[i].x, iconPositions[i].y, iconPositions[i].z]}>
+              <mesh>
+                <sphereGeometry args={[0.14, 16, 16]} />
+                <meshStandardMaterial
+                  color={hovered ? "#ffffff" : color}
+                  emissive={color}
+                  emissiveIntensity={hovered ? 0.9 : 0.5}
+                  metalness={0.6}
+                  roughness={0.2}
+                />
+              </mesh>
+              <Html center transform distanceFactor={8} position={[0, 0, 0.05]}>
+                <div style={{ 
+                  fontSize: '12px', 
+                  pointerEvents: 'none',
+                  textShadow: '0 1px 4px rgba(0,0,0,0.8)'
+                }}>
+                  {iconText}
+                </div>
+              </Html>
+            </group>
+          ))}
+        </group>
+      )}
+
+      {/* Glowing particles on hover */}
+      {hovered && isAccessible && (
+        <>
+          {[[-1.2, 1.2], [1.2, 1.2], [-1.2, -1.2], [1.2, -1.2]].map((pos, i) => (
+            <mesh key={i} position={[pos[0], pos[1], 0.25]}>
+              <sphereGeometry args={[0.08, 16, 16]} />
+              <meshStandardMaterial
+                color={color}
+                emissive={color}
+                emissiveIntensity={1.5}
+                toneMapped={false}
+              />
+            </mesh>
+          ))}
+        </>
+      )}
+
       <Explosion color={color} active={exploding} duration={0.85} onComplete={() => navigate(route)} />
       <Html center transform distanceFactor={distanceFactor} position={[0, 1.6, 0]}>
         <div style={labelStyle}>
@@ -261,10 +330,46 @@ export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing
         <pointLight position={[10, 10, 10]} intensity={0.9} />
         <pointLight position={[-8, -8, -6]} intensity={0.5} color="#4444ff" />
         <BackgroundStars />
-        <ModuleBox position={[-4.5, 0, 0]} color="#1e3a8a" label="Tabulador" description="Lead Management & Automation" route="/lead" icon="📞" isAccessible={canAccessTelemarketing} />
-        <ModuleBox position={[-1.5, 0, 0]} color="#4c1d95" label="Gestão Scouter" description="Scouting Management System" route="/scouter" icon="🎯" isAccessible={canAccessScouter} />
-        <ModuleBox position={[1.5, 0, 0]} color="#065f46" label="Agenciamento" description="Gestão de Negociações" route="/agenciamento" icon="🤝" isAccessible={true} />
-        <ModuleBox position={[4.5, 0, 0]} color="#b45309" label="Administrativo" description="Gestão do Sistema" route="/admin" icon="🏢" isAccessible={canAccessAdmin} />
+        <ModuleBox 
+          position={[-4.5, 0, 0]} 
+          color="#1e3a8a" 
+          label="Tabulador" 
+          description="Lead Management & Automation" 
+          route="/lead" 
+          icon="📞" 
+          isAccessible={canAccessTelemarketing}
+          icons={['📊', '📞', '✉️', '📈', '🔔', '⚡']}
+        />
+        <ModuleBox 
+          position={[-1.5, 0, 0]} 
+          color="#4c1d95" 
+          label="Gestão Scouter" 
+          description="Scouting Management System" 
+          route="/scouter" 
+          icon="🎯" 
+          isAccessible={canAccessScouter}
+          icons={['🗺️', '📍', '👥', '📋', '💰', '📊']}
+        />
+        <ModuleBox 
+          position={[1.5, 0, 0]} 
+          color="#065f46" 
+          label="Agenciamento" 
+          description="Gestão de Negociações" 
+          route="/agenciamento" 
+          icon="🤝" 
+          isAccessible={true}
+          icons={['💼', '💵', '📝', '📊', '✅', '🔄']}
+        />
+        <ModuleBox 
+          position={[4.5, 0, 0]} 
+          color="#b45309" 
+          label="Administrativo" 
+          description="Gestão do Sistema" 
+          route="/admin" 
+          icon="🏢" 
+          isAccessible={canAccessAdmin}
+          icons={['👤', '🔐', '⚙️', '📈', '🔧', '📊']}
+        />
         <OrbitControls enablePan={false} enableZoom={true} enableRotate={true} minDistance={6} maxDistance={12} />
       </Canvas>
     </div>
