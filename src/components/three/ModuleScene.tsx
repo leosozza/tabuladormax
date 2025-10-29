@@ -325,14 +325,16 @@ interface ModuleSceneProps {
 export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing, canAccessScouter, canAccessAdmin }) => {
   return (
     <div className="w-full h-screen">
-      <Canvas camera={{ position: [0, 0, 9], fov: 50 }} dpr={[1, 2]} shadows style={{ background: 'linear-gradient(to bottom, #0a0a1a, #1a1a2e)' }}>
-        <ambientLight intensity={0.6} />
-        <pointLight position={[10, 10, 10]} intensity={0.9} />
-        <pointLight position={[-8, -8, -6]} intensity={0.5} color="#4444ff" />
+      <Canvas camera={{ position: [0, 0, 14], fov: 60 }} dpr={[1, 2]} shadows style={{ background: 'linear-gradient(to bottom, #0a0a1a, #1a1a2e)' }}>
+        <ambientLight intensity={0.5} />
+        <pointLight position={[12, 12, 12]} intensity={1.2} castShadow />
+        <pointLight position={[-10, -8, -6]} intensity={0.6} color="#5555ff" />
+        <spotLight position={[0, 15, 0]} angle={0.5} intensity={0.4} penumbra={1} castShadow />
         <BackgroundStars />
+        
         <ModuleBox 
-          position={[-4.5, 0, 0]} 
-          color="#1e3a8a" 
+          position={[-7, 0, 0]} 
+          color="#2563eb" 
           label="Tabulador" 
           description="Lead Management & Automation" 
           route="/lead" 
@@ -341,8 +343,8 @@ export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing
           icons={['📊', '📞', '✉️', '📈', '🔔', '⚡']}
         />
         <ModuleBox 
-          position={[-1.5, 0, 0]} 
-          color="#4c1d95" 
+          position={[-2.3, 0, 0]} 
+          color="#7c3aed" 
           label="Gestão Scouter" 
           description="Scouting Management System" 
           route="/scouter" 
@@ -351,8 +353,8 @@ export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing
           icons={['🗺️', '📍', '👥', '📋', '💰', '📊']}
         />
         <ModuleBox 
-          position={[1.5, 0, 0]} 
-          color="#065f46" 
+          position={[2.3, 0, 0]} 
+          color="#059669" 
           label="Agenciamento" 
           description="Gestão de Negociações" 
           route="/agenciamento" 
@@ -361,8 +363,8 @@ export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing
           icons={['💼', '💵', '📝', '📊', '✅', '🔄']}
         />
         <ModuleBox 
-          position={[4.5, 0, 0]} 
-          color="#b45309" 
+          position={[7, 0, 0]} 
+          color="#ea580c" 
           label="Administrativo" 
           description="Gestão do Sistema" 
           route="/admin" 
@@ -370,7 +372,15 @@ export const ModuleScene: React.FC<ModuleSceneProps> = ({ canAccessTelemarketing
           isAccessible={canAccessAdmin}
           icons={['👤', '🔐', '⚙️', '📈', '🔧', '📊']}
         />
-        <OrbitControls enablePan={false} enableZoom={true} enableRotate={true} minDistance={6} maxDistance={12} />
+        <OrbitControls 
+          enablePan={false} 
+          enableZoom={true} 
+          enableRotate={true} 
+          minDistance={10} 
+          maxDistance={20}
+          maxPolarAngle={Math.PI / 2}
+          minPolarAngle={Math.PI / 2.5}
+        />
       </Canvas>
     </div>
   );
