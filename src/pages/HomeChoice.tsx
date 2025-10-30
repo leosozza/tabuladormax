@@ -1,90 +1,226 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import './home-choice.css';
 
-// Planet configuration with links to internal routes
-// These routes connect to the 3D solar system planet buttons
-// Each planet redirects to its corresponding module when clicked
 const LINKS = {
-  Telemarketing: '/telemarketing', // Points to LeadTab (Tabulador module)
-  Scouter: '/scouter',             // Points to GestaoHome (Gestão Scouter module)
-  Agendamento: '/agenciamento',    // Points to Agenciamento (Negotiations module)
-  Administrativo: '/admin'         // Points to AdminHub (Administrative module)
+  Telemarketing: '/telemarketing',
+  Scouter: '/scouter',
+  Agendamento: '/agenciamento',
+  Administrativo: '/admin'
 };
 
-interface Planet {
-  name: string;
+const SOL_R = 7.5;
+
+interface PlanetConfig {
+  label: string;
+  kind: string;
   color: number;
-  size: number;
-  distance: number;
+  radius: number;
   speed: number;
-  angle: number;
-  mesh?: THREE.Mesh;
-  label?: HTMLDivElement;
-  ringMesh?: THREE.Mesh;
+  tilt: number;
+  link: string;
 }
 
-// Animation constants
-const TEXT_ROTATION_SPEED = 0.0005;
-const TEXT_OFFSET_MAX = 1.0;
-const PARTICLE_COUNT = 5000; // Reduced for performance
+interface PlanetGroup extends THREE.Group {
+  userData: {
+    label: string;
+    link: string;
+    ring: THREE.Mesh;
+    title: THREE.Sprite;
+    radius: number;
+    speed: number;
+    tilt: number;
+    angle: number;
+    clouds?: THREE.Mesh | null;
+    spin: number;
+  };
+}
 
-// Procedural texture parameters (kept for planet generator even if simple)
-const PLANET_BASE_SCALE = 8.0;
-const PLANET_BASE_MULTIPLIER = 0.5;
-const PLANET_DETAIL_SCALE = 20.0;
-const PLANET_DETAIL_MULTIPLIER = 0.3;
-
-// Create canvas texture with text label (MAXFAMA)
-const makeSunLabelTexture = (text: string, width: number, height: number): THREE.CanvasTexture => {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d')!;
-
-  // Fiery radial gradient base
-  const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width / 2);
-  gradient.addColorStop(0, '#ffffff');
-  gradient.addColorStop(0.1, '#ffff00');
-  gradient.addColorStop(0.3, '#ffaa00');
-  gradient.addColorStop(0.5, '#ff6600');
-  gradient.addColorStop(0.7, '#ff3300');
-  gradient.addColorStop(1, '#880000');
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
-
-  // Add noisy particles for texture
-  for (let i = 0; i < PARTICLE_COUNT; i++) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    const radius = Math.random() * 3;
-    const opacity = Math.random() * 0.25;
-
-    ctx.fillStyle = `rgba(255, ${150 + Math.floor(Math.random() * 100)}, 0, ${opacity})`;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
+// Noise utilities
+function makeNoise2D(seed = 1337) {
+  let s = seed >>> 0;
+  const rand = () => (s = (s * 1664525 + 1013904223) >>> 0, s / 4294967296);
+  const grad = new Float32Array(256 * 2);
+  for (let i = 0; i < 256; i++) {
+    const a = rand() * Math.PI * 2;
+    grad[i * 2] = Math.cos(a);
+    grad[i * 2 + 1] = Math.sin(a);
   }
+  const perm = new Uint8Array(512);
+  for (let i = 0; i < 256; i++) perm[256 + i] = perm[i] = (rand() * 256) | 0;
+  
+  function dot(ix: number, iy: number, x: number, y: number) {
+    const g = (perm[(ix + perm[iy & 255]) & 255] << 1);
+    return grad[g] * (x - ix) + grad[g + 1] * (y - iy);
+  }
+  function fade(t: number) { return t * t * (3 - 2 * t); }
+  function noise(x: number, y: number) {
+    const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+    const u = fade(fx), v = fade(fy);
+    const n00 = dot(ix, iy, x, y), n10 = dot(ix + 1, iy, x, y);
+    const n01 = dot(ix, iy + 1, x, y), n11 = dot(ix + 1, iy + 1, x, y);
+    const nx0 = n00 + u * (n10 - n00), nx1 = n01 + u * (n11 - n01);
+    return nx0 + v * (nx1 - nx0);
+  }
+  return (x: number, y: number) => noise(x, y);
+}
 
-  // Draw text label in the middle with glow
-  ctx.font = `bold ${Math.floor(height / 8)}px Arial`;
+function fbm2(noise: (x: number, y: number) => number, x: number, y: number, oct = 5, gain = 0.5, lac = 2.0) {
+  let a = 1, f = 1, sum = 0, amp = 0;
+  for (let i = 0; i < oct; i++) {
+    sum += a * (noise(x * f, y * f) * 0.5 + 0.5);
+    amp += a;
+    a *= gain;
+    f *= lac;
+  }
+  return sum / amp;
+}
+
+// Sun label texture
+function makeSunLabelTexture(text = 'MAXFAMA') {
+  const S = 1024;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d')!;
+  ctx.clearRect(0, 0, S, S);
+  ctx.font = '900 260px Inter, Arial, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(255,255,255,0.85)';
-  ctx.shadowBlur = 20;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(text, width / 2, height / 2);
-  ctx.shadowBlur = 10;
-  ctx.fillText(text, width / 2, height / 2);
+  ctx.shadowColor = 'rgba(255,170,40,0.9)';
+  ctx.shadowBlur = 40;
+  ctx.fillStyle = 'rgba(255,200,80,0.0)';
+  ctx.fillText(text, S / 2, S / 2);
+  ctx.shadowBlur = 0;
+  const grad = ctx.createLinearGradient(0, 0, 0, S);
+  grad.addColorStop(0, '#ffd36a');
+  grad.addColorStop(1, '#ffb11a');
+  ctx.fillStyle = grad;
+  ctx.fillText(text, S / 2, S / 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
 
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.needsUpdate = true;
-  return texture;
-};
+// Planet textures
+function textureRock({ w = 512, h = 256, base = '#935f3b', vein = '#c98b5a', seed = 1 } = {}) {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d')!;
+  const n = makeNoise2D(seed);
+  const img = ctx.createImageData(w, h), d = img.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const u = x / w, v = y / h;
+    const e = fbm2(n, u * 6, v * 6, 5, 0.5, 2.1);
+    const t = e;
+    const r = (parseInt(base.slice(1, 3), 16) * (1 - t) + parseInt(vein.slice(1, 3), 16) * t) | 0;
+    const g = (parseInt(base.slice(3, 5), 16) * (1 - t) + parseInt(vein.slice(3, 5), 16) * t) | 0;
+    const b = (parseInt(base.slice(5, 7), 16) * (1 - t) + parseInt(vein.slice(5, 7), 16) * t) | 0;
+    const i = (y * w + x) * 4;
+    d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const map = new THREE.CanvasTexture(c);
+  map.wrapS = map.wrapT = THREE.RepeatWrapping;
+  const bump = map.clone();
+  bump.needsUpdate = true;
+  return { map, bump };
+}
+
+function textureGasGiant({ w = 512, h = 256, bands = ['#e1c8a7', '#d4b893', '#caa980', '#c19c73', '#b18b62'], seed = 2 } = {}) {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d')!;
+  const n = makeNoise2D(seed);
+  for (let y = 0; y < h; y++) {
+    const v = y / h, t = v * bands.length, idx = Math.min(bands.length - 1, Math.max(0, Math.floor(t)));
+    ctx.fillStyle = bands[idx];
+    ctx.fillRect(0, y, w, 1);
+  }
+  const img = ctx.getImageData(0, 0, w, h), d = img.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const warp = fbm2(n, x / w * 8, y / h * 1.2, 4, 0.55, 2.1) * 8;
+    const sx = Math.min(w - 1, Math.max(0, Math.floor(x + warp - 4)));
+    const i = (y * w + x) * 4, si = (y * w + sx) * 4;
+    d[i] = d[si]; d[i + 1] = d[si + 1]; d[i + 2] = d[si + 2];
+  }
+  ctx.putImageData(img, 0, 0);
+  const map = new THREE.CanvasTexture(c);
+  map.wrapS = THREE.RepeatWrapping;
+  return { map };
+}
+
+function textureEarthLike({ w = 512, h = 256, seed = 3 } = {}) {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d')!;
+  const n = makeNoise2D(seed);
+  const img = ctx.createImageData(w, h), d = img.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const u = x / w, v = y / h;
+    const e = fbm2(n, u * 3, v * 3, 5, 0.5, 2.0);
+    const m = fbm2(n, u * 8 + 2.3, v * 8 - 1.7, 3, 0.5, 2.2);
+    let R, G, B;
+    if (e < 0.45) {
+      const t = (e / 0.45);
+      R = 20 * (1 - t) + 20 * t; G = 60 * (1 - t) + 120 * t; B = 120 * (1 - t) + 200 * t;
+    } else {
+      const t = (e - 0.45) / 0.55;
+      if (t > 0.82) { R = 240; G = 240; B = 240; }
+      else {
+        const dry = [150, 115, 65], wet = [40, 120, 40];
+        R = dry[0] * (1 - m) + wet[0] * m; G = dry[1] * (1 - m) + wet[1] * m; B = dry[2] * (1 - m) + wet[2] * m;
+      }
+    }
+    const i = (y * w + x) * 4;
+    d[i] = R | 0; d[i + 1] = G | 0; d[i + 2] = B | 0; d[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const map = new THREE.CanvasTexture(c);
+  map.wrapS = THREE.RepeatWrapping;
+  const cc = document.createElement('canvas');
+  cc.width = w; cc.height = h;
+  const cx = cc.getContext('2d')!;
+  const img2 = cx.createImageData(w, h), d2 = img2.data;
+  const n2 = makeNoise2D(seed + 99);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const u = x / w, v = y / h;
+    const cl = fbm2(n2, u * 5, v * 5, 5, 0.55, 2.1);
+    const a = Math.pow(Math.max(0, cl - 0.55), 2.0) * 255;
+    const i = (y * w + x) * 4;
+    d2[i] = 255; d2[i + 1] = 255; d2[i + 2] = 255; d2[i + 3] = a | 0;
+  }
+  cx.putImageData(img2, 0, 0);
+  const clouds = new THREE.CanvasTexture(cc);
+  clouds.wrapS = THREE.RepeatWrapping;
+  const bump = map.clone();
+  bump.needsUpdate = true;
+  return { map, clouds, bump };
+}
+
+function labelSprite(text: string) {
+  const S = 512, c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d')!;
+  ctx.clearRect(0, 0, S, S);
+  ctx.font = '700 98px Inter, Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const grad = ctx.createLinearGradient(0, 0, S, 0);
+  grad.addColorStop(0, '#ff66cc');
+  grad.addColorStop(1, '#6aa7ff');
+  ctx.fillStyle = grad;
+  ctx.shadowColor = 'rgba(255,255,255,.25)';
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 2;
+  ctx.fillText(text, S / 2, S / 2);
+  const tex = new THREE.CanvasTexture(c);
+  return new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+}
 
 const HomeChoice: React.FC = () => {
   const navigate = useNavigate();
@@ -96,433 +232,348 @@ const HomeChoice: React.FC = () => {
     if (!containerRef.current) return;
     const container = containerRef.current;
 
-    // Scene, camera, renderer
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 15;
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 400);
+    camera.position.set(0, 1.6, 28);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
     container.appendChild(renderer.domElement);
 
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-    scene.add(ambientLight);
-    const pointLight = new THREE.PointLight(0xffffff, 1.5, 100);
-    pointLight.position.set(0, 0, 0);
-    scene.add(pointLight);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enablePan = false;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 12;
+    controls.maxDistance = 80;
+    controls.rotateSpeed = 0.5;
 
-    // Sun texture and geometry
-    const sunTexture = makeSunLabelTexture('MAXFAMA', 2048, 1024);
-    const sunGeometry = new THREE.SphereGeometry(2, 64, 64);
+    scene.add(new THREE.AmbientLight(0x4a8dff, 0.25));
+    const sunLight = new THREE.PointLight(0xffa200, 2.2, 300, 2.0);
+    scene.add(sunLight);
 
-    // Sun shader: FBM-like surface + rotating text label
-    // The shader below uses snoise-based FBM helper and domain warping to produce a fiery surface.
-    const sunUniforms: any = {
-      uTextMap: { value: sunTexture },
-      uTextOffset: { value: 0.0 },
-      uTextStrength: { value: 0.7 },
-      uTime: { value: 0.0 },
-      uEmissiveColor: { value: new THREE.Color(0xff6600) },
-      uEmissiveIntensity: { value: 0.8 }
-    };
-
-    const sunMaterial = new THREE.ShaderMaterial({
-      uniforms: sunUniforms,
-      vertexShader: `
-        varying vec2 vUv;
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        void main() {
-          vUv = uv;
-          vNormal = normalize(normalMatrix * normal);
-          vPosition = position;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        precision highp float;
-        uniform sampler2D uTextMap;
-        uniform float uTextOffset;
-        uniform float uTextStrength;
-        uniform float uTime;
-        uniform vec3 uEmissiveColor;
-        uniform float uEmissiveIntensity;
-
-        varying vec2 vUv;
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-
-        // Classic 3D simplex/snoise helpers (adapted)
-        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
-        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-
-        float snoise(vec3 v) {
-          const vec2 C = vec2(1.0/6.0, 1.0/3.0);
-          const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-          vec3 i  = floor(v + dot(v, C.yyy));
-          vec3 x0 = v - i + dot(i, C.xxx);
-          vec3 g = step(x0.yzx, x0.xyz);
-          vec3 l = 1.0 - g;
-          vec3 i1 = min(g.xyz, l.zxy);
-          vec3 i2 = max(g.xyz, l.zxy);
-          vec3 x1 = x0 - i1 + C.xxx;
-          vec3 x2 = x0 - i2 + C.yyy;
-          vec3 x3 = x0 - D.yyy;
-          i = mod289(i);
-          vec4 p = permute(permute(permute(
-                    i.z + vec4(0.0, i1.z, i2.z, 1.0))
-                  + i.y + vec4(0.0, i1.y, i2.y, 1.0))
-                  + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-          float n_ = 0.142857142857;
-          vec3 ns = n_ * D.wyz - D.xzx;
-          vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-          vec4 x_ = floor(j * ns.z);
-          vec4 y_ = floor(j - 7.0 * x_);
-          vec4 x = x_ * ns.x + ns.yyyy;
-          vec4 y = y_ * ns.x + ns.yyyy;
-          vec4 h = 1.0 - abs(x) - abs(y);
-          vec4 b0 = vec4(x.xy, y.xy);
-          vec4 b1 = vec4(x.zw, y.zw);
-          vec4 s0 = floor(b0)*2.0 + 1.0;
-          vec4 s1 = floor(b1)*2.0 + 1.0;
-          vec4 sh = -step(h, vec4(0.0));
-          vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
-          vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
-          vec3 p0 = vec3(a0.xy, h.x);
-          vec3 p1 = vec3(a0.zw, h.y);
-          vec3 p2 = vec3(a1.xy, h.z);
-          vec3 p3 = vec3(a1.zw, h.w);
-          vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
-          p0 *= norm.x;
-          p1 *= norm.y;
-          p2 *= norm.z;
-          p3 *= norm.w;
-          vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-          m = m * m;
-          return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-        }
-
-        // FBM using snoise
-        float fbm(vec3 p) {
-          float value = 0.0;
-          float amplitude = 0.5;
-          float frequency = 1.0;
-          // 4 octaves is a good balance
-          for (int i = 0; i < 4; i++) {
-            value += amplitude * snoise(p * frequency);
-            frequency *= 2.0;
-            amplitude *= 0.5;
-          }
-          return value;
-        }
-
-        // Domain warp to get more organic fiery shapes
-        vec3 domainWarp(vec3 p, float time) {
-          vec3 q = vec3(
-            fbm(p + vec3(0.0, 0.0, time * 0.12)),
-            fbm(p + vec3(5.2, 1.3, time * 0.12)),
-            fbm(p + vec3(3.1, 4.7, time * 0.12))
-          );
-          vec3 r = vec3(
-            fbm(p + 4.0 * q + vec3(1.7, 9.2, time * 0.18)),
-            fbm(p + 4.0 * q + vec3(8.3, 2.8, time * 0.18)),
-            fbm(p + 4.0 * q + vec3(4.5, 6.1, time * 0.18))
-          );
-          return p + r * 0.35;
-        }
-
-        void main() {
-          // Compute warped noise based on 3D position + time for animation
-          vec3 warped = domainWarp(vPosition * 1.8, uTime);
-          float n = fbm(warped);
-
-          // Sample the text map (repeat horizontally) for MAXFAMA "belt"
-          vec2 uv = vUv;
-          uv.x = fract(uv.x + uTextOffset);
-          vec4 textColor = texture2D(uTextMap, uv);
-
-          // Build fiery colors using noise
-          vec3 col1 = vec3(1.0, 0.9, 0.0);
-          vec3 col2 = vec3(1.0, 0.45, 0.0);
-          vec3 col3 = vec3(0.8, 0.12, 0.0);
-          float noiseValue = clamp(n * 0.5 + 0.5, 0.0, 1.0);
-          vec3 fire = mix(col3, col2, noiseValue);
-          fire = mix(fire, col1, pow(noiseValue, 2.0));
-
-          // Blend text (use text alpha and uTextStrength to control dominance)
-          vec3 blended = mix(fire, textColor.rgb, textColor.a * uTextStrength);
-
-          // Emissive + rim for depth
-          vec3 emissive = uEmissiveColor * uEmissiveIntensity * 0.3;
-          float fresnel = pow(1.0 - max(0.0, dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.0);
-          blended += fresnel * vec3(1.0, 0.55, 0.0) * 0.28;
-          blended += emissive;
-
-          // Slight intensity modulation by surface normal
-          float intensity = dot(normalize(vNormal), vec3(0.0, 0.0, 1.0));
-          blended *= 0.7 + 0.3 * intensity;
-
-          gl_FragColor = vec4(blended, 1.0);
-        }
-      `
+    // 3D Stars
+    const starsGeo = new THREE.BufferGeometry();
+    const N = 1600;
+    const pos = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      const r = 160 * Math.cbrt(Math.random());
+      const th = Math.random() * Math.PI * 2;
+      const ph = Math.acos(2 * Math.random() - 1);
+      pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+      pos[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
+      pos[i * 3 + 2] = r * Math.cos(ph);
+    }
+    starsGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const starsMat = new THREE.PointsMaterial({
+      size: 0.12,
+      color: 0x9bb7ff,
+      transparent: true,
+      opacity: 0.35,
+      depthWrite: false
     });
+    scene.add(new THREE.Points(starsGeo, starsMat));
 
-    sunMaterial.needsUpdate = true;
-    const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    // Sun
+    const sun = new THREE.Group();
     scene.add(sun);
 
-    // Corona/glow
-    const coronaGeometry = new THREE.SphereGeometry(2.5, 64, 64);
-    const coronaMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        c: { value: 0.3 },
-        p: { value: 4.5 },
-        glowColor: { value: new THREE.Color(0xff6600) }
-      },
-      vertexShader: `
-        varying vec3 vNormal;
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 glowColor;
-        uniform float c;
-        uniform float p;
-        varying vec3 vNormal;
-        void main() {
-          float intensity = pow(c - dot(vNormal, vec3(0.0, 0.0, 1.0)), p);
-          gl_FragColor = vec4(glowColor, intensity);
-        }
-      `,
-      side: THREE.BackSide,
-      blending: THREE.AdditiveBlending,
-      transparent: true
-    });
-    const corona = new THREE.Mesh(coronaGeometry, coronaMaterial);
-    scene.add(corona);
+    const sunUniforms = {
+      uTime: { value: 0 },
+      uNoiseScale: { value: 2.2 },
+      uWarp: { value: 0.35 },
+      uRimPower: { value: 2.2 },
+      uEmissiveBoost: { value: 0.85 },
+      uColCore: { value: new THREE.Color(0xfff0b0) },
+      uColMid: { value: new THREE.Color(0xffa942) },
+      uColEdge: { value: new THREE.Color(0xde3a05) },
+      uLabelMap: { value: makeSunLabelTexture('MAXFAMA') },
+      uLabelStrength: { value: 1.25 },
+      uLabelAngle: { value: 0.0 }
+    };
 
-    // Planet procedural texture generator (simple DataTexture)
-    const createPlanetTexture = (baseColor: THREE.Color, seed: number): THREE.DataTexture => {
-      const size = 512;
-      const data = new Uint8Array(size * size * 4);
+    const sunVertex = `
+      varying vec3 vNormalW;
+      varying vec3 vPosW;
+      void main(){
+        vec4 wp = modelMatrix * vec4(position,1.0);
+        vPosW = wp.xyz;
+        vNormalW = normalize((modelMatrix * vec4(normal,0.0)).xyz);
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `;
 
-      for (let y = 0; y < size; y++) {
-        for (let x = 0; x < size; x++) {
-          const u = x / size;
-          const v = y / size;
+    const sunFragment = `
+      precision highp float;
+      uniform float uTime;
+      uniform float uNoiseScale;
+      uniform float uWarp;
+      uniform float uRimPower;
+      uniform float uEmissiveBoost;
+      uniform vec3 uColCore, uColMid, uColEdge;
+      uniform sampler2D uLabelMap;
+      uniform float uLabelStrength;
+      uniform float uLabelAngle;
+      varying vec3 vNormalW;
+      varying vec3 vPosW;
 
-          // Two-layer sin/cos noise to create bands/patches (cheap)
-          const n1 = Math.sin(u * 10 + seed) * Math.cos(v * 10 + seed);
-          const n2 = Math.sin(u * 20 + seed * 1.7) * Math.cos(v * 20 + seed * 1.7);
-          let noise = (n1 + 0.5 * n2) * 0.5 + 0.5;
-          noise = Math.min(Math.max(noise, 0), 1);
-
-          const idx = (x + y * size) * 4;
-          data[idx] = Math.floor(baseColor.r * 255 * (0.7 + noise * 0.3));
-          data[idx + 1] = Math.floor(baseColor.g * 255 * (0.7 + noise * 0.3));
-          data[idx + 2] = Math.floor(baseColor.b * 255 * (0.7 + noise * 0.3));
-          data[idx + 3] = 255;
-        }
+      vec3 hash3(vec3 p){
+        p = vec3(dot(p,vec3(127.1,311.7,74.7)),
+                 dot(p,vec3(269.5,183.3,246.1)),
+                 dot(p,vec3(113.5,271.9,124.6)));
+        return -1. + 2.*fract(sin(p)*43758.5453);
+      }
+      float noise(vec3 p){
+        vec3 i=floor(p), f=fract(p);
+        vec3 u=f*f*(3.-2.*f);
+        float n000=dot(hash3(i+vec3(0,0,0)),f-vec3(0,0,0));
+        float n100=dot(hash3(i+vec3(1,0,0)),f-vec3(1,0,0));
+        float n010=dot(hash3(i+vec3(0,1,0)),f-vec3(0,1,0));
+        float n110=dot(hash3(i+vec3(1,1,0)),f-vec3(1,1,0));
+        float n001=dot(hash3(i+vec3(0,0,1)),f-vec3(0,0,1));
+        float n101=dot(hash3(i+vec3(1,0,1)),f-vec3(1,0,1));
+        float n011=dot(hash3(i+vec3(0,1,1)),f-vec3(0,1,1));
+        float n111=dot(hash3(i+vec3(1,1,1)),f-vec3(1,1,1));
+        return mix(mix(mix(n000,n100,u.x), mix(n010,n110,u.x), u.y),
+                   mix(mix(n001,n101,u.x), mix(n011,n111,u.x), u.y), u.z);
+      }
+      float fbm(vec3 p){
+        float a=0.5, f=0.0;
+        for(int i=0;i<6;i++){ f+=a*noise(p); p*=2.0; a*=0.5; }
+        return f;
       }
 
-      const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
-      tex.needsUpdate = true;
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      return tex;
-    };
+      vec2 dirToEquirect(vec3 d){
+        d = normalize(d);
+        float lon = atan(d.z, d.x);
+        float lat = asin(clamp(d.y, -1.0, 1.0));
+        lon += uLabelAngle;
+        float u = (lon / (2.0*3.14159265)) + 0.5;
+        float v = (lat / 3.14159265) + 0.5;
+        return vec2(u, v);
+      }
 
-    const createPlanet = (planet: Planet): THREE.Mesh => {
-      const geometry = new THREE.SphereGeometry(planet.size, 32, 32);
-      const baseColor = new THREE.Color(planet.color);
-      const texture = createPlanetTexture(baseColor, planet.angle + Math.random() * 10);
+      void main(){
+        vec3 n = normalize(vNormalW);
+        vec3 p = normalize(vPosW) * uNoiseScale;
+        vec3 w = vec3(
+          fbm(p + vec3( 0.0, uTime*0.35, 1.2)),
+          fbm(p + vec3( 1.7, uTime*0.28, -0.6)),
+          fbm(p + vec3(-1.3, uTime*0.22, 0.0))
+        );
+        vec3 pw = p + uWarp * w;
+        float base  = fbm(pw*1.7);
+        float cells = fbm(pw*3.4 - w*0.8);
+        float f = clamp(base*0.75 + cells*0.55, 0.0, 1.0);
+        f = smoothstep(0.25, 0.95, f);
+        vec3 col = mix(uColMid, uColEdge, f);
+        col = mix(uColCore, col, smoothstep(0.15, 0.85, f));
+        float viewZ = abs(n.z);
+        float rim   = pow(1.0 - viewZ, uRimPower);
+        float dark  = 1.0 - rim*0.35;
+        col *= dark;
+        col += vec3(1.0,0.55,0.15) * rim * 0.50;
+        vec2 uv = dirToEquirect(normalize(vPosW));
+        vec4 lbl = texture2D(uLabelMap, uv);
+        float a = lbl.a;
+        vec3 labelColor = vec3(1.0, 0.82, 0.25);
+        col = mix(col, col + labelColor * uLabelStrength, a);
+        float emissive = 0.7 + 0.6*f;
+        gl_FragColor = vec4(col * emissive * uEmissiveBoost, 1.0);
+      }
+    `;
 
-      const material = new THREE.MeshStandardMaterial({
-        map: texture,
-        color: planet.color,
-        metalness: 0.3,
-        roughness: 0.7,
-        emissive: new THREE.Color(0x000000),
-        emissiveIntensity: 0.0
-      });
-
-      return new THREE.Mesh(geometry, material);
-    };
-
-    // Planet list
-    const planets: Planet[] = [
-      { name: 'Telemarketing', color: 0x3b82f6, size: 0.6, distance: 6, speed: 0.5, angle: 0 },
-      { name: 'Scouter', color: 0x8b5cf6, size: 0.6, distance: 8, speed: 0.38, angle: Math.PI / 2 },
-      { name: 'Agendamento', color: 0x10b981, size: 0.6, distance: 10, speed: 0.3, angle: Math.PI },
-      { name: 'Administrativo', color: 0xef4444, size: 0.6, distance: 12, speed: 0.22, angle: (3 * Math.PI) / 2 }
-    ];
-
-    // Create planets, rings and labels
-    planets.forEach((planet) => {
-      const mesh = createPlanet(planet);
-      mesh.castShadow = false;
-      mesh.receiveShadow = false;
-      scene.add(mesh);
-      planet.mesh = mesh;
-
-      // Hover ring
-      const ringGeometry = new THREE.RingGeometry(planet.size * 1.2, planet.size * 1.5, 32);
-      const ringMaterial = new THREE.MeshBasicMaterial({
-        color: planet.color,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0
-      });
-      const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-      scene.add(ring);
-      planet.ringMesh = ring;
-
-      // Label (HTML element)
-      const label = document.createElement('div');
-      label.className = 'planet-label';
-      label.textContent = planet.name;
-      label.style.position = 'absolute';
-      label.style.pointerEvents = 'none';
-      label.style.transform = 'translate(-50%, -50%)';
-      container.appendChild(label);
-      planet.label = label;
+    const sunMat = new THREE.ShaderMaterial({
+      vertexShader: sunVertex,
+      fragmentShader: sunFragment,
+      uniforms: sunUniforms
     });
+    const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(SOL_R, 160, 160), sunMat);
+    sun.add(sunMesh);
 
-    // Raycaster for hover detection
+    const sunGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(SOL_R * 1.20, 96, 96),
+      new THREE.MeshBasicMaterial({
+        color: 0xff8c3a,
+        transparent: true,
+        opacity: 0.32,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      })
+    );
+    sun.add(sunGlow);
+    sunLight.position.copy(sun.position);
+
+    // Planet factory
+    function makePlanetReal(config: PlanetConfig, i: number): PlanetGroup {
+      const group = new THREE.Group() as PlanetGroup;
+      let sphere: THREE.Mesh;
+      let cloudsMesh: THREE.Mesh | null = null;
+
+      if (config.kind === 'earth') {
+        const tx = textureEarthLike({});
+        sphere = new THREE.Mesh(new THREE.SphereGeometry(1.2, 64, 64), new THREE.MeshStandardMaterial({ map: tx.map, bumpMap: tx.bump, bumpScale: 0.08, metalness: 0.0, roughness: 0.95 }));
+        group.add(sphere);
+        cloudsMesh = new THREE.Mesh(new THREE.SphereGeometry(1.205, 64, 64), new THREE.MeshStandardMaterial({ map: tx.clouds, transparent: true, opacity: 0.9, depthWrite: false }));
+        group.add(cloudsMesh);
+        group.add(new THREE.Mesh(new THREE.SphereGeometry(1.25, 64, 64), new THREE.MeshBasicMaterial({ color: 0x6aa7ff, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false })));
+      } else if (config.kind === 'mars') {
+        const tx = textureRock({ base: '#7b3f24', vein: '#c57d56', seed: 5 });
+        sphere = new THREE.Mesh(new THREE.SphereGeometry(1.15, 64, 64), new THREE.MeshStandardMaterial({ map: tx.map, bumpMap: tx.bump, bumpScale: 0.12, roughness: 0.95, metalness: 0.0 }));
+        group.add(sphere);
+      } else if (config.kind === 'saturn') {
+        const tx = textureGasGiant({});
+        sphere = new THREE.Mesh(new THREE.SphereGeometry(1.35, 64, 64), new THREE.MeshStandardMaterial({ map: tx.map, roughness: 0.8, metalness: 0.0 }));
+        group.add(sphere);
+        const ringGeo = new THREE.RingGeometry(2.2, 3.2, 128);
+        const rc = document.createElement('canvas'); rc.width = 1024; rc.height = 1024;
+        const rctx = rc.getContext('2d')!; const grd = rctx.createRadialGradient(512, 512, 350, 512, 512, 512);
+        grd.addColorStop(0.0, 'rgba(255,255,255,0.0)'); grd.addColorStop(0.35, 'rgba(255,255,255,0.6)');
+        grd.addColorStop(0.65, 'rgba(255,255,255,0.15)'); grd.addColorStop(1.0, 'rgba(255,255,255,0.0)');
+        rctx.fillStyle = grd; rctx.fillRect(0, 0, 1024, 1024);
+        const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(rc), transparent: true, side: THREE.DoubleSide, opacity: 0.9 }));
+        ringMesh.rotation.x = Math.PI / 2; group.add(ringMesh);
+      } else {
+        const tx = textureGasGiant({ bands: ['#76a7ff', '#5f97ff', '#4c85ee', '#3b73d8', '#315fc1'], seed: 7 });
+        sphere = new THREE.Mesh(new THREE.SphereGeometry(1.25, 64, 64), new THREE.MeshStandardMaterial({ map: tx.map, roughness: 0.9, metalness: 0.0 }));
+        group.add(sphere);
+      }
+
+      const ringHover = new THREE.Mesh(new THREE.RingGeometry(1.55, 1.75, 48), new THREE.MeshBasicMaterial({ color: config.color || 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+      ringHover.rotation.x = Math.PI / 2; group.add(ringHover);
+      const title = labelSprite(config.label); title.position.set(0, -2.1, 0); group.add(title);
+      const orbit = new THREE.Mesh(new THREE.RingGeometry(config.radius - 0.03, config.radius + 0.03, 200), new THREE.MeshBasicMaterial({ color: 0x6aa7ff, transparent: true, opacity: 0.12, side: THREE.DoubleSide }));
+      orbit.rotation.x = Math.PI / 2 + config.tilt; scene.add(orbit);
+      group.userData = { label: config.label, link: config.link, ring: ringHover, title, radius: config.radius, speed: config.speed, tilt: config.tilt, angle: i * Math.PI / 2, clouds: cloudsMesh, spin: (Math.random() * 0.6 + 0.2) * (Math.random() < 0.5 ? -1 : 1) };
+      scene.add(group);
+      return group;
+    }
+
+    const planets = [
+      { label: 'Telemarketing', kind: 'earth', color: 0x6aa7ff, radius: SOL_R + 8, speed: 0.18, tilt: 0.12, link: LINKS.Telemarketing },
+      { label: 'Scouter', kind: 'mars', color: 0xff66cc, radius: SOL_R + 11, speed: 0.15, tilt: -0.22, link: LINKS.Scouter },
+      { label: 'Agendamento', kind: 'saturn', color: 0xbf85ff, radius: SOL_R + 14, speed: 0.12, tilt: 0.30, link: LINKS.Agendamento },
+      { label: 'Administrativo', kind: 'neptune', color: 0x8fb6ff, radius: SOL_R + 17, speed: 0.10, tilt: -0.36, link: LINKS.Administrativo }
+    ].map(makePlanetReal);
+
+    // Hover & click
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
-    let hoveredPlanet: Planet | null = null;
+    let hovered: PlanetGroup | null = null;
+    let pressed: PlanetGroup | null = null;
 
-    const onMouseMove = (event: MouseEvent) => {
-      if (animatingRef.current) return;
+    function screenPos(obj: THREE.Object3D) {
+      const v = obj.getWorldPosition(new THREE.Vector3()).clone().project(camera);
+      return { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight };
+    }
 
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    function setHover(p: PlanetGroup, over: boolean) {
+      (p.userData.ring.material as THREE.MeshBasicMaterial).opacity = over ? 0.9 : 0;
+      (p.userData.title.material as THREE.SpriteMaterial).opacity = over ? 1 : 0.9;
+      renderer.domElement.style.cursor = over ? 'pointer' : 'grab';
+      if (tooltipRef.current) {
+        tooltipRef.current.style.display = over ? 'block' : 'none';
+        if (over) {
+          const s = screenPos(p);
+          tooltipRef.current.textContent = p.userData.label;
+          tooltipRef.current.style.left = s.x + 'px';
+          tooltipRef.current.style.top = s.y + 'px';
+        }
+      }
+    }
 
+    function pick(e: MouseEvent) {
+      const r = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+      mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(planets.map((p) => p.mesh!).filter(Boolean));
+      const hits = raycaster.intersectObjects(
+        planets.map((p) => p.children[0]),
+        false
+      );
+      return hits[0] ? (hits[0].object.parent as PlanetGroup) : null;
+    }
 
-      // Reset rings
-      planets.forEach((p) => {
-        if (p.ringMesh) {
-          (p.ringMesh.material as THREE.MeshBasicMaterial).opacity = 0;
-        }
-      });
-
-      if (intersects.length > 0) {
-        const found = planets.find((p) => p.mesh === intersects[0].object);
-        if (found) {
-          hoveredPlanet = found;
-          if (found.ringMesh) {
-            (found.ringMesh.material as THREE.MeshBasicMaterial).opacity = 0.6;
-          }
-          if (tooltipRef.current) {
-            tooltipRef.current.textContent = found.name;
-            tooltipRef.current.style.display = 'block';
-            tooltipRef.current.style.left = event.clientX + 12 + 'px';
-            tooltipRef.current.style.top = event.clientY + 12 + 'px';
-          }
-          document.body.style.cursor = 'pointer';
-        }
-      } else {
-        hoveredPlanet = null;
-        if (tooltipRef.current) tooltipRef.current.style.display = 'none';
-        document.body.style.cursor = 'default';
+    const onMouseMove = (e: MouseEvent) => {
+      const h = pick(e);
+      if (h !== hovered) {
+        if (hovered) setHover(hovered, false);
+        if (h) setHover(h, true);
+        hovered = h;
+      }
+      if (hovered && tooltipRef.current) {
+        const s = screenPos(hovered);
+        tooltipRef.current.style.left = s.x + 'px';
+        tooltipRef.current.style.top = s.y + 'px';
       }
     };
 
-    const onClick = () => {
-      if (animatingRef.current || !hoveredPlanet) return;
+    renderer.domElement.addEventListener('pointerdown', () => {
+      pressed = hovered;
+      renderer.domElement.style.cursor = 'grabbing';
+    });
 
-      const planet = hoveredPlanet;
-      // Get the route link from LINKS configuration
-      // This connects the clicked planet to its corresponding internal route
-      const link = LINKS[planet.name as keyof typeof LINKS];
-      if (!link) return;
-
-      animatingRef.current = true;
-      document.body.style.cursor = 'default';
-      if (tooltipRef.current) tooltipRef.current.style.display = 'none';
-
-      // Fly in animation: move camera towards planet
-      const startPos = camera.position.clone();
-      const targetPos = planet.mesh!.position.clone().normalize().multiplyScalar(3.0);
-      const duration = 1500;
-      const startTime = performance.now();
-
-      const animateCamera = (t: number) => {
-        const elapsed = t - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-
-        camera.position.lerpVectors(startPos, targetPos, eased);
-        camera.lookAt(planet.mesh!.position);
-
-        if (progress < 1) {
-          requestAnimationFrame(animateCamera);
-        } else {
-          // Navigate to the linked route using React Router (SPA navigation)
-          // This avoids full page reload and maintains app state
-          navigate(link);
-        }
-      };
-
-      requestAnimationFrame(animateCamera);
-    };
+    function flyToPlanet(planet: PlanetGroup, url: string, duration = 1300) {
+      const camStart = camera.position.clone();
+      const target = planet.getWorldPosition(new THREE.Vector3());
+      const dir = target.clone().sub(sun.position).normalize();
+      const camEnd = target.clone().add(dir.multiplyScalar(2.2));
+      const fovStart = camera.fov,
+        fovEnd = 36;
+      const t0 = performance.now();
+      (function anim() {
+        const k = Math.min(1, (performance.now() - t0) / duration);
+        const ease = k < 0.5 ? 2 * k * k : -1 + (4 - 2 * k) * k;
+        camera.position.lerpVectors(camStart, camEnd, ease);
+        camera.fov = fovStart + (fovEnd - fovStart) * ease;
+        camera.updateProjectionMatrix();
+        camera.lookAt(target);
+        if (k < 1) requestAnimationFrame(anim);
+        else navigate(url || '#');
+      })();
+    }
 
     window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('click', onClick);
+    window.addEventListener('pointerup', () => {
+      renderer.domElement.style.cursor = 'grab';
+      if (pressed && hovered && hovered === pressed) flyToPlanet(hovered, hovered.userData.link);
+      pressed = null;
+    });
 
     // Animation loop
+    const clock = new THREE.Clock();
     let animationId = 0;
-    const animate = () => {
-      animationId = requestAnimationFrame(animate);
+    function tick() {
+      animationId = requestAnimationFrame(tick);
+      const dt = clock.getDelta();
+      
+      sunUniforms.uTime.value += dt;
+      (sunGlow.material as THREE.MeshBasicMaterial).opacity = 0.18 + Math.sin(performance.now() * 0.001) * 0.05;
 
-      // Rotate sun and update its uniforms for animation
-      sun.rotation.y += 0.0012;
-      sunUniforms.uTextOffset.value += TEXT_ROTATION_SPEED;
-      if (sunUniforms.uTextOffset.value > TEXT_OFFSET_MAX) sunUniforms.uTextOffset.value = 0.0;
-      sunUniforms.uTime.value += 0.01;
-
-      // Update planets: orbit + rotation + labels + rings
-      planets.forEach((planet) => {
-        planet.angle += planet.speed * 0.01;
-        const x = Math.cos(planet.angle) * planet.distance;
-        const z = Math.sin(planet.angle) * planet.distance;
-
-        if (planet.mesh) {
-          planet.mesh.position.set(x, 0, z);
-          planet.mesh.rotation.y += 0.02;
-        }
-
-        if (planet.ringMesh) {
-          planet.ringMesh.position.set(x, 0, z);
-          planet.ringMesh.lookAt(camera.position);
-        }
-
-        // Update label position in screen space
-        if (planet.label && planet.mesh) {
-          const vector = planet.mesh.position.clone();
-          vector.project(camera);
-
-          const screenX = (vector.x * 0.5 + 0.5) * window.innerWidth;
-          const screenY = (-(vector.y * 0.5) + 0.5) * window.innerHeight;
-
-          planet.label.style.left = `${screenX}px`;
-          planet.label.style.top = `${screenY + 50}px`;
-        }
+      planets.forEach((p) => {
+        p.userData.angle += dt * p.userData.speed;
+        const a = p.userData.angle,
+          r = p.userData.radius,
+          tilt = p.userData.tilt;
+        const x = r * Math.cos(a),
+          z = r * Math.sin(a),
+          y = r * Math.sin(a) * Math.sin(tilt);
+        p.position.set(x, y, z);
+        p.rotation.y += p.userData.spin * dt;
+        if (p.userData.clouds) p.userData.clouds.rotation.y += 0.03 * dt;
+        const below = new THREE.Vector3(0, -2.1, 0).applyQuaternion(p.quaternion);
+        p.userData.title.position.copy(below);
+        p.userData.title.lookAt(camera.position);
       });
 
+      controls.update();
       renderer.render(scene, camera);
-    };
-
-    animate();
+    }
+    tick();
 
     // Resize handling
     const onResize = () => {
@@ -535,34 +586,27 @@ const HomeChoice: React.FC = () => {
     // Cleanup
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('click', onClick);
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(animationId);
 
-      // Dispose resources: geometries, textures, materials, dom labels
-      planets.forEach((planet) => {
-        if (planet.label) {
-          planet.label.remove();
-        }
-        if (planet.mesh) {
-          if ((planet.mesh.material as any).map) {
-            ((planet.mesh.material as any).map as THREE.Texture).dispose();
+      planets.forEach((p) => {
+        p.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.geometry.dispose();
+            if (Array.isArray(child.material)) {
+              child.material.forEach((mat) => mat.dispose());
+            } else {
+              child.material.dispose();
+            }
           }
-          planet.mesh.geometry.dispose();
-          (planet.mesh.material as THREE.Material).dispose();
-        }
-        if (planet.ringMesh) {
-          planet.ringMesh.geometry.dispose();
-          (planet.ringMesh.material as THREE.Material).dispose();
-        }
+        });
       });
 
-      // Dispose sun and corona
-      sunTexture.dispose();
-      sunGeometry.dispose();
-      sunMaterial.dispose();
-      coronaGeometry.dispose();
-      coronaMaterial.dispose();
+      starsGeo.dispose();
+      starsMat.dispose();
+      sunMat.dispose();
+      (sunGlow.material as THREE.Material).dispose();
+      controls.dispose();
 
       if (container && renderer.domElement.parentElement === container) {
         container.removeChild(renderer.domElement);
