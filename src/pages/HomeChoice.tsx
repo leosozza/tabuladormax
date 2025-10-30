@@ -7,7 +7,7 @@ import './home-choice.css';
 const LINKS = {
   Telemarketing: '/telemarketing',
   Scouter: '/scouter',
-  Agendamento: '/agenciamento',
+  Agenciamento: '/agenciamento',
   Administrativo: '/admin'
 };
 
