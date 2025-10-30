@@ -126,7 +126,7 @@ const Comet: React.FC = () => {
     const pointerToWorld = (clientX: number, clientY: number) => {
       const x = (clientX / size.width) * 2 - 1;
       const y = -(clientY / size.height) * 2 + 1;
-      raycaster.setFromCamera({ x, y }, camera);
+      raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
       const intersection = new THREE.Vector3();
       raycaster.ray.intersectPlane(worldPlane, intersection);
       return intersection;

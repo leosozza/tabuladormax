@@ -85,7 +85,7 @@ function makeSunLabelTexture(text = 'MAXFAMA') {
   c.width = c.height = S;
   const ctx = c.getContext('2d')!;
   ctx.clearRect(0, 0, S, S);
-  ctx.font = '900 260px Inter, Arial, sans-serif';
+  ctx.font = '900 140px Inter, Arial, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.shadowColor = 'rgba(255,170,40,0.9)';
