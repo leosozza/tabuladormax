@@ -78,30 +78,7 @@ function fbm2(noise: (x: number, y: number) => number, x: number, y: number, oct
   return sum / amp;
 }
 
-// Sun label texture
-function makeSunLabelTexture(text = 'MAXFAMA') {
-  const S = 1024;
-  const c = document.createElement('canvas');
-  c.width = c.height = S;
-  const ctx = c.getContext('2d')!;
-  ctx.clearRect(0, 0, S, S);
-  ctx.font = '900 140px Inter, Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(255,170,40,0.9)';
-  ctx.shadowBlur = 40;
-  ctx.fillStyle = 'rgba(255,200,80,0.0)';
-  ctx.fillText(text, S / 2, S / 2);
-  ctx.shadowBlur = 0;
-  const grad = ctx.createLinearGradient(0, 0, 0, S);
-  grad.addColorStop(0, '#ffd36a');
-  grad.addColorStop(1, '#ffb11a');
-  ctx.fillStyle = grad;
-  ctx.fillText(text, S / 2, S / 2);
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
-}
+// Sun label removed - now using sprite above
 
 // Planet textures
 function textureRock({ w = 512, h = 256, base = '#935f3b', vein = '#c98b5a', seed = 1 } = {}) {
@@ -290,10 +267,7 @@ const HomeChoice: React.FC = () => {
       uEmissiveBoost: { value: 0.85 },
       uColCore: { value: new THREE.Color(0xfff0b0) },
       uColMid: { value: new THREE.Color(0xffa942) },
-      uColEdge: { value: new THREE.Color(0xde3a05) },
-      uLabelMap: { value: makeSunLabelTexture('MAXFAMA') },
-      uLabelStrength: { value: 1.25 },
-      uLabelAngle: { value: 0.0 }
+      uColEdge: { value: new THREE.Color(0xde3a05) }
     };
 
     const sunVertex = `
@@ -315,9 +289,7 @@ const HomeChoice: React.FC = () => {
       uniform float uRimPower;
       uniform float uEmissiveBoost;
       uniform vec3 uColCore, uColMid, uColEdge;
-      uniform sampler2D uLabelMap;
-      uniform float uLabelStrength;
-      uniform float uLabelAngle;
+  // Label uniforms removed
       varying vec3 vNormalW;
       varying vec3 vPosW;
 
@@ -347,15 +319,7 @@ const HomeChoice: React.FC = () => {
         return f;
       }
 
-      vec2 dirToEquirect(vec3 d){
-        d = normalize(d);
-        float lon = atan(d.z, d.x);
-        float lat = asin(clamp(d.y, -1.0, 1.0));
-        lon += uLabelAngle;
-        float u = (lon / (2.0*3.14159265)) + 0.5;
-        float v = (lat / 3.14159265) + 0.5;
-        return vec2(u, v);
-      }
+  // dirToEquirect removed
 
       void main(){
         vec3 n = normalize(vNormalW);
@@ -377,11 +341,6 @@ const HomeChoice: React.FC = () => {
         float dark  = 1.0 - rim*0.35;
         col *= dark;
         col += vec3(1.0,0.55,0.15) * rim * 0.50;
-        vec2 uv = dirToEquirect(normalize(vPosW));
-        vec4 lbl = texture2D(uLabelMap, uv);
-        float a = lbl.a;
-        vec3 labelColor = vec3(1.0, 0.82, 0.25);
-        col = mix(col, col + labelColor * uLabelStrength, a);
         float emissive = 0.7 + 0.6*f;
         gl_FragColor = vec4(col * emissive * uEmissiveBoost, 1.0);
       }
@@ -405,8 +364,13 @@ const HomeChoice: React.FC = () => {
         depthWrite: false
       })
     );
-    sun.add(sunGlow);
-    sunLight.position.copy(sun.position);
+sun.add(sunGlow);
+sunLight.position.copy(sun.position);
+
+// Add MAXFAMA label above the sun
+const sunLabel = labelSprite('MAXFAMA');
+sunLabel.position.set(0, SOL_R + 1.8, 0);
+sun.add(sunLabel);
 
     // Planet factory
     function makePlanetReal(config: PlanetConfig, i: number): PlanetGroup {
