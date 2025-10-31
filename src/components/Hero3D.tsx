@@ -236,15 +236,10 @@ const Hero3D: React.FC = () => {
       }
     };
 
-    // Click handling with camera fly-in
-    const onClick = () => {
-      if (!hoveredCard || animatingRef.current) return;
-
+    // Shared camera fly-in animation function
+    const flyToCard = (targetPos: THREE.Vector3, targetRoute: string) => {
       animatingRef.current = true;
-      const targetRoute = hoveredCard.config.route;
-      const targetPos = hoveredCard.css3dObject.position.clone();
-
-      // Calculate camera target position (close to card)
+      
       const direction = targetPos.clone().normalize();
       const cameraTarget = targetPos.clone().add(direction.multiplyScalar(-200));
 
@@ -278,53 +273,29 @@ const Hero3D: React.FC = () => {
       animate();
     };
 
+    // Click handling with camera fly-in
+    const onClick = () => {
+      if (!hoveredCard || animatingRef.current) return;
+      flyToCard(hoveredCard.css3dObject.position.clone(), hoveredCard.config.route);
+    };
+
     window.addEventListener('mousemove', onMouseMove);
     css3dRenderer.domElement.addEventListener('click', onClick);
 
-    // Handle CTA button clicks
-    cardElements.forEach(({ element, config }) => {
+    // Handle CTA button clicks - use Map for O(1) lookup
+    const cardMap = new Map(cardElements.map(card => [card.element, card]));
+    
+    cardElements.forEach(({ element }) => {
       const cta = element.querySelector('.hero3d-card-cta') as HTMLButtonElement;
       if (cta) {
         cta.addEventListener('click', (e) => {
           e.stopPropagation();
           if (animatingRef.current) return;
 
-          animatingRef.current = true;
-          const targetRoute = config.route;
-          const cardPos = cardElements.find(c => c.config === config)?.css3dObject.position.clone();
+          const card = cardMap.get(element);
+          if (!card) return;
 
-          if (!cardPos) return;
-
-          const direction = cardPos.clone().normalize();
-          const cameraTarget = cardPos.clone().add(direction.multiplyScalar(-200));
-
-          const startPos = camera.position.clone();
-          const startFov = camera.fov;
-          const targetFov = 40;
-          const duration = 1500;
-          const startTime = performance.now();
-
-          const animate = () => {
-            const elapsed = performance.now() - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-
-            const eased = progress < 0.5 
-              ? 2 * progress * progress 
-              : -1 + (4 - 2 * progress) * progress;
-
-            camera.position.lerpVectors(startPos, cameraTarget, eased);
-            camera.fov = startFov + (targetFov - startFov) * eased;
-            camera.updateProjectionMatrix();
-            camera.lookAt(cardPos);
-
-            if (progress < 1) {
-              requestAnimationFrame(animate);
-            } else {
-              navigate(targetRoute);
-            }
-          };
-
-          animate();
+          flyToCard(card.css3dObject.position.clone(), card.config.route);
         });
       }
     });
@@ -378,6 +349,8 @@ const Hero3D: React.FC = () => {
       }
 
       webglRenderer.dispose();
+      // Note: CSS3DRenderer is DOM-based and doesn't have a dispose method
+      // Removing its DOM element is sufficient for cleanup
     };
   }, [navigate]);
 
