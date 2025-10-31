@@ -60,6 +60,7 @@ const Auth = () => {
       let telemarketingName = tmName;
       
       if (!telemarketingName) {
+        // Primeiro tentar buscar do cache
         const { data: cacheData, error: cacheError } = await supabase
           .from('config_kv')
           .select('value')
@@ -68,13 +69,32 @@ const Auth = () => {
 
         if (cacheError) {
           console.warn('⚠️ Erro ao buscar nome do telemarketing do cache:', cacheError);
-          // Continue without the name, it's not critical
         }
 
         if (cacheData?.value) {
           const items = cacheData.value as Array<{ id: number; title: string }>;
           const found = items.find(item => item.id === tmId);
           telemarketingName = found?.title || null;
+        }
+
+        // Se não encontrou no cache, buscar do Bitrix
+        if (!telemarketingName) {
+          console.log('⚠️ Nome não encontrado no cache, buscando no Bitrix...');
+          try {
+            const { data: searchData, error: searchError } = await supabase.functions.invoke('search-bitrix-telemarketing', {
+              body: { searchTerm: tmId.toString() }
+            });
+
+            if (!searchError && searchData?.results) {
+              const found = searchData.results.find((r: any) => r.id === tmId);
+              if (found) {
+                telemarketingName = found.title;
+                console.log('✅ Nome encontrado no Bitrix:', telemarketingName);
+              }
+            }
+          } catch (searchErr) {
+            console.error('Erro ao buscar nome no Bitrix:', searchErr);
+          }
         }
       }
 

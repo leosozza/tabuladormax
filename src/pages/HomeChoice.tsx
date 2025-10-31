@@ -420,7 +420,7 @@ sun.add(sunLabel);
     const planets = [
       { label: 'Telemarketing', kind: 'earth', color: 0x6aa7ff, radius: SOL_R + 8, speed: 0.18, tilt: 0.12, link: LINKS.Telemarketing },
       { label: 'Scouter', kind: 'mars', color: 0xff66cc, radius: SOL_R + 11, speed: 0.15, tilt: -0.22, link: LINKS.Scouter },
-      { label: 'Agendamento', kind: 'saturn', color: 0xbf85ff, radius: SOL_R + 14, speed: 0.12, tilt: 0.30, link: LINKS.Agendamento },
+      { label: 'Agenciamento', kind: 'saturn', color: 0xbf85ff, radius: SOL_R + 14, speed: 0.12, tilt: 0.30, link: LINKS.Agenciamento },
       { label: 'Administrativo', kind: 'neptune', color: 0x8fb6ff, radius: SOL_R + 17, speed: 0.10, tilt: -0.36, link: LINKS.Administrativo }
     ].map(makePlanetReal);
 

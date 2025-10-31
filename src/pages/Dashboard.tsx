@@ -233,23 +233,43 @@ const Index = () => {
 
   const loadOperators = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, display_name, email')
-        .order('display_name');
+      // Buscar operadores da tabela de mapeamento com nome do telemarketing do Bitrix
+      const { data: mappings, error: mappingError } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select(`
+          tabuladormax_user_id,
+          bitrix_telemarketing_name,
+          bitrix_telemarketing_id
+        `)
+        .not('tabuladormax_user_id', 'is', null);
 
-      if (error) {
-        console.error('Erro ao carregar operadores:', error);
+      if (mappingError) {
+        console.error('Erro ao carregar mapeamentos:', mappingError);
         toast.error('Erro ao carregar lista de operadores');
         setOperators([]);
         return;
       }
 
-      if (data && data.length > 0) {
-        const operatorsList = data.map((profile) => ({
-          id: profile.id,
-          name: profile.display_name || profile.email || 'Sem nome'
-        }));
+      // Buscar os nomes dos usuários como fallback
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, display_name, email');
+
+      if (profilesError) {
+        console.error('Erro ao carregar perfis:', profilesError);
+      }
+
+      if (mappings && mappings.length > 0) {
+        const operatorsList = mappings
+          .map((mapping) => {
+            const profile = profiles?.find(p => p.id === mapping.tabuladormax_user_id);
+            return {
+              id: mapping.tabuladormax_user_id!,
+              name: mapping.bitrix_telemarketing_name || profile?.display_name || profile?.email || `ID: ${mapping.bitrix_telemarketing_id}`
+            };
+          })
+          .filter(op => op.id) // Remover entradas sem ID
+          .sort((a, b) => a.name.localeCompare(b.name));
         
         setOperators(operatorsList);
         console.log(`✅ ${operatorsList.length} operadores carregados com sucesso`);

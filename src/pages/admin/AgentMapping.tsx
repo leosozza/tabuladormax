@@ -120,18 +120,40 @@ export default function AgentMapping() {
     }
 
     try {
-      // Buscar nome do telemarketing do cache
+      // Buscar nome do telemarketing do cache ou do Bitrix
+      let telemarketingName = null;
+      
+      // Primeiro tentar buscar do cache
       const { data: cacheData } = await supabase
         .from('config_kv')
         .select('value')
         .eq('key', 'bitrix_telemarketing_list')
         .maybeSingle();
 
-      let telemarketingName = null;
       if (cacheData?.value) {
         const items = cacheData.value as Array<{ id: number; title: string }>;
         const found = items.find(item => item.id === telemarketingId);
         telemarketingName = found?.title || null;
+      }
+
+      // Se não encontrou no cache, buscar do Bitrix
+      if (!telemarketingName) {
+        console.log('⚠️ Nome não encontrado no cache, buscando no Bitrix...');
+        try {
+          const { data: searchData, error: searchError } = await supabase.functions.invoke('search-bitrix-telemarketing', {
+            body: { searchTerm: telemarketingId.toString() }
+          });
+
+          if (!searchError && searchData?.results) {
+            const found = searchData.results.find((r: any) => r.id === telemarketingId);
+            if (found) {
+              telemarketingName = found.title;
+              console.log('✅ Nome encontrado no Bitrix:', telemarketingName);
+            }
+          }
+        } catch (searchErr) {
+          console.error('Erro ao buscar nome no Bitrix:', searchErr);
+        }
       }
 
       const mappingData = {
