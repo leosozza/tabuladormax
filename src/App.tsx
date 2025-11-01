@@ -42,8 +42,9 @@ import Install from "./pages/Install";
 // Agenciamento Module
 import Agenciamento from "./pages/Agenciamento";
 
-// Hero 3D Hub
-import Hero3D from "@/components/Hero3D";
+// Hub Panels
+import HubPanels from "./pages/HubPanels";
+import "@/styles/hub.css";
 
 const queryClient = new QueryClient();
 
@@ -63,8 +64,8 @@ const App = () => (
           <Route path="/install" element={<Install />} />
           <Route path="/debug" element={<ProtectedRoute><Debug /></ProtectedRoute>} />
           
-          {/* Hero 3D Hub - New 3D mini-pages hub */}
-          <Route path="/hub" element={<ProtectedRoute><Hero3D /></ProtectedRoute>} />
+          {/* Hub Panels - Interactive sliding panels */}
+          <Route path="/hub" element={<ProtectedRoute><HubPanels /></ProtectedRoute>} />
           
           {/* Telemarketing - Connected to 3D solar system planet button */}
           <Route path="/lead" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />
