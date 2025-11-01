@@ -17,6 +17,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [telemarketingId, setTelemarketingId] = useState<number>();
+  const [telemarketingName, setTelemarketingName] = useState<string>();
   const [pendingTelemarketingName, setPendingTelemarketingName] = useState<string | null>(null);
   const [newUserDepartment, setNewUserDepartment] = useState<'telemarketing' | 'scouter' | 'administrativo'>('telemarketing');
   const [showTelemarketingModal, setShowTelemarketingModal] = useState(false);
@@ -776,7 +777,10 @@ const Auth = () => {
               <Label htmlFor="oauth-telemarketing">Operador de Telemarketing *</Label>
               <TelemarketingSelector
                 value={telemarketingId}
-                onChange={setTelemarketingId}
+                onChange={(id, name) => {
+                  setTelemarketingId(id);
+                  setTelemarketingName(name);
+                }}
                 placeholder="Selecione o operador de telemarketing"
               />
               <p className="text-xs text-muted-foreground">

@@ -42,6 +42,7 @@ export default function AgentMapping() {
   const [chatwootEmail, setChatwootEmail] = useState("");
   const [tabuladormaxUserId, setTabuladormaxUserId] = useState("");
   const [telemarketingId, setTelemarketingId] = useState<number>();
+  const [telemarketingName, setTelemarketingName] = useState<string>();
 
   const loadMappings = async () => {
     try {
@@ -86,6 +87,7 @@ export default function AgentMapping() {
     setChatwootEmail("");
     setTabuladormaxUserId("");
     setTelemarketingId(undefined);
+    setTelemarketingName(undefined);
     setSelectedMapping(null);
   };
 
@@ -95,6 +97,7 @@ export default function AgentMapping() {
     setChatwootEmail(mapping.chatwoot_agent_email || "");
     setTabuladormaxUserId(mapping.tabuladormax_user_id || "");
     setTelemarketingId(mapping.bitrix_telemarketing_id);
+    setTelemarketingName(mapping.bitrix_telemarketing_name || undefined);
     setDialogOpen(true);
   };
 
@@ -120,47 +123,11 @@ export default function AgentMapping() {
     }
 
     try {
-      // Buscar nome do telemarketing do cache ou do Bitrix
-      let telemarketingName = null;
-      
-      // Primeiro tentar buscar do cache
-      const { data: cacheData } = await supabase
-        .from('config_kv')
-        .select('value')
-        .eq('key', 'bitrix_telemarketing_list')
-        .maybeSingle();
-
-      if (cacheData?.value) {
-        const items = cacheData.value as Array<{ id: number; title: string }>;
-        const found = items.find(item => item.id === telemarketingId);
-        telemarketingName = found?.title || null;
-      }
-
-      // Se não encontrou no cache, buscar do Bitrix
-      if (!telemarketingName) {
-        console.log('⚠️ Nome não encontrado no cache, buscando no Bitrix...');
-        try {
-          const { data: searchData, error: searchError } = await supabase.functions.invoke('search-bitrix-telemarketing', {
-            body: { searchTerm: telemarketingId.toString() }
-          });
-
-          if (!searchError && searchData?.results) {
-            const found = searchData.results.find((r: any) => r.id === telemarketingId);
-            if (found) {
-              telemarketingName = found.title;
-              console.log('✅ Nome encontrado no Bitrix:', telemarketingName);
-            }
-          }
-        } catch (searchErr) {
-          console.error('Erro ao buscar nome no Bitrix:', searchErr);
-        }
-      }
-
       const mappingData = {
         chatwoot_agent_email: formType === 'chatwoot' ? chatwootEmail.trim() : null,
         tabuladormax_user_id: formType === 'tabuladormax' ? tabuladormaxUserId : null,
         bitrix_telemarketing_id: telemarketingId,
-        bitrix_telemarketing_name: telemarketingName,
+        bitrix_telemarketing_name: telemarketingName || null,
       };
 
       if (selectedMapping) {
@@ -303,7 +270,10 @@ export default function AgentMapping() {
                     <Label>Operador de Telemarketing (Bitrix24)</Label>
                     <TelemarketingSelector
                       value={telemarketingId}
-                      onChange={setTelemarketingId}
+                      onChange={(id, name) => {
+                        setTelemarketingId(id);
+                        setTelemarketingName(name);
+                      }}
                     />
                   </div>
                 </div>

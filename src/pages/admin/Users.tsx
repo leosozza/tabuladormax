@@ -1088,28 +1088,11 @@ export default function Users() {
     setBatchEditSupervisors(supervisorsData as UserWithRole[]);
   };
 
-  const handleTelemarketingChange = async (value: number) => {
+  const handleTelemarketingChange = (value: number, name?: string) => {
     setNewUserTelemarketing(value);
     
-    // Fetch telemarketing name from cache or API
-    if (value && value !== -1) {
-      try {
-        const { data, error } = await supabase
-          .from('config_kv')
-          .select('value')
-          .eq('key', 'bitrix_telemarketing_list')
-          .maybeSingle();
-
-        if (!error && data?.value) {
-          const options = data.value as unknown as { id: number; title: string }[];
-          const selectedOption = options.find(o => o.id === value);
-          if (selectedOption) {
-            setNewUserTelemarketingName(selectedOption.title);
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao buscar nome do operador:', error);
-      }
+    if (value && value !== -1 && name) {
+      setNewUserTelemarketingName(name);
     } else {
       setNewUserTelemarketingName("");
     }

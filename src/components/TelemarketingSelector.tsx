@@ -14,7 +14,7 @@ interface TelemarketingOption {
 
 interface TelemarketingSelectorProps {
   value?: number;
-  onChange: (value: number) => void;
+  onChange: (value: number, title?: string) => void;
   placeholder?: string;
   onPendingCreate?: (name: string | null) => void;
   defaultSearchValue?: string; // Nome preenchido no campo "Nome"
@@ -119,7 +119,7 @@ export function TelemarketingSelector({ value, onChange, placeholder = "Selecion
 
     // Selecionar
     setSelectedOption(option);
-    onChange(option.id);
+    onChange(option.id, option.title);
     setOpen(false);
     
     // Limpar criação pendente
