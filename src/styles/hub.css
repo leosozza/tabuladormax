@@ -2,13 +2,13 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* Use Tabulador's light theme colors */
+/* Use Tabulador's theme colors via CSS custom properties */
 .hub-viewport {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: hsl(0 0% 100%); /* --background from Tabulador */
-  color: hsl(222 47% 11%); /* --foreground from Tabulador */
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -56,7 +56,7 @@
   font-size: clamp(2rem, 5vw, 3rem);
   font-weight: 700;
   margin: 0.5rem 0;
-  color: hsl(222 47% 11%); /* --foreground from Tabulador */
+  color: hsl(var(--foreground));
   letter-spacing: -0.02em;
 }
 
@@ -64,7 +64,7 @@
   font-size: clamp(1rem, 2vw, 1.1rem);
   font-weight: 400;
   opacity: 0.8;
-  color: hsl(222 47% 11%); /* --foreground from Tabulador */
+  color: hsl(var(--foreground));
   line-height: 1.6;
   margin: 0;
 }
