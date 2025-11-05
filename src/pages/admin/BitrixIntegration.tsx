@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Plus, Download, AlertTriangle, CheckCircle2, TrendingUp } from 'lucide-react';
+import { RefreshCw, Plus, Download, AlertTriangle, CheckCircle2, TrendingUp, Activity } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { FieldMappingTable } from '@/components/bitrix/FieldMappingTable';
@@ -17,6 +18,7 @@ import { FieldComparison } from '@/components/bitrix/FieldComparison';
 import { SyncTestPanel } from '@/components/bitrix/SyncTestPanel';
 
 export default function BitrixIntegration() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [mappings, setMappings] = useState<any[]>([]);
@@ -164,6 +166,14 @@ export default function BitrixIntegration() {
       backTo="/admin"
       actions={
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/admin/sync-monitor')}
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            Central de Sincronização
+          </Button>
           <Button
             variant="outline"
             size="sm"
