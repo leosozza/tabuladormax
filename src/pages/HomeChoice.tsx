@@ -155,13 +155,12 @@ const HomeChoice: React.FC = () => {
       if (!isDownRef.current) return;
       const dx = startXRef.current - e.clientX;
       
-      // Mark as dragged if moved more than 5px
-      if (Math.abs(dx) > 5) {
+      // Mark as dragged if moved more than 10px
+      if (Math.abs(dx) > 10) {
         hasDraggedRef.current = true;
+        track.scrollLeft = startScrollLeftRef.current + dx;
+        vxRef.current = dx;
       }
-      
-      track.scrollLeft = startScrollLeftRef.current + dx;
-      vxRef.current = dx;
     };
     const onPointerUp = () => {
       if (!isDownRef.current) return;
@@ -171,12 +170,14 @@ const HomeChoice: React.FC = () => {
       
       if (hasDraggedRef.current) {
         runInertia();
-      }
-      
-      // Reset drag flag after a short delay to allow click to check it
-      setTimeout(() => {
+        // Reset drag flag after animation starts
+        setTimeout(() => {
+          hasDraggedRef.current = false;
+        }, 50);
+      } else {
+        // If not dragged, reset immediately
         hasDraggedRef.current = false;
-      }, 100);
+      }
     };
     track.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointermove', onPointerMove, { passive: true });
