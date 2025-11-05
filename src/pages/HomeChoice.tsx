@@ -140,35 +140,42 @@ const HomeChoice: React.FC = () => {
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
+    const pointerIdRef = { current: -1 };
+    
     const onPointerDown = (e: PointerEvent) => {
       isDownRef.current = true;
       hasDraggedRef.current = false;
-      track.setPointerCapture(e.pointerId);
+      pointerIdRef.current = e.pointerId;
       startXRef.current = e.clientX;
       startScrollLeftRef.current = track.scrollLeft;
       vxRef.current = 0;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      document.body.style.userSelect = 'none';
-      document.body.style.cursor = 'grabbing';
     };
     const onPointerMove = (e: PointerEvent) => {
       if (!isDownRef.current) return;
       const dx = startXRef.current - e.clientX;
       
       // Mark as dragged if moved more than 10px
-      if (Math.abs(dx) > 10) {
+      if (Math.abs(dx) > 10 && !hasDraggedRef.current) {
         hasDraggedRef.current = true;
+        track.setPointerCapture(pointerIdRef.current);
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'grabbing';
+      }
+      
+      if (hasDraggedRef.current) {
         track.scrollLeft = startScrollLeftRef.current + dx;
         vxRef.current = dx;
       }
     };
-    const onPointerUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
       if (!isDownRef.current) return;
       isDownRef.current = false;
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
       
       if (hasDraggedRef.current) {
+        track.releasePointerCapture(pointerIdRef.current);
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
         runInertia();
         // Reset drag flag after animation starts
         setTimeout(() => {
