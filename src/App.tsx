@@ -27,6 +27,7 @@ import Diagnostics from "./pages/admin/Diagnostics";
 import PerformanceMonitoring from "./pages/admin/PerformanceMonitoring";
 import SyncMonitor from "./pages/admin/SyncMonitor";
 import UnifiedDashboard from "./pages/admin/UnifiedDashboard";
+import BitrixIntegration from "./pages/admin/BitrixIntegration";
 
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
@@ -85,6 +86,7 @@ const App = () => (
           <Route path="/admin/diagnostics" element={<ProtectedRoute requireAdmin><Diagnostics /></ProtectedRoute>} />
           <Route path="/admin/monitoring" element={<ProtectedRoute requireManager><PerformanceMonitoring /></ProtectedRoute>} />
           <Route path="/admin/sync-monitor" element={<ProtectedRoute requireManager><SyncMonitor /></ProtectedRoute>} />
+          <Route path="/admin/bitrix-integration" element={<ProtectedRoute requireManager><BitrixIntegration /></ProtectedRoute>} />
 
           {/* Agenciamento (Negotiations) - Connected to 3D solar system planet button */}
           <Route path="/agenciamento" element={<ProtectedRoute><Agenciamento /></ProtectedRoute>} />

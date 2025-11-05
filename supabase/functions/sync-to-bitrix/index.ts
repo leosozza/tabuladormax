@@ -60,69 +60,120 @@ serve(async (req) => {
     // Array para rastrear mapeamentos aplicados
     const appliedMappings: any[] = [];
 
-    // Sobrescrever campos mapeados se atualizados
-    if (lead.name) {
-      bitrixPayload.fields.NAME = lead.name;
-      appliedMappings.push({
-        tabuladormax_field: 'name',
-        bitrix_field: 'NAME',
-        value: lead.name,
-        transformed: false
-      });
+    // Buscar mapeamentos ativos configurados
+    const { data: fieldMappings, error: mappingError } = await supabase
+      .from('bitrix_field_mappings')
+      .select('*')
+      .eq('active', true)
+      .order('tabuladormax_field', { ascending: true })
+      .order('priority', { ascending: true });
+
+    if (mappingError) {
+      console.error('❌ Erro ao buscar mapeamentos:', mappingError);
     }
-    if (lead.age) {
-      bitrixPayload.fields.UF_IDADE = lead.age;
-      appliedMappings.push({
-        tabuladormax_field: 'age',
-        bitrix_field: 'UF_IDADE',
-        value: lead.age,
-        transformed: false
-      });
-    }
-    if (lead.address) {
-      bitrixPayload.fields.UF_LOCAL = lead.address;
-      appliedMappings.push({
-        tabuladormax_field: 'address',
-        bitrix_field: 'UF_LOCAL',
-        value: lead.address,
-        transformed: false
-      });
-    }
-    if (lead.photo_url) {
-      bitrixPayload.fields.UF_PHOTO = lead.photo_url;
-      appliedMappings.push({
-        tabuladormax_field: 'photo_url',
-        bitrix_field: 'UF_PHOTO',
-        value: lead.photo_url,
-        transformed: false
-      });
-    }
-    if (lead.responsible) {
-      bitrixPayload.fields.UF_RESPONSAVEL = lead.responsible;
-      appliedMappings.push({
-        tabuladormax_field: 'responsible',
-        bitrix_field: 'UF_RESPONSAVEL',
-        value: lead.responsible,
-        transformed: false
-      });
-    }
-    if (lead.scouter) {
-      bitrixPayload.fields.UF_SCOUTER = lead.scouter;
-      appliedMappings.push({
-        tabuladormax_field: 'scouter',
-        bitrix_field: 'UF_SCOUTER',
-        value: lead.scouter,
-        transformed: false
-      });
-    }
-    if (lead.bitrix_telemarketing_id) {
-      bitrixPayload.fields.PARENT_ID_1144 = lead.bitrix_telemarketing_id;
-      appliedMappings.push({
-        tabuladormax_field: 'bitrix_telemarketing_id',
-        bitrix_field: 'PARENT_ID_1144',
-        value: lead.bitrix_telemarketing_id,
-        transformed: false
-      });
+
+    console.log(`📋 ${fieldMappings?.length || 0} mapeamentos ativos encontrados`);
+
+    // Aplicar mapeamentos dinâmicos
+    if (fieldMappings && fieldMappings.length > 0) {
+      for (const mapping of fieldMappings) {
+        const value = lead[mapping.tabuladormax_field];
+        
+        if (value !== null && value !== undefined && value !== '') {
+          // Aplicar transformação reversa se necessário
+          let transformedValue = value;
+          
+          if (mapping.transform_function) {
+            try {
+              if (mapping.transform_function === 'toNumber') {
+                transformedValue = Number(value);
+              } else if (mapping.transform_function === 'toString') {
+                transformedValue = String(value);
+              } else if (mapping.transform_function === 'toBoolean') {
+                transformedValue = value ? 'Y' : 'N';
+              }
+            } catch (e) {
+              console.warn(`⚠️ Erro ao transformar ${mapping.tabuladormax_field}:`, e);
+              transformedValue = value;
+            }
+          }
+          
+          bitrixPayload.fields[mapping.bitrix_field] = transformedValue;
+          appliedMappings.push({
+            tabuladormax_field: mapping.tabuladormax_field,
+            bitrix_field: mapping.bitrix_field,
+            value: transformedValue,
+            transformed: !!mapping.transform_function,
+            transform_function: mapping.transform_function,
+            priority: mapping.priority
+          });
+        }
+      }
+    } else {
+      // Fallback para mapeamentos hardcoded (backward compatibility)
+      if (lead.name) {
+        bitrixPayload.fields.NAME = lead.name;
+        appliedMappings.push({
+          tabuladormax_field: 'name',
+          bitrix_field: 'NAME',
+          value: lead.name,
+          transformed: false
+        });
+      }
+      if (lead.age) {
+        bitrixPayload.fields.UF_IDADE = lead.age;
+        appliedMappings.push({
+          tabuladormax_field: 'age',
+          bitrix_field: 'UF_IDADE',
+          value: lead.age,
+          transformed: false
+        });
+      }
+      if (lead.address) {
+        bitrixPayload.fields.UF_LOCAL = lead.address;
+        appliedMappings.push({
+          tabuladormax_field: 'address',
+          bitrix_field: 'UF_LOCAL',
+          value: lead.address,
+          transformed: false
+        });
+      }
+      if (lead.photo_url) {
+        bitrixPayload.fields.UF_PHOTO = lead.photo_url;
+        appliedMappings.push({
+          tabuladormax_field: 'photo_url',
+          bitrix_field: 'UF_PHOTO',
+          value: lead.photo_url,
+          transformed: false
+        });
+      }
+      if (lead.responsible) {
+        bitrixPayload.fields.UF_RESPONSAVEL = lead.responsible;
+        appliedMappings.push({
+          tabuladormax_field: 'responsible',
+          bitrix_field: 'UF_RESPONSAVEL',
+          value: lead.responsible,
+          transformed: false
+        });
+      }
+      if (lead.scouter) {
+        bitrixPayload.fields.UF_SCOUTER = lead.scouter;
+        appliedMappings.push({
+          tabuladormax_field: 'scouter',
+          bitrix_field: 'UF_SCOUTER',
+          value: lead.scouter,
+          transformed: false
+        });
+      }
+      if (lead.bitrix_telemarketing_id) {
+        bitrixPayload.fields.PARENT_ID_1144 = lead.bitrix_telemarketing_id;
+        appliedMappings.push({
+          tabuladormax_field: 'bitrix_telemarketing_id',
+          bitrix_field: 'PARENT_ID_1144',
+          value: lead.bitrix_telemarketing_id,
+          transformed: false
+        });
+      }
     }
 
     console.log('🔄 Sincronizando com Bitrix:', {

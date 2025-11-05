@@ -38,9 +38,10 @@ export default function SyncMonitor() {
 
       if (error) throw error;
       // Cast field_mappings from Json to SyncFieldMappings
-      const typedData: SyncEvent[] = (data || []).map(event => ({
+      const typedData: SyncEvent[] = (data || []).map((event: any) => ({
         ...event,
-        field_mappings: event.field_mappings as SyncFieldMappings | null
+        field_mappings: event.field_mappings as SyncFieldMappings | null,
+        fields_synced_count: event.fields_synced_count ?? null
       }));
       setSyncEvents(typedData);
     } catch (error) {

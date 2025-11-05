@@ -136,30 +136,78 @@ export type Database = {
       }
       bitrix_field_mappings: {
         Row: {
+          active: boolean | null
           bitrix_field: string
+          bitrix_field_type: string | null
           created_at: string | null
           id: string
+          last_sync_error: string | null
+          last_sync_success: string | null
+          notes: string | null
           priority: number | null
           tabuladormax_field: string
+          tabuladormax_field_type: string | null
           transform_function: string | null
           updated_at: string | null
         }
         Insert: {
+          active?: boolean | null
           bitrix_field: string
+          bitrix_field_type?: string | null
           created_at?: string | null
           id?: string
+          last_sync_error?: string | null
+          last_sync_success?: string | null
+          notes?: string | null
           priority?: number | null
           tabuladormax_field: string
+          tabuladormax_field_type?: string | null
           transform_function?: string | null
           updated_at?: string | null
         }
         Update: {
+          active?: boolean | null
           bitrix_field?: string
+          bitrix_field_type?: string | null
           created_at?: string | null
           id?: string
+          last_sync_error?: string | null
+          last_sync_success?: string | null
+          notes?: string | null
           priority?: number | null
           tabuladormax_field?: string
+          tabuladormax_field_type?: string | null
           transform_function?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      bitrix_fields_cache: {
+        Row: {
+          cached_at: string | null
+          field_id: string
+          field_title: string | null
+          field_type: string | null
+          id: string
+          list_items: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          cached_at?: string | null
+          field_id: string
+          field_title?: string | null
+          field_type?: string | null
+          id?: string
+          list_items?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          cached_at?: string | null
+          field_id?: string
+          field_title?: string | null
+          field_type?: string | null
+          id?: string
+          list_items?: Json | null
           updated_at?: string | null
         }
         Relationships: []
@@ -866,8 +914,6 @@ export type Database = {
           direction: string
           error_message: string | null
           event_type: string
-          field_mappings: Json | null
-          fields_synced_count: number | null
           id: string
           lead_id: number
           status: string
@@ -878,8 +924,6 @@ export type Database = {
           direction: string
           error_message?: string | null
           event_type: string
-          field_mappings?: Json | null
-          fields_synced_count?: number | null
           id?: string
           lead_id: number
           status: string
@@ -890,12 +934,43 @@ export type Database = {
           direction?: string
           error_message?: string | null
           event_type?: string
-          field_mappings?: Json | null
-          fields_synced_count?: number | null
           id?: string
           lead_id?: number
           status?: string
           sync_duration_ms?: number | null
+        }
+        Relationships: []
+      }
+      sync_test_results: {
+        Row: {
+          direction: string
+          error_message: string | null
+          executed_at: string | null
+          executed_by: string | null
+          id: string
+          lead_id: number
+          preview_data: Json
+          result: string | null
+        }
+        Insert: {
+          direction: string
+          error_message?: string | null
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          lead_id: number
+          preview_data: Json
+          result?: string | null
+        }
+        Update: {
+          direction?: string
+          error_message?: string | null
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          lead_id?: number
+          preview_data?: Json
+          result?: string | null
         }
         Relationships: []
       }
