@@ -34,6 +34,7 @@ const HomeChoice: React.FC = () => {
   const vxRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const wheelLockRef = useRef(0);
+  const hasDraggedRef = useRef(false);
 
   const panelElsRef = useRef<HTMLDivElement[]>([]);
 
@@ -117,7 +118,13 @@ const HomeChoice: React.FC = () => {
     };
   };
 
-  const onCardClick = (route: string, cardEl: HTMLDivElement) => {
+  const onCardClick = (e: React.MouseEvent, route: string, cardEl: HTMLDivElement) => {
+    // Prevent navigation if user was dragging
+    if (hasDraggedRef.current) {
+      e.preventDefault();
+      return;
+    }
+    
     if (!reduceMotion) {
       cardEl.animate(
         [
@@ -135,6 +142,7 @@ const HomeChoice: React.FC = () => {
     if (!track) return;
     const onPointerDown = (e: PointerEvent) => {
       isDownRef.current = true;
+      hasDraggedRef.current = false;
       track.setPointerCapture(e.pointerId);
       startXRef.current = e.clientX;
       startScrollLeftRef.current = track.scrollLeft;
@@ -146,6 +154,12 @@ const HomeChoice: React.FC = () => {
     const onPointerMove = (e: PointerEvent) => {
       if (!isDownRef.current) return;
       const dx = startXRef.current - e.clientX;
+      
+      // Mark as dragged if moved more than 5px
+      if (Math.abs(dx) > 5) {
+        hasDraggedRef.current = true;
+      }
+      
       track.scrollLeft = startScrollLeftRef.current + dx;
       vxRef.current = dx;
     };
@@ -154,7 +168,15 @@ const HomeChoice: React.FC = () => {
       isDownRef.current = false;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
-      runInertia();
+      
+      if (hasDraggedRef.current) {
+        runInertia();
+      }
+      
+      // Reset drag flag after a short delay to allow click to check it
+      setTimeout(() => {
+        hasDraggedRef.current = false;
+      }, 100);
     };
     track.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointermove', onPointerMove, { passive: true });
@@ -188,7 +210,7 @@ const HomeChoice: React.FC = () => {
           <section key={p.title} className="panel">
             <div className="panel-content" ref={(el) => el && (panelElsRef.current[i] = el)}>
               <button
-                onClick={(e) => onCardClick(p.route, e.currentTarget.parentElement as HTMLDivElement)}
+                onClick={(e) => onCardClick(e, p.route, e.currentTarget.parentElement as HTMLDivElement)}
                 className="panel-button"
                 aria-label={`Abrir ${p.title}`}
               >

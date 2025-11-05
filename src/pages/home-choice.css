@@ -70,6 +70,8 @@
   scroll-behavior: smooth;
   z-index: 2;
   cursor: grab;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
 }
 
 .canvas-container:active {
