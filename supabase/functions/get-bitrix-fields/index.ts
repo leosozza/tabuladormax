@@ -56,12 +56,40 @@ serve(async (req) => {
 
     console.log(`✅ ${Object.keys(data.result).length} campos encontrados no Bitrix`);
 
-    // Processar e cachear campos
+    // Processar e cachear campos com extração inteligente de títulos
+    const extractTitle = (fieldId: string, fieldData: any): string => {
+      // Tentar múltiplas fontes de título
+      const title = fieldData.title 
+        || fieldData.formLabel 
+        || fieldData.listLabel 
+        || fieldData.editLabel
+        || fieldData.settings?.TITLE;
+      
+      // Se não encontrou título, formatar o ID de forma legível
+      if (!title) {
+        if (fieldId.startsWith('UF_CRM_')) {
+          const number = fieldId.replace('UF_CRM_', '');
+          return `Campo Personalizado ${number.substring(0, 8)}`;
+        }
+        if (fieldId.startsWith('UF_')) {
+          const name = fieldId.replace('UF_', '').replace(/_/g, ' ');
+          return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+        }
+        // Formatar campo padrão: CREATED_BY → Created By
+        return fieldId.split('_')
+          .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+          .join(' ');
+      }
+      
+      return title;
+    };
+
     const fields = Object.entries(data.result).map(([fieldId, fieldData]: [string, any]) => ({
       field_id: fieldId,
-      field_title: fieldData.title || fieldData.formLabel || fieldId,
+      field_title: extractTitle(fieldId, fieldData),
       field_type: fieldData.type || 'string',
-      list_items: fieldData.items ? fieldData.items : null
+      list_items: fieldData.items ? fieldData.items : null,
+      display_name: null // Será preenchido pelo usuário se necessário
     }));
 
     // Salvar no cache

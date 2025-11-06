@@ -185,6 +185,9 @@ export type Database = {
       bitrix_fields_cache: {
         Row: {
           cached_at: string | null
+          custom_title_set_at: string | null
+          custom_title_set_by: string | null
+          display_name: string | null
           field_id: string
           field_title: string | null
           field_type: string | null
@@ -194,6 +197,9 @@ export type Database = {
         }
         Insert: {
           cached_at?: string | null
+          custom_title_set_at?: string | null
+          custom_title_set_by?: string | null
+          display_name?: string | null
           field_id: string
           field_title?: string | null
           field_type?: string | null
@@ -203,6 +209,9 @@ export type Database = {
         }
         Update: {
           cached_at?: string | null
+          custom_title_set_at?: string | null
+          custom_title_set_by?: string | null
+          display_name?: string | null
           field_id?: string
           field_title?: string | null
           field_type?: string | null
@@ -575,6 +584,42 @@ export type Database = {
           status?: string
           total_rows?: number | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      field_mapping_history: {
+        Row: {
+          action: string
+          changed_at: string | null
+          changed_by: string | null
+          created_at: string | null
+          id: string
+          mapping_id: string
+          new_values: Json | null
+          old_values: Json | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          mapping_id: string
+          new_values?: Json | null
+          old_values?: Json | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          mapping_id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          table_name?: string
         }
         Relationships: []
       }

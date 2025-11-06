@@ -16,6 +16,8 @@ import { toast } from 'sonner';
 import { FieldMappingTable } from '@/components/bitrix/FieldMappingTable';
 import { FieldComparison } from '@/components/bitrix/FieldComparison';
 import { SyncTestPanel } from '@/components/bitrix/SyncTestPanel';
+import { BitrixFieldMappingDragDrop } from '@/components/bitrix/BitrixFieldMappingDragDrop';
+import { MappingPreview } from '@/components/bitrix/MappingPreview';
 
 export default function BitrixIntegration() {
   const navigate = useNavigate();
