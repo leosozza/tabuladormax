@@ -1,9 +1,7 @@
 // FASE 3.1: Componente Genérico Reutilizável de Mapeamento Drag-and-Drop
+// Usando HTML5 drag-and-drop nativo (mais simples e confiável)
 
-import { useState, useEffect } from 'react';
-import { DndContext, closestCenter, DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { useState, useEffect, type DragEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,9 +19,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { 
   suggestFieldMappings, 
   validateMapping, 
-  areTypesCompatible,
   type FieldSuggestion 
 } from '@/lib/fieldMappingSuggestions';
+import { cn } from '@/lib/utils';
 
 export interface FieldDefinition {
   id: string;
@@ -66,237 +64,35 @@ const DEFAULT_TRANSFORMS = [
   { value: 'toTimestamp', label: 'toTimestamp' },
 ];
 
-function SortableMappingCard({ mapping, sourceFields, targetFields, transformOptions, onDelete, onUpdate }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
-    id: mapping.id 
-  });
-  
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-  
-  const [editForm, setEditForm] = useState(mapping);
-  const [isEditing, setIsEditing] = useState(false);
-  
-  const sourceField = sourceFields.find((f: FieldDefinition) => f.id === mapping.source_field);
-  const targetField = targetFields.find((f: FieldDefinition) => f.id === mapping.target_field);
-  
-  // Validar mapeamento
-  const validation = sourceField && targetField ? validateMapping(
-    { field_id: sourceField.id, field_type: sourceField.type },
-    { column_name: targetField.id, data_type: targetField.type }
-  ) : { valid: true, warnings: [], errors: [] };
-  
-  const handleSave = async () => {
-    await onUpdate(mapping.id, editForm);
-    setIsEditing(false);
-  };
-  
-  return (
-    <Card 
-      ref={setNodeRef} 
-      style={style}
-      className="mb-2 border-border/50 hover:border-primary/50 transition-colors"
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div 
-            {...attributes} 
-            {...listeners}
-            className="cursor-grab active:cursor-grabbing pt-1"
-          >
-            <GripVertical className="w-4 h-4 text-muted-foreground" />
-          </div>
-          
-          <div className="flex-1 space-y-3">
-            {/* Source → Target */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {isEditing ? (
-                <>
-                  <Select
-                    value={editForm.source_field}
-                    onValueChange={(v) => setEditForm({ ...editForm, source_field: v })}
-                  >
-                    <SelectTrigger className="flex-1 min-w-[200px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sourceFields.map((field: FieldDefinition) => (
-                        <SelectItem key={field.id} value={field.id}>
-                          {field.name}
-                          {field.type && <span className="text-xs text-muted-foreground ml-2">({field.type})</span>}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                  
-                  <Select
-                    value={editForm.target_field}
-                    onValueChange={(v) => setEditForm({ ...editForm, target_field: v })}
-                  >
-                    <SelectTrigger className="flex-1 min-w-[200px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {targetFields.map((field: FieldDefinition) => (
-                        <SelectItem key={field.id} value={field.id}>
-                          {field.name}
-                          {field.type && <span className="text-xs text-muted-foreground ml-2">({field.type})</span>}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </>
-              ) : (
-                <>
-                  <code className="text-sm bg-muted px-2 py-1 rounded">
-                    {sourceField?.name || mapping.source_field}
-                  </code>
-                  {sourceField?.type && (
-                    <Badge variant="outline" className="text-xs">{sourceField.type}</Badge>
-                  )}
-                  
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                  
-                  <code className="text-sm bg-muted px-2 py-1 rounded">
-                    {targetField?.name || mapping.target_field}
-                  </code>
-                  {targetField?.type && (
-                    <Badge variant="outline" className="text-xs">{targetField.type}</Badge>
-                  )}
-                </>
-              )}
-            </div>
-            
-            {/* Transformation & Priority */}
-            <div className="flex items-center gap-3 flex-wrap">
-              {isEditing ? (
-                <>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs">Transformação:</Label>
-                    <Select
-                      value={editForm.transform_function || 'none'}
-                      onValueChange={(v) => setEditForm({ 
-                        ...editForm, 
-                        transform_function: v === 'none' ? null : v 
-                      })}
-                    >
-                      <SelectTrigger className="w-[150px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {transformOptions?.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs">Prioridade:</Label>
-                    <Input
-                      type="number"
-                      value={editForm.priority || 0}
-                      onChange={(e) => setEditForm({ ...editForm, priority: parseInt(e.target.value) || 0 })}
-                      className="w-20"
-                    />
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs">Ativo:</Label>
-                    <Switch
-                      checked={editForm.active}
-                      onCheckedChange={(checked) => setEditForm({ ...editForm, active: checked })}
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  {mapping.transform_function && (
-                    <Badge variant="secondary" className="text-xs">
-                      {mapping.transform_function}
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="text-xs">
-                    Prioridade: {mapping.priority || 0}
-                  </Badge>
-                  <Badge variant={mapping.active ? "default" : "secondary"} className="text-xs">
-                    {mapping.active ? 'Ativo' : 'Inativo'}
-                  </Badge>
-                </>
-              )}
-            </div>
-            
-            {/* Warnings/Errors */}
-            {validation.warnings.length > 0 && (
-              <div className="flex items-start gap-2 text-xs text-yellow-600 dark:text-yellow-500">
-                <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                <span>{validation.warnings[0]}</span>
-              </div>
-            )}
-            {validation.errors.length > 0 && (
-              <div className="flex items-start gap-2 text-xs text-destructive">
-                <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                <span>{validation.errors[0]}</span>
-              </div>
-            )}
-          </div>
-          
-          {/* Actions */}
-          <div className="flex items-center gap-1">
-            {isEditing ? (
-              <>
-                <Button size="sm" variant="ghost" onClick={handleSave}>
-                  <CheckCircle2 className="w-4 h-4" />
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
-                  ✕
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button size="sm" variant="ghost" onClick={() => setIsEditing(true)}>
-                  Editar
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => onDelete(mapping.id)}>
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export function GenericFieldMappingDragDrop({
   sourceSystem,
   targetSystem,
   sourceFields,
   targetFields,
-  mappings,
+  mappings: initialMappings,
   tableName,
   onUpdate,
   transformOptions = DEFAULT_TRANSFORMS,
-  groupByCategory = false,
   showSuggestions = true,
 }: GenericFieldMappingDragDropProps) {
+  const [mappings, setMappings] = useState<FieldMapping[]>(initialMappings);
   const [searchSource, setSearchSource] = useState('');
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [draggingMapping, setDraggingMapping] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<FieldSuggestion[]>([]);
   const [showSuggestionsPanel, setShowSuggestionsPanel] = useState(false);
+  const [editingMapping, setEditingMapping] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<FieldMapping | null>(null);
+  
+  useEffect(() => {
+    setMappings(initialMappings);
+  }, [initialMappings]);
   
   // Carregar sugestões
   useEffect(() => {
     if (showSuggestions && sourceFields.length > 0 && targetFields.length > 0) {
       const suggested = suggestFieldMappings(
-        sourceFields.map(f => ({ field_id: f.id, field_title: f.name, field_type: f.type })),
-        targetFields.map(f => ({ column_name: f.id, data_type: f.type })),
+        sourceFields.map(f => ({ field_id: f.id, field_title: f.name, field_type: f.type || '' })),
+        targetFields.map(f => ({ column_name: f.id, data_type: f.type || '' })),
         mappings.map(m => ({ source_field: m.source_field, target_field: m.target_field }))
       );
       setSuggestions(suggested);
@@ -310,33 +106,51 @@ export function GenericFieldMappingDragDrop({
   
   const mappedSourceIds = new Set(mappings.map(m => m.source_field));
   
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+  // Drag-and-drop handlers
+  const handleDragStart = (event: DragEvent<HTMLDivElement>, mappingId: string) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('mappingId', mappingId);
+    setDraggingMapping(mappingId);
   };
-  
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveId(null);
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (event: DragEvent<HTMLDivElement>, targetIndex: number) => {
+    event.preventDefault();
+    const draggedId = event.dataTransfer.getData('mappingId');
     
-    if (!over || active.id === over.id) return;
+    if (!draggedId) return;
+
+    const oldIndex = mappings.findIndex((m) => m.id === draggedId);
+    if (oldIndex === -1 || oldIndex === targetIndex) return;
+
+    const reordered = [...mappings];
+    const [removed] = reordered.splice(oldIndex, 1);
+    reordered.splice(targetIndex, 0, removed);
     
-    const oldIndex = mappings.findIndex(m => m.id === active.id);
-    const newIndex = mappings.findIndex(m => m.id === over.id);
-    
-    if (oldIndex === -1 || newIndex === -1) return;
-    
-    const reordered = arrayMove(mappings, oldIndex, newIndex);
-    
+    setMappings(reordered);
+
     // Atualizar prioridades no banco
-    for (let i = 0; i < reordered.length; i++) {
-      await supabase
-        .from(tableName as any)
-        .update({ priority: i } as any)
-        .eq('id', reordered[i].id);
+    try {
+      for (let i = 0; i < reordered.length; i++) {
+        await supabase
+          .from(tableName as any)
+          .update({ priority: i } as any)
+          .eq('id', reordered[i].id);
+      }
+      toast.success('Ordem atualizada!');
+      onUpdate();
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao atualizar ordem');
     }
-    
-    toast.success('Ordem atualizada!');
-    onUpdate();
+  };
+
+  const handleDragEnd = () => {
+    setDraggingMapping(null);
   };
   
   const handleAddMapping = async () => {
@@ -389,6 +203,22 @@ export function GenericFieldMappingDragDrop({
       onUpdate();
     }
   };
+
+  const startEditing = (mapping: FieldMapping) => {
+    setEditingMapping(mapping.id);
+    setEditForm({ ...mapping });
+  };
+
+  const cancelEditing = () => {
+    setEditingMapping(null);
+    setEditForm(null);
+  };
+
+  const saveEditing = async () => {
+    if (!editForm || !editingMapping) return;
+    await handleUpdateMapping(editingMapping, editForm);
+    cancelEditing();
+  };
   
   const handleApplySuggestion = async (suggestion: FieldSuggestion) => {
     const { error } = await supabase
@@ -408,6 +238,203 @@ export function GenericFieldMappingDragDrop({
       toast.success('Sugestão aplicada!');
       onUpdate();
     }
+  };
+
+  const renderMappingCard = (mapping: FieldMapping, index: number) => {
+    const sourceField = sourceFields.find(f => f.id === mapping.source_field);
+    const targetField = targetFields.find(f => f.id === mapping.target_field);
+    const isDragging = draggingMapping === mapping.id;
+    const isEditing = editingMapping === mapping.id;
+    const currentForm = isEditing ? editForm! : mapping;
+    
+    // Validar mapeamento
+    const validation = sourceField && targetField ? validateMapping(
+      { field_id: sourceField.id, field_type: sourceField.type },
+      { column_name: targetField.id, data_type: targetField.type }
+    ) : { valid: true, warnings: [], errors: [] };
+    
+    return (
+      <Card 
+        key={mapping.id}
+        draggable={!isEditing}
+        onDragStart={(e) => handleDragStart(e, mapping.id)}
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, index)}
+        onDragEnd={handleDragEnd}
+        className={cn(
+          "mb-2 border-border/50 hover:border-primary/50 transition-all cursor-move",
+          isDragging && "opacity-50 scale-95",
+          isEditing && "border-primary cursor-default"
+        )}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="cursor-grab active:cursor-grabbing pt-1">
+              <GripVertical className="w-4 h-4 text-muted-foreground" />
+            </div>
+            
+            <div className="flex-1 space-y-3">
+              {/* Source → Target */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {isEditing ? (
+                  <>
+                    <Select
+                      value={currentForm.source_field}
+                      onValueChange={(v) => setEditForm({ ...currentForm, source_field: v })}
+                    >
+                      <SelectTrigger className="flex-1 min-w-[200px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sourceFields.map((field: FieldDefinition) => (
+                          <SelectItem key={field.id} value={field.id}>
+                            {field.name}
+                            {field.type && <span className="text-xs text-muted-foreground ml-2">({field.type})</span>}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                    
+                    <Select
+                      value={currentForm.target_field}
+                      onValueChange={(v) => setEditForm({ ...currentForm, target_field: v })}
+                    >
+                      <SelectTrigger className="flex-1 min-w-[200px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {targetFields.map((field: FieldDefinition) => (
+                          <SelectItem key={field.id} value={field.id}>
+                            {field.name}
+                            {field.type && <span className="text-xs text-muted-foreground ml-2">({field.type})</span>}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </>
+                ) : (
+                  <>
+                    <code className="text-sm bg-muted px-2 py-1 rounded">
+                      {sourceField?.name || mapping.source_field}
+                    </code>
+                    {sourceField?.type && (
+                      <Badge variant="outline" className="text-xs">{sourceField.type}</Badge>
+                    )}
+                    
+                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                    
+                    <code className="text-sm bg-muted px-2 py-1 rounded">
+                      {targetField?.name || mapping.target_field}
+                    </code>
+                    {targetField?.type && (
+                      <Badge variant="outline" className="text-xs">{targetField.type}</Badge>
+                    )}
+                  </>
+                )}
+              </div>
+              
+              {/* Transformation & Priority */}
+              <div className="flex items-center gap-3 flex-wrap">
+                {isEditing ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs">Transformação:</Label>
+                      <Select
+                        value={currentForm.transform_function || 'none'}
+                        onValueChange={(v) => setEditForm({ 
+                          ...currentForm, 
+                          transform_function: v === 'none' ? null : v 
+                        })}
+                      >
+                        <SelectTrigger className="w-[150px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {transformOptions.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs">Prioridade:</Label>
+                      <Input
+                        type="number"
+                        value={currentForm.priority || 0}
+                        onChange={(e) => setEditForm({ ...currentForm, priority: parseInt(e.target.value) || 0 })}
+                        className="w-20"
+                      />
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs">Ativo:</Label>
+                      <Switch
+                        checked={currentForm.active}
+                        onCheckedChange={(checked) => setEditForm({ ...currentForm, active: checked })}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {mapping.transform_function && (
+                      <Badge variant="secondary" className="text-xs">
+                        {mapping.transform_function}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">
+                      Prioridade: {mapping.priority || 0}
+                    </Badge>
+                    <Badge variant={mapping.active ? "default" : "secondary"} className="text-xs">
+                      {mapping.active ? 'Ativo' : 'Inativo'}
+                    </Badge>
+                  </>
+                )}
+              </div>
+              
+              {/* Warnings/Errors */}
+              {validation.warnings.length > 0 && (
+                <div className="flex items-start gap-2 text-xs text-yellow-600 dark:text-yellow-500">
+                  <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  <span>{validation.warnings[0]}</span>
+                </div>
+              )}
+              {validation.errors.length > 0 && (
+                <div className="flex items-start gap-2 text-xs text-destructive">
+                  <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  <span>{validation.errors[0]}</span>
+                </div>
+              )}
+            </div>
+            
+            {/* Actions */}
+            <div className="flex items-center gap-1">
+              {isEditing ? (
+                <>
+                  <Button size="sm" variant="ghost" onClick={saveEditing}>
+                    <CheckCircle2 className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={cancelEditing}>
+                    ✕
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button size="sm" variant="ghost" onClick={() => startEditing(mapping)}>
+                    Editar
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleDeleteMapping(mapping.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
   
   return (
@@ -441,6 +468,42 @@ export function GenericFieldMappingDragDrop({
               />
             </div>
             
+            {showSuggestionsPanel && suggestions.length > 0 && (
+              <Card className="p-4 bg-primary/5">
+                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Sugestões Automáticas
+                </h4>
+                <ScrollArea className="max-h-[300px]">
+                  <div className="space-y-2">
+                    {suggestions.map((suggestion, idx) => (
+                      <div key={idx} className="p-2 rounded bg-background border text-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-mono">{suggestion.sourceField} → {suggestion.targetField}</span>
+                          <Badge variant="secondary" className="text-[10px]">
+                            {suggestion.confidence}
+                          </Badge>
+                        </div>
+                        <p className="text-muted-foreground mb-2">{suggestion.reason}</p>
+                        {suggestion.transformationNeeded && (
+                          <Badge variant="outline" className="text-[10px] mb-2">
+                            {suggestion.transformationNeeded}
+                          </Badge>
+                        )}
+                        <Button 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => handleApplySuggestion(suggestion)}
+                        >
+                          Aplicar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </Card>
+            )}
+            
             <ScrollArea className="h-[600px]">
               <div className="space-y-2 pr-4">
                 {filteredSourceFields.map(field => {
@@ -449,11 +512,12 @@ export function GenericFieldMappingDragDrop({
                   return (
                     <div
                       key={field.id}
-                      className={`p-3 rounded-lg border transition-colors ${
+                      className={cn(
+                        "p-3 rounded-lg border transition-colors",
                         isMapped 
                           ? 'bg-muted/50 border-muted' 
-                          : 'bg-background border-border hover:border-primary/50 cursor-pointer'
-                      }`}
+                          : 'bg-background border-border hover:border-primary/50'
+                      )}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
@@ -482,92 +546,27 @@ export function GenericFieldMappingDragDrop({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>🎯 Mapeamentos Ativos</span>
+            <span>🔗 Mapeamentos Ativos ({mappings.length})</span>
             <Button size="sm" onClick={handleAddMapping}>
               <Plus className="w-4 h-4 mr-2" />
-              Adicionar
+              Novo
             </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[600px]">
+          <ScrollArea className="h-[700px]">
             <div className="space-y-2 pr-4">
-              {showSuggestionsPanel && suggestions.length > 0 && (
-                <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 mb-4">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Sparkles className="w-4 h-4" />
-                      Sugestões Inteligentes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {suggestions.slice(0, 5).map((sug, idx) => (
-                      <div 
-                        key={idx}
-                        className="p-2 bg-background rounded border flex items-center justify-between gap-2"
-                      >
-                        <div className="flex-1 text-xs">
-                          <div className="flex items-center gap-2 mb-1">
-                            <code className="text-xs">{sug.sourceField}</code>
-                            <ArrowRight className="w-3 h-3" />
-                            <code className="text-xs">{sug.targetField}</code>
-                          </div>
-                          <p className="text-muted-foreground">{sug.reason}</p>
-                          {sug.transformationNeeded && (
-                            <Badge variant="secondary" className="text-xs mt-1">
-                              {sug.transformationNeeded}
-                            </Badge>
-                          )}
-                        </div>
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          onClick={() => handleApplySuggestion(sug)}
-                        >
-                          Aplicar
-                        </Button>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
-              
               {mappings.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Info className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>Nenhum mapeamento configurado</p>
-                  <p className="text-sm mt-1">Clique em "Adicionar" para começar</p>
+                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum mapeamento configurado.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Clique em "Novo" para adicionar um mapeamento.
+                  </p>
                 </div>
               ) : (
-                <DndContext
-                  collisionDetection={closestCenter}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext items={mappings.map(m => m.id)} strategy={verticalListSortingStrategy}>
-                    {mappings.map(mapping => (
-                      <SortableMappingCard
-                        key={mapping.id}
-                        mapping={mapping}
-                        sourceFields={sourceFields}
-                        targetFields={targetFields}
-                        transformOptions={transformOptions}
-                        onDelete={handleDeleteMapping}
-                        onUpdate={handleUpdateMapping}
-                      />
-                    ))}
-                  </SortableContext>
-                  
-                  <DragOverlay>
-                    {activeId && (
-                      <Card className="opacity-50">
-                        <CardContent className="p-4">
-                          Movendo...
-                        </CardContent>
-                      </Card>
-                    )}
-                  </DragOverlay>
-                </DndContext>
+                mappings.map((mapping, index) => renderMappingCard(mapping, index))
               )}
             </div>
           </ScrollArea>
