@@ -330,8 +330,8 @@ export function GenericFieldMappingDragDrop({
     // Atualizar prioridades no banco
     for (let i = 0; i < reordered.length; i++) {
       await supabase
-        .from(tableName)
-        .update({ priority: i })
+        .from(tableName as any)
+        .update({ priority: i } as any)
         .eq('id', reordered[i].id);
     }
     
