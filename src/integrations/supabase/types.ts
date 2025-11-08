@@ -623,6 +623,57 @@ export type Database = {
         }
         Relationships: []
       }
+      gestao_scouter_field_mappings: {
+        Row: {
+          active: boolean | null
+          category: string
+          created_at: string | null
+          created_by: string | null
+          database_field: string
+          default_visible: boolean | null
+          display_name: string
+          field_type: string
+          formatter_function: string | null
+          id: string
+          priority: number | null
+          sortable: boolean | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          category: string
+          created_at?: string | null
+          created_by?: string | null
+          database_field: string
+          default_visible?: boolean | null
+          display_name: string
+          field_type: string
+          formatter_function?: string | null
+          id?: string
+          priority?: number | null
+          sortable?: boolean | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          database_field?: string
+          default_visible?: boolean | null
+          display_name?: string
+          field_type?: string
+          formatter_function?: string | null
+          id?: string
+          priority?: number | null
+          sortable?: boolean | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           address: string | null

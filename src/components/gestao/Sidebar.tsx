@@ -1,9 +1,28 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Users, TrendingUp, DollarSign, MapPin, ArrowLeft, Heart, FileText } from "lucide-react";
+import { Home, Users, TrendingUp, DollarSign, MapPin, ArrowLeft, Heart, FileText, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function GestaoSidebar() {
   const location = useLocation();
+  
+  // Verificar se usuário é admin/manager
+  const { data: userRole } = useQuery({
+    queryKey: ['user-role'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      return data?.role;
+    }
+  });
   
   const isActive = (path: string) => location.pathname === path;
   
@@ -17,6 +36,11 @@ export default function GestaoSidebar() {
     { path: "/scouter/area", label: "Área de Abordagem", icon: MapPin },
     { path: "/scouter/relatorios", label: "Relatórios", icon: FileText },
   ];
+  
+  // Adicionar configuração apenas para admins/managers
+  if (userRole === 'admin' || userRole === 'manager') {
+    navItems.push({ path: "/scouter/configurar-campos", label: "Configurar Campos", icon: Settings });
+  }
 
   return (
     <div className="w-64 bg-sidebar border-r border-sidebar-border min-h-screen flex flex-col">

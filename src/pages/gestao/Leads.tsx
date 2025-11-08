@@ -13,7 +13,7 @@ import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
 import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
-import { ALL_LEAD_FIELDS } from "@/config/leadFields";
+import { useGestaoFieldMappings } from "@/hooks/useGestaoFieldMappings";
 
 export default function GestaoLeads() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -25,6 +25,7 @@ export default function GestaoLeads() {
     scouterId: null
   });
   const { visibleColumns } = useLeadColumnConfig();
+  const { data: allFields, isLoading: isLoadingFields } = useGestaoFieldMappings();
   
   const { data: leads, isLoading } = useQuery({
     queryKey: ["gestao-leads", searchTerm, filters],
@@ -60,8 +61,8 @@ export default function GestaoLeads() {
     },
   });
 
-  // Get visible field configurations
-  const visibleFields = ALL_LEAD_FIELDS.filter(field => visibleColumns.includes(field.key));
+  // Get visible field configurations from dynamic mappings
+  const visibleFields = allFields?.filter(field => visibleColumns.includes(field.key)) || [];
 
   const handleExport = () => {
     if (!leads) return;
@@ -121,8 +122,8 @@ export default function GestaoLeads() {
           <LeadColumnSelector />
         </div>
 
-        {isLoading ? (
-          <div className="text-center py-12">Carregando leads...</div>
+        {isLoading || isLoadingFields ? (
+          <div className="text-center py-12">Carregando...</div>
         ) : (
           <div className="border rounded-lg bg-card overflow-x-auto">
             <Table>

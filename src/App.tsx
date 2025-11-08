@@ -38,6 +38,7 @@ import GestaoPagamentos from "./pages/gestao/Pagamentos";
 import GestaoArea from "./pages/gestao/AreaDeAbordagem";
 import GestaoAnaliseLeads from "./pages/gestao/AnaliseLeads";
 import GestaoRelatorios from "./pages/gestao/Relatorios";
+import GestaoConfigurarCampos from "./pages/gestao/ConfigurarCampos";
 import Install from "./pages/Install";
 
 // Agenciamento Module
@@ -100,6 +101,7 @@ const App = () => (
           <Route path="/scouter/pagamentos" element={<ProtectedRoute><GestaoPagamentos /></ProtectedRoute>} />
           <Route path="/scouter/area" element={<ProtectedRoute><GestaoArea /></ProtectedRoute>} />
           <Route path="/scouter/relatorios" element={<ProtectedRoute><GestaoRelatorios /></ProtectedRoute>} />
+          <Route path="/scouter/configurar-campos" element={<ProtectedRoute requireManager><GestaoConfigurarCampos /></ProtectedRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

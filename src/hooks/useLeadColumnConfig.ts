@@ -1,22 +1,32 @@
 import { useState, useEffect } from 'react';
-import { ALL_LEAD_FIELDS } from '@/config/leadFields';
+import { useGestaoFieldMappings } from './useGestaoFieldMappings';
 
 const STORAGE_KEY = 'leads_visible_columns';
 const MIN_COLUMNS = 3;
 const MAX_COLUMNS = 15;
 
 export const useLeadColumnConfig = () => {
+  const { data: allFields } = useGestaoFieldMappings();
+  
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
         return JSON.parse(stored);
       } catch {
-        return ALL_LEAD_FIELDS.filter(f => f.defaultVisible).map(f => f.key);
+        return allFields?.filter(f => f.defaultVisible).map(f => f.key) || [];
       }
     }
-    return ALL_LEAD_FIELDS.filter(f => f.defaultVisible).map(f => f.key);
+    return allFields?.filter(f => f.defaultVisible).map(f => f.key) || [];
   });
+  
+  // Atualizar colunas quando os campos forem carregados
+  useEffect(() => {
+    if (allFields && visibleColumns.length === 0) {
+      const defaults = allFields.filter(f => f.defaultVisible).map(f => f.key);
+      setVisibleColumns(defaults);
+    }
+  }, [allFields]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleColumns));
@@ -53,12 +63,12 @@ export const useLeadColumnConfig = () => {
   };
 
   const resetToDefault = () => {
-    const defaults = ALL_LEAD_FIELDS.filter(f => f.defaultVisible).map(f => f.key);
+    const defaults = allFields?.filter(f => f.defaultVisible).map(f => f.key) || [];
     setVisibleColumns(defaults);
   };
 
   const selectAll = () => {
-    const allKeys = ALL_LEAD_FIELDS.map(f => f.key).slice(0, MAX_COLUMNS);
+    const allKeys = allFields?.map(f => f.key).slice(0, MAX_COLUMNS) || [];
     setVisibleColumns(allKeys);
   };
 
