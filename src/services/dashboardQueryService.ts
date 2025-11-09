@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchAllLeads } from '@/lib/supabaseUtils';
 import type { DashboardWidget, DimensionType, MetricType, DateGrouping } from '@/types/dashboard';
 import { format, startOfWeek, startOfMonth, startOfYear, startOfQuarter } from 'date-fns';
+import { stripTagFromName } from '@/utils/formatters';
 
 interface GroupedData {
   [key: string]: any[];
@@ -105,7 +106,7 @@ function groupByDimension(
     
     switch (dimension) {
       case 'scouter':
-        key = row.scouter || 'Sem Scouter';
+        key = stripTagFromName(row.scouter) || 'Sem Scouter';
         break;
       case 'projeto':
         key = row.commercial_project_id || 'Sem Projeto';

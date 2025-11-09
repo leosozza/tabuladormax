@@ -9,6 +9,7 @@ import { createDateFilter, formatDateForDisplay } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { stripTagFromName } from "@/utils/formatters";
 
 interface GestaoFiltersProps {
   filters: GestaoFilters;
@@ -90,6 +91,8 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
         return 'Esta Semana';
       case 'month':
         return 'Este Mês';
+      case 'all':
+        return 'Todo Período';
       default:
         return 'Selecione';
     }
@@ -111,6 +114,7 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
             <SelectItem value="today">Hoje</SelectItem>
             <SelectItem value="week">Esta Semana</SelectItem>
             <SelectItem value="month">Este Mês</SelectItem>
+            <SelectItem value="all">Todo Período</SelectItem>
             <SelectItem value="custom">Personalizado</SelectItem>
           </SelectContent>
         </Select>
@@ -201,7 +205,7 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
             <SelectItem value="all">Todos os scouters</SelectItem>
             {scouters?.map((scouter) => (
               <SelectItem key={scouter} value={scouter!}>
-                {scouter}
+                {stripTagFromName(scouter)}
               </SelectItem>
             ))}
           </SelectContent>

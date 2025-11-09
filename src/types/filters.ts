@@ -1,4 +1,4 @@
-export type DateFilterPreset = 'today' | 'week' | 'month' | 'custom';
+export type DateFilterPreset = 'today' | 'week' | 'month' | 'all' | 'custom';
 
 export interface DateFilter {
   preset: DateFilterPreset;

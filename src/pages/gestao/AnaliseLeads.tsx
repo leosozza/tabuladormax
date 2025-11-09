@@ -20,6 +20,7 @@ import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
 import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal";
 import { useUndoAction } from "@/hooks/useUndoAction";
+import { LeadAnalysisModal } from "@/components/gestao/LeadAnalysisModal";
 
 export default function AnaliseLeads() {
   const queryClient = useQueryClient();
@@ -33,6 +34,7 @@ export default function AnaliseLeads() {
   const isOnline = useOnlineStatus();
   const { pendingCount, isSyncing, addToQueue, syncPendingEvaluations } = useOfflineQueue();
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('month'),
     projectId: null,
@@ -182,18 +184,21 @@ export default function AnaliseLeads() {
     if (!currentLead) return;
     analyzeMutation.mutate({ leadId: currentLead.id, quality: "aprovado" });
     goToNext();
+    setAnalysisModalOpen(false);
   };
 
   const handleReject = () => {
     if (!currentLead) return;
     analyzeMutation.mutate({ leadId: currentLead.id, quality: "rejeitado" });
     goToNext();
+    setAnalysisModalOpen(false);
   };
 
   const handleSkip = () => {
     // Clear undo when skipping
     clearUndo();
     goToNext();
+    setAnalysisModalOpen(false);
   };
 
   const handleUndo = () => {
@@ -407,10 +412,11 @@ export default function AnaliseLeads() {
           <div className="max-w-2xl mx-auto">
             <div 
               ref={cardRef}
-              className="swipe-card touch-none transition-transform border-4 rounded-lg"
+              className="swipe-card touch-none transition-transform border-4 rounded-lg cursor-pointer"
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
+              onClick={() => setAnalysisModalOpen(true)}
             >
               <LeadCard lead={currentLead} />
             </div>
@@ -455,6 +461,21 @@ export default function AnaliseLeads() {
         open={configModalOpen} 
         onOpenChange={setConfigModalOpen} 
       />
+      
+      {/* Analysis Modal */}
+      {currentLead && (
+        <LeadAnalysisModal
+          lead={currentLead}
+          open={analysisModalOpen}
+          onOpenChange={setAnalysisModalOpen}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onSkip={handleSkip}
+          disabled={analyzeMutation.isPending || undoMutation.isPending}
+          currentIndex={currentIndex}
+          totalLeads={totalLeads}
+        />
+      )}
     </div>
   );
 }

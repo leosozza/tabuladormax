@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ColumnConfig } from '@/config/leadFields';
+import { stripTagFromName } from '@/utils/formatters';
 
 export const useGestaoFieldMappings = () => {
   return useQuery({
@@ -49,6 +50,7 @@ function getFormatterFunction(name: string | null) {
       }).format(value);
     },
     formatBoolean: (value: boolean) => value ? 'Sim' : 'Não',
+    stripTag: (value: string) => stripTagFromName(value),
   };
   
   return formatters[name];
