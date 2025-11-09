@@ -23,16 +23,26 @@ interface ProcessedMetrics {
 export async function executeDashboardQuery(widget: DashboardWidget): Promise<any[]> {
   const { filters } = widget;
   
+  console.log('📊 Dashboard Query - Filtros recebidos:', filters);
+  
   // Build query using fetchAllLeads to handle pagination automatically
   const data = await fetchAllLeads(supabase, '*', (query) => {
     query = query.or('deleted.is.false,deleted.is.null');
     
-    // Aplicar filtros
+    // Aplicar filtros de data - aceitar tanto ISO string quanto Date
     if (filters?.dataInicio) {
-      query = query.gte('criado', filters.dataInicio);
+      const startDate = typeof filters.dataInicio === 'string' 
+        ? filters.dataInicio 
+        : new Date(filters.dataInicio).toISOString();
+      console.log('📅 Filtro data início:', startDate);
+      query = query.gte('criado', startDate);
     }
     if (filters?.dataFim) {
-      query = query.lte('criado', filters.dataFim);
+      const endDate = typeof filters.dataFim === 'string' 
+        ? filters.dataFim 
+        : new Date(filters.dataFim).toISOString();
+      console.log('📅 Filtro data fim:', endDate);
+      query = query.lte('criado', endDate);
     }
     if (filters?.scouter?.length) {
       query = query.in('scouter', filters.scouter);
@@ -49,6 +59,8 @@ export async function executeDashboardQuery(widget: DashboardWidget): Promise<an
     
     return query;
   });
+  
+  console.log(`✅ Dashboard Query - ${data?.length || 0} leads encontrados`);
   
   // Processar agrupamento e métricas
   return processMetrics(data || [], widget);
