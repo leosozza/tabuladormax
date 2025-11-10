@@ -307,6 +307,7 @@ export default function CadastroFicha() {
   const [bitrixEntityType, setBitrixEntityType] = useState<'lead' | 'deal' | null>(null);
   const [bitrixEntityId, setBitrixEntityId] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
 
   /**
    * Maps Bitrix field data to form fields
@@ -393,6 +394,8 @@ export default function CadastroFicha() {
   const loadExistingData = async (type: 'lead' | 'deal', id: string) => {
     setIsLoadingData(true);
     try {
+      console.log(`📡 Iniciando carregamento de ${type} ID ${id}...`);
+      
       toast({
         title: 'Carregando dados',
         description: `Buscando ${type === 'lead' ? 'lead' : 'negócio'} do Bitrix...`
@@ -403,16 +406,24 @@ export default function CadastroFicha() {
         body: { entityType: type, entityId: id }
       });
 
-      if (error) throw error;
+      console.log('📥 Resposta da edge function bitrix-entity-get:', { data, error });
 
-      if (!data.success) {
-        throw new Error(data.error || 'Erro ao buscar dados do Bitrix');
+      if (error) {
+        console.error('❌ Erro ao invocar edge function:', error);
+        throw new Error(`Erro na edge function: ${JSON.stringify(error)}`);
       }
 
-      console.log('📥 Dados recebidos do Bitrix:', data.data);
+      if (!data?.success) {
+        console.error('❌ Edge function retornou falha:', data);
+        throw new Error(data?.error || 'Erro desconhecido ao buscar dados do Bitrix');
+      }
+
+      console.log('✅ Dados recebidos do Bitrix:', data.data);
 
       // Map Bitrix data to form fields
       const mappedData = mapBitrixDataToForm(data.data);
+      console.log('🔄 Dados mapeados para formulário:', mappedData);
+      
       setFormData(prev => ({ ...prev, ...mappedData }));
 
       setBitrixEntityType(type);
@@ -424,10 +435,21 @@ export default function CadastroFicha() {
       });
       
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('❌ Error loading data:', error);
+      
+      // Identificar tipo de erro
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      let userMessage = 'Não foi possível carregar os dados do Bitrix.';
+      
+      if (errorMessage.includes('FunctionsHttpError') || errorMessage.includes('fetch')) {
+        userMessage = 'Erro de conexão com o servidor. Verifique sua internet e tente novamente.';
+      } else if (errorMessage.includes('Bitrix')) {
+        userMessage = `Erro ao comunicar com o Bitrix24: ${errorMessage}`;
+      }
+      
       toast({
         title: 'Erro ao carregar',
-        description: error instanceof Error ? error.message : 'Não foi possível carregar os dados do Bitrix.',
+        description: userMessage,
         variant: 'destructive'
       });
     } finally {
@@ -566,7 +588,11 @@ export default function CadastroFicha() {
    * Envia IDs do Bitrix para campos enumeration ao invés de textos
    */
   const mapFormDataToBitrix = (formData: FormData) => {
-    return {
+    const bitrixFields: Record<string, any> = {
+      // Campos obrigatórios do Bitrix (sempre incluir)
+      'NAME': formData.nomeResponsavel || 'Sem nome',
+      'TITLE': formData.nomeModelo || formData.nomeResponsavel || 'Cadastro sem título',
+      
       // Dados Cadastrais
       'UF_CRM_NOME_RESPONSAVEL': formData.nomeResponsavel,
       'UF_CRM_CPF': formData.cpf,
@@ -615,6 +641,15 @@ export default function CadastroFicha() {
       'UF_CRM_1762282315': formData.habilidades, // Habilidades (enumeration multiple)
       'UF_CRM_1762282725': formData.caracteristicasEspeciais // Características (enumeration multiple)
     };
+
+    // Remover campos vazios, null ou undefined para evitar erros no Bitrix
+    return Object.fromEntries(
+      Object.entries(bitrixFields).filter(([_, v]) => {
+        if (v === '' || v === null || v === undefined) return false;
+        if (Array.isArray(v) && v.length === 0) return false;
+        return true;
+      })
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -654,6 +689,18 @@ export default function CadastroFicha() {
       // Prepare data for Bitrix integration using the mapping function
       const bitrixData = mapFormDataToBitrix(formData);
       
+      console.log('📋 Dados preparados para envio:', {
+        entityType: bitrixEntityType,
+        entityId: bitrixEntityId,
+        fieldsCount: Object.keys(bitrixData).length,
+        sampleFields: {
+          NAME: bitrixData.NAME,
+          TITLE: bitrixData.TITLE,
+          nomeResponsavel: bitrixData.UF_CRM_NOME_RESPONSAVEL,
+          nomeModelo: bitrixData.UF_CRM_NOME_MODELO
+        }
+      });
+      
       // Check if we're updating an existing Bitrix entity
       if (bitrixEntityType && bitrixEntityId) {
         // UPDATE MODE - Update existing lead or deal in Bitrix (requires authentication)
@@ -673,10 +720,16 @@ export default function CadastroFicha() {
           }
         });
 
-        if (error) throw error;
+        console.log('📥 Resposta da edge function bitrix-entity-update:', { data, error });
 
-        if (!data.success) {
-          throw new Error(data.error || 'Erro ao atualizar no Bitrix');
+        if (error) {
+          console.error('❌ Erro ao invocar edge function:', error);
+          throw new Error(`Erro na edge function: ${JSON.stringify(error)}`);
+        }
+
+        if (!data?.success) {
+          console.error('❌ Edge function retornou falha:', data);
+          throw new Error(data?.error || 'Erro desconhecido ao atualizar no Bitrix');
         }
 
         console.log('✅ Atualizado com sucesso no Bitrix:', data);
@@ -703,10 +756,39 @@ export default function CadastroFicha() {
       }
       
     } catch (error) {
-      console.error('Error submitting form:', error);
+      console.error('❌ Error submitting form:', error);
+      
+      // Identificar tipo de erro e fornecer mensagem específica
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      let userMessage = 'Não foi possível salvar o cadastro.';
+      let errorDetails = '';
+      
+      if (errorMessage.includes('FunctionsHttpError') || errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch')) {
+        userMessage = 'Erro de conexão com o servidor. Verifique sua internet e tente novamente.';
+        errorDetails = 'Edge function offline ou problema de rede';
+      } else if (errorMessage.includes('autenticado') || errorMessage.includes('não autenticado')) {
+        userMessage = 'Você precisa fazer login para atualizar cadastros.';
+        errorDetails = 'Autenticação necessária';
+      } else if (errorMessage.includes('Bitrix')) {
+        userMessage = `Erro ao comunicar com o Bitrix24: ${errorMessage}`;
+        errorDetails = 'Erro na API do Bitrix24';
+      } else if (errorMessage.includes('uuid')) {
+        userMessage = 'Erro de formato de dados. Entre em contato com o suporte.';
+        errorDetails = 'Problema com formato UUID';
+      } else {
+        errorDetails = errorMessage;
+      }
+      
+      console.error('📋 Detalhes do erro:', {
+        mensagem: userMessage,
+        detalhes: errorDetails,
+        tipo: typeof error,
+        erro: error
+      });
+      
       toast({
         title: 'Erro ao salvar',
-        description: error instanceof Error ? error.message : 'Não foi possível salvar o cadastro.',
+        description: userMessage,
         variant: 'destructive'
       });
     } finally {
@@ -741,11 +823,21 @@ export default function CadastroFicha() {
             </Button>
           )}
           
-          <div className="flex items-center gap-3 mb-2">
-            <FileText className="w-8 h-8 text-primary" />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              {bitrixEntityId ? `Atualizar ${bitrixEntityType === 'lead' ? 'Lead' : 'Negócio'}` : 'Nova Ficha Cadastral'}
-            </h1>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <FileText className="w-8 h-8 text-primary" />
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                {bitrixEntityId ? `Atualizar ${bitrixEntityType === 'lead' ? 'Lead' : 'Negócio'}` : 'Nova Ficha Cadastral'}
+              </h1>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDebugMode(!debugMode)}
+              className="text-xs"
+            >
+              {debugMode ? '🐛 Debug ON' : '🐛 Debug OFF'}
+            </Button>
           </div>
           <p className="text-muted-foreground">
             {bitrixEntityId 
@@ -753,6 +845,50 @@ export default function CadastroFicha() {
               : 'Preencha os dados para criar um novo cadastro de modelo'}
           </p>
         </div>
+
+        {/* Debug Panel */}
+        {debugMode && (
+          <div className="bg-muted/50 border-2 border-primary/20 rounded-lg p-6 mb-6 space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">🐛</span>
+              <h3 className="font-bold text-lg">Modo Debug Ativado</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <h4 className="font-semibold text-sm text-primary">Estado da Aplicação</h4>
+                <div className="bg-background rounded p-3 space-y-1 text-xs font-mono">
+                  <div><span className="text-muted-foreground">Autenticado:</span> {isAuthenticated ? '✅ Sim' : '❌ Não'}</div>
+                  <div><span className="text-muted-foreground">Tipo Entidade:</span> {bitrixEntityType || 'N/A'}</div>
+                  <div><span className="text-muted-foreground">ID Entidade:</span> {bitrixEntityId || 'N/A'}</div>
+                  <div><span className="text-muted-foreground">Carregando:</span> {isLoadingData ? 'Sim' : 'Não'}</div>
+                  <div><span className="text-muted-foreground">Enviando:</span> {isSubmitting ? 'Sim' : 'Não'}</div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="font-semibold text-sm text-primary">Amostra de Dados</h4>
+                <div className="bg-background rounded p-3 space-y-1 text-xs font-mono">
+                  <div><span className="text-muted-foreground">Responsável:</span> {formData.nomeResponsavel || '(vazio)'}</div>
+                  <div><span className="text-muted-foreground">Modelo:</span> {formData.nomeModelo || '(vazio)'}</div>
+                  <div><span className="text-muted-foreground">CPF:</span> {formData.cpf || '(vazio)'}</div>
+                  <div><span className="text-muted-foreground">Telefone:</span> {formData.telefoneResponsavel || '(vazio)'}</div>
+                  <div><span className="text-muted-foreground">CEP:</span> {formData.cep || '(vazio)'}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-background rounded p-3 text-xs">
+              <div className="font-semibold text-sm text-primary mb-2">📋 Informações Importantes</div>
+              <ul className="space-y-1 text-muted-foreground list-disc list-inside">
+                <li>Verifique o console do navegador (F12) para logs detalhados</li>
+                <li>Edge functions: bitrix-entity-get (buscar) e bitrix-entity-update (atualizar)</li>
+                <li>Autenticação é necessária apenas para ATUALIZAR cadastros existentes</li>
+                <li>Campos obrigatórios: Nome do Responsável e Telefone</li>
+              </ul>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Dados Cadastrais */}
