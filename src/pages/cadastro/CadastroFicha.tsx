@@ -38,10 +38,12 @@ interface FormData {
   sexo: string;
   altura: string;
   peso: string;
-  manequim: string;
+  manequim: string[];
   calcado: string;
   corCabelo: string;
   corOlhos: string;
+  corPele: string;
+  tipoCabelo: string;
   
   // Redes Sociais - Links
   instagramLink: string;
@@ -81,10 +83,12 @@ const INITIAL_FORM_DATA: FormData = {
   sexo: '',
   altura: '',
   peso: '',
-  manequim: '',
+  manequim: [],
   calcado: '',
   corCabelo: '',
   corOlhos: '',
+  corPele: '',
+  tipoCabelo: '',
   instagramLink: '',
   facebookLink: '',
   youtubeLink: '',
@@ -101,12 +105,80 @@ const INITIAL_FORM_DATA: FormData = {
   caracteristicasEspeciais: []
 };
 
+// Bitrix24 Estado Civil Options (UF_CRM_1762283540)
 const ESTADO_CIVIL_OPTIONS = [
-  { value: 'solteiro', label: 'Solteiro(a)' },
-  { value: 'casado', label: 'Casado(a)' },
-  { value: 'divorciado', label: 'Divorciado(a)' },
-  { value: 'viuvo', label: 'Viúvo(a)' },
-  { value: 'uniao_estavel', label: 'União Estável' }
+  { value: '9422', label: 'Solteiro(a)' },
+  { value: '9418', label: 'Casado(a)' },
+  { value: '9420', label: 'Divorciado(a)' },
+  { value: '9424', label: 'Viúvo(a)' }
+];
+
+// Bitrix24 Cor da Pele Options (UF_CRM_1762283877)
+const COR_PELE_OPTIONS = [
+  { value: '9446', label: 'Branca' },
+  { value: '9448', label: 'Negra' },
+  { value: '9450', label: 'Oriental' },
+  { value: '9452', label: 'Parda' }
+];
+
+// Bitrix24 Tipo de Cabelo Options (UF_CRM_1733485270151)
+const TIPO_CABELO_OPTIONS = [
+  { value: '444', label: 'Liso' },
+  { value: '446', label: 'Ondulado' },
+  { value: '448', label: 'Cacheado' },
+  { value: '450', label: 'Crespo' },
+  { value: '2258', label: 'Natural' },
+  { value: '2260', label: 'Outros' }
+];
+
+// Bitrix24 Cor dos Olhos Options (UF_CRM_1733485183850)
+const COR_OLHOS_OPTIONS = [
+  { value: '434', label: 'Azul' },
+  { value: '438', label: 'Castanho' },
+  { value: '440', label: 'Cinza' },
+  { value: '442', label: 'Preto' },
+  { value: '436', label: 'Verde' }
+];
+
+// Bitrix24 Cor do Cabelo Options (UF_CRM_1762283650)
+const COR_CABELO_OPTIONS = [
+  { value: '9434', label: 'Branco' },
+  { value: '9436', label: 'Castanho' },
+  { value: '9438', label: 'Grisalho' },
+  { value: '9440', label: 'Loiro' },
+  { value: '9442', label: 'Preto' },
+  { value: '9444', label: 'Ruivo' }
+];
+
+// Bitrix24 Manequim Options (UF_CRM_1762283056)
+const MANEQUIM_OPTIONS = [
+  { value: '9364', label: '1' },
+  { value: '9366', label: '2' },
+  { value: '9368', label: '3' },
+  { value: '9370', label: '4' },
+  { value: '9372', label: '5' },
+  { value: '9374', label: '6' },
+  { value: '9376', label: '7' },
+  { value: '9378', label: '8' },
+  { value: '9380', label: '9' },
+  { value: '9382', label: '10' },
+  { value: '9384', label: '11' },
+  { value: '9386', label: '12' },
+  { value: '9388', label: '13' },
+  { value: '9390', label: '14' },
+  { value: '9392', label: '15' },
+  { value: '9394', label: '16' },
+  { value: '9396', label: '34' },
+  { value: '9398', label: '36' },
+  { value: '9400', label: '38' },
+  { value: '9402', label: '40' },
+  { value: '9404', label: '42' },
+  { value: '9406', label: '44' },
+  { value: '9408', label: '46' },
+  { value: '9410', label: '48' },
+  { value: '9412', label: '50' },
+  { value: '9414', label: '52' },
+  { value: '9416', label: '54' }
 ];
 
 const SEXO_OPTIONS = [
@@ -145,37 +217,81 @@ const ESTADO_OPTIONS = [
   { value: 'TO', label: 'Tocantins' }
 ];
 
-const TIPO_MODELO_SUGGESTIONS = [
-  'Fotográfico',
-  'Passarela',
-  'Comercial',
-  'Editorial',
-  'Fitness',
-  'Plus Size',
-  'Infantil',
-  'Teen'
+// Bitrix24 Tipo de Modelo Options (UF_CRM_1762282818)
+const TIPO_MODELO_OPTIONS = [
+  { value: '9300', label: 'Gemeos' },
+  { value: '9302', label: 'Fashion' },
+  { value: '9304', label: 'Publicidade' },
+  { value: '9306', label: 'Elenco' },
+  { value: '9308', label: 'Figuração' },
+  { value: '9310', label: 'Feira & Eventos' },
+  { value: '9312', label: 'Celebridade' },
+  { value: '9314', label: 'Platéia' },
+  { value: '9316', label: 'Atores com DRT' },
+  { value: '9318', label: 'Plus Size' },
+  { value: '9320', label: 'Em desenvolvimento' },
+  { value: '9322', label: 'New Face Kids' },
+  { value: '9324', label: 'Kids Mercado Exclusivo' },
+  { value: '9326', label: 'Kids Mercado' },
+  { value: '9328', label: 'Teens New Faces' },
+  { value: '9330', label: 'Max Fashion Day' },
+  { value: '9332', label: 'Exclusivo' },
+  { value: '9334', label: 'Atletas' },
+  { value: '9336', label: 'Musícos' },
+  { value: '9338', label: 'Modernos' },
+  { value: '9340', label: 'Necessidades especiais' },
+  { value: '9342', label: 'Com experiência' },
+  { value: '9344', label: 'YModel' },
+  { value: '9346', label: 'Oriental' },
+  { value: '9348', label: 'Modelos com documentos para alvará' },
+  { value: '9350', label: 'Central do Casting' },
+  { value: '9352', label: 'CC Eventos' },
+  { value: '9354', label: 'CC Fotos' },
+  { value: '9356', label: 'CC Showroom' },
+  { value: '9358', label: 'CC Desfile' },
+  { value: '9360', label: 'CC Video' },
+  { value: '9362', label: 'Vitiligo / Albino' }
 ];
 
-const CURSOS_SUGGESTIONS = [
-  'Passarela',
-  'Fotografia',
-  'Expressão Corporal',
-  'Teatro',
-  'Dança',
-  'Etiqueta',
-  'Maquiagem',
-  'Idiomas'
+// Bitrix24 Cursos Options (UF_CRM_1762282626)
+const CURSOS_OPTIONS = [
+  { value: '9262', label: 'Canto' },
+  { value: '9264', label: 'Dança' },
+  { value: '9266', label: 'Espanhol' },
+  { value: '9268', label: 'Exclusivo' },
+  { value: '9270', label: 'Formatura CWB' },
+  { value: '9272', label: 'Ginastica Artistica' },
+  { value: '9274', label: 'Ingles' },
+  { value: '9276', label: 'Outros, colocar em informaçoes' },
+  { value: '9278', label: 'Passarela' },
+  { value: '9280', label: 'Teatro' },
+  { value: '9282', label: 'Toca Instrumento Musical' },
+  { value: '9284', label: 'Workshop Gui' }
 ];
 
-const HABILIDADES_SUGGESTIONS = [
-  'Dança',
-  'Canto',
-  'Teatro',
-  'Esportes',
-  'Música',
-  'Artes Marciais',
-  'Idiomas',
-  'Fotografia'
+// Bitrix24 Habilidades Options (UF_CRM_1762282315)
+const HABILIDADES_OPTIONS = [
+  { value: '9228', label: 'Atua' },
+  { value: '9230', label: 'Bilingue' },
+  { value: '9232', label: 'Canta' },
+  { value: '9234', label: 'Dança' },
+  { value: '9236', label: 'Desfila' },
+  { value: '9238', label: 'DRT' },
+  { value: '9240', label: 'Figurantes' },
+  { value: '9242', label: 'Joga Futebol' },
+  { value: '9244', label: 'Outros,colocar em informaçoes' },
+  { value: '9246', label: 'Segura texto' }
+];
+
+// Bitrix24 Características Options (UF_CRM_1762282725)
+const CARACTERISTICAS_OPTIONS = [
+  { value: '9286', label: 'Comunicativo' },
+  { value: '9288', label: 'Desinibida' },
+  { value: '9290', label: 'Dinâmica' },
+  { value: '9292', label: 'Esperto' },
+  { value: '9294', label: 'Espontaneo' },
+  { value: '9296', label: 'Interativa' },
+  { value: '9298', label: 'Risonho' }
 ];
 
 export default function CadastroFicha() {
@@ -314,13 +430,14 @@ export default function CadastroFicha() {
   /**
    * Mapeia os dados do formulário para os campos do Bitrix24
    * Usa os nomes EXATOS dos campos personalizados do Bitrix (UF_CRM_*)
+   * Envia IDs do Bitrix para campos enumeration ao invés de textos
    */
   const mapFormDataToBitrix = (formData: FormData) => {
     return {
       // Dados Cadastrais
       'UF_CRM_NOME_RESPONSAVEL': formData.nomeResponsavel,
       'UF_CRM_CPF': formData.cpf,
-      'UF_CRM_ESTADO_CIVIL': formData.estadoCivil,
+      'UF_CRM_1762283540': formData.estadoCivil, // Estado Civil (enumeration)
       'UF_CRM_TELEFONE_RESPONSAVEL': formData.telefoneResponsavel,
       
       // Endereço
@@ -338,10 +455,12 @@ export default function CadastroFicha() {
       'UF_CRM_SEXO': formData.sexo,
       'UF_CRM_ALTURA': formData.altura,
       'UF_CRM_PESO': formData.peso,
-      'UF_CRM_MANEQUIM': formData.manequim,
+      'UF_CRM_1762283056': formData.manequim, // Manequim (enumeration multiple)
       'UF_CRM_CALCADO': formData.calcado,
-      'UF_CRM_COR_CABELO': formData.corCabelo,
-      'UF_CRM_COR_OLHOS': formData.corOlhos,
+      'UF_CRM_1762283650': formData.corCabelo, // Cor do Cabelo (enumeration)
+      'UF_CRM_1733485183850': formData.corOlhos, // Cor dos Olhos (enumeration)
+      'UF_CRM_1762283877': formData.corPele, // Cor da Pele (enumeration)
+      'UF_CRM_1733485270151': formData.tipoCabelo, // Tipo de Cabelo (enumeration)
       
       // Redes Sociais - Links
       'UF_CRM_INSTAGRAM_LINK': formData.instagramLink,
@@ -357,11 +476,11 @@ export default function CadastroFicha() {
       'UF_CRM_TIKTOK_SEGUIDORES': formData.tiktokSeguidores,
       'UF_CRM_KWAI_SEGUIDORES': formData.kwaiSeguidores,
       
-      // Habilidades (convertendo arrays para strings separadas por vírgula)
-      'UF_CRM_TIPO_MODELO': formData.tipoModelo.join(', '),
-      'UF_CRM_CURSOS': formData.cursos.join(', '),
-      'UF_CRM_HABILIDADES': formData.habilidades.join(', '),
-      'UF_CRM_CARACTERISTICAS_ESPECIAIS': formData.caracteristicasEspeciais.join(', ')
+      // Habilidades e Características (enumeration multiple - enviar arrays de IDs)
+      'UF_CRM_1762282818': formData.tipoModelo, // Tipo de Modelo (enumeration multiple)
+      'UF_CRM_1762282626': formData.cursos, // Cursos (enumeration multiple)
+      'UF_CRM_1762282315': formData.habilidades, // Habilidades (enumeration multiple)
+      'UF_CRM_1762282725': formData.caracteristicasEspeciais // Características (enumeration multiple)
     };
   };
 
@@ -656,13 +775,6 @@ export default function CadastroFicha() {
                 placeholder="65"
               />
               <FormField
-                id="manequim"
-                label="Manequim"
-                value={formData.manequim}
-                onChange={(v) => handleFieldChange('manequim', v)}
-                placeholder="P, M, G, etc."
-              />
-              <FormField
                 id="calcado"
                 label="Calçado"
                 value={formData.calcado}
@@ -670,18 +782,50 @@ export default function CadastroFicha() {
                 placeholder="35, 36, 37, etc."
               />
               <FormField
+                id="corPele"
+                label="Cor da Pele"
+                type="select"
+                value={formData.corPele}
+                onChange={(v) => handleFieldChange('corPele', v)}
+                options={COR_PELE_OPTIONS}
+                required
+              />
+              <FormField
                 id="corCabelo"
                 label="Cor do Cabelo"
+                type="select"
                 value={formData.corCabelo}
                 onChange={(v) => handleFieldChange('corCabelo', v)}
-                placeholder="Castanho, Loiro, etc."
+                options={COR_CABELO_OPTIONS}
+              />
+              <FormField
+                id="tipoCabelo"
+                label="Tipo de Cabelo"
+                type="select"
+                value={formData.tipoCabelo}
+                onChange={(v) => handleFieldChange('tipoCabelo', v)}
+                options={TIPO_CABELO_OPTIONS}
+                required
               />
               <FormField
                 id="corOlhos"
                 label="Cor dos Olhos"
+                type="select"
                 value={formData.corOlhos}
                 onChange={(v) => handleFieldChange('corOlhos', v)}
-                placeholder="Castanho, Azul, etc."
+                options={COR_OLHOS_OPTIONS}
+              />
+            </div>
+            
+            {/* Manequim as MultiSelect */}
+            <div className="mt-4">
+              <MultiSelect
+                id="manequim"
+                label="Manequim"
+                value={formData.manequim}
+                onChange={(v) => handleFieldChange('manequim', v)}
+                options={MANEQUIM_OPTIONS}
+                placeholder="Selecione os tamanhos"
               />
             </div>
           </FormSection>
@@ -802,31 +946,32 @@ export default function CadastroFicha() {
                 label="Tipo de Modelo"
                 value={formData.tipoModelo}
                 onChange={(v) => handleFieldChange('tipoModelo', v)}
-                suggestions={TIPO_MODELO_SUGGESTIONS}
-                placeholder="Digite e pressione Enter para adicionar"
+                options={TIPO_MODELO_OPTIONS}
+                placeholder="Selecione os tipos"
               />
               <MultiSelect
                 id="cursos"
                 label="Cursos Realizados"
                 value={formData.cursos}
                 onChange={(v) => handleFieldChange('cursos', v)}
-                suggestions={CURSOS_SUGGESTIONS}
-                placeholder="Digite e pressione Enter para adicionar"
+                options={CURSOS_OPTIONS}
+                placeholder="Selecione os cursos"
               />
               <MultiSelect
                 id="habilidades"
                 label="Habilidades"
                 value={formData.habilidades}
                 onChange={(v) => handleFieldChange('habilidades', v)}
-                suggestions={HABILIDADES_SUGGESTIONS}
-                placeholder="Digite e pressione Enter para adicionar"
+                options={HABILIDADES_OPTIONS}
+                placeholder="Selecione as habilidades"
               />
               <MultiSelect
                 id="caracteristicasEspeciais"
                 label="Características Especiais"
                 value={formData.caracteristicasEspeciais}
                 onChange={(v) => handleFieldChange('caracteristicasEspeciais', v)}
-                placeholder="Digite e pressione Enter para adicionar"
+                options={CARACTERISTICAS_OPTIONS}
+                placeholder="Selecione as características"
               />
             </div>
           </FormSection>

@@ -11,6 +11,7 @@ interface MultiSelectProps {
   onChange: (values: string[]) => void;
   placeholder?: string;
   suggestions?: string[];
+  options?: { value: string; label: string }[];
 }
 
 export const MultiSelect: React.FC<MultiSelectProps> = ({
@@ -19,14 +20,24 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
   value,
   onChange,
   placeholder = 'Digite e pressione Enter',
-  suggestions = []
+  suggestions = [],
+  options = []
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  // Use options if provided, otherwise use suggestions as simple strings
+  const availableOptions = options.length > 0
+    ? options
+    : suggestions.map(s => ({ value: s, label: s }));
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && inputValue.trim()) {
       e.preventDefault();
+      // If options are provided, don't allow free text entry
+      if (options.length > 0) {
+        return;
+      }
       if (!value.includes(inputValue.trim())) {
         onChange([...value, inputValue.trim()]);
       }
@@ -35,23 +46,29 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
     }
   };
 
-  const handleRemove = (item: string) => {
-    onChange(value.filter((v) => v !== item));
+  const handleRemove = (itemValue: string) => {
+    onChange(value.filter((v) => v !== itemValue));
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    if (!value.includes(suggestion)) {
-      onChange([...value, suggestion]);
+  const handleOptionClick = (optionValue: string) => {
+    if (!value.includes(optionValue)) {
+      onChange([...value, optionValue]);
     }
     setInputValue('');
     setShowSuggestions(false);
   };
 
-  const filteredSuggestions = suggestions.filter(
-    (s) =>
-      s.toLowerCase().includes(inputValue.toLowerCase()) &&
-      !value.includes(s)
+  const filteredOptions = availableOptions.filter(
+    (opt) =>
+      opt.label.toLowerCase().includes(inputValue.toLowerCase()) &&
+      !value.includes(opt.value)
   );
+
+  // Helper to get label for a value
+  const getLabelForValue = (val: string): string => {
+    const option = availableOptions.find(opt => opt.value === val);
+    return option ? option.label : val;
+  };
 
   return (
     <div className="space-y-2">
@@ -63,23 +80,23 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
             value={inputValue}
             onChange={(e) => {
               setInputValue(e.target.value);
-              setShowSuggestions(e.target.value.length > 0);
+              setShowSuggestions(e.target.value.length > 0 || availableOptions.length > 0);
             }}
             onKeyDown={handleKeyDown}
-            onFocus={() => setShowSuggestions(inputValue.length > 0)}
+            onFocus={() => setShowSuggestions(availableOptions.length > 0)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             placeholder={placeholder}
           />
-          {showSuggestions && filteredSuggestions.length > 0 && (
+          {showSuggestions && filteredOptions.length > 0 && (
             <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-md max-h-60 overflow-y-auto">
-              {filteredSuggestions.map((suggestion) => (
+              {filteredOptions.map((option) => (
                 <button
-                  key={suggestion}
+                  key={option.value}
                   type="button"
                   className="w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground text-sm"
-                  onClick={() => handleSuggestionClick(suggestion)}
+                  onClick={() => handleOptionClick(option.value)}
                 >
-                  {suggestion}
+                  {option.label}
                 </button>
               ))}
             </div>
@@ -87,12 +104,12 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
         </div>
         {value.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {value.map((item) => (
-              <Badge key={item} variant="secondary" className="pl-3 pr-1">
-                {item}
+            {value.map((itemValue) => (
+              <Badge key={itemValue} variant="secondary" className="pl-3 pr-1">
+                {getLabelForValue(itemValue)}
                 <button
                   type="button"
-                  onClick={() => handleRemove(item)}
+                  onClick={() => handleRemove(itemValue)}
                   className="ml-2 hover:text-destructive"
                 >
                   <X className="w-3 h-3" />
