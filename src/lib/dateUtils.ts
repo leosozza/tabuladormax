@@ -22,8 +22,8 @@ export function getDateRangeForPreset(preset: DateFilterPreset): { startDate: Da
       startDate.setHours(0, 0, 0, 0);
       break;
     case 'all':
-      // Set to a very early date (e.g., Jan 1, 2020)
-      startDate.setFullYear(2020, 0, 1);
+      // Set to a very early date to capture all leads (Jan 1, 1900)
+      startDate.setFullYear(1900, 0, 1);
       startDate.setHours(0, 0, 0, 0);
       break;
     case 'custom':

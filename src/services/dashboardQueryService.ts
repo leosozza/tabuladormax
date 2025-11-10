@@ -23,25 +23,39 @@ interface ProcessedMetrics {
 export async function executeDashboardQuery(widget: DashboardWidget): Promise<any[]> {
   const { filters } = widget;
   
-  console.log('📊 Dashboard Query - Filtros recebidos:', filters);
+  console.log('📊 Dashboard Query - Filtros recebidos:', {
+    dataInicio: filters?.dataInicio,
+    dataFim: filters?.dataFim,
+    scouter: filters?.scouter,
+    projeto: filters?.projeto,
+    supervisor: filters?.supervisor,
+    etapa: filters?.etapa
+  });
   
   // Build query using fetchAllLeads to handle pagination automatically
   const data = await fetchAllLeads(supabase, '*', (query) => {
     query = query.or('deleted.is.false,deleted.is.null');
     
-    // Aplicar filtros de data - aceitar tanto ISO string quanto Date
+    // Aplicar filtros de data - PULAR se for "Todo Período" (1900-01-01)
     if (filters?.dataInicio) {
       const startDate = typeof filters.dataInicio === 'string' 
         ? filters.dataInicio 
         : new Date(filters.dataInicio).toISOString();
-      console.log('📅 Filtro data início:', startDate);
-      query = query.gte('criado', startDate);
+      
+      // Só aplicar filtro se não for "Todo Período" (detecta 1900-01-01)
+      if (!startDate.startsWith('1900-01-01')) {
+        console.log('📅 Aplicando filtro data início:', startDate);
+        query = query.gte('criado', startDate);
+      } else {
+        console.log('📅 PULANDO filtro data início (Todo Período)');
+      }
     }
+    
     if (filters?.dataFim) {
       const endDate = typeof filters.dataFim === 'string' 
         ? filters.dataFim 
         : new Date(filters.dataFim).toISOString();
-      console.log('📅 Filtro data fim:', endDate);
+      console.log('📅 Aplicando filtro data fim:', endDate);
       query = query.lte('criado', endDate);
     }
     if (filters?.scouter?.length) {
@@ -60,7 +74,11 @@ export async function executeDashboardQuery(widget: DashboardWidget): Promise<an
     return query;
   });
   
-  console.log(`✅ Dashboard Query - ${data?.length || 0} leads encontrados`);
+  console.log(`✅ Dashboard Query - ${data?.length || 0} leads encontrados`, {
+    dimension: widget.dimension,
+    metrics: widget.metrics,
+    chartType: widget.chartType
+  });
   
   // Processar agrupamento e métricas
   return processMetrics(data || [], widget);

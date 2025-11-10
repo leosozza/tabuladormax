@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboard } from '@/hooks/useDashboard';
 import { DynamicWidget } from '@/components/dashboard/DynamicWidget';
@@ -7,10 +8,20 @@ import { Button } from '@/components/ui/button';
 import { Plus, Settings } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
+import { GestaoFiltersComponent } from '@/components/gestao/GestaoFilters';
+import { createDateFilter } from '@/lib/dateUtils';
+import type { GestaoFilters } from '@/types/filters';
 
 export default function AdvancedDashboard() {
   const navigate = useNavigate();
   const { dashboards, isLoading } = useDashboard();
+  
+  // Filtros globais do dashboard
+  const [filters, setFilters] = useState<GestaoFilters>({
+    dateFilter: createDateFilter('month'),
+    projectId: null,
+    scouterId: null
+  });
 
   // Usar o primeiro dashboard ou dashboard padrão
   const activeDashboard = dashboards.find(d => d.is_default) || dashboards[0];
@@ -28,15 +39,29 @@ export default function AdvancedDashboard() {
     );
   }
 
-  const draggableWidgets: DraggableWidget[] = activeDashboard?.widgets.map((widget) => ({
-    id: widget.id,
-    title: widget.title,
-    component: <DynamicWidget config={widget} />,
-    size: {
-      cols: widget.layout?.w || 6,
-      rows: widget.layout?.h || 4,
-    },
-  })) || [];
+  // Aplicar filtros globais aos widgets
+  const draggableWidgets: DraggableWidget[] = activeDashboard?.widgets.map((widget) => {
+    const widgetWithFilters = {
+      ...widget,
+      filters: {
+        ...widget.filters,
+        dataInicio: filters.dateFilter.startDate.toISOString(),
+        dataFim: filters.dateFilter.endDate.toISOString(),
+        scouter: filters.scouterId ? [filters.scouterId] : widget.filters?.scouter,
+        projeto: filters.projectId ? [filters.projectId] : widget.filters?.projeto
+      }
+    };
+    
+    return {
+      id: widget.id,
+      title: widget.title,
+      component: <DynamicWidget config={widgetWithFilters} />,
+      size: {
+        cols: widget.layout?.w || 6,
+        rows: widget.layout?.h || 4,
+      },
+    };
+  }) || [];
 
   return (
     <AdminPageLayout
@@ -49,6 +74,11 @@ export default function AdvancedDashboard() {
         </Button>
       }
     >
+      {/* Filtros Globais */}
+      <div className="mb-6">
+        <GestaoFiltersComponent filters={filters} onChange={setFilters} />
+      </div>
+
       {activeDashboard ? (
         draggableWidgets.length > 0 ? (
           <DraggableGridLayout 

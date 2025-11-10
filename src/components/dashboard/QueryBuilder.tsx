@@ -32,6 +32,8 @@ import {
   CHART_TYPE_LABELS,
 } from '@/types/dashboard';
 import { Calendar, Filter, BarChart3, Settings2, Plus } from 'lucide-react';
+import { createDateFilter } from '@/lib/dateUtils';
+import type { DateFilterPreset } from '@/types/filters';
 
 interface QueryBuilderProps {
   onSave: (widget: Omit<DashboardWidget, 'id'>) => void;
@@ -52,6 +54,7 @@ export function QueryBuilder({ onSave, onCancel, initialWidget }: QueryBuilderPr
   
   // Filtros
   const [filters, setFilters] = useState<WidgetFilters>(initialWidget?.filters || {});
+  const [datePreset, setDatePreset] = useState<DateFilterPreset>('month');
 
   const handleMetricToggle = (metric: MetricType) => {
     setMetrics(prev => 
@@ -59,6 +62,16 @@ export function QueryBuilder({ onSave, onCancel, initialWidget }: QueryBuilderPr
         ? prev.filter(m => m !== metric)
         : [...prev, metric]
     );
+  };
+
+  const handleDatePresetChange = (preset: DateFilterPreset) => {
+    setDatePreset(preset);
+    const dateFilter = createDateFilter(preset);
+    setFilters({
+      ...filters,
+      dataInicio: dateFilter.startDate.toISOString().split('T')[0],
+      dataFim: dateFilter.endDate.toISOString().split('T')[0]
+    });
   };
 
   const handleSave = () => {
@@ -216,27 +229,50 @@ export function QueryBuilder({ onSave, onCancel, initialWidget }: QueryBuilderPr
           {/* Aba Filtros */}
           <TabsContent value="filters" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="dataInicio">Data Início</Label>
-              <Input
-                id="dataInicio"
-                type="date"
-                value={filters.dataInicio || ''}
-                onChange={(e) => setFilters({ ...filters, dataInicio: e.target.value })}
-              />
+              <Label htmlFor="datePreset">Período</Label>
+              <Select 
+                value={datePreset} 
+                onValueChange={(v) => handleDatePresetChange(v as DateFilterPreset)}
+              >
+                <SelectTrigger id="datePreset">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Hoje</SelectItem>
+                  <SelectItem value="week">Esta Semana</SelectItem>
+                  <SelectItem value="month">Este Mês</SelectItem>
+                  <SelectItem value="all">Todo Período</SelectItem>
+                  <SelectItem value="custom">Personalizado</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="dataFim">Data Fim</Label>
-              <Input
-                id="dataFim"
-                type="date"
-                value={filters.dataFim || ''}
-                onChange={(e) => setFilters({ ...filters, dataFim: e.target.value })}
-              />
-            </div>
+            {datePreset === 'custom' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="dataInicio">Data Início</Label>
+                  <Input
+                    id="dataInicio"
+                    type="date"
+                    value={filters.dataInicio || ''}
+                    onChange={(e) => setFilters({ ...filters, dataInicio: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="dataFim">Data Fim</Label>
+                  <Input
+                    id="dataFim"
+                    type="date"
+                    value={filters.dataFim || ''}
+                    onChange={(e) => setFilters({ ...filters, dataFim: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
 
             <p className="text-sm text-muted-foreground">
-              💡 Dica: Filtros adicionais (scouter, projeto, etc.) podem ser adicionados futuramente
+              💡 Use "Personalizado" para definir datas específicas ou "Todo Período" para todos os leads
             </p>
           </TabsContent>
 
