@@ -96,8 +96,8 @@ const App = () => (
           {/* Agenciamento (Negotiations) - Connected to 3D solar system planet button */}
           <Route path="/agenciamento" element={<ProtectedRoute><Agenciamento /></ProtectedRoute>} />
 
-          {/* Cadastro Module - Independent registration form */}
-          <Route path="/cadastro" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
+          {/* Cadastro Module - Independent registration form (public access) */}
+          <Route path="/cadastro" element={<CadastroFicha />} />
           <Route path="/cadastro/atualizar" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
           <Route path="/cadastro/atualizar/:entityType/:entityId" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
 

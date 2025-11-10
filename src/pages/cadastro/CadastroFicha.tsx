@@ -306,6 +306,7 @@ export default function CadastroFicha() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [bitrixEntityType, setBitrixEntityType] = useState<'lead' | 'deal' | null>(null);
   const [bitrixEntityId, setBitrixEntityId] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   /**
    * Maps Bitrix field data to form fields
@@ -433,6 +434,22 @@ export default function CadastroFicha() {
       setIsLoadingData(false);
     }
   };
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
+    };
+    
+    checkAuth();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Load existing data from URL query parameters or route params
   useEffect(() => {
@@ -637,16 +654,15 @@ export default function CadastroFicha() {
       // Prepare data for Bitrix integration using the mapping function
       const bitrixData = mapFormDataToBitrix(formData);
       
-      // Call Bitrix integration edge function
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error('Usuário não autenticado');
-      }
-      
       // Check if we're updating an existing Bitrix entity
       if (bitrixEntityType && bitrixEntityId) {
-        // UPDATE MODE - Update existing lead or deal in Bitrix
+        // UPDATE MODE - Update existing lead or deal in Bitrix (requires authentication)
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          throw new Error('Usuário não autenticado. Para atualizar cadastros, faça login primeiro.');
+        }
+        
         console.log(`📤 Atualizando ${bitrixEntityType} ID ${bitrixEntityId} no Bitrix...`);
         
         const { data, error } = await supabase.functions.invoke('bitrix-entity-update', {
@@ -671,7 +687,7 @@ export default function CadastroFicha() {
         });
 
       } else {
-        // CREATE MODE - Create new entry (placeholder for future implementation)
+        // CREATE MODE - Create new entry (public access allowed)
         console.log('📤 Criando novo cadastro no Bitrix...', bitrixData);
         
         // TODO: Implement creation logic with bitrix-entity-create edge function
@@ -714,14 +730,16 @@ export default function CadastroFicha() {
       <div className="container max-w-6xl mx-auto py-8 px-4">
         {/* Header */}
         <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/home-choice')}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Voltar
-          </Button>
+          {isAuthenticated && (
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/home-choice')}
+              className="mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar
+            </Button>
+          )}
           
           <div className="flex items-center gap-3 mb-2">
             <FileText className="w-8 h-8 text-primary" />
@@ -758,7 +776,6 @@ export default function CadastroFicha() {
                 value={formData.cpf}
                 onChange={(v) => handleFieldChange('cpf', v)}
                 placeholder="000.000.000-00"
-                required
               />
               <FormField
                 id="estadoCivil"
@@ -883,7 +900,6 @@ export default function CadastroFicha() {
                 type="date"
                 value={formData.dataNascimento}
                 onChange={(v) => handleFieldChange('dataNascimento', v)}
-                required
               />
               <FormField
                 id="sexo"
@@ -924,7 +940,6 @@ export default function CadastroFicha() {
                 value={formData.corPele}
                 onChange={(v) => handleFieldChange('corPele', v)}
                 options={COR_PELE_OPTIONS}
-                required
               />
               <FormField
                 id="corCabelo"
@@ -941,7 +956,6 @@ export default function CadastroFicha() {
                 value={formData.tipoCabelo}
                 onChange={(v) => handleFieldChange('tipoCabelo', v)}
                 options={TIPO_CABELO_OPTIONS}
-                required
               />
               <FormField
                 id="corOlhos"
