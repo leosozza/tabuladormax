@@ -703,13 +703,7 @@ export default function CadastroFicha() {
       
       // Check if we're updating an existing Bitrix entity
       if (bitrixEntityType && bitrixEntityId) {
-        // UPDATE MODE - Update existing lead or deal in Bitrix (requires authentication)
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          throw new Error('Usuário não autenticado. Para atualizar cadastros, faça login primeiro.');
-        }
-        
+        // UPDATE MODE - Update existing lead or deal in Bitrix (PUBLIC ACCESS)
         console.log(`📤 Atualizando ${bitrixEntityType} ID ${bitrixEntityId} no Bitrix...`);
         
         const { data, error } = await supabase.functions.invoke('bitrix-entity-update', {
@@ -883,7 +877,7 @@ export default function CadastroFicha() {
               <ul className="space-y-1 text-muted-foreground list-disc list-inside">
                 <li>Verifique o console do navegador (F12) para logs detalhados</li>
                 <li>Edge functions: bitrix-entity-get (buscar) e bitrix-entity-update (atualizar)</li>
-                <li>Autenticação é necessária apenas para ATUALIZAR cadastros existentes</li>
+                <li>⚠️ Página pública: qualquer pessoa com o link pode atualizar o cadastro</li>
                 <li>Campos obrigatórios: Nome do Responsável e Telefone</li>
               </ul>
             </div>
