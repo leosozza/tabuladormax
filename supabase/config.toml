@@ -62,3 +62,9 @@ verify_jwt = true
 
 [functions.export-schema]
 verify_jwt = false
+
+[functions.bitrix-entity-get]
+verify_jwt = false
+
+[functions.bitrix-entity-update]
+verify_jwt = false
