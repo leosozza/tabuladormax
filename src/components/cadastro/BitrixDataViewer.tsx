@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Eye, CheckCircle, XCircle } from 'lucide-react';
 
 interface BitrixDataViewerProps {
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   title?: string;
   description?: string;
   syncStatus?: 'synced' | 'pending' | 'error';
