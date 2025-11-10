@@ -45,6 +45,9 @@ import Install from "./pages/Install";
 // Agenciamento Module
 import Agenciamento from "./pages/Agenciamento";
 
+// Cadastro Module
+import CadastroFicha from "./pages/cadastro/CadastroFicha";
+
 // Hub Panels
 import HubPanels from "./pages/HubPanels";
 import "@/styles/hub.css";
@@ -92,6 +95,11 @@ const App = () => (
 
           {/* Agenciamento (Negotiations) - Connected to 3D solar system planet button */}
           <Route path="/agenciamento" element={<ProtectedRoute><Agenciamento /></ProtectedRoute>} />
+
+          {/* Cadastro Module - Independent registration form */}
+          <Route path="/cadastro" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
+          <Route path="/cadastro/atualizar" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
+          <Route path="/cadastro/atualizar/:entityType/:entityId" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
 
           {/* Rotas do Gestão Scouter (prefixo /scouter) - Connected to 3D solar system planet button */}
           <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />

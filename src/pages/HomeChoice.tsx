@@ -11,6 +11,7 @@ type Panel = {
 
 const PANELS: Panel[] = [
   { title: 'Telemarketing', emoji: '📞', description: 'Captação e gestão de leads.', route: '/telemarketing' },
+  { title: 'Cadastro', emoji: '📋', description: 'Cadastro e atualização de fichas.', route: '/cadastro/atualizar' },
   { title: 'Scouter', emoji: '🎯', description: 'Mapeamento e prospecção de talentos.', route: '/scouter' },
   { title: 'Agenciamento', emoji: '🤝', description: 'Organização e controle de horários.', route: '/agenciamento' },
   { title: 'Administrativo', emoji: '🏢', description: 'Gestão e acompanhamento interno.', route: '/admin' }
