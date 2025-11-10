@@ -273,19 +273,84 @@ Identificadas no projeto:
 
 ## 📊 Mapeamento de Campos
 
-### Sugestão de Mapeamento Bitrix24
+### Mapeamento Completo Bitrix24
 
-| Campo Formulário | Campo Bitrix | Tipo |
-|-----------------|--------------|------|
-| nomeResponsavel | CONTACT.NAME | string |
-| cpf | CONTACT.UF_CRM_CPF | string |
-| telefoneResponsavel | CONTACT.PHONE | phone |
-| endereco | CONTACT.ADDRESS | string |
-| nomeModelo | LEAD.TITLE | string |
-| instagram | CONTACT.IM | im |
-| tipoModelo | CONTACT.UF_CRM_TIPO_MODELO | list |
-| cursos | CONTACT.UF_CRM_CURSOS | list |
-| habilidades | CONTACT.UF_CRM_HABILIDADES | list |
+#### Dados Cadastrais
+
+| Campo Formulário | Campo Bitrix | Tipo | Descrição |
+|-----------------|--------------|------|-----------|
+| nomeResponsavel | UF_CRM_NOME_RESPONSAVEL | string | Nome completo do responsável pelo modelo |
+| cpf | UF_CRM_CPF | string | CPF do responsável (validado) |
+| estadoCivil | UF_CRM_ESTADO_CIVIL | string | Estado civil do responsável |
+| telefoneResponsavel | UF_CRM_TELEFONE_RESPONSAVEL | string | Telefone de contato do responsável |
+
+#### Endereço
+
+| Campo Formulário | Campo Bitrix | Tipo | Descrição |
+|-----------------|--------------|------|-----------|
+| cep | UF_CRM_CEP | string | CEP do endereço |
+| endereco | UF_CRM_ENDERECO | string | Logradouro completo |
+| numero | UF_CRM_NUMERO | string | Número do endereço |
+| complemento | UF_CRM_COMPLEMENTO | string | Complemento do endereço |
+| bairro | UF_CRM_BAIRRO | string | Nome do bairro |
+| cidade | UF_CRM_CIDADE | string | Nome da cidade |
+| estado | UF_CRM_ESTADO | string | Sigla do estado (UF) |
+
+#### Dados do Modelo
+
+| Campo Formulário | Campo Bitrix | Tipo | Descrição |
+|-----------------|--------------|------|-----------|
+| nomeModelo | UF_CRM_NOME_MODELO | string | Nome completo do modelo |
+| dataNascimento | UF_CRM_DATA_NASCIMENTO | date | Data de nascimento do modelo |
+| sexo | UF_CRM_SEXO | string | Sexo do modelo |
+| altura | UF_CRM_ALTURA | string | Altura em centímetros |
+| peso | UF_CRM_PESO | string | Peso em quilogramas |
+| manequim | UF_CRM_MANEQUIM | string | Tamanho do manequim (P, M, G, etc.) |
+| calcado | UF_CRM_CALCADO | string | Número do calçado |
+| corCabelo | UF_CRM_COR_CABELO | string | Cor do cabelo |
+| corOlhos | UF_CRM_COR_OLHOS | string | Cor dos olhos |
+
+#### Redes Sociais - Links
+
+| Campo Formulário | Campo Bitrix | Tipo | Descrição |
+|-----------------|--------------|------|-----------|
+| instagramLink | UF_CRM_INSTAGRAM_LINK | string | Link ou username do Instagram |
+| facebookLink | UF_CRM_FACEBOOK_LINK | string | Link ou username do Facebook |
+| youtubeLink | UF_CRM_YOUTUBE_LINK | string | Link ou username do YouTube |
+| tiktokLink | UF_CRM_TIKTOK_LINK | string | Link ou username do TikTok |
+| kwaiLink | UF_CRM_KWAI_LINK | string | Link ou username do Kwai |
+
+#### Redes Sociais - Seguidores
+
+| Campo Formulário | Campo Bitrix | Tipo | Descrição |
+|-----------------|--------------|------|-----------|
+| instagramSeguidores | UF_CRM_INSTAGRAM_SEGUIDORES | number | Número de seguidores no Instagram |
+| facebookSeguidores | UF_CRM_FACEBOOK_SEGUIDORES | number | Número de seguidores no Facebook |
+| youtubeSeguidores | UF_CRM_YOUTUBE_SEGUIDORES | number | Número de seguidores no YouTube |
+| tiktokSeguidores | UF_CRM_TIKTOK_SEGUIDORES | number | Número de seguidores no TikTok |
+| kwaiSeguidores | UF_CRM_KWAI_SEGUIDORES | number | Número de seguidores no Kwai |
+
+#### Habilidades e Experiência
+
+| Campo Formulário | Campo Bitrix | Tipo | Descrição |
+|-----------------|--------------|------|-----------|
+| tipoModelo | UF_CRM_TIPO_MODELO | string | Tipos de modelagem (separados por vírgula) |
+| cursos | UF_CRM_CURSOS | string | Cursos realizados (separados por vírgula) |
+| habilidades | UF_CRM_HABILIDADES | string | Habilidades do modelo (separadas por vírgula) |
+| caracteristicasEspeciais | UF_CRM_CARACTERISTICAS_ESPECIAIS | string | Características especiais (separadas por vírgula) |
+
+### Observações sobre o Mapeamento
+
+1. **Campos Array**: Os campos de habilidades (tipoModelo, cursos, habilidades, caracteristicasEspeciais) são armazenados como arrays no formulário, mas são convertidos para strings separadas por vírgula ao enviar para o Bitrix.
+
+2. **Validações**: 
+   - CPF: Validação completa com dígitos verificadores
+   - Nome: Apenas letras e espaços
+   - Campos obrigatórios: nomeResponsavel, cpf, telefoneResponsavel, nomeModelo, dataNascimento, sexo
+
+3. **Seguidores**: Os campos de seguidores são do tipo number no formulário, permitindo apenas valores numéricos.
+
+4. **Busca de CEP**: O formulário possui integração com a API ViaCEP para preenchimento automático do endereço.
 
 ---
 
