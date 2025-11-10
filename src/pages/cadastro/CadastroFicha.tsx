@@ -294,45 +294,45 @@ const CARACTERISTICAS_OPTIONS = [
   { value: '9298', label: 'Risonho' }
 ];
 
-// Mapeamento completo de campos do formulário para campos do Bitrix
-const BITRIX_FIELD_MAPPING = {
-  // Dados Pessoais
-  nomeResponsavel: 'NAME',
-  cpf: 'UF_CRM_CPF',
-  estadoCivil: 'UF_CRM_1762283540',
-  telefoneResponsavel: 'UF_CRM_TELEFONE_RESPONSAVEL',
+// ========================================================================
+// MAPEAMENTO CORRETO DE CAMPOS DO BITRIX (Baseado no arquivo 55222.txt)
+// ========================================================================
+
+// Campos do DEAL (negócio)
+const BITRIX_DEAL_FIELD_MAPPING = {
+  // Identificação
+  nomeModelo: 'UF_CRM_6748E09939008',          // Nome do Modelo (string multi)
+  nomeResponsavel: 'UF_CRM_690CA588BDFB7',     // Nome do Responsável (string)
+  dataNascimento: 'UF_CRM_1762533440587',      // Data de nascimento (date)
+  estadoCivil: 'UF_CRM_690CA586298B8',         // Status civil (enum)
+  sexo: 'UF_CRM_6748E0996FC57',                // Sexo (enum)
   
   // Endereço
-  cep: 'UF_CRM_1761762176',
-  endereco: 'UF_CRM_1761762201',
-  numero: 'UF_CRM_1762450966586',
-  complemento: 'UF_CRM_COMPLEMENTO',
-  bairro: 'UF_CRM_1762450985051',
-  cidade: 'UF_CRM_1762451032936',
-  estado: 'UF_CRM_1762451508',
-  
-  // Dados do Modelo
-  nomeModelo: 'UF_CRM_690CA588BDFB7',
-  dataNascimento: 'UF_CRM_1762533440587',
-  sexo: 'UF_CRM_SEXO',
-  altura: 'UF_CRM_6753068A64AB0',
-  peso: 'UF_CRM_6753068A7DEC9',
-  manequim: 'UF_CRM_6748E0996FC57',
-  calcado: 'UF_CRM_6753068A86FE0',
+  cep: 'UF_CRM_1761762176',                    // CEP (string)
+  endereco: 'UF_CRM_1761762201',               // Logradouro (string)
+  numero: 'UF_CRM_1762450966586',              // N° (string)
+  complemento: 'UF_CRM_COMPLEMENTO',           // Complemento (string)
+  bairro: 'UF_CRM_1762450985051',              // Bairro (string)
+  cidade: 'UF_CRM_1762451032936',              // Município (string)
+  estado: 'UF_CRM_1762451508',                 // UF (enum)
   
   // Características Físicas
-  corCabelo: 'UF_CRM_6753068A765FD',
-  corOlhos: 'UF_CRM_6753068A5BE7C',
-  corPele: 'UF_CRM_1762283877',
-  tipoCabelo: 'UF_CRM_1733485270151',
+  altura: 'UF_CRM_6753068A7DEC9',              // Altura (em cm) (integer)
+  peso: 'UF_CRM_6753068A86FE0',                // Peso (em kg) (double)
+  calcado: 'UF_CRM_6753068A765FD',             // Tamanho do Sapato (double)
+  manequim: 'UF_CRM_690CA586192FB',            // Manequim (multi-enum)
+  tipoCabelo: 'UF_CRM_6753068A64AB0',          // Tipo de Cabelo (enum)
+  corCabelo: 'UF_CRM_DEAL_1750166749133',      // Cor do Cabelo (enum)
+  corOlhos: 'UF_CRM_6753068A5BE7C',            // Cor dos Olhos (enum)
+  corPele: 'UF_CRM_690CA5863827D',             // Cor da pele (enum)
   
   // Habilidades (multi-select)
-  tipoModelo: 'UF_CRM_1762282818',
-  cursos: 'UF_CRM_1762282626',
-  habilidades: 'UF_CRM_1762282315',
-  caracteristicasEspeciais: 'UF_CRM_1762282725',
+  habilidades: 'UF_CRM_690CA585CADA1',         // Habilidades (multi-enum)
+  cursos: 'UF_CRM_690CA585DA123',              // Cursos (multi-enum)
+  caracteristicasEspeciais: 'UF_CRM_690CA585EAFC3', // Características (multi-enum)
+  tipoModelo: 'UF_CRM_690CA58606670',          // Tipo de modelo (multi-enum)
   
-  // Redes Sociais
+  // Redes Sociais (se existirem no deal)
   instagramLink: 'UF_CRM_INSTAGRAM',
   instagramSeguidores: 'UF_CRM_N_DE_SEGUIDORES_INSTAGRAM',
   facebookLink: 'UF_CRM_FACE',
@@ -343,6 +343,12 @@ const BITRIX_FIELD_MAPPING = {
   tiktokSeguidores: 'UF_CRM_TIKTOK_N_DE_SEGUIDORES',
   kwaiLink: 'UF_CRM_KWAI',
   kwaiSeguidores: 'UF_CRM_KWAI_N_DE_SEGUIDORES'
+} as const;
+
+// Campos do CONTATO (contact)
+const BITRIX_CONTACT_FIELD_MAPPING = {
+  telefoneResponsavel: 'PHONE',                // Telefone (array de objetos com VALUE)
+  cpf: 'UF_CRM_CPF'                            // CPF (se existir no contato)
 } as const;
 
 export default function CadastroFicha() {
@@ -357,52 +363,55 @@ export default function CadastroFicha() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [bitrixEntityType, setBitrixEntityType] = useState<'lead' | 'deal' | null>(null);
   const [bitrixEntityId, setBitrixEntityId] = useState<string | null>(null);
+  const [bitrixDealFields, setBitrixDealFields] = useState<Record<string, any> | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
 
   /**
-   * Converts Bitrix enumeration IDs to readable values
+   * Converte IDs de enumeração do Bitrix para valores legíveis
    */
-  const convertEnumerationIdsToValues = (
+  const convertEnumeration = (
     fieldId: string,
-    valueIds: string | string[],
-    fieldsStructure?: Record<string, any>
+    value: unknown,
+    fields: Record<string, any>
   ): string | string[] => {
-    if (!fieldsStructure || !fieldsStructure[fieldId]) {
-      return valueIds;
+    if (!fields || !fields[fieldId]) return String(value || '');
+    
+    const field = fields[fieldId];
+    if (field.type !== 'enumeration' || !field.items) {
+      return String(value || '');
     }
-
-    const field = fieldsStructure[fieldId];
-    if (!field.items || field.type !== 'enumeration') {
-      return valueIds;
+    
+    // Multi-select (array)
+    if (Array.isArray(value)) {
+      return value.map(id => {
+        const item = field.items.find((i: any) => i.ID === String(id));
+        return item ? item.VALUE : String(id);
+      });
     }
-
-    const convert = (id: string): string => {
-      const item = field.items.find((i: any) => i.ID === id);
-      return item ? item.VALUE : id;
-    };
-
-    if (Array.isArray(valueIds)) {
-      return valueIds.map(convert);
-    }
-    return convert(String(valueIds));
+    
+    // Single-select
+    const item = field.items.find((i: any) => i.ID === String(value));
+    return item ? item.VALUE : String(value || '');
   };
 
   /**
-   * Mapeia dados do Bitrix para o formato do formulário
+   * Mapeia dados do Bitrix (Deal + Contact) para o formato do formulário
    */
   const mapBitrixDataToForm = (
-    bitrixData: Record<string, unknown>,
-    fieldsStructure?: Record<string, any>
+    dealData: Record<string, unknown>,
+    contactData: Record<string, unknown> | null,
+    dealFields?: Record<string, any>,
+    contactFields?: Record<string, any>
   ): Partial<FormData> => {
     console.log('🔄 Iniciando mapeamento Bitrix -> Form');
-    console.log('📦 Dados brutos do Bitrix:', bitrixData);
-    console.log('📋 Estrutura de campos disponível:', fieldsStructure ? 'SIM' : 'NÃO');
+    console.log('📦 Deal Data (bruto):', dealData);
+    console.log('👤 Contact Data (bruto):', contactData);
+    console.log('📋 Deal Fields:', dealFields ? Object.keys(dealFields).length + ' campos' : 'NÃO');
+    console.log('📋 Contact Fields:', contactFields ? Object.keys(contactFields).length + ' campos' : 'NÃO');
     
     const mapped: Partial<FormData> = {};
     const conversions: Record<string, any> = {};
-    const fieldsFound: string[] = [];
-    const fieldsMissing: string[] = [];
     
     // Helper para obter valor simples
     const getValue = (value: unknown): string => {
@@ -411,208 +420,53 @@ export default function CadastroFicha() {
       return String(value);
     };
     
-    // Helper para converter valores de enumeração
-    const convertAndTrack = (fieldId: string, value: unknown): string | string[] => {
-      const originalValue = value;
-      // Convert value to string | string[] before passing
-      const valueToConvert = Array.isArray(value) 
-        ? value.map(String) 
-        : value !== null && value !== undefined 
-          ? String(value) 
-          : '';
-      const convertedValue = convertEnumerationIdsToValues(fieldId, valueToConvert, fieldsStructure);
+    // ============= MAPEAR CAMPOS DO DEAL =============
+    Object.entries(BITRIX_DEAL_FIELD_MAPPING).forEach(([formField, bitrixField]) => {
+      const value = dealData[bitrixField];
+      if (value === undefined || value === null || value === '') return;
       
-      conversions[fieldId] = {
-        original: originalValue,
-        converted: convertedValue,
-        field: fieldsStructure?.[fieldId]?.title || fieldId
-      };
+      const converted = convertEnumeration(bitrixField, value, dealFields || {});
       
-      return convertedValue;
-    };
-    
-    // Validar campos encontrados vs ausentes
-    Object.entries(BITRIX_FIELD_MAPPING).forEach(([formField, bitrixField]) => {
-      if (bitrixData[bitrixField] !== undefined && bitrixData[bitrixField] !== null && bitrixData[bitrixField] !== '') {
-        fieldsFound.push(`${formField} <- ${bitrixField}`);
+      // Para arrays de 1 elemento, pegar só o primeiro
+      // Para multi-select, manter como array
+      if (Array.isArray(converted)) {
+        if (['habilidades', 'cursos', 'caracteristicasEspeciais', 'tipoModelo', 'manequim'].includes(formField)) {
+          mapped[formField as keyof FormData] = converted as any;
+        } else {
+          mapped[formField as keyof FormData] = converted[0] as any;
+        }
       } else {
-        fieldsMissing.push(`${formField} <- ${bitrixField}`);
+        mapped[formField as keyof FormData] = converted as any;
       }
+      
+      conversions[formField] = {
+        bitrixField,
+        originalValue: value,
+        convertedValue: converted
+      };
     });
     
-    // ============= DADOS PESSOAIS =============
-    if (bitrixData.NAME) {
-      mapped.nomeResponsavel = getValue(bitrixData.NAME);
+    // ============= MAPEAR CAMPOS DO CONTATO =============
+    if (contactData) {
+      // Telefone - extrair do array PHONE
+      if (contactData.PHONE) {
+        const phone = Array.isArray(contactData.PHONE) 
+          ? contactData.PHONE[0]?.VALUE 
+          : contactData.PHONE;
+        mapped.telefoneResponsavel = String(phone || '');
+        conversions.telefoneResponsavel = { source: 'contact', value: phone };
+      }
+      
+      // CPF (se existir no contato)
+      if (contactData.UF_CRM_CPF) {
+        mapped.cpf = getValue(contactData.UF_CRM_CPF);
+        conversions.cpf = { source: 'contact', value: contactData.UF_CRM_CPF };
+      }
     }
     
-    if (bitrixData.UF_CRM_CPF) {
-      mapped.cpf = getValue(bitrixData.UF_CRM_CPF);
-    }
-    
-    // Estado Civil (enumeration)
-    if (bitrixData.UF_CRM_1762283540) {
-      const converted = convertAndTrack('UF_CRM_1762283540', bitrixData.UF_CRM_1762283540);
-      mapped.estadoCivil = Array.isArray(converted) ? converted[0] : converted;
-    }
-    
-    if (bitrixData.UF_CRM_TELEFONE_RESPONSAVEL) {
-      mapped.telefoneResponsavel = getValue(bitrixData.UF_CRM_TELEFONE_RESPONSAVEL);
-    }
-    
-    // ============= ENDEREÇO =============
-    if (bitrixData.UF_CRM_1761762176) {
-      mapped.cep = getValue(bitrixData.UF_CRM_1761762176);
-    }
-    
-    if (bitrixData.UF_CRM_1761762201) {
-      mapped.endereco = getValue(bitrixData.UF_CRM_1761762201);
-    }
-    
-    if (bitrixData.UF_CRM_1762450966586) {
-      mapped.numero = getValue(bitrixData.UF_CRM_1762450966586);
-    }
-    
-    if (bitrixData.UF_CRM_COMPLEMENTO) {
-      mapped.complemento = getValue(bitrixData.UF_CRM_COMPLEMENTO);
-    }
-    
-    if (bitrixData.UF_CRM_1762450985051) {
-      mapped.bairro = getValue(bitrixData.UF_CRM_1762450985051);
-    }
-    
-    if (bitrixData.UF_CRM_1762451032936) {
-      mapped.cidade = getValue(bitrixData.UF_CRM_1762451032936);
-    }
-    
-    if (bitrixData.UF_CRM_1762451508) {
-      const converted = convertAndTrack('UF_CRM_1762451508', bitrixData.UF_CRM_1762451508);
-      mapped.estado = Array.isArray(converted) ? converted[0] : converted;
-    }
-    
-    // ============= DADOS DO MODELO =============
-    // ⚠️ CORRIGIDO: Nome do Modelo vem de UF_CRM_690CA588BDFB7, não de TITLE
-    if (bitrixData.UF_CRM_690CA588BDFB7) {
-      mapped.nomeModelo = getValue(bitrixData.UF_CRM_690CA588BDFB7);
-    }
-    
-    if (bitrixData.UF_CRM_1762533440587) {
-      mapped.dataNascimento = getValue(bitrixData.UF_CRM_1762533440587);
-    }
-    
-    if (bitrixData.UF_CRM_SEXO) {
-      mapped.sexo = getValue(bitrixData.UF_CRM_SEXO);
-    }
-    
-    // ⚠️ CORRIGIDO: Altura vem de UF_CRM_6753068A64AB0
-    if (bitrixData.UF_CRM_6753068A64AB0) {
-      mapped.altura = getValue(bitrixData.UF_CRM_6753068A64AB0);
-    }
-    
-    // ⚠️ CORRIGIDO: Peso vem de UF_CRM_6753068A7DEC9
-    if (bitrixData.UF_CRM_6753068A7DEC9) {
-      mapped.peso = getValue(bitrixData.UF_CRM_6753068A7DEC9);
-    }
-    
-    // ⚠️ CORRIGIDO: Calçado vem de UF_CRM_6753068A86FE0
-    if (bitrixData.UF_CRM_6753068A86FE0) {
-      mapped.calcado = getValue(bitrixData.UF_CRM_6753068A86FE0);
-    }
-    
-    // ⚠️ CORRIGIDO: Manequim vem de UF_CRM_6748E0996FC57 (enumeration)
-    if (bitrixData.UF_CRM_6748E0996FC57) {
-      const converted = convertAndTrack('UF_CRM_6748E0996FC57', bitrixData.UF_CRM_6748E0996FC57);
-      mapped.manequim = Array.isArray(converted) ? converted : [converted];
-    }
-    
-    // ============= CARACTERÍSTICAS FÍSICAS =============
-    // ⚠️ CORRIGIDO: Cor Cabelo vem de UF_CRM_6753068A765FD
-    if (bitrixData.UF_CRM_6753068A765FD) {
-      const converted = convertAndTrack('UF_CRM_6753068A765FD', bitrixData.UF_CRM_6753068A765FD);
-      mapped.corCabelo = Array.isArray(converted) ? converted[0] : converted;
-    }
-    
-    // ⚠️ CORRIGIDO: Cor Olhos vem de UF_CRM_6753068A5BE7C
-    if (bitrixData.UF_CRM_6753068A5BE7C) {
-      const converted = convertAndTrack('UF_CRM_6753068A5BE7C', bitrixData.UF_CRM_6753068A5BE7C);
-      mapped.corOlhos = Array.isArray(converted) ? converted[0] : converted;
-    }
-    
-    if (bitrixData.UF_CRM_1762283877) {
-      const converted = convertAndTrack('UF_CRM_1762283877', bitrixData.UF_CRM_1762283877);
-      mapped.corPele = Array.isArray(converted) ? converted[0] : converted;
-    }
-    
-    if (bitrixData.UF_CRM_1733485270151) {
-      const converted = convertAndTrack('UF_CRM_1733485270151', bitrixData.UF_CRM_1733485270151);
-      mapped.tipoCabelo = Array.isArray(converted) ? converted[0] : converted;
-    }
-    
-    // ============= HABILIDADES E EXPERIÊNCIA =============
-    if (bitrixData.UF_CRM_1762282818) {
-      const converted = convertAndTrack('UF_CRM_1762282818', bitrixData.UF_CRM_1762282818);
-      mapped.tipoModelo = Array.isArray(converted) ? converted : [converted];
-    }
-    
-    if (bitrixData.UF_CRM_1762282626) {
-      const converted = convertAndTrack('UF_CRM_1762282626', bitrixData.UF_CRM_1762282626);
-      mapped.cursos = Array.isArray(converted) ? converted : [converted];
-    }
-    
-    if (bitrixData.UF_CRM_1762282315) {
-      const converted = convertAndTrack('UF_CRM_1762282315', bitrixData.UF_CRM_1762282315);
-      mapped.habilidades = Array.isArray(converted) ? converted : [converted];
-    }
-    
-    if (bitrixData.UF_CRM_1762282725) {
-      const converted = convertAndTrack('UF_CRM_1762282725', bitrixData.UF_CRM_1762282725);
-      mapped.caracteristicasEspeciais = Array.isArray(converted) ? converted : [converted];
-    }
-    
-    // ============= REDES SOCIAIS =============
-    if (bitrixData.UF_CRM_INSTAGRAM) {
-      mapped.instagramLink = getValue(bitrixData.UF_CRM_INSTAGRAM);
-    }
-    
-    if (bitrixData.UF_CRM_N_DE_SEGUIDORES_INSTAGRAM) {
-      mapped.instagramSeguidores = getValue(bitrixData.UF_CRM_N_DE_SEGUIDORES_INSTAGRAM);
-    }
-    
-    if (bitrixData.UF_CRM_FACE) {
-      mapped.facebookLink = getValue(bitrixData.UF_CRM_FACE);
-    }
-    
-    if (bitrixData.UF_CRM_FACEBOOK_N_DE_SEGUIDORES) {
-      mapped.facebookSeguidores = getValue(bitrixData.UF_CRM_FACEBOOK_N_DE_SEGUIDORES);
-    }
-    
-    if (bitrixData.UF_CRM_YOUTUBE) {
-      mapped.youtubeLink = getValue(bitrixData.UF_CRM_YOUTUBE);
-    }
-    
-    if (bitrixData.UF_CRM_YOUTUBE_N_DE_SEGUIDORES) {
-      mapped.youtubeSeguidores = getValue(bitrixData.UF_CRM_YOUTUBE_N_DE_SEGUIDORES);
-    }
-    
-    if (bitrixData.UF_CRM_TIKTOK) {
-      mapped.tiktokLink = getValue(bitrixData.UF_CRM_TIKTOK);
-    }
-    
-    if (bitrixData.UF_CRM_TIKTOK_N_DE_SEGUIDORES) {
-      mapped.tiktokSeguidores = getValue(bitrixData.UF_CRM_TIKTOK_N_DE_SEGUIDORES);
-    }
-    
-    if (bitrixData.UF_CRM_KWAI) {
-      mapped.kwaiLink = getValue(bitrixData.UF_CRM_KWAI);
-    }
-    
-    if (bitrixData.UF_CRM_KWAI_N_DE_SEGUIDORES) {
-      mapped.kwaiSeguidores = getValue(bitrixData.UF_CRM_KWAI_N_DE_SEGUIDORES);
-    }
-    
-    console.log('✅ Campos encontrados (' + fieldsFound.length + '):', fieldsFound);
-    console.log('⚠️ Campos ausentes (' + fieldsMissing.length + '):', fieldsMissing);
-    console.log('✅ Dados mapeados:', mapped);
+    console.log('✅ Campos mapeados:', Object.keys(mapped).length);
     console.log('🔄 Conversões aplicadas:', conversions);
+    console.log('📊 Dados finais do formulário:', mapped);
     
     return mapped;
   };
@@ -644,16 +498,24 @@ export default function CadastroFicha() {
         throw new Error(data?.error || 'Erro desconhecido ao buscar dados do Bitrix');
       }
 
-      console.log('✅ Dados recebidos do Bitrix:', data.data);
-      console.log('📋 Estrutura de campos recebida:', data.fields ? Object.keys(data.fields).length + ' campos' : 'Não disponível');
+      console.log('✅ Deal Data recebido:', data.dealData);
+      console.log('👤 Contact Data recebido:', data.contactData);
+      console.log('📋 Deal Fields:', data.dealFields ? Object.keys(data.dealFields).length + ' campos' : 'NÃO');
+      console.log('📋 Contact Fields:', data.contactFields ? Object.keys(data.contactFields).length + ' campos' : 'NÃO');
 
       // Map Bitrix data to form fields with field structure for ID conversion
-      const mappedData = mapBitrixDataToForm(data.data, data.fields);
+      const mappedData = mapBitrixDataToForm(
+        data.dealData,
+        data.contactData,
+        data.dealFields,
+        data.contactFields
+      );
       
       setFormData(prev => ({ ...prev, ...mappedData }));
 
       setBitrixEntityType(type);
       setBitrixEntityId(id);
+      setBitrixDealFields(data.dealFields); // Armazenar dealFields para conversão no envio
 
       toast({
         title: 'Dados carregados',
@@ -809,88 +671,59 @@ export default function CadastroFicha() {
   };
 
   /**
-   * Mapeia dados do formulário para o formato do Bitrix
+   * Converte valores legíveis de volta para IDs do Bitrix (para envio)
    */
-  const mapFormDataToBitrix = (data: FormData): Record<string, any> => {
+  const convertValueToId = (
+    fieldId: string,
+    value: unknown,
+    fields: Record<string, any>
+  ): unknown => {
+    if (!fields || !fields[fieldId]) return value;
+    
+    const field = fields[fieldId];
+    if (field.type !== 'enumeration' || !field.items) return value;
+    
+    // Multi-select
+    if (Array.isArray(value)) {
+      return value.map(val => {
+        const item = field.items.find((i: any) => i.VALUE === val);
+        return item ? item.ID : val;
+      });
+    }
+    
+    // Single-select
+    const item = field.items.find((i: any) => i.VALUE === value);
+    return item ? item.ID : value;
+  };
+
+  /**
+   * Mapeia dados do formulário para o formato do Bitrix
+   * Nota: Idealmente deveria receber dealFields para converter VALUES -> IDs
+   * Por enquanto, envia os valores diretos
+   */
+  const mapFormDataToBitrix = (data: FormData, dealFields?: Record<string, any>): Record<string, any> => {
     const bitrixPayload: Record<string, any> = {};
     
-    // ============= DADOS PESSOAIS =============
-    if (data.nomeResponsavel) bitrixPayload.NAME = data.nomeResponsavel;
-    if (data.cpf) bitrixPayload.UF_CRM_CPF = data.cpf;
-    if (data.telefoneResponsavel) bitrixPayload.UF_CRM_TELEFONE_RESPONSAVEL = data.telefoneResponsavel;
+    console.log('📤 Preparando dados para envio ao Bitrix...');
     
-    // Estado Civil - converter de volta para ID (se necessário)
-    if (data.estadoCivil) {
-      bitrixPayload.UF_CRM_1762283540 = data.estadoCivil;
-    }
+    // Mapear campos do DEAL usando BITRIX_DEAL_FIELD_MAPPING
+    Object.entries(BITRIX_DEAL_FIELD_MAPPING).forEach(([formField, bitrixField]) => {
+      const value = data[formField as keyof FormData];
+      if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) return;
+      
+      // Converter valores de enumeração de volta para IDs (se dealFields disponível)
+      if (dealFields) {
+        bitrixPayload[bitrixField] = convertValueToId(bitrixField, value, dealFields);
+      } else {
+        bitrixPayload[bitrixField] = value;
+      }
+    });
     
-    // ============= ENDEREÇO =============
-    if (data.cep) bitrixPayload.UF_CRM_1761762176 = data.cep;
-    if (data.endereco) bitrixPayload.UF_CRM_1761762201 = data.endereco;
-    if (data.numero) bitrixPayload.UF_CRM_1762450966586 = data.numero;
-    if (data.complemento) bitrixPayload.UF_CRM_COMPLEMENTO = data.complemento;
-    if (data.bairro) bitrixPayload.UF_CRM_1762450985051 = data.bairro;
-    if (data.cidade) bitrixPayload.UF_CRM_1762451032936 = data.cidade;
-    if (data.estado) bitrixPayload.UF_CRM_1762451508 = data.estado;
+    // Nota: Campos de contato (telefone, CPF) não podem ser atualizados via deal
+    // Eles devem ser atualizados diretamente no contato via crm.contact.update
     
-    // ============= DADOS DO MODELO =============
-    if (data.nomeModelo) bitrixPayload.UF_CRM_690CA588BDFB7 = data.nomeModelo;
-    if (data.dataNascimento) bitrixPayload.UF_CRM_1762533440587 = data.dataNascimento;
-    if (data.sexo) bitrixPayload.UF_CRM_SEXO = data.sexo;
-    if (data.altura) bitrixPayload.UF_CRM_6753068A64AB0 = data.altura;
-    if (data.peso) bitrixPayload.UF_CRM_6753068A7DEC9 = data.peso;
-    if (data.calcado) bitrixPayload.UF_CRM_6753068A86FE0 = data.calcado;
-    
-    // Manequim - converter para array
-    if (data.manequim && data.manequim.length > 0) {
-      bitrixPayload.UF_CRM_6748E0996FC57 = data.manequim;
-    }
-    
-    // ============= CARACTERÍSTICAS FÍSICAS =============
-    if (data.corCabelo) {
-      bitrixPayload.UF_CRM_6753068A765FD = data.corCabelo;
-    }
-    
-    if (data.corOlhos) {
-      bitrixPayload.UF_CRM_6753068A5BE7C = data.corOlhos;
-    }
-    
-    if (data.corPele) {
-      bitrixPayload.UF_CRM_1762283877 = data.corPele;
-    }
-    
-    if (data.tipoCabelo) {
-      bitrixPayload.UF_CRM_1733485270151 = data.tipoCabelo;
-    }
-    
-    // ============= HABILIDADES E EXPERIÊNCIA =============
-    if (data.tipoModelo && data.tipoModelo.length > 0) {
-      bitrixPayload.UF_CRM_1762282818 = data.tipoModelo;
-    }
-    
-    if (data.cursos && data.cursos.length > 0) {
-      bitrixPayload.UF_CRM_1762282626 = data.cursos;
-    }
-    
-    if (data.habilidades && data.habilidades.length > 0) {
-      bitrixPayload.UF_CRM_1762282315 = data.habilidades;
-    }
-    
-    if (data.caracteristicasEspeciais && data.caracteristicasEspeciais.length > 0) {
-      bitrixPayload.UF_CRM_1762282725 = data.caracteristicasEspeciais;
-    }
-    
-    // ============= REDES SOCIAIS =============
-    if (data.instagramLink) bitrixPayload.UF_CRM_INSTAGRAM = data.instagramLink;
-    if (data.instagramSeguidores) bitrixPayload.UF_CRM_N_DE_SEGUIDORES_INSTAGRAM = data.instagramSeguidores;
-    if (data.facebookLink) bitrixPayload.UF_CRM_FACE = data.facebookLink;
-    if (data.facebookSeguidores) bitrixPayload.UF_CRM_FACEBOOK_N_DE_SEGUIDORES = data.facebookSeguidores;
-    if (data.youtubeLink) bitrixPayload.UF_CRM_YOUTUBE = data.youtubeLink;
-    if (data.youtubeSeguidores) bitrixPayload.UF_CRM_YOUTUBE_N_DE_SEGUIDORES = data.youtubeSeguidores;
-    if (data.tiktokLink) bitrixPayload.UF_CRM_TIKTOK = data.tiktokLink;
-    if (data.tiktokSeguidores) bitrixPayload.UF_CRM_TIKTOK_N_DE_SEGUIDORES = data.tiktokSeguidores;
-    if (data.kwaiLink) bitrixPayload.UF_CRM_KWAI = data.kwaiLink;
-    if (data.kwaiSeguidores) bitrixPayload.UF_CRM_KWAI_N_DE_SEGUIDORES = data.kwaiSeguidores;
+    console.log('📤 Payload para Bitrix:', bitrixPayload);
+    console.log('📊 Total de campos:', Object.keys(bitrixPayload).length);
     
     return bitrixPayload;
   };
@@ -930,18 +763,13 @@ export default function CadastroFicha() {
     
     try {
       // Prepare data for Bitrix integration using the mapping function
-      const bitrixData = mapFormDataToBitrix(formData);
+      const bitrixData = mapFormDataToBitrix(formData, bitrixDealFields || undefined);
       
       console.log('📋 Dados preparados para envio:', {
         entityType: bitrixEntityType,
         entityId: bitrixEntityId,
         fieldsCount: Object.keys(bitrixData).length,
-        sampleFields: {
-          NAME: bitrixData.NAME,
-          TITLE: bitrixData.TITLE,
-          nomeResponsavel: bitrixData.UF_CRM_NOME_RESPONSAVEL,
-          nomeModelo: bitrixData.UF_CRM_NOME_MODELO
-        }
+        hasDealFields: !!bitrixDealFields
       });
       
       // Check if we're updating an existing Bitrix entity

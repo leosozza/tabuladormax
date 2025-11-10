@@ -32,11 +32,11 @@ serve(async (req) => {
     const bitrixDomain = 'maxsystem.bitrix24.com.br';
     const bitrixToken = Deno.env.get('BITRIX_REST_TOKEN') || '7/338m945lx9ifjjnr';
     
-    // Determinar o método correto do Bitrix
+    // FASE 1: Buscar dados do deal/lead
     const bitrixMethod = entityType === 'lead' ? 'crm.lead.get' : 'crm.deal.get';
     const bitrixUrl = `https://${bitrixDomain}/rest/${bitrixToken}/${bitrixMethod}?id=${entityId}`;
 
-    console.log('🔍 Buscando do Bitrix:', bitrixUrl);
+    console.log('🔍 Buscando entidade do Bitrix:', bitrixUrl);
     const response = await fetch(bitrixUrl);
     
     if (!response.ok) {
@@ -51,23 +51,63 @@ serve(async (req) => {
 
     console.log(`✅ ${entityType} encontrado no Bitrix:`, Object.keys(data.result).length, 'campos');
 
-    // Buscar estrutura dos campos para conversão de IDs
+    // FASE 2: Buscar dados do contato (se existir CONTACT_ID)
+    let contactData = null;
+    if (data.result.CONTACT_ID) {
+      const contactId = data.result.CONTACT_ID;
+      const contactUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.contact.get?id=${contactId}`;
+      console.log('👤 Buscando contato ID', contactId, ':', contactUrl);
+      
+      try {
+        const contactResponse = await fetch(contactUrl);
+        if (contactResponse.ok) {
+          const contactResult = await contactResponse.json();
+          if (contactResult.result) {
+            contactData = contactResult.result;
+            console.log('✅ Contato encontrado:', Object.keys(contactData).length, 'campos');
+          }
+        }
+      } catch (error) {
+        console.log('⚠️ Não foi possível buscar contato:', error);
+      }
+    } else {
+      console.log('ℹ️ Nenhum contato associado ao', entityType);
+    }
+
+    // FASE 3: Buscar estrutura dos campos do deal/lead
     const fieldsMethod = entityType === 'lead' ? 'crm.lead.fields' : 'crm.deal.fields';
     const fieldsUrl = `https://${bitrixDomain}/rest/${bitrixToken}/${fieldsMethod}`;
-    console.log('📋 Buscando estrutura dos campos:', fieldsUrl);
+    console.log('📋 Buscando estrutura dos campos do', entityType, ':', fieldsUrl);
     
     const fieldsResponse = await fetch(fieldsUrl);
     const fieldsData = await fieldsResponse.json();
     
-    console.log('✅ Estrutura de campos obtida:', Object.keys(fieldsData.result || {}).length, 'campos');
+    console.log('✅ Estrutura de campos do', entityType, 'obtida:', Object.keys(fieldsData.result || {}).length, 'campos');
+
+    // FASE 4: Buscar estrutura dos campos do contato
+    let contactFieldsData = null;
+    const contactFieldsUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.contact.fields`;
+    console.log('📋 Buscando estrutura dos campos de contato:', contactFieldsUrl);
+    
+    try {
+      const contactFieldsResponse = await fetch(contactFieldsUrl);
+      if (contactFieldsResponse.ok) {
+        contactFieldsData = await contactFieldsResponse.json();
+        console.log('✅ Estrutura de campos de contato obtida:', Object.keys(contactFieldsData.result || {}).length, 'campos');
+      }
+    } catch (error) {
+      console.log('⚠️ Não foi possível buscar estrutura de campos de contato:', error);
+    }
 
     return new Response(
       JSON.stringify({ 
         success: true,
         entityType,
         entityId,
-        data: data.result,
-        fields: fieldsData.result || {}
+        dealData: data.result,
+        contactData: contactData,
+        dealFields: fieldsData.result || {},
+        contactFields: contactFieldsData?.result || {}
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
