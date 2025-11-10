@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -296,6 +296,7 @@ const CARACTERISTICAS_OPTIONS = [
 
 export default function CadastroFicha() {
   const { entityType, entityId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -303,25 +304,129 @@ export default function CadastroFicha() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [bitrixEntityType, setBitrixEntityType] = useState<'lead' | 'deal' | null>(null);
+  const [bitrixEntityId, setBitrixEntityId] = useState<string | null>(null);
 
-  const loadExistingData = async (type: string, id: string) => {
+  /**
+   * Maps Bitrix field data to form fields
+   * Converts Bitrix enumeration IDs back to their values
+   */
+  const mapBitrixDataToForm = (bitrixData: Record<string, unknown>): Partial<FormData> => {
+    const mapped: Partial<FormData> = {};
+
+    // Helper to get first item from array or the value itself
+    const getValue = (val: unknown): string => {
+      if (Array.isArray(val)) {
+        return val.length > 0 ? String(val[0]) : '';
+      }
+      return val ? String(val) : '';
+    };
+
+    // Helper to get array values
+    const getArrayValue = (val: unknown): string[] => {
+      if (Array.isArray(val)) {
+        return val.map(String);
+      }
+      return val ? [String(val)] : [];
+    };
+
+    // Map basic contact fields
+    if (bitrixData.NAME) mapped.nomeResponsavel = getValue(bitrixData.NAME);
+    if (bitrixData.UF_CRM_CPF) mapped.cpf = getValue(bitrixData.UF_CRM_CPF);
+    if (bitrixData.UF_CRM_1762283540) mapped.estadoCivil = getValue(bitrixData.UF_CRM_1762283540);
+    if (bitrixData.UF_CRM_TELEFONE_RESPONSAVEL || bitrixData.PHONE) {
+      mapped.telefoneResponsavel = getValue(bitrixData.UF_CRM_TELEFONE_RESPONSAVEL || bitrixData.PHONE);
+    }
+
+    // Map address fields
+    if (bitrixData.UF_CRM_CEP) mapped.cep = getValue(bitrixData.UF_CRM_CEP);
+    if (bitrixData.UF_CRM_ENDERECO || bitrixData.ADDRESS) {
+      mapped.endereco = getValue(bitrixData.UF_CRM_ENDERECO || bitrixData.ADDRESS);
+    }
+    if (bitrixData.UF_CRM_NUMERO) mapped.numero = getValue(bitrixData.UF_CRM_NUMERO);
+    if (bitrixData.UF_CRM_COMPLEMENTO) mapped.complemento = getValue(bitrixData.UF_CRM_COMPLEMENTO);
+    if (bitrixData.UF_CRM_BAIRRO) mapped.bairro = getValue(bitrixData.UF_CRM_BAIRRO);
+    if (bitrixData.UF_CRM_CIDADE) mapped.cidade = getValue(bitrixData.UF_CRM_CIDADE);
+    if (bitrixData.UF_CRM_ESTADO) mapped.estado = getValue(bitrixData.UF_CRM_ESTADO);
+
+    // Map model data fields
+    if (bitrixData.UF_CRM_NOME_MODELO || bitrixData.TITLE) {
+      mapped.nomeModelo = getValue(bitrixData.UF_CRM_NOME_MODELO || bitrixData.TITLE);
+    }
+    if (bitrixData.UF_CRM_DATA_NASCIMENTO || bitrixData.BIRTHDATE) {
+      mapped.dataNascimento = getValue(bitrixData.UF_CRM_DATA_NASCIMENTO || bitrixData.BIRTHDATE);
+    }
+    if (bitrixData.UF_CRM_SEXO) mapped.sexo = getValue(bitrixData.UF_CRM_SEXO);
+    if (bitrixData.UF_CRM_ALTURA) mapped.altura = getValue(bitrixData.UF_CRM_ALTURA);
+    if (bitrixData.UF_CRM_PESO) mapped.peso = getValue(bitrixData.UF_CRM_PESO);
+    if (bitrixData.UF_CRM_1762283056) mapped.manequim = getArrayValue(bitrixData.UF_CRM_1762283056);
+    if (bitrixData.UF_CRM_CALCADO) mapped.calcado = getValue(bitrixData.UF_CRM_CALCADO);
+    if (bitrixData.UF_CRM_1762283650) mapped.corCabelo = getValue(bitrixData.UF_CRM_1762283650);
+    if (bitrixData.UF_CRM_1733485183850) mapped.corOlhos = getValue(bitrixData.UF_CRM_1733485183850);
+    if (bitrixData.UF_CRM_1762283877) mapped.corPele = getValue(bitrixData.UF_CRM_1762283877);
+    if (bitrixData.UF_CRM_1733485270151) mapped.tipoCabelo = getValue(bitrixData.UF_CRM_1733485270151);
+
+    // Map social media links
+    if (bitrixData.UF_CRM_INSTAGRAM_LINK) mapped.instagramLink = getValue(bitrixData.UF_CRM_INSTAGRAM_LINK);
+    if (bitrixData.UF_CRM_FACEBOOK_LINK) mapped.facebookLink = getValue(bitrixData.UF_CRM_FACEBOOK_LINK);
+    if (bitrixData.UF_CRM_YOUTUBE_LINK) mapped.youtubeLink = getValue(bitrixData.UF_CRM_YOUTUBE_LINK);
+    if (bitrixData.UF_CRM_TIKTOK_LINK) mapped.tiktokLink = getValue(bitrixData.UF_CRM_TIKTOK_LINK);
+    if (bitrixData.UF_CRM_KWAI_LINK) mapped.kwaiLink = getValue(bitrixData.UF_CRM_KWAI_LINK);
+
+    // Map social media followers
+    if (bitrixData.UF_CRM_INSTAGRAM_SEGUIDORES) mapped.instagramSeguidores = getValue(bitrixData.UF_CRM_INSTAGRAM_SEGUIDORES);
+    if (bitrixData.UF_CRM_FACEBOOK_SEGUIDORES) mapped.facebookSeguidores = getValue(bitrixData.UF_CRM_FACEBOOK_SEGUIDORES);
+    if (bitrixData.UF_CRM_YOUTUBE_SEGUIDORES) mapped.youtubeSeguidores = getValue(bitrixData.UF_CRM_YOUTUBE_SEGUIDORES);
+    if (bitrixData.UF_CRM_TIKTOK_SEGUIDORES) mapped.tiktokSeguidores = getValue(bitrixData.UF_CRM_TIKTOK_SEGUIDORES);
+    if (bitrixData.UF_CRM_KWAI_SEGUIDORES) mapped.kwaiSeguidores = getValue(bitrixData.UF_CRM_KWAI_SEGUIDORES);
+
+    // Map skills and characteristics (multi-select fields)
+    if (bitrixData.UF_CRM_1762282818) mapped.tipoModelo = getArrayValue(bitrixData.UF_CRM_1762282818);
+    if (bitrixData.UF_CRM_1762282626) mapped.cursos = getArrayValue(bitrixData.UF_CRM_1762282626);
+    if (bitrixData.UF_CRM_1762282315) mapped.habilidades = getArrayValue(bitrixData.UF_CRM_1762282315);
+    if (bitrixData.UF_CRM_1762282725) mapped.caracteristicasEspeciais = getArrayValue(bitrixData.UF_CRM_1762282725);
+
+    return mapped;
+  };
+
+  const loadExistingData = async (type: 'lead' | 'deal', id: string) => {
     setIsLoadingData(true);
     try {
-      // Try to fetch from Bitrix or local storage
-      // For now, we'll implement basic loading from supabase
       toast({
         title: 'Carregando dados',
-        description: 'Buscando informações do cadastro...'
+        description: `Buscando ${type === 'lead' ? 'lead' : 'negócio'} do Bitrix...`
       });
-      
-      // Implementation would fetch from bitrix-integration edge function
-      // const response = await fetch(`/api/bitrix-integration?entityType=${type}&entityId=${id}`);
+
+      // Call Bitrix edge function to get entity data
+      const { data, error } = await supabase.functions.invoke('bitrix-entity-get', {
+        body: { entityType: type, entityId: id }
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao buscar dados do Bitrix');
+      }
+
+      console.log('📥 Dados recebidos do Bitrix:', data.data);
+
+      // Map Bitrix data to form fields
+      const mappedData = mapBitrixDataToForm(data.data);
+      setFormData(prev => ({ ...prev, ...mappedData }));
+
+      setBitrixEntityType(type);
+      setBitrixEntityId(id);
+
+      toast({
+        title: 'Dados carregados',
+        description: `${type === 'lead' ? 'Lead' : 'Negócio'} carregado com sucesso. Você pode atualizar os campos.`
+      });
       
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
         title: 'Erro ao carregar',
-        description: 'Não foi possível carregar os dados do cadastro.',
+        description: error instanceof Error ? error.message : 'Não foi possível carregar os dados do Bitrix.',
         variant: 'destructive'
       });
     } finally {
@@ -329,13 +434,24 @@ export default function CadastroFicha() {
     }
   };
 
-  // Load existing data if editing
+  // Load existing data from URL query parameters or route params
   useEffect(() => {
-    if (entityType && entityId) {
-      loadExistingData(entityType, entityId);
+    // Check URL query parameters first (?lead=123 or ?deal=456)
+    const leadId = searchParams.get('lead');
+    const dealId = searchParams.get('deal');
+
+    if (leadId) {
+      loadExistingData('lead', leadId);
+    } else if (dealId) {
+      loadExistingData('deal', dealId);
+    } else if (entityType && entityId) {
+      // Fallback to route parameters
+      if (entityType === 'lead' || entityType === 'deal') {
+        loadExistingData(entityType as 'lead' | 'deal', entityId);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, entityId]);
+  }, [searchParams, entityType, entityId]);
 
   const handleFieldChange = (field: keyof FormData, value: string | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -528,27 +644,45 @@ export default function CadastroFicha() {
         throw new Error('Usuário não autenticado');
       }
       
-      // TODO: Integrate with Bitrix edge function
-      // This is a placeholder implementation
-      // In production, this should call the bitrix-integration edge function
-      // Example:
-      // const response = await supabase.functions.invoke('bitrix-integration', {
-      //   body: { action: 'create', entityType: 'deal', data: bitrixData }
-      // });
-      
-      // For now, log the data and show success
-      console.log('Form data mapped for Bitrix:', bitrixData);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast({
-        title: entityId ? 'Cadastro atualizado' : 'Cadastro criado',
-        description: 'Ficha cadastral salva com sucesso.'
-      });
-      
-      // Reset form if creating new
-      if (!entityId) {
+      // Check if we're updating an existing Bitrix entity
+      if (bitrixEntityType && bitrixEntityId) {
+        // UPDATE MODE - Update existing lead or deal in Bitrix
+        console.log(`📤 Atualizando ${bitrixEntityType} ID ${bitrixEntityId} no Bitrix...`);
+        
+        const { data, error } = await supabase.functions.invoke('bitrix-entity-update', {
+          body: {
+            entityType: bitrixEntityType,
+            entityId: bitrixEntityId,
+            fields: bitrixData
+          }
+        });
+
+        if (error) throw error;
+
+        if (!data.success) {
+          throw new Error(data.error || 'Erro ao atualizar no Bitrix');
+        }
+
+        console.log('✅ Atualizado com sucesso no Bitrix:', data);
+
+        toast({
+          title: 'Cadastro atualizado',
+          description: `${bitrixEntityType === 'lead' ? 'Lead' : 'Negócio'} atualizado com sucesso no Bitrix24.`
+        });
+
+      } else {
+        // CREATE MODE - Create new entry (placeholder for future implementation)
+        console.log('📤 Criando novo cadastro no Bitrix...', bitrixData);
+        
+        // TODO: Implement creation logic with bitrix-entity-create edge function
+        // For now, just log the data
+        toast({
+          title: 'Dados preparados',
+          description: 'Criação de novos cadastros será implementada em breve.',
+          variant: 'default'
+        });
+
+        // Reset form after successful creation
         setFormData(INITIAL_FORM_DATA);
       }
       
@@ -592,11 +726,13 @@ export default function CadastroFicha() {
           <div className="flex items-center gap-3 mb-2">
             <FileText className="w-8 h-8 text-primary" />
             <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              {entityId ? 'Atualizar Cadastro' : 'Nova Ficha Cadastral'}
+              {bitrixEntityId ? `Atualizar ${bitrixEntityType === 'lead' ? 'Lead' : 'Negócio'}` : 'Nova Ficha Cadastral'}
             </h1>
           </div>
           <p className="text-muted-foreground">
-            Preencha os dados para {entityId ? 'atualizar o' : 'criar um novo'} cadastro de modelo
+            {bitrixEntityId 
+              ? `Atualize os campos do ${bitrixEntityType === 'lead' ? 'lead' : 'negócio'} #${bitrixEntityId} no Bitrix24` 
+              : 'Preencha os dados para criar um novo cadastro de modelo'}
           </p>
         </div>
 
