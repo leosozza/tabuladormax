@@ -68,14 +68,16 @@ serve(async (req) => {
     console.log(`✅ ${entityType} ID ${entityId} atualizado com sucesso no Bitrix`);
 
     // Registrar evento de atualização
-    await supabase.from('sync_events').insert({
+    supabase.from('sync_events').insert({
       event_type: 'update',
       direction: 'form_to_bitrix',
       status: 'success',
       entity_type: entityType,
       entity_id: entityId,
       fields_synced_count: Object.keys(fields).length
-    }).catch(err => console.error('Erro ao registrar evento:', err));
+    }).then(({ error }) => {
+      if (error) console.error('Erro ao registrar evento:', error);
+    });
 
     return new Response(
       JSON.stringify({ 

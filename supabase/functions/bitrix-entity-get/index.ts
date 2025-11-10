@@ -51,12 +51,23 @@ serve(async (req) => {
 
     console.log(`✅ ${entityType} encontrado no Bitrix:`, Object.keys(data.result).length, 'campos');
 
+    // Buscar estrutura dos campos para conversão de IDs
+    const fieldsMethod = entityType === 'lead' ? 'crm.lead.fields' : 'crm.deal.fields';
+    const fieldsUrl = `https://${bitrixDomain}/rest/${bitrixToken}/${fieldsMethod}`;
+    console.log('📋 Buscando estrutura dos campos:', fieldsUrl);
+    
+    const fieldsResponse = await fetch(fieldsUrl);
+    const fieldsData = await fieldsResponse.json();
+    
+    console.log('✅ Estrutura de campos obtida:', Object.keys(fieldsData.result || {}).length, 'campos');
+
     return new Response(
       JSON.stringify({ 
         success: true,
         entityType,
         entityId,
-        data: data.result
+        data: data.result,
+        fields: fieldsData.result || {}
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -310,11 +310,46 @@ export default function CadastroFicha() {
   const [debugMode, setDebugMode] = useState(false);
 
   /**
-   * Maps Bitrix field data to form fields
-   * Converts Bitrix enumeration IDs back to their values
+   * Converts Bitrix enumeration IDs to readable values
    */
-  const mapBitrixDataToForm = (bitrixData: Record<string, unknown>): Partial<FormData> => {
+  const convertEnumerationIdsToValues = (
+    fieldId: string,
+    valueIds: string | string[],
+    fieldsStructure?: Record<string, any>
+  ): string | string[] => {
+    if (!fieldsStructure || !fieldsStructure[fieldId]) {
+      return valueIds;
+    }
+
+    const field = fieldsStructure[fieldId];
+    if (!field.items || field.type !== 'enumeration') {
+      return valueIds;
+    }
+
+    const convert = (id: string): string => {
+      const item = field.items.find((i: any) => i.ID === id);
+      return item ? item.VALUE : id;
+    };
+
+    if (Array.isArray(valueIds)) {
+      return valueIds.map(convert);
+    }
+    return convert(String(valueIds));
+  };
+
+  /**
+   * Maps Bitrix field data to form fields
+   * Converts Bitrix enumeration IDs to their readable values using field structure
+   */
+  const mapBitrixDataToForm = (
+    bitrixData: Record<string, unknown>,
+    fieldsStructure?: Record<string, any>
+  ): Partial<FormData> => {
+    console.log('📦 Dados brutos do Bitrix:', bitrixData);
+    console.log('📋 Estrutura de campos disponível:', fieldsStructure ? Object.keys(fieldsStructure).length + ' campos' : 'Não disponível');
+    
     const mapped: Partial<FormData> = {};
+    const conversions: Record<string, any> = {};
 
     // Helper to get first item from array or the value itself
     const getValue = (val: unknown): string => {
@@ -332,10 +367,30 @@ export default function CadastroFicha() {
       return val ? [String(val)] : [];
     };
 
+    // Helper to convert and track conversion
+    const convertAndTrack = (fieldId: string, value: unknown): any => {
+      if (!value) return Array.isArray(value) ? [] : '';
+      
+      const original = Array.isArray(value) ? [...value] : value;
+      const converted = convertEnumerationIdsToValues(fieldId, getArrayValue(value), fieldsStructure);
+      
+      if (JSON.stringify(original) !== JSON.stringify(converted)) {
+        conversions[fieldId] = { original, converted };
+      }
+      
+      return Array.isArray(converted) ? converted : [converted];
+    };
+
     // Map basic contact fields
     if (bitrixData.NAME) mapped.nomeResponsavel = getValue(bitrixData.NAME);
     if (bitrixData.UF_CRM_CPF) mapped.cpf = getValue(bitrixData.UF_CRM_CPF);
-    if (bitrixData.UF_CRM_1762283540) mapped.estadoCivil = getValue(bitrixData.UF_CRM_1762283540);
+    
+    // Estado Civil - com conversão
+    if (bitrixData.UF_CRM_1762283540) {
+      const converted = convertAndTrack('UF_CRM_1762283540', bitrixData.UF_CRM_1762283540);
+      mapped.estadoCivil = Array.isArray(converted) ? converted[0] : converted;
+    }
+    
     if (bitrixData.UF_CRM_TELEFONE_RESPONSAVEL || bitrixData.PHONE) {
       mapped.telefoneResponsavel = getValue(bitrixData.UF_CRM_TELEFONE_RESPONSAVEL || bitrixData.PHONE);
     }
@@ -361,12 +416,40 @@ export default function CadastroFicha() {
     if (bitrixData.UF_CRM_SEXO) mapped.sexo = getValue(bitrixData.UF_CRM_SEXO);
     if (bitrixData.UF_CRM_ALTURA) mapped.altura = getValue(bitrixData.UF_CRM_ALTURA);
     if (bitrixData.UF_CRM_PESO) mapped.peso = getValue(bitrixData.UF_CRM_PESO);
-    if (bitrixData.UF_CRM_1762283056) mapped.manequim = getArrayValue(bitrixData.UF_CRM_1762283056);
+    
+    // Manequim - com conversão (multi-select)
+    if (bitrixData.UF_CRM_1762283056) {
+      mapped.manequim = convertAndTrack('UF_CRM_1762283056', bitrixData.UF_CRM_1762283056) as string[];
+    }
+    
     if (bitrixData.UF_CRM_CALCADO) mapped.calcado = getValue(bitrixData.UF_CRM_CALCADO);
-    if (bitrixData.UF_CRM_1762283650) mapped.corCabelo = getValue(bitrixData.UF_CRM_1762283650);
-    if (bitrixData.UF_CRM_1733485183850) mapped.corOlhos = getValue(bitrixData.UF_CRM_1733485183850);
-    if (bitrixData.UF_CRM_1762283877) mapped.corPele = getValue(bitrixData.UF_CRM_1762283877);
-    if (bitrixData.UF_CRM_1733485270151) mapped.tipoCabelo = getValue(bitrixData.UF_CRM_1733485270151);
+    
+    // Cor Cabelo - com conversão
+    if (bitrixData.UF_CRM_1762283650) {
+      const converted = convertAndTrack('UF_CRM_1762283650', bitrixData.UF_CRM_1762283650);
+      mapped.corCabelo = Array.isArray(converted) ? converted[0] : converted;
+    }
+    
+    // Cor Olhos - com conversão (pode ser UF_CRM_1733485183850 ou UF_CRM_6753068A5BE7C)
+    if (bitrixData.UF_CRM_1733485183850) {
+      const converted = convertAndTrack('UF_CRM_1733485183850', bitrixData.UF_CRM_1733485183850);
+      mapped.corOlhos = Array.isArray(converted) ? converted[0] : converted;
+    } else if (bitrixData.UF_CRM_6753068A5BE7C) {
+      const converted = convertAndTrack('UF_CRM_6753068A5BE7C', bitrixData.UF_CRM_6753068A5BE7C);
+      mapped.corOlhos = Array.isArray(converted) ? converted[0] : converted;
+    }
+    
+    // Cor Pele - com conversão
+    if (bitrixData.UF_CRM_1762283877) {
+      const converted = convertAndTrack('UF_CRM_1762283877', bitrixData.UF_CRM_1762283877);
+      mapped.corPele = Array.isArray(converted) ? converted[0] : converted;
+    }
+    
+    // Tipo Cabelo - com conversão
+    if (bitrixData.UF_CRM_1733485270151) {
+      const converted = convertAndTrack('UF_CRM_1733485270151', bitrixData.UF_CRM_1733485270151);
+      mapped.tipoCabelo = Array.isArray(converted) ? converted[0] : converted;
+    }
 
     // Map social media links
     if (bitrixData.UF_CRM_INSTAGRAM_LINK) mapped.instagramLink = getValue(bitrixData.UF_CRM_INSTAGRAM_LINK);
@@ -382,12 +465,26 @@ export default function CadastroFicha() {
     if (bitrixData.UF_CRM_TIKTOK_SEGUIDORES) mapped.tiktokSeguidores = getValue(bitrixData.UF_CRM_TIKTOK_SEGUIDORES);
     if (bitrixData.UF_CRM_KWAI_SEGUIDORES) mapped.kwaiSeguidores = getValue(bitrixData.UF_CRM_KWAI_SEGUIDORES);
 
-    // Map skills and characteristics (multi-select fields)
-    if (bitrixData.UF_CRM_1762282818) mapped.tipoModelo = getArrayValue(bitrixData.UF_CRM_1762282818);
-    if (bitrixData.UF_CRM_1762282626) mapped.cursos = getArrayValue(bitrixData.UF_CRM_1762282626);
-    if (bitrixData.UF_CRM_1762282315) mapped.habilidades = getArrayValue(bitrixData.UF_CRM_1762282315);
-    if (bitrixData.UF_CRM_1762282725) mapped.caracteristicasEspeciais = getArrayValue(bitrixData.UF_CRM_1762282725);
+    // Map skills and characteristics (multi-select fields) - com conversão
+    if (bitrixData.UF_CRM_1762282818) {
+      mapped.tipoModelo = convertAndTrack('UF_CRM_1762282818', bitrixData.UF_CRM_1762282818) as string[];
+    }
+    
+    if (bitrixData.UF_CRM_1762282626) {
+      mapped.cursos = convertAndTrack('UF_CRM_1762282626', bitrixData.UF_CRM_1762282626) as string[];
+    }
+    
+    if (bitrixData.UF_CRM_1762282315) {
+      mapped.habilidades = convertAndTrack('UF_CRM_1762282315', bitrixData.UF_CRM_1762282315) as string[];
+    }
+    
+    if (bitrixData.UF_CRM_1762282725) {
+      mapped.caracteristicasEspeciais = convertAndTrack('UF_CRM_1762282725', bitrixData.UF_CRM_1762282725) as string[];
+    }
 
+    console.log('🔄 Dados mapeados para formulário:', mapped);
+    console.log('🎯 Conversões aplicadas:', conversions);
+    
     return mapped;
   };
 
@@ -419,10 +516,10 @@ export default function CadastroFicha() {
       }
 
       console.log('✅ Dados recebidos do Bitrix:', data.data);
+      console.log('📋 Estrutura de campos recebida:', data.fields ? Object.keys(data.fields).length + ' campos' : 'Não disponível');
 
-      // Map Bitrix data to form fields
-      const mappedData = mapBitrixDataToForm(data.data);
-      console.log('🔄 Dados mapeados para formulário:', mappedData);
+      // Map Bitrix data to form fields with field structure for ID conversion
+      const mappedData = mapBitrixDataToForm(data.data, data.fields);
       
       setFormData(prev => ({ ...prev, ...mappedData }));
 
