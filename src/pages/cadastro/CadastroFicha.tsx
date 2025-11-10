@@ -43,12 +43,19 @@ interface FormData {
   corCabelo: string;
   corOlhos: string;
   
-  // Redes Sociais
-  instagram: string;
-  facebook: string;
-  youtube: string;
-  tiktok: string;
-  kwai: string;
+  // Redes Sociais - Links
+  instagramLink: string;
+  facebookLink: string;
+  youtubeLink: string;
+  tiktokLink: string;
+  kwaiLink: string;
+  
+  // Redes Sociais - Seguidores
+  instagramSeguidores: string;
+  facebookSeguidores: string;
+  youtubeSeguidores: string;
+  tiktokSeguidores: string;
+  kwaiSeguidores: string;
   
   // Habilidades
   tipoModelo: string[];
@@ -78,11 +85,16 @@ const INITIAL_FORM_DATA: FormData = {
   calcado: '',
   corCabelo: '',
   corOlhos: '',
-  instagram: '',
-  facebook: '',
-  youtube: '',
-  tiktok: '',
-  kwai: '',
+  instagramLink: '',
+  facebookLink: '',
+  youtubeLink: '',
+  tiktokLink: '',
+  kwaiLink: '',
+  instagramSeguidores: '',
+  facebookSeguidores: '',
+  youtubeSeguidores: '',
+  tiktokSeguidores: '',
+  kwaiSeguidores: '',
   tipoModelo: [],
   cursos: [],
   habilidades: [],
@@ -299,6 +311,60 @@ export default function CadastroFicha() {
     }
   };
 
+  /**
+   * Mapeia os dados do formulário para os campos do Bitrix24
+   * Usa os nomes EXATOS dos campos personalizados do Bitrix (UF_CRM_*)
+   */
+  const mapFormDataToBitrix = (formData: FormData) => {
+    return {
+      // Dados Cadastrais
+      'UF_CRM_NOME_RESPONSAVEL': formData.nomeResponsavel,
+      'UF_CRM_CPF': formData.cpf,
+      'UF_CRM_ESTADO_CIVIL': formData.estadoCivil,
+      'UF_CRM_TELEFONE_RESPONSAVEL': formData.telefoneResponsavel,
+      
+      // Endereço
+      'UF_CRM_CEP': formData.cep,
+      'UF_CRM_ENDERECO': formData.endereco,
+      'UF_CRM_NUMERO': formData.numero,
+      'UF_CRM_COMPLEMENTO': formData.complemento,
+      'UF_CRM_BAIRRO': formData.bairro,
+      'UF_CRM_CIDADE': formData.cidade,
+      'UF_CRM_ESTADO': formData.estado,
+      
+      // Dados do Modelo
+      'UF_CRM_NOME_MODELO': formData.nomeModelo,
+      'UF_CRM_DATA_NASCIMENTO': formData.dataNascimento,
+      'UF_CRM_SEXO': formData.sexo,
+      'UF_CRM_ALTURA': formData.altura,
+      'UF_CRM_PESO': formData.peso,
+      'UF_CRM_MANEQUIM': formData.manequim,
+      'UF_CRM_CALCADO': formData.calcado,
+      'UF_CRM_COR_CABELO': formData.corCabelo,
+      'UF_CRM_COR_OLHOS': formData.corOlhos,
+      
+      // Redes Sociais - Links
+      'UF_CRM_INSTAGRAM_LINK': formData.instagramLink,
+      'UF_CRM_FACEBOOK_LINK': formData.facebookLink,
+      'UF_CRM_YOUTUBE_LINK': formData.youtubeLink,
+      'UF_CRM_TIKTOK_LINK': formData.tiktokLink,
+      'UF_CRM_KWAI_LINK': formData.kwaiLink,
+      
+      // Redes Sociais - Seguidores
+      'UF_CRM_INSTAGRAM_SEGUIDORES': formData.instagramSeguidores,
+      'UF_CRM_FACEBOOK_SEGUIDORES': formData.facebookSeguidores,
+      'UF_CRM_YOUTUBE_SEGUIDORES': formData.youtubeSeguidores,
+      'UF_CRM_TIKTOK_SEGUIDORES': formData.tiktokSeguidores,
+      'UF_CRM_KWAI_SEGUIDORES': formData.kwaiSeguidores,
+      
+      // Habilidades (convertendo arrays para strings separadas por vírgula)
+      'UF_CRM_TIPO_MODELO': formData.tipoModelo.join(', '),
+      'UF_CRM_CURSOS': formData.cursos.join(', '),
+      'UF_CRM_HABILIDADES': formData.habilidades.join(', '),
+      'UF_CRM_CARACTERISTICAS_ESPECIAIS': formData.caracteristicasEspeciais.join(', ')
+    };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -333,14 +399,8 @@ export default function CadastroFicha() {
     setIsSubmitting(true);
     
     try {
-      // Prepare data for Bitrix integration
-      const bitrixData = {
-        ...formData,
-        tipoModelo: formData.tipoModelo.join(', '),
-        cursos: formData.cursos.join(', '),
-        habilidades: formData.habilidades.join(', '),
-        caracteristicasEspeciais: formData.caracteristicasEspeciais.join(', ')
-      };
+      // Prepare data for Bitrix integration using the mapping function
+      const bitrixData = mapFormDataToBitrix(formData);
       
       // Call Bitrix integration edge function
       const { data: { session } } = await supabase.auth.getSession();
@@ -354,11 +414,11 @@ export default function CadastroFicha() {
       // In production, this should call the bitrix-integration edge function
       // Example:
       // const response = await supabase.functions.invoke('bitrix-integration', {
-      //   body: { action: 'create', entityType: 'contact', data: bitrixData }
+      //   body: { action: 'create', entityType: 'deal', data: bitrixData }
       // });
       
       // For now, log the data and show success
-      console.log('Form data prepared for Bitrix:', bitrixData);
+      console.log('Form data mapped for Bitrix:', bitrixData);
       
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -632,42 +692,101 @@ export default function CadastroFicha() {
             description="Perfis em redes sociais do modelo"
             icon={<Share2 className="w-5 h-5" />}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                id="instagram"
-                label="Instagram"
-                value={formData.instagram}
-                onChange={(v) => handleFieldChange('instagram', v)}
-                placeholder="@usuario"
-              />
-              <FormField
-                id="facebook"
-                label="Facebook"
-                value={formData.facebook}
-                onChange={(v) => handleFieldChange('facebook', v)}
-                placeholder="facebook.com/usuario"
-              />
-              <FormField
-                id="youtube"
-                label="YouTube"
-                value={formData.youtube}
-                onChange={(v) => handleFieldChange('youtube', v)}
-                placeholder="youtube.com/@usuario"
-              />
-              <FormField
-                id="tiktok"
-                label="TikTok"
-                value={formData.tiktok}
-                onChange={(v) => handleFieldChange('tiktok', v)}
-                placeholder="@usuario"
-              />
-              <FormField
-                id="kwai"
-                label="Kwai"
-                value={formData.kwai}
-                onChange={(v) => handleFieldChange('kwai', v)}
-                placeholder="@usuario"
-              />
+            <div className="space-y-4">
+              {/* Instagram */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  id="instagramLink"
+                  label="Instagram - Link/Username"
+                  value={formData.instagramLink}
+                  onChange={(v) => handleFieldChange('instagramLink', v)}
+                  placeholder="@usuario ou link completo"
+                />
+                <FormField
+                  id="instagramSeguidores"
+                  label="Instagram - Seguidores"
+                  type="number"
+                  value={formData.instagramSeguidores}
+                  onChange={(v) => handleFieldChange('instagramSeguidores', v)}
+                  placeholder="Ex: 5000"
+                />
+              </div>
+
+              {/* Facebook */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  id="facebookLink"
+                  label="Facebook - Link/Username"
+                  value={formData.facebookLink}
+                  onChange={(v) => handleFieldChange('facebookLink', v)}
+                  placeholder="facebook.com/usuario"
+                />
+                <FormField
+                  id="facebookSeguidores"
+                  label="Facebook - Seguidores"
+                  type="number"
+                  value={formData.facebookSeguidores}
+                  onChange={(v) => handleFieldChange('facebookSeguidores', v)}
+                  placeholder="Ex: 3000"
+                />
+              </div>
+
+              {/* YouTube */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  id="youtubeLink"
+                  label="YouTube - Link/Username"
+                  value={formData.youtubeLink}
+                  onChange={(v) => handleFieldChange('youtubeLink', v)}
+                  placeholder="youtube.com/@usuario"
+                />
+                <FormField
+                  id="youtubeSeguidores"
+                  label="YouTube - Seguidores"
+                  type="number"
+                  value={formData.youtubeSeguidores}
+                  onChange={(v) => handleFieldChange('youtubeSeguidores', v)}
+                  placeholder="Ex: 10000"
+                />
+              </div>
+
+              {/* TikTok */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  id="tiktokLink"
+                  label="TikTok - Link/Username"
+                  value={formData.tiktokLink}
+                  onChange={(v) => handleFieldChange('tiktokLink', v)}
+                  placeholder="@usuario"
+                />
+                <FormField
+                  id="tiktokSeguidores"
+                  label="TikTok - Seguidores"
+                  type="number"
+                  value={formData.tiktokSeguidores}
+                  onChange={(v) => handleFieldChange('tiktokSeguidores', v)}
+                  placeholder="Ex: 15000"
+                />
+              </div>
+
+              {/* Kwai */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  id="kwaiLink"
+                  label="Kwai - Link/Username"
+                  value={formData.kwaiLink}
+                  onChange={(v) => handleFieldChange('kwaiLink', v)}
+                  placeholder="@usuario"
+                />
+                <FormField
+                  id="kwaiSeguidores"
+                  label="Kwai - Seguidores"
+                  type="number"
+                  value={formData.kwaiSeguidores}
+                  onChange={(v) => handleFieldChange('kwaiSeguidores', v)}
+                  placeholder="Ex: 8000"
+                />
+              </div>
             </div>
           </FormSection>
 
