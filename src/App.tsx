@@ -39,6 +39,7 @@ import GestaoArea from "./pages/gestao/AreaDeAbordagem";
 import GestaoAnaliseLeads from "./pages/gestao/AnaliseLeads";
 import GestaoRelatorios from "./pages/gestao/Relatorios";
 import GestaoConfigurarCampos from "./pages/gestao/ConfigurarCampos";
+import FichaCadastral from "./pages/gestao/FichaCadastral";
 import Install from "./pages/Install";
 
 // Agenciamento Module
@@ -94,6 +95,7 @@ const App = () => (
 
           {/* Rotas do Gestão Scouter (prefixo /scouter) - Connected to 3D solar system planet button */}
           <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />
+          <Route path="/scouter/ficha-cadastral" element={<ProtectedRoute><FichaCadastral /></ProtectedRoute>} />
           <Route path="/scouter/leads" element={<ProtectedRoute><GestaoLeads /></ProtectedRoute>} />
           <Route path="/scouter/analise" element={<ProtectedRoute><GestaoAnaliseLeads /></ProtectedRoute>} />
           <Route path="/scouter/scouters" element={<ProtectedRoute><GestaoScouters /></ProtectedRoute>} />
