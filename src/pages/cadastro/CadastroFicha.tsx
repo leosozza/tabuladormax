@@ -300,6 +300,7 @@ const BITRIX_DEAL_FIELD_MAPPING = {
   // Identificação
   nomeModelo: 'UF_CRM_6748E09939008',          // Nome do Modelo (string multi)
   nomeResponsavel: 'UF_CRM_690CA588BDFB7',     // Nome do Responsável (string)
+  cpf: 'UF_CRM_1762868654',                    // CPF (string)
   dataNascimento: 'UF_CRM_1762533440587',      // Data de nascimento (date)
   estadoCivil: 'UF_CRM_690CA586298B8',         // Status civil (enum)
   sexo: 'UF_CRM_6748E0996FC57',                // Sexo (enum)
@@ -342,8 +343,7 @@ const BITRIX_DEAL_FIELD_MAPPING = {
 
 // Campos do CONTATO (contact)
 const BITRIX_CONTACT_FIELD_MAPPING = {
-  telefoneResponsavel: 'PHONE',                // Telefone (array de objetos com VALUE)
-  cpf: 'UF_CRM_1762868654'                     // CPF (se existir no contato)
+  telefoneResponsavel: 'PHONE'                 // Telefone (array de objetos com VALUE)
 } as const;
 
 export default function CadastroFicha() {
@@ -519,19 +519,14 @@ export default function CadastroFicha() {
         mapped.telefoneResponsavel = String(phone || '');
         conversions.telefoneResponsavel = { source: 'contact', value: phone };
       }
-      
-      // CPF (se existir no contato)
-      if (contactData.UF_CRM_1762868654) {
-        const rawCPF = contactData.UF_CRM_1762868654;
-        mapped.cpf = formatCPF(getValue(rawCPF));
-        console.log('✅ CPF carregado do contato:', {
-          raw: rawCPF,
-          formatted: mapped.cpf
-        });
-        conversions.cpf = { source: 'contact', value: rawCPF, formatted: mapped.cpf };
-      } else {
-        console.log('⚠️ CPF não encontrado no contato');
-      }
+    }
+    
+    // ============= FORMATAR CPF AO CARREGAR =============
+    if (mapped.cpf) {
+      mapped.cpf = formatCPF(getValue(mapped.cpf));
+      console.log('✅ CPF carregado do deal:', {
+        formatted: mapped.cpf
+      });
     }
     
     // ============= FORMATAR LINKS SOCIAIS AO CARREGAR =============
@@ -585,7 +580,7 @@ export default function CadastroFicha() {
         dealFieldsKeys: Object.keys(data.dealFields || {}),
         
         // ✅ Verificar campos específicos RAW do Bitrix
-        cpfFromContact: data.contactData?.UF_CRM_1762868654,
+        cpfFromDeal: data.dealData?.UF_CRM_1762868654,
         estadoCivilRaw: data.dealData?.UF_CRM_690CA586298B8,
         estadoRaw: data.dealData?.UF_CRM_1762451508,
         sexoRaw: data.dealData?.UF_CRM_6748E0996FC57,
@@ -903,8 +898,9 @@ export default function CadastroFicha() {
       }
     });
     
-    // Nota: Campos de contato (telefone, CPF) não podem ser atualizados via deal
+    // Nota: Campos de contato (telefone) não podem ser atualizados via deal
     // Eles devem ser atualizados diretamente no contato via crm.contact.update
+    // CPF agora é salvo como campo do deal (UF_CRM_1762868654)
     
     return bitrixPayload;
   };
@@ -955,8 +951,7 @@ export default function CadastroFicha() {
           entityType: bitrixEntityType,
           entityId: bitrixEntityId,
           fields: bitrixData,
-          contactFields: {  // ✅ Adicionar campos de contato
-            cpf: formData.cpf,
+          contactFields: {  // ✅ Adicionar campos de contato (apenas telefone)
             telefone: formData.telefoneResponsavel
           }
         }

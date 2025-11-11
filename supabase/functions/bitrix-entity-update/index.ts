@@ -84,15 +84,12 @@ serve(async (req) => {
         if (contactId) {
           const contactPayload: Record<string, any> = {};
           
-          // CPF
-          if (contactFields.cpf) {
-            contactPayload['UF_CRM_1762868654'] = contactFields.cpf;
-          }
-          
           // Telefone
           if (contactFields.telefone) {
             contactPayload['PHONE'] = [{ VALUE: contactFields.telefone, VALUE_TYPE: 'MOBILE' }];
           }
+          
+          // Note: CPF is now a deal field (UF_CRM_1762868654), not a contact field
           
           if (Object.keys(contactPayload).length > 0) {
             const contactUpdateUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.contact.update`;
