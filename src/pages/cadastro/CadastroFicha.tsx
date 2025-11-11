@@ -454,21 +454,41 @@ export default function CadastroFicha() {
    * Busca automática no Bitrix quando CPF válido é digitado
    */
   const handleCPFSearch = async (cpf: string) => {
+    console.log('🔍 Iniciando busca por CPF:', cpf);
     setIsSearchingCPF(true);
+    
     try {
+      console.log('📞 Chamando edge function bitrix-search-by-cpf...');
       const { data, error } = await supabase.functions.invoke('bitrix-search-by-cpf', {
         body: { cpf }
       });
 
-      if (error) throw error;
+      console.log('📦 Resposta da edge function:', { data, error });
+
+      if (error) {
+        console.error('❌ Erro retornado pela edge function:', error);
+        throw error;
+      }
 
       setCpfSearchResult(data);
 
-      if (data.found) {
+      if (data?.found) {
+        console.log('✅ CPF encontrado no Bitrix:', data.contact);
         setShowCPFResultModal(true);
+        toast({
+          title: 'CPF Encontrado!',
+          description: `Nome: ${data.contact?.name}`,
+        });
+      } else {
+        console.log('ℹ️ CPF não encontrado no Bitrix');
+        toast({
+          title: 'CPF não encontrado',
+          description: 'Este CPF não está cadastrado no sistema',
+          variant: 'default'
+        });
       }
     } catch (error) {
-      console.error('Erro ao buscar CPF:', error);
+      console.error('❌ Erro ao buscar CPF:', error);
       toast({
         title: 'Erro na busca',
         description: 'Não foi possível buscar dados por CPF',
@@ -786,17 +806,28 @@ export default function CadastroFicha() {
 
   const handleFieldChange = (field: keyof FormData, value: string | string[]) => {
     if (field === 'cpf' && typeof value === 'string') {
+      console.log('📝 CPF digitado:', value);
+      
       const formatted = formatCPF(value);
+      console.log('✨ CPF formatado:', formatted);
+      
       setFormData(prev => ({ ...prev, [field]: formatted }));
       
       // Validar CPF quando completo (11 dígitos)
       const cleaned = formatted.replace(/[^\d]/g, '');
+      console.log('🔢 CPF limpo (apenas números):', cleaned, 'comprimento:', cleaned.length);
+      
       if (cleaned.length === 11) {
-        if (validateCPF(cleaned)) {
+        const isValid = validateCPF(cleaned);
+        console.log('✅ CPF válido?', isValid);
+        
+        if (isValid) {
           setFieldErrors(prev => ({ ...prev, cpf: undefined }));
-          // Disparar busca automática
+          // Disparar busca automática com CPF SEM máscara
+          console.log('🚀 Disparando busca automática...');
           handleCPFSearch(cleaned);
         } else {
+          console.log('❌ CPF inválido - dígitos verificadores incorretos');
           setFieldErrors(prev => ({ ...prev, cpf: 'CPF inválido' }));
         }
       } else {
@@ -1585,6 +1616,79 @@ export default function CadastroFicha() {
             </Button>
           </div>
         </form>
+
+        {/* Modal de Resultado da Busca por CPF */}
+        {showCPFResultModal && cpfSearchResult?.found && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="p-6 max-w-md w-full">
+              <h3 className="text-lg font-bold mb-4">✅ CPF Encontrado!</h3>
+              
+              <div className="space-y-3 mb-6">
+                <div>
+                  <strong className="text-sm text-muted-foreground">Nome:</strong>
+                  <p className="text-base">{cpfSearchResult.contact?.name}</p>
+                </div>
+                
+                {cpfSearchResult.contact?.phone && (
+                  <div>
+                    <strong className="text-sm text-muted-foreground">Telefone:</strong>
+                    <p className="text-base">{cpfSearchResult.contact?.phone}</p>
+                  </div>
+                )}
+                
+                {cpfSearchResult.deals && cpfSearchResult.deals.length > 0 && (
+                  <div>
+                    <strong className="text-sm text-muted-foreground">Negócios associados:</strong>
+                    <ul className="list-disc ml-5 mt-2 space-y-1">
+                      {cpfSearchResult.deals.map((deal: any) => (
+                        <li key={deal.ID}>
+                          <button
+                            onClick={() => {
+                              navigate(`/cadastro/ficha/deal/${deal.ID}`);
+                              setShowCPFResultModal(false);
+                            }}
+                            className="text-primary hover:underline text-sm"
+                          >
+                            {deal.TITLE || `Negócio #${deal.ID}`}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev,
+                      nomeResponsavel: cpfSearchResult.contact?.name || '',
+                      telefoneResponsavel: cpfSearchResult.contact?.phone || ''
+                    }));
+                    setShowCPFResultModal(false);
+                    toast({
+                      title: 'Dados preenchidos',
+                      description: 'Nome e telefone foram atualizados automaticamente'
+                    });
+                  }}
+                  className="flex-1"
+                >
+                  Preencher Dados
+                </Button>
+                
+                <Button
+                  variant="default"
+                  onClick={() => setShowCPFResultModal(false)}
+                  className="flex-1"
+                >
+                  Fechar
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
