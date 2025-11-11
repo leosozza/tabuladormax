@@ -50,14 +50,12 @@ interface FormData {
   facebookLink: string;
   youtubeLink: string;
   tiktokLink: string;
-  kwaiLink: string;
   
   // Redes Sociais - Seguidores
   instagramSeguidores: string;
   facebookSeguidores: string;
   youtubeSeguidores: string;
   tiktokSeguidores: string;
-  kwaiSeguidores: string;
   
   // Habilidades
   tipoModelo: string[];
@@ -93,12 +91,10 @@ const INITIAL_FORM_DATA: FormData = {
   facebookLink: '',
   youtubeLink: '',
   tiktokLink: '',
-  kwaiLink: '',
   instagramSeguidores: '',
   facebookSeguidores: '',
   youtubeSeguidores: '',
   tiktokSeguidores: '',
-  kwaiSeguidores: '',
   tipoModelo: [],
   cursos: [],
   habilidades: [],
@@ -333,22 +329,20 @@ const BITRIX_DEAL_FIELD_MAPPING = {
   tipoModelo: 'UF_CRM_690CA58606670',          // Tipo de modelo (multi-enum)
   
   // Redes Sociais (se existirem no deal)
-  instagramLink: 'UF_CRM_INSTAGRAM',
-  instagramSeguidores: 'UF_CRM_N_DE_SEGUIDORES_INSTAGRAM',
-  facebookLink: 'UF_CRM_FACE',
-  facebookSeguidores: 'UF_CRM_FACEBOOK_N_DE_SEGUIDORES',
-  youtubeLink: 'UF_CRM_YOUTUBE',
-  youtubeSeguidores: 'UF_CRM_YOUTUBE_N_DE_SEGUIDORES',
+  instagramLink: 'UF_CRM_1762866652',
+  instagramSeguidores: 'UF_CRM_1762866813',
+  facebookLink: 'UF_CRM_1762867010',
+  facebookSeguidores: 'UF_CRM_1762867259',
+  youtubeLink: 'UF_CRM_1762867875',
+  youtubeSeguidores: 'UF_CRM_1762868205',
   tiktokLink: 'UF_CRM_TIKTOK',
-  tiktokSeguidores: 'UF_CRM_TIKTOK_N_DE_SEGUIDORES',
-  kwaiLink: 'UF_CRM_KWAI',
-  kwaiSeguidores: 'UF_CRM_KWAI_N_DE_SEGUIDORES'
+  tiktokSeguidores: 'UF_CRM_TIKTOK_N_DE_SEGUIDORES'
 } as const;
 
 // Campos do CONTATO (contact)
 const BITRIX_CONTACT_FIELD_MAPPING = {
   telefoneResponsavel: 'PHONE',                // Telefone (array de objetos com VALUE)
-  cpf: 'UF_CRM_CPF'                            // CPF (se existir no contato)
+  cpf: 'UF_CRM_1762868654'                     // CPF (se existir no contato)
 } as const;
 
 export default function CadastroFicha() {
@@ -491,9 +485,9 @@ export default function CadastroFicha() {
       }
       
       // CPF (se existir no contato)
-      if (contactData.UF_CRM_CPF) {
-        mapped.cpf = getValue(contactData.UF_CRM_CPF);
-        conversions.cpf = { source: 'contact', value: contactData.UF_CRM_CPF };
+      if (contactData.UF_CRM_1762868654) {
+        mapped.cpf = getValue(contactData.UF_CRM_1762868654);
+        conversions.cpf = { source: 'contact', value: contactData.UF_CRM_1762868654 };
       }
     }
     
@@ -1231,25 +1225,6 @@ export default function CadastroFicha() {
                   value={formData.tiktokSeguidores}
                   onChange={(v) => handleFieldChange('tiktokSeguidores', v)}
                   placeholder="Ex: 15000"
-                />
-              </div>
-
-              {/* Kwai */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  id="kwaiLink"
-                  label="Kwai - Link/Username"
-                  value={formData.kwaiLink}
-                  onChange={(v) => handleFieldChange('kwaiLink', v)}
-                  placeholder="@usuario"
-                />
-                <FormField
-                  id="kwaiSeguidores"
-                  label="Kwai - Seguidores"
-                  type="number"
-                  value={formData.kwaiSeguidores}
-                  onChange={(v) => handleFieldChange('kwaiSeguidores', v)}
-                  placeholder="Ex: 8000"
                 />
               </div>
             </div>
