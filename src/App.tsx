@@ -47,6 +47,7 @@ import Agenciamento from "./pages/Agenciamento";
 
 // Cadastro Module
 import CadastroFicha from "./pages/cadastro/CadastroFicha";
+import CadastroSucesso from "./pages/cadastro/CadastroSucesso";
 
 // Hub Panels
 import HubPanels from "./pages/HubPanels";
@@ -100,6 +101,7 @@ const App = () => (
           <Route path="/cadastro" element={<CadastroFicha />} />
           <Route path="/cadastro/atualizar" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
           <Route path="/cadastro/atualizar/:entityType/:entityId" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
+          <Route path="/cadastro/sucesso" element={<CadastroSucesso />} />
 
           {/* Rotas do Gestão Scouter (prefixo /scouter) - Connected to 3D solar system planet button */}
           <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />
