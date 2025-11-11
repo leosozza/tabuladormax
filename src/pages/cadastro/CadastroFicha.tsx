@@ -377,9 +377,9 @@ export default function CadastroFicha() {
   });
 
   /**
-   * Converte valores do Bitrix (ID ou VALUE) para IDs para uso no formulário
-   */
-  const convertEnumeration = (
+    * Converte IDs do Bitrix para VALUEs legíveis (ao CARREGAR)
+    */
+   const convertEnumeration = (
     fieldId: string,
     value: unknown,
     fields: Record<string, any>
@@ -396,36 +396,14 @@ export default function CadastroFicha() {
     // Multi-select (array)
     if (Array.isArray(value)) {
       return value.map(v => {
-        // Tentar encontrar por VALUE (reverse lookup)
-        const itemByValue = field.items.find((i: any) => i.VALUE === String(v));
-        if (itemByValue) {
-          return itemByValue.ID;
-        }
-        
-        // Tentar encontrar por ID
-        const itemById = field.items.find((i: any) => i.ID === String(v));
-        if (itemById) {
-          return itemById.ID;
-        }
-        
-        return String(v);
+        const item = field.items.find((i: any) => i.ID === String(v));
+        return item ? item.VALUE : String(v);  // ✅ Retorna VALUE ao carregar
       });
     }
     
     // Single-select
-    // Tentar encontrar por VALUE (reverse lookup)
-    const itemByValue = field.items.find((i: any) => i.VALUE === String(value));
-    if (itemByValue) {
-      return itemByValue.ID;
-    }
-    
-    // Tentar encontrar por ID
-    const itemById = field.items.find((i: any) => i.ID === String(value));
-    if (itemById) {
-      return itemById.ID;
-    }
-    
-    return String(value || '');
+    const item = field.items.find((i: any) => i.ID === String(value));
+    return item ? item.VALUE : String(value || '');  // ✅ Retorna VALUE ao carregar
   };
 
   /**
@@ -453,6 +431,16 @@ export default function CadastroFicha() {
       if (value === undefined || value === null || value === '') return;
       
       const converted = convertEnumeration(bitrixField, value, dealFields || {});
+      
+      // Debug para campos específicos
+      if (['estadoCivil', 'sexo', 'habilidades', 'cursos', 'tipoModelo'].includes(formField)) {
+        console.log(`🔍 ${formField}:`, {
+          bitrixField,
+          bitrixValue: value,
+          converted: converted,
+          isArray: Array.isArray(converted)
+        });
+      }
       
       // Para arrays de 1 elemento, pegar só o primeiro
       // Para multi-select, manter como array
@@ -737,17 +725,48 @@ export default function CadastroFicha() {
   };
 
   /**
-   * Mapeia dados do formulário para o formato do Bitrix
-   * Nota: Idealmente deveria receber dealFields para converter VALUES -> IDs
-   * Por enquanto, envia os valores diretos
-   */
-  const mapFormDataToBitrix = (data: FormData, dealFields?: Record<string, any>): Record<string, any> => {
+    * Formata links de redes sociais
+    */
+   const formatSocialMediaLink = (platform: string, value: string): string => {
+    if (!value) return '';
+    
+    // Se já é um link completo, retornar como está
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    
+    // Remover @ se existir
+    const username = value.replace('@', '').trim();
+    
+    // Formatar conforme plataforma
+    const platforms: Record<string, string> = {
+      instagram: `instagram.com/${username}`,
+      facebook: `facebook.com/${username}`,
+      youtube: `youtube.com/@${username}`,
+      tiktok: `tiktok.com/@${username}`
+    };
+    
+    return platforms[platform] || value;
+  };
+
+  /**
+    * Mapeia dados do formulário para o formato do Bitrix
+    * Nota: Idealmente deveria receber dealFields para converter VALUES -> IDs
+    * Por enquanto, envia os valores diretos
+    */
+   const mapFormDataToBitrix = (data: FormData, dealFields?: Record<string, any>): Record<string, any> => {
     const bitrixPayload: Record<string, any> = {};
     
     // Mapear campos do DEAL usando BITRIX_DEAL_FIELD_MAPPING
     Object.entries(BITRIX_DEAL_FIELD_MAPPING).forEach(([formField, bitrixField]) => {
-      const value = data[formField as keyof FormData];
+      let value = data[formField as keyof FormData];
       if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) return;
+      
+      // ✅ Formatar links de redes sociais
+      if (formField === 'instagramLink') value = formatSocialMediaLink('instagram', String(value));
+      if (formField === 'facebookLink') value = formatSocialMediaLink('facebook', String(value));
+      if (formField === 'youtubeLink') value = formatSocialMediaLink('youtube', String(value));
+      if (formField === 'tiktokLink') value = formatSocialMediaLink('tiktok', String(value));
       
       // Converter valores de enumeração de volta para IDs (se dealFields disponível)
       if (dealFields) {
@@ -804,13 +823,17 @@ export default function CadastroFicha() {
       if (bitrixEntityType && bitrixEntityId) {
         // UPDATE MODE - Update existing lead or deal in Bitrix (PUBLIC ACCESS)
         
-        const { data, error } = await supabase.functions.invoke('bitrix-entity-update', {
-          body: {
-            entityType: bitrixEntityType,
-            entityId: bitrixEntityId,
-            fields: bitrixData
+      const { data, error } = await supabase.functions.invoke('bitrix-entity-update', {
+        body: {
+          entityType: bitrixEntityType,
+          entityId: bitrixEntityId,
+          fields: bitrixData,
+          contactFields: {  // ✅ Adicionar campos de contato
+            cpf: formData.cpf,
+            telefone: formData.telefoneResponsavel
           }
-        });
+        }
+      });
 
         if (error) {
           throw new Error(`Erro na edge function: ${JSON.stringify(error)}`);

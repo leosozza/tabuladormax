@@ -12,9 +12,12 @@ serve(async (req) => {
   }
 
   try {
-    const { entityType, entityId, fields } = await req.json();
+    const { entityType, entityId, fields, contactFields } = await req.json();
     
-    console.log(`📡 Atualizando ${entityType} ID ${entityId} no Bitrix...`);
+    console.log(`📡 Atualizando ${entityType} ID ${entityId} no Bitrix...`, { 
+      fieldsCount: Object.keys(fields).length,
+      hasContactFields: !!contactFields 
+    });
 
     if (!entityType || !entityId || !fields) {
       throw new Error('entityType, entityId e fields são obrigatórios');
@@ -66,6 +69,53 @@ serve(async (req) => {
     }
 
     console.log(`✅ ${entityType} ID ${entityId} atualizado com sucesso no Bitrix`);
+
+    // ✅ ATUALIZAR CONTATO se fornecido
+    if (contactFields && data.result) {
+      try {
+        // Buscar CONTACT_ID do deal/lead
+        const bitrixMethod = entityType === 'lead' ? 'crm.lead.get' : 'crm.deal.get';
+        const entityGetUrl = `https://${bitrixDomain}/rest/${bitrixToken}/${bitrixMethod}?ID=${entityId}`;
+        const entityResponse = await fetch(entityGetUrl);
+        const entityData = await entityResponse.json();
+        
+        const contactId = entityData?.result?.CONTACT_ID;
+        
+        if (contactId) {
+          const contactPayload: Record<string, any> = {};
+          
+          // CPF
+          if (contactFields.cpf) {
+            contactPayload['UF_CRM_1762868654'] = contactFields.cpf;
+          }
+          
+          // Telefone
+          if (contactFields.telefone) {
+            contactPayload['PHONE'] = [{ VALUE: contactFields.telefone, VALUE_TYPE: 'MOBILE' }];
+          }
+          
+          if (Object.keys(contactPayload).length > 0) {
+            const contactUpdateUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.contact.update`;
+            
+            const contactResponse = await fetch(contactUpdateUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: contactId, fields: contactPayload })
+            });
+            
+            if (contactResponse.ok) {
+              console.log('📞 Contato atualizado:', contactId);
+            } else {
+              console.error('⚠️ Erro ao atualizar contato:', await contactResponse.text());
+            }
+          }
+        } else {
+          console.warn('⚠️ Nenhum CONTACT_ID encontrado para o', entityType, entityId);
+        }
+      } catch (contactError) {
+        console.error('⚠️ Erro ao processar contato (não crítico):', contactError);
+      }
+    }
 
     // Registrar evento de atualização
     supabase.from('sync_events').insert({
