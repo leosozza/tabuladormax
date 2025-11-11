@@ -6,6 +6,33 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Função auxiliar para fetch com timeout
+const fetchWithTimeout = async (url: string, timeout = 25000) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    console.log('🔍 Requisição iniciada:', url);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    console.log('✅ Resposta recebida:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Erro do Bitrix:', errorText);
+      throw new Error(`Bitrix retornou erro ${response.status}: ${errorText}`);
+    }
+    
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Timeout: Bitrix demorou muito para responder');
+    }
+    throw error;
+  }
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -32,16 +59,12 @@ serve(async (req) => {
     const bitrixDomain = 'maxsystem.bitrix24.com.br';
     const bitrixToken = Deno.env.get('BITRIX_REST_TOKEN') || '7/338m945lx9ifjjnr';
     
-    // FASE 1: Buscar dados do deal/lead
+    // FASE 1: Buscar dados do deal/lead com timeout
     const bitrixMethod = entityType === 'lead' ? 'crm.lead.get' : 'crm.deal.get';
     const bitrixUrl = `https://${bitrixDomain}/rest/${bitrixToken}/${bitrixMethod}?id=${entityId}`;
 
     console.log('🔍 Buscando entidade do Bitrix:', bitrixUrl);
-    const response = await fetch(bitrixUrl);
-    
-    if (!response.ok) {
-      throw new Error(`Erro ao buscar ${entityType} do Bitrix: ${response.status}`);
-    }
+    const response = await fetchWithTimeout(bitrixUrl);
 
     const data = await response.json();
     
@@ -59,13 +82,11 @@ serve(async (req) => {
       console.log('👤 Buscando contato ID', contactId, ':', contactUrl);
       
       try {
-        const contactResponse = await fetch(contactUrl);
-        if (contactResponse.ok) {
-          const contactResult = await contactResponse.json();
-          if (contactResult.result) {
-            contactData = contactResult.result;
-            console.log('✅ Contato encontrado:', Object.keys(contactData).length, 'campos');
-          }
+        const contactResponse = await fetchWithTimeout(contactUrl);
+        const contactResult = await contactResponse.json();
+        if (contactResult.result) {
+          contactData = contactResult.result;
+          console.log('✅ Contato encontrado:', Object.keys(contactData).length, 'campos');
         }
       } catch (error) {
         console.log('⚠️ Não foi possível buscar contato:', error);
@@ -79,7 +100,7 @@ serve(async (req) => {
     const fieldsUrl = `https://${bitrixDomain}/rest/${bitrixToken}/${fieldsMethod}`;
     console.log('📋 Buscando estrutura dos campos do', entityType, ':', fieldsUrl);
     
-    const fieldsResponse = await fetch(fieldsUrl);
+    const fieldsResponse = await fetchWithTimeout(fieldsUrl);
     const fieldsData = await fieldsResponse.json();
     
     console.log('✅ Estrutura de campos do', entityType, 'obtida:', Object.keys(fieldsData.result || {}).length, 'campos');
@@ -90,11 +111,9 @@ serve(async (req) => {
     console.log('📋 Buscando estrutura dos campos de contato:', contactFieldsUrl);
     
     try {
-      const contactFieldsResponse = await fetch(contactFieldsUrl);
-      if (contactFieldsResponse.ok) {
-        contactFieldsData = await contactFieldsResponse.json();
-        console.log('✅ Estrutura de campos de contato obtida:', Object.keys(contactFieldsData.result || {}).length, 'campos');
-      }
+      const contactFieldsResponse = await fetchWithTimeout(contactFieldsUrl);
+      contactFieldsData = await contactFieldsResponse.json();
+      console.log('✅ Estrutura de campos de contato obtida:', Object.keys(contactFieldsData.result || {}).length, 'campos');
     } catch (error) {
       console.log('⚠️ Não foi possível buscar estrutura de campos de contato:', error);
     }

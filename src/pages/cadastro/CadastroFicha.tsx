@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { FormSection } from '@/components/cadastro/FormSection';
@@ -368,12 +369,26 @@ export default function CadastroFicha() {
     tipoCabelo: Array<{ value: string; label: string }>;
     corOlhos: Array<{ value: string; label: string }>;
     manequim: Array<{ value: string; label: string }>;
+    estadoCivil: Array<{ value: string; label: string }>;
+    estado: Array<{ value: string; label: string }>;
+    sexo: Array<{ value: string; label: string }>;
+    habilidades: Array<{ value: string; label: string }>;
+    cursos: Array<{ value: string; label: string }>;
+    caracteristicasEspeciais: Array<{ value: string; label: string }>;
+    tipoModelo: Array<{ value: string; label: string }>;
   }>({
     corPele: [],
     corCabelo: [],
     tipoCabelo: [],
     corOlhos: [],
-    manequim: []
+    manequim: [],
+    estadoCivil: [],
+    estado: [],
+    sexo: [],
+    habilidades: [],
+    cursos: [],
+    caracteristicasEspeciais: [],
+    tipoModelo: []
   });
 
   /**
@@ -479,6 +494,27 @@ export default function CadastroFicha() {
       }
     }
     
+    // ============= FORMATAR LINKS SOCIAIS AO CARREGAR =============
+    if (typeof mapped.tiktokLink === 'string' && mapped.tiktokLink.includes('tiktok.com/')) {
+      const match = mapped.tiktokLink.match(/tiktok\.com\/@?([^/?]+)/);
+      mapped.tiktokLink = match ? match[1] : mapped.tiktokLink;
+    }
+
+    if (typeof mapped.instagramLink === 'string' && mapped.instagramLink.includes('instagram.com/')) {
+      const match = mapped.instagramLink.match(/instagram\.com\/([^/?]+)/);
+      mapped.instagramLink = match ? match[1] : mapped.instagramLink;
+    }
+
+    if (typeof mapped.facebookLink === 'string' && mapped.facebookLink.includes('facebook.com/')) {
+      const match = mapped.facebookLink.match(/facebook\.com\/([^/?]+)/);
+      mapped.facebookLink = match ? match[1] : mapped.facebookLink;
+    }
+
+    if (typeof mapped.youtubeLink === 'string' && mapped.youtubeLink.includes('youtube.com/')) {
+      const match = mapped.youtubeLink.match(/youtube\.com\/@?([^/?]+)/);
+      mapped.youtubeLink = match ? match[1] : mapped.youtubeLink;
+    }
+    
     return mapped;
   };
 
@@ -502,6 +538,25 @@ export default function CadastroFicha() {
       if (!data?.success) {
         throw new Error(data?.error || 'Erro desconhecido ao buscar dados do Bitrix');
       }
+
+      console.log('📦 Dados recebidos do Bitrix:', {
+        dealDataKeys: Object.keys(data.dealData || {}),
+        contactDataKeys: Object.keys(data.contactData || {}),
+        dealFieldsKeys: Object.keys(data.dealFields || {}),
+        
+        // Verificar campos específicos
+        cpfFromContact: data.contactData?.UF_CRM_1762868654,
+        estadoCivil: data.dealData?.UF_CRM_690CA586298B8,
+        estado: data.dealData?.UF_CRM_1762451508,
+        sexo: data.dealData?.UF_CRM_6748E0996FC57,
+        corCabelo: data.dealData?.UF_CRM_DEAL_1750166749133,
+        tipoCabelo: data.dealData?.UF_CRM_6753068A64AB0,
+        corOlhos: data.dealData?.UF_CRM_6753068A5BE7C,
+        
+        // Verificar opções de enumeração
+        estadoCivilOptions: data.dealFields?.['UF_CRM_690CA586298B8']?.items?.length || 0,
+        estadoOptions: data.dealFields?.['UF_CRM_1762451508']?.items?.length || 0
+      });
 
       // Map Bitrix data to form fields with field structure for ID conversion
       const mappedData = mapBitrixDataToForm(
@@ -539,9 +594,38 @@ export default function CadastroFicha() {
           manequim: data.dealFields['UF_CRM_690CA586192FB']?.items?.map((item: any) => ({
             value: item.ID,
             label: item.VALUE
+          })) || [],
+          estadoCivil: data.dealFields['UF_CRM_690CA586298B8']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
+          })) || [],
+          estado: data.dealFields['UF_CRM_1762451508']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
+          })) || [],
+          sexo: data.dealFields['UF_CRM_6748E0996FC57']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
+          })) || [],
+          habilidades: data.dealFields['UF_CRM_690CA585CADA1']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
+          })) || [],
+          cursos: data.dealFields['UF_CRM_690CA585DA123']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
+          })) || [],
+          caracteristicasEspeciais: data.dealFields['UF_CRM_690CA585EAFC3']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
+          })) || [],
+          tipoModelo: data.dealFields['UF_CRM_690CA58606670']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
           })) || []
         };
-        
+
+        console.log('🎨 Opções dinâmicas extraídas:', newOptions);
         setDynamicOptions(newOptions);
       }
 
@@ -943,6 +1027,81 @@ export default function CadastroFicha() {
           </p>
         </div>
 
+        {/* Debug Mode Panel */}
+        {bitrixEntityId && (
+          <div className="mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDebugMode(!debugMode)}
+            >
+              {debugMode ? 'Fechar Debug' : 'Abrir Debug'}
+            </Button>
+          </div>
+        )}
+
+        {debugMode && (
+          <Card className="p-4 bg-yellow-50 border-yellow-300 mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-bold text-lg">🔧 Debug Info</h3>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setDebugMode(false)}
+              >
+                Fechar
+              </Button>
+            </div>
+            
+            <div className="space-y-2 text-xs">
+              <div>
+                <strong>Campos do Deal:</strong>
+                <pre className="bg-white p-2 rounded mt-1 overflow-auto max-h-32">
+                  {JSON.stringify({
+                    estadoCivil: formData.estadoCivil,
+                    estado: formData.estado,
+                    sexo: formData.sexo,
+                    cpf: formData.cpf,
+                    corCabelo: formData.corCabelo,
+                    tipoCabelo: formData.tipoCabelo,
+                    corOlhos: formData.corOlhos,
+                    tiktokLink: formData.tiktokLink
+                  }, null, 2)}
+                </pre>
+              </div>
+              
+              <div>
+                <strong>Opções Dinâmicas Carregadas:</strong>
+                <pre className="bg-white p-2 rounded mt-1 overflow-auto max-h-32">
+                  {JSON.stringify({
+                    estadoCivil: dynamicOptions.estadoCivil.length,
+                    estado: dynamicOptions.estado.length,
+                    sexo: dynamicOptions.sexo.length,
+                    corCabelo: dynamicOptions.corCabelo.length,
+                    tipoCabelo: dynamicOptions.tipoCabelo.length,
+                    corOlhos: dynamicOptions.corOlhos.length,
+                    habilidades: dynamicOptions.habilidades.length,
+                    cursos: dynamicOptions.cursos.length,
+                    caracteristicasEspeciais: dynamicOptions.caracteristicasEspeciais.length,
+                    tipoModelo: dynamicOptions.tipoModelo.length
+                  }, null, 2)}
+                </pre>
+              </div>
+
+              <div>
+                <strong>IDs:</strong>
+                <pre className="bg-white p-2 rounded mt-1">
+                  {JSON.stringify({ 
+                    bitrixEntityType,
+                    bitrixEntityId,
+                    hasFieldStructure: !!bitrixDealFields
+                  }, null, 2)}
+                </pre>
+              </div>
+            </div>
+          </Card>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Dados Cadastrais */}
           <FormSection
@@ -972,7 +1131,7 @@ export default function CadastroFicha() {
                 type="select"
                 value={formData.estadoCivil}
                 onChange={(v) => handleFieldChange('estadoCivil', v)}
-                options={ESTADO_CIVIL_OPTIONS}
+                options={dynamicOptions.estadoCivil.length > 0 ? dynamicOptions.estadoCivil : ESTADO_CIVIL_OPTIONS}
               />
               <FormField
                 id="telefoneResponsavel"
@@ -1061,7 +1220,7 @@ export default function CadastroFicha() {
                 type="select"
                 value={formData.estado}
                 onChange={(v) => handleFieldChange('estado', v)}
-                options={ESTADO_OPTIONS}
+                options={dynamicOptions.estado.length > 0 ? dynamicOptions.estado : ESTADO_OPTIONS}
               />
             </div>
           </FormSection>
@@ -1096,7 +1255,7 @@ export default function CadastroFicha() {
                 type="select"
                 value={formData.sexo}
                 onChange={(v) => handleFieldChange('sexo', v)}
-                options={SEXO_OPTIONS}
+                options={dynamicOptions.sexo.length > 0 ? dynamicOptions.sexo : SEXO_OPTIONS}
               />
               <FormField
                 id="altura"
@@ -1265,7 +1424,7 @@ export default function CadastroFicha() {
                 label="Tipo de Modelo"
                 value={formData.tipoModelo}
                 onChange={(v) => handleFieldChange('tipoModelo', v)}
-                options={TIPO_MODELO_OPTIONS}
+                options={dynamicOptions.tipoModelo.length > 0 ? dynamicOptions.tipoModelo : TIPO_MODELO_OPTIONS}
                 placeholder="Selecione os tipos"
               />
               <MultiSelect
@@ -1273,7 +1432,7 @@ export default function CadastroFicha() {
                 label="Cursos Realizados"
                 value={formData.cursos}
                 onChange={(v) => handleFieldChange('cursos', v)}
-                options={CURSOS_OPTIONS}
+                options={dynamicOptions.cursos.length > 0 ? dynamicOptions.cursos : CURSOS_OPTIONS}
                 placeholder="Selecione os cursos"
               />
               <MultiSelect
@@ -1281,7 +1440,7 @@ export default function CadastroFicha() {
                 label="Habilidades"
                 value={formData.habilidades}
                 onChange={(v) => handleFieldChange('habilidades', v)}
-                options={HABILIDADES_OPTIONS}
+                options={dynamicOptions.habilidades.length > 0 ? dynamicOptions.habilidades : HABILIDADES_OPTIONS}
                 placeholder="Selecione as habilidades"
               />
               <MultiSelect
@@ -1289,7 +1448,7 @@ export default function CadastroFicha() {
                 label="Características Especiais"
                 value={formData.caracteristicasEspeciais}
                 onChange={(v) => handleFieldChange('caracteristicasEspeciais', v)}
-                options={CARACTERISTICAS_OPTIONS}
+                options={dynamicOptions.caracteristicasEspeciais.length > 0 ? dynamicOptions.caracteristicasEspeciais : CARACTERISTICAS_OPTIONS}
                 placeholder="Selecione as características"
               />
             </div>
