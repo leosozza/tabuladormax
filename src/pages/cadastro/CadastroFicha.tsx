@@ -16,8 +16,10 @@ import {
   Save,
   Loader2,
   ArrowLeft,
-  FileText
+  FileText,
+  Info
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface FormData {
   // Dados Cadastrais
@@ -362,6 +364,18 @@ export default function CadastroFicha() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   
+  // Estados para busca por CPF
+  const [isSearchingCPF, setIsSearchingCPF] = useState(false);
+  const [cpfSearchResult, setCpfSearchResult] = useState<{
+    found: boolean;
+    contact?: any;
+    deals?: any[];
+  } | null>(null);
+  const [showCPFResultModal, setShowCPFResultModal] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{
+    cpf?: string;
+  }>({});
+  
   // Estado para opções dinâmicas dos selects baseadas nos dealFields do Bitrix
   const [dynamicOptions, setDynamicOptions] = useState<{
     corPele: Array<{ value: string; label: string }>;
@@ -390,6 +404,80 @@ export default function CadastroFicha() {
     caracteristicasEspeciais: [],
     tipoModelo: []
   });
+
+  /**
+   * Valida CPF usando algoritmo brasileiro oficial
+   */
+  const validateCPF = (cpf: string): boolean => {
+    const cleanCPF = cpf.replace(/[^\d]/g, '');
+    
+    if (cleanCPF.length !== 11) return false;
+    if (/^(\d)\1+$/.test(cleanCPF)) return false;
+    
+    let sum = 0;
+    let remainder;
+    
+    for (let i = 1; i <= 9; i++) {
+      sum += parseInt(cleanCPF.substring(i - 1, i)) * (11 - i);
+    }
+    
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    if (remainder !== parseInt(cleanCPF.substring(9, 10))) return false;
+    
+    sum = 0;
+    for (let i = 1; i <= 10; i++) {
+      sum += parseInt(cleanCPF.substring(i - 1, i)) * (12 - i);
+    }
+    
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    if (remainder !== parseInt(cleanCPF.substring(10, 11))) return false;
+    
+    return true;
+  };
+
+  /**
+   * Formata CPF com máscara XXX.XXX.XXX-XX
+   */
+  const formatCPF = (value: string): string => {
+    const cleaned = value.replace(/[^\d]/g, '');
+    const limited = cleaned.substring(0, 11);
+    
+    if (limited.length <= 3) return limited;
+    if (limited.length <= 6) return `${limited.slice(0, 3)}.${limited.slice(3)}`;
+    if (limited.length <= 9) return `${limited.slice(0, 3)}.${limited.slice(3, 6)}.${limited.slice(6)}`;
+    return `${limited.slice(0, 3)}.${limited.slice(3, 6)}.${limited.slice(6, 9)}-${limited.slice(9)}`;
+  };
+
+  /**
+   * Busca automática no Bitrix quando CPF válido é digitado
+   */
+  const handleCPFSearch = async (cpf: string) => {
+    setIsSearchingCPF(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('bitrix-search-by-cpf', {
+        body: { cpf }
+      });
+
+      if (error) throw error;
+
+      setCpfSearchResult(data);
+
+      if (data.found) {
+        setShowCPFResultModal(true);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar CPF:', error);
+      toast({
+        title: 'Erro na busca',
+        description: 'Não foi possível buscar dados por CPF',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSearchingCPF(false);
+    }
+  };
 
   /**
     * ✅ CORREÇÃO: Mantém IDs do Bitrix ao carregar (não converte para VALUE)
@@ -471,8 +559,15 @@ export default function CadastroFicha() {
       
       // CPF (se existir no contato)
       if (contactData.UF_CRM_1762868654) {
-        mapped.cpf = getValue(contactData.UF_CRM_1762868654);
-        conversions.cpf = { source: 'contact', value: contactData.UF_CRM_1762868654 };
+        const rawCPF = contactData.UF_CRM_1762868654;
+        mapped.cpf = formatCPF(getValue(rawCPF));
+        console.log('✅ CPF carregado do contato:', {
+          raw: rawCPF,
+          formatted: mapped.cpf
+        });
+        conversions.cpf = { source: 'contact', value: rawCPF, formatted: mapped.cpf };
+      } else {
+        console.log('⚠️ CPF não encontrado no contato');
       }
     }
     
@@ -690,37 +785,26 @@ export default function CadastroFicha() {
   }, [searchParams, entityType, entityId]);
 
   const handleFieldChange = (field: keyof FormData, value: string | string[]) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const validateCPF = (cpf: string): boolean => {
-    // Remove non-digits
-    const cleanCPF = cpf.replace(/\D/g, '');
-    
-    if (cleanCPF.length !== 11) return false;
-    
-    // Check if all digits are the same
-    if (/^(\d)\1+$/.test(cleanCPF)) return false;
-    
-    // Validate first digit
-    let sum = 0;
-    for (let i = 0; i < 9; i++) {
-      sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
+    if (field === 'cpf' && typeof value === 'string') {
+      const formatted = formatCPF(value);
+      setFormData(prev => ({ ...prev, [field]: formatted }));
+      
+      // Validar CPF quando completo (11 dígitos)
+      const cleaned = formatted.replace(/[^\d]/g, '');
+      if (cleaned.length === 11) {
+        if (validateCPF(cleaned)) {
+          setFieldErrors(prev => ({ ...prev, cpf: undefined }));
+          // Disparar busca automática
+          handleCPFSearch(cleaned);
+        } else {
+          setFieldErrors(prev => ({ ...prev, cpf: 'CPF inválido' }));
+        }
+      } else {
+        setFieldErrors(prev => ({ ...prev, cpf: undefined }));
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
     }
-    let digit = 11 - (sum % 11);
-    if (digit >= 10) digit = 0;
-    if (digit !== parseInt(cleanCPF.charAt(9))) return false;
-    
-    // Validate second digit
-    sum = 0;
-    for (let i = 0; i < 10; i++) {
-      sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
-    }
-    digit = 11 - (sum % 11);
-    if (digit >= 10) digit = 0;
-    if (digit !== parseInt(cleanCPF.charAt(10))) return false;
-    
-    return true;
   };
 
   const validateName = (name: string): boolean => {
@@ -1115,13 +1199,38 @@ export default function CadastroFicha() {
                 placeholder="Nome completo"
                 required
               />
-              <FormField
-                id="cpf"
-                label="CPF"
-                value={formData.cpf}
-                onChange={(v) => handleFieldChange('cpf', v)}
-                placeholder="000.000.000-00"
-              />
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">CPF</label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="w-4 h-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Digite o CPF completo para buscar dados automaticamente</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <div className="relative">
+                  <FormField
+                    id="cpf"
+                    label=""
+                    value={formData.cpf}
+                    onChange={(v) => handleFieldChange('cpf', v)}
+                    placeholder="000.000.000-00"
+                  />
+                  {isSearchingCPF && (
+                    <div className="absolute right-2 top-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    </div>
+                  )}
+                </div>
+                {fieldErrors.cpf && (
+                  <p className="text-sm text-destructive">{fieldErrors.cpf}</p>
+                )}
+              </div>
               <FormField
                 id="estadoCivil"
                 label="Status Civil"

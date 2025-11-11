@@ -1,5 +1,8 @@
 project_id = "jstsrgyxrrlklnzgsihd"
 
+[functions.bitrix-search-by-cpf]
+verify_jwt = false
+
 [functions.get-leads-count]
 verify_jwt = false
 
