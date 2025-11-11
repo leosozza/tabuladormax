@@ -950,7 +950,10 @@ export default function CadastroFicha() {
         body: {
           entityType: bitrixEntityType,
           entityId: bitrixEntityId,
-          fields: bitrixData,
+          fields: {
+            ...bitrixData,
+            STAGE_ID: 'C1:UC_O2KDK6'  // Nova etapa após preenchimento
+          },
           contactFields: {  // ✅ Adicionar campos de contato (apenas telefone)
             telefone: formData.telefoneResponsavel
           }
