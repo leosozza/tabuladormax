@@ -391,17 +391,13 @@ export default function CadastroFicha() {
     fields: Record<string, any>
   ): string | string[] => {
     if (!fields || !fields[fieldId]) {
-      console.log(`⚠️ Campo ${fieldId} não encontrado em fields`);
       return Array.isArray(value) ? value.map(String) : String(value || '');
     }
     
     const field = fields[fieldId];
     if (field.type !== 'enumeration' || !field.items) {
-      console.log(`ℹ️ Campo ${fieldId} não é enumeração`);
       return Array.isArray(value) ? value.map(String) : String(value || '');
     }
-    
-    console.log(`🔄 Convertendo ${fieldId}:`, value);
     
     // Multi-select (array)
     if (Array.isArray(value)) {
@@ -409,18 +405,15 @@ export default function CadastroFicha() {
         // Tentar encontrar por VALUE (reverse lookup)
         const itemByValue = field.items.find((i: any) => i.VALUE === String(v));
         if (itemByValue) {
-          console.log(`  → VALUE "${v}" → ID ${itemByValue.ID}`);
           return itemByValue.ID;
         }
         
         // Tentar encontrar por ID
         const itemById = field.items.find((i: any) => i.ID === String(v));
         if (itemById) {
-          console.log(`  → ID ${v} → ID ${itemById.ID}`);
           return itemById.ID;
         }
         
-        console.log(`  → Valor ${v} não encontrado, mantendo como está`);
         return String(v);
       });
     }
@@ -429,18 +422,15 @@ export default function CadastroFicha() {
     // Tentar encontrar por VALUE (reverse lookup)
     const itemByValue = field.items.find((i: any) => i.VALUE === String(value));
     if (itemByValue) {
-      console.log(`  → VALUE "${value}" → ID ${itemByValue.ID}`);
       return itemByValue.ID;
     }
     
     // Tentar encontrar por ID
     const itemById = field.items.find((i: any) => i.ID === String(value));
     if (itemById) {
-      console.log(`  → ID ${value} → ID ${itemById.ID}`);
       return itemById.ID;
     }
     
-    console.log(`  → Valor ${value} não encontrado, mantendo como está`);
     return String(value || '');
   };
 
@@ -453,12 +443,6 @@ export default function CadastroFicha() {
     dealFields?: Record<string, any>,
     contactFields?: Record<string, any>
   ): Partial<FormData> => {
-    console.log('🔄 Iniciando mapeamento Bitrix -> Form');
-    console.log('📦 Deal Data (bruto):', dealData);
-    console.log('👤 Contact Data (bruto):', contactData);
-    console.log('📋 Deal Fields:', dealFields ? Object.keys(dealFields).length + ' campos' : 'NÃO');
-    console.log('📋 Contact Fields:', contactFields ? Object.keys(contactFields).length + ' campos' : 'NÃO');
-    
     const mapped: Partial<FormData> = {};
     const conversions: Record<string, any> = {};
     
@@ -513,18 +497,12 @@ export default function CadastroFicha() {
       }
     }
     
-    console.log('✅ Campos mapeados:', Object.keys(mapped).length);
-    console.log('🔄 Conversões aplicadas:', conversions);
-    console.log('📊 Dados finais do formulário:', mapped);
-    
     return mapped;
   };
 
   const loadExistingData = async (type: 'lead' | 'deal', id: string) => {
     setIsLoadingData(true);
     try {
-      console.log(`📡 Iniciando carregamento de ${type} ID ${id}...`);
-      
       toast({
         title: 'Carregando dados',
         description: `Buscando ${type === 'lead' ? 'lead' : 'negócio'} do Bitrix...`
@@ -535,22 +513,13 @@ export default function CadastroFicha() {
         body: { entityType: type, entityId: id }
       });
 
-      console.log('📥 Resposta da edge function bitrix-entity-get:', { data, error });
-
       if (error) {
-        console.error('❌ Erro ao invocar edge function:', error);
         throw new Error(`Erro na edge function: ${JSON.stringify(error)}`);
       }
 
       if (!data?.success) {
-        console.error('❌ Edge function retornou falha:', data);
         throw new Error(data?.error || 'Erro desconhecido ao buscar dados do Bitrix');
       }
-
-      console.log('✅ Deal Data recebido:', data.dealData);
-      console.log('👤 Contact Data recebido:', data.contactData);
-      console.log('📋 Deal Fields:', data.dealFields ? Object.keys(data.dealFields).length + ' campos' : 'NÃO');
-      console.log('📋 Contact Fields:', data.contactFields ? Object.keys(data.contactFields).length + ' campos' : 'NÃO');
 
       // Map Bitrix data to form fields with field structure for ID conversion
       const mappedData = mapBitrixDataToForm(
@@ -590,14 +559,6 @@ export default function CadastroFicha() {
             label: item.VALUE
           })) || []
         };
-        
-        console.log('📋 Opções dinâmicas extraídas:', {
-          corPele: newOptions.corPele.length,
-          corCabelo: newOptions.corCabelo.length,
-          tipoCabelo: newOptions.tipoCabelo.length,
-          corOlhos: newOptions.corOlhos.length,
-          manequim: newOptions.manequim.length
-        });
         
         setDynamicOptions(newOptions);
       }
@@ -789,8 +750,6 @@ export default function CadastroFicha() {
   const mapFormDataToBitrix = (data: FormData, dealFields?: Record<string, any>): Record<string, any> => {
     const bitrixPayload: Record<string, any> = {};
     
-    console.log('📤 Preparando dados para envio ao Bitrix...');
-    
     // Mapear campos do DEAL usando BITRIX_DEAL_FIELD_MAPPING
     Object.entries(BITRIX_DEAL_FIELD_MAPPING).forEach(([formField, bitrixField]) => {
       const value = data[formField as keyof FormData];
@@ -806,9 +765,6 @@ export default function CadastroFicha() {
     
     // Nota: Campos de contato (telefone, CPF) não podem ser atualizados via deal
     // Eles devem ser atualizados diretamente no contato via crm.contact.update
-    
-    console.log('📤 Payload para Bitrix:', bitrixPayload);
-    console.log('📊 Total de campos:', Object.keys(bitrixPayload).length);
     
     return bitrixPayload;
   };
@@ -850,17 +806,9 @@ export default function CadastroFicha() {
       // Prepare data for Bitrix integration using the mapping function
       const bitrixData = mapFormDataToBitrix(formData, bitrixDealFields || undefined);
       
-      console.log('📋 Dados preparados para envio:', {
-        entityType: bitrixEntityType,
-        entityId: bitrixEntityId,
-        fieldsCount: Object.keys(bitrixData).length,
-        hasDealFields: !!bitrixDealFields
-      });
-      
       // Check if we're updating an existing Bitrix entity
       if (bitrixEntityType && bitrixEntityId) {
         // UPDATE MODE - Update existing lead or deal in Bitrix (PUBLIC ACCESS)
-        console.log(`📤 Atualizando ${bitrixEntityType} ID ${bitrixEntityId} no Bitrix...`);
         
         const { data, error } = await supabase.functions.invoke('bitrix-entity-update', {
           body: {
@@ -870,19 +818,13 @@ export default function CadastroFicha() {
           }
         });
 
-        console.log('📥 Resposta da edge function bitrix-entity-update:', { data, error });
-
         if (error) {
-          console.error('❌ Erro ao invocar edge function:', error);
           throw new Error(`Erro na edge function: ${JSON.stringify(error)}`);
         }
 
         if (!data?.success) {
-          console.error('❌ Edge function retornou falha:', data);
           throw new Error(data?.error || 'Erro desconhecido ao atualizar no Bitrix');
         }
-
-        console.log('✅ Atualizado com sucesso no Bitrix:', data);
 
         toast({
           title: 'Cadastro atualizado',
@@ -891,7 +833,6 @@ export default function CadastroFicha() {
 
       } else {
         // CREATE MODE - Create new entry (public access allowed)
-        console.log('📤 Criando novo cadastro no Bitrix...', bitrixData);
         
         // TODO: Implement creation logic with bitrix-entity-create edge function
         // For now, just log the data
@@ -928,13 +869,6 @@ export default function CadastroFicha() {
       } else {
         errorDetails = errorMessage;
       }
-      
-      console.error('📋 Detalhes do erro:', {
-        mensagem: userMessage,
-        detalhes: errorDetails,
-        tipo: typeof error,
-        erro: error
-      });
       
       toast({
         title: 'Erro ao salvar',
@@ -977,68 +911,20 @@ export default function CadastroFicha() {
             <div className="flex items-center gap-3">
               <FileText className="w-8 h-8 text-primary" />
               <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                {bitrixEntityId ? `Atualizar ${bitrixEntityType === 'lead' ? 'Lead' : 'Negócio'}` : 'Nova Ficha Cadastral'}
+                {bitrixEntityId ? 'Atualizar ficha do modelo' : 'Nova Ficha Cadastral'}
               </h1>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDebugMode(!debugMode)}
-              className="text-xs"
-            >
-              {debugMode ? '🐛 Debug ON' : '🐛 Debug OFF'}
-            </Button>
           </div>
           <p className="text-muted-foreground">
             {bitrixEntityId 
-              ? `Atualize os campos do ${bitrixEntityType === 'lead' ? 'lead' : 'negócio'} #${bitrixEntityId} no Bitrix24` 
+              ? (
+                <>
+                  credencial numero: <strong>{bitrixEntityId}</strong>
+                </>
+              )
               : 'Preencha os dados para criar um novo cadastro de modelo'}
           </p>
         </div>
-
-        {/* Debug Panel */}
-        {debugMode && (
-          <div className="bg-muted/50 border-2 border-primary/20 rounded-lg p-6 mb-6 space-y-4">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">🐛</span>
-              <h3 className="font-bold text-lg">Modo Debug Ativado</h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm text-primary">Estado da Aplicação</h4>
-                <div className="bg-background rounded p-3 space-y-1 text-xs font-mono">
-                  <div><span className="text-muted-foreground">Autenticado:</span> {isAuthenticated ? '✅ Sim' : '❌ Não'}</div>
-                  <div><span className="text-muted-foreground">Tipo Entidade:</span> {bitrixEntityType || 'N/A'}</div>
-                  <div><span className="text-muted-foreground">ID Entidade:</span> {bitrixEntityId || 'N/A'}</div>
-                  <div><span className="text-muted-foreground">Carregando:</span> {isLoadingData ? 'Sim' : 'Não'}</div>
-                  <div><span className="text-muted-foreground">Enviando:</span> {isSubmitting ? 'Sim' : 'Não'}</div>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm text-primary">Amostra de Dados</h4>
-                <div className="bg-background rounded p-3 space-y-1 text-xs font-mono">
-                  <div><span className="text-muted-foreground">Responsável:</span> {formData.nomeResponsavel || '(vazio)'}</div>
-                  <div><span className="text-muted-foreground">Modelo:</span> {formData.nomeModelo || '(vazio)'}</div>
-                  <div><span className="text-muted-foreground">CPF:</span> {formData.cpf || '(vazio)'}</div>
-                  <div><span className="text-muted-foreground">Telefone:</span> {formData.telefoneResponsavel || '(vazio)'}</div>
-                  <div><span className="text-muted-foreground">CEP:</span> {formData.cep || '(vazio)'}</div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-background rounded p-3 text-xs">
-              <div className="font-semibold text-sm text-primary mb-2">📋 Informações Importantes</div>
-              <ul className="space-y-1 text-muted-foreground list-disc list-inside">
-                <li>Verifique o console do navegador (F12) para logs detalhados</li>
-                <li>Edge functions: bitrix-entity-get (buscar) e bitrix-entity-update (atualizar)</li>
-                <li>⚠️ Página pública: qualquer pessoa com o link pode atualizar o cadastro</li>
-                <li>Campos obrigatórios: Nome do Responsável e Telefone</li>
-              </ul>
-            </div>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Dados Cadastrais */}
@@ -1194,7 +1080,6 @@ export default function CadastroFicha() {
                 value={formData.sexo}
                 onChange={(v) => handleFieldChange('sexo', v)}
                 options={SEXO_OPTIONS}
-                required
               />
               <FormField
                 id="altura"
