@@ -59,6 +59,22 @@ export const FormField: React.FC<FormFieldProps> = ({
             ))}
           </SelectContent>
         </Select>
+      ) : type === 'date' ? (
+        <Input
+          id={id}
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          required={required}
+          disabled={disabled}
+          className="cursor-pointer"
+          inputMode="none"
+          onFocus={(e) => {
+            // Ensure the native date picker opens on mobile
+            e.target.showPicker?.();
+          }}
+        />
       ) : (
         <Input
           id={id}

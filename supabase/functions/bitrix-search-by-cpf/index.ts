@@ -22,8 +22,8 @@ serve(async (req) => {
     const bitrixDomain = 'maxsystem.bitrix24.com.br';
     const bitrixToken = Deno.env.get('BITRIX_REST_TOKEN') || '7/338m945lx9ifjjnr';
     
-    // Buscar contato por CPF
-    const searchUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.contact.list`;
+    // Buscar deal por CPF (CPF agora é campo do deal, não do contato)
+    const searchUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.deal.list`;
     
     console.log('📞 Chamando Bitrix API:', searchUrl);
     
@@ -32,7 +32,7 @@ serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         filter: { 'UF_CRM_1762868654': cpf },
-        select: ['ID', 'NAME', 'LAST_NAME', 'UF_CRM_1762868654', 'PHONE']
+        select: ['ID', 'TITLE', 'STAGE_ID', 'CONTACT_ID', 'UF_CRM_1762868654']
       })
     });
 
@@ -41,46 +41,49 @@ serve(async (req) => {
     console.log('✅ Resposta do Bitrix:', searchData);
     
     if (!searchData.result || searchData.result.length === 0) {
-      console.log('❌ Nenhum contato encontrado');
+      console.log('❌ Nenhum negócio encontrado');
       return new Response(
         JSON.stringify({ 
           success: true,
           found: false,
-          message: 'Nenhum contato encontrado com este CPF'
+          message: 'Nenhum negócio encontrado com este CPF'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const contact = searchData.result[0];
-    console.log('👤 Contato encontrado:', contact);
+    const deals = searchData.result;
+    console.log('📋 Negócios encontrados:', deals.length);
     
-    // Buscar deals associados ao contato
-    const dealsUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.deal.list`;
-    const dealsResponse = await fetch(dealsUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filter: { 'CONTACT_ID': contact.ID },
-        select: ['ID', 'TITLE', 'STAGE_ID'],
-        order: { 'DATE_CREATE': 'DESC' }
-      })
-    });
+    // Buscar contato do primeiro deal (se existir)
+    let contact = null;
+    if (deals[0].CONTACT_ID) {
+      const contactUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.contact.get`;
+      const contactResponse = await fetch(contactUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: deals[0].CONTACT_ID
+        })
+      });
 
-    const dealsData = await dealsResponse.json();
-    console.log('📋 Negócios encontrados:', dealsData.result?.length || 0);
+      const contactData = await contactResponse.json();
+      if (contactData.result) {
+        contact = {
+          id: contactData.result.ID,
+          name: `${contactData.result.NAME || ''} ${contactData.result.LAST_NAME || ''}`.trim(),
+          phone: contactData.result.PHONE?.[0]?.VALUE || ''
+        };
+      }
+    }
 
     return new Response(
       JSON.stringify({ 
         success: true,
         found: true,
-        contact: {
-          id: contact.ID,
-          name: `${contact.NAME || ''} ${contact.LAST_NAME || ''}`.trim(),
-          cpf: contact.UF_CRM_1762868654,
-          phone: contact.PHONE?.[0]?.VALUE || ''
-        },
-        deals: dealsData.result || []
+        cpf: cpf,
+        contact: contact,
+        deals: deals
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
