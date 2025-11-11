@@ -965,10 +965,7 @@ export default function CadastroFicha() {
           throw new Error(data?.error || 'Erro desconhecido ao atualizar no Bitrix');
         }
 
-        toast({
-          title: 'Cadastro atualizado',
-          description: `${bitrixEntityType === 'lead' ? 'Lead' : 'Negócio'} atualizado com sucesso no Bitrix24.`
-        });
+        navigate('/cadastro/sucesso');
 
       } else {
         // CREATE MODE - Create new entry (public access allowed)
