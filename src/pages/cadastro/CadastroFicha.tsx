@@ -392,33 +392,15 @@ export default function CadastroFicha() {
   });
 
   /**
-    * Converte IDs do Bitrix para VALUEs legíveis (ao CARREGAR)
+    * ✅ CORREÇÃO: Mantém IDs do Bitrix ao carregar (não converte para VALUE)
+    * Os selects vão exibir o label correto baseado no ID usando dynamicOptions
     */
-   const convertEnumeration = (
-    fieldId: string,
-    value: unknown,
-    fields: Record<string, any>
-  ): string | string[] => {
-    if (!fields || !fields[fieldId]) {
-      return Array.isArray(value) ? value.map(String) : String(value || '');
-    }
-    
-    const field = fields[fieldId];
-    if (field.type !== 'enumeration' || !field.items) {
-      return Array.isArray(value) ? value.map(String) : String(value || '');
-    }
-    
-    // Multi-select (array)
+   const normalizeEnumerationValue = (value: unknown): string | string[] => {
+    // Apenas normaliza para string/array de strings, mantendo os IDs originais
     if (Array.isArray(value)) {
-      return value.map(v => {
-        const item = field.items.find((i: any) => i.ID === String(v));
-        return item ? item.VALUE : String(v);  // ✅ Retorna VALUE ao carregar
-      });
+      return value.map(v => String(v));
     }
-    
-    // Single-select
-    const item = field.items.find((i: any) => i.ID === String(value));
-    return item ? item.VALUE : String(value || '');  // ✅ Retorna VALUE ao carregar
+    return String(value || '');
   };
 
   /**
@@ -445,34 +427,34 @@ export default function CadastroFicha() {
       const value = dealData[bitrixField];
       if (value === undefined || value === null || value === '') return;
       
-      const converted = convertEnumeration(bitrixField, value, dealFields || {});
+      // ✅ Mantém o ID original do Bitrix (não converte para VALUE)
+      const normalized = normalizeEnumerationValue(value);
       
       // Debug para campos específicos
-      if (['estadoCivil', 'sexo', 'habilidades', 'cursos', 'tipoModelo'].includes(formField)) {
+      if (['estadoCivil', 'sexo', 'habilidades', 'cursos', 'tipoModelo', 'corCabelo', 'tipoCabelo', 'corOlhos'].includes(formField)) {
         console.log(`🔍 ${formField}:`, {
           bitrixField,
           bitrixValue: value,
-          converted: converted,
-          isArray: Array.isArray(converted)
+          normalized: normalized,
+          isArray: Array.isArray(normalized)
         });
       }
       
-      // Para arrays de 1 elemento, pegar só o primeiro
-      // Para multi-select, manter como array
-      if (Array.isArray(converted)) {
+      // Para arrays de 1 elemento, pegar só o primeiro (exceto multi-selects)
+      if (Array.isArray(normalized)) {
         if (['habilidades', 'cursos', 'caracteristicasEspeciais', 'tipoModelo', 'manequim'].includes(formField)) {
-          mapped[formField as keyof FormData] = converted as any;
+          mapped[formField as keyof FormData] = normalized as any;
         } else {
-          mapped[formField as keyof FormData] = converted[0] as any;
+          mapped[formField as keyof FormData] = normalized[0] as any;
         }
       } else {
-        mapped[formField as keyof FormData] = converted as any;
+        mapped[formField as keyof FormData] = normalized as any;
       }
       
       conversions[formField] = {
         bitrixField,
         originalValue: value,
-        convertedValue: converted
+        normalizedValue: normalized
       };
     });
     
@@ -544,27 +526,42 @@ export default function CadastroFicha() {
         contactDataKeys: Object.keys(data.contactData || {}),
         dealFieldsKeys: Object.keys(data.dealFields || {}),
         
-        // Verificar campos específicos
+        // ✅ Verificar campos específicos RAW do Bitrix
         cpfFromContact: data.contactData?.UF_CRM_1762868654,
-        estadoCivil: data.dealData?.UF_CRM_690CA586298B8,
-        estado: data.dealData?.UF_CRM_1762451508,
-        sexo: data.dealData?.UF_CRM_6748E0996FC57,
-        corCabelo: data.dealData?.UF_CRM_DEAL_1750166749133,
-        tipoCabelo: data.dealData?.UF_CRM_6753068A64AB0,
-        corOlhos: data.dealData?.UF_CRM_6753068A5BE7C,
+        estadoCivilRaw: data.dealData?.UF_CRM_690CA586298B8,
+        estadoRaw: data.dealData?.UF_CRM_1762451508,
+        sexoRaw: data.dealData?.UF_CRM_6748E0996FC57,
+        corCabeloRaw: data.dealData?.UF_CRM_DEAL_1750166749133,
+        tipoCabeloRaw: data.dealData?.UF_CRM_6753068A64AB0,
+        corOlhosRaw: data.dealData?.UF_CRM_6753068A5BE7C,
         
-        // Verificar opções de enumeração
+        // ✅ Verificar opções de enumeração disponíveis
         estadoCivilOptions: data.dealFields?.['UF_CRM_690CA586298B8']?.items?.length || 0,
-        estadoOptions: data.dealFields?.['UF_CRM_1762451508']?.items?.length || 0
+        estadoOptions: data.dealFields?.['UF_CRM_1762451508']?.items?.length || 0,
+        corCabeloOptions: data.dealFields?.['UF_CRM_DEAL_1750166749133']?.items?.length || 0,
+        
+        // ✅ Ver exemplo de item de estadoCivil
+        estadoCivilFirstOption: data.dealFields?.['UF_CRM_690CA586298B8']?.items?.[0]
       });
 
-      // Map Bitrix data to form fields with field structure for ID conversion
+      // Map Bitrix data to form fields
       const mappedData = mapBitrixDataToForm(
         data.dealData,
         data.contactData,
         data.dealFields,
         data.contactFields
       );
+      
+      console.log('📝 Dados mapeados para o formulário:', {
+        cpf: mappedData.cpf,
+        estadoCivil: mappedData.estadoCivil,
+        estado: mappedData.estado,
+        sexo: mappedData.sexo,
+        corCabelo: mappedData.corCabelo,
+        tipoCabelo: mappedData.tipoCabelo,
+        corOlhos: mappedData.corOlhos,
+        totalFieldsMapped: Object.keys(mappedData).length
+      });
       
       setFormData(prev => ({ ...prev, ...mappedData }));
 
@@ -576,8 +573,8 @@ export default function CadastroFicha() {
       if (data.dealFields) {
         const newOptions = {
           corPele: data.dealFields['UF_CRM_690CA5863827D']?.items?.map((item: any) => ({
-            value: item.ID,
-            label: item.VALUE
+            value: item.ID, // ID do Bitrix
+            label: item.VALUE // Texto legível
           })) || [],
           corCabelo: data.dealFields['UF_CRM_DEAL_1750166749133']?.items?.map((item: any) => ({
             value: item.ID,
@@ -1127,7 +1124,7 @@ export default function CadastroFicha() {
               />
               <FormField
                 id="estadoCivil"
-                label="Estado Civil"
+                label="Status Civil"
                 type="select"
                 value={formData.estadoCivil}
                 onChange={(v) => handleFieldChange('estadoCivil', v)}
