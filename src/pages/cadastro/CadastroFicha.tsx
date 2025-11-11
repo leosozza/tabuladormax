@@ -366,33 +366,82 @@ export default function CadastroFicha() {
   const [bitrixDealFields, setBitrixDealFields] = useState<Record<string, any> | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  
+  // Estado para opções dinâmicas dos selects baseadas nos dealFields do Bitrix
+  const [dynamicOptions, setDynamicOptions] = useState<{
+    corPele: Array<{ value: string; label: string }>;
+    corCabelo: Array<{ value: string; label: string }>;
+    tipoCabelo: Array<{ value: string; label: string }>;
+    corOlhos: Array<{ value: string; label: string }>;
+    manequim: Array<{ value: string; label: string }>;
+  }>({
+    corPele: [],
+    corCabelo: [],
+    tipoCabelo: [],
+    corOlhos: [],
+    manequim: []
+  });
 
   /**
-   * Converte IDs de enumeração do Bitrix para valores legíveis
+   * Converte valores do Bitrix (ID ou VALUE) para IDs para uso no formulário
    */
   const convertEnumeration = (
     fieldId: string,
     value: unknown,
     fields: Record<string, any>
   ): string | string[] => {
-    if (!fields || !fields[fieldId]) return String(value || '');
+    if (!fields || !fields[fieldId]) {
+      console.log(`⚠️ Campo ${fieldId} não encontrado em fields`);
+      return Array.isArray(value) ? value.map(String) : String(value || '');
+    }
     
     const field = fields[fieldId];
     if (field.type !== 'enumeration' || !field.items) {
-      return String(value || '');
+      console.log(`ℹ️ Campo ${fieldId} não é enumeração`);
+      return Array.isArray(value) ? value.map(String) : String(value || '');
     }
+    
+    console.log(`🔄 Convertendo ${fieldId}:`, value);
     
     // Multi-select (array)
     if (Array.isArray(value)) {
-      return value.map(id => {
-        const item = field.items.find((i: any) => i.ID === String(id));
-        return item ? item.VALUE : String(id);
+      return value.map(v => {
+        // Tentar encontrar por VALUE (reverse lookup)
+        const itemByValue = field.items.find((i: any) => i.VALUE === String(v));
+        if (itemByValue) {
+          console.log(`  → VALUE "${v}" → ID ${itemByValue.ID}`);
+          return itemByValue.ID;
+        }
+        
+        // Tentar encontrar por ID
+        const itemById = field.items.find((i: any) => i.ID === String(v));
+        if (itemById) {
+          console.log(`  → ID ${v} → ID ${itemById.ID}`);
+          return itemById.ID;
+        }
+        
+        console.log(`  → Valor ${v} não encontrado, mantendo como está`);
+        return String(v);
       });
     }
     
     // Single-select
-    const item = field.items.find((i: any) => i.ID === String(value));
-    return item ? item.VALUE : String(value || '');
+    // Tentar encontrar por VALUE (reverse lookup)
+    const itemByValue = field.items.find((i: any) => i.VALUE === String(value));
+    if (itemByValue) {
+      console.log(`  → VALUE "${value}" → ID ${itemByValue.ID}`);
+      return itemByValue.ID;
+    }
+    
+    // Tentar encontrar por ID
+    const itemById = field.items.find((i: any) => i.ID === String(value));
+    if (itemById) {
+      console.log(`  → ID ${value} → ID ${itemById.ID}`);
+      return itemById.ID;
+    }
+    
+    console.log(`  → Valor ${value} não encontrado, mantendo como está`);
+    return String(value || '');
   };
 
   /**
@@ -516,6 +565,42 @@ export default function CadastroFicha() {
       setBitrixEntityType(type);
       setBitrixEntityId(id);
       setBitrixDealFields(data.dealFields); // Armazenar dealFields para conversão no envio
+      
+      // Extrair opções dinâmicas dos campos de enumeração
+      if (data.dealFields) {
+        const newOptions = {
+          corPele: data.dealFields['UF_CRM_690CA5863827D']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
+          })) || [],
+          corCabelo: data.dealFields['UF_CRM_DEAL_1750166749133']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
+          })) || [],
+          tipoCabelo: data.dealFields['UF_CRM_6753068A64AB0']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
+          })) || [],
+          corOlhos: data.dealFields['UF_CRM_6753068A5BE7C']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
+          })) || [],
+          manequim: data.dealFields['UF_CRM_690CA586192FB']?.items?.map((item: any) => ({
+            value: item.ID,
+            label: item.VALUE
+          })) || []
+        };
+        
+        console.log('📋 Opções dinâmicas extraídas:', {
+          corPele: newOptions.corPele.length,
+          corCabelo: newOptions.corCabelo.length,
+          tipoCabelo: newOptions.tipoCabelo.length,
+          corOlhos: newOptions.corOlhos.length,
+          manequim: newOptions.manequim.length
+        });
+        
+        setDynamicOptions(newOptions);
+      }
 
       toast({
         title: 'Dados carregados',
@@ -1140,7 +1225,7 @@ export default function CadastroFicha() {
                 type="select"
                 value={formData.corPele}
                 onChange={(v) => handleFieldChange('corPele', v)}
-                options={COR_PELE_OPTIONS}
+                options={dynamicOptions.corPele.length > 0 ? dynamicOptions.corPele : COR_PELE_OPTIONS}
               />
               <FormField
                 id="corCabelo"
@@ -1148,7 +1233,7 @@ export default function CadastroFicha() {
                 type="select"
                 value={formData.corCabelo}
                 onChange={(v) => handleFieldChange('corCabelo', v)}
-                options={COR_CABELO_OPTIONS}
+                options={dynamicOptions.corCabelo.length > 0 ? dynamicOptions.corCabelo : COR_CABELO_OPTIONS}
               />
               <FormField
                 id="tipoCabelo"
@@ -1156,7 +1241,7 @@ export default function CadastroFicha() {
                 type="select"
                 value={formData.tipoCabelo}
                 onChange={(v) => handleFieldChange('tipoCabelo', v)}
-                options={TIPO_CABELO_OPTIONS}
+                options={dynamicOptions.tipoCabelo.length > 0 ? dynamicOptions.tipoCabelo : TIPO_CABELO_OPTIONS}
               />
               <FormField
                 id="corOlhos"
@@ -1164,7 +1249,7 @@ export default function CadastroFicha() {
                 type="select"
                 value={formData.corOlhos}
                 onChange={(v) => handleFieldChange('corOlhos', v)}
-                options={COR_OLHOS_OPTIONS}
+                options={dynamicOptions.corOlhos.length > 0 ? dynamicOptions.corOlhos : COR_OLHOS_OPTIONS}
               />
             </div>
             
@@ -1175,7 +1260,7 @@ export default function CadastroFicha() {
                 label="Manequim"
                 value={formData.manequim}
                 onChange={(v) => handleFieldChange('manequim', v)}
-                options={MANEQUIM_OPTIONS}
+                options={dynamicOptions.manequim.length > 0 ? dynamicOptions.manequim : MANEQUIM_OPTIONS}
                 placeholder="Selecione os tamanhos"
               />
             </div>
