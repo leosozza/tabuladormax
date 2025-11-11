@@ -335,8 +335,8 @@ const BITRIX_DEAL_FIELD_MAPPING = {
   facebookSeguidores: 'UF_CRM_1762867259',
   youtubeLink: 'UF_CRM_1762867875',
   youtubeSeguidores: 'UF_CRM_1762868205',
-  tiktokLink: 'UF_CRM_TIKTOK',
-  tiktokSeguidores: 'UF_CRM_TIKTOK_N_DE_SEGUIDORES'
+  tiktokLink: 'UF_CRM_1762868543',
+  tiktokSeguidores: 'UF_CRM_1762872886'
 } as const;
 
 // Campos do CONTATO (contact)
