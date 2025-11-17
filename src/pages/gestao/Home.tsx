@@ -30,9 +30,12 @@ export default function GestaoHome() {
         supabase,
         "*",
         (query) => {
-          query = query
-            .gte("criado", filters.dateFilter.startDate.toISOString())
-            .lte("criado", filters.dateFilter.endDate.toISOString());
+          // Só aplica filtro de data se não for "todo período"
+          if (filters.dateFilter.preset !== 'all') {
+            query = query
+              .gte("criado", filters.dateFilter.startDate.toISOString())
+              .lte("criado", filters.dateFilter.endDate.toISOString());
+          }
 
           if (filters.projectId) {
             query = query.eq("commercial_project_id", filters.projectId);
