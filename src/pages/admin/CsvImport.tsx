@@ -9,11 +9,12 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCsvImport } from '@/hooks/useCsvImport';
-import { Upload, FileText, CheckCircle, AlertCircle, Clock, Loader2, Trash2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Clock, Loader2, Trash2, PlayCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function CsvImport() {
   const { jobs, uploadCsv, isUploading, deleteJob, isDeletingJob } = useCsvImport();
@@ -75,10 +76,28 @@ export default function CsvImport() {
     setHeaders([]);
   };
 
+  const handleResumeJob = async (jobId: string) => {
+    try {
+      toast.info('Retomando importação...');
+      
+      const { error } = await supabase.functions.invoke('resume-csv-import', {
+        body: { jobId }
+      });
+
+      if (error) throw error;
+      
+      toast.success('Importação retomada com sucesso');
+    } catch (error) {
+      console.error('Erro ao retomar job:', error);
+      toast.error('Erro ao retomar importação');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusMap = {
       pending: { label: 'Pendente', variant: 'secondary' as const, icon: Clock },
       processing: { label: 'Processando', variant: 'default' as const, icon: Loader2 },
+      paused: { label: 'Pausado', variant: 'outline' as const, icon: Clock },
       completed: { label: 'Concluído', variant: 'default' as const, icon: CheckCircle },
       completed_with_errors: { label: 'Concluído c/ Erros', variant: 'destructive' as const, icon: AlertCircle },
       failed: { label: 'Falhou', variant: 'destructive' as const, icon: AlertCircle },
@@ -266,8 +285,21 @@ export default function CsvImport() {
                             <div className="flex items-center gap-2">
                               {getStatusBadge(job.status)}
                               
-                              {/* Botão de deletar para jobs finalizados */}
-                              {['failed', 'completed', 'completed_with_errors'].includes(job.status) && (
+                              {/* Botão de retomar para jobs pausados */}
+                              {job.status === 'paused' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleResumeJob(job.id)}
+                                  className="gap-1.5"
+                                >
+                                  <PlayCircle className="w-3.5 h-3.5" />
+                                  Retomar
+                                </Button>
+                              )}
+                              
+                              {/* Botão de deletar para jobs finalizados ou pausados */}
+                              {['failed', 'completed', 'completed_with_errors', 'paused'].includes(job.status) && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -291,6 +323,25 @@ export default function CsvImport() {
                               <p className="text-xs text-muted-foreground">
                                 {job.processed_rows?.toLocaleString('pt-BR')} / {job.total_rows?.toLocaleString('pt-BR')} linhas ({progress.toFixed(1)}%)
                               </p>
+                            </div>
+                          )}
+
+                          {job.status === 'paused' && (
+                            <div className="space-y-3">
+                              <Alert className="border-amber-200 bg-amber-50">
+                                <Clock className="h-4 w-4 text-amber-600" />
+                                <AlertTitle className="text-amber-900">Importação Pausada</AlertTitle>
+                                <AlertDescription className="text-amber-800 text-sm">
+                                  {(job as any).timeout_reason || 'O processamento foi pausado. Use o botão "Retomar" para continuar.'}
+                                </AlertDescription>
+                              </Alert>
+                              
+                              <div className="space-y-2">
+                                <Progress value={progress} className="h-2" />
+                                <p className="text-xs text-muted-foreground">
+                                  Pausado em: {job.processed_rows?.toLocaleString('pt-BR')} linhas ({progress.toFixed(1)}%)
+                                </p>
+                              </div>
                             </div>
                           )}
 

@@ -84,8 +84,14 @@ serve(async (req) => {
       })
       .eq('id', jobId);
 
+    // Constantes para timeout preventivo e checkpoint
+    const PROCESSING_TIMEOUT_MS = 8 * 60 * 1000; // 8 minutos (margem de segurança)
+    const CHECKPOINT_INTERVAL = 500; // Salvar checkpoint a cada 500 linhas
+
     // Processar em background para não bloquear response
     const processCSV = async () => {
+      const startTime = Date.now();
+      
       try {
         // ✅ Criar URL assinada temporária (válida por 1 hora)
         console.log('🔗 Gerando URL assinada para streaming...');
@@ -136,6 +142,43 @@ serve(async (req) => {
           }
 
           processedRows++;
+
+          // ✅ NOVO: Verificar timeout ANTES de cada linha processada
+          const elapsedTime = Date.now() - startTime;
+          if (elapsedTime > PROCESSING_TIMEOUT_MS) {
+            console.warn('⏰ Timeout preventivo atingido - salvando progresso');
+            
+            // Processar batch atual antes de pausar
+            if (leads.length > 0) {
+              const { error } = await supabase
+                .from('leads')
+                .upsert(leads, { onConflict: 'id' });
+
+              if (error) {
+                errorRows += leads.length;
+                errorDetails.push({ linha: processedRows, count: leads.length, error: error.message });
+              } else {
+                importedRows += leads.length;
+              }
+            }
+
+            // Salvar checkpoint final
+            await supabase
+              .from('csv_import_jobs')
+              .update({ 
+                status: 'paused',
+                processed_rows: processedRows,
+                imported_rows: importedRows,
+                error_rows: errorRows,
+                error_details: errorDetails.slice(-10),
+                timeout_reason: 'Timeout preventivo - arquivo muito grande. Use o botão "Retomar" para continuar.',
+                last_checkpoint_at: new Date().toISOString()
+              })
+              .eq('id', jobId);
+            
+            console.log(`✅ Checkpoint salvo: ${processedRows} linhas processadas`);
+            throw new Error('TIMEOUT_CHECKPOINT');
+          }
           
           const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
           const row: any = {};
@@ -206,19 +249,22 @@ serve(async (req) => {
             
             leads = [];
             
-            // Atualizar progresso a cada 250 linhas
-            if (processedRows % 250 === 0) {
+            // ✅ NOVO: Checkpoint mais frequente (a cada 500 linhas)
+            if (processedRows % CHECKPOINT_INTERVAL === 0) {
+              const elapsedTime = Date.now() - startTime;
               await supabase
                 .from('csv_import_jobs')
                 .update({ 
                   processed_rows: processedRows,
                   imported_rows: importedRows,
                   error_rows: errorRows,
-                  error_details: errorDetails.slice(-10)
+                  error_details: errorDetails.slice(-10),
+                  last_checkpoint_at: new Date().toISOString()
                 })
                 .eq('id', jobId);
               
-              console.log(`📊 Progresso: ${processedRows} linhas`);
+              const rate = (processedRows / (elapsedTime / 1000)).toFixed(1);
+              console.log(`📊 Checkpoint: ${processedRows} linhas (${rate} linhas/seg, ${(elapsedTime/1000).toFixed(1)}s)`);
             }
           }
         }
@@ -254,6 +300,12 @@ serve(async (req) => {
 
         console.log(`✅ Job ${jobId} concluído: ${importedRows}/${processedRows} importados, ${errorRows} erros`);
       } catch (error) {
+        // ✅ NOVO: Tratamento especial para timeout checkpoint
+        if (error instanceof Error && error.message === 'TIMEOUT_CHECKPOINT') {
+          console.log('✅ Checkpoint salvo com sucesso - job pausado');
+          return; // Sair sem erro
+        }
+
         console.error('❌ Erro no processamento:', error);
         await supabase
           .from('csv_import_jobs')

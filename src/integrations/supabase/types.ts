@@ -549,9 +549,11 @@ export type Database = {
           file_path: string
           id: string
           imported_rows: number | null
+          last_checkpoint_at: string | null
           processed_rows: number | null
           started_at: string | null
           status: string
+          timeout_reason: string | null
           total_rows: number | null
           updated_at: string | null
         }
@@ -564,9 +566,11 @@ export type Database = {
           file_path: string
           id?: string
           imported_rows?: number | null
+          last_checkpoint_at?: string | null
           processed_rows?: number | null
           started_at?: string | null
           status?: string
+          timeout_reason?: string | null
           total_rows?: number | null
           updated_at?: string | null
         }
@@ -579,9 +583,11 @@ export type Database = {
           file_path?: string
           id?: string
           imported_rows?: number | null
+          last_checkpoint_at?: string | null
           processed_rows?: number | null
           started_at?: string | null
           status?: string
+          timeout_reason?: string | null
           total_rows?: number | null
           updated_at?: string | null
         }

@@ -71,3 +71,9 @@ verify_jwt = false
 
 [functions.bitrix-entity-update]
 verify_jwt = false
+
+[functions.process-large-csv-import]
+verify_jwt = true
+
+[functions.resume-csv-import]
+verify_jwt = true
