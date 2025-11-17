@@ -1,6 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Declaração de tipos para Supabase Edge Runtime
+declare const EdgeRuntime: {
+  waitUntil(promise: Promise<unknown>): void;
+};
+
+// Variáveis globais para checkpoint no shutdown
+let isShuttingDown = false;
+let currentJobId: string | null = null;
+let currentProgress = { processed: 0, imported: 0, errors: 0 };
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -61,6 +71,36 @@ async function* streamCSVLines(stream: ReadableStream<Uint8Array>) {
   }
 }
 
+// Handler de shutdown para salvar estado
+addEventListener('beforeunload', async (ev) => {
+  if (currentJobId && !isShuttingDown) {
+    console.warn('🛑 Edge function shutdown detectado - salvando checkpoint final');
+    isShuttingDown = true;
+    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    try {
+      await supabase
+        .from('csv_import_jobs')
+        .update({
+          status: 'paused',
+          processed_rows: currentProgress.processed,
+          imported_rows: currentProgress.imported,
+          error_rows: currentProgress.errors,
+          timeout_reason: 'Edge function shutdown inesperado - pode ser retomado',
+          last_checkpoint_at: new Date().toISOString()
+        })
+        .eq('id', currentJobId);
+      
+      console.log('✅ Checkpoint salvo no shutdown');
+    } catch (error) {
+      console.error('❌ Erro ao salvar checkpoint no shutdown:', error);
+    }
+  }
+});
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -85,7 +125,7 @@ serve(async (req) => {
       .eq('id', jobId);
 
     // Constantes para timeout preventivo e checkpoint
-    const PROCESSING_TIMEOUT_MS = 8 * 60 * 1000; // 8 minutos (margem de segurança)
+    const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos (margem de segurança maior para evitar hard timeout)
     const CHECKPOINT_INTERVAL = 500; // Salvar checkpoint a cada 500 linhas
 
     // Processar em background para não bloquear response
@@ -142,6 +182,12 @@ serve(async (req) => {
           }
 
           processedRows++;
+
+          // Verificar se está em shutdown
+          if (isShuttingDown) {
+            console.log('🛑 Shutdown em progresso - interrompendo processamento');
+            throw new Error('SHUTDOWN_CHECKPOINT');
+          }
 
           // ✅ NOVO: Verificar timeout ANTES de cada linha processada
           const elapsedTime = Date.now() - startTime;
@@ -318,8 +364,8 @@ serve(async (req) => {
       }
     };
 
-    // Processar de forma assíncrona
-    processCSV();
+    // ✅ Usar waitUntil para garantir que a edge function não encerra prematuramente
+    EdgeRuntime.waitUntil(processCSV());
 
     // Retornar resposta imediata
     return new Response(

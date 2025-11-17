@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useCsvImport } from '@/hooks/useCsvImport';
+import { useCsvImport, calculateJobStats } from '@/hooks/useCsvImport';
 import { Upload, FileText, CheckCircle, AlertCircle, Clock, Loader2, Trash2, PlayCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -317,12 +317,55 @@ export default function CsvImport() {
                             </div>
                           </div>
 
-                          {job.status === 'processing' && (
-                            <div className="space-y-2">
-                              <Progress value={progress} className="h-2" />
-                              <p className="text-xs text-muted-foreground">
-                                {job.processed_rows?.toLocaleString('pt-BR')} / {job.total_rows?.toLocaleString('pt-BR')} linhas ({progress.toFixed(1)}%)
-                              </p>
+                          {job.status === 'processing' && job.total_rows && (
+                            <div className="space-y-3">
+                              {/* Barra de progresso */}
+                              <div className="space-y-2">
+                                <Progress 
+                                  value={progress} 
+                                  className="h-2"
+                                />
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                  <span>{job.processed_rows?.toLocaleString('pt-BR')} / {job.total_rows.toLocaleString('pt-BR')}</span>
+                                  <span>{progress.toFixed(1)}%</span>
+                                </div>
+                              </div>
+
+                              {/* Estatísticas em tempo real */}
+                              {(() => {
+                                const stats = calculateJobStats(job);
+                                if (!stats) return null;
+                                
+                                const elapsedMin = stats.elapsedMs / (60 * 1000);
+                                const isNearTimeout = elapsedMin >= 4; // 4 minutos = 80% de 5min
+                                
+                                return (
+                                  <div className="space-y-3">
+                                    <div className="grid grid-cols-3 gap-3 p-3 bg-muted/50 rounded-lg">
+                                      <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground">Velocidade</p>
+                                        <p className="text-sm font-semibold">{stats.rate} linhas/seg</p>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground">Tempo decorrido</p>
+                                        <p className="text-sm font-semibold">{stats.elapsedTime}</p>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground">Tempo restante</p>
+                                        <p className="text-sm font-semibold">{stats.eta}</p>
+                                      </div>
+                                    </div>
+
+                                    {/* Alerta de timeout próximo */}
+                                    {isNearTimeout && (
+                                      <Badge variant="outline" className="gap-1.5 w-full justify-center border-warning text-warning">
+                                        <Clock className="w-3 h-3 animate-pulse" />
+                                        Próximo ao limite de tempo - job será pausado automaticamente
+                                      </Badge>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           )}
 
