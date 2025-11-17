@@ -92,10 +92,33 @@ export function useCsvImport() {
     }
   });
 
+  // Mutation: Deletar job
+  const deleteJobMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { error } = await supabase
+        .from('csv_import_jobs')
+        .delete()
+        .eq('id', jobId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['csv-import-jobs'] });
+      toast.success('Importação removida do histórico');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao remover importação', {
+        description: error.message
+      });
+    }
+  });
+
   return { 
     jobs, 
     isLoading,
     uploadCsv, 
-    isUploading: uploadCsv.isPending 
+    isUploading: uploadCsv.isPending,
+    deleteJob: deleteJobMutation.mutate,
+    isDeletingJob: deleteJobMutation.isPending
   };
 }

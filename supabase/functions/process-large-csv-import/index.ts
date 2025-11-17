@@ -87,19 +87,35 @@ serve(async (req) => {
     // Processar em background para não bloquear response
     const processCSV = async () => {
       try {
-        // Baixar arquivo do Storage
-        console.log('📥 Baixando arquivo...');
-        const { data: fileData, error: downloadError } = await supabase
+        // ✅ Criar URL assinada temporária (válida por 1 hora)
+        console.log('🔗 Gerando URL assinada para streaming...');
+        const { data: signedUrl, error: urlError } = await supabase
           .storage
           .from('imports')
-          .download(filePath);
+          .createSignedUrl(filePath, 3600); // 1 hora
 
-        if (downloadError) throw downloadError;
+        if (urlError || !signedUrl) {
+          throw new Error('Falha ao gerar URL do arquivo');
+        }
 
-        console.log(`✅ Arquivo baixado: ${fileData.size} bytes`);
+        console.log('✅ URL assinada criada');
+
+        // ✅ Fazer fetch direto para obter stream (SEM carregar na memória)
+        console.log('📥 Iniciando download em streaming...');
+        const response = await fetch(signedUrl.signedUrl);
+        
+        if (!response.ok) {
+          throw new Error(`Falha ao baixar arquivo: ${response.statusText}`);
+        }
+
+        if (!response.body) {
+          throw new Error('Response body vazio');
+        }
+
+        console.log('✅ Stream iniciado (processamento direto sem carregar na RAM)');
 
         // Processar em streaming
-        const BATCH_SIZE = 50; // Reduzido para evitar memory limit
+        const BATCH_SIZE = 50;
         let processedRows = 0;
         let importedRows = 0;
         let errorRows = 0;
@@ -109,9 +125,9 @@ serve(async (req) => {
         let leads: any[] = [];
         let isFirstLine = true;
 
-        console.log('🔄 Iniciando processamento em streaming...');
+        console.log('🔄 Processando linhas do CSV em streaming...');
 
-        for await (const line of streamCSVLines(fileData.stream())) {
+        for await (const line of streamCSVLines(response.body)) {
           if (isFirstLine) {
             delimiter = line.includes(';') ? ';' : ',';
             headers = line.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));

@@ -9,20 +9,39 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCsvImport } from '@/hooks/useCsvImport';
-import { Upload, FileText, CheckCircle, AlertCircle, Clock, Loader2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Clock, Loader2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function CsvImport() {
-  const { jobs, uploadCsv, isUploading } = useCsvImport();
+  const { jobs, uploadCsv, isUploading, deleteJob, isDeletingJob } = useCsvImport();
   const [file, setFile] = useState<File | null>(null);
   const [syncWithBitrix, setSyncWithBitrix] = useState(false);
   const [preview, setPreview] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
 
+  const MAX_FILE_SIZE_MB = 100;
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
+
+    // Validar tamanho do arquivo
+    const fileSizeMB = selectedFile.size / (1024 * 1024);
+    
+    if (fileSizeMB > MAX_FILE_SIZE_MB) {
+      toast.error(
+        `Arquivo muito grande (${fileSizeMB.toFixed(1)} MB)`,
+        {
+          description: `Tamanho máximo: ${MAX_FILE_SIZE_MB} MB. Divida o arquivo em partes menores.`,
+          duration: 8000
+        }
+      );
+      e.target.value = '';
+      return;
+    }
 
     setFile(selectedFile);
 
@@ -83,6 +102,10 @@ export default function CsvImport() {
             </div>
             <CardDescription>
               Selecione um arquivo CSV com os leads para importar
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <AlertCircle className="w-4 h-4" />
+                <span>Tamanho máximo: 100 MB. Para arquivos maiores, divida em partes.</span>
+              </div>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -214,7 +237,26 @@ export default function CsvImport() {
                                 )}
                               </p>
                             </div>
-                            {getStatusBadge(job.status)}
+                            <div className="flex items-center gap-2">
+                              {getStatusBadge(job.status)}
+                              
+                              {/* Botão de deletar para jobs finalizados */}
+                              {['failed', 'completed', 'completed_with_errors'].includes(job.status) && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    if (confirm('Deseja realmente remover esta importação do histórico?')) {
+                                      deleteJob(job.id);
+                                    }
+                                  }}
+                                  disabled={isDeletingJob}
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
 
                           {job.status === 'processing' && (
