@@ -674,6 +674,75 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_resync_jobs: {
+        Row: {
+          batch_size: number | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          current_batch: number | null
+          error_details: Json | null
+          error_leads: number | null
+          estimated_completion: string | null
+          filter_criteria: Json | null
+          id: string
+          last_processed_lead_id: number | null
+          paused_at: string | null
+          priority_fields: string[] | null
+          processed_leads: number | null
+          skipped_leads: number | null
+          started_at: string | null
+          status: string
+          total_leads: number | null
+          updated_at: string | null
+          updated_leads: number | null
+        }
+        Insert: {
+          batch_size?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_batch?: number | null
+          error_details?: Json | null
+          error_leads?: number | null
+          estimated_completion?: string | null
+          filter_criteria?: Json | null
+          id?: string
+          last_processed_lead_id?: number | null
+          paused_at?: string | null
+          priority_fields?: string[] | null
+          processed_leads?: number | null
+          skipped_leads?: number | null
+          started_at?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string | null
+          updated_leads?: number | null
+        }
+        Update: {
+          batch_size?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_batch?: number | null
+          error_details?: Json | null
+          error_leads?: number | null
+          estimated_completion?: string | null
+          filter_criteria?: Json | null
+          id?: string
+          last_processed_lead_id?: number | null
+          paused_at?: string | null
+          priority_fields?: string[] | null
+          processed_leads?: number | null
+          skipped_leads?: number | null
+          started_at?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string | null
+          updated_leads?: number | null
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           address: string | null
