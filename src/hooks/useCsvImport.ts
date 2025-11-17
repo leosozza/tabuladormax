@@ -2,6 +2,51 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Função para formatar duração em ms para string legível
+export const formatDuration = (ms: number) => {
+  const totalSec = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSec / 60);
+  const seconds = totalSec % 60;
+  
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+  return `${seconds}s`;
+};
+
+// Função para calcular estatísticas de processamento
+export const calculateJobStats = (job: any) => {
+  if (!job.started_at || !job.processed_rows) return null;
+  
+  const startTime = new Date(job.started_at).getTime();
+  const now = Date.now();
+  const elapsedMs = now - startTime;
+  const elapsedSec = elapsedMs / 1000;
+  
+  const rate = job.processed_rows / elapsedSec; // linhas/seg
+  
+  if (job.total_rows && job.total_rows > 0) {
+    const remainingRows = job.total_rows - job.processed_rows;
+    const estimatedSecondsLeft = remainingRows / rate;
+    
+    return {
+      rate: rate.toFixed(1),
+      elapsedTime: formatDuration(elapsedMs),
+      elapsedMs,
+      eta: formatDuration(estimatedSecondsLeft * 1000),
+      progress: (job.processed_rows / job.total_rows * 100).toFixed(1)
+    };
+  }
+  
+  return {
+    rate: rate.toFixed(1),
+    elapsedTime: formatDuration(elapsedMs),
+    elapsedMs,
+    eta: 'Calculando...',
+    progress: null
+  };
+};
+
 export function useCsvImport() {
   const queryClient = useQueryClient();
 

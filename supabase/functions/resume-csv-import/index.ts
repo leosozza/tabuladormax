@@ -53,8 +53,9 @@ serve(async (req) => {
       })
       .eq('id', jobId);
 
-    // Chamar função principal de processamento
-    // (A função process-large-csv-import já trata streaming, então apenas reinvocamos)
+    // ✅ Chamar função principal de processamento
+    // NOTA: A função process-large-csv-import já trata o resume automaticamente
+    // pois ela verifica job.processed_rows e continua de onde parou
     const { error: invokeError } = await supabase.functions.invoke('process-large-csv-import', {
       body: { 
         jobId,
