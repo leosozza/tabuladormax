@@ -18,6 +18,7 @@ import {
   Activity,
   Cloud,
   LayoutDashboard,
+  Upload,
 } from 'lucide-react';
 
 interface AdminAccessModalProps {
@@ -67,6 +68,13 @@ const adminOptions = [
     title: 'Sincronização',
     description: 'Central de sincronização',
     color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+  },
+  {
+    path: '/admin/csv-import',
+    icon: Upload,
+    title: 'Importação CSV',
+    description: 'Importar leads via CSV',
+    color: 'bg-green-500/10 text-green-600 dark:text-green-400',
   },
   {
     path: '/admin/lead-resync',

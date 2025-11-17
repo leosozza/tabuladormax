@@ -1,0 +1,263 @@
+import { useState, useEffect } from 'react';
+import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useCsvImport } from '@/hooks/useCsvImport';
+import { Upload, FileText, CheckCircle, AlertCircle, Clock, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+export default function CsvImport() {
+  const { jobs, uploadCsv, isUploading } = useCsvImport();
+  const [file, setFile] = useState<File | null>(null);
+  const [syncWithBitrix, setSyncWithBitrix] = useState(false);
+  const [preview, setPreview] = useState<string[][]>([]);
+  const [headers, setHeaders] = useState<string[]>([]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    setFile(selectedFile);
+
+    // Ler preview das primeiras 5 linhas
+    const text = await selectedFile.text();
+    const lines = text.split('\n').slice(0, 6);
+    const delimiter = lines[0]?.includes(';') ? ';' : ',';
+    
+    const parsedHeaders = lines[0]?.split(delimiter).map(h => h.trim().replace(/^"|"$/g, '')) || [];
+    setHeaders(parsedHeaders);
+
+    const parsedLines = lines.slice(1, 6).map(line => 
+      line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''))
+    );
+    setPreview(parsedLines);
+  };
+
+  const handleUpload = () => {
+    if (!file) return;
+    uploadCsv.mutate({ file, syncWithBitrix });
+    setFile(null);
+    setPreview([]);
+    setHeaders([]);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusMap = {
+      pending: { label: 'Pendente', variant: 'secondary' as const, icon: Clock },
+      processing: { label: 'Processando', variant: 'default' as const, icon: Loader2 },
+      completed: { label: 'Concluído', variant: 'default' as const, icon: CheckCircle },
+      completed_with_errors: { label: 'Concluído c/ Erros', variant: 'destructive' as const, icon: AlertCircle },
+      failed: { label: 'Falhou', variant: 'destructive' as const, icon: AlertCircle },
+    };
+
+    const config = statusMap[status as keyof typeof statusMap] || statusMap.pending;
+    const Icon = config.icon;
+
+    return (
+      <Badge variant={config.variant} className="gap-1.5">
+        <Icon className={`w-3 h-3 ${status === 'processing' ? 'animate-spin' : ''}`} />
+        {config.label}
+      </Badge>
+    );
+  };
+
+  return (
+    <AdminPageLayout
+      title="Importação CSV"
+      description="Importe leads em lote através de arquivos CSV"
+    >
+      <div className="space-y-6">
+        {/* Upload Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Upload className="w-5 h-5 text-primary" />
+              <CardTitle>Upload de Arquivo CSV</CardTitle>
+            </div>
+            <CardDescription>
+              Selecione um arquivo CSV com os leads para importar
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="csv-file">Arquivo CSV</Label>
+              <Input
+                id="csv-file"
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                disabled={isUploading}
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="sync-bitrix"
+                checked={syncWithBitrix}
+                onCheckedChange={(checked) => setSyncWithBitrix(checked as boolean)}
+                disabled={isUploading}
+              />
+              <Label 
+                htmlFor="sync-bitrix"
+                className="text-sm font-normal cursor-pointer"
+              >
+                Sincronizar automaticamente com Bitrix após importação
+              </Label>
+            </div>
+
+            <Button
+              onClick={handleUpload}
+              disabled={!file || isUploading}
+              className="w-full"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Iniciar Importação
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Preview Section */}
+        {preview.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                <CardTitle>Preview dos Dados</CardTitle>
+              </div>
+              <CardDescription>
+                Primeiras 5 linhas do arquivo (total de {headers.length} colunas detectadas)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {headers.map((header, idx) => (
+                        <TableHead key={idx} className="font-semibold">
+                          {header}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {preview.map((row, rowIdx) => (
+                      <TableRow key={rowIdx}>
+                        {row.map((cell, cellIdx) => (
+                          <TableCell key={cellIdx} className="text-sm">
+                            {cell || <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Jobs History */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Histórico de Importações</CardTitle>
+            <CardDescription>
+              Acompanhe o status e progresso das importações realizadas
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!jobs || jobs.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Nenhuma importação realizada ainda</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {jobs.map((job) => {
+                  const progress = job.total_rows 
+                    ? (job.processed_rows / job.total_rows) * 100 
+                    : 0;
+
+                  return (
+                    <Card key={job.id} className="border shadow-sm">
+                      <CardContent className="pt-6">
+                        <div className="space-y-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                                <p className="text-sm font-medium truncate">
+                                  {job.file_path.split('/').pop()}
+                                </p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {job.created_at && format(
+                                  new Date(job.created_at), 
+                                  "dd/MM/yyyy 'às' HH:mm",
+                                  { locale: ptBR }
+                                )}
+                              </p>
+                            </div>
+                            {getStatusBadge(job.status)}
+                          </div>
+
+                          {job.status === 'processing' && (
+                            <div className="space-y-2">
+                              <Progress value={progress} className="h-2" />
+                              <p className="text-xs text-muted-foreground">
+                                {job.processed_rows?.toLocaleString('pt-BR')} / {job.total_rows?.toLocaleString('pt-BR')} linhas ({progress.toFixed(1)}%)
+                              </p>
+                            </div>
+                          )}
+
+                          {(job.status === 'completed' || job.status === 'completed_with_errors') && (
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                              <div className="space-y-1">
+                                <p className="text-2xl font-bold text-green-600">
+                                  {job.imported_rows?.toLocaleString('pt-BR') || 0}
+                                </p>
+                                <p className="text-xs text-muted-foreground">Importados</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-2xl font-bold">
+                                  {job.total_rows?.toLocaleString('pt-BR') || 0}
+                                </p>
+                                <p className="text-xs text-muted-foreground">Total</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-2xl font-bold text-red-600">
+                                  {job.error_rows?.toLocaleString('pt-BR') || 0}
+                                </p>
+                                <p className="text-xs text-muted-foreground">Erros</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </AdminPageLayout>
+  );
+}

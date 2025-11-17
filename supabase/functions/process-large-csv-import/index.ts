@@ -71,7 +71,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { jobId, filePath } = await req.json();
+    const { jobId, filePath, syncWithBitrix = false } = await req.json();
     
     console.log(`🚀 Iniciando processamento do job ${jobId}: ${filePath}`);
 
@@ -88,7 +88,7 @@ serve(async (req) => {
     console.log('📥 Baixando arquivo...');
     const { data: fileData, error: downloadError } = await supabase
       .storage
-      .from('leads-csv-import')
+      .from('imports')
       .download(filePath);
 
     if (downloadError) throw downloadError;
@@ -161,8 +161,8 @@ serve(async (req) => {
         op_telemarketing: row['Op Telemarketing'] || null,
         data_retorno_ligacao: parseBrazilianDate(row['Data Retorno de ligação']) || null,
         raw: row,
-        sync_source: 'csv_import',
-        sync_status: 'synced',
+        sync_source: syncWithBitrix ? 'csv_import' : 'manual',
+        sync_status: syncWithBitrix ? 'pending' : 'synced',
         commercial_project_id: null,
         responsible_user_id: null,
         bitrix_telemarketing_id: row.PARENT_ID_1144 ? parseInt(row.PARENT_ID_1144) : null
