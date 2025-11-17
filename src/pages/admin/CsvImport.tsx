@@ -22,7 +22,7 @@ export default function CsvImport() {
   const [preview, setPreview] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
 
-  const MAX_FILE_SIZE_MB = 100;
+  const MAX_FILE_SIZE_MB = 1024; // 1 GB
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -45,18 +45,26 @@ export default function CsvImport() {
 
     setFile(selectedFile);
 
-    // Ler preview das primeiras 5 linhas
-    const text = await selectedFile.text();
-    const lines = text.split('\n').slice(0, 6);
-    const delimiter = lines[0]?.includes(';') ? ';' : ',';
-    
-    const parsedHeaders = lines[0]?.split(delimiter).map(h => h.trim().replace(/^"|"$/g, '')) || [];
-    setHeaders(parsedHeaders);
+    // Preview otimizado: ler apenas primeiros 100 KB para evitar travar navegador
+    try {
+      const PREVIEW_SIZE = 100 * 1024; // 100 KB
+      const slice = selectedFile.slice(0, PREVIEW_SIZE);
+      const text = await slice.text();
+      
+      const lines = text.split('\n').slice(0, 6);
+      const delimiter = lines[0]?.includes(';') ? ';' : ',';
+      
+      const parsedHeaders = lines[0]?.split(delimiter).map(h => h.trim().replace(/^"|"$/g, '')) || [];
+      setHeaders(parsedHeaders);
 
-    const parsedLines = lines.slice(1, 6).map(line => 
-      line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''))
-    );
-    setPreview(parsedLines);
+      const parsedLines = lines.slice(1, 6).map(line => 
+        line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''))
+      );
+      setPreview(parsedLines);
+    } catch (error) {
+      console.error('Erro ao gerar preview:', error);
+      toast.error('Não foi possível gerar preview do arquivo');
+    }
   };
 
   const handleUpload = () => {
@@ -104,7 +112,7 @@ export default function CsvImport() {
               Selecione um arquivo CSV com os leads para importar
               <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <AlertCircle className="w-4 h-4" />
-                <span>Tamanho máximo: 100 MB. Para arquivos maiores, divida em partes.</span>
+                <span>Tamanho máximo: 1 GB. Arquivos muito grandes podem levar vários minutos para processar.</span>
               </div>
             </CardDescription>
           </CardHeader>
@@ -154,6 +162,24 @@ export default function CsvImport() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Estimativa de Tempo */}
+        {file && (
+          <Alert>
+            <Clock className="h-4 w-4" />
+            <AlertTitle>Tempo Estimado de Processamento</AlertTitle>
+            <AlertDescription>
+              <div className="mt-2 space-y-1 text-sm">
+                <p><strong>Até 100 MB:</strong> ~2-5 minutos</p>
+                <p><strong>100-500 MB:</strong> ~5-15 minutos</p>
+                <p><strong>500 MB - 1 GB:</strong> ~15-30 minutos</p>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                ⚠️ Não feche esta aba durante o processamento. O progresso será atualizado automaticamente.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Preview Section */}
         {preview.length > 0 && (
