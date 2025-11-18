@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCsvImport, calculateJobStats } from '@/hooks/useCsvImport';
-import { Upload, FileText, CheckCircle, AlertCircle, Clock, Loader2, Trash2, PlayCircle, Settings } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Clock, Loader2, Trash2, PlayCircle, Settings, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -183,23 +183,43 @@ export default function CsvImport() {
 
             <div className="space-y-2">
               <Button
-                variant="outline"
+                variant={selectedMappingName ? "outline" : "default"}
                 onClick={() => setShowMappingDialog(true)}
                 disabled={!file || headers.length === 0}
                 className="w-full"
               >
-                <Settings className="mr-2 h-4 w-4" />
-                Configurar Mapeamento
+                {selectedMappingName ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4 text-green-500" />
+                    Mapeamento Configurado
+                  </>
+                ) : (
+                  <>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Configurar Mapeamento (Obrigatório)
+                  </>
+                )}
                 {selectedMappingName && (
                   <Badge variant="secondary" className="ml-2">
                     {selectedMappingName}
                   </Badge>
                 )}
               </Button>
+
+              {file && !selectedMappingName && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Mapeamento Obrigatório</AlertTitle>
+                  <AlertDescription>
+                    Configure o mapeamento de campos antes de iniciar a importação.
+                    Isso garante que os dados sejam importados corretamente.
+                  </AlertDescription>
+                </Alert>
+              )}
               
               <Button
                 onClick={handleUpload}
-                disabled={!file || isUploading}
+                disabled={!file || isUploading || !selectedMappingName}
                 className="w-full"
               >
                 {isUploading ? (
