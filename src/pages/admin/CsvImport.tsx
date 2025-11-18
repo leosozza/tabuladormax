@@ -15,6 +15,7 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
+import { ResetStuckJobsButton } from '@/components/ResetStuckJobsButton';
 
 export default function CsvImport() {
   const { jobs, uploadCsv, isUploading, deleteJob, isDeletingJob } = useCsvImport();
@@ -244,10 +245,15 @@ export default function CsvImport() {
         {/* Jobs History */}
         <Card>
           <CardHeader>
-            <CardTitle>Histórico de Importações</CardTitle>
-            <CardDescription>
-              Acompanhe o status e progresso das importações realizadas
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Histórico de Importações</CardTitle>
+                <CardDescription>
+                  Acompanhe o status e progresso das importações realizadas
+                </CardDescription>
+              </div>
+              <ResetStuckJobsButton />
+            </div>
           </CardHeader>
           <CardContent>
             {!jobs || jobs.length === 0 ? (
