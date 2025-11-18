@@ -52,12 +52,17 @@ export function useLeadResyncJobs() {
 
   // Mutation: Criar job
   const createJobMutation = useMutation({
-    mutationFn: async (config: { filters: JobFilters; batchSize: number }) => {
+    mutationFn: async (config: { 
+      filters: JobFilters; 
+      batchSize: number;
+      mappingId?: string;
+    }) => {
       const { data, error } = await supabase.functions.invoke('bitrix-resync-leads', {
         body: { 
           action: 'create', 
           filters: config.filters, 
-          batchSize: config.batchSize 
+          batchSize: config.batchSize,
+          mappingId: config.mappingId
         }
       });
 
