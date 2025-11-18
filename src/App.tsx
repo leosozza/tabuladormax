@@ -103,7 +103,6 @@ const App = () => (
 
           {/* Cadastro Module - Independent registration form (public access) */}
           <Route path="/cadastro" element={<CadastroFicha />} />
-          <Route path="/cadastro/atualizar" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
           <Route path="/cadastro/atualizar/:entityType/:entityId" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
           <Route path="/cadastro/sucesso" element={<CadastroSucesso />} />
 

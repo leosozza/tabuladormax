@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -348,7 +348,6 @@ const BITRIX_CONTACT_FIELD_MAPPING = {
 
 export default function CadastroFicha() {
   const { entityType, entityId } = useParams();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -723,24 +722,15 @@ export default function CadastroFicha() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load existing data from URL query parameters or route params
+  // Load existing data from route parameters
   useEffect(() => {
-    // Check URL query parameters first (?lead=123 or ?deal=456)
-    const leadId = searchParams.get('lead');
-    const dealId = searchParams.get('deal');
-
-    if (leadId) {
-      loadExistingData('lead', leadId);
-    } else if (dealId) {
-      loadExistingData('deal', dealId);
-    } else if (entityType && entityId) {
-      // Fallback to route parameters
+    if (entityType && entityId) {
       if (entityType === 'lead' || entityType === 'deal') {
         loadExistingData(entityType as 'lead' | 'deal', entityId);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, entityType, entityId]);
+  }, [entityType, entityId]);
 
   const handleFieldChange = (field: keyof FormData, value: string | string[]) => {
     if (field === 'cpf' && typeof value === 'string') {
