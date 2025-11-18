@@ -6,10 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useLeadResyncJobs, JobFilters } from '@/hooks/useLeadResyncJobs';
 import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
-import { Play, Pause, RefreshCw, Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { ResyncFieldMappingDialog } from '@/components/resync/ResyncFieldMappingDialog';
+import { Play, Pause, RefreshCw, Loader2, CheckCircle2, XCircle, Clock, Settings, Check, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -24,12 +26,21 @@ export default function LeadResync() {
   });
   
   const [batchSize, setBatchSize] = useState(50);
+  const [selectedMappingName, setSelectedMappingName] = useState<string>('');
+  const [selectedMappingId, setSelectedMappingId] = useState<string>('');
+  const [showMappingDialog, setShowMappingDialog] = useState(false);
 
   const activeJob = jobs.find(j => j.status === 'running' || j.status === 'paused');
   const completedJobs = jobs.filter(j => j.status === 'completed' || j.status === 'failed');
 
   const handleStartResync = () => {
-    createJob({ filters, batchSize });
+    if (!selectedMappingId) return;
+    createJob({ filters, batchSize, mappingId: selectedMappingId });
+  };
+
+  const handleMappingSelected = (name: string, id: string) => {
+    setSelectedMappingName(name);
+    setSelectedMappingId(id);
   };
 
   const getStatusBadge = (status: string) => {
@@ -203,9 +214,45 @@ export default function LeadResync() {
                 </p>
               </div>
 
+              <div className="space-y-2">
+                <Button
+                  variant={selectedMappingName ? "outline" : "default"}
+                  onClick={() => setShowMappingDialog(true)}
+                  className="w-full"
+                >
+                  {selectedMappingName ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4 text-green-500" />
+                      Mapeamento Configurado
+                    </>
+                  ) : (
+                    <>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Configurar Campos (Obrigatório)
+                    </>
+                  )}
+                  {selectedMappingName && (
+                    <Badge variant="secondary" className="ml-2">
+                      {selectedMappingName}
+                    </Badge>
+                  )}
+                </Button>
+              </div>
+
+              {!selectedMappingName && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Mapeamento Obrigatório</AlertTitle>
+                  <AlertDescription>
+                    Configure o mapeamento de campos antes de iniciar a resincronização.
+                    Isso garante que os dados corretos sejam atualizados e evita erros.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <Button 
                 onClick={handleStartResync} 
-                disabled={isCreating}
+                disabled={isCreating || !selectedMappingId}
                 size="lg"
                 className="w-full"
               >
@@ -287,6 +334,14 @@ export default function LeadResync() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog de Mapeamento */}
+      <ResyncFieldMappingDialog
+        open={showMappingDialog}
+        onOpenChange={setShowMappingDialog}
+        onMappingSelected={handleMappingSelected}
+        currentMappingName={selectedMappingName}
+      />
     </AdminPageLayout>
   );
 }

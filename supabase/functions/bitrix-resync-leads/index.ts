@@ -12,6 +12,7 @@ interface JobConfig {
   };
   batchSize?: number;
   maxLeads?: number;
+  mappingId?: string;
 }
 
 Deno.serve(async (req) => {
@@ -24,11 +25,11 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, jobId, filters, batchSize } = await req.json();
+    const { action, jobId, filters, batchSize, mappingId } = await req.json();
 
     switch (action) {
       case 'create':
-        return await createResyncJob(supabase, filters, batchSize);
+        return await createResyncJob(supabase, filters, batchSize, mappingId);
       
       case 'process':
         return await processBatch(supabase, jobId);
@@ -55,7 +56,7 @@ Deno.serve(async (req) => {
   }
 });
 
-async function createResyncJob(supabase: any, config: JobConfig, batchSize: number) {
+async function createResyncJob(supabase: any, config: JobConfig, batchSize: number, mappingId?: string) {
   const authHeader = supabase.headers?.['Authorization'];
   const userId = authHeader ? await getUserIdFromToken(supabase, authHeader) : null;
 
@@ -77,7 +78,7 @@ async function createResyncJob(supabase: any, config: JobConfig, batchSize: numb
 
   const { count } = await query;
 
-  // Criar job
+  // Criar job com mapping_id
   const { data: job, error } = await supabase
     .from('lead_resync_jobs')
     .insert({
@@ -85,6 +86,7 @@ async function createResyncJob(supabase: any, config: JobConfig, batchSize: numb
       total_leads: count || 0,
       filter_criteria: config?.filters || {},
       batch_size: batchSize || 50,
+      mapping_id: mappingId || null,
       created_by: userId
     })
     .select()
@@ -177,18 +179,34 @@ async function processBatch(supabase: any, jobId: string) {
     );
   }
 
-  // Buscar mapeamentos ativos
-  const { data: mappings } = await supabase
-    .from('bitrix_field_mappings')
-    .select('*')
-    .eq('active', true)
-    .order('priority', { ascending: false });
+  // Buscar mapeamentos ativos (usar resync_field_mappings se mapping_id fornecido)
+  let mappings;
+  if (job.mapping_id) {
+    // Usar mapeamentos específicos da resincronização
+    const { data } = await supabase
+      .from('resync_field_mappings')
+      .select('*')
+      .eq('mapping_id', job.mapping_id)
+      .eq('active', true)
+      .order('priority', { ascending: false });
+    mappings = data;
+  } else {
+    // Fallback para mapeamentos bitrix_field_mappings
+    const { data } = await supabase
+      .from('bitrix_field_mappings')
+      .select('*')
+      .eq('active', true)
+      .order('priority', { ascending: false });
+    mappings = data;
+  }
 
   let updated = 0, skipped = 0, errors = 0;
   const errorDetails: any[] = [];
 
   // Processar cada lead
   for (const lead of leads) {
+    let mappedData: any = {}; // Declarar fora do try para acessar no catch
+    
     try {
       // Buscar dados no Bitrix
       const bitrixResponse = await fetch(
@@ -208,20 +226,31 @@ async function processBatch(supabase: any, jobId: string) {
       const bitrixLead = bitrixData.result;
 
       // Aplicar mapeamentos
-      const mappedData: any = {};
+      mappedData = {};
       let hasUpdates = false;
 
+      // Campos UUID que precisam de validação especial
+      const uuidFields = ['responsible_user_id', 'commercial_project_id', 'analisado_por'];
+      
+      // Função auxiliar para validar UUID
+      const isValidUUID = (value: any): boolean => {
+        if (!value || typeof value !== 'string') return false;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(value);
+      };
+
       for (const mapping of mappings || []) {
-        const bitrixValue = bitrixLead[mapping.bitrix_field];
+        const sourceField = job.mapping_id ? mapping.bitrix_field : mapping.bitrix_field;
+        const targetField = job.mapping_id ? mapping.leads_column : mapping.tabuladormax_field;
+        const bitrixValue = bitrixLead[sourceField];
         
         if (!bitrixValue || bitrixValue === '') continue;
 
         let transformedValue = bitrixValue;
 
         // Transformações específicas
-        switch (mapping.tabuladormax_field) {
+        switch (targetField) {
           case 'valor_ficha':
-            // "R$ 6,00" → 6.00
             transformedValue = parseFloat(
               String(bitrixValue).replace('R$', '').replace(',', '.').trim()
             );
@@ -236,11 +265,19 @@ async function processBatch(supabase: any, jobId: string) {
           
           case 'criado':
           case 'date_modify':
+          case 'data_criacao_ficha':
+          case 'data_criacao_agendamento':
             transformedValue = new Date(bitrixValue).toISOString();
             break;
         }
 
-        mappedData[mapping.tabuladormax_field] = transformedValue;
+        // Validação UUID
+        if (uuidFields.includes(targetField) && !isValidUUID(transformedValue)) {
+          console.warn(`⚠️ Ignorando valor não-UUID para ${targetField}: "${transformedValue}"`);
+          continue;
+        }
+
+        mappedData[targetField] = transformedValue;
         hasUpdates = true;
       }
 
@@ -274,13 +311,55 @@ async function processBatch(supabase: any, jobId: string) {
 
     } catch (error) {
       errors++;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      errorDetails.push({
+      
+      // Logging detalhado de erros PostgreSQL
+      let errorMessage = 'Unknown error';
+      let errorCode = null;
+      let errorDetails = null;
+      let errorHint = null;
+      let failedField = null;
+      
+      if (error && typeof error === 'object') {
+        const pgError = error as any;
+        errorCode = pgError.code;
+        errorMessage = pgError.message || errorMessage;
+        errorDetails = pgError.details;
+        errorHint = pgError.hint;
+        
+        // Tentar identificar o campo que causou o erro
+        if (errorMessage.includes('invalid input syntax for type uuid')) {
+          const match = errorMessage.match(/invalid input syntax for type uuid: "([^"]+)"/);
+          if (match) {
+            failedField = Object.keys(mappedData || {}).find(key => 
+              mappedData[key] === match[1]
+            );
+          }
+        }
+      }
+      
+      const detailedError = {
         lead_id: lead.id,
         error: errorMessage,
+        error_code: errorCode,
+        error_details: errorDetails,
+        error_hint: errorHint,
+        failed_field: failedField,
+        failed_value: failedField ? mappedData?.[failedField] : null,
         timestamp: new Date().toISOString()
+      };
+      
+      errorDetails.push(detailedError);
+      
+      // Log em sync_events com detalhes
+      await supabase.from('sync_events').insert({
+        lead_id: lead.id,
+        event_type: 'resync',
+        direction: 'bitrix_to_tabuladormax',
+        status: 'error',
+        error_message: `[${errorCode}] ${errorMessage}${failedField ? ` (Campo: ${failedField} | Valor: ${mappedData?.[failedField]})` : ''}`
       });
-      console.error(`Error processing lead ${lead.id}:`, error);
+      
+      console.error(`❌ Error processing lead ${lead.id}:`, detailedError);
     }
   }
 

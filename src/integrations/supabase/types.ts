@@ -735,6 +735,7 @@ export type Database = {
           filter_criteria: Json | null
           id: string
           last_processed_lead_id: number | null
+          mapping_id: string | null
           paused_at: string | null
           priority_fields: string[] | null
           processed_leads: number | null
@@ -757,6 +758,7 @@ export type Database = {
           filter_criteria?: Json | null
           id?: string
           last_processed_lead_id?: number | null
+          mapping_id?: string | null
           paused_at?: string | null
           priority_fields?: string[] | null
           processed_leads?: number | null
@@ -779,6 +781,7 @@ export type Database = {
           filter_criteria?: Json | null
           id?: string
           last_processed_lead_id?: number | null
+          mapping_id?: string | null
           paused_at?: string | null
           priority_fields?: string[] | null
           processed_leads?: number | null
@@ -789,7 +792,15 @@ export type Database = {
           updated_at?: string | null
           updated_leads?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lead_resync_jobs_mapping_id_fkey"
+            columns: ["mapping_id"]
+            isOneToOne: false
+            referencedRelation: "resync_field_mappings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       leads: {
         Row: {
@@ -1044,6 +1055,51 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      resync_field_mappings: {
+        Row: {
+          active: boolean | null
+          bitrix_field: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          leads_column: string
+          mapping_name: string
+          notes: string | null
+          priority: number | null
+          skip_if_null: boolean | null
+          transform_function: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          bitrix_field: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          leads_column: string
+          mapping_name: string
+          notes?: string | null
+          priority?: number | null
+          skip_if_null?: boolean | null
+          transform_function?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          bitrix_field?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          leads_column?: string
+          mapping_name?: string
+          notes?: string | null
+          priority?: number | null
+          skip_if_null?: boolean | null
+          transform_function?: string | null
           updated_at?: string | null
         }
         Relationships: []
