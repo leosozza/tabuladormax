@@ -9,13 +9,15 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCsvImport, calculateJobStats } from '@/hooks/useCsvImport';
-import { Upload, FileText, CheckCircle, AlertCircle, Clock, Loader2, Trash2, PlayCircle } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Clock, Loader2, Trash2, PlayCircle, Settings } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { ResetStuckJobsButton } from '@/components/ResetStuckJobsButton';
+import { CsvFieldMappingDialog } from '@/components/csv/CsvFieldMappingDialog';
+import { useQuery } from '@tanstack/react-query';
 
 export default function CsvImport() {
   const { jobs, uploadCsv, isUploading, deleteJob, isDeletingJob } = useCsvImport();
@@ -23,6 +25,18 @@ export default function CsvImport() {
   const [syncWithBitrix, setSyncWithBitrix] = useState(false);
   const [preview, setPreview] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
+  const [selectedMappingName, setSelectedMappingName] = useState<string | null>(null);
+  const [showMappingDialog, setShowMappingDialog] = useState(false);
+  
+  // Buscar schema da tabela leads
+  const { data: leadsSchema } = useQuery({
+    queryKey: ['leads-schema'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_leads_schema');
+      if (error) throw error;
+      return data as Array<{ column_name: string; data_type: string }>;
+    }
+  });
 
   const MAX_FILE_SIZE_MB = 1024; // 1 GB
 
@@ -71,7 +85,11 @@ export default function CsvImport() {
 
   const handleUpload = () => {
     if (!file) return;
-    uploadCsv.mutate({ file, syncWithBitrix });
+    uploadCsv.mutate({ 
+      file, 
+      syncWithBitrix,
+      mappingName: selectedMappingName 
+    });
     setFile(null);
     setPreview([]);
     setHeaders([]);
@@ -163,23 +181,40 @@ export default function CsvImport() {
               </Label>
             </div>
 
-            <Button
-              onClick={handleUpload}
-              disabled={!file || isUploading}
-              className="w-full"
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Iniciar Importação
-                </>
-              )}
-            </Button>
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowMappingDialog(true)}
+                disabled={!file || headers.length === 0}
+                className="w-full"
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                Configurar Mapeamento
+                {selectedMappingName && (
+                  <Badge variant="secondary" className="ml-2">
+                    {selectedMappingName}
+                  </Badge>
+                )}
+              </Button>
+              
+              <Button
+                onClick={handleUpload}
+                disabled={!file || isUploading}
+                className="w-full"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Iniciar Importação
+                  </>
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -426,6 +461,18 @@ export default function CsvImport() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog de Mapeamento */}
+      <CsvFieldMappingDialog
+        csvHeaders={headers}
+        leadsColumns={leadsSchema || []}
+        open={showMappingDialog}
+        onOpenChange={setShowMappingDialog}
+        onSave={(mappingName) => {
+          setSelectedMappingName(mappingName);
+          toast.success(`Mapeamento "${mappingName}" selecionado!`);
+        }}
+      />
     </AdminPageLayout>
   );
 }

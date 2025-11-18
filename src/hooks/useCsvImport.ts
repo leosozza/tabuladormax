@@ -69,10 +69,12 @@ export function useCsvImport() {
   const uploadCsv = useMutation({
     mutationFn: async ({ 
       file, 
-      syncWithBitrix 
+      syncWithBitrix,
+      mappingName
     }: { 
       file: File; 
-      syncWithBitrix: boolean 
+      syncWithBitrix: boolean;
+      mappingName?: string | null;
     }) => {
       // 1. Upload para storage
       const filePath = `csv-imports/${Date.now()}_${file.name}`;
@@ -111,7 +113,8 @@ export function useCsvImport() {
           body: { 
             jobId: job.id, 
             filePath,
-            syncWithBitrix 
+            syncWithBitrix,
+            mappingName 
           }
         }
       );

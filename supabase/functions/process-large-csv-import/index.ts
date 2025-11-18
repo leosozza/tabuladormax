@@ -111,9 +111,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { jobId, filePath, syncWithBitrix = false } = await req.json();
+    const { jobId, filePath, syncWithBitrix = false, mappingName } = await req.json();
     
     console.log(`🚀 Iniciando processamento do job ${jobId}: ${filePath}`);
+    if (mappingName) {
+      console.log(`📋 Usando mapeamento: ${mappingName}`);
+    } else {
+      console.log(`📋 Usando mapeamento padrão`);
+    }
 
     // Atualizar status para processing
     await supabase
@@ -170,6 +175,33 @@ serve(async (req) => {
         let delimiter = ',';
         let leads: any[] = [];
         let isFirstLine = true;
+
+        // Buscar configuração de mapeamento (se fornecido)
+        let fieldMappings: Map<string, {column: string, transform: string | null}> | null = null;
+        
+        if (mappingName) {
+          console.log(`📋 Buscando configuração de mapeamento: ${mappingName}`);
+          const { data: mappings, error: mappingError } = await supabase
+            .from('csv_field_mappings')
+            .select('*')
+            .eq('mapping_name', mappingName)
+            .eq('active', true)
+            .order('priority');
+          
+          if (mappingError) {
+            console.error('❌ Erro ao buscar mapeamento:', mappingError);
+          } else if (mappings && mappings.length > 0) {
+            fieldMappings = new Map(
+              mappings.map(m => [m.csv_column, {
+                column: m.leads_column,
+                transform: m.transform_function || 'none'
+              }])
+            );
+            console.log(`✅ Mapeamento carregado: ${fieldMappings.size} campos configurados`);
+          } else {
+            console.warn(`⚠️ Mapeamento "${mappingName}" não encontrado, usando padrão`);
+          }
+        }
 
         console.log('🔄 Processando linhas do CSV em streaming...');
 
@@ -232,50 +264,90 @@ serve(async (req) => {
             row[header] = values[idx] || null;
           });
           
-          const lead = {
-            id: row.ID ? parseInt(row.ID) : null,
-            name: row['Nome do Lead'] || row.NAME || null,
-            age: row.Idade ? parseInt(row.Idade) : null,
-            address: row['Localização'] || row.ADDRESS || null,
-            photo_url: row['Foto do modelo'] || null,
-            responsible: row['Responsável'] || null,
-            scouter: row.Scouter || null,
-            date_modify: new Date().toISOString(),
-            etapa: row.Etapa || null,
-            nome_modelo: row['Nome do Modelo'] || row['nome modelo'] || null,
-            criado: parseBrazilianDate(row.Criado) || null,
-            fonte: row.Fonte || null,
-            telefone_trabalho: row['Telefone de trabalho'] || null,
-            celular: row.Celular || null,
-            telefone_casa: row['Telefone de casa'] || null,
-            local_abordagem: row['Local da Abordagem'] || null,
-            ficha_confirmada: parseBoolean(row['Ficha confirmada']),
-            data_criacao_ficha: parseBrazilianDate(row['Data de criação da Ficha']) || null,
-            data_confirmacao_ficha: parseBrazilianDate(row['Data da confirmação de ficha']) || null,
-            presenca_confirmada: parseBoolean(row['Presença Confirmada']),
-            compareceu: parseBoolean(row.Compareceu),
-            cadastro_existe_foto: parseBoolean(row['Cadastro Existe Foto?']),
-            valor_ficha: parseNumeric(row['Valor da Ficha']) || null,
-            data_criacao_agendamento: parseBrazilianDate(row['Data da criação do agendamento']) || null,
-            horario_agendamento: row['Horário do agendamento - Cliente - Campo Lista'] || null,
-            data_agendamento: parseBrazilianDate(row['Data do agendamento  - Cliente - Campo Data']) || null,
-            gerenciamento_funil: row['GERENCIAMENTO FUNIL DE QUALIFICAÇAO/AGENDAMENTO'] || null,
-            status_fluxo: row['Status de Fluxo'] || null,
-            etapa_funil: row['ETAPA FUNIL QUALIFICAÇÃO/AGENDAMENTO'] || null,
-            etapa_fluxo: row['Etapa de fluxo'] || null,
-            funil_fichas: row['Funil Fichas'] || null,
-            status_tabulacao: row['Status Tabulação'] || null,
-            maxsystem_id_ficha: row['MaxSystem - ID da Ficha'] || null,
-            gestao_scouter: row['Gestão de Scouter'] || null,
-            op_telemarketing: row['Op Telemarketing'] || null,
-            data_retorno_ligacao: parseBrazilianDate(row['Data Retorno de ligação']) || null,
-            raw: row,
-            sync_source: syncWithBitrix ? 'csv_import' : 'manual',
-            sync_status: syncWithBitrix ? 'pending' : 'synced',
-            commercial_project_id: null,
-            responsible_user_id: null,
-            bitrix_telemarketing_id: row.PARENT_ID_1144 ? parseInt(row.PARENT_ID_1144) : null
-          };
+          let lead: any;
+          
+          // Se há mapeamento customizado, usar ele
+          if (fieldMappings) {
+            lead = {
+              sync_source: syncWithBitrix ? 'csv_import' : 'manual',
+              sync_status: syncWithBitrix ? 'pending' : 'synced',
+              date_modify: new Date().toISOString(),
+              raw: row
+            };
+            
+            // Aplicar mapeamentos dinâmicos
+            for (const [csvColumn, config] of fieldMappings) {
+              const rawValue = row[csvColumn];
+              
+              // Aplicar transformação se necessária
+              let finalValue = rawValue;
+              
+              switch (config.transform) {
+                case 'parseBoolean':
+                  finalValue = parseBoolean(rawValue);
+                  break;
+                case 'parseNumeric':
+                  finalValue = parseNumeric(rawValue);
+                  break;
+                case 'parseBrazilianDate':
+                  finalValue = parseBrazilianDate(rawValue);
+                  break;
+                case 'parseTimestamp':
+                  finalValue = rawValue; // Timestamp já em formato ISO
+                  break;
+                default:
+                  finalValue = rawValue; // Nenhuma transformação
+              }
+              
+              lead[config.column] = finalValue;
+            }
+          } else {
+            // Usar mapeamento padrão/legado (mantém compatibilidade)
+            lead = {
+              id: row.ID ? parseInt(row.ID) : null,
+              name: row['Nome do Lead'] || row.NAME || null,
+              age: row.Idade ? parseInt(row.Idade) : null,
+              address: row['Localização'] || row.ADDRESS || null,
+              photo_url: row['Foto do modelo'] || null,
+              responsible: row['Responsável'] || null,
+              scouter: row.Scouter || null,
+              date_modify: new Date().toISOString(),
+              etapa: row.Etapa || null,
+              nome_modelo: row['Nome do Modelo'] || row['nome modelo'] || null,
+              criado: parseBrazilianDate(row.Criado) || null,
+              fonte: row.Fonte || null,
+              telefone_trabalho: row['Telefone de trabalho'] || null,
+              celular: row.Celular || null,
+              telefone_casa: row['Telefone de casa'] || null,
+              local_abordagem: row['Local da Abordagem'] || null,
+              ficha_confirmada: parseBoolean(row['Ficha confirmada']),
+              data_criacao_ficha: parseBrazilianDate(row['Data de criação da Ficha']) || null,
+              data_confirmacao_ficha: parseBrazilianDate(row['Data da confirmação de ficha']) || null,
+              presenca_confirmada: parseBoolean(row['Presença Confirmada']),
+              compareceu: parseBoolean(row.Compareceu),
+              cadastro_existe_foto: parseBoolean(row['Cadastro Existe Foto?']),
+              valor_ficha: parseNumeric(row['Valor da Ficha']) || null,
+              data_criacao_agendamento: parseBrazilianDate(row['Data da criação do agendamento']) || null,
+              horario_agendamento: row['Horário do agendamento - Cliente - Campo Lista'] || null,
+              data_agendamento: parseBrazilianDate(row['Data do agendamento  - Cliente - Campo Data']) || null,
+              gerenciamento_funil: row['GERENCIAMENTO FUNIL DE QUALIFICAÇAO/AGENDAMENTO'] || null,
+              status_fluxo: row['Status de Fluxo'] || null,
+              etapa_funil: row['ETAPA FUNIL QUALIFICAÇÃO/AGENDAMENTO'] || null,
+              etapa_fluxo: row['Etapa de fluxo'] || null,
+              funil_fichas: row['Funil Fichas'] || null,
+              status_tabulacao: row['Status Tabulação'] || null,
+              maxsystem_id_ficha: row['MaxSystem - ID da Ficha'] || null,
+              gestao_scouter: row['Gestão de Scouter'] || null,
+              op_telemarketing: row['Op Telemarketing'] || null,
+              data_retorno_ligacao: parseBrazilianDate(row['Data Retorno de ligação']) || null,
+              raw: row,
+              sync_source: syncWithBitrix ? 'csv_import' : 'manual',
+              sync_status: syncWithBitrix ? 'pending' : 'synced',
+              commercial_project_id: null,
+              responsible_user_id: null,
+              bitrix_telemarketing_id: row.PARENT_ID_1144 ? parseInt(row.PARENT_ID_1144) : null
+            };
+          }
 
           if (lead.id) leads.push(lead);
 
