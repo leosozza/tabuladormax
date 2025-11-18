@@ -16,8 +16,12 @@ import {
   Save,
   Loader2,
   ArrowLeft,
-  FileText
+  FileText,
+  Search
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 interface FormData {
   // Dados Cadastrais
@@ -360,6 +364,12 @@ export default function CadastroFicha() {
   const [bitrixDealFields, setBitrixDealFields] = useState<Record<string, any> | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  
+  // Estados para busca rápida
+  const [searchType, setSearchType] = useState<'lead' | 'deal'>('deal');
+  const [searchId, setSearchId] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<Array<{type: 'lead' | 'deal', id: string}>>([]);
   
   // Estados para validação de campos
   const [fieldErrors, setFieldErrors] = useState<{
@@ -732,6 +742,51 @@ export default function CadastroFicha() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityType, entityId]);
 
+  // Funções de busca rápida
+  const handleQuickSearch = async () => {
+    if (!searchId.trim()) {
+      toast({
+        title: 'ID necessário',
+        description: 'Digite o ID do deal ou lead para buscar',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsSearching(true);
+    
+    try {
+      await loadExistingData(searchType, searchId);
+      
+      // Adicionar ao histórico de buscas
+      setRecentSearches(prev => {
+        const filtered = prev.filter(s => !(s.type === searchType && s.id === searchId));
+        return [{ type: searchType, id: searchId }, ...filtered].slice(0, 5);
+      });
+      
+      // Limpar campo de busca após sucesso
+      setSearchId('');
+      
+    } catch (error) {
+      console.error('Erro na busca rápida:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleQuickSearch();
+    }
+  };
+
+  const handleSearchIdChange = (value: string) => {
+    // Permitir apenas números
+    const numericValue = value.replace(/\D/g, '');
+    setSearchId(numericValue);
+  };
+
   const handleFieldChange = (field: keyof FormData, value: string | string[]) => {
     if (field === 'cpf' && typeof value === 'string') {
       const formatted = formatCPF(value);
@@ -1036,23 +1091,194 @@ export default function CadastroFicha() {
             </Button>
           )}
           
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
+          {/* Desktop Layout */}
+          <div className="hidden md:flex items-start justify-between mb-2 gap-4">
+            {/* Lado Esquerdo - Título */}
+            <div className="flex items-center gap-3 flex-1">
               <FileText className="w-8 h-8 text-primary" />
               <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                 {bitrixEntityId ? 'Atualizar ficha do modelo' : 'Nova Ficha Cadastral'}
               </h1>
             </div>
+
+            {/* Lado Direito - Busca Rápida */}
+            {isAuthenticated && (
+              <Card className="p-3 min-w-[420px] border-2 border-primary/20">
+                <div className="flex items-center gap-2">
+                  <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                  
+                  {/* Seletor de Tipo */}
+                  <Select value={searchType} onValueChange={(v) => setSearchType(v as 'lead' | 'deal')}>
+                    <SelectTrigger className="w-[100px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="deal">Deal</SelectItem>
+                      <SelectItem value="lead">Lead</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Input do ID */}
+                  <Input
+                    type="text"
+                    placeholder="Digite o ID..."
+                    value={searchId}
+                    onChange={(e) => handleSearchIdChange(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    className="flex-1"
+                    disabled={isSearching}
+                  />
+
+                  {/* Botão de Buscar */}
+                  <Button
+                    type="button"
+                    onClick={handleQuickSearch}
+                    disabled={isSearching || !searchId.trim()}
+                    size="sm"
+                    className="gap-2 flex-shrink-0"
+                  >
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Buscando...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-4 h-4" />
+                        Buscar
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
+                {/* Histórico de Buscas Recentes */}
+                {recentSearches.length > 0 && (
+                  <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1 flex-wrap">
+                    <span>Recentes:</span>
+                    {recentSearches.map((search, idx) => (
+                      <Button
+                        key={idx}
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-1 text-xs"
+                        onClick={() => {
+                          setSearchType(search.type);
+                          setSearchId(search.id);
+                        }}
+                      >
+                        {search.type} #{search.id}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )}
           </div>
-          <p className="text-muted-foreground">
-            {bitrixEntityId 
-              ? (
-                <>
-                  credencial numero: <strong>{bitrixEntityId}</strong>
-                </>
-              )
-              : 'Preencha os dados para criar um novo cadastro de modelo'}
-          </p>
+
+          {/* Mobile Layout */}
+          <div className="flex md:hidden flex-col gap-4 mb-2">
+            <div className="flex items-center gap-3">
+              <FileText className="w-8 h-8 text-primary" />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                {bitrixEntityId ? 'Atualizar' : 'Nova Ficha'}
+              </h1>
+            </div>
+            
+            {isAuthenticated && (
+              <Card className="p-2 border-2 border-primary/20">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                    <Select value={searchType} onValueChange={(v) => setSearchType(v as 'lead' | 'deal')}>
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="deal">Deal</SelectItem>
+                        <SelectItem value="lead">Lead</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="text"
+                      placeholder="ID..."
+                      value={searchId}
+                      onChange={(e) => handleSearchIdChange(e.target.value)}
+                      onKeyDown={handleSearchKeyDown}
+                      className="flex-1"
+                      disabled={isSearching}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleQuickSearch}
+                    disabled={isSearching || !searchId.trim()}
+                    size="sm"
+                    className="w-full gap-2"
+                  >
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Buscando...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-4 h-4" />
+                        Buscar
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
+                {recentSearches.length > 0 && (
+                  <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1 flex-wrap">
+                    <span>Recentes:</span>
+                    {recentSearches.map((search, idx) => (
+                      <Button
+                        key={idx}
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-1 text-xs"
+                        onClick={() => {
+                          setSearchType(search.type);
+                          setSearchId(search.id);
+                        }}
+                      >
+                        {search.type} #{search.id}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )}
+          </div>
+
+          {/* Descrição e Badge de Fonte */}
+          <div className="flex flex-col gap-2">
+            <p className="text-muted-foreground">
+              {bitrixEntityId 
+                ? (
+                  <>
+                    credencial numero: <strong>{bitrixEntityId}</strong>
+                  </>
+                )
+                : 'Preencha os dados para criar um novo cadastro de modelo'}
+            </p>
+            
+            {/* Badge mostrando fonte dos dados */}
+            {bitrixEntityId && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="gap-1">
+                  <FileText className="w-3 h-3" />
+                  {bitrixEntityType === 'deal' ? 'Deal' : 'Lead'} #{bitrixEntityId}
+                </Badge>
+                {entityType && entityId && (
+                  <Badge variant="outline" className="gap-1 text-xs">
+                    Carregado via URL
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Debug Mode Panel */}
