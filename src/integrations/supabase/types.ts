@@ -725,6 +725,8 @@ export type Database = {
       lead_resync_jobs: {
         Row: {
           batch_size: number | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
           completed_at: string | null
           created_at: string | null
           created_by: string | null
@@ -748,6 +750,8 @@ export type Database = {
         }
         Insert: {
           batch_size?: number | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -771,6 +775,8 @@ export type Database = {
         }
         Update: {
           batch_size?: number | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null

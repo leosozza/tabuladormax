@@ -40,6 +40,12 @@ Deno.serve(async (req) => {
       case 'resume':
         return await resumeJob(supabase, jobId);
       
+      case 'cancel':
+        return await cancelJob(supabase, jobId);
+      
+      case 'delete':
+        return await deleteJob(supabase, jobId);
+      
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid action' }),
@@ -414,6 +420,55 @@ async function resumeJob(supabase: any, jobId: string) {
 
   return new Response(
     JSON.stringify({ success: true }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+async function cancelJob(supabase: any, jobId: string) {
+  const { error } = await supabase
+    .from('lead_resync_jobs')
+    .update({ 
+      status: 'cancelled',
+      cancelled_at: new Date().toISOString(),
+      completed_at: new Date().toISOString()
+    })
+    .eq('id', jobId)
+    .in('status', ['running', 'paused', 'pending']);
+
+  if (error) throw error;
+
+  return new Response(
+    JSON.stringify({ success: true, message: 'Job cancelado com sucesso' }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+async function deleteJob(supabase: any, jobId: string) {
+  // Verificar se job pode ser deletado
+  const { data: job, error: fetchError } = await supabase
+    .from('lead_resync_jobs')
+    .select('status')
+    .eq('id', jobId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  if (!['completed', 'failed', 'cancelled'].includes(job.status)) {
+    return new Response(
+      JSON.stringify({ error: 'Apenas jobs concluídos, falhados ou cancelados podem ser excluídos' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const { error } = await supabase
+    .from('lead_resync_jobs')
+    .delete()
+    .eq('id', jobId);
+
+  if (error) throw error;
+
+  return new Response(
+    JSON.stringify({ success: true, message: 'Job excluído com sucesso' }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }

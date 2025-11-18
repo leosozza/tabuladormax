@@ -8,15 +8,17 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLeadResyncJobs, JobFilters } from '@/hooks/useLeadResyncJobs';
+import { useResyncFieldMappings } from '@/hooks/useResyncFieldMappings';
 import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
-import { ResyncFieldMappingDialog } from '@/components/resync/ResyncFieldMappingDialog';
-import { Play, Pause, RefreshCw, Loader2, CheckCircle2, XCircle, Clock, Settings, Check, AlertCircle } from 'lucide-react';
+import { Play, Pause, RefreshCw, Loader2, CheckCircle2, XCircle, Clock, Check, AlertCircle, Ban, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function LeadResync() {
-  const { jobs, isLoading, createJob, pauseJob, resumeJob, isCreating } = useLeadResyncJobs();
+  const { jobs, isLoading, createJob, pauseJob, resumeJob, cancelJob, deleteJob, isCreating, isCancelling, isDeleting } = useLeadResyncJobs();
+  const { mappingNames } = useResyncFieldMappings();
   
   const [filters, setFilters] = useState<JobFilters>({
     addressNull: true,
@@ -28,19 +30,13 @@ export default function LeadResync() {
   const [batchSize, setBatchSize] = useState(50);
   const [selectedMappingName, setSelectedMappingName] = useState<string>('');
   const [selectedMappingId, setSelectedMappingId] = useState<string>('');
-  const [showMappingDialog, setShowMappingDialog] = useState(false);
 
   const activeJob = jobs.find(j => j.status === 'running' || j.status === 'paused');
-  const completedJobs = jobs.filter(j => j.status === 'completed' || j.status === 'failed');
+  const completedJobs = jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status));
 
   const handleStartResync = () => {
     if (!selectedMappingId) return;
     createJob({ filters, batchSize, mappingId: selectedMappingId });
-  };
-
-  const handleMappingSelected = (name: string, id: string) => {
-    setSelectedMappingName(name);
-    setSelectedMappingId(id);
   };
 
   const getStatusBadge = (status: string) => {
@@ -49,6 +45,7 @@ export default function LeadResync() {
       paused: { variant: 'secondary', icon: <Pause className="w-3 h-3" />, label: 'Pausado' },
       completed: { variant: 'default', icon: <CheckCircle2 className="w-3 h-3" />, label: 'Completo' },
       failed: { variant: 'destructive', icon: <XCircle className="w-3 h-3" />, label: 'Falhou' },
+      cancelled: { variant: 'outline', icon: <Ban className="w-3 h-3" />, label: 'Cancelado' },
       pending: { variant: 'outline', icon: <Clock className="w-3 h-3" />, label: 'Pendente' }
     };
 
@@ -106,16 +103,36 @@ export default function LeadResync() {
 
               <div className="flex gap-2">
                 {activeJob.status === 'running' && (
-                  <Button onClick={() => pauseJob(activeJob.id)} variant="secondary">
-                    <Pause className="w-4 h-4 mr-2" />
-                    Pausar
-                  </Button>
+                  <>
+                    <Button onClick={() => pauseJob(activeJob.id)} variant="secondary">
+                      <Pause className="w-4 h-4 mr-2" />
+                      Pausar
+                    </Button>
+                    <Button 
+                      onClick={() => cancelJob(activeJob.id)} 
+                      variant="destructive"
+                      disabled={isCancelling}
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Cancelar
+                    </Button>
+                  </>
                 )}
                 {activeJob.status === 'paused' && (
-                  <Button onClick={() => resumeJob(activeJob.id)}>
-                    <Play className="w-4 h-4 mr-2" />
-                    Retomar
-                  </Button>
+                  <>
+                    <Button onClick={() => resumeJob(activeJob.id)}>
+                      <Play className="w-4 h-4 mr-2" />
+                      Retomar
+                    </Button>
+                    <Button 
+                      onClick={() => cancelJob(activeJob.id)} 
+                      variant="destructive"
+                      disabled={isCancelling}
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Cancelar
+                    </Button>
+                  </>
                 )}
               </div>
 
@@ -214,41 +231,52 @@ export default function LeadResync() {
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Button
-                  variant={selectedMappingName ? "outline" : "default"}
-                  onClick={() => setShowMappingDialog(true)}
-                  className="w-full"
+              {/* Mapeamento de Campos Inline */}
+              <div className="border-t pt-4 space-y-3">
+                <Label className="text-base font-semibold">
+                  Mapeamento de Campos (Obrigatório)
+                </Label>
+                
+                <Select
+                  value={selectedMappingId}
+                  onValueChange={(value) => {
+                    setSelectedMappingId(value);
+                    const mapping = mappingNames?.find(m => m.id === value);
+                    setSelectedMappingName(mapping?.name || '');
+                  }}
                 >
-                  {selectedMappingName ? (
-                    <>
-                      <Check className="mr-2 h-4 w-4 text-green-500" />
-                      Mapeamento Configurado
-                    </>
-                  ) : (
-                    <>
-                      <Settings className="mr-2 h-4 w-4" />
-                      Configurar Campos (Obrigatório)
-                    </>
-                  )}
-                  {selectedMappingName && (
-                    <Badge variant="secondary" className="ml-2">
-                      {selectedMappingName}
-                    </Badge>
-                  )}
-                </Button>
-              </div>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um mapeamento salvo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mappingNames?.map((mapping) => (
+                      <SelectItem key={mapping.id} value={mapping.id}>
+                        {mapping.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              {!selectedMappingName && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Mapeamento Obrigatório</AlertTitle>
-                  <AlertDescription>
-                    Configure o mapeamento de campos antes de iniciar a resincronização.
-                    Isso garante que os dados corretos sejam atualizados e evita erros.
-                  </AlertDescription>
-                </Alert>
-              )}
+                {selectedMappingName && (
+                  <Alert className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+                    <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <AlertTitle className="text-green-800 dark:text-green-200">Mapeamento Configurado</AlertTitle>
+                    <AlertDescription className="text-green-700 dark:text-green-300">
+                      Usando configuração: <strong>{selectedMappingName}</strong>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {!selectedMappingName && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Mapeamento Obrigatório</AlertTitle>
+                    <AlertDescription>
+                      Selecione um mapeamento de campos antes de iniciar. Se não houver mapeamentos, crie um primeiro na página de Integração Bitrix.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
 
               <Button 
                 onClick={handleStartResync} 
@@ -297,6 +325,7 @@ export default function LeadResync() {
                     <TableHead className="text-right">Atualizados</TableHead>
                     <TableHead className="text-right">Erros</TableHead>
                     <TableHead>Duração</TableHead>
+                    <TableHead className="text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -326,6 +355,17 @@ export default function LeadResync() {
                           </>
                         ) : '-'}
                       </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteJob(job.id)}
+                          disabled={isDeleting}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -334,14 +374,6 @@ export default function LeadResync() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Dialog de Mapeamento */}
-      <ResyncFieldMappingDialog
-        open={showMappingDialog}
-        onOpenChange={setShowMappingDialog}
-        onMappingSelected={handleMappingSelected}
-        currentMappingName={selectedMappingName}
-      />
     </AdminPageLayout>
   );
 }
