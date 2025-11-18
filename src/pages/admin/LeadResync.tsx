@@ -29,7 +29,7 @@ export default function LeadResync() {
   
   const [batchSize, setBatchSize] = useState(50);
   const [selectedMappingName, setSelectedMappingName] = useState<string>('');
-  const [selectedMappingId, setSelectedMappingId] = useState<string>('');
+  const [selectedMappingId, setSelectedMappingId] = useState<string | undefined>(undefined);
 
   const activeJob = jobs.find(j => j.status === 'running' || j.status === 'paused');
   const completedJobs = jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status));
@@ -238,7 +238,7 @@ export default function LeadResync() {
                 </Label>
                 
                 <Select
-                  value={selectedMappingId}
+                  value={selectedMappingId || undefined}
                   onValueChange={(value) => {
                     setSelectedMappingId(value);
                     const mapping = mappingNames?.find(m => m.id === value);
@@ -249,7 +249,7 @@ export default function LeadResync() {
                     <SelectValue placeholder="Selecione um mapeamento salvo" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mappingNames?.map((mapping) => (
+                    {mappingNames?.filter(m => m.id && m.id.trim() !== '').map((mapping) => (
                       <SelectItem key={mapping.id} value={mapping.id}>
                         {mapping.name}
                       </SelectItem>
