@@ -15,7 +15,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertCircle, ArrowRight, Check, Save, Sparkles, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, Save, Sparkles, Trash2, Zap } from 'lucide-react';
+import { format } from 'date-fns';
 import { useCsvFieldMappings } from '@/hooks/useCsvFieldMappings';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -107,6 +108,15 @@ export function CsvFieldMappingDialog({
     }
   };
 
+  const createDefaultMapping = () => {
+    const timestamp = format(new Date(), 'dd-MM-yyyy-HHmm');
+    const defaultName = `Mapeamento_${timestamp}`;
+    setMappingName(defaultName);
+    toast.info('Mapeamento padrão criado. Revise e salve.', {
+      description: 'As sugestões automáticas foram mantidas. Ajuste se necessário.'
+    });
+  };
+
   const handleSave = async () => {
     if (!mappingName.trim()) {
       toast.error('Digite um nome para o mapeamento');
@@ -190,6 +200,14 @@ export function CsvFieldMappingDialog({
                 value={mappingName}
                 onChange={(e) => setMappingName(e.target.value)}
               />
+              <Button 
+                variant="secondary" 
+                onClick={createDefaultMapping}
+                className="w-full"
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                Criar Mapeamento Padrão (Sugestões Automáticas)
+              </Button>
             </div>
 
             <div className="space-y-2">
