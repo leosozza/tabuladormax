@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 
 export interface LeadResyncJob {
   id: string;
-  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
   total_leads: number;
   processed_leads: number;
   updated_leads: number;
@@ -20,6 +20,8 @@ export interface LeadResyncJob {
   started_at: string | null;
   paused_at: string | null;
   completed_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -112,14 +114,52 @@ export function useLeadResyncJobs() {
     }
   });
 
+  // Mutation: Cancelar
+  const cancelJobMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { error } = await supabase.functions.invoke('bitrix-resync-leads', {
+        body: { action: 'cancel', jobId }
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lead-resync-jobs'] });
+      toast.success('Resincronização cancelada');
+    },
+    onError: (error: any) => {
+      toast.error('Erro ao cancelar: ' + error.message);
+    }
+  });
+
+  // Mutation: Excluir
+  const deleteJobMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { error } = await supabase.functions.invoke('bitrix-resync-leads', {
+        body: { action: 'delete', jobId }
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lead-resync-jobs'] });
+      toast.success('Job excluído com sucesso');
+    },
+    onError: (error: any) => {
+      toast.error('Erro ao excluir: ' + error.message);
+    }
+  });
+
   return {
     jobs: jobs || [],
     isLoading,
     createJob: createJobMutation.mutate,
     pauseJob: pauseJobMutation.mutate,
     resumeJob: resumeJobMutation.mutate,
+    cancelJob: cancelJobMutation.mutate,
+    deleteJob: deleteJobMutation.mutate,
     isCreating: createJobMutation.isPending,
     isPausing: pauseJobMutation.isPending,
-    isResuming: resumeJobMutation.isPending
+    isResuming: resumeJobMutation.isPending,
+    isCancelling: cancelJobMutation.isPending,
+    isDeleting: deleteJobMutation.isPending
   };
 }
