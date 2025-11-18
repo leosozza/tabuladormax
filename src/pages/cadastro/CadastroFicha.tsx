@@ -369,6 +369,7 @@ export default function CadastroFicha() {
   const [searchType, setSearchType] = useState<'lead' | 'deal'>('deal');
   const [searchId, setSearchId] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [recentSearches, setRecentSearches] = useState<Array<{type: 'lead' | 'deal', id: string}>>([]);
   
   // Estados para validação de campos
@@ -1101,77 +1102,97 @@ export default function CadastroFicha() {
               </h1>
             </div>
 
-            {/* Lado Direito - Busca Rápida */}
+            {/* Lado Direito - Busca Rápida Retrátil */}
             {isAuthenticated && (
-              <Card className="p-3 min-w-[420px] border-2 border-primary/20">
-                <div className="flex items-center gap-2">
-                  <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                  
-                  {/* Seletor de Tipo */}
-                  <Select value={searchType} onValueChange={(v) => setSearchType(v as 'lead' | 'deal')}>
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="deal">Deal</SelectItem>
-                      <SelectItem value="lead">Lead</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {/* Input do ID */}
-                  <Input
-                    type="text"
-                    placeholder="Digite o ID..."
-                    value={searchId}
-                    onChange={(e) => handleSearchIdChange(e.target.value)}
-                    onKeyDown={handleSearchKeyDown}
-                    className="flex-1"
-                    disabled={isSearching}
-                  />
-
-                  {/* Botão de Buscar */}
+              <div className={`transition-all duration-300 ease-in-out ${isSearchExpanded ? 'min-w-[420px]' : 'w-auto'}`}>
+                {!isSearchExpanded ? (
+                  /* Botão Retraído - Apenas Lupa */
                   <Button
-                    type="button"
-                    onClick={handleQuickSearch}
-                    disabled={isSearching || !searchId.trim()}
-                    size="sm"
-                    className="gap-2 flex-shrink-0"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsSearchExpanded(true)}
+                    className="h-12 w-12 rounded-full border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5"
                   >
-                    {isSearching ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Buscando...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="w-4 h-4" />
-                        Buscar
-                      </>
-                    )}
+                    <Search className="w-5 h-5 text-primary" />
                   </Button>
-                </div>
-                
-                {/* Histórico de Buscas Recentes */}
-                {recentSearches.length > 0 && (
-                  <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1 flex-wrap">
-                    <span>Recentes:</span>
-                    {recentSearches.map((search, idx) => (
+                ) : (
+                  /* Campo Expandido */
+                  <Card className="p-3 border-2 border-primary/20 animate-in slide-in-from-right duration-300">
+                    <div className="flex items-center gap-2">
                       <Button
-                        key={idx}
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-1 text-xs"
-                        onClick={() => {
-                          setSearchType(search.type);
-                          setSearchId(search.id);
-                        }}
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsSearchExpanded(false)}
+                        className="h-8 w-8 flex-shrink-0"
                       >
-                        {search.type} #{search.id}
+                        <Search className="w-5 h-5 text-muted-foreground" />
                       </Button>
-                    ))}
-                  </div>
+                      
+                      {/* Seletor de Tipo */}
+                      <Select value={searchType} onValueChange={(v) => setSearchType(v as 'lead' | 'deal')}>
+                        <SelectTrigger className="w-[100px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="deal">Deal</SelectItem>
+                          <SelectItem value="lead">Lead</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {/* Input do ID */}
+                      <Input
+                        type="text"
+                        placeholder="Digite o ID..."
+                        value={searchId}
+                        onChange={(e) => handleSearchIdChange(e.target.value)}
+                        onKeyDown={handleSearchKeyDown}
+                        className="flex-1"
+                        disabled={isSearching}
+                        autoFocus
+                      />
+
+                      {/* Botão de Buscar */}
+                      <Button
+                        type="button"
+                        onClick={handleQuickSearch}
+                        disabled={isSearching || !searchId.trim()}
+                        size="sm"
+                        className="gap-2 flex-shrink-0"
+                      >
+                        {isSearching ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Buscando...
+                          </>
+                        ) : (
+                          'Buscar'
+                        )}
+                      </Button>
+                    </div>
+                    
+                    {/* Histórico de Buscas Recentes */}
+                    {recentSearches.length > 0 && (
+                      <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1 flex-wrap">
+                        <span>Recentes:</span>
+                        {recentSearches.map((search, idx) => (
+                          <Button
+                            key={idx}
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-1 text-xs"
+                            onClick={() => {
+                              setSearchType(search.type);
+                              setSearchId(search.id);
+                            }}
+                          >
+                            {search.type} #{search.id}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
                 )}
-              </Card>
+              </div>
             )}
           </div>
 
@@ -1185,70 +1206,90 @@ export default function CadastroFicha() {
             </div>
             
             {isAuthenticated && (
-              <Card className="p-2 border-2 border-primary/20">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                    <Select value={searchType} onValueChange={(v) => setSearchType(v as 'lead' | 'deal')}>
-                      <SelectTrigger className="w-[100px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="deal">Deal</SelectItem>
-                        <SelectItem value="lead">Lead</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      type="text"
-                      placeholder="ID..."
-                      value={searchId}
-                      onChange={(e) => handleSearchIdChange(e.target.value)}
-                      onKeyDown={handleSearchKeyDown}
-                      className="flex-1"
-                      disabled={isSearching}
-                    />
-                  </div>
+              <div className="w-full">
+                {!isSearchExpanded ? (
+                  /* Botão Retraído Mobile - Apenas Lupa */
                   <Button
-                    type="button"
-                    onClick={handleQuickSearch}
-                    disabled={isSearching || !searchId.trim()}
-                    size="sm"
-                    className="w-full gap-2"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsSearchExpanded(true)}
+                    className="h-12 w-12 rounded-full border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5 mx-auto block"
                   >
-                    {isSearching ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Buscando...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="w-4 h-4" />
-                        Buscar
-                      </>
-                    )}
+                    <Search className="w-5 h-5 text-primary" />
                   </Button>
-                </div>
-                
-                {recentSearches.length > 0 && (
-                  <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1 flex-wrap">
-                    <span>Recentes:</span>
-                    {recentSearches.map((search, idx) => (
+                ) : (
+                  /* Campo Expandido Mobile */
+                  <Card className="p-2 border-2 border-primary/20 animate-in fade-in duration-300">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setIsSearchExpanded(false)}
+                          className="h-8 w-8 flex-shrink-0"
+                        >
+                          <Search className="w-5 h-5 text-muted-foreground" />
+                        </Button>
+                        <Select value={searchType} onValueChange={(v) => setSearchType(v as 'lead' | 'deal')}>
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="deal">Deal</SelectItem>
+                            <SelectItem value="lead">Lead</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="text"
+                          placeholder="ID..."
+                          value={searchId}
+                          onChange={(e) => handleSearchIdChange(e.target.value)}
+                          onKeyDown={handleSearchKeyDown}
+                          className="flex-1"
+                          disabled={isSearching}
+                          autoFocus
+                        />
+                      </div>
                       <Button
-                        key={idx}
-                        variant="link"
+                        type="button"
+                        onClick={handleQuickSearch}
+                        disabled={isSearching || !searchId.trim()}
                         size="sm"
-                        className="h-auto p-1 text-xs"
-                        onClick={() => {
-                          setSearchType(search.type);
-                          setSearchId(search.id);
-                        }}
+                        className="w-full gap-2"
                       >
-                        {search.type} #{search.id}
+                        {isSearching ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Buscando...
+                          </>
+                        ) : (
+                          'Buscar'
+                        )}
                       </Button>
-                    ))}
-                  </div>
+                    </div>
+                    
+                    {recentSearches.length > 0 && (
+                      <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1 flex-wrap">
+                        <span>Recentes:</span>
+                        {recentSearches.map((search, idx) => (
+                          <Button
+                            key={idx}
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-1 text-xs"
+                            onClick={() => {
+                              setSearchType(search.type);
+                              setSearchId(search.id);
+                            }}
+                          >
+                            {search.type} #{search.id}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
                 )}
-              </Card>
+              </div>
             )}
           </div>
 
