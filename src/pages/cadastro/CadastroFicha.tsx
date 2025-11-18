@@ -568,7 +568,7 @@ export default function CadastroFicha() {
     try {
       toast({
         title: 'Carregando dados',
-        description: `Buscando ${type === 'lead' ? 'lead' : 'negócio'} do Bitrix...`
+        description: `Buscando ${type === 'lead' ? 'lead' : 'negócio'} #${id} do Bitrix...`
       });
 
       // Call Bitrix edge function to get entity data
@@ -577,11 +577,26 @@ export default function CadastroFicha() {
       });
 
       if (error) {
-        throw new Error(`Erro na edge function: ${JSON.stringify(error)}`);
+        // Diferenciar erro de rede vs erro da API
+        if (error.message?.includes('fetch') || error.message?.includes('network')) {
+          throw new Error('Erro de conexão com o servidor. Verifique sua internet.');
+        }
+        throw new Error(`Erro ao buscar dados: ${error.message || JSON.stringify(error)}`);
       }
 
       if (!data?.success) {
-        throw new Error(data?.error || 'Erro desconhecido ao buscar dados do Bitrix');
+        // Mostrar mensagem específica do Bitrix
+        const errorMsg = data?.error || 'Erro desconhecido';
+        
+        if (errorMsg.includes('Not found') || errorMsg.includes('404')) {
+          throw new Error(`${type === 'lead' ? 'Lead' : 'Deal'} #${id} não encontrado no Bitrix. Verifique se o ID está correto.`);
+        }
+        
+        if (errorMsg.includes('403') || errorMsg.includes('Forbidden')) {
+          throw new Error(`Sem permissão para acessar ${type === 'lead' ? 'lead' : 'deal'} #${id}`);
+        }
+        
+        throw new Error(errorMsg);
       }
 
       console.log('📦 Dados recebidos do Bitrix:', {
@@ -695,23 +710,18 @@ export default function CadastroFicha() {
       });
       
     } catch (error) {
-      console.error('❌ Error loading data:', error);
+      console.error('❌ Erro ao carregar dados existentes:', error);
       
-      // Identificar tipo de erro
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      let userMessage = 'Não foi possível carregar os dados do Bitrix.';
-      
-      if (errorMessage.includes('FunctionsHttpError') || errorMessage.includes('fetch')) {
-        userMessage = 'Erro de conexão com o servidor. Verifique sua internet e tente novamente.';
-      } else if (errorMessage.includes('Bitrix')) {
-        userMessage = `Erro ao comunicar com o Bitrix24: ${errorMessage}`;
-      }
-      
+      // Toast mais descritivo
       toast({
-        title: 'Erro ao carregar',
-        description: userMessage,
-        variant: 'destructive'
+        title: `Erro ao carregar ${type === 'lead' ? 'lead' : 'deal'} #${id}`,
+        description: error instanceof Error ? error.message : 'Erro desconhecido ao buscar dados',
+        variant: 'destructive',
+        duration: 6000 // Aumentar duração para o usuário ler
       });
+      
+      // Colapsar campo de busca após erro
+      setIsSearchExpanded(false);
     } finally {
       setIsLoadingData(false);
     }
