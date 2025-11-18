@@ -539,6 +539,48 @@ export type Database = {
         }
         Relationships: []
       }
+      csv_field_mappings: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          created_by: string | null
+          csv_column: string
+          id: string
+          leads_column: string
+          mapping_name: string
+          notes: string | null
+          priority: number | null
+          transform_function: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          csv_column: string
+          id?: string
+          leads_column: string
+          mapping_name: string
+          notes?: string | null
+          priority?: number | null
+          transform_function?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          csv_column?: string
+          id?: string
+          leads_column?: string
+          mapping_name?: string
+          notes?: string | null
+          priority?: number | null
+          transform_function?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       csv_import_jobs: {
         Row: {
           completed_at: string | null
