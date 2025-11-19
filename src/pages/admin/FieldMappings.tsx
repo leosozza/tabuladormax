@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { RefreshCw, Search, Plus, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
+import { RefreshCw, Search, Plus, Edit, Trash2, Eye, EyeOff, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -207,6 +207,21 @@ export default function FieldMappings() {
 
   const mappedSupabaseFields = new Set(mappings.map(m => m.supabase_field));
 
+  const handleRefreshBitrixFields = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-bitrix-fields', {
+        body: { force_refresh: true }
+      });
+      if (error) throw error;
+      
+      queryClient.invalidateQueries({ queryKey: ['bitrix-fields'] });
+      toast.success(`${data?.fields?.length || 0} campos atualizados do Bitrix`);
+    } catch (error) {
+      console.error('Erro ao atualizar campos:', error);
+      toast.error('Erro ao atualizar campos do Bitrix');
+    }
+  };
+
   return (
     <AdminPageLayout title="Mapeamento de Campos">
       <div className="space-y-6">
@@ -217,9 +232,9 @@ export default function FieldMappings() {
               Configure como os campos são sincronizados entre Bitrix e Supabase
             </p>
           </div>
-          <Button onClick={() => refetchBitrix()} variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Atualizar Bitrix
+          <Button onClick={handleRefreshBitrixFields} variant="outline" size="sm" disabled={loadingBitrix}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${loadingBitrix ? 'animate-spin' : ''}`} />
+            Atualizar Campos Bitrix
           </Button>
         </div>
 
