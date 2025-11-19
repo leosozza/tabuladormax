@@ -7,13 +7,54 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Settings2 } from "lucide-react";
-import { CATEGORY_LABELS } from "@/config/leadFields";
+import { Settings2, GripVertical } from "lucide-react";
+import { CATEGORY_LABELS, type ColumnConfig } from "@/config/leadFields";
 import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
 import { useGestaoFieldMappings } from "@/hooks/useGestaoFieldMappings";
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+function SortableActiveItem({ field, toggleColumn, canToggle }: { field: ColumnConfig; toggleColumn: (key: string) => void; canToggle: (key: string) => boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.key });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-1 pl-6 pr-2 py-1.5"
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="p-1 cursor-move text-muted-foreground hover:text-foreground"
+      >
+        <GripVertical className="w-3 h-3" />
+      </button>
+      <DropdownMenuCheckboxItem
+        checked
+        onCheckedChange={() => toggleColumn(field.key)}
+        disabled={!canToggle(field.key)}
+        className="flex-1 text-sm pl-0"
+      >
+        {field.label}
+        {field.key === 'name' && (
+          <span className="ml-2 text-xs text-muted-foreground">(obrigatório)</span>
+        )}
+      </DropdownMenuCheckboxItem>
+    </div>
+  );
+}
 
 export function LeadColumnSelector() {
-  const { visibleColumns, toggleColumn, resetToDefault, canToggle } = useLeadColumnConfig();
+  const { visibleColumns, toggleColumn, resetToDefault, canToggle, reorderColumns } = useLeadColumnConfig();
   const { data: allFields, isLoading } = useGestaoFieldMappings();
 
   if (!allFields || isLoading) {
@@ -45,6 +86,17 @@ export function LeadColumnSelector() {
   const activeByCategory = groupByCategory(activeFields);
   const inactiveByCategory = groupByCategory(inactiveFields);
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = visibleColumns.indexOf(active.id as string);
+    const newIndex = visibleColumns.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    reorderColumns(oldIndex, newIndex);
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -72,32 +124,29 @@ export function LeadColumnSelector() {
           ✓ Colunas Ativas (visíveis na tabela)
         </DropdownMenuLabel>
 
-        {Object.entries(activeByCategory).map(([category, fields]) => (
-          <div key={`active-${category}`}>
-            <DropdownMenuLabel className="text-[10px] font-semibold text-muted-foreground mt-1 pl-6">
-              {CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS]}
-            </DropdownMenuLabel>
-            {fields.map((field) => {
-              const isVisible = visibleColumns.includes(field.key);
-              const isDisabled = !canToggle(field.key);
+        <div className="text-[11px] text-muted-foreground mb-1 pl-6">
+          Arraste para mudar a ordem na tabela
+        </div>
 
-              return (
-                <DropdownMenuCheckboxItem
-                  key={field.key}
-                  checked={isVisible}
-                  onCheckedChange={() => toggleColumn(field.key)}
-                  disabled={isDisabled}
-                  className="text-sm pl-8"
-                >
-                  {field.label}
-                  {field.key === 'name' && (
-                    <span className="ml-2 text-xs text-muted-foreground">(obrigatório)</span>
-                  )}
-                </DropdownMenuCheckboxItem>
-              );
-            })}
-          </div>
-        ))}
+        <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={visibleColumns} strategy={verticalListSortingStrategy}>
+            {Object.entries(activeByCategory).map(([category, fields]) => (
+              <div key={`active-${category}`}>
+                <DropdownMenuLabel className="text-[10px] font-semibold text-muted-foreground mt-1 pl-6">
+                  {CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS]}
+                </DropdownMenuLabel>
+                {fields.map((field) => (
+                  <SortableActiveItem 
+                    key={field.key} 
+                    field={field} 
+                    toggleColumn={toggleColumn}
+                    canToggle={canToggle}
+                  />
+                ))}
+              </div>
+            ))}
+          </SortableContext>
+        </DndContext>
 
         <DropdownMenuSeparator />
 
@@ -132,7 +181,7 @@ export function LeadColumnSelector() {
 
         <DropdownMenuSeparator />
         <div className="p-2 text-xs text-muted-foreground text-center">
-          Mínimo: 3 colunas | Máximo: 15 colunas
+          Mínimo: 1 coluna | Máximo: 50 colunas
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -7,8 +7,7 @@ import { LeadColumnSelector } from "@/components/gestao/LeadColumnSelector";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Download, Eye, ArrowUpDown } from "lucide-react";
-import { LeadColumnReorder } from "@/components/gestao/LeadColumnReorder";
+import { Search, Download, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
@@ -20,7 +19,6 @@ function GestaoLeadsContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [showReorderDialog, setShowReorderDialog] = useState(false);
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('month'),
     projectId: null,
@@ -138,17 +136,9 @@ function GestaoLeadsContent() {
               className="pl-10"
             />
           </div>
-          <div className="flex gap-2">
-            <LeadColumnSelector />
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setShowReorderDialog(true)}
-            >
-              <ArrowUpDown className="w-4 h-4 mr-2" />
-              Ordenar
-            </Button>
-          </div>
+              <div className="flex gap-2">
+                <LeadColumnSelector />
+              </div>
         </div>
 
         {isLoading || isLoadingFields ? (
@@ -225,11 +215,6 @@ function GestaoLeadsContent() {
         lead={selectedLead}
         open={modalOpen}
         onOpenChange={setModalOpen}
-      />
-      
-      <LeadColumnReorder 
-        open={showReorderDialog} 
-        onOpenChange={setShowReorderDialog} 
       />
     </div>
   );
