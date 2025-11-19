@@ -18,14 +18,19 @@ export async function fetchAllRecords<T = Record<string, unknown>>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   filterFn?: (query: any) => any
 ): Promise<T[]> {
-  const pageSize = 1000; // Supabase default limit
+  const pageSize = 1000;
   let allRecords: T[] = [];
   let currentPage = 0;
   let hasMore = true;
+  const MAX_PAGES = 200; // Limite de segurança: 200.000 registros
 
-  while (hasMore) {
+  console.log(`[fetchAllRecords] Iniciando busca na tabela "${tableName}"`);
+
+  while (hasMore && currentPage < MAX_PAGES) {
     const from = currentPage * pageSize;
     const to = from + pageSize - 1;
+
+    console.log(`[fetchAllRecords] Página ${currentPage + 1}: buscando registros ${from}-${to}`);
 
     let query = supabase
       .from(tableName)
@@ -40,11 +45,13 @@ export async function fetchAllRecords<T = Record<string, unknown>>(
     const { data, error, count } = await query;
 
     if (error) {
+      console.error(`[fetchAllRecords] Erro na página ${currentPage + 1}:`, error);
       throw error;
     }
 
     if (data) {
       allRecords = allRecords.concat(data as T[]);
+      console.log(`[fetchAllRecords] ${data.length} registros retornados. Total acumulado: ${allRecords.length}`);
     }
 
     // Check if there are more records to fetch
@@ -52,6 +59,11 @@ export async function fetchAllRecords<T = Record<string, unknown>>(
     currentPage++;
   }
 
+  if (currentPage >= MAX_PAGES) {
+    console.warn(`[fetchAllRecords] Limite de páginas atingido (${MAX_PAGES}). Pode haver mais registros não carregados.`);
+  }
+
+  console.log(`[fetchAllRecords] Busca concluída. Total de registros: ${allRecords.length}`);
   return allRecords;
 }
 
