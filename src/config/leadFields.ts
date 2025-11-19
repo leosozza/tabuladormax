@@ -99,6 +99,15 @@ export const ALL_LEAD_FIELDS: ColumnConfig[] = [
     formatter: (value: string) => value || '-'
   },
   { 
+    key: 'commercial_projects.name', 
+    label: 'Projeto Comercial', 
+    type: 'text', 
+    sortable: false, 
+    defaultVisible: true,
+    category: 'basic',
+    formatter: (value: any, row?: any) => row?.commercial_projects?.name || '-'
+  },
+  { 
     key: 'supervisor', 
     label: 'Supervisor', 
     type: 'text', 
