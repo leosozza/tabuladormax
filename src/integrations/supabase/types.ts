@@ -923,6 +923,7 @@ export type Database = {
           scouter: string | null
           status_fluxo: string | null
           status_tabulacao: string | null
+          status_telefone: string | null
           sync_source: string | null
           sync_status: string | null
           telefone_casa: string | null
@@ -975,6 +976,7 @@ export type Database = {
           scouter?: string | null
           status_fluxo?: string | null
           status_tabulacao?: string | null
+          status_telefone?: string | null
           sync_source?: string | null
           sync_status?: string | null
           telefone_casa?: string | null
@@ -1027,6 +1029,7 @@ export type Database = {
           scouter?: string | null
           status_fluxo?: string | null
           status_tabulacao?: string | null
+          status_telefone?: string | null
           sync_source?: string | null
           sync_status?: string | null
           telefone_casa?: string | null

@@ -14,9 +14,9 @@ interface SupabaseField {
 }
 
 interface FieldMapping {
-  bitrix_field: string;
-  tabuladormax_field: string;
-  active: boolean;
+  bitrix_field: string | null;
+  supabase_field: string;
+  sync_active: boolean;
 }
 
 interface Props {
@@ -28,16 +28,16 @@ interface Props {
 export function FieldComparison({ bitrixFields, supabaseFields, mappings }: Props) {
   const getMappingStatus = (fieldId: string, isBitrix: boolean) => {
     const mapped = mappings.find(m => 
-      m.active && (isBitrix ? m.bitrix_field === fieldId : m.tabuladormax_field === fieldId)
+      m.sync_active && (isBitrix ? m.bitrix_field === fieldId : m.supabase_field === fieldId)
     );
     return mapped ? 'mapped' : 'unmapped';
   };
 
   const getMappedField = (fieldId: string, isBitrix: boolean) => {
     const mapping = mappings.find(m => 
-      m.active && (isBitrix ? m.bitrix_field === fieldId : m.tabuladormax_field === fieldId)
+      m.sync_active && (isBitrix ? m.bitrix_field === fieldId : m.supabase_field === fieldId)
     );
-    return mapping ? (isBitrix ? mapping.tabuladormax_field : mapping.bitrix_field) : null;
+    return mapping ? (isBitrix ? mapping.supabase_field : mapping.bitrix_field) : null;
   };
 
   return (
