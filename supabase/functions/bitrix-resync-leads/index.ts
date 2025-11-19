@@ -15,6 +15,44 @@ interface JobConfig {
   mappingId?: string;
 }
 
+// Função para parsear datas brasileiras (dd/MM/yyyy HH:mm:ss ou dd/MM/yyyy)
+const parseBrazilianDate = (dateStr: string | null | undefined): string | null => {
+  if (!dateStr) return null;
+  try {
+    // Formato brasileiro completo: dd/MM/yyyy HH:mm:ss
+    const matchFull = String(dateStr).match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+    if (matchFull) {
+      const [, day, month, year, hour, minute, second] = matchFull;
+      const isoDate = `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+      console.log(`✅ Data brasileira parseada: "${dateStr}" → "${isoDate}"`);
+      return isoDate;
+    }
+    
+    // Formato brasileiro apenas data: dd/MM/yyyy
+    const matchDate = String(dateStr).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (matchDate) {
+      const [, day, month, year] = matchDate;
+      const isoDate = `${year}-${month}-${day}T00:00:00Z`;
+      console.log(`✅ Data brasileira parseada: "${dateStr}" → "${isoDate}"`);
+      return isoDate;
+    }
+    
+    // Fallback: tentar parsear como ISO ou outro formato padrão
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      const isoDate = date.toISOString();
+      console.log(`✅ Data ISO parseada: "${dateStr}" → "${isoDate}"`);
+      return isoDate;
+    }
+    
+    console.warn(`⚠️ Não foi possível parsear data: "${dateStr}"`);
+    return null;
+  } catch (error) {
+    console.error(`❌ Erro ao parsear data: "${dateStr}"`, error);
+    return null;
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -127,51 +165,51 @@ async function processBatch(supabase: any, jobId: string) {
     );
   }
 
-  // Se não estiver rodando, marcar como running
-  if (initialJob.status === 'pending') {
-    await supabase
-      .from('lead_resync_jobs')
-      .update({ status: 'running', started_at: new Date().toISOString() })
-      .eq('id', jobId);
-  }
+  // Marcar como running
+  await supabase
+    .from('lead_resync_jobs')
+    .update({ status: 'running', started_at: new Date().toISOString() })
+    .eq('id', jobId);
 
-  // Variáveis acumuladas
-  let currentJob = initialJob;
-  let totalProcessed = currentJob.processed_leads || 0;
-  let totalUpdated = currentJob.updated_leads || 0;
-  let totalSkipped = currentJob.skipped_leads || 0;
-  let totalErrors = currentJob.error_leads || 0;
-  let currentBatch = currentJob.current_batch || 0;
-  let lastProcessedId = currentJob.last_processed_lead_id || 0;
-  let errorDetails = currentJob.error_details || [];
+  // Variáveis para acumular progresso
+  let totalProcessed = initialJob.processed_leads || 0;
+  let totalUpdated = initialJob.updated_leads || 0;
+  let totalSkipped = initialJob.skipped_leads || 0;
+  let totalErrors = initialJob.error_leads || 0;
+  let currentBatch = initialJob.current_batch || 0;
+  let lastProcessedId = initialJob.last_processed_lead_id || 0;
+  let errorDetails: any[] = initialJob.error_details || [];
 
-  console.log(`[processBatch] Initial state: processed=${totalProcessed}, batch=${currentBatch}, lastId=${lastProcessedId}`);
-
-  // Loop contínuo para processar múltiplos batches
+  // Loop contínuo para processar todos os batches
   while (true) {
-    // Verificar status atual do job
-    const { data: jobCheck } = await supabase
+    console.log(`[processBatch] Starting batch ${currentBatch + 1}, last ID: ${lastProcessedId}`);
+
+    // Buscar job atualizado para verificar status
+    const { data: currentJob } = await supabase
       .from('lead_resync_jobs')
-      .select('status')
+      .select('*')
       .eq('id', jobId)
       .single();
 
-    if (jobCheck?.status !== 'running') {
-      console.log(`[processBatch] Job status changed to ${jobCheck?.status}, stopping processing`);
-      break;
+    if (!currentJob || currentJob.status !== 'running') {
+      console.log(`[processBatch] Job paused or cancelled, stopping loop. Status: ${currentJob?.status}`);
+      return new Response(
+        JSON.stringify({ success: true, message: 'Job paused or cancelled' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Buscar próximo lote de leads
-    console.log(`[processBatch] Fetching batch ${currentBatch + 1}, from id > ${lastProcessedId}`);
+    const batchSize = currentJob.batch_size || 50;
     
+    // Buscar próximo lote de leads
     let query = supabase
       .from('leads')
       .select('id')
       .gt('id', lastProcessedId)
       .order('id', { ascending: true })
-      .limit(currentJob.batch_size);
+      .limit(batchSize);
 
-    // Aplicar filtros
+    // Aplicar filtros se configurados
     if (currentJob.filter_criteria?.addressNull) {
       query = query.is('address', null);
     }
@@ -181,21 +219,24 @@ async function processBatch(supabase: any, jobId: string) {
     if (currentJob.filter_criteria?.valorNull) {
       query = query.is('valor_ficha', null);
     }
+    if (currentJob.filter_criteria?.responsibleNull) {
+      query = query.is('responsible', null);
+    }
 
     const { data: leads, error: leadsError } = await query;
 
     if (leadsError) {
-      console.error('[processBatch] Error fetching leads:', leadsError);
+      console.error('Error fetching leads:', leadsError);
       await supabase
         .from('lead_resync_jobs')
         .update({ 
-          status: 'failed',
+          status: 'failed', 
           error_details: [...errorDetails, { error: leadsError.message, timestamp: new Date().toISOString() }]
         })
         .eq('id', jobId);
-      
+
       return new Response(
-        JSON.stringify({ error: leadsError.message }),
+        JSON.stringify({ error: 'Failed to fetch leads' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -232,7 +273,7 @@ async function processBatch(supabase: any, jobId: string) {
       const { data } = await supabase
         .from('resync_field_mappings')
         .select('*')
-        .eq('mapping_id', currentJob.mapping_id)
+        .eq('mapping_name', currentJob.mapping_id)
         .eq('active', true)
         .order('priority', { ascending: false });
       mappings = data;
@@ -250,8 +291,6 @@ async function processBatch(supabase: any, jobId: string) {
 
     // Processar cada lead
     for (const lead of leads) {
-      let mappedData: any = {};
-      
       try {
         // Buscar dados no Bitrix
         const bitrixResponse = await fetch(
@@ -270,171 +309,183 @@ async function processBatch(supabase: any, jobId: string) {
 
         const bitrixLead = bitrixData.result;
 
-      // Aplicar mapeamentos
-      mappedData = {};
-      let hasUpdates = false;
+        // Aplicar mapeamentos
+        let mappedData: any = {};
+        let hasUpdates = false;
 
-      // Campos UUID que precisam de validação especial
-      const uuidFields = ['responsible_user_id', 'commercial_project_id', 'analisado_por'];
-      
-      // Função auxiliar para validar UUID
-      const isValidUUID = (value: any): boolean => {
-        if (!value || typeof value !== 'string') return false;
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        return uuidRegex.test(value);
-      };
-
-      for (const mapping of mappings || []) {
-        const sourceField = job.mapping_id ? mapping.bitrix_field : mapping.bitrix_field;
-        const targetField = job.mapping_id ? mapping.leads_column : mapping.tabuladormax_field;
-        const bitrixValue = bitrixLead[sourceField];
+        // Campos UUID que precisam de validação especial
+        const uuidFields = ['responsible_user_id', 'commercial_project_id', 'analisado_por'];
         
-        if (!bitrixValue || bitrixValue === '') continue;
+        // Função auxiliar para validar UUID
+        const isValidUUID = (value: any): boolean => {
+          if (!value || typeof value !== 'string') return false;
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          return uuidRegex.test(value);
+        };
 
-        let transformedValue = bitrixValue;
+        for (const mapping of mappings || []) {
+          const sourceField = currentJob.mapping_id ? mapping.bitrix_field : mapping.bitrix_field;
+          const targetField = currentJob.mapping_id ? mapping.leads_column : mapping.tabuladormax_field;
+          const bitrixValue = bitrixLead[sourceField];
+          
+          if (!bitrixValue || bitrixValue === '') continue;
 
-        // Transformações específicas
-        switch (targetField) {
-          case 'valor_ficha':
-            transformedValue = parseFloat(
-              String(bitrixValue).replace('R$', '').replace(',', '.').trim()
-            );
-            break;
-          
-          case 'ficha_confirmada':
-          case 'presenca_confirmada':
-          case 'compareceu':
-          case 'cadastro_existe_foto':
-            transformedValue = bitrixValue !== 'Aguardando' && bitrixValue !== 'NAO';
-            break;
-          
-          case 'criado':
-          case 'date_modify':
-          case 'data_criacao_ficha':
-          case 'data_criacao_agendamento':
-            transformedValue = new Date(bitrixValue).toISOString();
-            break;
+          let transformedValue = bitrixValue;
+
+          // Transformações específicas
+          switch (targetField) {
+            case 'valor_ficha':
+              transformedValue = parseFloat(
+                String(bitrixValue).replace('R$', '').replace(',', '.').trim()
+              );
+              break;
+            
+            case 'ficha_confirmada':
+            case 'presenca_confirmada':
+            case 'cadastro_existe_foto':
+              transformedValue = bitrixValue !== 'Aguardando' && bitrixValue !== 'NAO';
+              break;
+            
+            case 'criado':
+            case 'date_modify':
+            case 'data_criacao_ficha':
+            case 'data_criacao_agendamento':
+            case 'data_confirmacao_ficha':
+            case 'data_retorno_ligacao':
+            case 'data_analise':
+            case 'compareceu':
+              transformedValue = parseBrazilianDate(bitrixValue);
+              if (!transformedValue) {
+                console.warn(`⚠️ Data inválida ignorada para ${targetField}: "${bitrixValue}"`);
+                continue;
+              }
+              break;
+            
+            case 'data_agendamento':
+              // data_agendamento é do tipo date (não timestamp), então extrair apenas yyyy-MM-dd
+              const parsedAgendamento = parseBrazilianDate(bitrixValue);
+              if (parsedAgendamento) {
+                transformedValue = parsedAgendamento.split('T')[0];
+                console.log(`✅ Data de agendamento parseada: "${bitrixValue}" → "${transformedValue}"`);
+              } else {
+                console.warn(`⚠️ Data de agendamento inválida ignorada: "${bitrixValue}"`);
+                continue;
+              }
+              break;
+          }
+
+          // Validação UUID
+          if (uuidFields.includes(targetField) && !isValidUUID(transformedValue)) {
+            console.warn(`⚠️ Ignorando valor não-UUID para ${targetField}: "${transformedValue}"`);
+            continue;
+          }
+
+          mappedData[targetField] = transformedValue;
+          hasUpdates = true;
         }
 
-        // Validação UUID
-        if (uuidFields.includes(targetField) && !isValidUUID(transformedValue)) {
-          console.warn(`⚠️ Ignorando valor não-UUID para ${targetField}: "${transformedValue}"`);
+        if (!hasUpdates) {
+          batchSkipped++;
+          totalSkipped++;
           continue;
         }
 
-        mappedData[targetField] = transformedValue;
-        hasUpdates = true;
-      }
+        // Atualizar lead
+        const { error: updateError } = await supabase
+          .from('leads')
+          .update({
+            ...mappedData,
+            sync_status: 'synced',
+            sync_source: 'bitrix_resync',
+            last_sync_at: new Date().toISOString()
+          })
+          .eq('id', lead.id);
 
-      if (!hasUpdates) {
-        skipped++;
-        continue;
-      }
+        if (updateError) throw updateError;
 
-      // Atualizar lead
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({
-          ...mappedData,
-          sync_status: 'synced',
-          sync_source: 'bitrix_resync',
-          last_sync_at: new Date().toISOString()
-        })
-        .eq('id', lead.id);
+        batchUpdated++;
+        totalUpdated++;
 
-      if (updateError) throw updateError;
+        // Log em sync_events
+        await supabase.from('sync_events').insert({
+          lead_id: lead.id,
+          event_type: 'resync',
+          direction: 'bitrix_to_tabuladormax',
+          status: 'success'
+        });
 
-      updated++;
-
-      // Log em sync_events
-      await supabase.from('sync_events').insert({
-        lead_id: lead.id,
-        event_type: 'resync',
-        direction: 'bitrix_to_tabuladormax',
-        status: 'success'
-      });
-
-    } catch (error) {
-      errors++;
-      
-      // Logging detalhado de erros PostgreSQL
-      let errorMessage = 'Unknown error';
-      let errorCode = null;
-      let errorDetails = null;
-      let errorHint = null;
-      let failedField = null;
-      
-      if (error && typeof error === 'object') {
-        const pgError = error as any;
-        errorCode = pgError.code;
-        errorMessage = pgError.message || errorMessage;
-        errorDetails = pgError.details;
-        errorHint = pgError.hint;
+      } catch (error) {
+        batchErrors++;
+        totalErrors++;
         
-        // Tentar identificar o campo que causou o erro
-        if (errorMessage.includes('invalid input syntax for type uuid')) {
-          const match = errorMessage.match(/invalid input syntax for type uuid: "([^"]+)"/);
-          if (match) {
-            failedField = Object.keys(mappedData || {}).find(key => 
-              mappedData[key] === match[1]
-            );
-          }
+        // Logging detalhado de erros PostgreSQL
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const isPostgresError = errorMessage.includes('invalid input syntax') || 
+                               errorMessage.includes('violates') ||
+                               errorMessage.includes('constraint');
+        
+        if (isPostgresError) {
+          console.error(`❌ PostgreSQL Error para lead ${lead.id}:`, errorMessage);
+          
+          // Adicionar detalhes do erro
+          errorDetails.push({
+            lead_id: lead.id,
+            error: errorMessage,
+            timestamp: new Date().toISOString(),
+            type: 'database_error'
+          });
+        } else {
+          console.error(`Error processing lead ${lead.id}:`, error);
+          
+          errorDetails.push({
+            lead_id: lead.id,
+            error: errorMessage,
+            timestamp: new Date().toISOString()
+          });
         }
+
+        // Log em sync_events
+        await supabase.from('sync_events').insert({
+          lead_id: lead.id,
+          event_type: 'resync',
+          direction: 'bitrix_to_tabuladormax',
+          status: 'error',
+          error_message: errorMessage
+        });
       }
-      
-      const detailedError = {
-        lead_id: lead.id,
-        error: errorMessage,
-        error_code: errorCode,
-        error_details: errorDetails,
-        error_hint: errorHint,
-        failed_field: failedField,
-        failed_value: failedField ? mappedData?.[failedField] : null,
-        timestamp: new Date().toISOString()
-      };
-      
-      errorDetails.push(detailedError);
-      
-      // Log em sync_events com detalhes
-      await supabase.from('sync_events').insert({
-        lead_id: lead.id,
-        event_type: 'resync',
-        direction: 'bitrix_to_tabuladormax',
-        status: 'error',
-        error_message: `[${errorCode}] ${errorMessage}${failedField ? ` (Campo: ${failedField} | Valor: ${mappedData?.[failedField]})` : ''}`
-      });
-      
-      console.error(`❌ Error processing lead ${lead.id}:`, detailedError);
+
+      // Atualizar last_processed_lead_id
+      lastProcessedId = lead.id;
     }
+
+    // Incrementar contador de batch e total processado
+    currentBatch++;
+    totalProcessed += leads.length;
+
+    // Atualizar job com progresso atual
+    await supabase
+      .from('lead_resync_jobs')
+      .update({
+        processed_leads: totalProcessed,
+        updated_leads: totalUpdated,
+        skipped_leads: totalSkipped,
+        error_leads: totalErrors,
+        current_batch: currentBatch,
+        last_processed_lead_id: lastProcessedId,
+        error_details: errorDetails
+      })
+      .eq('id', jobId);
+
+    console.log(`[processBatch] Batch ${currentBatch} completed: ${batchUpdated} updated, ${batchSkipped} skipped, ${batchErrors} errors`);
   }
-
-  // Atualizar progresso do job
-  const currentErrorDetails = job.error_details || [];
-  await supabase
-    .from('lead_resync_jobs')
-    .update({
-      processed_leads: job.processed_leads + leads.length,
-      updated_leads: job.updated_leads + updated,
-      skipped_leads: job.skipped_leads + skipped,
-      error_leads: job.error_leads + errors,
-      last_processed_lead_id: leads[leads.length - 1].id,
-      current_batch: job.current_batch + 1,
-      error_details: [...currentErrorDetails, ...errorDetails]
-    })
-    .eq('id', jobId);
-
-  return new Response(
-    JSON.stringify({ success: true, updated, skipped, errors }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
 }
 
 async function pauseJob(supabase: any, jobId: string) {
   const { error } = await supabase
     .from('lead_resync_jobs')
     .update({ 
-      status: 'paused', 
-      paused_at: new Date().toISOString() 
+      status: 'paused',
+      paused_at: new Date().toISOString()
     })
     .eq('id', jobId);
 
@@ -449,12 +500,15 @@ async function pauseJob(supabase: any, jobId: string) {
 async function resumeJob(supabase: any, jobId: string) {
   const { error } = await supabase
     .from('lead_resync_jobs')
-    .update({ status: 'running' })
+    .update({ 
+      status: 'running',
+      paused_at: null
+    })
     .eq('id', jobId);
 
   if (error) throw error;
 
-  // Continuar processamento
+  // Reiniciar processamento
   processBatch(supabase, jobId).catch(console.error);
 
   return new Response(
@@ -464,39 +518,46 @@ async function resumeJob(supabase: any, jobId: string) {
 }
 
 async function cancelJob(supabase: any, jobId: string) {
-  const { error } = await supabase
-    .from('lead_resync_jobs')
-    .update({ 
-      status: 'cancelled',
-      cancelled_at: new Date().toISOString(),
-      completed_at: new Date().toISOString()
-    })
-    .eq('id', jobId)
-    .in('status', ['running', 'paused', 'pending']);
-
-  if (error) throw error;
-
-  return new Response(
-    JSON.stringify({ success: true, message: 'Job cancelado com sucesso' }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function deleteJob(supabase: any, jobId: string) {
-  // Verificar se job pode ser deletado
-  const { data: job, error: fetchError } = await supabase
+  const { data: job } = await supabase
     .from('lead_resync_jobs')
     .select('status')
     .eq('id', jobId)
     .single();
 
-  if (fetchError) throw fetchError;
+  if (!job || job.status === 'completed' || job.status === 'cancelled') {
+    throw new Error('Job cannot be cancelled');
+  }
 
-  if (!['completed', 'failed', 'cancelled'].includes(job.status)) {
-    return new Response(
-      JSON.stringify({ error: 'Apenas jobs concluídos, falhados ou cancelados podem ser excluídos' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+  const { error } = await supabase
+    .from('lead_resync_jobs')
+    .update({ 
+      status: 'cancelled',
+      cancelled_at: new Date().toISOString(),
+      cancellation_reason: 'Cancelled by user'
+    })
+    .eq('id', jobId);
+
+  if (error) throw error;
+
+  return new Response(
+    JSON.stringify({ success: true }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+async function deleteJob(supabase: any, jobId: string) {
+  const { data: job } = await supabase
+    .from('lead_resync_jobs')
+    .select('status')
+    .eq('id', jobId)
+    .single();
+
+  if (!job) {
+    throw new Error('Job not found');
+  }
+
+  if (job.status === 'running' || job.status === 'pending') {
+    throw new Error('Cannot delete running or pending job');
   }
 
   const { error } = await supabase
@@ -507,7 +568,7 @@ async function deleteJob(supabase: any, jobId: string) {
   if (error) throw error;
 
   return new Response(
-    JSON.stringify({ success: true, message: 'Job excluído com sucesso' }),
+    JSON.stringify({ success: true }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }
