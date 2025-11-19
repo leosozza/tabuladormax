@@ -5,6 +5,15 @@ const STORAGE_KEY = 'leads_visible_columns';
 const MIN_COLUMNS = 1;
 const MAX_COLUMNS = 50;
 
+// Campos sensíveis que devem ser ocultados para Scouters
+const SENSITIVE_FIELDS = [
+  'celular',
+  'telefone',
+  'telefone_casa', 
+  'telefone_trabalho',
+  'email'
+];
+
 interface LeadColumnConfigContextValue {
   visibleColumns: string[];
   toggleColumn: (key: string) => void;
@@ -36,12 +45,24 @@ export function LeadColumnConfigProvider({ children }: { children: ReactNode }) 
   });
 
   // Quando os campos carregarem pela primeira vez e não houver configuração, usar os defaultVisible
+  // Filtrar campos sensíveis para Scouters
   useEffect(() => {
     if (allFields && visibleColumns.length === 0) {
-      const defaults = allFields.filter(f => f.defaultVisible).map(f => f.key);
+      const defaults = allFields
+        .filter(f => f.defaultVisible)
+        .filter(f => !SENSITIVE_FIELDS.includes(f.key))
+        .map(f => f.key);
       setVisibleColumns(defaults);
     }
   }, [allFields, visibleColumns.length]);
+
+  // Limpar campos sensíveis do localStorage (caso tenham sido salvos anteriormente)
+  useEffect(() => {
+    const hasSensitiveFields = visibleColumns.some(key => SENSITIVE_FIELDS.includes(key));
+    if (hasSensitiveFields) {
+      setVisibleColumns(prev => prev.filter(key => !SENSITIVE_FIELDS.includes(key)));
+    }
+  }, [visibleColumns]);
 
   // Persistir no localStorage
   useEffect(() => {

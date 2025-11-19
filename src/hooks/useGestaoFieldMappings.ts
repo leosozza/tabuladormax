@@ -3,6 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { ColumnConfig } from '@/config/leadFields';
 import { stripTagFromName } from '@/utils/formatters';
 
+// Campos sensíveis que devem ser ocultados para Scouters
+const SENSITIVE_FIELDS = [
+  'celular',
+  'telefone',
+  'telefone_casa', 
+  'telefone_trabalho',
+  'email'
+];
+
 export const useGestaoFieldMappings = () => {
   return useQuery({
     queryKey: ['gestao-field-mappings-active'],
@@ -15,8 +24,10 @@ export const useGestaoFieldMappings = () => {
       
       if (error) throw error;
       
-      // Transformar em ColumnConfig
-      const fields: ColumnConfig[] = data.map(mapping => ({
+      // Transformar em ColumnConfig, filtrando campos sensíveis
+      const fields: ColumnConfig[] = data
+        .filter(mapping => !SENSITIVE_FIELDS.includes(mapping.database_field))
+        .map(mapping => ({
         key: mapping.database_field,
         label: mapping.display_name,
         type: mapping.field_type as any,
