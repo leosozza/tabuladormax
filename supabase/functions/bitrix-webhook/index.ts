@@ -266,7 +266,7 @@ serve(async (req) => {
     const bitrixTelemarketingId = lead.PARENT_ID_1144 ? Number(lead.PARENT_ID_1144) : null;
     let responsibleUserId = null;
     let responsibleName = null;
-    const bitrixTelemarketingName = await resolveSpaEntityName(supabase, 1144, bitrixTelemarketingId);
+    const telemarketingName = await resolveSpaEntityName(supabase, 1144, bitrixTelemarketingId);
 
     if (bitrixTelemarketingId) {
       const { data: mapping } = await supabase
@@ -294,7 +294,7 @@ serve(async (req) => {
       projectCode,
       commercialProjectId,
       bitrixTelemarketingId,
-      bitrixTelemarketingName,
+      telemarketingName,
       bitrixScouterId,
       scouterName,
       projectIdFromParent,
@@ -326,14 +326,14 @@ serve(async (req) => {
       sync_status: 'synced',
       last_sync_at: new Date().toISOString(),
       updated_at: lead.DATE_MODIFY || new Date().toISOString(),
-      commercial_project_id: commercialProjectId,
-      responsible_user_id: responsibleUserId,
-      bitrix_telemarketing_id: bitrixTelemarketingId,
-      // ✅ NOMES RESOLVIDOS DAS SPAS
-      bitrix_telemarketing_name: bitrixTelemarketingName,
-      scouter: scouterName,
-      gestao_scouter: scouterName,
-      projeto_comercial: projetoComercialName
+    commercial_project_id: commercialProjectId,
+    responsible_user_id: responsibleUserId,
+    bitrix_telemarketing_id: bitrixTelemarketingId,
+    // ✅ NOMES RESOLVIDOS DAS SPAS
+    telemarketing: telemarketingName,
+    scouter: scouterName,
+    gestao_scouter: scouterName,
+    projeto_comercial: projetoComercialName
     };
 
     // Agrupar mapeamentos por campo de destino

@@ -910,7 +910,6 @@ export type Database = {
           age: number | null
           analisado_por: string | null
           bitrix_telemarketing_id: number | null
-          bitrix_telemarketing_name: string | null
           cadastro_existe_foto: boolean | null
           celular: string | null
           commercial_project_id: string | null
@@ -957,6 +956,7 @@ export type Database = {
           sync_status: string | null
           telefone_casa: string | null
           telefone_trabalho: string | null
+          telemarketing: string | null
           updated_at: string | null
           valor_ficha: number | null
         }
@@ -965,7 +965,6 @@ export type Database = {
           age?: number | null
           analisado_por?: string | null
           bitrix_telemarketing_id?: number | null
-          bitrix_telemarketing_name?: string | null
           cadastro_existe_foto?: boolean | null
           celular?: string | null
           commercial_project_id?: string | null
@@ -1012,6 +1011,7 @@ export type Database = {
           sync_status?: string | null
           telefone_casa?: string | null
           telefone_trabalho?: string | null
+          telemarketing?: string | null
           updated_at?: string | null
           valor_ficha?: number | null
         }
@@ -1020,7 +1020,6 @@ export type Database = {
           age?: number | null
           analisado_por?: string | null
           bitrix_telemarketing_id?: number | null
-          bitrix_telemarketing_name?: string | null
           cadastro_existe_foto?: boolean | null
           celular?: string | null
           commercial_project_id?: string | null
@@ -1067,6 +1066,7 @@ export type Database = {
           sync_status?: string | null
           telefone_casa?: string | null
           telefone_trabalho?: string | null
+          telemarketing?: string | null
           updated_at?: string | null
           valor_ficha?: number | null
         }
