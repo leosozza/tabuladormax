@@ -43,12 +43,10 @@ export function LeadColumnReorder({ open, onOpenChange }: LeadColumnReorderProps
   const { visibleColumns, reorderColumns } = useLeadColumnConfig();
   const { data: allFields } = useGestaoFieldMappings();
 
-  const visibleFieldsData = allFields?.filter(f => visibleColumns.includes(f.key)) || [];
-  
-  // Ordenar pelos visibleColumns para manter a ordem atual
+  // Map visibleColumns to their field data, preserving order
   const orderedFields = visibleColumns
-    .map(key => visibleFieldsData.find(f => f.key === key))
-    .filter(Boolean);
+    .map(key => allFields?.find(f => f.key === key))
+    .filter((field): field is NonNullable<typeof field> => field !== undefined);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
