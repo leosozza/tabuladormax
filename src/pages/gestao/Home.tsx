@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, TrendingUp, DollarSign, MapPin, Activity } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Users, FileText, TrendingUp, Activity, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
@@ -22,10 +24,51 @@ export default function GestaoHome() {
   });
 
   // Estatísticas principais
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading, error } = useQuery({
     queryKey: ["gestao-home-stats", filters],
     queryFn: async () => {
-      // Fetch all leads with pagination to ensure we get more than 1000 records
+      console.log('[GestaoHome] Buscando leads com filtros:', {
+        preset: filters.dateFilter.preset,
+        startDate: filters.dateFilter.startDate.toISOString(),
+        endDate: filters.dateFilter.endDate.toISOString(),
+        projectId: filters.projectId,
+        scouterId: filters.scouterId
+      });
+
+      // Para "todo período" sem filtros específicos, usar COUNT para melhor performance
+      if (filters.dateFilter.preset === 'all' && !filters.projectId && !filters.scouterId) {
+        console.log('[GestaoHome] Usando COUNT otimizado para todo período');
+
+        const { count: total } = await supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true });
+
+        const { count: confirmados } = await supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('ficha_confirmada', true);
+
+        const { count: compareceram } = await supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('compareceu', true);
+
+        const { count: pendentes } = await supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .is('qualidade_lead', null);
+
+        console.log('[GestaoHome] Estatísticas retornadas:', { total, confirmados, compareceram, pendentes });
+
+        return { 
+          total: total || 0, 
+          confirmados: confirmados || 0, 
+          compareceram: compareceram || 0, 
+          pendentes: pendentes || 0 
+        };
+      }
+
+      // Para outros filtros, usar a busca normal com paginação
       const data = await fetchAllLeads(
         supabase,
         "*",
@@ -49,6 +92,8 @@ export default function GestaoHome() {
         }
       );
 
+      console.log(`[GestaoHome] Total de leads retornados: ${data.length}`);
+
       const total = data.length;
       const confirmados = data.filter(l => l.ficha_confirmada).length;
       const compareceram = data.filter(l => l.compareceu).length;
@@ -56,6 +101,8 @@ export default function GestaoHome() {
 
       return { total, confirmados, compareceram, pendentes };
     },
+    retry: 1,
+    staleTime: 30000, // Cache de 30 segundos
   });
 
   return (
@@ -65,8 +112,48 @@ export default function GestaoHome() {
     >
       <GestaoFiltersComponent filters={filters} onChange={setFilters} />
 
+      {/* Alerta para todo período */}
+      {filters.dateFilter.preset === 'all' && !isLoading && !error && (
+        <Alert className="my-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Buscando todo o histórico</AlertTitle>
+          <AlertDescription>
+            Carregando estatísticas de todos os leads cadastrados. Isso pode levar alguns segundos...
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Erro ao carregar */}
+      {error && (
+        <Alert variant="destructive" className="my-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Erro ao carregar estatísticas</AlertTitle>
+          <AlertDescription>
+            {error instanceof Error ? error.message : 'Ocorreu um erro ao buscar os dados. Tente novamente.'}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Skeleton durante carregamento */}
+      {isLoading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 my-6 md:my-8">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i} className="border-l-4 border-l-primary">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-8 rounded-lg" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Cards de métricas principais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 my-6 md:my-8">
+      {!isLoading && !error && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 my-6 md:my-8">
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -122,7 +209,8 @@ export default function GestaoHome() {
             <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.pendentes || 0}</div>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
 
       <StatsComparison />
 
