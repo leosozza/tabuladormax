@@ -283,9 +283,9 @@ async function processBatch(supabase: any, jobId: string) {
       mappings = resyncMappings;
     } else {
       const { data: bitrixMappings } = await supabase
-        .from('bitrix_field_mappings')
+        .from('unified_field_config')
         .select('*')
-        .eq('active', true);
+        .eq('sync_active', true);
       mappings = bitrixMappings;
     }
 

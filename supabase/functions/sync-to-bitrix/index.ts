@@ -93,14 +93,14 @@ serve(async (req) => {
                 transformedValue = value ? 'Y' : 'N';
               }
             } catch (e) {
-              console.warn(`⚠️ Erro ao transformar ${mapping.tabuladormax_field}:`, e);
+              console.warn(`⚠️ Erro ao transformar ${mapping.supabase_field}:`, e);
               transformedValue = value;
             }
           }
           
           bitrixPayload.fields[mapping.bitrix_field] = transformedValue;
           appliedMappings.push({
-            tabuladormax_field: mapping.tabuladormax_field,
+            supabase_field: mapping.supabase_field,
             bitrix_field: mapping.bitrix_field,
             value: transformedValue,
             transformed: !!mapping.transform_function,
@@ -114,7 +114,7 @@ serve(async (req) => {
       if (lead.name) {
         bitrixPayload.fields.NAME = lead.name;
         appliedMappings.push({
-          tabuladormax_field: 'name',
+          supabase_field: 'name',
           bitrix_field: 'NAME',
           value: lead.name,
           transformed: false
@@ -123,7 +123,7 @@ serve(async (req) => {
       if (lead.age) {
         bitrixPayload.fields.UF_IDADE = lead.age;
         appliedMappings.push({
-          tabuladormax_field: 'age',
+          supabase_field: 'age',
           bitrix_field: 'UF_IDADE',
           value: lead.age,
           transformed: false
@@ -132,7 +132,7 @@ serve(async (req) => {
       if (lead.address) {
         bitrixPayload.fields.UF_LOCAL = lead.address;
         appliedMappings.push({
-          tabuladormax_field: 'address',
+          supabase_field: 'address',
           bitrix_field: 'UF_LOCAL',
           value: lead.address,
           transformed: false
@@ -141,7 +141,7 @@ serve(async (req) => {
       if (lead.photo_url) {
         bitrixPayload.fields.UF_PHOTO = lead.photo_url;
         appliedMappings.push({
-          tabuladormax_field: 'photo_url',
+          supabase_field: 'photo_url',
           bitrix_field: 'UF_PHOTO',
           value: lead.photo_url,
           transformed: false
@@ -150,7 +150,7 @@ serve(async (req) => {
       if (lead.responsible) {
         bitrixPayload.fields.UF_RESPONSAVEL = lead.responsible;
         appliedMappings.push({
-          tabuladormax_field: 'responsible',
+          supabase_field: 'responsible',
           bitrix_field: 'UF_RESPONSAVEL',
           value: lead.responsible,
           transformed: false
@@ -159,7 +159,7 @@ serve(async (req) => {
       if (lead.scouter) {
         bitrixPayload.fields.UF_SCOUTER = lead.scouter;
         appliedMappings.push({
-          tabuladormax_field: 'scouter',
+          supabase_field: 'scouter',
           bitrix_field: 'UF_SCOUTER',
           value: lead.scouter,
           transformed: false
@@ -168,7 +168,7 @@ serve(async (req) => {
       if (lead.bitrix_telemarketing_id) {
         bitrixPayload.fields.PARENT_ID_1144 = lead.bitrix_telemarketing_id;
         appliedMappings.push({
-          tabuladormax_field: 'bitrix_telemarketing_id',
+          supabase_field: 'bitrix_telemarketing_id',
           bitrix_field: 'PARENT_ID_1144',
           value: lead.bitrix_telemarketing_id,
           transformed: false
