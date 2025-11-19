@@ -70,8 +70,10 @@ export default function GestaoLeads() {
     },
   });
 
-  // Get visible field configurations from dynamic mappings
-  const visibleFields = allFields?.filter(field => visibleColumns.includes(field.key)) || [];
+  // Get visible field configurations from dynamic mappings in the correct order
+  const visibleFields = visibleColumns
+    .map(key => allFields?.find(field => field.key === key))
+    .filter((field): field is NonNullable<typeof field> => field !== undefined);
 
   const handleExport = () => {
     if (!leads) return;
