@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, batchSize = 100, filters } = await req.json();
+    const { action, batchSize = 50, filters } = await req.json();
 
     if (action === 'start') {
       return await startReprocessing(supabase, batchSize, filters);
@@ -171,7 +171,7 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
           // Transformações especiais
           if (mapping.tabuladormax_field === 'commercial_project_id') {
             // Buscar projeto pelo código
-            const projectCode = lead.raw['UF_CRM_1741215746'];
+            const projectCode = lead.raw['UF_CRM_1741215746'] || lead.raw['PARENT_ID_1120'];
             if (projectCode) {
               const project: any = projectsByCode.get(String(projectCode));
               if (project) {
@@ -182,12 +182,26 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
             }
           }
           else if (mapping.tabuladormax_field === 'scouter') {
-            // Buscar nome do scouter do campo UF_CRM_1742226427_PRINTABLE
-            const scouterName = lead.raw['UF_CRM_1742226427_PRINTABLE'];
-            if (scouterName) {
-              updates.scouter = scouterName;
-              hasUpdates = true;
-              stats.fieldsUpdated['scouter'] = (stats.fieldsUpdated['scouter'] || 0) + 1;
+            // Extrair nome do scouter do campo TITLE
+            const title = lead.raw['TITLE'];
+            if (title && typeof title === 'string' && title.includes('SCOUTER-')) {
+              const scouterName = title.split('SCOUTER-')[1]?.trim();
+              if (scouterName) {
+                updates.scouter = scouterName;
+                hasUpdates = true;
+                stats.fieldsUpdated['scouter'] = (stats.fieldsUpdated['scouter'] || 0) + 1;
+              }
+            }
+          }
+          else if (mapping.tabuladormax_field === 'nome_modelo') {
+            // Extrair primeiro elemento do array e fazer trim
+            if (Array.isArray(bitrixValue) && bitrixValue.length > 0) {
+              const nomeModelo = String(bitrixValue[0]).trim();
+              if (nomeModelo) {
+                updates.nome_modelo = nomeModelo;
+                hasUpdates = true;
+                stats.fieldsUpdated['nome_modelo'] = (stats.fieldsUpdated['nome_modelo'] || 0) + 1;
+              }
             }
           }
           else if (mapping.tabuladormax_field === 'valor_ficha') {
@@ -266,8 +280,8 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
 
         stats.processedLeads++;
 
-        // Log de progresso a cada 10 leads
-        if (stats.processedLeads % 10 === 0) {
+        // Log de progresso a cada 50 leads
+        if (stats.processedLeads % 50 === 0) {
           console.log(`📊 Progresso: ${stats.processedLeads}/${stats.totalLeads} (${Math.round(stats.processedLeads / stats.totalLeads * 100)}%)`);
         }
       } catch (error) {
