@@ -33,13 +33,13 @@ export default function BitrixIntegration() {
 
   const loadData = async () => {
     try {
-      // Carregar mapeamentos (apenas ativos)
+      // Carregar mapeamentos (apenas ativos) da tabela unificada
       const { data: mappingsData, error: mappingsError } = await supabase
-        .from('bitrix_field_mappings')
+        .from('unified_field_config')
         .select('*')
-        .eq('active', true)
-        .order('tabuladormax_field', { ascending: true })
-        .order('priority', { ascending: true });
+        .eq('sync_active', true)
+        .order('supabase_field', { ascending: true })
+        .order('sync_priority', { ascending: true });
 
       if (mappingsError) throw mappingsError;
       setMappings(mappingsData || []);
@@ -67,9 +67,9 @@ export default function BitrixIntegration() {
       setSyncConfig(configData);
 
       // Calcular estatísticas
-      const activeMappings = mappingsData?.filter((m: any) => m.active) || [];
-      const mappedBitrixFields = new Set(activeMappings.map((m: any) => m.bitrix_field));
-      const mappedSupabaseFields = new Set(activeMappings.map((m: any) => m.tabuladormax_field));
+      const activeMappings = mappingsData?.filter((m: any) => m.sync_active) || [];
+      const mappedBitrixFields = new Set(activeMappings.map((m: any) => m.bitrix_field).filter(Boolean));
+      const mappedSupabaseFields = new Set(activeMappings.map((m: any) => m.supabase_field));
 
       setStats({
         totalMappings: mappingsData?.length || 0,
