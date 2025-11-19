@@ -169,7 +169,7 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
           }
 
           // Transformações especiais
-          if (mapping.tabuladormax_field === 'commercial_project_id') {
+          if (mapping.supabase_field === 'commercial_project_id') {
             // Buscar projeto pelo código
             const projectCode = lead.raw['UF_CRM_1741215746'] || lead.raw['PARENT_ID_1120'];
             if (projectCode) {
@@ -181,7 +181,7 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
               }
             }
           }
-          else if (mapping.tabuladormax_field === 'scouter') {
+          else if (mapping.supabase_field === 'scouter') {
             // Extrair nome do scouter do campo TITLE
             const title = lead.raw['TITLE'];
             if (title && typeof title === 'string' && title.includes('SCOUTER-')) {
@@ -193,7 +193,7 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
               }
             }
           }
-          else if (mapping.tabuladormax_field === 'nome_modelo') {
+          else if (mapping.supabase_field === 'nome_modelo') {
             // Extrair primeiro elemento do array e fazer trim
             if (Array.isArray(bitrixValue) && bitrixValue.length > 0) {
               const nomeModelo = String(bitrixValue[0]).trim();
@@ -204,7 +204,7 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
               }
             }
           }
-          else if (mapping.tabuladormax_field === 'valor_ficha') {
+          else if (mapping.supabase_field === 'valor_ficha') {
             // Extrair valor de "6|BRL" -> 6
             if (typeof bitrixValue === 'string') {
               const match = bitrixValue.match(/^(\d+(?:\.\d+)?)/);
@@ -215,7 +215,7 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
               }
             }
           }
-          else if (mapping.tabuladormax_field === 'telefone_casa') {
+          else if (mapping.supabase_field === 'telefone_casa') {
             // Extrair do array de telefones
             const phones = lead.raw['PHONE'];
             if (Array.isArray(phones) && phones.length > 0) {
@@ -224,7 +224,7 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
               stats.fieldsUpdated['telefone_casa'] = (stats.fieldsUpdated['telefone_casa'] || 0) + 1;
             }
           }
-          else if (mapping.tabuladormax_field === 'celular') {
+          else if (mapping.supabase_field === 'celular') {
             // Extrair do array de telefones (segundo número se existir)
             const phones = lead.raw['PHONE'];
             if (Array.isArray(phones) && phones.length > 1) {
@@ -237,7 +237,7 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
               stats.fieldsUpdated['celular'] = (stats.fieldsUpdated['celular'] || 0) + 1;
             }
           }
-          else if (mapping.tabuladormax_field === 'criado') {
+          else if (mapping.supabase_field === 'criado') {
             // Parsear data de criação
             if (bitrixValue) {
               updates.criado = new Date(bitrixValue).toISOString();
@@ -245,7 +245,7 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
               stats.fieldsUpdated['criado'] = (stats.fieldsUpdated['criado'] || 0) + 1;
             }
           }
-          else if (mapping.tabuladormax_field === 'date_modify') {
+          else if (mapping.supabase_field === 'date_modify') {
             // Parsear data de modificação
             if (bitrixValue) {
               updates.date_modify = new Date(bitrixValue).toISOString();
@@ -255,9 +255,9 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
           }
           else {
             // Mapeamento direto para outros campos
-            updates[mapping.tabuladormax_field] = bitrixValue;
+            updates[mapping.supabase_field] = bitrixValue;
             hasUpdates = true;
-            stats.fieldsUpdated[mapping.tabuladormax_field] = (stats.fieldsUpdated[mapping.tabuladormax_field] || 0) + 1;
+            stats.fieldsUpdated[mapping.supabase_field] = (stats.fieldsUpdated[mapping.supabase_field] || 0) + 1;
           }
         }
 

@@ -296,10 +296,10 @@ serve(async (req) => {
 
     // Agrupar mapeamentos por campo de destino
     const mappingsByField = (fieldMappings || []).reduce((acc, mapping) => {
-      if (!acc[mapping.tabuladormax_field]) {
-        acc[mapping.tabuladormax_field] = [];
+      if (!acc[mapping.supabase_field]) {
+        acc[mapping.supabase_field] = [];
       }
-      acc[mapping.tabuladormax_field].push(mapping);
+      acc[mapping.supabase_field].push(mapping);
       return acc;
     }, {} as Record<string, any[]>);
 
@@ -307,7 +307,7 @@ serve(async (req) => {
     const appliedMappings: any[] = [];
 
     // Para cada campo do TabuladorMax, aplicar a primeira fonte não-vazia
-    for (const [tabuladorField, mappings] of Object.entries(mappingsByField)) {
+    for (const [supabaseField, mappings] of Object.entries(mappingsByField)) {
       for (const mapping of (mappings as any[])) {
         let value = lead[mapping.bitrix_field];
         const originalValue = value;
@@ -326,14 +326,14 @@ serve(async (req) => {
               const parsed = parseBrazilianDate(value);
               value = parsed ? parsed.split('T')[0] : null;
               if (!value) {
-                console.warn(`⚠️ Data inválida ignorada para ${tabuladorField}: "${originalValue}"`);
+                console.warn(`⚠️ Data inválida ignorada para ${supabaseField}: "${originalValue}"`);
                 continue; // Pular este mapeamento
               }
             } else if (mapping.transform_function === 'toTimestamp') {
               // Parsear data brasileira para timestamp ISO completo
               value = parseBrazilianDate(value);
               if (!value) {
-                console.warn(`⚠️ Timestamp inválido ignorado para ${tabuladorField}: "${originalValue}"`);
+                console.warn(`⚠️ Timestamp inválido ignorado para ${supabaseField}: "${originalValue}"`);
                 continue; // Pular este mapeamento
               }
             }
@@ -344,16 +344,16 @@ serve(async (req) => {
         
         // Se encontrou valor, usar e parar (fallback automático)
         if (value !== null && value !== undefined && value !== '') {
-          leadData[tabuladorField] = value;
+          leadData[supabaseField] = value;
           appliedMappings.push({
             bitrix_field: mapping.bitrix_field,
-            tabuladormax_field: tabuladorField,
+            supabase_field: supabaseField,
             value: value,
             transformed: !!mapping.transform_function,
             transform_function: mapping.transform_function,
             priority: mapping.priority
           });
-          console.log(`✅ ${tabuladorField} = ${mapping.bitrix_field} (prioridade ${mapping.priority})`);
+          console.log(`✅ ${supabaseField} = ${mapping.bitrix_field} (prioridade ${mapping.priority})`);
           break; // Usar apenas o primeiro não-vazio
         }
       }
@@ -364,7 +364,7 @@ serve(async (req) => {
       leadData.responsible = responsibleName;
       appliedMappings.push({
         bitrix_field: 'PARENT_ID_1144',
-        tabuladormax_field: 'responsible',
+        supabase_field: 'responsible',
         value: responsibleName,
         transformed: false,
         priority: 999
