@@ -47,27 +47,48 @@ const parseBrazilianDate = (dateStr: string | null | undefined): string | null =
   }
 };
 
-// Função para resolver nome de entidade SPA a partir do ID
+// ✅ FASE 2: Função melhorada com logs diagnósticos detalhados
 async function resolveSpaEntityName(
   supabase: any,
   entityTypeId: number,
   bitrixItemId: number | null
 ): Promise<string | null> {
-  if (!bitrixItemId) return null;
+  if (!bitrixItemId) {
+    console.log(`⚠️ resolveSpaEntityName(${entityTypeId}): bitrixItemId é null/undefined`);
+    return null;
+  }
+  
+  console.log(`🔍 Buscando SPA ${entityTypeId} / ID ${bitrixItemId}...`);
   
   const { data, error } = await supabase
     .from('bitrix_spa_entities')
-    .select('title')
+    .select('title, bitrix_item_id')
     .eq('entity_type_id', entityTypeId)
     .eq('bitrix_item_id', bitrixItemId)
     .maybeSingle();
   
   if (error) {
-    console.warn(`⚠️ Erro ao buscar entidade SPA ${entityTypeId}/${bitrixItemId}:`, error);
+    console.error(`❌ Erro ao buscar SPA ${entityTypeId}/${bitrixItemId}:`, error);
     return null;
   }
   
-  return data?.title?.trim() || null;
+  if (!data) {
+    console.warn(`⚠️ SPA não encontrada: entity_type_id=${entityTypeId}, bitrix_item_id=${bitrixItemId}`);
+    
+    // DEBUG: Buscar SPAs próximas para ajudar no diagnóstico
+    const { data: nearby } = await supabase
+      .from('bitrix_spa_entities')
+      .select('bitrix_item_id, title')
+      .eq('entity_type_id', entityTypeId)
+      .limit(3);
+    console.log(`   📋 SPAs disponíveis para tipo ${entityTypeId}:`, nearby);
+    
+    return null;
+  }
+  
+  const title = data.title?.trim();
+  console.log(`✅ SPA ${entityTypeId}/${bitrixItemId} → "${title}"`);
+  return title || null;
 }
 
 interface BitrixWebhookPayload {
@@ -416,6 +437,42 @@ serve(async (req) => {
     console.log('📝 Lead mapeado:', leadData);
     console.log('📊 Mapeamentos aplicados:', appliedMappings.length);
 
+    // ✅ FASE 1: Normalizar arrays antes do upsert
+    function normalizeArrayField(value: any, fieldName: string): any {
+      if (!Array.isArray(value)) return value;
+      
+      // Array vazio = null
+      if (value.length === 0) return null;
+      
+      // Para age: pegar primeiro número
+      if (fieldName === 'age') {
+        return typeof value[0] === 'number' ? value[0] : null;
+      }
+      
+      // Para campos de texto: juntar com vírgula
+      return value.join(', ');
+    }
+
+    // Aplicar normalização em campos conhecidos que podem vir como arrays
+    const fieldsToNormalize = ['age', 'nome_modelo', 'etapa_fluxo', 'op_telemarketing'];
+    
+    for (const fieldName of fieldsToNormalize) {
+      if (leadData[fieldName] !== undefined && Array.isArray(leadData[fieldName])) {
+        const originalValue = JSON.stringify(leadData[fieldName]);
+        leadData[fieldName] = normalizeArrayField(leadData[fieldName], fieldName);
+        console.log(`🔄 Array normalizado para ${fieldName}: ${originalValue} → ${leadData[fieldName]}`);
+      }
+    }
+
+    console.log('📝 Lead final após normalização:', {
+      id: leadData.id,
+      name: leadData.name,
+      age: leadData.age,
+      scouter: leadData.scouter,
+      telemarketing: leadData.telemarketing,
+      projeto_comercial: leadData.projeto_comercial,
+      total_fields: Object.keys(leadData).length
+    });
 
     // Upsert no Supabase
     const { data: upsertedLead, error: upsertError } = await supabase
@@ -431,18 +488,39 @@ serve(async (req) => {
 
     console.log('✅ Lead sincronizado no Supabase:', upsertedLead);
 
-    // Registrar evento de sincronização com mapeamentos
-    await supabase.from('sync_events').insert({
-      event_type: event.includes('ADD') ? 'create' : event.includes('UPDATE') ? 'update' : 'delete',
-      direction: 'bitrix_to_supabase',
-      lead_id: parseInt(leadId),
-      status: 'success',
-      sync_duration_ms: Date.now() - startTime,
-      field_mappings: {
-        bitrix_to_supabase: appliedMappings
-      },
-      fields_synced_count: appliedMappings.length
-    });
+    // ✅ FASE 3: Registro robusto em sync_events com try-catch
+    try {
+      console.log('💾 Registrando evento em sync_events...');
+      
+      const { error: syncEventError } = await supabase
+        .from('sync_events')
+        .insert({
+          event_type: event.includes('ADD') ? 'create' : event.includes('UPDATE') ? 'update' : 'delete',
+          direction: 'bitrix_to_supabase',
+          lead_id: parseInt(leadId),
+          status: 'success',
+          sync_duration_ms: Date.now() - startTime,
+          field_mappings: {
+            bitrix_to_supabase: appliedMappings,
+            spa_resolutions: {
+              scouter: scouterName,
+              telemarketing: telemarketingName,
+              projeto_comercial: projetoComercialName
+            }
+          },
+          fields_synced_count: appliedMappings.length
+        });
+      
+      if (syncEventError) {
+        console.error('❌ Erro ao registrar sync_event (não fatal):', syncEventError);
+        // Não lançar exceção - lead já foi salvo com sucesso
+      } else {
+        console.log('✅ sync_event registrado com sucesso');
+      }
+    } catch (syncError) {
+      console.error('❌ Exceção ao registrar sync_event:', syncError);
+      // Não lançar - lead já foi salvo com sucesso
+    }
 
     return new Response(
       JSON.stringify({ 
