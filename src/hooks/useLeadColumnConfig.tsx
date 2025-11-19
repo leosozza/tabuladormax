@@ -2,8 +2,8 @@ import { useState, useEffect, createContext, useContext, ReactNode, useMemo } fr
 import { useGestaoFieldMappings } from './useGestaoFieldMappings';
 
 const STORAGE_KEY = 'leads_visible_columns';
-const MIN_COLUMNS = 3;
-const MAX_COLUMNS = 15;
+const MIN_COLUMNS = 1;
+const MAX_COLUMNS = 50;
 
 interface LeadColumnConfigContextValue {
   visibleColumns: string[];
@@ -53,10 +53,11 @@ export function LeadColumnConfigProvider({ children }: { children: ReactNode }) 
   const toggleColumn = (key: string) => {
     setVisibleColumns(prev => {
       if (prev.includes(key)) {
-        if (prev.length <= MIN_COLUMNS || key === 'name') return prev;
+        if (key === 'name') return prev; // name é obrigatório
+        if (prev.length <= MIN_COLUMNS) return prev;
         return prev.filter(k => k !== key);
       } else {
-        if (prev.length >= MAX_COLUMNS) return prev;
+        // sem limite prático de máximo
         return [...prev, key];
       }
     });
