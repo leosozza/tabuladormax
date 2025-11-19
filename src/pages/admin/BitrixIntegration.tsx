@@ -47,10 +47,11 @@ export default function BitrixIntegration() {
 
   const loadData = async () => {
     try {
-      // Carregar mapeamentos
+      // Carregar mapeamentos (apenas ativos)
       const { data: mappingsData, error: mappingsError } = await supabase
         .from('bitrix_field_mappings')
         .select('*')
+        .eq('active', true)
         .order('tabuladormax_field', { ascending: true })
         .order('priority', { ascending: true });
 
