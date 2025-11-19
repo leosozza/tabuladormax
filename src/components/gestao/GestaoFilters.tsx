@@ -21,13 +21,36 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(filters.dateFilter.endDate);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-  // Buscar projetos comerciais
+  // Buscar projetos comerciais que têm leads no período selecionado
   const { data: projects } = useQuery({
-    queryKey: ["commercial-projects"],
+    queryKey: ["commercial-projects-filtered", filters.dateFilter],
     queryFn: async () => {
+      // Buscar IDs de projetos que existem nos leads do período
+      let query = supabase
+        .from("leads")
+        .select("commercial_project_id")
+        .not("commercial_project_id", "is", null);
+
+      // Aplicar filtro de data se não for "todo período"
+      if (filters.dateFilter.preset !== 'all') {
+        query = query
+          .gte("criado", filters.dateFilter.startDate.toISOString())
+          .lte("criado", filters.dateFilter.endDate.toISOString());
+      }
+
+      const { data: leadProjects, error: leadsError } = await query;
+      if (leadsError) throw leadsError;
+
+      // Extrair IDs únicos
+      const projectIds = [...new Set(leadProjects.map(l => l.commercial_project_id).filter(Boolean))];
+
+      if (projectIds.length === 0) return [];
+
+      // Buscar dados dos projetos
       const { data, error } = await supabase
         .from("commercial_projects")
         .select("id, name, code")
+        .in("id", projectIds)
         .eq("active", true)
         .order("name");
       
@@ -36,18 +59,26 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
     },
   });
 
-  // Buscar scouters únicos
+  // Buscar scouters únicos que têm leads no período selecionado
   const { data: scouters } = useQuery({
-    queryKey: ["scouters-list"],
+    queryKey: ["scouters-list-filtered", filters.dateFilter],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("leads")
         .select("scouter")
         .not("scouter", "is", null);
+
+      // Aplicar filtro de data se não for "todo período"
+      if (filters.dateFilter.preset !== 'all') {
+        query = query
+          .gte("criado", filters.dateFilter.startDate.toISOString())
+          .lte("criado", filters.dateFilter.endDate.toISOString());
+      }
       
+      const { data, error } = await query;
       if (error) throw error;
       
-      // Extrair scouters únicos
+      // Extrair scouters únicos e ordenar
       const uniqueScouters = [...new Set(data.map(l => l.scouter).filter(Boolean))];
       return uniqueScouters.sort();
     },
