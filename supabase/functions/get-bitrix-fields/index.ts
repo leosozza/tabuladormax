@@ -139,6 +139,14 @@ serve(async (req) => {
       return formatFieldId(fieldId);
     };
 
+    // Extrair parentEntityTypeId para campos crm_entity (SPA)
+    const extractParentEntityTypeId = (fieldData: any): number | null => {
+      if (fieldData.type === 'crm_entity' && fieldData.settings?.parentEntityTypeId) {
+        return fieldData.settings.parentEntityTypeId;
+      }
+      return null;
+    };
+
     // Primeiro, coletar todos os statusTypes necessários
     const statusTypesToFetch = new Set<string>();
     Object.entries(data.result).forEach(([fieldId, fieldData]: [string, any]) => {
@@ -170,6 +178,13 @@ serve(async (req) => {
         const statusValues = statusValuesMap.get(fieldData.statusType);
         if (statusValues && statusValues.length > 0) {
           listItems = statusValues.map(sv => ({ ID: sv.ID, VALUE: sv.NAME }));
+        }
+      }
+      // Para campos crm_entity (SPA), incluir o parentEntityTypeId
+      else if (fieldData.type === 'crm_entity') {
+        const parentEntityTypeId = extractParentEntityTypeId(fieldData);
+        if (parentEntityTypeId) {
+          listItems = [{ parentEntityTypeId }];
         }
       }
 
