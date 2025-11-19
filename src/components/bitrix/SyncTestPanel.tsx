@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,66 @@ export function SyncTestPanel() {
   const [direction, setDirection] = useState<'bitrix_to_supabase' | 'supabase_to_bitrix'>('bitrix_to_supabase');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
+  const [listItemsMap, setListItemsMap] = useState<Record<string, Record<string, string>>>({});
+
+  const loadBitrixFieldsCache = async () => {
+    try {
+      const { data: bitrixFieldsCache } = await supabase
+        .from('bitrix_fields_cache')
+        .select('field_id, field_title, list_items');
+
+      // Criar mapas para lookup rápido
+      const labels: Record<string, string> = {};
+      const items: Record<string, Record<string, string>> = {};
+
+      bitrixFieldsCache?.forEach((field: any) => {
+        // Mapa: field_id -> field_title
+        if (field.field_title) {
+          labels[field.field_id] = field.field_title;
+        }
+        
+        // Mapa: field_id -> { itemId -> itemLabel }
+        if (field.list_items && Array.isArray(field.list_items)) {
+          items[field.field_id] = {};
+          field.list_items.forEach((item: any) => {
+            items[field.field_id][String(item.ID)] = item.VALUE;
+          });
+        }
+      });
+
+      setFieldLabels(labels);
+      setListItemsMap(items);
+    } catch (error) {
+      console.error('Erro ao carregar cache de campos:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadBitrixFieldsCache();
+  }, []);
+
+  // Resolver nome amigável do campo
+  const getFieldLabel = (fieldId: string): string => {
+    return fieldLabels[fieldId] || fieldId;
+  };
+
+  // Resolver valor da lista
+  const resolveListValue = (fieldId: string, value: any): string => {
+    if (value === null || value === undefined) return '—';
+    
+    // Se o campo tem lista de items, tentar resolver
+    if (listItemsMap[fieldId]) {
+      const label = listItemsMap[fieldId][String(value)];
+      if (label) return label;
+    }
+    
+    // Senão, retornar o valor original
+    if (typeof value === 'object') {
+      return JSON.stringify(value).substring(0, 50);
+    }
+    return String(value).substring(0, 50);
+  };
 
   const handleTest = async () => {
     if (!leadId) {
@@ -108,27 +168,67 @@ export function SyncTestPanel() {
                   <CardContent>
                     <div className="space-y-2 max-h-[400px] overflow-y-auto">
                       {result.appliedMappings?.map((mapping: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between p-2 rounded bg-muted text-sm">
-                          <div className="flex items-center gap-2">
-                            <code className="text-xs bg-background px-2 py-1 rounded">
-                              {direction === 'bitrix_to_supabase' ? mapping.bitrix_field : mapping.tabuladormax_field}
-                            </code>
-                            <span>→</span>
-                            <code className="text-xs bg-background px-2 py-1 rounded">
-                              {direction === 'bitrix_to_supabase' ? mapping.tabuladormax_field : mapping.bitrix_field}
-                            </code>
-                          </div>
-                          <div className="flex items-center gap-2">
+                        <div key={index} className="flex flex-col gap-2 p-3 rounded bg-muted/50 border border-border">
+                          {/* Cabeçalho com mapeamento */}
+                          <div className="flex items-center gap-2 pb-2 border-b border-border/50">
+                            <div className="flex items-center gap-1.5 flex-1">
+                              {/* Campo Origem */}
+                              <div className="flex flex-col gap-0.5">
+                                <code className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
+                                  {direction === 'bitrix_to_supabase' 
+                                    ? getFieldLabel(mapping.bitrix_field)
+                                    : mapping.tabuladormax_field}
+                                </code>
+                                {direction === 'bitrix_to_supabase' && fieldLabels[mapping.bitrix_field] && (
+                                  <span className="text-[9px] text-muted-foreground/50 font-mono">
+                                    {mapping.bitrix_field}
+                                  </span>
+                                )}
+                              </div>
+
+                              <span className="text-muted-foreground">→</span>
+
+                              {/* Campo Destino */}
+                              <div className="flex flex-col gap-0.5">
+                                <code className="text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 rounded font-medium">
+                                  {direction === 'bitrix_to_supabase' 
+                                    ? mapping.tabuladormax_field
+                                    : getFieldLabel(mapping.bitrix_field)}
+                                </code>
+                                {direction === 'supabase_to_bitrix' && fieldLabels[mapping.bitrix_field] && (
+                                  <span className="text-[9px] text-muted-foreground/50 font-mono">
+                                    {mapping.bitrix_field}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Badge de transformação */}
                             {mapping.transformed && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-xs shrink-0">
                                 {mapping.transform_function}
                               </Badge>
                             )}
-                            <span className="text-muted-foreground truncate max-w-[200px]">
-                              {typeof mapping.value === 'object' 
-                                ? JSON.stringify(mapping.value).substring(0, 50) 
-                                : String(mapping.value).substring(0, 50)}
-                            </span>
+                          </div>
+
+                          {/* Valor transformado */}
+                          <div className="flex items-start gap-2 pl-2 border-l-2 border-primary/30">
+                            <span className="text-xs font-medium text-muted-foreground/70">Valor:</span>
+                            <div className="flex flex-col gap-0.5 flex-1">
+                              <span className="text-sm text-foreground font-medium">
+                                {direction === 'bitrix_to_supabase'
+                                  ? resolveListValue(mapping.bitrix_field, mapping.value)
+                                  : resolveListValue(mapping.bitrix_field, mapping.value)}
+                              </span>
+                              {/* Mostrar ID técnico se for valor de lista */}
+                              {direction === 'bitrix_to_supabase' && 
+                               listItemsMap[mapping.bitrix_field] && 
+                               listItemsMap[mapping.bitrix_field][String(mapping.value)] && (
+                                <span className="text-[9px] text-muted-foreground/40 font-mono">
+                                  (ID: {mapping.value})
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
