@@ -19,6 +19,7 @@ import {
   Cloud,
   LayoutDashboard,
   Upload,
+  Database,
 } from 'lucide-react';
 
 interface AdminAccessModalProps {
@@ -82,6 +83,13 @@ const adminOptions = [
     title: 'Resincronização Leads',
     description: 'Atualizar leads do Bitrix',
     color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+  },
+  {
+    path: '/admin/leads-reprocess',
+    icon: Database,
+    title: 'Re-processar Leads',
+    description: 'Re-processar leads históricos do campo raw',
+    color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   },
 ];
 

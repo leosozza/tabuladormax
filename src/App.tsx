@@ -30,6 +30,7 @@ import UnifiedDashboard from "./pages/admin/UnifiedDashboard";
 import BitrixIntegration from "./pages/admin/BitrixIntegration";
 import LeadResync from "./pages/admin/LeadResync";
 import CsvImport from "./pages/admin/CsvImport";
+import LeadsReprocess from "./pages/admin/LeadsReprocess";
 
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
@@ -97,6 +98,7 @@ const App = () => (
           <Route path="/admin/bitrix-integration" element={<ProtectedRoute requireManager><BitrixIntegration /></ProtectedRoute>} />
           <Route path="/admin/lead-resync" element={<ProtectedRoute requireManager><LeadResync /></ProtectedRoute>} />
           <Route path="/admin/csv-import" element={<ProtectedRoute requireAdmin><CsvImport /></ProtectedRoute>} />
+          <Route path="/admin/leads-reprocess" element={<ProtectedRoute requireManager><LeadsReprocess /></ProtectedRoute>} />
 
           {/* Agenciamento (Negotiations) - Connected to 3D solar system planet button */}
           <Route path="/agenciamento" element={<ProtectedRoute><Agenciamento /></ProtectedRoute>} />
