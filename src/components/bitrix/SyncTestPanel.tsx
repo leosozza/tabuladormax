@@ -17,36 +17,85 @@ export function SyncTestPanel() {
   const [result, setResult] = useState<any>(null);
   const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
   const [listItemsMap, setListItemsMap] = useState<Record<string, Record<string, string>>>({});
+  const [fieldTypes, setFieldTypes] = useState<Record<string, string>>({});
+  const [spaEntitiesMap, setSpaEntitiesMap] = useState<Record<number, Record<number, string>>>({});
 
   const loadBitrixFieldsCache = async () => {
     try {
-      const { data: bitrixFieldsCache } = await supabase
+      const { data: fields, error } = await supabase
         .from('bitrix_fields_cache')
-        .select('field_id, field_title, list_items');
+        .select('field_id, display_name, list_items, field_type');
 
-      // Criar mapas para lookup rápido
+      if (error) {
+        console.error('Erro ao carregar cache de campos Bitrix:', error);
+        return;
+      }
+
+      // Mapear field_id -> display_name
       const labels: Record<string, string> = {};
       const items: Record<string, Record<string, string>> = {};
+      const types: Record<string, string> = {};
 
-      bitrixFieldsCache?.forEach((field: any) => {
-        // Mapa: field_id -> field_title
-        if (field.field_title) {
-          labels[field.field_id] = field.field_title;
+      for (const field of fields || []) {
+        labels[field.field_id] = field.display_name || field.field_id;
+        types[field.field_id] = field.field_type || 'string';
+
+        // Se tem list_items, criar mapa ID -> VALUE
+        if (field.list_items) {
+          const listItems = typeof field.list_items === 'string'
+            ? JSON.parse(field.list_items)
+            : field.list_items;
+
+          if (Array.isArray(listItems)) {
+            const itemMap: Record<string, string> = {};
+            for (const item of listItems) {
+              if (item.ID && item.VALUE) {
+                itemMap[String(item.ID)] = String(item.VALUE);
+              } else if (item.ID && item.NAME) {
+                itemMap[String(item.ID)] = String(item.NAME);
+              }
+            }
+            if (Object.keys(itemMap).length > 0) {
+              items[field.field_id] = itemMap;
+            }
+          }
         }
-        
-        // Mapa: field_id -> { itemId -> itemLabel }
-        if (field.list_items && Array.isArray(field.list_items)) {
-          items[field.field_id] = {};
-          field.list_items.forEach((item: any) => {
-            items[field.field_id][String(item.ID)] = item.VALUE;
-          });
-        }
-      });
+      }
 
       setFieldLabels(labels);
       setListItemsMap(items);
+      setFieldTypes(types);
+
+      // Carregar entidades SPA
+      await loadSpaEntities();
     } catch (error) {
-      console.error('Erro ao carregar cache de campos:', error);
+      console.error('Erro ao processar cache de campos:', error);
+    }
+  };
+
+  const loadSpaEntities = async () => {
+    try {
+      const { data: entities, error } = await supabase
+        .from('bitrix_spa_entities')
+        .select('entity_type_id, bitrix_item_id, title');
+
+      if (error) {
+        console.error('Erro ao carregar entidades SPA:', error);
+        return;
+      }
+
+      // Mapear entity_type_id -> { bitrix_item_id -> title }
+      const spaMap: Record<number, Record<number, string>> = {};
+      for (const entity of entities || []) {
+        if (!spaMap[entity.entity_type_id]) {
+          spaMap[entity.entity_type_id] = {};
+        }
+        spaMap[entity.entity_type_id][entity.bitrix_item_id] = entity.title;
+      }
+
+      setSpaEntitiesMap(spaMap);
+    } catch (error) {
+      console.error('Erro ao processar entidades SPA:', error);
     }
   };
 
@@ -59,10 +108,38 @@ export function SyncTestPanel() {
     return fieldLabels[fieldId] || fieldId;
   };
 
-  // Resolver valor da lista (suporta enums simples e múltiplas)
-  const resolveListValue = (fieldId: string, value: any): string => {
+  // Resolver valor com suporte para enums, money, arrays de strings e entidades SPA
+  const resolveListValue = (fieldId: string, value: any, fieldType?: string): string => {
     if (value === null || value === undefined || value === '') return '—';
-    
+
+    const actualFieldType = fieldType || fieldTypes[fieldId];
+
+    // TRATAMENTO ESPECIAL: campo money (ex.: "6|BRL" -> "6")
+    if (actualFieldType === 'money' && typeof value === 'string' && value.includes('|')) {
+      const [amount] = value.split('|');
+      return amount.trim();
+    }
+
+    // TRATAMENTO ESPECIAL: arrays de strings (ex.: ["Miguel ","Rafael "] -> "Miguel, Rafael")
+    if (Array.isArray(value) && value.every((v: any) => typeof v === 'string')) {
+      const trimmedValues = value.map((v: string) => v.trim()).filter(Boolean);
+      if (trimmedValues.length > 0) {
+        return trimmedValues.join(', ');
+      }
+    }
+
+    // TRATAMENTO ESPECIAL: campos PARENT_ID_* (entidades SPA)
+    if (fieldId.startsWith('PARENT_ID_')) {
+      const entityTypeId = parseInt(fieldId.replace('PARENT_ID_', ''));
+      const itemId = typeof value === 'object' ? value.id || value.ID : parseInt(String(value));
+      
+      if (spaEntitiesMap[entityTypeId] && spaEntitiesMap[entityTypeId][itemId]) {
+        return spaEntitiesMap[entityTypeId][itemId];
+      }
+      // Se não encontrou no cache, retorna o ID
+      return `ID: ${itemId}`;
+    }
+
     const itemsForField = listItemsMap[fieldId];
     
     // Se não temos lista para esse campo, só devolve o valor em string
@@ -245,15 +322,14 @@ export function SyncTestPanel() {
                             <div className="flex flex-col gap-0.5 flex-1">
                               <span className="text-sm text-foreground font-medium">
                                 {direction === 'bitrix_to_supabase'
-                                  ? resolveListValue(mapping.bitrix_field, mapping.value)
-                                  : resolveListValue(mapping.bitrix_field, mapping.value)}
+                                  ? resolveListValue(mapping.bitrix_field, mapping.value, fieldTypes[mapping.bitrix_field])
+                                  : resolveListValue(mapping.bitrix_field, mapping.value, fieldTypes[mapping.bitrix_field])}
                               </span>
-                              {/* Mostrar ID técnico se for valor de lista */}
+                              {/* Mostrar ID técnico se for valor de lista ou SPA */}
                               {direction === 'bitrix_to_supabase' && 
-                               listItemsMap[mapping.bitrix_field] && 
-                               listItemsMap[mapping.bitrix_field][String(mapping.value)] && (
+                               (listItemsMap[mapping.bitrix_field] || mapping.bitrix_field.startsWith('PARENT_ID_')) && (
                                 <span className="text-[9px] text-muted-foreground/40 font-mono">
-                                  (ID: {mapping.value})
+                                  (ID bruto: {typeof mapping.value === 'object' ? JSON.stringify(mapping.value) : String(mapping.value)})
                                 </span>
                               )}
                             </div>

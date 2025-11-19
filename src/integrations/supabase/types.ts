@@ -284,6 +284,33 @@ export type Database = {
         }
         Relationships: []
       }
+      bitrix_spa_entities: {
+        Row: {
+          bitrix_item_id: number
+          cached_at: string | null
+          entity_type_id: number
+          id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          bitrix_item_id: number
+          cached_at?: string | null
+          entity_type_id: number
+          id?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          bitrix_item_id?: number
+          cached_at?: string | null
+          entity_type_id?: number
+          id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       bitrix_sync_config: {
         Row: {
           active: boolean | null

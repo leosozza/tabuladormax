@@ -121,6 +121,29 @@ export default function BitrixIntegration() {
     }
   };
 
+  const handleSyncSpaEntities = async () => {
+    try {
+      setRefreshing(true);
+      toast.info('Sincronizando entidades SPA (Scouters, Projetos, Telemarketing)...');
+      
+      const { data, error } = await supabase.functions.invoke('sync-bitrix-spa-entities');
+      
+      if (error) throw error;
+      
+      toast.success(data?.message || 'Entidades SPA sincronizadas com sucesso');
+      
+      if (data?.errors && data.errors.length > 0) {
+        console.warn('Erros na sincronização:', data.errors);
+        toast.warning(`${data.errors.length} erro(s) encontrado(s). Verifique o console.`);
+      }
+    } catch (error) {
+      console.error('Erro ao sincronizar entidades SPA:', error);
+      toast.error('Erro ao sincronizar entidades SPA');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <AdminPageLayout
       title="Central de Integração Bitrix ↔ Supabase"
@@ -144,6 +167,15 @@ export default function BitrixIntegration() {
           >
             <Download className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             Atualizar Campos Bitrix
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSyncSpaEntities}
+            disabled={refreshing}
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            Sincronizar SPAs
           </Button>
           <Button
             variant="outline"
