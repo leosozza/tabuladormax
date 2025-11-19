@@ -910,6 +910,7 @@ export type Database = {
           age: number | null
           analisado_por: string | null
           bitrix_telemarketing_id: number | null
+          bitrix_telemarketing_name: string | null
           cadastro_existe_foto: boolean | null
           celular: string | null
           commercial_project_id: string | null
@@ -943,6 +944,7 @@ export type Database = {
           op_telemarketing: string | null
           photo_url: string | null
           presenca_confirmada: boolean | null
+          projeto_comercial: string | null
           qualidade_lead: string | null
           raw: Json | null
           responsible: string | null
@@ -963,6 +965,7 @@ export type Database = {
           age?: number | null
           analisado_por?: string | null
           bitrix_telemarketing_id?: number | null
+          bitrix_telemarketing_name?: string | null
           cadastro_existe_foto?: boolean | null
           celular?: string | null
           commercial_project_id?: string | null
@@ -996,6 +999,7 @@ export type Database = {
           op_telemarketing?: string | null
           photo_url?: string | null
           presenca_confirmada?: boolean | null
+          projeto_comercial?: string | null
           qualidade_lead?: string | null
           raw?: Json | null
           responsible?: string | null
@@ -1016,6 +1020,7 @@ export type Database = {
           age?: number | null
           analisado_por?: string | null
           bitrix_telemarketing_id?: number | null
+          bitrix_telemarketing_name?: string | null
           cadastro_existe_foto?: boolean | null
           celular?: string | null
           commercial_project_id?: string | null
@@ -1049,6 +1054,7 @@ export type Database = {
           op_telemarketing?: string | null
           photo_url?: string | null
           presenca_confirmada?: boolean | null
+          projeto_comercial?: string | null
           qualidade_lead?: string | null
           raw?: Json | null
           responsible?: string | null
