@@ -24,17 +24,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Buscar lead do Supabase
-    const { data: lead, error: leadError } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('id', leadId)
-      .single();
-
-    if (leadError || !lead) {
-      throw new Error(`Lead ${leadId} não encontrado no Supabase`);
-    }
-
     // Buscar mapeamentos ativos
     const { data: mappings, error: mappingsError } = await supabase
       .from('unified_field_config')
@@ -53,6 +42,16 @@ serve(async (req) => {
     let appliedMappings: any[] = [];
 
     if (direction === 'supabase_to_bitrix') {
+      // Para esta direção, o lead DEVE existir no Supabase
+      const { data: lead, error: leadError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', leadId)
+        .single();
+
+      if (leadError || !lead) {
+        throw new Error(`Lead ${leadId} não encontrado no Supabase`);
+      }
       // Preview de Supabase → Bitrix
       previewData.bitrixPayload = {
         id: lead.id,
