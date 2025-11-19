@@ -24,6 +24,8 @@ interface PreviewItem {
 export function MappingPreview({ tableName, direction }: MappingPreviewProps) {
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<PreviewItem[]>([]);
+  const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
+  const [listItemsMap, setListItemsMap] = useState<Record<string, Record<string, string>>>({});
   
   const loadPreview = async () => {
     setLoading(true);
@@ -43,12 +45,13 @@ export function MappingPreview({ tableName, direction }: MappingPreviewProps) {
         return;
       }
       
-      // Buscar mapeamentos ativos
+      // Buscar mapeamentos ativos do unified_field_config
       const { data: mappings, error: mappingsError } = await supabase
-        .from(tableName as any)
+        .from('unified_field_config')
         .select('*')
-        .eq('active', true)
-        .order('priority', { ascending: true });
+        .eq('sync_active', true)
+        .eq('is_hidden', false)
+        .order('sync_priority', { ascending: true });
       
       if (mappingsError) throw mappingsError;
       
@@ -57,6 +60,49 @@ export function MappingPreview({ tableName, direction }: MappingPreviewProps) {
         setPreview([]);
         return;
       }
+
+      // Buscar cache de campos Bitrix para labels
+      const { data: bitrixFieldsCache } = await supabase
+        .from('bitrix_fields_cache')
+        .select('field_id, field_title, list_items');
+
+      // Criar mapas para lookup rápido
+      const fieldLabelsMap: Record<string, string> = {};
+      const listItemsMapping: Record<string, Record<string, string>> = {};
+
+      bitrixFieldsCache?.forEach((field: any) => {
+        // Mapa: field_id -> field_title
+        if (field.field_title) {
+          fieldLabelsMap[field.field_id] = field.field_title;
+        }
+        
+        // Mapa: field_id -> { itemId -> itemLabel }
+        if (field.list_items && Array.isArray(field.list_items)) {
+          listItemsMapping[field.field_id] = {};
+          field.list_items.forEach((item: any) => {
+            listItemsMapping[field.field_id][String(item.ID)] = item.VALUE;
+          });
+        }
+      });
+
+      // Helper: Resolver nome do campo
+      const getFieldLabel = (fieldId: string): string => {
+        return fieldLabelsMap[fieldId] || fieldId;
+      };
+
+      // Helper: Resolver valor da lista
+      const resolveListValue = (fieldId: string, value: any): string => {
+        if (value === null || value === undefined) return '—';
+        
+        // Se o campo tem lista de items, tentar resolver
+        if (listItemsMapping[fieldId]) {
+          const label = listItemsMapping[fieldId][String(value)];
+          if (label) return label;
+        }
+        
+        // Senão, retornar o valor original
+        return String(value);
+      };
       
       // Simular transformação
       const previewItems: PreviewItem[] = leads.map(lead => {
@@ -70,8 +116,8 @@ export function MappingPreview({ tableName, direction }: MappingPreviewProps) {
           const rawData = lead.raw || {};
           
           mappings?.forEach((mapping: any) => {
-            const bitrixValue = rawData[mapping.bitrix_field || mapping.source_field];
-            source[mapping.bitrix_field || mapping.source_field] = bitrixValue;
+            const bitrixValue = rawData[mapping.bitrix_field];
+            source[mapping.bitrix_field] = bitrixValue;
             
             let transformedValue = bitrixValue;
             
@@ -104,23 +150,26 @@ export function MappingPreview({ tableName, direction }: MappingPreviewProps) {
               }
             }
             
-            target[mapping.tabuladormax_field || mapping.target_field] = transformedValue;
+            target[mapping.supabase_field] = transformedValue;
             
-            // Verificar compatibilidade de tipos
-            if (bitrixValue && mapping.bitrix_field_type && mapping.tabuladormax_field_type) {
-              if (mapping.bitrix_field_type !== mapping.tabuladormax_field_type && !mapping.transform_function) {
-                warnings.push(
-                  `Tipos incompatíveis sem transformação: ${mapping.bitrix_field} (${mapping.bitrix_field_type}) → ${mapping.tabuladormax_field} (${mapping.tabuladormax_field_type})`
-                );
+            // Validação de tipo
+            const expectedType = mapping.supabase_type;
+            if (expectedType && transformedValue !== null && transformedValue !== undefined) {
+              const actualType = typeof transformedValue;
+              if (
+                (expectedType === 'integer' && actualType !== 'number') ||
+                (expectedType === 'text' && actualType !== 'string') ||
+                (expectedType === 'boolean' && actualType !== 'boolean')
+              ) {
+                warnings.push(`Incompatibilidade de tipo: ${mapping.supabase_field} espera ${expectedType}, mas recebeu ${actualType}`);
               }
             }
           });
         } else {
           // Simular Supabase → Bitrix
           mappings?.forEach((mapping: any) => {
-            const field = mapping.tabuladormax_field || mapping.target_field;
-            const supabaseValue = (lead as any)[field];
-            source[field] = supabaseValue;
+            const supabaseValue = lead[mapping.supabase_field];
+            source[mapping.supabase_field] = supabaseValue;
             
             let transformedValue = supabaseValue;
             
@@ -143,17 +192,19 @@ export function MappingPreview({ tableName, direction }: MappingPreviewProps) {
                     break;
                 }
               } catch (e) {
-                errors.push(`Erro ao transformar ${mapping.tabuladormax_field}: ${e}`);
+                errors.push(`Erro ao transformar ${mapping.supabase_field}: ${e}`);
               }
             }
             
-            target[mapping.bitrix_field || mapping.source_field] = transformedValue;
+            target[mapping.bitrix_field] = transformedValue;
           });
         }
         
         return { source, target, warnings, errors };
       });
       
+      setFieldLabels(fieldLabelsMap);
+      setListItemsMap(listItemsMapping);
       setPreview(previewItems);
     } catch (error) {
       console.error('Erro ao gerar preview:', error);
@@ -233,12 +284,35 @@ export function MappingPreview({ tableName, direction }: MappingPreviewProps) {
                         <div className="text-xs font-medium mb-2 text-muted-foreground">Origem</div>
                         <div className="space-y-1">
                           {Object.entries(item.source).slice(0, 5).map(([key, value]) => (
-                            <div key={key} className="text-xs">
-                              <code className="text-xs bg-muted px-1 rounded">{key}</code>
-                              <span className="mx-1">:</span>
-                              <span className="text-muted-foreground">
-                                {value === null || value === undefined ? '—' : String(value).substring(0, 30)}
-                              </span>
+                            <div key={key} className="text-xs flex flex-col gap-0.5">
+                              {/* Label amigável do campo */}
+                              <div className="flex items-center gap-1">
+                                <code className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">
+                                  {direction === 'bitrix_to_supabase' ? fieldLabels[key] || key : key}
+                                </code>
+                                {direction === 'bitrix_to_supabase' && fieldLabels[key] && fieldLabels[key] !== key && (
+                                  <span className="text-[9px] text-muted-foreground/50 font-mono">
+                                    ({key})
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {/* Valor resolvido */}
+                              <div className="flex items-start gap-1 pl-2 border-l-2 border-muted">
+                                <span className="text-xs text-muted-foreground font-medium">
+                                  {direction === 'bitrix_to_supabase' 
+                                    ? (listItemsMap[key] && listItemsMap[key][String(value)] 
+                                        ? listItemsMap[key][String(value)]
+                                        : (value === null || value === undefined ? '—' : String(value).substring(0, 50)))
+                                    : (value === null || value === undefined ? '—' : String(value).substring(0, 50))}
+                                </span>
+                                {/* Mostrar valor técnico se for diferente do label */}
+                                {direction === 'bitrix_to_supabase' && listItemsMap[key] && listItemsMap[key][String(value)] && (
+                                  <span className="text-[9px] text-muted-foreground/40 font-mono">
+                                    (ID: {value})
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -248,12 +322,25 @@ export function MappingPreview({ tableName, direction }: MappingPreviewProps) {
                         <div className="text-xs font-medium mb-2 text-muted-foreground">Destino</div>
                         <div className="space-y-1">
                           {Object.entries(item.target).slice(0, 5).map(([key, value]) => (
-                            <div key={key} className="text-xs">
-                              <code className="text-xs bg-muted px-1 rounded">{key}</code>
-                              <span className="mx-1">:</span>
-                              <span className="text-muted-foreground">
-                                {value === null || value === undefined ? '—' : String(value).substring(0, 30)}
-                              </span>
+                            <div key={key} className="text-xs flex flex-col gap-0.5">
+                              {/* Label amigável do campo Supabase/Bitrix */}
+                              <div className="flex items-center gap-1">
+                                <code className="text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded font-medium">
+                                  {direction === 'supabase_to_bitrix' ? fieldLabels[key] || key : key}
+                                </code>
+                                {direction === 'supabase_to_bitrix' && fieldLabels[key] && fieldLabels[key] !== key && (
+                                  <span className="text-[9px] text-muted-foreground/50 font-mono">
+                                    ({key})
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {/* Valor transformado */}
+                              <div className="flex items-start gap-1 pl-2 border-l-2 border-green-500/30">
+                                <span className="text-xs text-muted-foreground">
+                                  {value === null || value === undefined ? '—' : String(value).substring(0, 50)}
+                                </span>
+                              </div>
                             </div>
                           ))}
                         </div>
