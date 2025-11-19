@@ -54,13 +54,14 @@ interface BitrixField {
 
 interface FieldMapping {
   id: string;
-  bitrix_field: string;
-  tabuladormax_field: string;
+  supabase_field: string;
+  bitrix_field: string | null;
   bitrix_field_type: string | null;
-  tabuladormax_field_type: string | null;
+  supabase_type: string | null;
   transform_function: string | null;
-  active: boolean;
-  priority: number | null;
+  sync_active: boolean;
+  sync_priority: number | null;
+  is_hidden: boolean;
 }
 
 interface MergedFieldRow {
@@ -71,10 +72,11 @@ interface MergedFieldRow {
   bitrix_display_name: string | null;
   bitrix_field_type: string | null;
   transform_function: string | null;
-  active: boolean;
+  sync_active: boolean;
   mapping_id: string | null;
-  priority: number | null;
+  sync_priority: number | null;
   is_mapped: boolean;
+  is_hidden: boolean;
 }
 
 export function SupabaseBasedMappingTable() {
@@ -82,6 +84,7 @@ export function SupabaseBasedMappingTable() {
 
   const [search, setSearch] = useState("");
   const [showOnlyMapped, setShowOnlyMapped] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const [selectedMappings, setSelectedMappings] = useState<Set<string>>(new Set());
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -120,20 +123,19 @@ export function SupabaseBasedMappingTable() {
     data: mappings = [],
     isLoading: isLoadingMappings,
   } = useQuery({
-    queryKey: ["bitrix-field-mappings"],
+    queryKey: ["unified-field-config"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("bitrix_field_mappings")
+        .from("unified_field_config")
         .select("*")
-        .eq("active", true)
-        .order("priority");
+        .order("sync_priority");
       if (error) throw error;
       return data as FieldMapping[];
     },
   });
 
   const mergedRows: MergedFieldRow[] = supabaseFields.map((sf) => {
-    const mapping = mappings.find((m) => m.tabuladormax_field === sf.column_name);
+    const mapping = mappings.find((m) => m.supabase_field === sf.column_name);
     const bitrixField = mapping
       ? bitrixFields.find((bf) => bf.field_id === mapping.bitrix_field)
       : null;
@@ -146,10 +148,11 @@ export function SupabaseBasedMappingTable() {
       bitrix_display_name: bitrixField?.display_name || bitrixField?.field_title || null,
       bitrix_field_type: mapping?.bitrix_field_type || null,
       transform_function: mapping?.transform_function || null,
-      active: mapping?.active || false,
+      sync_active: mapping?.sync_active || false,
       mapping_id: mapping?.id || null,
-      priority: mapping?.priority || null,
+      sync_priority: mapping?.sync_priority || null,
       is_mapped: !!mapping,
+      is_hidden: mapping?.is_hidden || false,
     };
   });
 
@@ -271,7 +274,7 @@ export function SupabaseBasedMappingTable() {
   });
 
   const handleMapField = async (supabaseField: string, supabaseType: string, bitrixField: string) => {
-    const existingMapping = mappings.find((m) => m.tabuladormax_field === supabaseField);
+    const existingMapping = mappings.find((m) => m.supabase_field === supabaseField);
 
     if (!bitrixField || bitrixField === "__none__") {
       if (existingMapping) {
@@ -353,13 +356,13 @@ export function SupabaseBasedMappingTable() {
       return {
         id: mapping.id,
         bitrix_field: mapping.bitrix_field,
-        tabuladormax_field: mapping.tabuladormax_field,
+        supabase_field: mapping.supabase_field,
       };
     })
     .filter(Boolean) as Array<{
     id: string;
     bitrix_field: string;
-    tabuladormax_field: string;
+    supabase_field: string;
   }>;
 
   const usageInfoMap = new Map(

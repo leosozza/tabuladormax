@@ -30,15 +30,15 @@ Deno.serve(async (req) => {
 
     // 2. Buscar mapeamentos existentes
     const { data: existingMappings, error: mappingsError } = await supabase
-      .from('gestao_scouter_field_mappings')
-      .select('database_field');
+      .from('unified_field_config')
+      .select('supabase_field');
     
     if (mappingsError) {
       console.error('Erro ao buscar mapeamentos:', mappingsError);
       throw mappingsError;
     }
 
-    const existingFields = new Set(existingMappings?.map(m => m.database_field) || []);
+    const existingFields = new Set(existingMappings?.map(m => m.supabase_field) || []);
     console.log(`✅ Já existem ${existingFields.size} campos mapeados`);
 
     // 3. Detectar novos campos
@@ -50,30 +50,35 @@ Deno.serve(async (req) => {
 
     // 4. Adicionar novos campos com configurações padrão
     if (newFields.length > 0) {
-      // Buscar o maior priority atual
+      // Buscar o maior ui_priority atual
       const { data: lastMapping } = await supabase
-        .from('gestao_scouter_field_mappings')
-        .select('priority')
-        .order('priority', { ascending: false })
+        .from('unified_field_config')
+        .select('ui_priority')
+        .order('ui_priority', { ascending: false })
         .limit(1)
         .single();
 
-      const startPriority = (lastMapping?.priority || 0) + 1;
+      const startPriority = (lastMapping?.ui_priority || 0) + 1;
 
       const newMappings = newFields.map((field: any, index: number) => ({
-        database_field: field.column_name,
+        supabase_field: field.column_name,
+        supabase_type: field.data_type,
+        is_nullable: field.is_nullable,
         display_name: formatFieldName(field.column_name),
         field_type: mapPostgresTypeToFieldType(field.data_type),
         category: detectCategory(field.column_name),
         default_visible: false,
         sortable: true,
-        priority: startPriority + index,
-        active: true,
+        ui_priority: startPriority + index,
+        ui_active: true,
+        sync_active: false,
+        sync_priority: 0,
+        is_hidden: false,
         formatter_function: getDefaultFormatter(field.data_type)
       }));
 
       const { error: insertError } = await supabase
-        .from('gestao_scouter_field_mappings')
+        .from('unified_field_config')
         .insert(newMappings);
       
       if (insertError) {
