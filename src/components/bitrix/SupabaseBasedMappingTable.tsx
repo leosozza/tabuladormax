@@ -226,7 +226,7 @@ export function SupabaseBasedMappingTable() {
   const handleMapField = async (supabaseField: string, supabaseType: string, bitrixField: string) => {
     const existingMapping = mappings.find((m) => m.tabuladormax_field === supabaseField);
 
-    if (!bitrixField) {
+    if (!bitrixField || bitrixField === '__none__') {
       // Desmapear: desativar
       if (existingMapping) {
         deactivateMappingMutation.mutate(existingMapping.id);
@@ -349,7 +349,7 @@ export function SupabaseBasedMappingTable() {
                   {/* Bitrix Field Select */}
                   <TableCell>
                     <Select
-                      value={row.bitrix_field || ''}
+                      value={row.bitrix_field || '__none__'}
                       onValueChange={(value) =>
                         handleMapField(row.supabase_field, row.supabase_type, value)
                       }
@@ -358,7 +358,7 @@ export function SupabaseBasedMappingTable() {
                         <SelectValue placeholder="Selecione um campo Bitrix..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Nenhum</SelectItem>
+                        <SelectItem value="__none__">Nenhum</SelectItem>
                         {bitrixFields.map((bf) => (
                           <SelectItem key={bf.field_id} value={bf.field_id}>
                             <div className="flex flex-col">
