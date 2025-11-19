@@ -32,6 +32,8 @@ import LeadResync from "./pages/admin/LeadResync";
 import CsvImport from "./pages/admin/CsvImport";
 import LeadsReprocess from "./pages/admin/LeadsReprocess";
 
+import FieldManagement from "./pages/admin/FieldManagement";
+
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
 import GestaoLeads from "./pages/gestao/Leads";
@@ -41,7 +43,6 @@ import GestaoPagamentos from "./pages/gestao/Pagamentos";
 import GestaoArea from "./pages/gestao/AreaDeAbordagem";
 import GestaoAnaliseLeads from "./pages/gestao/AnaliseLeads";
 import GestaoRelatorios from "./pages/gestao/Relatorios";
-import GestaoConfigurarCampos from "./pages/gestao/ConfigurarCampos";
 
 import Install from "./pages/Install";
 
@@ -99,6 +100,7 @@ const App = () => (
           <Route path="/admin/lead-resync" element={<ProtectedRoute requireManager><LeadResync /></ProtectedRoute>} />
           <Route path="/admin/csv-import" element={<ProtectedRoute requireAdmin><CsvImport /></ProtectedRoute>} />
           <Route path="/admin/leads-reprocess" element={<ProtectedRoute requireManager><LeadsReprocess /></ProtectedRoute>} />
+          <Route path="/admin/field-management" element={<ProtectedRoute requireManager><FieldManagement /></ProtectedRoute>} />
 
           {/* Agenciamento (Negotiations) - Connected to 3D solar system planet button */}
           <Route path="/agenciamento" element={<ProtectedRoute><Agenciamento /></ProtectedRoute>} />
@@ -118,7 +120,6 @@ const App = () => (
           <Route path="/scouter/pagamentos" element={<ProtectedRoute><GestaoPagamentos /></ProtectedRoute>} />
           <Route path="/scouter/area" element={<ProtectedRoute><GestaoArea /></ProtectedRoute>} />
           <Route path="/scouter/relatorios" element={<ProtectedRoute><GestaoRelatorios /></ProtectedRoute>} />
-          <Route path="/scouter/configurar-campos" element={<ProtectedRoute requireManager><GestaoConfigurarCampos /></ProtectedRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
