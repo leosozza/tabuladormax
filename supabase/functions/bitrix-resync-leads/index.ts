@@ -24,7 +24,6 @@ const parseBrazilianDate = (dateStr: string | null | undefined): string | null =
     if (matchFull) {
       const [, day, month, year, hour, minute, second] = matchFull;
       const isoDate = `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
-      console.log(`✅ Data brasileira parseada: "${dateStr}" → "${isoDate}"`);
       return isoDate;
     }
     
@@ -33,7 +32,6 @@ const parseBrazilianDate = (dateStr: string | null | undefined): string | null =
     if (matchDate) {
       const [, day, month, year] = matchDate;
       const isoDate = `${year}-${month}-${day}T00:00:00Z`;
-      console.log(`✅ Data brasileira parseada: "${dateStr}" → "${isoDate}"`);
       return isoDate;
     }
     
@@ -41,7 +39,6 @@ const parseBrazilianDate = (dateStr: string | null | undefined): string | null =
     const date = new Date(dateStr);
     if (!isNaN(date.getTime())) {
       const isoDate = date.toISOString();
-      console.log(`✅ Data ISO parseada: "${dateStr}" → "${isoDate}"`);
       return isoDate;
     }
     
@@ -120,26 +117,42 @@ async function createResyncJob(supabase: any, config: JobConfig, batchSize: numb
     query = query.is('responsible', null);
   }
 
-  const { count } = await query;
+  const { count, error: countError } = await query;
 
-  // Criar job com mapping_id
-  const { data: job, error } = await supabase
+  if (countError || count === null) {
+    console.error('Error counting leads:', countError);
+    return new Response(
+      JSON.stringify({ error: 'Failed to count leads' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Criar job
+  const { data: job, error: insertError } = await supabase
     .from('lead_resync_jobs')
     .insert({
+      total_leads: count,
+      batch_size: batchSize,
+      filter_criteria: config?.filters,
       status: 'pending',
-      total_leads: count || 0,
-      filter_criteria: config?.filters || {},
-      batch_size: batchSize || 50,
-      mapping_id: mappingId || null,
-      created_by: userId
+      created_by: userId,
+      mapping_id: mappingId
     })
     .select()
     .single();
 
-  if (error) throw error;
+  if (insertError || !job) {
+    console.error('Error creating job:', insertError);
+    return new Response(
+      JSON.stringify({ error: 'Failed to create job' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 
   // Iniciar processamento em background
-  processBatch(supabase, job.id).catch(console.error);
+  processBatch(supabase, job.id).catch(err => {
+    console.error('[createResyncJob] Background processing error:', err);
+  });
 
   return new Response(
     JSON.stringify({ success: true, job }),
@@ -148,9 +161,6 @@ async function createResyncJob(supabase: any, config: JobConfig, batchSize: numb
 }
 
 async function processBatch(supabase: any, jobId: string) {
-  console.log(`[processBatch] Starting batch processing for job ${jobId}`);
-  
-  // Buscar job inicial
   const { data: initialJob, error: jobError } = await supabase
     .from('lead_resync_jobs')
     .select('*')
@@ -176,14 +186,25 @@ async function processBatch(supabase: any, jobId: string) {
   let totalUpdated = initialJob.updated_leads || 0;
   let totalSkipped = initialJob.skipped_leads || 0;
   let totalErrors = initialJob.error_leads || 0;
-  let currentBatch = initialJob.current_batch || 0;
-  let lastProcessedId = initialJob.last_processed_lead_id || 0;
-  let errorDetails: any[] = initialJob.error_details || [];
+  const errorDetails: any[] = [];
+  let lastProcessedId = Number.MAX_SAFE_INTEGER; // Começar do maior ID (mais recente)
+  let currentBatch = 0;
+  const jobStartTime = Date.now();
+
+  console.log(`
+    ╔════════════════════════════════════════════════════════════════
+    ║ [Job ${jobId}] INICIANDO RESINCRONIZAÇÃO
+    ╠════════════════════════════════════════════════════════════════
+    ║ Total de leads: ${initialJob.total_leads.toLocaleString()}
+    ║ Batch size: ${initialJob.batch_size}
+    ║ Mapeamento: ${initialJob.mapping_id || 'Padrão (bitrix_field_mappings)'}
+    ║ Filtros: ${JSON.stringify(initialJob.filter_criteria)}
+    ║ Ordem: ⬇️ MAIS RECENTE (ID maior) → MAIS ANTIGO (ID menor)
+    ╚════════════════════════════════════════════════════════════════
+  `);
 
   // Loop contínuo para processar todos os batches
   while (true) {
-    console.log(`[processBatch] Starting batch ${currentBatch + 1}, last ID: ${lastProcessedId}`);
-
     // Buscar job atualizado para verificar status
     const { data: currentJob } = await supabase
       .from('lead_resync_jobs')
@@ -201,192 +222,157 @@ async function processBatch(supabase: any, jobId: string) {
 
     const batchSize = currentJob.batch_size || 50;
     
-    // Buscar próximo lote de leads
-    let query = supabase
+    // Buscar próximo lote de leads (do maior para o menor ID)
+    let leadsQuery = supabase
       .from('leads')
-      .select('id')
-      .gt('id', lastProcessedId)
-      .order('id', { ascending: true })
+      .select('*')
+      .lt('id', lastProcessedId) // Processar leads com ID menor que o último (mais antigos)
+      .order('id', { ascending: false }) // Ordenar do maior para o menor (mais recente → antigo)
       .limit(batchSize);
 
     // Aplicar filtros se configurados
     if (currentJob.filter_criteria?.addressNull) {
-      query = query.is('address', null);
+      leadsQuery = leadsQuery.is('address', null);
     }
     if (currentJob.filter_criteria?.phoneNull) {
-      query = query.or('celular.is.null,telefone_casa.is.null,telefone_trabalho.is.null');
+      leadsQuery = leadsQuery.or('celular.is.null,telefone_casa.is.null,telefone_trabalho.is.null');
     }
     if (currentJob.filter_criteria?.valorNull) {
-      query = query.is('valor_ficha', null);
+      leadsQuery = leadsQuery.is('valor_ficha', null);
     }
     if (currentJob.filter_criteria?.responsibleNull) {
-      query = query.is('responsible', null);
+      leadsQuery = leadsQuery.is('responsible', null);
     }
 
-    const { data: leads, error: leadsError } = await query;
+    const { data: leads, error: fetchError } = await leadsQuery;
 
-    if (leadsError) {
-      console.error('Error fetching leads:', leadsError);
-      await supabase
-        .from('lead_resync_jobs')
-        .update({ 
-          status: 'failed', 
-          error_details: [...errorDetails, { error: leadsError.message, timestamp: new Date().toISOString() }]
-        })
-        .eq('id', jobId);
-
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch leads' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (fetchError) {
+      console.error('[processBatch] Error fetching leads:', fetchError);
+      throw fetchError;
     }
 
     if (!leads || leads.length === 0) {
-      // Completar job
-      console.log(`[processBatch] No more leads, completing job. Total processed: ${totalProcessed}`);
-      await supabase
-        .from('lead_resync_jobs')
-        .update({ 
-          status: 'completed', 
-          completed_at: new Date().toISOString(),
-          processed_leads: totalProcessed,
-          updated_leads: totalUpdated,
-          skipped_leads: totalSkipped,
-          error_leads: totalErrors,
-          current_batch: currentBatch,
-          error_details: errorDetails
-        })
-        .eq('id', jobId);
-
-      return new Response(
-        JSON.stringify({ success: true, message: 'Job completed', total_processed: totalProcessed }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.log('[processBatch] ✅ Nenhum lead restante para processar');
+      break;
     }
 
-    console.log(`[processBatch] Processing ${leads.length} leads in batch ${currentBatch + 1}`);
+    const batchProgress = ((totalProcessed / initialJob.total_leads) * 100).toFixed(1);
+    const elapsedTime = ((Date.now() - jobStartTime) / 1000).toFixed(1);
+    console.log(`
+      ┌─────────────────────────────────────────────────────────────
+      │ [Batch ${currentBatch + 1}] Progresso: ${batchProgress}%
+      ├─────────────────────────────────────────────────────────────
+      │ Leads neste batch: ${leads.length}
+      │ Processados: ${totalProcessed.toLocaleString()} / ${initialJob.total_leads.toLocaleString()}
+      │ Atualizados: ${totalUpdated.toLocaleString()}
+      │ Ignorados: ${totalSkipped.toLocaleString()}
+      │ Erros: ${totalErrors.toLocaleString()}
+      │ Last ID: ${lastProcessedId}
+      │ Tempo decorrido: ${elapsedTime}s
+      └─────────────────────────────────────────────────────────────
+    `);
 
-    // Buscar mapeamentos ativos (usar resync_field_mappings se mapping_id fornecido)
+    // Buscar mapeamentos
     let mappings;
     if (currentJob.mapping_id) {
-      // Usar mapeamentos específicos da resincronização
-      const { data } = await supabase
+      const { data: resyncMappings } = await supabase
         .from('resync_field_mappings')
         .select('*')
         .eq('mapping_name', currentJob.mapping_id)
-        .eq('active', true)
-        .order('priority', { ascending: false });
-      mappings = data;
+        .eq('active', true);
+      mappings = resyncMappings;
     } else {
-      // Fallback para mapeamentos bitrix_field_mappings
-      const { data } = await supabase
+      const { data: bitrixMappings } = await supabase
         .from('bitrix_field_mappings')
         .select('*')
-        .eq('active', true)
-        .order('priority', { ascending: false });
-      mappings = data;
+        .eq('active', true);
+      mappings = bitrixMappings;
     }
 
-    let batchUpdated = 0, batchSkipped = 0, batchErrors = 0;
+    if (!mappings || mappings.length === 0) {
+      console.warn('[processBatch] No active mappings found');
+    }
 
     // Processar cada lead
     for (const lead of leads) {
       try {
-        // Buscar dados no Bitrix
+        // Buscar dados do Bitrix
         const bitrixResponse = await fetch(
-          `${BITRIX_BASE_URL}/crm.lead.get.json?id=${lead.id}`
+          `${BITRIX_BASE_URL}/crm.lead.get.json?ID=${lead.id}`
         );
-
+        
         if (!bitrixResponse.ok) {
-          throw new Error(`Bitrix API returned ${bitrixResponse.status}`);
+          console.warn(`[processBatch] Bitrix API error for lead ${lead.id}: ${bitrixResponse.status}`);
+          totalErrors++;
+          totalProcessed++;
+          errorDetails.push({
+            lead_id: lead.id,
+            error: `Bitrix API error: ${bitrixResponse.status}`,
+            timestamp: new Date().toISOString(),
+            type: 'api_error',
+            batch: currentBatch + 1
+          });
+          continue;
         }
 
-        const bitrixData = await bitrixResponse.json();
-        
-        if (!bitrixData.result) {
-          throw new Error('No result from Bitrix');
-        }
+        const bitrixLead = await bitrixResponse.json();
 
-        const bitrixLead = bitrixData.result;
-
-        // Aplicar mapeamentos
-        let mappedData: any = {};
-        let hasUpdates = false;
-
-        // Campos UUID que precisam de validação especial
-        const uuidFields = ['responsible_user_id', 'commercial_project_id', 'analisado_por'];
-        
-        // Função auxiliar para validar UUID
-        const isValidUUID = (value: any): boolean => {
-          if (!value || typeof value !== 'string') return false;
-          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-          return uuidRegex.test(value);
-        };
-
-        for (const mapping of mappings || []) {
-          const sourceField = currentJob.mapping_id ? mapping.bitrix_field : mapping.bitrix_field;
-          const targetField = currentJob.mapping_id ? mapping.leads_column : mapping.tabuladormax_field;
-          const bitrixValue = bitrixLead[sourceField];
-          
-          if (!bitrixValue || bitrixValue === '') continue;
-
-          let transformedValue = bitrixValue;
-
-          // Transformações específicas
-          switch (targetField) {
-            case 'valor_ficha':
-              transformedValue = parseFloat(
-                String(bitrixValue).replace('R$', '').replace(',', '.').trim()
-              );
-              break;
-            
-            case 'ficha_confirmada':
-            case 'presenca_confirmada':
-            case 'cadastro_existe_foto':
-              transformedValue = bitrixValue !== 'Aguardando' && bitrixValue !== 'NAO';
-              break;
-            
-            case 'criado':
-            case 'date_modify':
-            case 'data_criacao_ficha':
-            case 'data_criacao_agendamento':
-            case 'data_confirmacao_ficha':
-            case 'data_retorno_ligacao':
-            case 'data_analise':
-            case 'compareceu':
-              transformedValue = parseBrazilianDate(bitrixValue);
-              if (!transformedValue) {
-                console.warn(`⚠️ Data inválida ignorada para ${targetField}: "${bitrixValue}"`);
-                continue;
-              }
-              break;
-            
-            case 'data_agendamento':
-              // data_agendamento é do tipo date (não timestamp), então extrair apenas yyyy-MM-dd
-              const parsedAgendamento = parseBrazilianDate(bitrixValue);
-              if (parsedAgendamento) {
-                transformedValue = parsedAgendamento.split('T')[0];
-                console.log(`✅ Data de agendamento parseada: "${bitrixValue}" → "${transformedValue}"`);
-              } else {
-                console.warn(`⚠️ Data de agendamento inválida ignorada: "${bitrixValue}"`);
-                continue;
-              }
-              break;
-          }
-
-          // Validação UUID
-          if (uuidFields.includes(targetField) && !isValidUUID(transformedValue)) {
-            console.warn(`⚠️ Ignorando valor não-UUID para ${targetField}: "${transformedValue}"`);
-            continue;
-          }
-
-          mappedData[targetField] = transformedValue;
-          hasUpdates = true;
-        }
-
-        if (!hasUpdates) {
-          batchSkipped++;
+        if (!bitrixLead.result) {
+          console.warn(`[processBatch] No result from Bitrix for lead ${lead.id}`);
           totalSkipped++;
+          totalProcessed++;
+          continue;
+        }
+
+        // Mapear campos do Bitrix para TabuladorMax
+        const mappedData: Record<string, any> = {};
+        const transformErrors: string[] = [];
+        
+        for (const mapping of mappings) {
+          try {
+            const bitrixValue = bitrixLead.result[mapping.bitrix_field];
+            
+            if (bitrixValue === null || bitrixValue === undefined || bitrixValue === '') {
+              continue;
+            }
+
+            let transformedValue = bitrixValue;
+
+            // Aplicar transformações
+            if (mapping.transform_function) {
+              try {
+                if (mapping.transform_function === 'toNumber') {
+                  transformedValue = parseFloat(String(bitrixValue).replace(',', '.'));
+                } else if (mapping.transform_function === 'toDate') {
+                  // Parsear data brasileira e extrair apenas yyyy-MM-dd
+                  const parsed = parseBrazilianDate(bitrixValue);
+                  transformedValue = parsed ? parsed.split('T')[0] : null;
+                } else if (mapping.transform_function === 'toTimestamp') {
+                  // Parsear timestamp brasileiro
+                  transformedValue = parseBrazilianDate(bitrixValue);
+                }
+              } catch (transformError) {
+                const errMsg = `Erro ao transformar ${mapping.bitrix_field}: ${transformError}`;
+                transformErrors.push(errMsg);
+                console.warn(`⚠️ ${errMsg}`);
+                continue;
+              }
+            }
+
+            if (transformedValue !== null && transformedValue !== undefined) {
+              mappedData[mapping.leads_column] = transformedValue;
+            }
+          } catch (fieldError) {
+            const errMsg = `Erro no campo ${mapping.bitrix_field}: ${fieldError}`;
+            transformErrors.push(errMsg);
+            console.warn(`⚠️ ${errMsg}`);
+          }
+        }
+
+        // Se não há dados para atualizar, pular
+        if (Object.keys(mappedData).length === 0) {
+          totalSkipped++;
+          totalProcessed++;
           continue;
         }
 
@@ -395,74 +381,77 @@ async function processBatch(supabase: any, jobId: string) {
           .from('leads')
           .update({
             ...mappedData,
-            sync_status: 'synced',
-            sync_source: 'bitrix_resync',
-            last_sync_at: new Date().toISOString()
+            last_sync_at: new Date().toISOString(),
+            sync_status: 'synced'
           })
           .eq('id', lead.id);
 
-        if (updateError) throw updateError;
-
-        batchUpdated++;
-        totalUpdated++;
-
-        // Log em sync_events
-        await supabase.from('sync_events').insert({
-          lead_id: lead.id,
-          event_type: 'resync',
-          direction: 'bitrix_to_tabuladormax',
-          status: 'success'
-        });
-
-      } catch (error) {
-        batchErrors++;
-        totalErrors++;
-        
-        // Logging detalhado de erros PostgreSQL
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const isPostgresError = errorMessage.includes('invalid input syntax') || 
-                               errorMessage.includes('violates') ||
-                               errorMessage.includes('constraint');
-        
-        if (isPostgresError) {
-          console.error(`❌ PostgreSQL Error para lead ${lead.id}:`, errorMessage);
+        if (updateError) {
+          console.error(`[processBatch] Error updating lead ${lead.id}:`, updateError);
+          totalErrors++;
           
-          // Adicionar detalhes do erro
+          const errorMessage = updateError.message || JSON.stringify(updateError);
+          const isPostgresError = errorMessage.includes('invalid input syntax');
+          
           errorDetails.push({
             lead_id: lead.id,
             error: errorMessage,
             timestamp: new Date().toISOString(),
-            type: 'database_error'
+            type: isPostgresError ? 'database_error' : 'api_error',
+            batch: currentBatch + 1,
+            field_data: mappedData ? JSON.stringify(mappedData).substring(0, 500) : null,
+            transform_errors: transformErrors.length > 0 ? transformErrors : null
+          });
+          
+          // Manter apenas os últimos 100 erros para não sobrecarregar o banco
+          if (errorDetails.length > 100) {
+            errorDetails.splice(0, errorDetails.length - 100);
+          }
+
+          // Log do evento de sync com erro
+          await supabase.from('sync_events').insert({
+            lead_id: lead.id,
+            event_type: 'resync',
+            direction: 'bitrix_to_supabase',
+            status: 'error',
+            error_message: errorMessage
           });
         } else {
-          console.error(`Error processing lead ${lead.id}:`, error);
+          totalUpdated++;
           
-          errorDetails.push({
+          // Log do evento de sync com sucesso
+          await supabase.from('sync_events').insert({
             lead_id: lead.id,
-            error: errorMessage,
-            timestamp: new Date().toISOString()
+            event_type: 'resync',
+            direction: 'bitrix_to_supabase',
+            status: 'success'
           });
         }
 
-        // Log em sync_events
-        await supabase.from('sync_events').insert({
+        totalProcessed++;
+      } catch (error) {
+        console.error(`[processBatch] Error processing lead ${lead.id}:`, error);
+        totalErrors++;
+        totalProcessed++;
+        
+        errorDetails.push({
           lead_id: lead.id,
-          event_type: 'resync',
-          direction: 'bitrix_to_tabuladormax',
-          status: 'error',
-          error_message: errorMessage
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString(),
+          type: 'processing_error',
+          batch: currentBatch + 1
         });
+        
+        if (errorDetails.length > 100) {
+          errorDetails.splice(0, errorDetails.length - 100);
+        }
       }
-
-      // Atualizar last_processed_lead_id
-      lastProcessedId = lead.id;
     }
 
-    // Incrementar contador de batch e total processado
+    // Atualizar último lead processado e progresso
+    lastProcessedId = leads[leads.length - 1].id;
     currentBatch++;
-    totalProcessed += leads.length;
 
-    // Atualizar job com progresso atual
     await supabase
       .from('lead_resync_jobs')
       .update({
@@ -470,26 +459,44 @@ async function processBatch(supabase: any, jobId: string) {
         updated_leads: totalUpdated,
         skipped_leads: totalSkipped,
         error_leads: totalErrors,
-        current_batch: currentBatch,
         last_processed_lead_id: lastProcessedId,
-        error_details: errorDetails
+        current_batch: currentBatch,
+        error_details: errorDetails,
+        updated_at: new Date().toISOString()
       })
       .eq('id', jobId);
-
-    console.log(`[processBatch] Batch ${currentBatch} completed: ${batchUpdated} updated, ${batchSkipped} skipped, ${batchErrors} errors`);
   }
+
+  // Completar job
+  console.log(`✅ [Job ${jobId}] COMPLETO - Total processado: ${totalProcessed}, Atualizados: ${totalUpdated}, Erros: ${totalErrors}`);
+  
+  await supabase
+    .from('lead_resync_jobs')
+    .update({
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      processed_leads: totalProcessed,
+      updated_leads: totalUpdated,
+      skipped_leads: totalSkipped,
+      error_leads: totalErrors,
+      error_details: errorDetails
+    })
+    .eq('id', jobId);
+
+  return new Response(
+    JSON.stringify({ success: true, processed: totalProcessed }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 async function pauseJob(supabase: any, jobId: string) {
-  const { error } = await supabase
+  await supabase
     .from('lead_resync_jobs')
     .update({ 
       status: 'paused',
       paused_at: new Date().toISOString()
     })
     .eq('id', jobId);
-
-  if (error) throw error;
 
   return new Response(
     JSON.stringify({ success: true }),
@@ -498,7 +505,7 @@ async function pauseJob(supabase: any, jobId: string) {
 }
 
 async function resumeJob(supabase: any, jobId: string) {
-  const { error } = await supabase
+  await supabase
     .from('lead_resync_jobs')
     .update({ 
       status: 'running',
@@ -506,10 +513,10 @@ async function resumeJob(supabase: any, jobId: string) {
     })
     .eq('id', jobId);
 
-  if (error) throw error;
-
   // Reiniciar processamento
-  processBatch(supabase, jobId).catch(console.error);
+  processBatch(supabase, jobId).catch(err => {
+    console.error('[resumeJob] Error:', err);
+  });
 
   return new Response(
     JSON.stringify({ success: true }),
@@ -518,26 +525,13 @@ async function resumeJob(supabase: any, jobId: string) {
 }
 
 async function cancelJob(supabase: any, jobId: string) {
-  const { data: job } = await supabase
-    .from('lead_resync_jobs')
-    .select('status')
-    .eq('id', jobId)
-    .single();
-
-  if (!job || job.status === 'completed' || job.status === 'cancelled') {
-    throw new Error('Job cannot be cancelled');
-  }
-
-  const { error } = await supabase
+  await supabase
     .from('lead_resync_jobs')
     .update({ 
       status: 'cancelled',
-      cancelled_at: new Date().toISOString(),
-      cancellation_reason: 'Cancelled by user'
+      cancelled_at: new Date().toISOString()
     })
     .eq('id', jobId);
-
-  if (error) throw error;
 
   return new Response(
     JSON.stringify({ success: true }),
@@ -546,26 +540,24 @@ async function cancelJob(supabase: any, jobId: string) {
 }
 
 async function deleteJob(supabase: any, jobId: string) {
+  // Só permitir deletar jobs que não estão rodando
   const { data: job } = await supabase
     .from('lead_resync_jobs')
     .select('status')
     .eq('id', jobId)
     .single();
 
-  if (!job) {
-    throw new Error('Job not found');
+  if (job && ['running', 'pending'].includes(job.status)) {
+    return new Response(
+      JSON.stringify({ error: 'Cannot delete running or pending job' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
-  if (job.status === 'running' || job.status === 'pending') {
-    throw new Error('Cannot delete running or pending job');
-  }
-
-  const { error } = await supabase
+  await supabase
     .from('lead_resync_jobs')
     .delete()
     .eq('id', jobId);
-
-  if (error) throw error;
 
   return new Response(
     JSON.stringify({ success: true }),
@@ -576,9 +568,16 @@ async function deleteJob(supabase: any, jobId: string) {
 async function getUserIdFromToken(supabase: any, authHeader: string): Promise<string | null> {
   try {
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user } } = await supabase.auth.getUser(token);
-    return user?.id || null;
-  } catch {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      console.error('Error getting user from token:', error);
+      return null;
+    }
+    
+    return user.id;
+  } catch (error) {
+    console.error('Error parsing auth token:', error);
     return null;
   }
 }
