@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useLeadResyncJobs, JobFilters } from '@/hooks/useLeadResyncJobs';
 import { useResyncFieldMappings } from '@/hooks/useResyncFieldMappings';
 import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
-import { Play, Pause, RefreshCw, Loader2, CheckCircle2, XCircle, Clock, Check, AlertCircle, Ban, Trash2 } from 'lucide-react';
+import { ResyncFieldMappingDialog } from '@/components/resync/ResyncFieldMappingDialog';
+import { Play, Pause, RefreshCw, Loader2, CheckCircle2, XCircle, Clock, Check, AlertCircle, Ban, Trash2, Settings } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -30,6 +31,7 @@ export default function LeadResync() {
   const [batchSize, setBatchSize] = useState(50);
   const [selectedMappingName, setSelectedMappingName] = useState<string>('');
   const [selectedMappingId, setSelectedMappingId] = useState<string | undefined>(undefined);
+  const [showMappingDialog, setShowMappingDialog] = useState(false);
 
   const activeJob = jobs.find(j => j.status === 'running' || j.status === 'paused');
   const completedJobs = jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status));
@@ -374,6 +376,17 @@ export default function LeadResync() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog de mapeamento */}
+      <ResyncFieldMappingDialog
+        open={showMappingDialog}
+        onOpenChange={setShowMappingDialog}
+        currentMappingName={selectedMappingName || undefined}
+        onMappingSelected={(name, id) => {
+          setSelectedMappingName(name);
+          setSelectedMappingId(id);
+        }}
+      />
     </AdminPageLayout>
   );
 }
