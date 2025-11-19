@@ -90,7 +90,7 @@ export function SyncTestPanel() {
         if (!spaMap[entity.entity_type_id]) {
           spaMap[entity.entity_type_id] = {};
         }
-        spaMap[entity.entity_type_id][entity.bitrix_item_id] = entity.title;
+        spaMap[entity.entity_type_id][entity.bitrix_item_id] = entity.title.trim();
       }
 
       setSpaEntitiesMap(spaMap);
