@@ -671,6 +671,75 @@ export type Database = {
         }
         Relationships: []
       }
+      field_mappings: {
+        Row: {
+          active: boolean | null
+          bitrix_display_name: string | null
+          bitrix_field: string | null
+          bitrix_field_type: string | null
+          category: string
+          created_at: string | null
+          created_by: string | null
+          default_visible: boolean | null
+          display_name: string
+          field_type: string
+          formatter_function: string | null
+          id: string
+          notes: string | null
+          priority: number | null
+          sortable: boolean | null
+          supabase_field: string
+          supabase_field_type: string | null
+          transform_function: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          bitrix_display_name?: string | null
+          bitrix_field?: string | null
+          bitrix_field_type?: string | null
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          default_visible?: boolean | null
+          display_name: string
+          field_type?: string
+          formatter_function?: string | null
+          id?: string
+          notes?: string | null
+          priority?: number | null
+          sortable?: boolean | null
+          supabase_field: string
+          supabase_field_type?: string | null
+          transform_function?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          bitrix_display_name?: string | null
+          bitrix_field?: string | null
+          bitrix_field_type?: string | null
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          default_visible?: boolean | null
+          display_name?: string
+          field_type?: string
+          formatter_function?: string | null
+          id?: string
+          notes?: string | null
+          priority?: number | null
+          sortable?: boolean | null
+          supabase_field?: string
+          supabase_field_type?: string | null
+          transform_function?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       gestao_scouter_field_mappings: {
         Row: {
           active: boolean | null

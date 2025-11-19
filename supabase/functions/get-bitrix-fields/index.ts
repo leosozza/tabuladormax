@@ -56,37 +56,50 @@ serve(async (req) => {
 
     console.log(`✅ ${Object.keys(data.result).length} campos encontrados no Bitrix`);
 
-    // Processar e cachear campos com extração inteligente de títulos
-    const extractTitle = (fieldId: string, fieldData: any): string => {
-      // Tentar múltiplas fontes de título
-      const title = fieldData.title 
-        || fieldData.formLabel 
-        || fieldData.listLabel 
-        || fieldData.editLabel
-        || fieldData.settings?.TITLE;
+    // Formatar fieldId de forma legível
+    const formatFieldId = (fieldId: string): string => {
+      if (fieldId.startsWith('UF_CRM_')) {
+        const number = fieldId.replace('UF_CRM_', '');
+        return `Campo ${number.substring(0, 8)}`;
+      }
+      if (fieldId.startsWith('UF_')) {
+        const name = fieldId.replace('UF_', '').replace(/_/g, ' ');
+        return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+      }
+      // Formatar campo padrão: CREATED_BY → Created By
+      return fieldId.split('_')
+        .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+        .join(' ');
+    };
+
+    // Extrair display name conforme especificado pelo usuário
+    const extractDisplayName = (fieldId: string, fieldData: any): string => {
+      const title = fieldData.title;
+      const listLabel = fieldData.listLabel;
+      const formLabel = fieldData.formLabel;
       
-      // Se não encontrou título, formatar o ID de forma legível
-      if (!title) {
-        if (fieldId.startsWith('UF_CRM_')) {
-          const number = fieldId.replace('UF_CRM_', '');
-          return `Campo Personalizado ${number.substring(0, 8)}`;
-        }
-        if (fieldId.startsWith('UF_')) {
-          const name = fieldId.replace('UF_', '').replace(/_/g, ' ');
-          return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-        }
-        // Formatar campo padrão: CREATED_BY → Created By
-        return fieldId.split('_')
-          .map(word => word.charAt(0) + word.slice(1).toLowerCase())
-          .join(' ');
+      // Campos padrão: usar apenas title ou formatar o ID
+      if (!fieldId.startsWith('UF_CRM_')) {
+        return title || formLabel || formatFieldId(fieldId);
       }
       
-      return title;
+      // Campos personalizados: usar "listLabel - fieldId" se listLabel existir e for diferente
+      if (listLabel && listLabel !== fieldId && listLabel !== title) {
+        return `${listLabel} - ${fieldId}`;
+      }
+      
+      // Se não tem listLabel útil, usar title
+      if (title && title !== fieldId) {
+        return title;
+      }
+      
+      // Último recurso: formatar o fieldId
+      return formatFieldId(fieldId);
     };
 
     const fields = Object.entries(data.result).map(([fieldId, fieldData]: [string, any]) => ({
       field_id: fieldId,
-      field_title: extractTitle(fieldId, fieldData),
+      field_title: extractDisplayName(fieldId, fieldData),
       field_type: fieldData.type || 'string',
       list_items: fieldData.items ? fieldData.items : null,
       display_name: null // Será preenchido pelo usuário se necessário
