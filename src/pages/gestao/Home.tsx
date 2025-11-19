@@ -4,7 +4,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Users, FileText, TrendingUp, Activity, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 import StatsComparison from "@/components/gestao/dashboard/StatsComparison";
 import LeadsChart from "@/components/gestao/dashboard/LeadsChart";
@@ -27,47 +26,31 @@ export default function GestaoHome() {
   const { data: stats, isLoading, error } = useQuery({
     queryKey: ["gestao-home-stats", filters],
     queryFn: async () => {
-      console.log('[GestaoHome] Buscando leads com filtros:', {
+      console.log('[GestaoHome] Buscando estatísticas com RPC otimizada:', {
         preset: filters.dateFilter.preset,
-        startDate: filters.dateFilter.startDate.toISOString(),
-        endDate: filters.dateFilter.endDate.toISOString(),
+        startDate: filters.dateFilter.preset !== 'all' ? filters.dateFilter.startDate.toISOString() : null,
+        endDate: filters.dateFilter.preset !== 'all' ? filters.dateFilter.endDate.toISOString() : null,
         projectId: filters.projectId,
         scouterId: filters.scouterId
       });
 
-      // SEMPRE usar fetchAllLeads com paginação (seleciona apenas campos necessários)
-      const data = await fetchAllLeads(
-        supabase,
-        "id, ficha_confirmada, compareceu, qualidade_lead", // Apenas campos necessários para estatísticas
-        (query) => {
-          // Só aplica filtro de data se não for "todo período"
-          if (filters.dateFilter.preset !== 'all') {
-            query = query
-              .gte("criado", filters.dateFilter.startDate.toISOString())
-              .lte("criado", filters.dateFilter.endDate.toISOString());
-          }
+      // Usar RPC para contagem rápida no servidor
+      const { data, error } = await supabase.rpc('get_leads_stats', {
+        p_start_date: filters.dateFilter.preset === 'all' ? null : filters.dateFilter.startDate.toISOString(),
+        p_end_date: filters.dateFilter.preset === 'all' ? null : filters.dateFilter.endDate.toISOString(),
+        p_project_id: filters.projectId,
+        p_scouter: filters.scouterId
+      });
 
-          if (filters.projectId) {
-            query = query.eq("commercial_project_id", filters.projectId);
-          }
+      if (error) {
+        console.error('[GestaoHome] Erro ao buscar estatísticas:', error);
+        throw error;
+      }
 
-          if (filters.scouterId) {
-            query = query.eq("scouter", filters.scouterId);
-          }
+      const stats = data?.[0] || { total: 0, confirmados: 0, compareceram: 0, pendentes: 0 };
+      console.log('[GestaoHome] Estatísticas retornadas:', stats);
 
-          return query;
-        }
-      );
-
-      console.log(`[GestaoHome] Total de leads retornados: ${data.length}`);
-
-      // Calcular estatísticas localmente
-      const total = data.length;
-      const confirmados = data.filter((lead: any) => lead.ficha_confirmada).length;
-      const compareceram = data.filter((lead: any) => lead.compareceu).length;
-      const pendentes = data.filter((lead: any) => !lead.qualidade_lead).length;
-
-      return { total, confirmados, compareceram, pendentes };
+      return stats;
     },
     retry: 1,
     staleTime: 60000, // Cache de 1 minuto
@@ -82,12 +65,13 @@ export default function GestaoHome() {
       <GestaoFiltersComponent filters={filters} onChange={setFilters} />
 
       {/* Alerta para todo período */}
-      {filters.dateFilter.preset === 'all' && !isLoading && !error && (
+      {filters.dateFilter.preset === 'all' && isLoading && (
         <Alert className="my-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Buscando todo o histórico</AlertTitle>
+          <AlertCircle className="h-4 w-4 animate-pulse" />
+          <AlertTitle>Carregando todo o histórico</AlertTitle>
           <AlertDescription>
-            Carregando estatísticas de todos os leads cadastrados. Isso pode levar alguns segundos...
+            Processando <strong>280.000+ leads</strong> cadastrados. 
+            Com a otimização RPC, isso leva apenas alguns segundos...
           </AlertDescription>
         </Alert>
       )}
