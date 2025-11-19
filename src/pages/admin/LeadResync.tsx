@@ -262,7 +262,16 @@ export default function LeadResync() {
         </SheetContent>
       </Sheet>
 
-      <ResyncFieldMappingDialog open={showMappingDialog} onOpenChange={setShowMappingDialog} />
+      <ResyncFieldMappingDialog 
+        open={showMappingDialog} 
+        onOpenChange={setShowMappingDialog}
+        onMappingSelected={(name, id) => {
+          setSelectedMappingName(name);
+          setSelectedMappingId(id);
+          setShowMappingDialog(false);
+        }}
+        currentMappingName={selectedMappingName}
+      />
     </AdminPageLayout>
   );
 }
