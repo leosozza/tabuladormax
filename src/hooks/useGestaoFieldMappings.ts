@@ -12,23 +12,28 @@ const SENSITIVE_FIELDS = [
   'email'
 ];
 
+/**
+ * Hook para Gestão Scouter - usa a tabela unificada field_mappings
+ * Mantém compatibilidade com código existente
+ */
 export const useGestaoFieldMappings = () => {
   return useQuery({
     queryKey: ['gestao-field-mappings-active'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('gestao_scouter_field_mappings')
+        .from('field_mappings')
         .select('*')
         .eq('active', true)
+        .eq('default_visible', true)
         .order('priority');
       
       if (error) throw error;
       
       // Transformar em ColumnConfig, filtrando campos sensíveis
       const fields: ColumnConfig[] = data
-        .filter(mapping => !SENSITIVE_FIELDS.includes(mapping.database_field))
+        .filter(mapping => !SENSITIVE_FIELDS.includes(mapping.supabase_field))
         .map(mapping => ({
-        key: mapping.database_field,
+        key: mapping.supabase_field,
         label: mapping.display_name,
         type: mapping.field_type as any,
         sortable: mapping.sortable,
