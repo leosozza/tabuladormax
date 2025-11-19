@@ -90,9 +90,9 @@ serve(async (req) => {
         return title || formLabel || formatFieldId(fieldId);
       }
       
-      // Campos personalizados: usar "listLabel - fieldId" se listLabel existir e for diferente
+      // Campos personalizados: usar apenas listLabel (fieldId já aparece separado na UI)
       if (listLabel && listLabel !== fieldId && listLabel !== title) {
-        return `${listLabel} - ${fieldId}`;
+        return listLabel;
       }
       
       // Se não tem listLabel útil, usar title
