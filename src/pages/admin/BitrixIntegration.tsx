@@ -115,18 +115,20 @@ export default function BitrixIntegration() {
     try {
       setRefreshing(true);
       
-      // Forçar reload dos campos do Bitrix
-      const { data, error } = await supabase.functions.invoke('get-bitrix-fields');
+      // Forçar reload dos campos do Bitrix com force_refresh
+      const { data, error } = await supabase.functions.invoke('get-bitrix-fields', {
+        body: { force_refresh: true }
+      });
       
       if (error) throw error;
       
       setBitrixFields(data?.fields || []);
-      toast.success(`${data?.fields?.length || 0} campos importados do Bitrix`);
+      toast.success(`${data?.fields?.length || 0} campos atualizados do Bitrix`);
       
       await loadData();
     } catch (error) {
-      console.error('Erro ao importar campos:', error);
-      toast.error('Erro ao importar campos do Bitrix');
+      console.error('Erro ao atualizar campos:', error);
+      toast.error('Erro ao atualizar campos do Bitrix');
     } finally {
       setRefreshing(false);
     }
@@ -175,6 +177,15 @@ export default function BitrixIntegration() {
           >
             <Activity className="w-4 h-4 mr-2" />
             Central de Sincronização
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleImportFields}
+            disabled={refreshing}
+          >
+            <Download className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Atualizar Campos Bitrix
           </Button>
           <Button
             variant="outline"

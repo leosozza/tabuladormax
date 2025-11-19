@@ -18,22 +18,29 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verificar cache primeiro
-    const { data: cachedFields, error: cacheError } = await supabase
-      .from('bitrix_fields_cache')
-      .select('*')
-      .gte('cached_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Cache de 24h
+    // Verificar se deve forçar atualização
+    const { force_refresh } = await req.json().catch(() => ({ force_refresh: false }));
 
-    if (cachedFields && cachedFields.length > 0) {
-      console.log(`✅ Retornando ${cachedFields.length} campos do cache`);
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          fields: cachedFields,
-          cached: true
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Verificar cache primeiro (se não for force_refresh)
+    if (!force_refresh) {
+      const { data: cachedFields, error: cacheError } = await supabase
+        .from('bitrix_fields_cache')
+        .select('*')
+        .gte('cached_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Cache de 24h
+
+      if (cachedFields && cachedFields.length > 0) {
+        console.log(`✅ Retornando ${cachedFields.length} campos do cache`);
+        return new Response(
+          JSON.stringify({ 
+            success: true,
+            fields: cachedFields,
+            cached: true
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else {
+      console.log('🔄 Force refresh solicitado, buscando diretamente do Bitrix...');
     }
 
     // Se não tem cache, buscar do Bitrix
