@@ -35,43 +35,10 @@ export default function GestaoHome() {
         scouterId: filters.scouterId
       });
 
-      // Para "todo período" sem filtros específicos, usar COUNT para melhor performance
-      if (filters.dateFilter.preset === 'all' && !filters.projectId && !filters.scouterId) {
-        console.log('[GestaoHome] Usando COUNT otimizado para todo período');
-
-        const { count: total } = await supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true });
-
-        const { count: confirmados } = await supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .eq('ficha_confirmada', true);
-
-        const { count: compareceram } = await supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .eq('compareceu', true);
-
-        const { count: pendentes } = await supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .is('qualidade_lead', null);
-
-        console.log('[GestaoHome] Estatísticas retornadas:', { total, confirmados, compareceram, pendentes });
-
-        return { 
-          total: total || 0, 
-          confirmados: confirmados || 0, 
-          compareceram: compareceram || 0, 
-          pendentes: pendentes || 0 
-        };
-      }
-
-      // Para outros filtros, usar a busca normal com paginação
+      // SEMPRE usar fetchAllLeads com paginação (seleciona apenas campos necessários)
       const data = await fetchAllLeads(
         supabase,
-        "*",
+        "id, ficha_confirmada, compareceu, qualidade_lead", // Apenas campos necessários para estatísticas
         (query) => {
           // Só aplica filtro de data se não for "todo período"
           if (filters.dateFilter.preset !== 'all') {
@@ -94,15 +61,17 @@ export default function GestaoHome() {
 
       console.log(`[GestaoHome] Total de leads retornados: ${data.length}`);
 
+      // Calcular estatísticas localmente
       const total = data.length;
-      const confirmados = data.filter(l => l.ficha_confirmada).length;
-      const compareceram = data.filter(l => l.compareceu).length;
-      const pendentes = data.filter(l => !l.qualidade_lead).length;
+      const confirmados = data.filter((lead: any) => lead.ficha_confirmada).length;
+      const compareceram = data.filter((lead: any) => lead.compareceu).length;
+      const pendentes = data.filter((lead: any) => !lead.qualidade_lead).length;
 
       return { total, confirmados, compareceram, pendentes };
     },
     retry: 1,
-    staleTime: 30000, // Cache de 30 segundos
+    staleTime: 60000, // Cache de 1 minuto
+    gcTime: 300000, // Manter em cache por 5 minutos
   });
 
   return (
