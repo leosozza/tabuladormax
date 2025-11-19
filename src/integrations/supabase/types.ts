@@ -1312,6 +1312,20 @@ export type Database = {
           is_nullable: string
         }[]
       }
+      get_leads_stats: {
+        Args: {
+          p_end_date?: string
+          p_project_id?: string
+          p_scouter?: string
+          p_start_date?: string
+        }
+        Returns: {
+          compareceram: number
+          confirmados: number
+          pendentes: number
+          total: number
+        }[]
+      }
       get_leads_table_columns: {
         Args: never
         Returns: {
