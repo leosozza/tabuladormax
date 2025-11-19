@@ -36,7 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, X, AlertTriangle, Info, Trash2 } from "lucide-react";
+import { Loader2, X, AlertTriangle, Info, Trash2, EyeOff } from "lucide-react";
 
 interface SupabaseField {
   column_name: string;
@@ -163,18 +163,19 @@ export function SupabaseBasedMappingTable() {
       bitrixFieldType: string | null;
       supabaseFieldType: string;
     }) => {
-      const { error } = await supabase.from("bitrix_field_mappings").insert({
+      const { error } = await supabase.from("unified_field_config").insert({
         bitrix_field: params.bitrixField,
-        tabuladormax_field: params.supabaseField,
+        supabase_field: params.supabaseField,
         bitrix_field_type: params.bitrixFieldType,
-        tabuladormax_field_type: params.supabaseFieldType,
-        active: true,
-        priority: 0,
+        supabase_type: params.supabaseFieldType,
+        sync_active: true,
+        sync_priority: 0,
+        is_hidden: false,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bitrix-field-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["unified-field-config"] });
       toast.success("Mapeamento criado com sucesso");
     },
     onError: (error: Error) => {
@@ -189,7 +190,7 @@ export function SupabaseBasedMappingTable() {
       bitrixFieldType: string | null;
     }) => {
       const { error } = await supabase
-        .from("bitrix_field_mappings")
+        .from("unified_field_config")
         .update({
           bitrix_field: params.bitrixField,
           bitrix_field_type: params.bitrixFieldType,
@@ -198,7 +199,7 @@ export function SupabaseBasedMappingTable() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bitrix-field-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["unified-field-config"] });
       toast.success("Mapeamento atualizado com sucesso");
     },
     onError: (error: Error) => {
@@ -209,13 +210,13 @@ export function SupabaseBasedMappingTable() {
   const deactivateMappingMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("bitrix_field_mappings")
-        .update({ active: false })
+        .from("unified_field_config")
+        .update({ sync_active: false, bitrix_field: null })
         .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bitrix-field-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["unified-field-config"] });
       toast.success("Mapeamento desativado com sucesso");
     },
     onError: (error: Error) => {
@@ -225,11 +226,11 @@ export function SupabaseBasedMappingTable() {
 
   const deleteMappingMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("bitrix_field_mappings").delete().eq("id", id);
+      const { error } = await supabase.from("unified_field_config").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bitrix-field-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["unified-field-config"] });
       setSelectedMappings(new Set());
       toast.success("Mapeamento excluído com sucesso");
     },
@@ -240,7 +241,7 @@ export function SupabaseBasedMappingTable() {
 
   const batchDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from("bitrix_field_mappings").delete().in("id", ids);
+      const { error } = await supabase.from("unified_field_config").delete().in("id", ids);
       if (error) throw error;
     },
     onSuccess: (_, ids) => {
@@ -257,19 +258,37 @@ export function SupabaseBasedMappingTable() {
   const batchDeactivateMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       const { error } = await supabase
-        .from("bitrix_field_mappings")
-        .update({ active: false })
+        .from("unified_field_config")
+        .update({ sync_active: false, bitrix_field: null })
         .in("id", ids);
       if (error) throw error;
     },
     onSuccess: (_, ids) => {
-      queryClient.invalidateQueries({ queryKey: ["bitrix-field-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["unified-field-config"] });
       setSelectedMappings(new Set());
       setBatchDeleteDialogOpen(false);
       toast.success(`${ids.length} mapeamento(s) desativado(s) com sucesso`);
     },
     onError: (error: Error) => {
       toast.error(`Erro ao desativar mapeamentos: ${error.message}`);
+    },
+  });
+
+  const hideFieldsMutation = useMutation({
+    mutationFn: async (fieldIds: string[]) => {
+      const { error } = await supabase
+        .from("unified_field_config")
+        .update({ is_hidden: true, ui_active: false })
+        .in("id", fieldIds);
+      if (error) throw error;
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ["unified-field-config"] });
+      setSelectedMappings(new Set());
+      toast.success(`${ids.length} campo(s) ocultado(s) com sucesso`);
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao ocultar campos: ${error.message}`);
     },
   });
 
@@ -345,8 +364,9 @@ export function SupabaseBasedMappingTable() {
       row.bitrix_display_name?.toLowerCase().includes(search.toLowerCase());
 
     const matchesMappedFilter = !showOnlyMapped || row.is_mapped;
+    const matchesHiddenFilter = showHidden || !row.is_hidden;
 
-    return matchesSearch && matchesMappedFilter;
+    return matchesSearch && matchesMappedFilter && matchesHiddenFilter;
   });
 
   const selectedMappingsData = Array.from(selectedMappings)
@@ -388,13 +408,23 @@ export function SupabaseBasedMappingTable() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={showOnlyMapped}
-              onCheckedChange={setShowOnlyMapped}
-              id="show-mapped"
-            />
-            <Label htmlFor="show-mapped">Mostrar apenas mapeados</Label>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={showOnlyMapped}
+                onCheckedChange={setShowOnlyMapped}
+                id="show-mapped"
+              />
+              <Label htmlFor="show-mapped">Mostrar apenas mapeados</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={showHidden}
+                onCheckedChange={setShowHidden}
+                id="show-hidden"
+              />
+              <Label htmlFor="show-hidden">Mostrar campos ocultos</Label>
+            </div>
           </div>
         </div>
 
@@ -410,6 +440,14 @@ export function SupabaseBasedMappingTable() {
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setSelectedMappings(new Set())}>
                 Limpar
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => hideFieldsMutation.mutate(Array.from(selectedMappings))}
+              >
+                <EyeOff className="h-4 w-4 mr-2" />
+                Ocultar ({selectedMappings.size})
               </Button>
               <Button variant="destructive" size="sm" onClick={() => setBatchDeleteDialogOpen(true)}>
                 <Trash2 className="h-4 w-4 mr-2" />
@@ -503,30 +541,37 @@ export function SupabaseBasedMappingTable() {
                     </TableCell>
 
                     <TableCell>
-                      {usageInfo.isUsedInButtons ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div>
-                              {usageInfo.usageLevel === "critical" && (
-                                <Badge variant="destructive" className="gap-1 cursor-help">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  CRÍTICO
-                                </Badge>
-                              )}
-                              {usageInfo.usageLevel === "important" && (
-                                <Badge className="gap-1 cursor-help bg-orange-500 hover:bg-orange-600">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  {usageInfo.buttonCount}
-                                </Badge>
-                              )}
-                              {usageInfo.usageLevel === "moderate" && (
-                                <Badge variant="secondary" className="gap-1 cursor-help">
-                                  <Info className="h-3 w-3" />
-                                  {usageInfo.buttonCount}
-                                </Badge>
-                              )}
-                            </div>
-                          </TooltipTrigger>
+                      <div className="flex items-center gap-2">
+                        {row.is_hidden && (
+                          <Badge variant="secondary" className="bg-gray-500">
+                            <EyeOff className="h-3 w-3 mr-1" />
+                            OCULTO
+                          </Badge>
+                        )}
+                        {usageInfo.isUsedInButtons ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div>
+                                {usageInfo.usageLevel === "critical" && (
+                                  <Badge variant="destructive" className="gap-1 cursor-help">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    CRÍTICO
+                                  </Badge>
+                                )}
+                                {usageInfo.usageLevel === "important" && (
+                                  <Badge className="gap-1 cursor-help bg-orange-500 hover:bg-orange-600">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {usageInfo.buttonCount}
+                                  </Badge>
+                                )}
+                                {usageInfo.usageLevel === "moderate" && (
+                                  <Badge variant="secondary" className="gap-1 cursor-help">
+                                    <Info className="h-3 w-3" />
+                                    {usageInfo.buttonCount}
+                                  </Badge>
+                                )}
+                              </div>
+                            </TooltipTrigger>
                           <TooltipContent side="left" className="max-w-xs">
                             <div className="space-y-2">
                               <p className="font-semibold text-xs">
@@ -548,6 +593,7 @@ export function SupabaseBasedMappingTable() {
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
+                      </div>
                     </TableCell>
 
                     <TableCell>
