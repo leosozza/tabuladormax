@@ -1318,6 +1318,84 @@ export type Database = {
         }
         Relationships: []
       }
+      unified_field_config: {
+        Row: {
+          bitrix_field: string | null
+          bitrix_field_type: string | null
+          category: string | null
+          created_at: string | null
+          created_by: string | null
+          default_visible: boolean | null
+          display_name: string | null
+          field_type: string | null
+          formatter_function: string | null
+          id: string
+          is_hidden: boolean | null
+          is_nullable: string | null
+          notes: string | null
+          sortable: boolean | null
+          supabase_field: string
+          supabase_type: string | null
+          sync_active: boolean | null
+          sync_priority: number | null
+          transform_function: string | null
+          ui_active: boolean | null
+          ui_priority: number | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          bitrix_field?: string | null
+          bitrix_field_type?: string | null
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          default_visible?: boolean | null
+          display_name?: string | null
+          field_type?: string | null
+          formatter_function?: string | null
+          id?: string
+          is_hidden?: boolean | null
+          is_nullable?: string | null
+          notes?: string | null
+          sortable?: boolean | null
+          supabase_field: string
+          supabase_type?: string | null
+          sync_active?: boolean | null
+          sync_priority?: number | null
+          transform_function?: string | null
+          ui_active?: boolean | null
+          ui_priority?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          bitrix_field?: string | null
+          bitrix_field_type?: string | null
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          default_visible?: boolean | null
+          display_name?: string | null
+          field_type?: string | null
+          formatter_function?: string | null
+          id?: string
+          is_hidden?: boolean | null
+          is_nullable?: string | null
+          notes?: string | null
+          sortable?: boolean | null
+          supabase_field?: string
+          supabase_type?: string | null
+          sync_active?: boolean | null
+          sync_priority?: number | null
+          transform_function?: string | null
+          ui_active?: boolean | null
+          ui_priority?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       user_departments: {
         Row: {
           created_at: string
