@@ -1002,19 +1002,47 @@ export default function CadastroFicha() {
       if (bitrixEntityType && bitrixEntityId) {
         // UPDATE MODE - Update existing lead or deal in Bitrix (PUBLIC ACCESS)
         
-      const { data, error } = await supabase.functions.invoke('bitrix-entity-update', {
-        body: {
-          entityType: bitrixEntityType,
-          entityId: bitrixEntityId,
-          fields: {
-            ...bitrixData,
-            STAGE_ID: 'C1:UC_O2KDK6'  // Nova etapa após preenchimento
-          },
-          contactFields: {  // ✅ Adicionar campos de contato (apenas telefone)
-            telefone: formData.telefoneResponsavel
+        console.log('🔍 Buscando categoria atual do deal...');
+        
+        // Buscar deal atual do Bitrix para descobrir a categoria
+        const { data: entityData, error: entityError } = await supabase.functions.invoke('bitrix-entity-get', {
+          body: {
+            entityType: bitrixEntityType,
+            entityId: bitrixEntityId
           }
+        });
+        
+        if (entityError) {
+          console.error('⚠️ Erro ao buscar entidade do Bitrix:', entityError);
         }
-      });
+        
+        // Construir STAGE_ID dinamicamente baseado na categoria do deal
+        let targetStageId = 'C1:UC_O2KDK6'; // Default para categoria C1
+        
+        if (entityData?.entityData?.CATEGORY_ID) {
+          const dealCategory = entityData.entityData.CATEGORY_ID;
+          targetStageId = `${dealCategory}:UC_O2KDK6`;
+          
+          console.log('📁 Deal está na categoria:', dealCategory);
+          console.log('📁 STAGE_ID atual:', entityData.entityData.STAGE_ID);
+          console.log('🎯 STAGE_ID a ser usado:', targetStageId);
+        } else {
+          console.warn('⚠️ Categoria do deal não encontrada, usando padrão C1:UC_O2KDK6');
+        }
+        
+        const { data, error } = await supabase.functions.invoke('bitrix-entity-update', {
+          body: {
+            entityType: bitrixEntityType,
+            entityId: bitrixEntityId,
+            fields: {
+              ...bitrixData,
+              STAGE_ID: targetStageId  // 🎯 Nova etapa construída dinamicamente
+            },
+            contactFields: {  // ✅ Adicionar campos de contato (apenas telefone)
+              telefone: formData.telefoneResponsavel
+            }
+          }
+        });
 
         if (error) {
           throw new Error(`Erro na edge function: ${JSON.stringify(error)}`);

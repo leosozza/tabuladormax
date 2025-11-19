@@ -50,6 +50,9 @@ serve(async (req) => {
       id: entityId,
       fieldsCount: Object.keys(fields).length
     });
+    
+    console.log('📤 Payload completo para Bitrix:', JSON.stringify(payload, null, 2));
+    console.log('🎯 STAGE_ID sendo enviado:', fields.STAGE_ID);
 
     const response = await fetch(bitrixUrl, {
       method: 'POST',
@@ -59,10 +62,20 @@ serve(async (req) => {
     
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('❌ Resposta HTTP não OK:', response.status, errorText);
       throw new Error(`Erro ao atualizar ${entityType} no Bitrix: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    
+    console.log('📥 Resposta completa do Bitrix:', JSON.stringify(data, null, 2));
+    
+    if (data.error) {
+      console.warn('⚠️ Bitrix retornou erro:', data.error);
+    }
+    if (data.error_description) {
+      console.warn('⚠️ Descrição do erro:', data.error_description);
+    }
     
     if (!data.result) {
       throw new Error(`Erro ao atualizar ${entityType} no Bitrix: ${JSON.stringify(data)}`);
