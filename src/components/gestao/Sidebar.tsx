@@ -28,7 +28,6 @@ export default function GestaoSidebar() {
   
   const navItems = [
     { path: "/scouter", label: "Dashboard", icon: Home },
-    { path: "/scouter/ficha-cadastral", label: "Ficha Cadastral", icon: FileText },
     { path: "/scouter/leads", label: "Leads", icon: Users },
     { path: "/scouter/analise", label: "Análise de Leads", icon: Heart },
     { path: "/scouter/scouters", label: "Scouters", icon: Users },
