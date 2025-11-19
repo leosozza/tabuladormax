@@ -63,6 +63,35 @@ serve(async (req) => {
 
     console.log(`✅ ${Object.keys(data.result).length} campos encontrados no Bitrix`);
 
+    // Helper function to fetch status values for crm_status fields
+    const fetchStatusValues = async (statusType: string): Promise<Array<{ ID: string; NAME: string }>> => {
+      try {
+        const statusUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.status.list?filter[ENTITY_ID]=${statusType}`;
+        console.log(`🔍 Buscando valores de status para ${statusType}...`);
+        
+        const statusResponse = await fetch(statusUrl);
+        if (!statusResponse.ok) {
+          console.error(`⚠️ Erro ao buscar status ${statusType}: ${statusResponse.status}`);
+          return [];
+        }
+        
+        const statusData = await statusResponse.json();
+        if (!statusData.result) {
+          console.error(`⚠️ Resposta inválida para status ${statusType}`);
+          return [];
+        }
+        
+        console.log(`✅ ${statusData.result.length} valores encontrados para ${statusType}`);
+        return statusData.result.map((item: any) => ({
+          ID: item.STATUS_ID,
+          NAME: item.NAME
+        }));
+      } catch (error) {
+        console.error(`❌ Erro ao buscar valores de status para ${statusType}:`, error);
+        return [];
+      }
+    };
+
     // Formatar fieldId de forma legível
     const formatFieldId = (fieldId: string): string => {
       if (fieldId.startsWith('UF_CRM_')) {
@@ -104,13 +133,48 @@ serve(async (req) => {
       return formatFieldId(fieldId);
     };
 
-    const fields = Object.entries(data.result).map(([fieldId, fieldData]: [string, any]) => ({
-      field_id: fieldId,
-      field_title: extractDisplayName(fieldId, fieldData),
-      field_type: fieldData.type || 'string',
-      list_items: fieldData.items ? fieldData.items : null,
-      display_name: null // Será preenchido pelo usuário se necessário
-    }));
+    // Primeiro, coletar todos os statusTypes necessários
+    const statusTypesToFetch = new Set<string>();
+    Object.entries(data.result).forEach(([fieldId, fieldData]: [string, any]) => {
+      if (fieldData.type === 'crm_status' && fieldData.statusType) {
+        statusTypesToFetch.add(fieldData.statusType);
+      }
+    });
+
+    // Buscar todos os valores de status em paralelo
+    console.log(`🔄 Buscando valores para ${statusTypesToFetch.size} tipos de status...`);
+    const statusValuesMap = new Map<string, Array<{ ID: string; NAME: string }>>();
+    await Promise.all(
+      Array.from(statusTypesToFetch).map(async (statusType) => {
+        const values = await fetchStatusValues(statusType);
+        statusValuesMap.set(statusType, values);
+      })
+    );
+
+    // Mapear campos com list_items apropriados
+    const fields = Object.entries(data.result).map(([fieldId, fieldData]: [string, any]) => {
+      let listItems = null;
+      
+      // Para campos de enumeração, usar items direto
+      if (fieldData.items) {
+        listItems = fieldData.items;
+      }
+      // Para campos crm_status, usar os valores buscados
+      else if (fieldData.type === 'crm_status' && fieldData.statusType) {
+        const statusValues = statusValuesMap.get(fieldData.statusType);
+        if (statusValues && statusValues.length > 0) {
+          listItems = statusValues.map(sv => ({ ID: sv.ID, VALUE: sv.NAME }));
+        }
+      }
+
+      return {
+        field_id: fieldId,
+        field_title: extractDisplayName(fieldId, fieldData),
+        field_type: fieldData.type || 'string',
+        list_items: listItems,
+        display_name: null // Será preenchido pelo usuário se necessário
+      };
+    });
 
     // Salvar no cache
     const { error: upsertError } = await supabase
