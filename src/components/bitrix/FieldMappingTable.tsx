@@ -118,6 +118,9 @@ export function FieldMappingTable({ mappings, bitrixFields, supabaseFields, onUp
           ) : (
             mappings.map((mapping) => {
               const isEditing = editingId === mapping.id;
+              const bitrixInfo = bitrixFields.find(
+                (field) => field.field_id === mapping.bitrix_field
+              );
               
               return (
                 <TableRow key={mapping.id}>
@@ -143,11 +146,20 @@ export function FieldMappingTable({ mappings, bitrixFields, supabaseFields, onUp
                         </SelectContent>
                       </Select>
                     ) : (
-                      <div>
-                        <code className="text-xs bg-muted px-2 py-1 rounded">{mapping.bitrix_field}</code>
-                        {mapping.bitrix_field_type && (
-                          <Badge variant="outline" className="ml-2 text-xs">{mapping.bitrix_field_type}</Badge>
-                        )}
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">
+                          {bitrixInfo?.field_title || mapping.bitrix_field}
+                        </span>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                          <code className="bg-muted px-2 py-0.5 rounded">
+                            {mapping.bitrix_field}
+                          </code>
+                          {mapping.bitrix_field_type && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {mapping.bitrix_field_type}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     )}
                   </TableCell>
