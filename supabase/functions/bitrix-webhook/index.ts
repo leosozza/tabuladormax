@@ -47,6 +47,29 @@ const parseBrazilianDate = (dateStr: string | null | undefined): string | null =
   }
 };
 
+// Função para resolver nome de entidade SPA a partir do ID
+async function resolveSpaEntityName(
+  supabase: any,
+  entityTypeId: number,
+  bitrixItemId: number | null
+): Promise<string | null> {
+  if (!bitrixItemId) return null;
+  
+  const { data, error } = await supabase
+    .from('bitrix_spa_entities')
+    .select('title')
+    .eq('entity_type_id', entityTypeId)
+    .eq('bitrix_item_id', bitrixItemId)
+    .maybeSingle();
+  
+  if (error) {
+    console.warn(`⚠️ Erro ao buscar entidade SPA ${entityTypeId}/${bitrixItemId}:`, error);
+    return null;
+  }
+  
+  return data?.title?.trim() || null;
+}
+
 interface BitrixWebhookPayload {
   event: string;
   data: {
@@ -239,10 +262,11 @@ serve(async (req) => {
       commercialProjectId = defaultProject?.id;
     }
 
-    // 2. EXTRAIR OPERADOR DE TELEMARKETING
+    // 2. EXTRAIR OPERADOR DE TELEMARKETING (PARENT_ID_1144)
     const bitrixTelemarketingId = lead.PARENT_ID_1144 ? Number(lead.PARENT_ID_1144) : null;
     let responsibleUserId = null;
     let responsibleName = null;
+    const bitrixTelemarketingName = await resolveSpaEntityName(supabase, 1144, bitrixTelemarketingId);
 
     if (bitrixTelemarketingId) {
       const { data: mapping } = await supabase
@@ -257,16 +281,29 @@ serve(async (req) => {
       }
     }
 
+    // 3. EXTRAIR SCOUTER (PARENT_ID_1096)
+    const bitrixScouterId = lead.PARENT_ID_1096 ? Number(lead.PARENT_ID_1096) : null;
+    const scouterName = await resolveSpaEntityName(supabase, 1096, bitrixScouterId);
+
+    // 4. EXTRAIR PROJETO COMERCIAL (PARENT_ID_1120)
+    const projectIdFromParent = lead.PARENT_ID_1120 ? Number(lead.PARENT_ID_1120) : null;
+    const projetoComercialName = await resolveSpaEntityName(supabase, 1120, projectIdFromParent);
+
     console.log('📝 Dados extraídos:', {
       leadId,
       projectCode,
       commercialProjectId,
       bitrixTelemarketingId,
+      bitrixTelemarketingName,
+      bitrixScouterId,
+      scouterName,
+      projectIdFromParent,
+      projetoComercialName,
       responsibleUserId,
       responsibleName
     });
 
-    // 3. BUSCAR MAPEAMENTOS CONFIGURADOS
+    // 5. BUSCAR MAPEAMENTOS CONFIGURADOS
     const { data: fieldMappings, error: mappingError } = await supabase
       .from('unified_field_config')
       .select('*')
@@ -281,7 +318,7 @@ serve(async (req) => {
 
     console.log(`📋 ${fieldMappings?.length || 0} mapeamentos encontrados`);
 
-    // 4. APLICAR MAPEAMENTOS DINÂMICOS
+    // 6. APLICAR MAPEAMENTOS DINÂMICOS
     const leadData: any = {
       id: Number(leadId),
       raw: lead,
@@ -291,7 +328,12 @@ serve(async (req) => {
       updated_at: lead.DATE_MODIFY || new Date().toISOString(),
       commercial_project_id: commercialProjectId,
       responsible_user_id: responsibleUserId,
-      bitrix_telemarketing_id: bitrixTelemarketingId
+      bitrix_telemarketing_id: bitrixTelemarketingId,
+      // ✅ NOMES RESOLVIDOS DAS SPAS
+      bitrix_telemarketing_name: bitrixTelemarketingName,
+      scouter: scouterName,
+      gestao_scouter: scouterName,
+      projeto_comercial: projetoComercialName
     };
 
     // Agrupar mapeamentos por campo de destino
