@@ -32,7 +32,14 @@ export default function GestaoLeads() {
     queryFn: async () => {
       let query = supabase
         .from("leads")
-        .select("*")
+        .select(`
+          *,
+          commercial_projects:commercial_project_id(
+            id,
+            name,
+            code
+          )
+        `)
         .order("criado", { ascending: false })
         .limit(100);
       
@@ -70,7 +77,15 @@ export default function GestaoLeads() {
     const headers = visibleFields.map(field => field.label);
     const rows = leads.map(lead => 
       visibleFields.map(field => {
-        const value = lead[field.key];
+        // Lidar com campos aninhados no export
+        let value;
+        if (field.key.includes('.')) {
+          const [table, column] = field.key.split('.');
+          value = lead[table]?.[column];
+        } else {
+          value = lead[field.key];
+        }
+        
         if (field.formatter && value) {
           const formatted = field.formatter(value, lead);
           // Convert ReactNode to string for CSV
@@ -146,7 +161,15 @@ export default function GestaoLeads() {
                   leads?.map((lead) => (
                     <TableRow key={lead.id}>
                       {visibleFields.map((field) => {
-                        const value = lead[field.key];
+                        // Lidar com campos aninhados (e.g., commercial_projects.name)
+                        let value;
+                        if (field.key.includes('.')) {
+                          const [table, column] = field.key.split('.');
+                          value = lead[table]?.[column];
+                        } else {
+                          value = lead[field.key];
+                        }
+                        
                         const formattedValue = field.formatter 
                           ? field.formatter(value, lead) 
                           : value || "-";

@@ -51,6 +51,10 @@ function getFormatterFunction(name: string | null) {
     },
     formatBoolean: (value: boolean) => value ? 'Sim' : 'Não',
     stripTag: (value: string) => stripTagFromName(value),
+    formatCommercialProject: (value: any, lead: any) => {
+      // Acessar o campo aninhado do JOIN
+      return lead?.commercial_projects?.name || '-';
+    },
   };
   
   return formatters[name];
