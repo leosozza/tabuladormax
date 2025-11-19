@@ -36,11 +36,6 @@ export default function GestaoSidebar() {
     { path: "/scouter/area", label: "Área de Abordagem", icon: MapPin },
     { path: "/scouter/relatorios", label: "Relatórios", icon: FileText },
   ];
-  
-  // Adicionar configuração apenas para admins/managers
-  if (userRole === 'admin' || userRole === 'manager') {
-    navItems.push({ path: "/scouter/configurar-campos", label: "Configurar Campos", icon: Settings });
-  }
 
   return (
     <div className="w-64 bg-sidebar border-r border-sidebar-border min-h-screen flex flex-col">
