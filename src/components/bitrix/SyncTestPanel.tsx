@@ -24,7 +24,7 @@ export function SyncTestPanel() {
     try {
       const { data: fields, error } = await supabase
         .from('bitrix_fields_cache')
-        .select('field_id, display_name, list_items, field_type');
+        .select('field_id, display_name, field_title, list_items, field_type');
 
       if (error) {
         console.error('Erro ao carregar cache de campos Bitrix:', error);
@@ -37,7 +37,7 @@ export function SyncTestPanel() {
       const types: Record<string, string> = {};
 
       for (const field of fields || []) {
-        labels[field.field_id] = field.display_name || field.field_id;
+        labels[field.field_id] = field.display_name || field.field_title || field.field_id;
         types[field.field_id] = field.field_type || 'string';
 
         // Se tem list_items, criar mapa ID -> VALUE
