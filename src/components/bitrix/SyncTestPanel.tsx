@@ -59,21 +59,49 @@ export function SyncTestPanel() {
     return fieldLabels[fieldId] || fieldId;
   };
 
-  // Resolver valor da lista
+  // Resolver valor da lista (suporta enums simples e múltiplas)
   const resolveListValue = (fieldId: string, value: any): string => {
-    if (value === null || value === undefined) return '—';
+    if (value === null || value === undefined || value === '') return '—';
     
-    // Se o campo tem lista de items, tentar resolver
-    if (listItemsMap[fieldId]) {
-      const label = listItemsMap[fieldId][String(value)];
-      if (label) return label;
+    const itemsForField = listItemsMap[fieldId];
+    
+    // Se não temos lista para esse campo, só devolve o valor em string
+    if (!itemsForField) {
+      if (typeof value === 'object') {
+        return JSON.stringify(value).substring(0, 80);
+      }
+      return String(value);
     }
     
-    // Senão, retornar o valor original
-    if (typeof value === 'object') {
-      return JSON.stringify(value).substring(0, 50);
+    // Normalizar para um array de IDs (string)
+    let ids: string[] = [];
+    
+    if (Array.isArray(value)) {
+      // Ex.: ["3616","3620"] ou [{ID:"3616"}, ...]
+      ids = value.map((v: any) => {
+        if (typeof v === 'object' && v !== null) {
+          return String(v.ID ?? v.id ?? v.value ?? v.VALUE ?? '');
+        }
+        return String(v);
+      }).filter(Boolean);
+    } else if (typeof value === 'string' && value.includes(',')) {
+      // Ex.: "3616,3620"
+      ids = value.split(',').map(v => v.trim()).filter(Boolean);
+    } else {
+      // Valor simples
+      ids = [String(value)];
     }
-    return String(value).substring(0, 50);
+    
+    // Mapear cada ID para label, se existir
+    const labels = ids.map(id => {
+      const label = itemsForField[id];
+      return label ?? id; // se não achar, mostra o próprio ID
+    });
+    
+    // Se só tem 1, devolve direto; se tem vários, junta com " | "
+    if (labels.length === 1) return labels[0];
+    
+    return labels.join(' | ');
   };
 
   const handleTest = async () => {
