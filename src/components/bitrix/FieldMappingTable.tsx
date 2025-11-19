@@ -160,6 +160,11 @@ export function FieldMappingTable({ mappings, bitrixFields, supabaseFields, onUp
                             </Badge>
                           )}
                         </div>
+                        {!bitrixInfo && (
+                          <span className="mt-1 text-xs text-destructive">
+                            Campo não encontrado no Bitrix (verifique se foi removido).
+                          </span>
+                        )}
                       </div>
                     )}
                   </TableCell>
