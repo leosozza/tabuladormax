@@ -180,9 +180,9 @@ export default function LeadResync() {
                 <div><Label htmlFor="batchSize">Tamanho do Batch</Label><Input id="batchSize" type="number" value={batchSize} onChange={(e) => setBatchSize(parseInt(e.target.value))} min={1} max={200} /><p className="text-sm text-muted-foreground mt-1">Leads processados por vez (recomendado: 50)</p></div>
                 <div>
                   <div className="flex items-center justify-between mb-2"><Label>Mapeamento de Campos</Label><Button variant="ghost" size="sm" onClick={() => setShowMappingDialog(true)}><Settings className="w-4 h-4 mr-1" />Gerenciar</Button></div>
-                  <Select value={selectedMappingName} onValueChange={(value) => { setSelectedMappingName(value); const mapping = mappingNames.find(m => m.name === value); setSelectedMappingId(mapping?.id); }}>
+                  <Select value={selectedMappingName} onValueChange={(value) => { setSelectedMappingName(value); const mapping = mappingNames?.find(m => m.name === value); setSelectedMappingId(mapping?.id); }}>
                     <SelectTrigger><SelectValue placeholder="Selecione um mapeamento" /></SelectTrigger>
-                    <SelectContent>{mappingNames.map((mapping) => <SelectItem key={mapping.id} value={mapping.name}>{mapping.name}</SelectItem>)}</SelectContent>
+                    <SelectContent>{mappingNames?.map((mapping) => <SelectItem key={mapping.id} value={mapping.name}>{mapping.name}</SelectItem>) || []}</SelectContent>
                   </Select>
                   <p className="text-sm text-muted-foreground mt-1">Defina quais campos serão atualizados do Bitrix</p>
                 </div>
