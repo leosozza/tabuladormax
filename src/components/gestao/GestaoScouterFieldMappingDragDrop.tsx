@@ -14,15 +14,16 @@ import { GripVertical, Plus, Trash2, Edit, Save, X, RefreshCw } from 'lucide-rea
 
 interface FieldMapping {
   id: string;
-  database_field: string;
-  display_name: string;
-  field_type: string;
-  category: string;
+  supabase_field: string;
+  display_name: string | null;
+  field_type: string | null;
+  category: string | null;
   default_visible: boolean;
   sortable: boolean;
-  priority: number;
+  ui_priority: number;
   formatter_function: string | null;
-  active: boolean;
+  ui_active: boolean;
+  is_hidden: boolean;
 }
 
 export function GestaoScouterFieldMappingDragDrop() {
@@ -44,18 +45,19 @@ export function GestaoScouterFieldMappingDragDrop() {
 
   // Buscar mapeamentos existentes
   const { data: mappings, isLoading: loadingMappings } = useQuery({
-    queryKey: ['gestao-field-mappings'],
+    queryKey: ['unified-field-config'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('gestao_scouter_field_mappings')
+        .from('unified_field_config')
         .select('*')
-        .order('priority');
+        .eq('is_hidden', false)
+        .order('ui_priority');
       if (error) throw error;
       return data as FieldMapping[];
     }
   });
 
-  const mappedFields = new Set(mappings?.map(m => m.database_field) || []);
+  const mappedFields = new Set(mappings?.map(m => m.supabase_field) || []);
   const availableFields = databaseFields?.filter(f => !mappedFields.has(f.column_name)) || [];
   const filteredFields = availableFields.filter(f => 
     f.column_name.toLowerCase().includes(searchSource.toLowerCase())
@@ -89,18 +91,17 @@ export function GestaoScouterFieldMappingDragDrop() {
     // Atualizar prioridades no banco
     const updates = newMappings.map((m, idx) => ({
       id: m.id,
-      priority: idx
+      ui_priority: idx
     }));
 
     try {
       for (const update of updates) {
         await supabase
-          .from('gestao_scouter_field_mappings' as any)
-          .update({ priority: update.priority } as any)
+          .from('unified_field_config' as any)
+          .update({ ui_priority: update.ui_priority } as any)
           .eq('id', update.id);
       }
-      queryClient.invalidateQueries({ queryKey: ['gestao-field-mappings'] });
-      queryClient.invalidateQueries({ queryKey: ['gestao-field-mappings-active'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-field-config'] });
       toast.success('Ordem atualizada');
     } catch (error) {
       toast.error('Erro ao reordenar campos');
@@ -345,8 +346,8 @@ export function GestaoScouterFieldMappingDragDrop() {
                         <div className="flex items-center justify-between">
                           <Label>Ativo</Label>
                           <Switch
-                            checked={editForm.active}
-                            onCheckedChange={(checked) => setEditForm({ ...editForm, active: checked })}
+                            checked={editForm.ui_active}
+                            onCheckedChange={(checked) => setEditForm({ ...editForm, ui_active: checked })}
                           />
                         </div>
                         <div className="flex gap-2">
@@ -367,7 +368,7 @@ export function GestaoScouterFieldMappingDragDrop() {
                             <GripVertical className="w-5 h-5 text-muted-foreground" />
                             <div>
                               <p className="font-medium">{mapping.display_name}</p>
-                              <p className="text-sm text-muted-foreground">{mapping.database_field}</p>
+                              <p className="text-sm text-muted-foreground">{mapping.supabase_field}</p>
                             </div>
                           </div>
                           <div className="flex gap-1">
@@ -391,7 +392,7 @@ export function GestaoScouterFieldMappingDragDrop() {
                           <Badge variant="secondary">{mapping.field_type}</Badge>
                           <Badge variant="outline">{mapping.category}</Badge>
                           {mapping.default_visible && <Badge>Visível</Badge>}
-                          {!mapping.active && <Badge variant="destructive">Inativo</Badge>}
+                          {!mapping.ui_active && <Badge variant="destructive">Inativo</Badge>}
                         </div>
                       </div>
                     )}

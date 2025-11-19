@@ -62,11 +62,11 @@ serve(async (req) => {
 
     // Buscar mapeamentos ativos configurados
     const { data: fieldMappings, error: mappingError } = await supabase
-      .from('bitrix_field_mappings')
+      .from('unified_field_config')
       .select('*')
-      .eq('active', true)
-      .order('tabuladormax_field', { ascending: true })
-      .order('priority', { ascending: true });
+      .eq('sync_active', true)
+      .order('supabase_field', { ascending: true })
+      .order('sync_priority', { ascending: true });
 
     if (mappingError) {
       console.error('❌ Erro ao buscar mapeamentos:', mappingError);
@@ -77,7 +77,7 @@ serve(async (req) => {
     // Aplicar mapeamentos dinâmicos
     if (fieldMappings && fieldMappings.length > 0) {
       for (const mapping of fieldMappings) {
-        const value = lead[mapping.tabuladormax_field];
+        const value = lead[mapping.supabase_field];
         
         if (value !== null && value !== undefined && value !== '') {
           // Aplicar transformação reversa se necessário

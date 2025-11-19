@@ -268,10 +268,11 @@ serve(async (req) => {
 
     // 3. BUSCAR MAPEAMENTOS CONFIGURADOS
     const { data: fieldMappings, error: mappingError } = await supabase
-      .from('bitrix_field_mappings')
+      .from('unified_field_config')
       .select('*')
-      .order('tabuladormax_field', { ascending: true })
-      .order('priority', { ascending: true });
+      .eq('sync_active', true)
+      .order('supabase_field', { ascending: true })
+      .order('sync_priority', { ascending: true });
 
     if (mappingError) {
       console.error('❌ Erro ao buscar mapeamentos:', mappingError);

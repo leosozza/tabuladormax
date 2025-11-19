@@ -15,7 +15,7 @@ import { FieldUsageInfo } from "@/hooks/useFieldUsageInButtons";
 interface FieldMapping {
   id: string;
   bitrix_field: string;
-  tabuladormax_field: string;
+  supabase_field: string;
 }
 
 interface BatchDeleteDialogProps {
@@ -72,7 +72,7 @@ export function BatchDeleteDialog({
                         <div key={mapping.id} className="text-xs border-l-2 border-destructive pl-2">
                           <div className="font-medium">{mapping.bitrix_field}</div>
                           <div className="text-muted-foreground">
-                            → Campo Supabase: {mapping.tabuladormax_field}
+                            → Campo Supabase: {mapping.supabase_field}
                           </div>
                           {usage && (
                             <div className="text-destructive">
@@ -105,7 +105,7 @@ export function BatchDeleteDialog({
                   <div className="bg-muted p-3 rounded-md space-y-1">
                     {selectedMappings.map((mapping) => (
                       <div key={mapping.id} className="text-xs">
-                        {mapping.tabuladormax_field} → {mapping.bitrix_field || "Não mapeado"}
+                        {mapping.supabase_field} → {mapping.bitrix_field || "Não mapeado"}
                       </div>
                     ))}
                   </div>

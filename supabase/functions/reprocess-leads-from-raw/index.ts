@@ -91,10 +91,10 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
   // 1. Buscar mapeamentos ativos
   console.log('📋 Buscando mapeamentos ativos...');
   const { data: mappings, error: mappingsError } = await supabase
-    .from('bitrix_field_mappings')
+    .from('unified_field_config')
     .select('*')
-    .eq('active', true)
-    .order('priority', { ascending: false });
+    .eq('sync_active', true)
+    .order('sync_priority', { ascending: false });
 
   if (mappingsError) {
     throw new Error(`Erro ao buscar mapeamentos: ${mappingsError.message}`);

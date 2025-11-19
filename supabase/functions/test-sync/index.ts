@@ -37,11 +37,11 @@ serve(async (req) => {
 
     // Buscar mapeamentos ativos
     const { data: mappings, error: mappingsError } = await supabase
-      .from('bitrix_field_mappings')
+      .from('unified_field_config')
       .select('*')
-      .eq('active', true)
-      .order('tabuladormax_field', { ascending: true })
-      .order('priority', { ascending: true });
+      .eq('sync_active', true)
+      .order('supabase_field', { ascending: true })
+      .order('sync_priority', { ascending: true });
 
     if (mappingsError) {
       throw new Error('Erro ao buscar mapeamentos: ' + mappingsError.message);
@@ -61,11 +61,11 @@ serve(async (req) => {
 
       // Aplicar mapeamentos
       for (const mapping of (mappings || [])) {
-        const value = lead[mapping.tabuladormax_field];
+        const value = lead[mapping.supabase_field];
         if (value !== null && value !== undefined && value !== '') {
           previewData.bitrixPayload.fields[mapping.bitrix_field] = value;
           appliedMappings.push({
-            tabuladormax_field: mapping.tabuladormax_field,
+            supabase_field: mapping.supabase_field,
             bitrix_field: mapping.bitrix_field,
             value: value,
             transformed: false
@@ -98,15 +98,15 @@ serve(async (req) => {
 
       // Agrupar mapeamentos por campo
       const mappingsByField = (mappings || []).reduce((acc, mapping) => {
-        if (!acc[mapping.tabuladormax_field]) {
-          acc[mapping.tabuladormax_field] = [];
+        if (!acc[mapping.supabase_field]) {
+          acc[mapping.supabase_field] = [];
         }
-        acc[mapping.tabuladormax_field].push(mapping);
+        acc[mapping.supabase_field].push(mapping);
         return acc;
       }, {} as Record<string, any[]>);
 
       // Aplicar mapeamentos com fallback
-      for (const [tabuladorField, fieldMappings] of Object.entries(mappingsByField)) {
+      for (const [supabaseField, fieldMappings] of Object.entries(mappingsByField)) {
         for (const mapping of (fieldMappings as any[])) {
           let value = bitrixLead[mapping.bitrix_field];
           
@@ -126,10 +126,10 @@ serve(async (req) => {
           }
           
           if (value !== null && value !== undefined && value !== '') {
-            previewData.supabasePayload[tabuladorField] = value;
+            previewData.supabasePayload[supabaseField] = value;
             appliedMappings.push({
               bitrix_field: mapping.bitrix_field,
-              tabuladormax_field: tabuladorField,
+              supabase_field: supabaseField,
               value: value,
               transformed: !!mapping.transform_function,
               transform_function: mapping.transform_function,
