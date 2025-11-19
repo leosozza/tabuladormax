@@ -108,28 +108,34 @@ serve(async (req) => {
         .join(' ');
     };
 
-    // Extrair display name conforme especificado pelo usuário
+    // Extrair display name com priorização universal de labels
     const extractDisplayName = (fieldId: string, fieldData: any): string => {
       const title = fieldData.title;
       const listLabel = fieldData.listLabel;
       const formLabel = fieldData.formLabel;
+      const filterLabel = fieldData.filterLabel;
       
-      // Campos padrão: usar apenas title ou formatar o ID
-      if (!fieldId.startsWith('UF_CRM_')) {
-        return title || formLabel || formatFieldId(fieldId);
-      }
-      
-      // Campos personalizados: usar apenas listLabel (fieldId já aparece separado na UI)
-      if (listLabel && listLabel !== fieldId && listLabel !== title) {
+      // 1. Priorizar listLabel se for legível (diferente do ID)
+      if (listLabel && listLabel !== fieldId && listLabel.trim()) {
         return listLabel;
       }
       
-      // Se não tem listLabel útil, usar title
-      if (title && title !== fieldId) {
+      // 2. Depois formLabel
+      if (formLabel && formLabel !== fieldId && formLabel.trim()) {
+        return formLabel;
+      }
+      
+      // 3. Depois filterLabel
+      if (filterLabel && filterLabel !== fieldId && filterLabel.trim()) {
+        return filterLabel;
+      }
+      
+      // 4. Depois title
+      if (title && title !== fieldId && title.trim()) {
         return title;
       }
       
-      // Último recurso: formatar o fieldId
+      // 5. Último recurso: formatar o fieldId
       return formatFieldId(fieldId);
     };
 
