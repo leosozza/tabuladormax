@@ -296,7 +296,7 @@ export function QueryBuilder({ onSave, onCancel, initialWidget }: QueryBuilderPr
             <div className="space-y-2">
               <Label htmlFor="sortBy">Ordenar Por</Label>
               <Select 
-                value={sortBy || ''} 
+                value={sortBy ?? undefined} 
                 onValueChange={(v) => setSortBy(v ? v as MetricType : undefined)}
               >
                 <SelectTrigger id="sortBy">

@@ -110,14 +110,16 @@ async function createResyncJob(supabase: any, config: JobConfig, batchSize: numb
 }
 
 async function processBatch(supabase: any, jobId: string) {
-  // Buscar job
-  const { data: job, error: jobError } = await supabase
+  console.log(`[processBatch] Starting batch processing for job ${jobId}`);
+  
+  // Buscar job inicial
+  const { data: initialJob, error: jobError } = await supabase
     .from('lead_resync_jobs')
     .select('*')
     .eq('id', jobId)
     .single();
 
-  if (jobError || !job) {
+  if (jobError || !initialJob) {
     console.error('Job not found:', jobId);
     return new Response(
       JSON.stringify({ error: 'Job not found' }),
@@ -126,110 +128,147 @@ async function processBatch(supabase: any, jobId: string) {
   }
 
   // Se não estiver rodando, marcar como running
-  if (job.status === 'pending') {
+  if (initialJob.status === 'pending') {
     await supabase
       .from('lead_resync_jobs')
       .update({ status: 'running', started_at: new Date().toISOString() })
       .eq('id', jobId);
   }
 
-  if (job.status !== 'running') {
-    return new Response(
-      JSON.stringify({ error: 'Job is not running' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
+  // Variáveis acumuladas
+  let currentJob = initialJob;
+  let totalProcessed = currentJob.processed_leads || 0;
+  let totalUpdated = currentJob.updated_leads || 0;
+  let totalSkipped = currentJob.skipped_leads || 0;
+  let totalErrors = currentJob.error_leads || 0;
+  let currentBatch = currentJob.current_batch || 0;
+  let lastProcessedId = currentJob.last_processed_lead_id || 0;
+  let errorDetails = currentJob.error_details || [];
 
-  // Buscar próximo lote de leads
-  let query = supabase
-    .from('leads')
-    .select('id')
-    .gt('id', job.last_processed_lead_id || 0)
-    .order('id', { ascending: true })
-    .limit(job.batch_size);
+  console.log(`[processBatch] Initial state: processed=${totalProcessed}, batch=${currentBatch}, lastId=${lastProcessedId}`);
 
-  // Aplicar filtros
-  if (job.filter_criteria?.addressNull) {
-    query = query.is('address', null);
-  }
-  if (job.filter_criteria?.phoneNull) {
-    query = query.or('celular.is.null,telefone_casa.is.null,telefone_trabalho.is.null');
-  }
-  if (job.filter_criteria?.valorNull) {
-    query = query.is('valor_ficha', null);
-  }
-
-  const { data: leads, error: leadsError } = await query;
-
-  if (leadsError) {
-    console.error('Error fetching leads:', leadsError);
-    return new Response(
-      JSON.stringify({ error: leadsError.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  if (!leads || leads.length === 0) {
-    // Completar job
-    await supabase
+  // Loop contínuo para processar múltiplos batches
+  while (true) {
+    // Verificar status atual do job
+    const { data: jobCheck } = await supabase
       .from('lead_resync_jobs')
-      .update({ 
-        status: 'completed', 
-        completed_at: new Date().toISOString() 
-      })
-      .eq('id', jobId);
+      .select('status')
+      .eq('id', jobId)
+      .single();
 
-    return new Response(
-      JSON.stringify({ success: true, message: 'Job completed' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
+    if (jobCheck?.status !== 'running') {
+      console.log(`[processBatch] Job status changed to ${jobCheck?.status}, stopping processing`);
+      break;
+    }
 
-  // Buscar mapeamentos ativos (usar resync_field_mappings se mapping_id fornecido)
-  let mappings;
-  if (job.mapping_id) {
-    // Usar mapeamentos específicos da resincronização
-    const { data } = await supabase
-      .from('resync_field_mappings')
-      .select('*')
-      .eq('mapping_id', job.mapping_id)
-      .eq('active', true)
-      .order('priority', { ascending: false });
-    mappings = data;
-  } else {
-    // Fallback para mapeamentos bitrix_field_mappings
-    const { data } = await supabase
-      .from('bitrix_field_mappings')
-      .select('*')
-      .eq('active', true)
-      .order('priority', { ascending: false });
-    mappings = data;
-  }
-
-  let updated = 0, skipped = 0, errors = 0;
-  const errorDetails: any[] = [];
-
-  // Processar cada lead
-  for (const lead of leads) {
-    let mappedData: any = {}; // Declarar fora do try para acessar no catch
+    // Buscar próximo lote de leads
+    console.log(`[processBatch] Fetching batch ${currentBatch + 1}, from id > ${lastProcessedId}`);
     
-    try {
-      // Buscar dados no Bitrix
-      const bitrixResponse = await fetch(
-        `${BITRIX_BASE_URL}/crm.lead.get.json?id=${lead.id}`
-      );
+    let query = supabase
+      .from('leads')
+      .select('id')
+      .gt('id', lastProcessedId)
+      .order('id', { ascending: true })
+      .limit(currentJob.batch_size);
 
-      if (!bitrixResponse.ok) {
-        throw new Error(`Bitrix API returned ${bitrixResponse.status}`);
-      }
+    // Aplicar filtros
+    if (currentJob.filter_criteria?.addressNull) {
+      query = query.is('address', null);
+    }
+    if (currentJob.filter_criteria?.phoneNull) {
+      query = query.or('celular.is.null,telefone_casa.is.null,telefone_trabalho.is.null');
+    }
+    if (currentJob.filter_criteria?.valorNull) {
+      query = query.is('valor_ficha', null);
+    }
 
-      const bitrixData = await bitrixResponse.json();
+    const { data: leads, error: leadsError } = await query;
+
+    if (leadsError) {
+      console.error('[processBatch] Error fetching leads:', leadsError);
+      await supabase
+        .from('lead_resync_jobs')
+        .update({ 
+          status: 'failed',
+          error_details: [...errorDetails, { error: leadsError.message, timestamp: new Date().toISOString() }]
+        })
+        .eq('id', jobId);
       
-      if (!bitrixData.result) {
-        throw new Error('No result from Bitrix');
-      }
+      return new Response(
+        JSON.stringify({ error: leadsError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-      const bitrixLead = bitrixData.result;
+    if (!leads || leads.length === 0) {
+      // Completar job
+      console.log(`[processBatch] No more leads, completing job. Total processed: ${totalProcessed}`);
+      await supabase
+        .from('lead_resync_jobs')
+        .update({ 
+          status: 'completed', 
+          completed_at: new Date().toISOString(),
+          processed_leads: totalProcessed,
+          updated_leads: totalUpdated,
+          skipped_leads: totalSkipped,
+          error_leads: totalErrors,
+          current_batch: currentBatch,
+          error_details: errorDetails
+        })
+        .eq('id', jobId);
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Job completed', total_processed: totalProcessed }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`[processBatch] Processing ${leads.length} leads in batch ${currentBatch + 1}`);
+
+    // Buscar mapeamentos ativos (usar resync_field_mappings se mapping_id fornecido)
+    let mappings;
+    if (currentJob.mapping_id) {
+      // Usar mapeamentos específicos da resincronização
+      const { data } = await supabase
+        .from('resync_field_mappings')
+        .select('*')
+        .eq('mapping_id', currentJob.mapping_id)
+        .eq('active', true)
+        .order('priority', { ascending: false });
+      mappings = data;
+    } else {
+      // Fallback para mapeamentos bitrix_field_mappings
+      const { data } = await supabase
+        .from('bitrix_field_mappings')
+        .select('*')
+        .eq('active', true)
+        .order('priority', { ascending: false });
+      mappings = data;
+    }
+
+    let batchUpdated = 0, batchSkipped = 0, batchErrors = 0;
+
+    // Processar cada lead
+    for (const lead of leads) {
+      let mappedData: any = {};
+      
+      try {
+        // Buscar dados no Bitrix
+        const bitrixResponse = await fetch(
+          `${BITRIX_BASE_URL}/crm.lead.get.json?id=${lead.id}`
+        );
+
+        if (!bitrixResponse.ok) {
+          throw new Error(`Bitrix API returned ${bitrixResponse.status}`);
+        }
+
+        const bitrixData = await bitrixResponse.json();
+        
+        if (!bitrixData.result) {
+          throw new Error('No result from Bitrix');
+        }
+
+        const bitrixLead = bitrixData.result;
 
       // Aplicar mapeamentos
       mappedData = {};
