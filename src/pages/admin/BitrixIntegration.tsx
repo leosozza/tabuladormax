@@ -6,14 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Plus, Download, AlertTriangle, CheckCircle2, TrendingUp, Activity } from 'lucide-react';
+import { RefreshCw, Download, AlertTriangle, CheckCircle2, TrendingUp, Activity } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { FieldMappingTable } from '@/components/bitrix/FieldMappingTable';
+import { SupabaseBasedMappingTable } from '@/components/bitrix/SupabaseBasedMappingTable';
 import { FieldComparison } from '@/components/bitrix/FieldComparison';
 import { SyncTestPanel } from '@/components/bitrix/SyncTestPanel';
 import { BitrixFieldMappingDragDrop } from '@/components/bitrix/BitrixFieldMappingDragDrop';
@@ -33,16 +29,6 @@ export default function BitrixIntegration() {
     withTransform: 0,
     unmappedBitrix: 0,
     unmappedSupabase: 0
-  });
-
-  // Dialog state
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [newMapping, setNewMapping] = useState({
-    bitrix_field: '',
-    tabuladormax_field: '',
-    transform_function: null as string | null,
-    priority: 0,
-    active: true
   });
 
   const loadData = async () => {
@@ -132,35 +118,6 @@ export default function BitrixIntegration() {
       toast.error('Erro ao atualizar campos do Bitrix');
     } finally {
       setRefreshing(false);
-    }
-  };
-
-  const handleAddMapping = async () => {
-    if (!newMapping.bitrix_field || !newMapping.tabuladormax_field) {
-      toast.error('Selecione os campos Bitrix e Supabase');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('bitrix_field_mappings')
-        .insert([newMapping]);
-
-      if (error) throw error;
-
-      toast.success('Mapeamento adicionado');
-      setShowAddDialog(false);
-      setNewMapping({
-        bitrix_field: '',
-        tabuladormax_field: '',
-        transform_function: null,
-        priority: 0,
-        active: true
-      });
-      await loadData();
-    } catch (error) {
-      console.error('Erro ao adicionar mapeamento:', error);
-      toast.error('Erro ao adicionar mapeamento');
     }
   };
 
@@ -296,112 +253,10 @@ export default function BitrixIntegration() {
         <TabsContent value="mappings" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Mapeamento de Campos</CardTitle>
-                  <CardDescription>
-                    Configure como os campos são sincronizados entre Bitrix e Supabase
-                  </CardDescription>
-                </div>
-                <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Adicionar Mapeamento
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Novo Mapeamento</DialogTitle>
-                      <DialogDescription>
-                        Conecte um campo do Bitrix com uma coluna do Supabase
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label>Campo Bitrix</Label>
-                        <Select
-                          value={newMapping.bitrix_field}
-                          onValueChange={(value) => setNewMapping({ ...newMapping, bitrix_field: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o campo do Bitrix" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {bitrixFields.map((field) => (
-                              <SelectItem key={field.field_id} value={field.field_id}>
-                                {field.field_title} ({field.field_id})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Campo Supabase</Label>
-                        <Select
-                          value={newMapping.tabuladormax_field}
-                          onValueChange={(value) => setNewMapping({ ...newMapping, tabuladormax_field: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione a coluna do Supabase" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {supabaseFields.map((field) => (
-                              <SelectItem key={field.column_name} value={field.column_name}>
-                                {field.column_name} ({field.data_type})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Transformação (opcional)</Label>
-                        <Select
-                          value={newMapping.transform_function || 'none'}
-                          onValueChange={(value) => setNewMapping({ 
-                            ...newMapping, 
-                            transform_function: value === 'none' ? null : value 
-                          })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Nenhuma</SelectItem>
-                            <SelectItem value="toNumber">toNumber</SelectItem>
-                            <SelectItem value="toString">toString</SelectItem>
-                            <SelectItem value="toBoolean">toBoolean</SelectItem>
-                            <SelectItem value="toDate">toDate</SelectItem>
-                            <SelectItem value="toTimestamp">toTimestamp</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Prioridade (para fallback)</Label>
-                        <Input
-                          type="number"
-                          value={newMapping.priority}
-                          onChange={(e) => setNewMapping({ ...newMapping, priority: parseInt(e.target.value) })}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Menor número = maior prioridade. Use para definir campos alternativos.
-                        </p>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={handleAddMapping}>
-                        Adicionar
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
+              <CardTitle>Mapeamento de Campos</CardTitle>
+              <CardDescription>
+                Configure como os campos são sincronizados entre Bitrix e Supabase
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -409,12 +264,7 @@ export default function BitrixIntegration() {
                   Carregando mapeamentos...
                 </div>
               ) : (
-                <FieldMappingTable
-                  mappings={mappings}
-                  bitrixFields={bitrixFields}
-                  supabaseFields={supabaseFields}
-                  onUpdate={loadData}
-                />
+                <SupabaseBasedMappingTable />
               )}
             </CardContent>
           </Card>
