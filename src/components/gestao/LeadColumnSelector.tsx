@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Settings2, GripVertical } from "lucide-react";
+import { Settings2, GripVertical, X } from "lucide-react";
 import { CATEGORY_LABELS, type ColumnConfig } from "@/config/leadFields";
 import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
 import { useGestaoFieldMappings } from "@/hooks/useGestaoFieldMappings";
@@ -28,7 +28,7 @@ function SortableActiveItem({ field, toggleColumn, canToggle }: { field: ColumnC
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-1 pl-6 pr-2 py-1.5"
+      className="flex items-center gap-1 pl-6 pr-2 py-1.5 group"
     >
       <button
         type="button"
@@ -38,17 +38,26 @@ function SortableActiveItem({ field, toggleColumn, canToggle }: { field: ColumnC
       >
         <GripVertical className="w-3 h-3" />
       </button>
-      <DropdownMenuCheckboxItem
-        checked
-        onCheckedChange={() => toggleColumn(field.key)}
-        disabled={!canToggle(field.key)}
-        className="flex-1 text-sm pl-0"
-      >
+      
+      <div className="flex-1 text-sm pl-2">
         {field.label}
         {field.key === 'name' && (
           <span className="ml-2 text-xs text-muted-foreground">(obrigatório)</span>
         )}
-      </DropdownMenuCheckboxItem>
+      </div>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleColumn(field.key);
+        }}
+        disabled={!canToggle(field.key)}
+        className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-30 disabled:cursor-not-allowed opacity-0 group-hover:opacity-100 transition-opacity"
+        title={canToggle(field.key) ? "Remover coluna" : "Esta coluna é obrigatória"}
+      >
+        <X className="w-3 h-3" />
+      </button>
     </div>
   );
 }
