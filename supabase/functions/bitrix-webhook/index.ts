@@ -203,25 +203,37 @@ serve(async (req) => {
     console.log('✅ Lead obtido do Bitrix:', lead);
 
     // 1. EXTRAIR PROJETO COMERCIAL
-    const projectName = lead['Projetos Cormeciais'] || lead['Projetos Comerciais'];
+    // Usar o campo correto UF_CRM_1741215746 que contém o código do projeto
+    const projectCode = lead['UF_CRM_1741215746'];
     let commercialProjectId = null;
 
-    if (projectName) {
-      const { data: project } = await supabase
+    if (projectCode) {
+      console.log(`🔍 Buscando projeto com code: "${projectCode}"`);
+      
+      const { data: project, error: projectError } = await supabase
         .from('commercial_projects')
-        .select('id')
-        .ilike('name', `%${projectName}%`)
+        .select('id, name, code')
+        .eq('code', String(projectCode))
+        .eq('active', true)
         .maybeSingle();
       
-      commercialProjectId = project?.id;
+      if (project) {
+        commercialProjectId = project.id;
+        console.log(`✅ Projeto encontrado: ${project.name} (code: ${project.code})`);
+      } else {
+        console.warn(`⚠️ Projeto não encontrado para code: "${projectCode}"`, projectError);
+      }
     }
 
-    // Se não encontrou projeto, usar Pinheiros como padrão
+    // Fallback apenas se realmente não encontrou
     if (!commercialProjectId) {
+      console.warn('⚠️ Usando projeto padrão (Pinheiros) pois não foi encontrado projeto específico');
+      
       const { data: defaultProject } = await supabase
         .from('commercial_projects')
         .select('id')
         .eq('code', 'PINHEIROS')
+        .eq('active', true)
         .maybeSingle();
       
       commercialProjectId = defaultProject?.id;
@@ -247,7 +259,7 @@ serve(async (req) => {
 
     console.log('📝 Dados extraídos:', {
       leadId,
-      projectName,
+      projectCode,
       commercialProjectId,
       bitrixTelemarketingId,
       responsibleUserId,

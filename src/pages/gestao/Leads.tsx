@@ -33,7 +33,34 @@ function GestaoLeadsContent() {
       let query = supabase
         .from("leads")
         .select(`
-          *,
+          id,
+          name,
+          scouter,
+          responsible,
+          age,
+          address,
+          photo_url,
+          etapa,
+          fonte,
+          criado,
+          nome_modelo,
+          ficha_confirmada,
+          cadastro_existe_foto,
+          status_tabulacao,
+          qualidade_lead,
+          data_criacao_ficha,
+          data_confirmacao_ficha,
+          data_agendamento,
+          compareceu,
+          presenca_confirmada,
+          valor_ficha,
+          local_abordagem,
+          gestao_scouter,
+          op_telemarketing,
+          commercial_project_id,
+          bitrix_telemarketing_id,
+          latitude,
+          longitude,
           commercial_projects:commercial_project_id(
             id,
             name,
@@ -44,7 +71,7 @@ function GestaoLeadsContent() {
         .limit(100);
       
       if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,celular.ilike.%${searchTerm}%,scouter.ilike.%${searchTerm}%`);
+        query = query.or(`name.ilike.%${searchTerm}%,scouter.ilike.%${searchTerm}%`);
       }
 
       // Filtro de data
