@@ -13,10 +13,10 @@ import { format } from "date-fns";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
-import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
+import { useLeadColumnConfig, LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
 import { useGestaoFieldMappings } from "@/hooks/useGestaoFieldMappings";
 
-export default function GestaoLeads() {
+function GestaoLeadsContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -232,5 +232,13 @@ export default function GestaoLeads() {
         onOpenChange={setShowReorderDialog} 
       />
     </div>
+  );
+}
+
+export default function GestaoLeads() {
+  return (
+    <LeadColumnConfigProvider>
+      <GestaoLeadsContent />
+    </LeadColumnConfigProvider>
   );
 }
