@@ -77,3 +77,12 @@ verify_jwt = true
 
 [functions.resume-csv-import]
 verify_jwt = true
+
+[functions.sync-bitrix-spa-entities]
+verify_jwt = false
+
+[functions.get-bitrix-fields]
+verify_jwt = false
+
+[functions.test-sync]
+verify_jwt = false

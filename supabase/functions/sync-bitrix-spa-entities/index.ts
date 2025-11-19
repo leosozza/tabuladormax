@@ -62,7 +62,7 @@ serve(async (req) => {
             .upsert({
               entity_type_id: entityType.id,
               bitrix_item_id: item.id,
-              title: item.title || `Item ${item.id}`,
+              title: (item.title || `Item ${item.id}`).trim(),
               cached_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             }, {
