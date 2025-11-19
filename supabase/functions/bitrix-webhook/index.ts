@@ -9,6 +9,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Função para parsear datas brasileiras (dd/MM/yyyy HH:mm:ss ou dd/MM/yyyy)
+const parseBrazilianDate = (dateStr: string | null | undefined): string | null => {
+  if (!dateStr) return null;
+  try {
+    // Formato brasileiro completo: dd/MM/yyyy HH:mm:ss
+    const matchFull = String(dateStr).match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+    if (matchFull) {
+      const [, day, month, year, hour, minute, second] = matchFull;
+      const isoDate = `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+      console.log(`✅ Data brasileira parseada: "${dateStr}" → "${isoDate}"`);
+      return isoDate;
+    }
+    
+    // Formato brasileiro apenas data: dd/MM/yyyy
+    const matchDate = String(dateStr).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (matchDate) {
+      const [, day, month, year] = matchDate;
+      const isoDate = `${year}-${month}-${day}T00:00:00Z`;
+      console.log(`✅ Data brasileira parseada: "${dateStr}" → "${isoDate}"`);
+      return isoDate;
+    }
+    
+    // Fallback: tentar parsear como ISO ou outro formato padrão
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      const isoDate = date.toISOString();
+      console.log(`✅ Data ISO parseada: "${dateStr}" → "${isoDate}"`);
+      return isoDate;
+    }
+    
+    console.warn(`⚠️ Não foi possível parsear data: "${dateStr}"`);
+    return null;
+  } catch (error) {
+    console.error(`❌ Erro ao parsear data: "${dateStr}"`, error);
+    return null;
+  }
+};
+
 interface BitrixWebhookPayload {
   event: string;
   data: {
@@ -271,9 +309,20 @@ serve(async (req) => {
             } else if (mapping.transform_function === 'toBoolean') {
               value = value === '1' || value === 'Y' || value === true;
             } else if (mapping.transform_function === 'toDate') {
-              value = value; // Manter como está, Postgres converterá
+              // Parsear data brasileira e extrair apenas a parte yyyy-MM-dd
+              const parsed = parseBrazilianDate(value);
+              value = parsed ? parsed.split('T')[0] : null;
+              if (!value) {
+                console.warn(`⚠️ Data inválida ignorada para ${tabuladorField}: "${originalValue}"`);
+                continue; // Pular este mapeamento
+              }
             } else if (mapping.transform_function === 'toTimestamp') {
-              value = value; // Manter como está, Postgres converterá
+              // Parsear data brasileira para timestamp ISO completo
+              value = parseBrazilianDate(value);
+              if (!value) {
+                console.warn(`⚠️ Timestamp inválido ignorado para ${tabuladorField}: "${originalValue}"`);
+                continue; // Pular este mapeamento
+              }
             }
           } catch (e) {
             console.warn(`⚠️ Erro ao transformar ${mapping.bitrix_field}:`, e);
