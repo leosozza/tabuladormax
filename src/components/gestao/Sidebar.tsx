@@ -4,7 +4,11 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export default function GestaoSidebar() {
+interface GestaoSidebarProps {
+  onNavigate?: () => void;
+}
+
+export default function GestaoSidebar({ onNavigate }: GestaoSidebarProps = {}) {
   const location = useLocation();
   
   // Verificar se usuário é admin/manager
@@ -50,6 +54,7 @@ export default function GestaoSidebar() {
             <Link
               key={item.path}
               to={item.path}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all duration-200",
                 isActive(item.path)
@@ -67,6 +72,7 @@ export default function GestaoSidebar() {
       <div className="p-4 border-t border-sidebar-border">
         <Link
           to="/home-choice"
+          onClick={onNavigate}
           className="flex items-center gap-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />

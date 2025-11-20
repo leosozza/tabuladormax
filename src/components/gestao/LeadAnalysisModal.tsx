@@ -54,10 +54,10 @@ export function LeadAnalysisModal({
         className="w-screen h-screen max-w-none p-0 gap-0 flex flex-col bg-background animate-in slide-in-from-bottom duration-300"
         data-tinder-modal="true"
       >
-        <DialogHeader className="flex-shrink-0 border-b px-4 py-3 space-y-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <DialogHeader className="flex-shrink-0 border-b px-3 sm:px-4 py-2 sm:py-3 space-y-2 sm:space-y-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold">Análise de Ficha</DialogTitle>
-            <Badge variant="secondary" className="text-sm">
+            <DialogTitle className="text-base sm:text-lg font-semibold">Análise de Ficha</DialogTitle>
+            <Badge variant="secondary" className="text-xs sm:text-sm">
               {currentIndex + 1} de {totalLeads}
             </Badge>
           </div>
@@ -78,9 +78,9 @@ export function LeadAnalysisModal({
         
         <div className="flex-1 flex flex-col overflow-hidden relative">
           {/* Área central do card com swipe */}
-          <div className="flex-1 px-3 py-3 md:px-4 md:py-4">
+          <div className="flex-1 px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4">
             <div className="h-full flex flex-col overflow-hidden">
-              <div className="w-full max-w-sm md:max-w-md lg:max-w-lg mx-auto h-full">
+              <div className="w-full max-w-full sm:max-w-sm md:max-w-md lg:max-w-lg mx-auto h-full">
                 <SwipeableCard
                   lead={lead}
                   onSwipe={onSwipe}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRecords } from "@/lib/supabaseUtils";
-import GestaoSidebar from "@/components/gestao/Sidebar";
+import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import AreaMap, { LeadMapLocation, DrawnArea } from "@/components/gestao/AreaMap";
 import ScouterLocationMap from "@/components/gestao/maps/ScouterLocationMap";
@@ -170,25 +170,17 @@ export default function GestaoAreaDeAbordagem() {
   const totalScoutersActive = areasData?.reduce((sum, a) => sum + a.uniqueScouters, 0) || 0;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <GestaoSidebar />
-      
-      <div className="flex-1 p-6 overflow-auto">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Área de Abordagem</h1>
-          <p className="text-muted-foreground">Visualize e analise leads por localização com clustering e desenho de área</p>
-        </div>
+    <GestaoPageLayout
+      title="Área de Abordagem"
+      description="Análise geográfica e heatmaps de leads"
+    >
+      <GestaoFiltersComponent 
+        filters={filters}
+        onChange={setFilters}
+      />
 
-        {/* Filtros */}
-        <div className="mb-6">
-          <GestaoFiltersComponent 
-            filters={filters}
-            onChange={setFilters}
-          />
-        </div>
-
-        {/* Métricas principais */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      {/* Métricas principais */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -415,7 +407,6 @@ export default function GestaoAreaDeAbordagem() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
-    </div>
+    </GestaoPageLayout>
   );
 }
