@@ -1,6 +1,9 @@
 -- ============================================
 -- SQL para executar no projeto gestao-scouter
 -- ============================================
+-- ⚠️ AVISO: Este SQL é para o projeto Gestão Scouter EXTERNO,
+-- NÃO para o projeto TabuladorMax.
+--
 -- Este arquivo deve ser executado no Dashboard do Supabase do projeto gestao-scouter
 -- (https://ngestyxtopvfeyenyvgt.supabase.co)
 

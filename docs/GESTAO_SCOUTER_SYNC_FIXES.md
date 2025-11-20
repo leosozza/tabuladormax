@@ -1,5 +1,8 @@
 # Correções de Sincronização com Gestão Scouter
 
+> ⚠️ **STATUS**: Funcionalidades de sincronização bidirecional Gestão Scouter → TabuladorMax não implementadas.
+> A sincronização TabuladorMax → Gestão Scouter funciona via `export-to-gestao-scouter-batch`.
+
 ## Resumo das Alterações
 
 Este documento descreve as correções implementadas para resolver problemas de sincronização entre TabuladorMax e Gestão Scouter.
