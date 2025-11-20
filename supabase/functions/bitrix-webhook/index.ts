@@ -553,7 +553,8 @@ serve(async (req) => {
             value: value,
             transformed: !!mapping.transform_function,
             transform_function: mapping.transform_function,
-            priority: mapping.priority
+            priority: mapping.priority,
+            display_name: mapping.display_name || null
           });
           console.log(`✅ ${supabaseField} = ${mapping.bitrix_field} (prioridade ${mapping.priority})`);
           break; // Usar apenas o primeiro não-vazio
@@ -569,7 +570,8 @@ serve(async (req) => {
         supabase_field: 'responsible',
         value: responsibleName,
         transformed: false,
-        priority: 999
+        priority: 999,
+        display_name: 'Operador de Telemarketing'
       });
     }
 
