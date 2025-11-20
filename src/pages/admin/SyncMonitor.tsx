@@ -5,12 +5,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { RefreshCw, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Settings2 } from 'lucide-react';
+import { RefreshCw, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Settings2, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { FieldMappingDisplay } from '@/components/sync/FieldMappingDisplay';
 import { SyncFieldMappings } from '@/lib/fieldMappingUtils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface SyncEvent {
   id: string;
@@ -29,6 +36,7 @@ export default function SyncMonitor() {
   const [syncEvents, setSyncEvents] = useState<SyncEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedErrorEvent, setSelectedErrorEvent] = useState<SyncEvent | null>(null);
 
   const loadSyncEvents = async () => {
     setLoading(true);
@@ -125,6 +133,29 @@ export default function SyncMonitor() {
   const successCount = syncEvents.filter(e => e.status === 'success').length;
   const errorCount = syncEvents.filter(e => e.status === 'error').length;
   const pendingCount = syncEvents.filter(e => e.status === 'pending').length;
+
+  const copyErrorDetails = () => {
+    if (!selectedErrorEvent) return;
+    
+    const errorDetails = `
+=== ERRO DE SINCRONIZAÇÃO ===
+ID do Evento: ${selectedErrorEvent.id}
+Tipo: ${selectedErrorEvent.event_type}
+Direção: ${selectedErrorEvent.direction}
+Status: ${selectedErrorEvent.status}
+Data/Hora: ${format(new Date(selectedErrorEvent.created_at), 'dd/MM/yyyy HH:mm:ss')}
+Duração: ${selectedErrorEvent.sync_duration_ms || 'N/A'}ms
+
+MENSAGEM DE ERRO:
+${selectedErrorEvent.error_message || 'Nenhuma mensagem de erro disponível'}
+
+DADOS BRUTOS DO EVENTO:
+${JSON.stringify(selectedErrorEvent, null, 2)}
+    `.trim();
+    
+    navigator.clipboard.writeText(errorDetails);
+    toast.success('Detalhes do erro copiados para área de transferência');
+  };
 
   return (
     <AdminPageLayout
@@ -232,7 +263,10 @@ export default function SyncMonitor() {
                         <Badge variant="outline" className="text-xs">
                           {event.direction}
                         </Badge>
-                        <Badge className={`text-xs ${getStatusColor(event.status)}`}>
+                        <Badge 
+                          className={`text-xs ${getStatusColor(event.status)} ${event.status === 'error' ? 'cursor-pointer hover:opacity-80' : ''}`}
+                          onClick={() => event.status === 'error' && setSelectedErrorEvent(event)}
+                        >
                           {event.status}
                         </Badge>
                         {event.fields_synced_count !== null && event.fields_synced_count > 0 && (
@@ -282,6 +316,82 @@ export default function SyncMonitor() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de Detalhes do Erro */}
+      <Dialog open={!!selectedErrorEvent} onOpenChange={(open) => !open && setSelectedErrorEvent(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-red-600" />
+              Detalhes do Erro de Sincronização
+            </DialogTitle>
+            <DialogDescription>
+              Copie esses detalhes para compartilhar ou depurar o problema
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedErrorEvent && (
+            <div className="space-y-4">
+              {/* Informações Básicas */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="text-xs text-muted-foreground">Tipo de Evento</p>
+                  <p className="font-medium">{selectedErrorEvent.event_type}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Direção</p>
+                  <p className="font-medium">{selectedErrorEvent.direction}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Data/Hora</p>
+                  <p className="font-medium">
+                    {format(new Date(selectedErrorEvent.created_at), 'dd/MM/yyyy HH:mm:ss')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Duração</p>
+                  <p className="font-medium">{selectedErrorEvent.sync_duration_ms || 'N/A'}ms</p>
+                </div>
+              </div>
+
+              {/* Mensagem de Erro */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-sm">Mensagem de Erro</h4>
+                </div>
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <pre className="text-xs text-red-700 dark:text-red-400 whitespace-pre-wrap font-mono">
+                    {selectedErrorEvent.error_message || 'Nenhuma mensagem de erro disponível'}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Dados Brutos */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-sm">Dados Brutos (JSON)</h4>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg max-h-64 overflow-y-auto">
+                  <pre className="text-xs font-mono whitespace-pre-wrap">
+                    {JSON.stringify(selectedErrorEvent, null, 2)}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Botão de Copiar */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setSelectedErrorEvent(null)}>
+                  Fechar
+                </Button>
+                <Button onClick={copyErrorDetails}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copiar Todos os Detalhes
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AdminPageLayout>
   );
 }
