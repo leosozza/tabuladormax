@@ -12,6 +12,7 @@ export interface FieldMapping {
   transformed: boolean;
   transform_function?: string;
   priority?: number;
+  display_name?: string;  // ✨ Label legível do campo Bitrix
 }
 
 export interface SyncFieldMappings {
@@ -57,6 +58,7 @@ export function createSupabaseToBitrixMapping(
 
 /**
  * Formats field mappings for display in UI
+ * Uses display_name when available for better readability
  */
 export function formatFieldMappingsForDisplay(mappings: SyncFieldMappings): {
   direction: string;
@@ -77,7 +79,7 @@ export function formatFieldMappingsForDisplay(mappings: SyncFieldMappings): {
     mappings.bitrix_to_supabase.forEach((mapping) => {
       formatted.push({
         direction: 'Bitrix → Supabase',
-        from: mapping.bitrix_field,
+        from: mapping.display_name || mapping.bitrix_field,  // ✨ Use display_name when available
         to: mapping.tabuladormax_field,
         value: formatValue(mapping.value),
         transformed: mapping.transformed,
@@ -90,7 +92,7 @@ export function formatFieldMappingsForDisplay(mappings: SyncFieldMappings): {
       formatted.push({
         direction: 'Supabase → Bitrix',
         from: mapping.tabuladormax_field,
-        to: mapping.bitrix_field,
+        to: mapping.display_name || mapping.bitrix_field,  // ✨ Use display_name when available
         value: formatValue(mapping.value),
         transformed: mapping.transformed,
       });

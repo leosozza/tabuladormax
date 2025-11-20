@@ -37,6 +37,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loader2, X, AlertTriangle, Info, Trash2, EyeOff } from "lucide-react";
+import { getBitrixFieldLabel } from '@/lib/fieldLabelUtils';
 
 interface SupabaseField {
   column_name: string;
@@ -513,31 +514,46 @@ export function SupabaseBasedMappingTable() {
                     <TableCell className="text-center text-muted-foreground">→</TableCell>
 
                     <TableCell>
-                      <Select
-                        value={row.bitrix_field || "__none__"}
-                        onValueChange={(value) =>
-                          handleMapField(row.supabase_field, row.supabase_type, value)
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">Nenhum</SelectItem>
-                          {bitrixFields.map((bf) => (
-                            <SelectItem key={bf.field_id} value={bf.field_id}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">
-                                  {bf.display_name || bf.field_title}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {bf.field_id}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {row.bitrix_field ? (
+                        <div className="space-y-1">
+                          <div className="font-medium text-sm">
+                            {getBitrixFieldLabel({
+                              field_id: row.bitrix_field,
+                              display_name: row.bitrix_display_name
+                            })}
+                          </div>
+                          <code className="text-xs text-muted-foreground bg-muted px-1 rounded">
+                            {row.bitrix_field}
+                          </code>
+                          {row.bitrix_field_type && (
+                            <Badge variant="outline" className="text-xs block mt-1 w-fit">
+                              {row.bitrix_field_type}
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <Select
+                          value={row.bitrix_field || "__none__"}
+                          onValueChange={(value) =>
+                            handleMapField(row.supabase_field, row.supabase_type, value)
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Nenhum</SelectItem>
+                            {bitrixFields.map((bf) => (
+                              <SelectItem key={bf.field_id} value={bf.field_id}>
+                                <div className="flex items-center justify-between gap-2 w-full">
+                                  <span className="flex-1">{getBitrixFieldLabel(bf)}</span>
+                                  <code className="text-xs text-muted-foreground">{bf.field_id}</code>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </TableCell>
 
                     <TableCell>

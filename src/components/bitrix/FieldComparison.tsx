@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { ArrowRight, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { getBitrixFieldLabel } from '@/lib/fieldLabelUtils';
 
 interface BitrixField {
   field_id: string;
@@ -71,16 +72,18 @@ export function FieldComparison({ bitrixFields, supabaseFields, mappings }: Prop
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <code className="text-xs bg-muted px-2 py-1 rounded truncate">
-                        {field.field_id}
-                      </code>
+                      <span className="text-sm font-medium">
+                        {getBitrixFieldLabel(field)}
+                      </span>
                       {status === 'mapped' ? (
                         <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
                       ) : (
                         <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
                       )}
                     </div>
-                    <p className="text-sm mt-1 truncate">{field.field_title}</p>
+                    <code className="text-xs bg-muted px-2 py-1 rounded block mt-1">
+                      {field.field_id}
+                    </code>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="outline" className="text-xs">{field.field_type}</Badge>
                       {mappedTo && (

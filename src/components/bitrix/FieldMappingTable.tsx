@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Trash2, GripVertical, Save, X, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { getBitrixFieldLabel } from '@/lib/fieldLabelUtils';
 
 interface FieldMapping {
   id: string;
@@ -140,7 +141,10 @@ export function FieldMappingTable({ mappings, bitrixFields, supabaseFields, onUp
                         <SelectContent>
                           {bitrixFields.map((field) => (
                             <SelectItem key={field.field_id} value={field.field_id}>
-                              {field.field_title} ({field.field_id})
+                              <div className="flex items-center justify-between gap-2">
+                                <span>{getBitrixFieldLabel(field)}</span>
+                                <code className="text-xs text-muted-foreground">{field.field_id}</code>
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -148,18 +152,16 @@ export function FieldMappingTable({ mappings, bitrixFields, supabaseFields, onUp
                     ) : (
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">
-                          {bitrixInfo?.field_title || mapping.bitrix_field}
+                          {getBitrixFieldLabel(bitrixInfo || { field_id: mapping.bitrix_field })}
                         </span>
-                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                          <code className="bg-muted px-2 py-0.5 rounded">
-                            {mapping.bitrix_field}
-                          </code>
-                          {mapping.bitrix_field_type && (
-                            <Badge variant="outline" className="text-[10px]">
-                              {mapping.bitrix_field_type}
-                            </Badge>
-                          )}
-                        </div>
+                        <code className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded mt-1 inline-block">
+                          {mapping.bitrix_field}
+                        </code>
+                        {mapping.bitrix_field_type && (
+                          <Badge variant="outline" className="text-[10px] mt-1 self-start">
+                            {mapping.bitrix_field_type}
+                          </Badge>
+                        )}
                         {!bitrixInfo && (
                           <span className="mt-1 text-xs text-destructive">
                             Campo não encontrado no Bitrix (verifique se foi removido).
