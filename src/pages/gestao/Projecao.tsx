@@ -120,7 +120,7 @@ export default function GestaoProjecao() {
                   </div>
                 </CardContent>
               </Card>
-            </Card>
+            </div>
 
             <Card>
               <CardHeader>
