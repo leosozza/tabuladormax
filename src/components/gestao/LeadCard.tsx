@@ -63,9 +63,9 @@ export default function LeadCard({ lead }: LeadCardProps) {
   const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
 
   const photoContainerClasses = {
-    circle: "aspect-square rounded-full",
-    rounded: "aspect-[3/4] rounded-lg",
-    fullscreen: "aspect-[3/4] rounded-none h-[500px]"
+    circle: "aspect-square rounded-full max-h-[30vh]",
+    rounded: "aspect-[3/4] rounded-lg max-h-[35vh]",
+    fullscreen: "rounded-none max-h-[40vh]"
   };
 
   const cardSizeClasses = {
@@ -88,7 +88,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
           <img
             src={photoUrl}
             alt={String(lead.name || "Lead")}
-            className="w-full h-full object-cover max-h-[40vh]"
+            className="w-full h-full object-contain"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
