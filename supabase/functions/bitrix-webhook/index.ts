@@ -875,29 +875,16 @@ serve(async (req) => {
       console.log('✅ Lead sincronizado no Supabase:', upsertedLead);
       
       // 🖼️ SINCRONIZAR FOTO SE NECESSÁRIO (em background)
-      // PRIORIDADE 1: URL direta /docs/file/ (UF_CRM_1759851519843)
-      // PRIORIDADE 2: Array de arquivos (UF_CRM_LEAD_1733231445171)
-      const directUrlField = lead.UF_CRM_1759851519843; // campo com /docs/file/...
-      const fileArrayField = lead.UF_CRM_LEAD_1733231445171;
+      // Campo oficial de foto pública: UF_CRM_ID_FOTO
+      const photoIdField = lead.UF_CRM_ID_FOTO;
 
-      let photoField = null;
-      
-      if (directUrlField && typeof directUrlField === 'string' && directUrlField.includes('/docs/file/')) {
-        // Usar URL direta se disponível
-        photoField = directUrlField;
-        console.log('🖼️ Detectado URL direta de foto:', photoField);
-      } else if (Array.isArray(fileArrayField) && fileArrayField.length > 0) {
-        // Fallback para array de arquivos
-        photoField = fileArrayField;
-        console.log('🖼️ Detectado array de fotos do Bitrix:', JSON.stringify(photoField, null, 2));
-      }
-
-      if (photoField) {
+      if (photoIdField) {
+        console.log('🖼️ Detectado UF_CRM_ID_FOTO:', photoIdField);
+        
         // Processar foto em background (não bloqueia resposta do webhook)
         supabase.functions.invoke('bitrix-photo-sync', {
           body: { 
-            leadId: Number(leadId),
-            photoData: photoField
+            leadId: Number(leadId)
           }
         }).then((photoResponse: any) => {
           if (photoResponse.data?.publicUrl) {

@@ -228,6 +228,17 @@ async function processBatchJob(jobId: string) {
           .from('leads')
           .upsert(leadData, { onConflict: 'id' });
 
+        // Sincronizar foto se presente (em background)
+        if (bitrixLead.UF_CRM_ID_FOTO) {
+          console.log(`🖼️ Lead ${bitrixLead.ID} possui UF_CRM_ID_FOTO: ${bitrixLead.UF_CRM_ID_FOTO}`);
+          
+          supabase.functions.invoke('bitrix-photo-sync', {
+            body: { leadId: Number(bitrixLead.ID) }
+          }).catch((photoErr: any) => {
+            console.warn(`⚠️ Erro ao sincronizar foto do lead ${bitrixLead.ID}:`, photoErr);
+          });
+        }
+
         // Correção 4: Melhorar tratamento de erros ao registrar sync_event
         try {
           const { error: syncError } = await supabase.from('sync_events').insert({
