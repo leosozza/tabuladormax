@@ -50,7 +50,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
   const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
 
   return (
-    <Card className="w-full max-w-md mx-auto overflow-hidden border-2 shadow-lg">
+    <Card className="w-full overflow-hidden border-2 shadow-lg">
       {/* Foto do Lead */}
       <div className="relative aspect-[3/4] bg-muted overflow-hidden">
         {photoUrl ? (
@@ -61,18 +61,18 @@ export default function LeadCard({ lead }: LeadCardProps) {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <User className="w-16 h-16 md:w-24 md:h-24 text-muted-foreground opacity-20" />
+            <User className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 text-muted-foreground opacity-20" />
           </div>
         )}
         
         {/* Badges de Status */}
-        <div className="absolute top-2 right-2 md:top-4 md:right-4 flex flex-col gap-2">
+        <div className="absolute top-2 right-2 md:top-3 md:right-3 lg:top-4 lg:right-4 flex flex-col gap-1.5 md:gap-2">
           {/* FASE 4: Badge de erro de sincronização */}
           {lead.has_sync_errors && (
             <Tooltip>
               <TooltipTrigger>
-                <Badge variant="destructive" className="backdrop-blur-sm bg-destructive/90 text-xs md:text-sm flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
+                <Badge variant="destructive" className="backdrop-blur-sm bg-destructive/90 text-[10px] md:text-xs flex items-center gap-1">
+                  <AlertCircle className="w-2.5 h-2.5 md:w-3 md:h-3" />
                   Erro Sync
                 </Badge>
               </TooltipTrigger>
@@ -92,7 +92,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
           )}
           
           {badgeValues.length > 0 && badgeValues.map((badge, idx) => (
-            <Badge key={idx} variant="secondary" className="backdrop-blur-sm bg-background/80 text-xs md:text-sm">
+            <Badge key={idx} variant="secondary" className="backdrop-blur-sm bg-background/80 text-[10px] md:text-xs">
               {badge.value}
             </Badge>
           ))}
@@ -100,27 +100,27 @@ export default function LeadCard({ lead }: LeadCardProps) {
       </div>
 
       {/* Informações do Lead */}
-      <CardContent className="p-4 md:p-6 space-y-3 md:space-y-4">
+      <CardContent className="p-3 md:p-5 lg:p-6 space-y-2 md:space-y-3 lg:space-y-4">
         <div>
-          <h3 className="text-xl md:text-2xl font-bold mb-1 truncate">
+          <h3 className="text-lg md:text-xl lg:text-2xl font-bold mb-0.5 md:mb-1 truncate">
             {mainValues[0]?.value || "Sem nome"}
           </h3>
           {mainValues[1]?.value && (
-            <p className="text-sm text-muted-foreground">{mainValues[1].value}</p>
+            <p className="text-xs md:text-sm text-muted-foreground truncate">{mainValues[1].value}</p>
           )}
         </div>
 
-        <div className="space-y-2 md:space-y-3">
+        <div className="space-y-1.5 md:space-y-2 lg:space-y-3">
           {detailValues.map((detail, idx) => {
             if (!detail.value) return null;
             
             const icon = getFieldIcon(detail.key);
             
             return (
-              <div key={idx} className="flex items-start gap-2 text-xs md:text-sm">
+              <div key={idx} className="flex items-start gap-1.5 md:gap-2 text-[11px] md:text-xs lg:text-sm">
                 {icon}
                 <span className="font-medium whitespace-nowrap">{detail.label}:</span>
-                <span className="text-muted-foreground flex-1 break-words">{detail.value}</span>
+                <span className="text-muted-foreground flex-1 break-words leading-tight">{detail.value}</span>
               </div>
             );
           })}

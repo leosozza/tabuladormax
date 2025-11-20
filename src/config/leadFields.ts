@@ -101,13 +101,31 @@ export const ALL_LEAD_FIELDS: ColumnConfig[] = [
     formatter: (value: string) => value || '-'
   },
   { 
+    key: 'nome_modelo', 
+    label: 'Nome do Modelo', 
+    type: 'text', 
+    sortable: true, 
+    defaultVisible: false,
+    category: 'basic',
+    formatter: (value: string) => value || '-'
+  },
+  { 
+    key: 'projeto_comercial', 
+    label: 'Projeto Comercial (ID)', 
+    type: 'text', 
+    sortable: true, 
+    defaultVisible: false,
+    category: 'basic',
+    formatter: (value: string) => value || '-'
+  },
+  { 
     key: 'commercial_projects.name', 
     label: 'Projeto Comercial', 
     type: 'text', 
     sortable: false, 
     defaultVisible: true,
     category: 'basic',
-    formatter: (value: any, row?: any) => row?.commercial_projects?.name || '-'
+    formatter: (value: any, row?: any) => row?.commercial_projects?.name || row?.projeto_comercial || '-'
   },
   { 
     key: 'supervisor', 
@@ -363,15 +381,6 @@ export const ALL_LEAD_FIELDS: ColumnConfig[] = [
   { 
     key: 'fonte', 
     label: 'Fonte', 
-    type: 'text', 
-    sortable: true, 
-    defaultVisible: false,
-    category: 'other',
-    formatter: (value: string) => value || '-'
-  },
-  { 
-    key: 'nome_modelo', 
-    label: 'Nome Modelo', 
     type: 'text', 
     sortable: true, 
     defaultVisible: false,

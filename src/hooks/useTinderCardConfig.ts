@@ -11,8 +11,8 @@ const STORAGE_KEY = 'tinder_card_config';
 
 const DEFAULT_CONFIG: TinderCardConfig = {
   photoField: 'photo_url',
-  mainFields: ['name', 'age'],
-  detailFields: ['scouter', 'local_da_abordagem', 'projetos', 'supervisor'],
+  mainFields: ['name', 'nome_modelo'],
+  detailFields: ['scouter', 'projeto_comercial', 'criado'],
   badgeFields: ['ficha_confirmada', 'presenca_confirmada', 'etapa']
 };
 
