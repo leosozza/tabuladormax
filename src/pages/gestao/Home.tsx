@@ -14,8 +14,9 @@ import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
 import { useState } from "react";
+import { LeadColumnConfigProvider } from '@/hooks/useLeadColumnConfig';
 
-export default function GestaoHome() {
+function GestaoHomeContent() {
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('month'),
     projectId: null,
@@ -175,5 +176,13 @@ export default function GestaoHome() {
         <StatusDistribution />
       </div>
     </GestaoPageLayout>
+  );
+}
+
+export default function GestaoHome() {
+  return (
+    <LeadColumnConfigProvider>
+      <GestaoHomeContent />
+    </LeadColumnConfigProvider>
   );
 }
