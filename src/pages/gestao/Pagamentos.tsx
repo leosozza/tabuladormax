@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRecords } from "@/lib/supabaseUtils";
 import type { Database } from "@/integrations/supabase/types";
-import GestaoSidebar from "@/components/gestao/Sidebar";
+import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { createDateFilter } from "@/lib/dateUtils";
 import type { GestaoFilters as FilterType } from "@/types/filters";
@@ -223,24 +223,31 @@ export default function GestaoPagamentos() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <GestaoSidebar />
-      
-      <div className="flex-1 p-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Pagamentos</h1>
-          <p className="text-muted-foreground">Controle financeiro de fichas</p>
-        </div>
-
-        {/* Filtros */}
-        <div className="mb-6">
-          <GestaoFiltersComponent 
+    <GestaoPageLayout
+      title="Pagamentos"
+      description="Controle financeiro de fichas"
+      actions={
+        selectedLeadIds.size > 0 ? (
+          <Button
+            onClick={() => setIsPaymentModalOpen(true)}
+            disabled={selectedLeadIds.size === 0}
+            className="gap-2"
+          >
+            <Wallet className="w-4 h-4" />
+            Pagar Selecionados ({selectedLeadIds.size})
+          </Button>
+        ) : null
+      }
+    >
+      {/* Filtros */}
+      <div className="mb-4 md:mb-6">
+        <GestaoFiltersComponent
             filters={filters}
             onChange={setFilters}
-          />
-        </div>
+        />
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -263,9 +270,9 @@ export default function GestaoPagamentos() {
             <CardContent>
               <div className="text-3xl font-bold">{paidCount}</div>
             </CardContent>
-          </Card>
+      </Card>
 
-          <Card>
+      <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Pendentes
@@ -280,14 +287,14 @@ export default function GestaoPagamentos() {
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex flex-col gap-4">
               <CardTitle>Histórico de Pagamentos</CardTitle>
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap">
                 <Input
                   placeholder="Buscar por nome ou scouter..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-[300px]"
+                  className="w-full sm:w-[250px] md:w-[300px]"
                 />
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -299,16 +306,6 @@ export default function GestaoPagamentos() {
                     Apenas Pagas
                   </label>
                 </div>
-                {selectedLeadIds.size > 0 && (
-                  <Button
-                    onClick={() => setIsPaymentModalOpen(true)}
-                    disabled={selectedLeadIds.size === 0}
-                    className="gap-2"
-                  >
-                    <Wallet className="w-4 h-4" />
-                    Pagar Selecionados ({selectedLeadIds.size})
-                  </Button>
-                )}
               </div>
             </div>
           </CardHeader>
@@ -386,8 +383,7 @@ export default function GestaoPagamentos() {
               </Table>
             )}
           </CardContent>
-        </Card>
-      </div>
+      </Card>
 
       {/* Payment Confirmation Modal */}
       <PaymentConfirmModal
@@ -397,6 +393,6 @@ export default function GestaoPagamentos() {
         onConfirm={handleConfirmPayment}
         isProcessing={isProcessingPayment}
       />
-    </div>
+    </GestaoPageLayout>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import GestaoSidebar from "@/components/gestao/Sidebar";
+import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TrendingUp, DollarSign, Target, Calendar } from "lucide-react";
@@ -56,22 +56,17 @@ export default function GestaoProjecao() {
   });
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <GestaoSidebar />
-      
-      <div className="flex-1 p-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Projeções</h1>
-          <p className="text-muted-foreground">Análise de performance e metas</p>
-        </div>
+    <GestaoPageLayout
+      title="Projeções"
+      description="Análise de performance e metas"
+    >
+      <GestaoFiltersComponent filters={filters} onChange={setFilters} />
 
-        <GestaoFiltersComponent filters={filters} onChange={setFilters} />
-
-        {isLoading ? (
-          <div className="text-center py-12">Carregando projeções...</div>
-        ) : (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {isLoading ? (
+        <div className="text-center py-12">Carregando projeções...</div>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -125,7 +120,7 @@ export default function GestaoProjecao() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+            </Card>
 
             <Card>
               <CardHeader>
@@ -152,7 +147,6 @@ export default function GestaoProjecao() {
             </Card>
           </div>
         )}
-      </div>
-    </div>
+    </GestaoPageLayout>
   );
 }

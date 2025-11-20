@@ -11,6 +11,8 @@ interface ScouterData {
   leadsCount: number;
 }
 
+import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
+
 export default function GestaoScouters() {
   const { data: scoutersData, isLoading } = useQuery({
     queryKey: ["gestao-scouters"],
@@ -43,16 +45,11 @@ export default function GestaoScouters() {
   const avgLeadsPerScouter = totalScouters > 0 ? (totalLeads / totalScouters).toFixed(1) : "0";
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <GestaoSidebar />
-      
-      <div className="flex-1 p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Scouters</h1>
-          <p className="text-muted-foreground">Performance e estatísticas da equipe</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <GestaoPageLayout
+      title="Scouters"
+      description="Performance e estatísticas da equipe"
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -123,7 +120,6 @@ export default function GestaoScouters() {
             </CardContent>
           </Card>
         )}
-      </div>
-    </div>
+    </GestaoPageLayout>
   );
 }

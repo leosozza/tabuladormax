@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter, formatDateForDisplay } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
@@ -11,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { stripTagFromName } from "@/utils/formatters";
 import { AdditionalFilters } from "./AdditionalFilters";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface GestaoFiltersProps {
   filters: GestaoFilters;
@@ -18,6 +21,8 @@ interface GestaoFiltersProps {
 }
 
 export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps) {
+  const isMobile = useIsMobile();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(filters.dateFilter.startDate);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(filters.dateFilter.endDate);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -130,6 +135,168 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
     }
   };
 
+  // Contar filtros ativos
+  const activeFiltersCount = 
+    (filters.projectId ? 1 : 0) + 
+    (filters.scouterId ? 1 : 0) + 
+    (filters.dateFilter.preset !== 'month' ? 1 : 0) +
+    (filters.additionalFilters?.length || 0);
+
+  if (isMobile) {
+    return (
+      <div className="mb-4">
+        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" className="w-full gap-2 relative">
+              <Filter className="h-4 w-4" />
+              Filtros
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="ml-auto">
+                  {activeFiltersCount}
+                </Badge>
+              )}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Filtros</SheetTitle>
+            </SheetHeader>
+            <div className="space-y-6 pt-6">
+              {/* Filtro de Data */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Período:</label>
+                <Select 
+                  value={filters.dateFilter.preset} 
+                  onValueChange={handlePresetChange}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Hoje</SelectItem>
+                    <SelectItem value="week">Esta Semana</SelectItem>
+                    <SelectItem value="month">Este Mês</SelectItem>
+                    <SelectItem value="all">Todo Período</SelectItem>
+                    <SelectItem value="custom">Personalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {filters.dateFilter.preset === 'custom' && (
+                  <div className="space-y-4 pt-2">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Data Inicial</label>
+                      <Calendar
+                        mode="single"
+                        selected={customStartDate}
+                        onSelect={setCustomStartDate}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Data Final</label>
+                      <Calendar
+                        mode="single"
+                        selected={customEndDate}
+                        onSelect={setCustomEndDate}
+                        disabled={(date) => customStartDate ? date < customStartDate : false}
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleCustomDateApply} 
+                      disabled={!customStartDate || !customEndDate}
+                      className="w-full"
+                    >
+                      Aplicar Datas
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Filtro de Projeto */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Projeto:</label>
+                <Select
+                  value={filters.projectId || "all"}
+                  onValueChange={(value) => 
+                    onChange({ ...filters, projectId: value === "all" ? null : value })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos os projetos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os projetos</SelectItem>
+                    {projects?.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro de Scouter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Scouter:</label>
+                <Select
+                  value={filters.scouterId || "all"}
+                  onValueChange={(value) => 
+                    onChange({ ...filters, scouterId: value === "all" ? null : value })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos os scouters" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os scouters</SelectItem>
+                    {scouters?.map((scouter) => (
+                      <SelectItem key={scouter} value={scouter!}>
+                        {stripTagFromName(scouter)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtros Adicionais */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Filtros Avançados:</label>
+                <AdditionalFilters
+                  filters={filters.additionalFilters || []}
+                  onChange={(additionalFilters) => onChange({ ...filters, additionalFilters })}
+                />
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="flex gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onChange({
+                      dateFilter: createDateFilter('month'),
+                      projectId: null,
+                      scouterId: null,
+                      additionalFilters: []
+                    });
+                  }}
+                  className="flex-1"
+                >
+                  Limpar
+                </Button>
+                <Button
+                  onClick={() => setFiltersOpen(false)}
+                  className="flex-1"
+                >
+                  Aplicar
+                </Button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    );
+  }
+
+  // Desktop: Filtros inline (layout original)
   return (
     <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-card rounded-lg border">
       {/* Filtro de Data */}
