@@ -11,7 +11,7 @@ interface SwipeActionsProps {
 
 export default function SwipeActions({ onApprove, onReject, onSuperApprove, onSkip, disabled = false }: SwipeActionsProps) {
   return (
-    <div className="flex items-center justify-center gap-3 md:gap-4 py-4 md:py-6 px-4">
+    <div className="flex items-center justify-center gap-3 md:gap-4 py-3 px-4">
       {/* Rejeitar */}
       <Button
         variant="outline"
