@@ -31,6 +31,7 @@ export default function SyncMonitor() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadSyncEvents = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('sync_events')
@@ -39,6 +40,14 @@ export default function SyncMonitor() {
         .limit(50);
 
       if (error) throw error;
+      
+      console.log('📊 sync_events carregados:', data?.length || 0);
+      
+      // ✅ FASE 3.3: Mensagem útil quando não há eventos
+      if (!data || data.length === 0) {
+        console.warn('⚠️ Nenhum evento encontrado. Verifique permissões RLS se você é admin/manager.');
+      }
+      
       // Cast field_mappings from Json to SyncFieldMappings
       const typedData: SyncEvent[] = (data || []).map((event: any) => ({
         ...event,
