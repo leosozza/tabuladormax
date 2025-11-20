@@ -599,6 +599,46 @@ serve(async (req) => {
       });
     }
 
+    // ✅ FASE 1: Adicionar campos SPA ao appliedMappings para exibição no Sync Monitor
+    if (scouterName && bitrixScouterId) {
+      appliedMappings.push({
+        bitrix_field: 'PARENT_ID_1096',
+        supabase_field: 'scouter',
+        value: `${scouterName} (${bitrixScouterId})`,
+        original_id: bitrixScouterId,
+        transformed: true,
+        priority: 900,
+        display_name: 'Scouter',
+        bitrix_field_type: 'crm_entity'
+      });
+    }
+
+    if (projetoComercialName && projectIdFromParent) {
+      appliedMappings.push({
+        bitrix_field: 'PARENT_ID_1120',
+        supabase_field: 'projeto_comercial',
+        value: `${projetoComercialName} (${projectIdFromParent})`,
+        original_id: projectIdFromParent,
+        transformed: true,
+        priority: 900,
+        display_name: 'Projeto Comercial',
+        bitrix_field_type: 'crm_entity'
+      });
+    }
+
+    if (telemarketingName && bitrixTelemarketingId) {
+      appliedMappings.push({
+        bitrix_field: 'PARENT_ID_1144',
+        supabase_field: 'telemarketing',
+        value: `${telemarketingName} (${bitrixTelemarketingId})`,
+        original_id: bitrixTelemarketingId,
+        transformed: true,
+        priority: 900,
+        display_name: 'Telemarketing',
+        bitrix_field_type: 'crm_entity'
+      });
+    }
+
     console.log('📝 Lead mapeado:', leadData);
     console.log('📊 Mapeamentos aplicados:', appliedMappings.length);
 
