@@ -186,12 +186,8 @@ serve(async (req) => {
       isShowFilePhp: downloadUrl?.includes('show_file.php')
     });
 
-    // ✅ PRIORIDADE 1: Se já temos downloadUrl válida (show_file.php), usá-la diretamente
-    if (downloadUrl && downloadUrl.includes('show_file.php')) {
-      console.log('✅ downloadUrl válida (show_file.php) encontrada, pulando disk.file.get');
-      
-    } else if (fileId) {
-      // ✅ PRIORIDADE 2: Tentar disk.file.get só se não temos downloadUrl válida
+    // ✅ PRIORIDADE 1: SEMPRE tentar disk.file.get primeiro se temos fileId
+    if (fileId) {
       try {
         console.log(`📡 Tentando disk.file.get para fileId: ${fileId}`);
         
@@ -207,7 +203,7 @@ serve(async (req) => {
         
         if (diskData.result?.DOWNLOAD_URL) {
           downloadUrl = diskData.result.DOWNLOAD_URL;
-          console.log(`✅ DOWNLOAD_URL obtida via disk.file.get: ${downloadUrl}`);
+          console.log(`✅ DOWNLOAD_URL obtida do disk.file.get: ${downloadUrl}`);
         } else {
           console.warn('⚠️ disk.file.get não retornou DOWNLOAD_URL');
         }
@@ -216,10 +212,16 @@ serve(async (req) => {
       }
     }
 
-    // ✅ PRIORIDADE 3: Fallback para showUrl se ainda não temos downloadUrl
+    // ✅ PRIORIDADE 2: Só usar show_file.php se disk.file.get falhou
+    if (!downloadUrl && firstPhoto.downloadUrl?.includes('show_file.php')) {
+      console.log('⚠️ Usando fallback com show_file.php (pode não funcionar)');
+      downloadUrl = firstPhoto.downloadUrl;
+    }
+
+    // ✅ PRIORIDADE 3: Fallback final para showUrl
     if (!downloadUrl && firstPhoto.showUrl) {
       downloadUrl = firstPhoto.showUrl;
-      console.log('📌 Usando showUrl como fallback');
+      console.log('📌 Usando showUrl como fallback final');
     }
 
     if (!downloadUrl) {
