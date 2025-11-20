@@ -24,7 +24,8 @@ function GestaoLeadsContent() {
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('month'),
     projectId: null,
-    scouterId: null
+    scouterId: null,
+    additionalFilters: []
   });
   const { visibleColumns } = useLeadColumnConfig();
   const { data: allFields, isLoading: isLoadingFields } = useGestaoFieldMappings();
@@ -77,32 +78,64 @@ function GestaoLeadsContent() {
         selectClause
       });
       
-      let query = supabase
+      // Construir a query base
+      const queryBuilder = supabase
         .from("leads")
         .select(selectClause)
         .order("criado", { ascending: false })
         .limit(100);
       
+      // Aplicar filtros de busca
       if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,scouter.ilike.%${searchTerm}%`);
+        queryBuilder.or(`name.ilike.%${searchTerm}%,scouter.ilike.%${searchTerm}%`);
       }
 
-      // Filtro de data
-      query = query
+      // Aplicar filtro de data
+      queryBuilder
         .gte("criado", filters.dateFilter.startDate.toISOString())
         .lte("criado", filters.dateFilter.endDate.toISOString());
 
-      // Filtro de projeto
+      // Aplicar filtro de projeto
       if (filters.projectId) {
-        query = query.eq("commercial_project_id", filters.projectId);
+        queryBuilder.eq("commercial_project_id", filters.projectId);
       }
 
-      // Filtro de scouter
+      // Aplicar filtro de scouter
       if (filters.scouterId) {
-        query = query.eq("scouter", filters.scouterId);
+        queryBuilder.eq("scouter", filters.scouterId);
+      }
+
+      // Aplicar filtros adicionais dinamicamente
+      if (filters.additionalFilters && filters.additionalFilters.length > 0) {
+        for (const additionalFilter of filters.additionalFilters) {
+          const { field, value, operator = 'eq' } = additionalFilter;
+          
+          // Aplicar filtro baseado no operador usando type assertion
+          const qb = queryBuilder as any;
+          switch (operator) {
+            case 'eq':
+              qb.eq(field, value);
+              break;
+            case 'contains':
+              qb.ilike(field, `%${value}%`);
+              break;
+            case 'gt':
+              qb.gt(field, value);
+              break;
+            case 'lt':
+              qb.lt(field, value);
+              break;
+            case 'gte':
+              qb.gte(field, value);
+              break;
+            case 'lte':
+              qb.lte(field, value);
+              break;
+          }
+        }
       }
       
-      const { data, error } = await query;
+      const { data, error } = await queryBuilder;
       if (error) throw error;
       return data as any[];
     },

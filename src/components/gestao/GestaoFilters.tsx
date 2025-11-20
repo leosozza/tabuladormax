@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { stripTagFromName } from "@/utils/formatters";
+import { AdditionalFilters } from "./AdditionalFilters";
 
 interface GestaoFiltersProps {
   filters: GestaoFilters;
@@ -243,15 +244,22 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
         </Select>
       </div>
 
+      {/* Filtros Adicionais */}
+      <AdditionalFilters
+        filters={filters.additionalFilters || []}
+        onChange={(additionalFilters) => onChange({ ...filters, additionalFilters })}
+      />
+
       {/* Botão Limpar Filtros */}
-      {(filters.projectId || filters.scouterId || filters.dateFilter.preset !== 'month') && (
+      {(filters.projectId || filters.scouterId || filters.dateFilter.preset !== 'month' || (filters.additionalFilters && filters.additionalFilters.length > 0)) && (
         <Button
           variant="ghost"
           size="sm"
           onClick={() => onChange({
             dateFilter: createDateFilter('month'),
             projectId: null,
-            scouterId: null
+            scouterId: null,
+            additionalFilters: []
           })}
         >
           Limpar Filtros

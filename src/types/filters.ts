@@ -6,10 +6,17 @@ export interface DateFilter {
   endDate: Date;
 }
 
+export interface AdditionalFilter {
+  field: string;
+  value: string;
+  operator?: 'eq' | 'contains' | 'gt' | 'lt' | 'gte' | 'lte';
+}
+
 export interface GestaoFilters {
   dateFilter: DateFilter;
   projectId: string | null;
   scouterId: string | null;
+  additionalFilters?: AdditionalFilter[];
 }
 
 export interface DashboardFilters {
