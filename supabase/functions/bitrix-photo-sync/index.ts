@@ -163,9 +163,13 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    // ⚠️ IMPORTANTE: Log completo do campo de foto para debug
+    console.log('📸 Campo UF_CRM_LEAD_1733231445171 COMPLETO:', JSON.stringify(photoField, null, 2));
     
     // ✅ PASSO 3: Pegar a primeira foto e extrair fileId
     const firstPhoto = photoField[0];
+    console.log('📸 Primeira foto (objeto completo):', JSON.stringify(firstPhoto, null, 2));
+    
     const fileId = firstPhoto.id || firstPhoto.fileId;
     
     console.log('📸 Foto encontrada:', { id: fileId });
@@ -174,42 +178,14 @@ serve(async (req) => {
       throw new Error('fileId não encontrado na foto');
     }
     
-    // ✅ PASSO 4: Usar disk.file.get para obter DOWNLOAD_URL autenticada
-    console.log(`📡 Chamando disk.file.get para fileId: ${fileId}`);
-    const diskFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/disk.file.get?id=${fileId}`;
-    const diskResp = await fetch(diskFileUrl);
-    
-    if (!diskResp.ok) {
-      throw new Error(`Erro ao chamar disk.file.get: ${diskResp.status}`);
-    }
-    
-    const diskJson = await diskResp.json();
-    console.log('📁 Resposta disk.file.get:', JSON.stringify(diskJson, null, 2));
-    
-    const downloadUrl = diskJson.result?.DOWNLOAD_URL;
-    
-    if (!downloadUrl) {
-      throw new Error('disk.file.get não retornou DOWNLOAD_URL. Verifique permissões do webhook.');
-    }
-    
-    console.log('🔗 DOWNLOAD_URL obtida:', downloadUrl);
-
-    // ✅ PASSO 5-9: Baixar, fazer upload e atualizar
-    const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
-      leadId,
-      downloadUrl,
-      supabase
-    );
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        publicUrl,
-        leadId,
-        storagePath,
-        fileSize
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    // ⚠️ PROBLEMA CONFIRMADO: disk.file.get retorna 401 com webhook
+    // Webhooks NÃO têm permissão para acessar API Disk do Bitrix
+    throw new Error(
+      `[BLOQUEIO] Webhook não tem permissão para disk.file.get. ` +
+      `Campo foto: ${JSON.stringify(firstPhoto)}. ` +
+      `Soluções: 1) Processar foto no app antes de enviar ao Bitrix, ` +
+      `2) Usar OAuth2 ao invés de webhook, ` +
+      `3) Bitrix disponibilizar URL pública no campo.`
     );
 
   } catch (error) {
