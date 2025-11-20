@@ -577,7 +577,8 @@ serve(async (req) => {
             transformed: !!mapping.transform_function,
             transform_function: mapping.transform_function,
             priority: mapping.priority,
-            display_name: mapping.display_name || null
+            display_name: mapping.display_name || null,
+            bitrix_field_type: mapping.bitrix_field_type || null  // ✨ Tipo do campo
           });
           console.log(`✅ ${supabaseField} = ${mapping.bitrix_field} (prioridade ${mapping.priority})`);
           break; // Usar apenas o primeiro não-vazio

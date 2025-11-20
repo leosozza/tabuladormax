@@ -2,6 +2,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { SyncFieldMappings, formatFieldMappingsForDisplay, getFieldMappingSummary } from '@/lib/fieldMappingUtils';
+import { useMemo } from 'react';
+import { useBitrixEnums } from '@/hooks/useBitrixEnums';
 
 interface FieldMappingDisplayProps {
   mappings: SyncFieldMappings;
@@ -11,6 +13,20 @@ interface FieldMappingDisplayProps {
 export function FieldMappingDisplay({ mappings, compact = false }: FieldMappingDisplayProps) {
   const formattedMappings = formatFieldMappingsForDisplay(mappings);
   const summary = getFieldMappingSummary(mappings);
+
+  // Coletar todas as solicitações de resolução de enum
+  const enumRequests = useMemo(() => {
+    return formattedMappings
+      .filter(m => m.bitrixField && m.rawValue)
+      .map(m => ({
+        bitrixField: m.bitrixField!,
+        value: m.rawValue,
+        bitrixFieldType: m.bitrixFieldType,
+      }));
+  }, [formattedMappings]);
+
+  // Resolver todos os enums de uma vez
+  const { getResolution } = useBitrixEnums(enumRequests);
 
   if (compact) {
     return (
@@ -41,26 +57,37 @@ export function FieldMappingDisplay({ mappings, compact = false }: FieldMappingD
 
       {/* Field Mappings */}
       <div className="space-y-2">
-        {formattedMappings.map((mapping, index) => (
-          <div
-            key={index}
-            className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors"
-          >
-            <code className="text-xs bg-background px-2 py-1 rounded border">
-              {mapping.from}
-            </code>
-            <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-            <code className="text-xs bg-background px-2 py-1 rounded border">
-              {mapping.to}
-            </code>
-            {mapping.transformed && (
-              <Sparkles className="w-3 h-3 text-yellow-600 flex-shrink-0" aria-label="Valor transformado" />
-            )}
-            <span className="text-xs text-muted-foreground truncate ml-auto max-w-[200px]">
-              {mapping.value}
-            </span>
-          </div>
-        ))}
+        {formattedMappings.map((mapping, index) => {
+          // Tentar resolver enum se disponível
+          const enumResolution = mapping.bitrixField && mapping.rawValue
+            ? getResolution(mapping.bitrixField, mapping.rawValue)
+            : null;
+          
+          const displayValue = enumResolution 
+            ? enumResolution.formatted 
+            : mapping.value;
+
+          return (
+            <div
+              key={index}
+              className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors"
+            >
+              <code className="text-xs bg-background px-2 py-1 rounded border">
+                {mapping.from}
+              </code>
+              <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+              <code className="text-xs bg-background px-2 py-1 rounded border">
+                {mapping.to}
+              </code>
+              {mapping.transformed && (
+                <Sparkles className="w-3 h-3 text-yellow-600 flex-shrink-0" aria-label="Valor transformado" />
+              )}
+              <span className="text-xs text-muted-foreground truncate ml-auto max-w-[200px]" title={displayValue}>
+                {displayValue}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Direction Summary */}
