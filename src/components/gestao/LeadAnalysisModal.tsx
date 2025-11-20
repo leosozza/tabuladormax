@@ -44,10 +44,10 @@ export function LeadAnalysisModal({
         </DialogHeader>
         
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Área central do card - ocupa altura e centraliza o conteúdo */}
+          {/* Área central do card - ocupa toda altura disponível */}
           <div className="flex-1 px-3 py-3 md:px-4 md:py-4">
-            <div className="h-full max-h-[70vh] flex items-center justify-center overflow-y-auto">
-              <div className="w-full max-w-sm sm:max-w-md md:max-w-xl lg:max-w-2xl">
+            <div className="h-full flex flex-col overflow-hidden">
+              <div className="w-full max-w-sm sm:max-w-md md:max-w-xl lg:max-w-2xl mx-auto h-full">
                 <LeadCard lead={lead} />
               </div>
             </div>
