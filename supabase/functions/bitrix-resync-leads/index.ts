@@ -611,6 +611,18 @@ async function processBatch(supabase: any, jobId: string) {
           }
         }
 
+        // ✅ CRÍTICO: Adicionar campos SPA resolvidos ao mappedData ANTES de verificar se está vazio
+        if (scouterName) {
+          mappedData['scouter'] = scouterName;
+          mappedData['gestao_scouter'] = scouterName;
+        }
+        if (projetoComercialName) {
+          mappedData['projeto_comercial'] = projetoComercialName;
+        }
+        if (telemarketingName) {
+          mappedData['telemarketing'] = telemarketingName;
+        }
+
         // Se não há dados para atualizar, pular
         if (Object.keys(mappedData).length === 0) {
           console.log(`⚠️ Lead ${lead.id} ignorado (sem campos para atualizar)`);
