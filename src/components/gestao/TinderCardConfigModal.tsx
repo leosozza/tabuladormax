@@ -10,11 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useTinderCardConfig } from "@/hooks/useTinderCardConfig";
-import { ALL_LEAD_FIELDS, CATEGORY_LABELS } from "@/config/leadFields";
-import { Settings2, X, Plus, RotateCcw } from "lucide-react";
+import { ALL_LEAD_FIELDS } from "@/config/leadFields";
+import { Settings2, RotateCcw } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -23,6 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { TinderCardPreview } from "./TinderCardPreview";
+import { DraggableFieldList } from "./DraggableFieldList";
 
 interface TinderCardConfigModalProps {
   open: boolean;
@@ -33,36 +37,34 @@ export function TinderCardConfigModal({ open, onOpenChange }: TinderCardConfigMo
   const {
     config,
     setPhotoField,
-    addMainField,
-    removeMainField,
+    setPhotoStyle,
+    setPhotoSize,
     addDetailField,
     removeDetailField,
     addBadgeField,
     removeBadgeField,
+    reorderDetailFields,
+    reorderBadgeFields,
     resetToDefault,
-    canAddMainField,
-    canRemoveMainField,
     canAddDetailField,
     canAddBadgeField,
     validation,
   } = useTinderCardConfig();
 
-  const [selectedMainField, setSelectedMainField] = useState("");
   const [selectedDetailField, setSelectedDetailField] = useState("");
   const [selectedBadgeField, setSelectedBadgeField] = useState("");
 
   const availableFields = ALL_LEAD_FIELDS.filter(f => f.key !== config.photoField);
-  const availableMainFields = availableFields.filter(f => !config.mainFields.includes(f.key));
-  const availableDetailFields = availableFields.filter(f => !config.detailFields.includes(f.key));
-  const availableBadgeFields = availableFields.filter(f => !config.badgeFields.includes(f.key));
-
-  const handleAddMainField = () => {
-    if (selectedMainField && canAddMainField()) {
-      addMainField(selectedMainField);
-      setSelectedMainField("");
-      toast({ title: "Campo principal adicionado" });
-    }
-  };
+  const availableDetailFields = availableFields.filter(f => 
+    !config.detailFields.includes(f.key) && 
+    !config.mainFields.includes(f.key) &&
+    !config.badgeFields.includes(f.key)
+  );
+  const availableBadgeFields = availableFields.filter(f => 
+    !config.badgeFields.includes(f.key) &&
+    !config.mainFields.includes(f.key) &&
+    !config.detailFields.includes(f.key)
+  );
 
   const handleAddDetailField = () => {
     if (selectedDetailField && canAddDetailField()) {
@@ -90,128 +92,127 @@ export function TinderCardConfigModal({ open, onOpenChange }: TinderCardConfigMo
     return field?.label || key;
   };
 
+  const detailFieldsWithLabels = config.detailFields.map(key => ({
+    key,
+    label: getFieldLabel(key)
+  }));
+
+  const badgeFieldsWithLabels = config.badgeFields.map(key => ({
+    key,
+    label: getFieldLabel(key)
+  }));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+      <DialogContent className="max-w-6xl max-h-[90vh] p-0">
         <DialogHeader className="px-6 pt-6">
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="w-5 h-5" />
-            Configuração do Cartão de Análise
+            Editor Visual do Cartão
           </DialogTitle>
           <DialogDescription>
-            Personalize quais campos aparecem no cartão de análise de leads
+            Personalize aparência e campos com drag-and-drop
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6 py-4 max-h-[calc(90vh-180px)]">
-          <div className="space-y-6">
-            {/* Photo Field */}
-            <div className="space-y-2">
-              <Label className="text-base font-semibold">Campo de Foto</Label>
-              <p className="text-sm text-muted-foreground">
-                Selecione qual campo será usado para exibir a foto do lead
-              </p>
-              <Select value={config.photoField} onValueChange={setPhotoField}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ALL_LEAD_FIELDS.map((field) => (
-                    <SelectItem key={field.key} value={field.key}>
-                      {field.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-6 pb-6">
+          {/* ESQUERDA: Preview */}
+          <ScrollArea className="h-[calc(90vh-200px)]">
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold">📱 Pré-visualização</h3>
+              <TinderCardPreview config={config} />
             </div>
+          </ScrollArea>
 
-            <Separator />
-
-            {/* Main Fields */}
-            <div className="space-y-3">
-              <div>
-                <Label className="text-base font-semibold">Campos Principais</Label>
-                <p className="text-sm text-muted-foreground">
-                  Nome e informação destacada (mín: {validation.mainFields.min}, máx: {validation.mainFields.max})
-                </p>
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {config.mainFields.map((fieldKey) => (
-                  <Badge
-                    key={fieldKey}
-                    variant="default"
-                    className="flex items-center gap-2 px-3 py-1"
+          {/* DIREITA: Configurações */}
+          <ScrollArea className="h-[calc(90vh-200px)]">
+            <div className="space-y-6 pr-4">
+              {/* Configuração da Foto */}
+              <Card className="p-4 space-y-4">
+                <h3 className="text-sm font-semibold">📸 Área da Foto</h3>
+                
+                <div className="space-y-2">
+                  <Label>Estilo</Label>
+                  <ToggleGroup 
+                    type="single" 
+                    value={config.photoStyle}
+                    onValueChange={(value) => value && setPhotoStyle(value as any)}
+                    className="justify-start"
                   >
-                    {getFieldLabel(fieldKey)}
-                    {canRemoveMainField() && (
-                      <button
-                        onClick={() => removeMainField(fieldKey)}
-                        className="hover:text-destructive"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </Badge>
-                ))}
-              </div>
+                    <ToggleGroupItem value="circle" className="flex-1">
+                      Circular
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="rounded" className="flex-1">
+                      Retangular
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="fullscreen" className="flex-1">
+                      Tela Cheia
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
 
-              {canAddMainField() && (
-                <div className="flex gap-2">
-                  <Select value={selectedMainField} onValueChange={setSelectedMainField}>
+                <div className="space-y-2">
+                  <Label>Tamanho</Label>
+                  <ToggleGroup 
+                    type="single" 
+                    value={config.photoSize}
+                    onValueChange={(value) => value && setPhotoSize(value as any)}
+                    className="justify-start"
+                  >
+                    <ToggleGroupItem value="small" className="flex-1">P</ToggleGroupItem>
+                    <ToggleGroupItem value="medium" className="flex-1">M</ToggleGroupItem>
+                    <ToggleGroupItem value="large" className="flex-1">G</ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Campo de Foto</Label>
+                  <Select value={config.photoField} onValueChange={setPhotoField}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione um campo" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableMainFields.map((field) => (
+                      {ALL_LEAD_FIELDS.map((field) => (
                         <SelectItem key={field.key} value={field.key}>
                           {field.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button
-                    onClick={handleAddMainField}
-                    disabled={!selectedMainField}
-                    size="icon"
-                    variant="outline"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
                 </div>
-              )}
-            </div>
+              </Card>
 
-            <Separator />
+              <Separator />
 
-            {/* Detail Fields */}
-            <div className="space-y-3">
-              <div>
-                <Label className="text-base font-semibold">Campos de Detalhes</Label>
-                <p className="text-sm text-muted-foreground">
-                  Informações adicionais exibidas no corpo do cartão (máx: {validation.detailFields.max})
+              {/* Campos Principais (Read-only) */}
+              <Card className="p-4 space-y-3">
+                <h3 className="text-sm font-semibold">🆔 Campo Principal</h3>
+                <Badge variant="default" className="text-sm">
+                  {getFieldLabel(config.mainFields[0])}
+                </Badge>
+                <p className="text-xs text-muted-foreground">
+                  Este campo é fixo e exibe o ID do Bitrix
                 </p>
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {config.detailFields.map((fieldKey) => (
-                  <Badge
-                    key={fieldKey}
-                    variant="secondary"
-                    className="flex items-center gap-2 px-3 py-1"
-                  >
-                    {getFieldLabel(fieldKey)}
-                    <button
-                      onClick={() => removeDetailField(fieldKey)}
-                      className="hover:text-destructive"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
+              </Card>
 
-              {canAddDetailField() && (
+              <Separator />
+
+              {/* Detail Fields - Drag and Drop */}
+              <DraggableFieldList
+                title="📊 Campos de Detalhes"
+                fields={detailFieldsWithLabels}
+                onReorder={reorderDetailFields}
+                onRemove={removeDetailField}
+                onAdd={() => {
+                  if (canAddDetailField() && availableDetailFields.length > 0) {
+                    setSelectedDetailField(availableDetailFields[0].key);
+                  }
+                }}
+                maxFields={validation.detailFields.max}
+              />
+
+              {/* Add detail field selector */}
+              {selectedDetailField && (
                 <div className="flex gap-2">
                   <Select value={selectedDetailField} onValueChange={setSelectedDetailField}>
                     <SelectTrigger>
@@ -227,46 +228,39 @@ export function TinderCardConfigModal({ open, onOpenChange }: TinderCardConfigMo
                   </Select>
                   <Button
                     onClick={handleAddDetailField}
-                    disabled={!selectedDetailField}
-                    size="icon"
+                    size="sm"
+                    variant="default"
+                  >
+                    Adicionar
+                  </Button>
+                  <Button
+                    onClick={() => setSelectedDetailField("")}
+                    size="sm"
                     variant="outline"
                   >
-                    <Plus className="w-4 h-4" />
+                    Cancelar
                   </Button>
                 </div>
               )}
-            </div>
 
-            <Separator />
+              <Separator />
 
-            {/* Badge Fields */}
-            <div className="space-y-3">
-              <div>
-                <Label className="text-base font-semibold">Badges de Status</Label>
-                <p className="text-sm text-muted-foreground">
-                  Badges exibidos no canto superior do cartão (máx: {validation.badgeFields.max})
-                </p>
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {config.badgeFields.map((fieldKey) => (
-                  <Badge
-                    key={fieldKey}
-                    variant="outline"
-                    className="flex items-center gap-2 px-3 py-1"
-                  >
-                    {getFieldLabel(fieldKey)}
-                    <button
-                      onClick={() => removeBadgeField(fieldKey)}
-                      className="hover:text-destructive"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
+              {/* Badge Fields - Drag and Drop */}
+              <DraggableFieldList
+                title="🏷️ Badges"
+                fields={badgeFieldsWithLabels}
+                onReorder={reorderBadgeFields}
+                onRemove={removeBadgeField}
+                onAdd={() => {
+                  if (canAddBadgeField() && availableBadgeFields.length > 0) {
+                    setSelectedBadgeField(availableBadgeFields[0].key);
+                  }
+                }}
+                maxFields={validation.badgeFields.max}
+              />
 
-              {canAddBadgeField() && (
+              {/* Add badge field selector */}
+              {selectedBadgeField && (
                 <div className="flex gap-2">
                   <Select value={selectedBadgeField} onValueChange={setSelectedBadgeField}>
                     <SelectTrigger>
@@ -282,17 +276,23 @@ export function TinderCardConfigModal({ open, onOpenChange }: TinderCardConfigMo
                   </Select>
                   <Button
                     onClick={handleAddBadgeField}
-                    disabled={!selectedBadgeField}
-                    size="icon"
+                    size="sm"
+                    variant="default"
+                  >
+                    Adicionar
+                  </Button>
+                  <Button
+                    onClick={() => setSelectedBadgeField("")}
+                    size="sm"
                     variant="outline"
                   >
-                    <Plus className="w-4 h-4" />
+                    Cancelar
                   </Button>
                 </div>
               )}
             </div>
-          </div>
-        </ScrollArea>
+          </ScrollArea>
+        </div>
 
         <DialogFooter className="px-6 pb-6 pt-4 border-t">
           <Button variant="outline" onClick={handleReset} className="gap-2">

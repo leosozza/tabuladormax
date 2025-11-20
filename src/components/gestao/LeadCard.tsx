@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -54,10 +55,28 @@ export default function LeadCard({ lead }: LeadCardProps) {
   const detailValues = config.detailFields.map(key => ({ key, value: String(getFieldValue(key) || ''), label: getFieldLabel(key) }));
   const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
 
+  const photoContainerClasses = {
+    circle: "aspect-square rounded-full",
+    rounded: "aspect-[3/4] rounded-lg",
+    fullscreen: "aspect-[3/4] rounded-none h-[500px]"
+  };
+
+  const cardSizeClasses = {
+    small: "max-w-xs",
+    medium: "max-w-md",
+    large: "max-w-lg"
+  };
+
   return (
-    <Card className="w-full overflow-hidden border-2 shadow-lg">
+    <Card className={cn(
+      "w-full overflow-hidden border-2 shadow-lg",
+      cardSizeClasses[config.photoSize]
+    )}>
       {/* Foto do Lead */}
-      <div className="relative aspect-[3/4] bg-muted overflow-hidden">
+      <div className={cn(
+        "relative bg-muted overflow-hidden",
+        photoContainerClasses[config.photoStyle]
+      )}>
         {photoUrl ? (
           <img
             src={photoUrl}
