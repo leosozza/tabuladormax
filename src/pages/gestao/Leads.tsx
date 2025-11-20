@@ -628,6 +628,12 @@ function GestaoLeadsContent() {
               setSelectedLeadIds(new Set());
             }
           }}
+          onSwipe={(direction) => {
+            if (direction === 'left') handleReject();
+            else if (direction === 'right') handleApprove();
+            else if (direction === 'up') handleSuperApprove();
+            else if (direction === 'down') handleSkip();
+          }}
           onApprove={handleApprove}
           onReject={handleReject}
           onSuperApprove={handleSuperApprove}
