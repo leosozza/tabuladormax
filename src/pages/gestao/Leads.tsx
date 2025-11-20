@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, PlayCircle, Settings2 } from "lucide-react";
+import { Search, Download, PlayCircle, Settings2, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
@@ -25,6 +26,7 @@ import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal
 function GestaoLeadsContent() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [filters, setFilters] = useState<GestaoFilters>({
@@ -103,9 +105,15 @@ function GestaoLeadsContent() {
         .order("criado", { ascending: false })
         .limit(100);
       
-      // Aplicar filtros de busca
+      // Aplicar filtros de busca por nome, ID ou nome_modelo
       if (searchTerm) {
-        queryBuilder.or(`name.ilike.%${searchTerm}%,scouter.ilike.%${searchTerm}%`);
+        // Verificar se é um número (possível ID)
+        const isNumeric = /^\d+$/.test(searchTerm);
+        if (isNumeric) {
+          queryBuilder.or(`name.ilike.%${searchTerm}%,id.eq.${searchTerm},nome_modelo.ilike.%${searchTerm}%`);
+        } else {
+          queryBuilder.or(`name.ilike.%${searchTerm}%,nome_modelo.ilike.%${searchTerm}%`);
+        }
       }
 
       // Aplicar filtro de data
@@ -506,53 +514,115 @@ function GestaoLeadsContent() {
       <GestaoSidebar />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-6 border-b bg-background">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold">Gestão de Leads</h1>
-            <div className="flex gap-2">
-              <LeadColumnSelector />
+        <div className="p-4 md:p-6 border-b bg-background">
+          <div className="flex flex-col gap-4">
+            {/* Título e Ações */}
+            <div className="flex justify-between items-start">
+              <h1 className="text-2xl md:text-3xl font-bold">Gestão de Leads</h1>
               
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setConfigModalOpen(true)}
-                className="gap-2"
-              >
-                <Settings2 className="w-4 h-4" />
-                Personalizar Cartão
-              </Button>
-              
-              {selectedLeadIds.size > 0 && (
+              {/* Botões de ação - colapsados em mobile se busca expandida */}
+              <div className={cn(
+                "flex gap-2 flex-wrap",
+                searchExpanded && "hidden md:flex"
+              )}>
+                <LeadColumnSelector />
+                
                 <Button
-                  onClick={handleStartAnalysis}
-                  variant="default"
+                  variant="outline"
                   size="sm"
+                  onClick={() => setConfigModalOpen(true)}
+                  className="gap-2"
                 >
-                  <PlayCircle className="h-4 w-4 mr-2" />
-                  Iniciar Análise ({selectedLeadIds.size})
+                  <Settings2 className="w-4 h-4" />
+                  <span className="hidden lg:inline">Personalizar</span>
                 </Button>
-              )}
-              <Button onClick={handleExport} variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar CSV
-              </Button>
+                
+                {selectedLeadIds.size > 0 && (
+                  <Button
+                    onClick={handleStartAnalysis}
+                    variant="default"
+                    size="sm"
+                  >
+                    <PlayCircle className="h-4 w-4 mr-2" />
+                    <span className="hidden sm:inline">Análise </span>({selectedLeadIds.size})
+                  </Button>
+                )}
+                
+                <Button onClick={handleExport} variant="outline" size="sm">
+                  <Download className="h-4 w-4" />
+                  <span className="hidden lg:inline ml-2">Exportar</span>
+                </Button>
+              </div>
             </div>
-          </div>
-          
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <Input
-                placeholder="Buscar por nome ou scouter..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-md"
+
+            {/* Busca e Filtros */}
+            <div className="flex gap-2 items-end w-full">
+              {/* Desktop: Barra sempre visível */}
+              <div className="hidden md:flex flex-1 max-w-md">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome, ID ou modelo..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              {/* Mobile: Ícone de lupa que expande */}
+              <div className="flex md:hidden gap-2 items-center flex-1">
+                {!searchExpanded ? (
+                  // Botão de lupa colapsado
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSearchExpanded(true)}
+                    className="shrink-0"
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  // Barra de busca expandida em mobile
+                  <div className="flex gap-2 w-full animate-in slide-in-from-right-5">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Nome, ID ou modelo..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 pr-9"
+                        autoFocus
+                      />
+                      {searchTerm && (
+                        <button
+                          onClick={() => setSearchTerm("")}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setSearchExpanded(false);
+                        setSearchTerm("");
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Filtros */}
+              <GestaoFiltersComponent
+                filters={filters}
+                onChange={setFilters}
               />
             </div>
-            
-            <GestaoFiltersComponent
-              filters={filters}
-              onChange={setFilters}
-            />
           </div>
         </div>
 
