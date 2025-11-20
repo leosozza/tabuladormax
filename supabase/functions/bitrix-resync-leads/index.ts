@@ -3,6 +3,78 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 const BITRIX_BASE_URL = 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr';
 
+// 🔧 FASE 1: Mapeamento de IDs de enumeração do Bitrix para valores boolean
+const BITRIX_ENUM_TO_BOOLEAN: Record<string, Record<string, boolean | null>> = {
+  'UF_CRM_1745431662': { // Cadastro Existe Foto?
+    '5492': true,   // SIM
+    '5494': false,  // NAO
+  },
+  'UF_CRM_1737378043893': { // Ficha confirmada
+    '1878': true,   // Sim
+    '1880': null,   // Aguardando (incerto, converter para null)
+    '4892': false,  // Não confirmada
+  },
+  'UF_CRM_CONFIRME_FICHAS': { // Enviar confirmação de fichas
+    '8976': true,   // Sim
+    '8978': false,  // Não
+  },
+};
+
+// Mapeamento reverso: campo Supabase → campo Bitrix
+const SUPABASE_TO_BITRIX_ENUM: Record<string, string> = {
+  'cadastro_existe_foto': 'UF_CRM_1745431662',
+  'ficha_confirmada': 'UF_CRM_1737378043893',
+};
+
+// 🔧 FASE 2: Função de conversão inteligente de enumeração → boolean
+interface ConversionResult {
+  converted: boolean | null;
+  hasError: boolean;
+  errorMsg?: string;
+}
+
+function convertBitrixEnumToBoolean(
+  bitrixField: string,
+  value: any
+): ConversionResult {
+  // Se o campo tem mapeamento de enumeração
+  if (BITRIX_ENUM_TO_BOOLEAN[bitrixField]) {
+    const enumMap = BITRIX_ENUM_TO_BOOLEAN[bitrixField];
+    const valueStr = String(value).trim();
+    
+    // Tentar mapear pelo ID da enumeração
+    if (enumMap.hasOwnProperty(valueStr)) {
+      return {
+        converted: enumMap[valueStr],
+        hasError: false
+      };
+    }
+    
+    // Se não encontrou no mapeamento, registrar erro
+    return {
+      converted: null,
+      hasError: true,
+      errorMsg: `ID de enumeração "${valueStr}" não encontrado no mapeamento de ${bitrixField}. IDs válidos: ${Object.keys(enumMap).join(', ')}`
+    };
+  }
+  
+  // Se não tem mapeamento, tentar conversão padrão (para campos boolean nativos)
+  const valueStr = String(value).trim();
+  if (valueStr === '1' || valueStr.toLowerCase() === 'true') {
+    return { converted: true, hasError: false };
+  }
+  if (valueStr === '0' || valueStr.toLowerCase() === 'false' || valueStr === '') {
+    return { converted: false, hasError: false };
+  }
+  
+  // Conversão falhou
+  return {
+    converted: null,
+    hasError: true,
+    errorMsg: `Valor "${value}" não pode ser convertido para boolean (campo ${bitrixField})`
+  };
+}
+
 interface JobConfig {
   filters?: {
     addressNull?: boolean;
@@ -420,29 +492,30 @@ async function processBatch(supabase: any, jobId: string) {
         // FASE 3: Fault-tolerant - coletar erros de campos
         const fieldErrors: Array<{field: string; error: string; value: any}> = [];
 
-        // FASE 3.1: Validação de campos booleanos
-        const booleanFields = ['ficha_confirmada', 'presenca_confirmada', 'compareceu', 'cadastro_existe_foto'];
+        // 🔧 FASE 4: Validação e conversão de campos booleanos (com suporte a enumerações)
+        const booleanFields = ['cadastro_existe_foto', 'presenca_confirmada', 'compareceu', 'ficha_confirmada'];
         
-        for (const field of booleanFields) {
-          if (mappedData[field] !== undefined && mappedData[field] !== null) {
-            const value = String(mappedData[field]);
+        for (const supabaseField of booleanFields) {
+          if (mappedData[supabaseField] !== undefined && mappedData[supabaseField] !== null) {
             
-            // Detectar IDs de lista
-            if (/^\d+$/.test(value) && Number(value) > 100) {
-              console.warn(`⚠️ Lead ${lead.id} - Campo ${field} recebeu ID: "${value}", convertendo para null`);
+            const bitrixField = SUPABASE_TO_BITRIX_ENUM[supabaseField] ||
+                               mappings.find((m: any) => m.leads_column === supabaseField)?.bitrix_field;
+            
+            if (!bitrixField) continue;
+            
+            const originalValue = mappedData[supabaseField];
+            const conversion = convertBitrixEnumToBoolean(bitrixField, originalValue);
+            
+            if (conversion.hasError) {
+              console.warn(`⚠️ Lead ${lead.id} - Campo ${supabaseField}: ${conversion.errorMsg}`);
               fieldErrors.push({
-                field: field,
-                error: `ID de lista Bitrix: "${value}"`,
-                value: mappedData[field]
+                field: supabaseField,
+                error: conversion.errorMsg || 'Conversão de enumeração falhou',
+                value: originalValue
               });
-              mappedData[field] = null;
             }
-            // Conversão segura
-            else if (['1', 'true'].includes(value.toLowerCase())) {
-              mappedData[field] = true;
-            } else if (['0', 'false', ''].includes(value.toLowerCase())) {
-              mappedData[field] = false;
-            }
+            
+            mappedData[supabaseField] = conversion.converted;
           }
         }
 

@@ -365,6 +365,174 @@ for (let i = 0; i < leadIds.length; i += 50) {
 }
 ```
 
+## 📋 Mapeamento de Enumerações Bitrix → Boolean
+
+### Problema
+Campos boolean no Supabase podem ser mapeados de campos **enumeration** (lista) no Bitrix24, que retornam IDs numéricos ao invés de valores true/false.
+
+**Exemplo:** Campo `cadastro_existe_foto` (boolean) mapeado de `UF_CRM_1745431662` (enumeration):
+- Bitrix retorna: `"5492"` (ID da opção "SIM")
+- Supabase espera: `true` ou `false`
+- **Resultado sem mapeamento:** Erro `invalid input syntax for type boolean: "5492"`
+
+### Campos Mapeados
+
+| Campo Supabase | Campo Bitrix | Tipo Bitrix | Mapeamento |
+|----------------|--------------|-------------|------------|
+| `cadastro_existe_foto` | `UF_CRM_1745431662` | enumeration | `5492` → `true` (SIM)<br>`5494` → `false` (NAO) |
+| `ficha_confirmada` | `UF_CRM_1737378043893` | enumeration | `1878` → `true` (Sim)<br>`1880` → `null` (Aguardando)<br>`4892` → `false` (Não confirmada) |
+| `presenca_confirmada` | `UF_CRM_1746816298253` | boolean | Nativo (0/1) |
+| `compareceu` | Campo boolean nativo | boolean | Nativo (0/1) |
+
+### Como Funciona
+
+**1. Configuração nos Edge Functions:**
+
+Dicionários de mapeamento em `bitrix-webhook/index.ts` e `bitrix-resync-leads/index.ts`:
+
+```typescript
+const BITRIX_ENUM_TO_BOOLEAN: Record<string, Record<string, boolean | null>> = {
+  'UF_CRM_1745431662': {  // Cadastro Existe Foto?
+    '5492': true,   // SIM
+    '5494': false,  // NAO
+  },
+  'UF_CRM_1737378043893': {  // Ficha confirmada
+    '1878': true,   // Sim
+    '1880': null,   // Aguardando (incerto)
+    '4892': false,  // Não confirmada
+  },
+};
+```
+
+**2. Conversão Automática:**
+
+Durante sincronização (webhook ou resync):
+1. ✅ Detecta campo boolean no Supabase
+2. 🔍 Identifica campo Bitrix correspondente
+3. 🔄 Busca ID no dicionário de mapeamento
+4. ✨ Converte para `true`, `false` ou `null`
+5. 📝 Registra erro em `sync_errors` se ID não encontrado
+
+**3. Logs de Debug:**
+
+```
+✓ Campo cadastro_existe_foto: "5492" → true
+⚠️ Erro ao converter campo ficha_confirmada (UF_CRM_1737378043893): 
+   ID de enumeração "9999" não encontrado no mapeamento. IDs válidos: 1878, 1880, 4892
+```
+
+### Como Adicionar Novos Mapeamentos
+
+**Passo 1:** Verificar tipo do campo no Bitrix
+
+Procurar no arquivo `fields_bitrix.txt` ou via API:
+```json
+{
+  "UF_CRM_XXXXXX": {
+    "type": "enumeration",
+    "items": [
+      { "ID": "1234", "VALUE": "SIM" },
+      { "ID": "1236", "VALUE": "NAO" }
+    ]
+  }
+}
+```
+
+**Passo 2:** Adicionar ao dicionário
+
+Em **ambos** os arquivos (`bitrix-webhook/index.ts` e `bitrix-resync-leads/index.ts`):
+
+```typescript
+const BITRIX_ENUM_TO_BOOLEAN: Record<string, Record<string, boolean | null>> = {
+  // ... mapeamentos existentes ...
+  
+  'UF_CRM_XXXXXX': {  // Nome do novo campo
+    '1234': true,     // ID que representa "SIM"
+    '1236': false,    // ID que representa "NAO"
+  }
+};
+```
+
+**Passo 3:** Adicionar ao mapeamento reverso (se necessário)
+
+```typescript
+const SUPABASE_TO_BITRIX_ENUM: Record<string, string> = {
+  // ... mapeamentos existentes ...
+  'novo_campo_boolean': 'UF_CRM_XXXXXX',
+};
+```
+
+**Passo 4:** Testar
+
+1. Reprocessar lead com valor problemático
+2. Verificar logs: deve aparecer `✓ Campo novo_campo_boolean: "1234" → true`
+3. Confirmar ausência de erros de sintaxe boolean
+
+### Diagnóstico de Problemas
+
+**Erro: "ID de enumeração não encontrado"**
+```
+⚠️ ID de enumeração "9999" não encontrado no mapeamento de UF_CRM_1745431662
+```
+
+**Causa:** Bitrix adicionou novo valor à lista que não está mapeado
+
+**Solução:**
+1. Verificar no Bitrix qual valor corresponde ao ID 9999
+2. Adicionar ao dicionário: `'9999': true` (ou false/null)
+3. Reprocessar leads afetados
+
+**Erro: "Valor não pode ser convertido para boolean"**
+```
+⚠️ Valor "texto_aleatorio" não pode ser convertido para boolean (campo UF_CRM_XXX)
+```
+
+**Causa:** Campo não é enumeration nem boolean nativo
+
+**Solução:**
+1. Verificar tipo do campo no Bitrix
+2. Se for `string`, alterar tipo no Supabase para `text`
+3. Ou adicionar mapeamento específico se tiver valores padronizados
+
+### Queries de Verificação
+
+**Listar leads com erros de conversão de enumeração:**
+```sql
+SELECT 
+  id,
+  cadastro_existe_foto,
+  ficha_confirmada,
+  sync_errors->'errors'
+FROM leads
+WHERE has_sync_errors = true
+  AND sync_errors::text LIKE '%enumeração%';
+```
+
+**Estatísticas de campos boolean problemáticos:**
+```sql
+SELECT 
+  error->>'field' as field,
+  COUNT(*) as occurrences,
+  ARRAY_AGG(DISTINCT error->>'attempted_value') as problematic_values
+FROM leads,
+  jsonb_array_elements(sync_errors->'errors') as error
+WHERE error->>'error' LIKE '%enumeração%'
+GROUP BY error->>'field'
+ORDER BY occurrences DESC;
+```
+
+### Manutenção
+
+**Frequência de revisão:** Mensal ou quando houver erros recorrentes
+
+**Checklist:**
+- [ ] Verificar se novos campos enumeration foram adicionados no Bitrix
+- [ ] Conferir logs por IDs não mapeados
+- [ ] Atualizar dicionários se necessário
+- [ ] Reprocessar leads com erros de conversão
+
+---
+
 ## 🎓 Princípios de Design
 
 1. **Nunca Rejeitar Lead Completo**
