@@ -19,12 +19,19 @@ function buildAuthenticatedDownloadUrl(
 ): string {
   const url = new URL(rawUrl, `https://${bitrixDomain}`);
   
+  console.log(`🔗 URL base: ${rawUrl}`);
+  console.log(`🌐 Domínio: ${bitrixDomain}`);
+  console.log(`🔑 Token: ${bitrixToken ? 'presente' : 'ausente'}`);
+  
   if (bitrixToken) {
-    // Sempre definir ou substituir o parâmetro auth
+    // Sempre definir ou substituir o parâmetro auth, mesmo se vier vazio
     url.searchParams.set('auth', bitrixToken);
   }
-
-  return url.toString();
+  
+  const finalUrl = url.toString();
+  console.log(`✅ URL final montada: ${finalUrl}`);
+  
+  return finalUrl;
 }
 
 // Helper para baixar e fazer upload de foto
@@ -156,6 +163,8 @@ serve(async (req) => {
     // ✅ CASO NORMAL: processar array de fotos do Bitrix
     let photoArray = Array.isArray(photoData) ? photoData : [photoData];
     
+    console.log(`📸 Array de fotos recebido: ${JSON.stringify(photoArray, null, 2)}`);
+    
     const firstPhoto = photoArray.find(p => p?.id || p?.fileId || p?.downloadUrl || p?.showUrl);
     
     if (!firstPhoto) {
@@ -169,12 +178,22 @@ serve(async (req) => {
     const fileId = firstPhoto.id || firstPhoto.fileId || null;
     let downloadUrl = firstPhoto.downloadUrl || firstPhoto.showUrl || null;
 
-    console.log('🔍 Extraído:', { fileId, downloadUrl });
+    console.log(`🔍 Foto selecionada:`, {
+      fileId,
+      downloadUrl,
+      hasDownloadUrl: !!downloadUrl,
+      hasFileId: !!fileId,
+      isShowFilePhp: downloadUrl?.includes('show_file.php')
+    });
 
-    // ✅ PRIORIDADE 1: Tentar disk.file.get se temos fileId (com fallback)
-    if (fileId) {
+    // ✅ PRIORIDADE 1: Se já temos downloadUrl válida (show_file.php), usá-la diretamente
+    if (downloadUrl && downloadUrl.includes('show_file.php')) {
+      console.log('✅ downloadUrl válida (show_file.php) encontrada, pulando disk.file.get');
+      
+    } else if (fileId) {
+      // ✅ PRIORIDADE 2: Tentar disk.file.get só se não temos downloadUrl válida
       try {
-        console.log(`📡 Chamando disk.file.get para fileId: ${fileId}`);
+        console.log(`📡 Tentando disk.file.get para fileId: ${fileId}`);
         
         const diskFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/disk.file.get?id=${fileId}`;
         const diskResponse = await fetch(diskFileUrl);
@@ -193,15 +212,14 @@ serve(async (req) => {
           console.warn('⚠️ disk.file.get não retornou DOWNLOAD_URL');
         }
       } catch (e) {
-        console.warn('⚠️ Falha ao usar disk.file.get, usando fallback com downloadUrl do Bitrix:', String(e));
+        console.warn('⚠️ Falha ao usar disk.file.get, usando fallback:', String(e));
       }
     }
 
-    // ✅ PRIORIDADE 2: Usar downloadUrl original com autenticação
-    if (!downloadUrl) {
-      if (firstPhoto.showUrl) {
-        downloadUrl = firstPhoto.showUrl;
-      }
+    // ✅ PRIORIDADE 3: Fallback para showUrl se ainda não temos downloadUrl
+    if (!downloadUrl && firstPhoto.showUrl) {
+      downloadUrl = firstPhoto.showUrl;
+      console.log('📌 Usando showUrl como fallback');
     }
 
     if (!downloadUrl) {
