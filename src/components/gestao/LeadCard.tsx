@@ -88,7 +88,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
           <img
             src={photoUrl}
             alt={String(lead.name || "Lead")}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover max-h-[40vh]"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
