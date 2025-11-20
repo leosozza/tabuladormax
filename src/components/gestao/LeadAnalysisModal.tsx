@@ -47,7 +47,7 @@ export function LeadAnalysisModal({
           {/* Área central do card - ocupa toda altura disponível */}
           <div className="flex-1 px-3 py-3 md:px-4 md:py-4">
             <div className="h-full flex flex-col overflow-hidden">
-              <div className="w-full max-w-sm sm:max-w-md md:max-w-xl lg:max-w-2xl mx-auto h-full">
+              <div className="w-full max-w-sm md:max-w-md lg:max-w-lg mx-auto h-full">
                 <LeadCard lead={lead} />
               </div>
             </div>
