@@ -279,12 +279,15 @@ export const ALL_LEAD_FIELDS: ColumnConfig[] = [
   // Datas
   { 
     key: 'criado', 
-    label: 'Data Criação', 
+    label: 'Data de Criação', 
     type: 'date', 
     sortable: true, 
     defaultVisible: true,
     category: 'dates',
-    formatter: (value: string) => value ? formatDateBR(value) : '-'
+    formatter: (value: string) => {
+      if (!value) return 'Não informado';
+      return formatDateBR(value);
+    }
   },
   { 
     key: 'data_criacao_ficha', 

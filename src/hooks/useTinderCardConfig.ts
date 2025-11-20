@@ -5,15 +5,18 @@ export interface TinderCardConfig {
   mainFields: string[];
   detailFields: string[];
   badgeFields: string[];
+  version?: number;
 }
 
+const CONFIG_VERSION = 2; // Incrementar quando houver mudanças importantes
 const STORAGE_KEY = 'tinder_card_config';
 
 const DEFAULT_CONFIG: TinderCardConfig = {
   photoField: 'photo_url',
   mainFields: ['name', 'nome_modelo'],
   detailFields: ['scouter', 'projeto_comercial', 'criado'],
-  badgeFields: ['ficha_confirmada', 'presenca_confirmada', 'etapa']
+  badgeFields: ['ficha_confirmada', 'presenca_confirmada', 'etapa'],
+  version: CONFIG_VERSION
 };
 
 const VALIDATION = {
@@ -27,7 +30,13 @@ export const useTinderCardConfig = () => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        // Se a versão não existe ou é antiga, usar DEFAULT_CONFIG
+        if (!parsed.version || parsed.version < CONFIG_VERSION) {
+          console.log('[TinderCard] Config desatualizada, usando padrão');
+          return DEFAULT_CONFIG;
+        }
+        return parsed;
       } catch {
         return DEFAULT_CONFIG;
       }
