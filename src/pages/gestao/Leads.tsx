@@ -30,45 +30,35 @@ function GestaoLeadsContent() {
   const { data: allFields, isLoading: isLoadingFields } = useGestaoFieldMappings();
   
   const { data: leads, isLoading } = useQuery({
-    queryKey: ["gestao-leads", searchTerm, filters],
+    queryKey: ["gestao-leads", searchTerm, filters, visibleColumns],
     queryFn: async () => {
+      // Campos obrigatórios (sempre necessários)
+      const mandatoryFields = ['id', 'name', 'criado'];
+      
+      // Campos das colunas visíveis
+      const visibleFieldKeys = visibleColumns || [];
+      
+      // Combinar e remover duplicatas
+      const fieldsToSelect = Array.from(new Set([
+        ...mandatoryFields,
+        ...visibleFieldKeys
+      ]));
+      
+      // Detectar se algum campo visível precisa do relacionamento commercial_projects
+      const needsCommercialProject = visibleFieldKeys.some(key => 
+        key === 'commercial_project_id' || 
+        key.startsWith('commercial_projects.')
+      );
+      
+      // Construir cláusula SELECT
+      let selectClause = fieldsToSelect.join(',');
+      if (needsCommercialProject && !selectClause.includes('commercial_projects:')) {
+        selectClause += ',commercial_projects:commercial_project_id(id,name,code)';
+      }
+      
       let query = supabase
         .from("leads")
-        .select(`
-          id,
-          name,
-          scouter,
-          responsible,
-          age,
-          address,
-          photo_url,
-          etapa,
-          fonte,
-          criado,
-          nome_modelo,
-          ficha_confirmada,
-          cadastro_existe_foto,
-          status_tabulacao,
-          qualidade_lead,
-          data_criacao_ficha,
-          data_confirmacao_ficha,
-          data_agendamento,
-          compareceu,
-          presenca_confirmada,
-          valor_ficha,
-          local_abordagem,
-          gestao_scouter,
-          op_telemarketing,
-          commercial_project_id,
-          bitrix_telemarketing_id,
-          latitude,
-          longitude,
-          commercial_projects:commercial_project_id(
-            id,
-            name,
-            code
-          )
-        `)
+        .select(selectClause)
         .order("criado", { ascending: false })
         .limit(100);
       
