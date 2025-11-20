@@ -8,30 +8,7 @@ const corsHeaders = {
 
 interface PhotoSyncRequest {
   leadId: number;
-  photoData?: any;  // Objeto, array ou URL direta de foto do Bitrix
-}
-
-// Helper para construir URL autenticada do Bitrix
-function buildAuthenticatedDownloadUrl(
-  rawUrl: string,
-  bitrixDomain: string,
-  bitrixToken: string | null
-): string {
-  const url = new URL(rawUrl, `https://${bitrixDomain}`);
-  
-  console.log(`🔗 URL base: ${rawUrl}`);
-  console.log(`🌐 Domínio: ${bitrixDomain}`);
-  console.log(`🔑 Token: ${bitrixToken ? 'presente' : 'ausente'}`);
-  
-  if (bitrixToken) {
-    // Sempre definir ou substituir o parâmetro auth, mesmo se vier vazio
-    url.searchParams.set('auth', bitrixToken);
-  }
-  
-  const finalUrl = url.toString();
-  console.log(`✅ URL final montada: ${finalUrl}`);
-  
-  return finalUrl;
+  photoData?: any;
 }
 
 // Helper para baixar e fazer upload de foto
@@ -48,16 +25,11 @@ async function downloadAndUploadPhoto(
     throw new Error(`Erro ao baixar do Bitrix: ${bitrixResponse.status} ${bitrixResponse.statusText}`);
   }
 
-  // Validar Content-Type antes de processar
   const contentType = bitrixResponse.headers.get('content-type') || '';
-  console.log(`📋 Content-Type recebido: ${contentType}`);
+  console.log(`📋 Content-Type: ${contentType}`);
   
   if (contentType.includes('text/html')) {
-    throw new Error(`URL retornou HTML ao invés de imagem. Possível erro de autenticação ou URL inválida. Content-Type: ${contentType}`);
-  }
-  
-  if (!contentType.startsWith('image/')) {
-    console.warn(`⚠️ Content-Type inesperado: ${contentType}. Tentando processar mesmo assim...`);
+    throw new Error(`URL retornou HTML ao invés de imagem. Content-Type: ${contentType}`);
   }
 
   const photoBlob = await bitrixResponse.blob();
@@ -66,7 +38,7 @@ async function downloadAndUploadPhoto(
     throw new Error('Foto baixada está vazia');
   }
 
-  console.log(`✅ Foto baixada: ${photoBlob.size} bytes, tipo: ${photoBlob.type}`);
+  console.log(`✅ Foto baixada: ${photoBlob.size} bytes`);
 
   const mimeType = photoBlob.type || 'image/jpeg';
   const extension = mimeType.split('/')[1] || 'jpg';
@@ -74,7 +46,7 @@ async function downloadAndUploadPhoto(
   const finalFileName = `lead-${leadId}-${timestamp}.${extension}`;
   const storagePath = `photos/${finalFileName}`;
 
-  console.log(`📤 Upload para Storage: ${storagePath} (${photoBlob.size} bytes, ${mimeType})`);
+  console.log(`📤 Upload para Storage: ${storagePath}`);
 
   const { data: uploadData, error: uploadError } = await supabase.storage
     .from('lead-photos')
@@ -95,7 +67,8 @@ async function downloadAndUploadPhoto(
 
   const publicUrl = urlData.publicUrl;
   
-  console.log(`✅ Foto sincronizada: ${publicUrl}`);
+  console.log(`🔗 URL pública: ${publicUrl}`);
+  console.log(`💾 Atualizando photo_url no banco...`);
 
   const { error: updateError } = await supabase
     .from('leads')
@@ -103,7 +76,9 @@ async function downloadAndUploadPhoto(
     .eq('id', leadId);
 
   if (updateError) {
-    console.error('⚠️ Erro ao atualizar lead (foto já salva):', updateError);
+    console.error('⚠️ Erro ao atualizar lead:', updateError);
+  } else {
+    console.log('✅ Sincronização concluída com sucesso!');
   }
 
   return { publicUrl, storagePath, fileSize: photoBlob.size };
@@ -156,117 +131,58 @@ serve(async (req) => {
     
     console.log('🔑 Bitrix config:', { domain: bitrixDomain, tokenLength: bitrixToken.length });
 
-    console.log('📸 Dados recebidos:', JSON.stringify(photoData, null, 2));
-
-    // ✅ CASO ESPECIAL: photoData é uma string (URL direta)
-    if (typeof photoData === 'string') {
-      const finalDownloadUrl = buildAuthenticatedDownloadUrl(
-        photoData,
-        bitrixDomain,
-        bitrixToken || null
-      );
-
-      console.log('🔗 URL direta recebida, usando para download:', finalDownloadUrl);
-
-      const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
-        leadId,
-        finalDownloadUrl,
-        supabase
-      );
-
+    // ✅ PASSO 1: Buscar dados completos do lead via crm.lead.get
+    console.log(`📡 Buscando lead completo do Bitrix: crm.lead.get?ID=${leadId}`);
+    const leadUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.lead.get?ID=${leadId}`;
+    const leadResponse = await fetch(leadUrl);
+    
+    if (!leadResponse.ok) {
+      throw new Error(`Erro ao buscar lead ${leadId}: ${leadResponse.status}`);
+    }
+    
+    const leadData = await leadResponse.json();
+    console.log('✅ Lead obtido, extraindo fotos do campo UF_CRM_LEAD_1733231445171');
+    
+    // ✅ PASSO 2: Extrair campo de fotos
+    const photoField = leadData.result?.UF_CRM_LEAD_1733231445171;
+    
+    if (!Array.isArray(photoField) || photoField.length === 0) {
+      console.log('⏭️ Nenhuma foto encontrada no campo UF_CRM_LEAD_1733231445171');
       return new Response(
-        JSON.stringify({ success: true, publicUrl, leadId, storagePath, fileSize }),
+        JSON.stringify({ success: true, message: 'Nenhuma foto para sincronizar' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // ✅ CASO NORMAL: processar array de fotos do Bitrix
-    let photoArray = Array.isArray(photoData) ? photoData : [photoData];
     
-    console.log(`📸 Array de fotos recebido: ${JSON.stringify(photoArray, null, 2)}`);
+    // ✅ PASSO 3: Pegar a primeira foto
+    const firstPhoto = photoField[0];
+    console.log('📸 Foto encontrada:', { id: firstPhoto.id, downloadUrl: firstPhoto.downloadUrl });
     
-    const firstPhoto = photoArray.find(p => p?.id || p?.fileId || p?.downloadUrl || p?.showUrl);
+    let downloadUrl = firstPhoto.downloadUrl;
     
-    if (!firstPhoto) {
-      console.log(`⚠️ Nenhuma foto válida encontrada para lead ${leadId}`);
-      return new Response(
-        JSON.stringify({ success: true, message: 'Nenhuma foto válida' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const fileId = firstPhoto.id || firstPhoto.fileId || null;
-    let downloadUrl = firstPhoto.downloadUrl || firstPhoto.showUrl || null;
-
-    console.log(`🔍 Foto selecionada:`, {
-      fileId,
-      downloadUrl,
-      hasDownloadUrl: !!downloadUrl,
-      hasFileId: !!fileId,
-      isShowFilePhp: downloadUrl?.includes('show_file.php')
-    });
-
-    // ✅ PRIORIDADE 1: Buscar DOWNLOAD_URL diretamente do lead via API
-    if (fileId) {
-      try {
-        console.log(`📡 Buscando informações completas do arquivo via crm.lead.get`);
-        
-        const leadUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.lead.get?ID=${leadId}`;
-        const leadResponse = await fetch(leadUrl);
-        
-        if (!leadResponse.ok) {
-          throw new Error(`Erro ao buscar lead: ${leadResponse.status}`);
-        }
-        
-        const leadData = await leadResponse.json();
-        console.log('📦 Dados do lead obtidos');
-        
-        // Procurar o campo de fotos (UF_CRM_LEAD_1733231445171)
-        const photoField = leadData.result?.UF_CRM_LEAD_1733231445171;
-        
-        if (Array.isArray(photoField) && photoField.length > 0) {
-          // Tentar encontrar a foto com o fileId correto
-          const targetPhoto = photoField.find((p: any) => 
-            String(p.id) === String(fileId) || String(p.fileId) === String(fileId)
-          );
-          
-          if (targetPhoto?.downloadUrl) {
-            downloadUrl = targetPhoto.downloadUrl;
-            console.log(`✅ DOWNLOAD_URL encontrada no lead: ${downloadUrl}`);
-          } else {
-            console.warn('⚠️ Foto não encontrada no campo do lead');
-          }
-        }
-      } catch (e) {
-        console.warn('⚠️ Falha ao buscar foto do lead:', String(e));
-      }
-    }
-
-    // ✅ PRIORIDADE 2: Só usar show_file.php se disk.file.get falhou
-    if (!downloadUrl && firstPhoto.downloadUrl?.includes('show_file.php')) {
-      console.log('⚠️ Usando fallback com show_file.php (pode não funcionar)');
-      downloadUrl = firstPhoto.downloadUrl;
-    }
-
-    // ✅ PRIORIDADE 3: Fallback final para showUrl
-    if (!downloadUrl && firstPhoto.showUrl) {
-      downloadUrl = firstPhoto.showUrl;
-      console.log('📌 Usando showUrl como fallback final');
-    }
-
     if (!downloadUrl) {
-      throw new Error('Nenhuma URL de download disponível');
+      throw new Error('downloadUrl não encontrada na foto');
     }
+    
+    // ✅ PASSO 4: Completar URL com domínio (se for relativa)
+    console.log('🔗 URL relativa:', downloadUrl);
+    if (downloadUrl.startsWith('/')) {
+      downloadUrl = `https://${bitrixDomain}${downloadUrl}`;
+      console.log('🔗 URL completa:', downloadUrl);
+    }
+    
+    // ✅ PASSO 5: Substituir auth= vazio pelo token
+    if (downloadUrl.includes('auth=&')) {
+      downloadUrl = downloadUrl.replace('auth=&', `auth=${bitrixToken}&`);
+      console.log('🔑 URL autenticada:', downloadUrl);
+    }
+    
+    console.log('🌐 URL final para download:', downloadUrl);
 
-    const authenticatedUrl = buildAuthenticatedDownloadUrl(
-      downloadUrl,
-      bitrixDomain,
-      bitrixToken || null
-    );
-
+    // ✅ PASSO 6-10: Baixar, fazer upload e atualizar
     const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
       leadId,
-      authenticatedUrl,
+      downloadUrl,
       supabase
     );
 
