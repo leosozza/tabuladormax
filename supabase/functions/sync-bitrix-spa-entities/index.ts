@@ -38,25 +38,46 @@ serve(async (req) => {
       try {
         console.log(`📥 Buscando ${entityType.name} (entityTypeId: ${entityType.id})...`);
 
-        const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}&select[]=id&select[]=title`;
-        
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Erro HTTP ${response.status} ao buscar ${entityType.name}`);
+        let allItems: any[] = [];
+        let start = 0;
+        const limit = 50;
+        let hasMore = true;
+
+        // Implementar paginação para buscar todos os registros
+        while (hasMore) {
+          const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}&select[]=id&select[]=title&start=${start}`;
+          
+          console.log(`  📄 Buscando página ${Math.floor(start / limit) + 1} (offset: ${start})...`);
+          
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Erro HTTP ${response.status} ao buscar ${entityType.name}`);
+          }
+
+          const data = await response.json();
+          
+          if (!data.result || !data.result.items) {
+            break;
+          }
+
+          const items = data.result.items;
+          allItems = allItems.concat(items);
+          
+          // Verificar se há mais páginas
+          hasMore = items.length === limit && data.next !== undefined;
+          start += limit;
+          
+          console.log(`  ✅ ${items.length} itens nesta página (total: ${allItems.length})`);
+          
+          if (items.length < limit) {
+            hasMore = false;
+          }
         }
 
-        const data = await response.json();
-        
-        if (!data.result || !data.result.items) {
-          console.warn(`⚠️ Nenhum item encontrado para ${entityType.name}`);
-          continue;
-        }
-
-        const items = data.result.items;
-        console.log(`✅ ${items.length} ${entityType.name} encontrados`);
+        console.log(`✅ Total de ${allItems.length} ${entityType.name} encontrados`);
 
         // Upsert em lote
-        for (const item of items) {
+        for (const item of allItems) {
           const { error: upsertError } = await supabase
             .from('bitrix_spa_entities')
             .upsert({
