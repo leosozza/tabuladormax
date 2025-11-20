@@ -101,7 +101,8 @@ export function LeadColumnConfigProvider({ children }: { children: ReactNode }) 
   };
 
   const clearAll = () => {
-    setVisibleColumns(['name', 'scouter', 'projetos']); // manter mínimo obrigatório
+    // Manter apenas campos essenciais: name, scouter e projeto comercial
+    setVisibleColumns(['name', 'scouter', 'commercial_projects.name']);
   };
 
   const reorderColumns = (oldIndex: number, newIndex: number) => {

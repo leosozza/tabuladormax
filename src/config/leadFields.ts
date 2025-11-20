@@ -117,16 +117,7 @@ export const ALL_LEAD_FIELDS: ColumnConfig[] = [
     formatter: (value: string) => value || '-'
   },
   { 
-    key: 'projetos', 
-    label: 'Projeto', 
-    type: 'text', 
-    sortable: true, 
-    defaultVisible: true,
-    category: 'basic',
-    formatter: (value: string) => value || '-'
-  },
-  { 
-    key: 'valor_ficha', 
+    key: 'valor_ficha',
     label: 'Valor Ficha', 
     type: 'currency', 
     sortable: true, 
