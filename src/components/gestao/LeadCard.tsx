@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, MapPin, Calendar, Phone } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { User, MapPin, Calendar, Phone, AlertCircle } from "lucide-react";
 import { useTinderCardConfig } from "@/hooks/useTinderCardConfig";
 import { ALL_LEAD_FIELDS } from "@/config/leadFields";
 
@@ -65,15 +66,37 @@ export default function LeadCard({ lead }: LeadCardProps) {
         )}
         
         {/* Badges de Status */}
-        {badgeValues.length > 0 && (
-          <div className="absolute top-2 right-2 md:top-4 md:right-4 flex flex-col gap-2">
-            {badgeValues.map((badge, idx) => (
-              <Badge key={idx} variant="secondary" className="backdrop-blur-sm bg-background/80 text-xs md:text-sm">
-                {badge.value}
-              </Badge>
-            ))}
-          </div>
-        )}
+        <div className="absolute top-2 right-2 md:top-4 md:right-4 flex flex-col gap-2">
+          {/* FASE 4: Badge de erro de sincronização */}
+          {lead.has_sync_errors && (
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="destructive" className="backdrop-blur-sm bg-destructive/90 text-xs md:text-sm flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Erro Sync
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-md" side="left">
+                <div className="space-y-1">
+                  <p className="font-semibold text-sm">Campos com erro de sincronização:</p>
+                  {lead.sync_errors && typeof lead.sync_errors === 'object' && 'errors' in lead.sync_errors && Array.isArray(lead.sync_errors.errors) && lead.sync_errors.errors.map((err: any, i: number) => (
+                    <div key={i} className="text-xs border-l-2 border-destructive pl-2 py-1">
+                      <span className="font-mono text-destructive-foreground font-semibold">{err.field}</span>
+                      <br />
+                      <span className="text-muted-foreground">{err.error}</span>
+                    </div>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          
+          {badgeValues.length > 0 && badgeValues.map((badge, idx) => (
+            <Badge key={idx} variant="secondary" className="backdrop-blur-sm bg-background/80 text-xs md:text-sm">
+              {badge.value}
+            </Badge>
+          ))}
+        </div>
       </div>
 
       {/* Informações do Lead */}

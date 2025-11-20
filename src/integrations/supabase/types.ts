@@ -931,6 +931,7 @@ export type Database = {
           geocoded_at: string | null
           gerenciamento_funil: string | null
           gestao_scouter: string | null
+          has_sync_errors: boolean | null
           horario_agendamento: string | null
           id: number
           last_sync_at: string | null
@@ -952,6 +953,7 @@ export type Database = {
           status_fluxo: string | null
           status_tabulacao: string | null
           status_telefone: string | null
+          sync_errors: Json | null
           sync_source: string | null
           sync_status: string | null
           telefone_casa: string | null
@@ -986,6 +988,7 @@ export type Database = {
           geocoded_at?: string | null
           gerenciamento_funil?: string | null
           gestao_scouter?: string | null
+          has_sync_errors?: boolean | null
           horario_agendamento?: string | null
           id: number
           last_sync_at?: string | null
@@ -1007,6 +1010,7 @@ export type Database = {
           status_fluxo?: string | null
           status_tabulacao?: string | null
           status_telefone?: string | null
+          sync_errors?: Json | null
           sync_source?: string | null
           sync_status?: string | null
           telefone_casa?: string | null
@@ -1041,6 +1045,7 @@ export type Database = {
           geocoded_at?: string | null
           gerenciamento_funil?: string | null
           gestao_scouter?: string | null
+          has_sync_errors?: boolean | null
           horario_agendamento?: string | null
           id?: number
           last_sync_at?: string | null
@@ -1062,6 +1067,7 @@ export type Database = {
           status_fluxo?: string | null
           status_tabulacao?: string | null
           status_telefone?: string | null
+          sync_errors?: Json | null
           sync_source?: string | null
           sync_status?: string | null
           telefone_casa?: string | null

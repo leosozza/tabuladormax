@@ -487,7 +487,15 @@ serve(async (req) => {
       total_fields: Object.keys(leadData).length
     });
 
-    // Upsert no Supabase
+    // FASE 2: Upsert fault-tolerant - coletar erros de campos
+    const fieldErrors: Array<{
+      field: string;
+      attempted_value: any;
+      error: string;
+      bitrix_field?: string;
+    }> = [];
+
+    // Tentativa 1: Upsert completo
     const { data: upsertedLead, error: upsertError } = await supabase
       .from('leads')
       .upsert(leadData, { onConflict: 'id' })
@@ -495,11 +503,118 @@ serve(async (req) => {
       .single();
 
     if (upsertError) {
-      console.error('❌ Erro ao fazer upsert no Supabase:', upsertError);
-      throw upsertError;
-    }
+      console.warn(`⚠️ Erro no upsert completo do lead ${leadData.id}, tentando salvar parcialmente...`);
+      
+      // Construir dados "seguros" com campos obrigatórios
+      const safeData: any = {
+        id: leadData.id,
+        name: leadData.name || 'Nome não disponível',
+        raw: leadData.raw || bitrixData,
+        sync_source: 'bitrix',
+        updated_at: new Date().toISOString()
+      };
+      
+      // Tentar adicionar campos um por um
+      for (const [key, value] of Object.entries(leadData)) {
+        if (['id', 'name', 'raw', 'sync_source', 'updated_at'].includes(key)) continue;
+        
+        try {
+          // Validações específicas por tipo
+          if (key === 'commercial_project_id' && value) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(String(value))) {
+              throw new Error(`UUID inválido: "${value}"`);
+            }
+          }
+          
+          if (key === 'age' && value !== null) {
+            const ageNum = Number(value);
+            if (isNaN(ageNum) || ageNum < 0 || ageNum > 150) {
+              throw new Error(`Idade inválida: "${value}"`);
+            }
+          }
+          
+          // Se passou validação, adicionar
+          safeData[key] = value;
+          
+        } catch (fieldError: any) {
+          fieldErrors.push({
+            field: key,
+            attempted_value: value,
+            error: fieldError.message,
+            bitrix_field: appliedMappings.find(m => m.supabase_field === key)?.bitrix_field
+          });
+          console.warn(`⚠️ Campo ${key} ignorado: ${fieldError.message}`);
+        }
+      }
+      
+      // Adicionar informações de erro
+      if (fieldErrors.length > 0) {
+        safeData.sync_errors = {
+          timestamp: new Date().toISOString(),
+          source: 'bitrix-webhook',
+          original_error: upsertError.message,
+          errors: fieldErrors
+        };
+        safeData.has_sync_errors = true;
+      }
+      
+      // Tentativa final com dados "seguros"
+      const { data: savedLead, error: safeSaveError } = await supabase
+        .from('leads')
+        .upsert(safeData, { onConflict: 'id' })
+        .select()
+        .single();
+        
+      if (safeSaveError) {
+        console.error(`❌ FALHA CRÍTICA ao salvar lead ${leadData.id}:`, safeSaveError);
+        
+        // Registrar evento de erro mas NÃO rejeitar requisição
+        await supabase.from('sync_events').insert({
+          event_type: event.includes('ADD') ? 'create' : 'update',
+          direction: 'bitrix_to_supabase',
+          lead_id: leadData.id,
+          status: 'error',
+          error_message: `Falha total no salvamento: ${safeSaveError.message}. Erros de campo: ${fieldErrors.length}`,
+          sync_duration_ms: Date.now() - startTime,
+          field_mappings: null,
+          fields_synced_count: 0
+        });
+        
+        // Retornar sucesso parcial ao Bitrix (não quebrar webhook)
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            lead_id: leadData.id,
+            error: 'Lead não pôde ser salvo, mas webhook processado',
+            details: safeSaveError.message
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+      
+      console.log(`⚠️ Lead ${leadData.id} salvo PARCIALMENTE (${fieldErrors.length} campos com erro, ${Object.keys(safeData).length - 5} campos ok)`);
+      
+      // Registrar evento de sucesso parcial
+      await supabase.from('sync_events').insert({
+        event_type: event.includes('ADD') ? 'create' : 'update',
+        direction: 'bitrix_to_supabase',
+        lead_id: leadData.id,
+        status: 'partial_success',
+        error_message: `${fieldErrors.length} campos com erro: ${fieldErrors.map(e => e.field).join(', ')}`,
+        sync_duration_ms: Date.now() - startTime,
+        field_mappings: { bitrix_to_supabase: appliedMappings },
+        fields_synced_count: Object.keys(safeData).length - 5
+      });
+    } else if (fieldErrors.length === 0) {
+      // Sucesso total - limpar erros anteriores se houver
+      await supabase
+        .from('leads')
+        .update({ sync_errors: null, has_sync_errors: false })
+        .eq('id', leadData.id);
 
-    console.log('✅ Lead sincronizado no Supabase:', upsertedLead);
+      console.log('✅ Lead sincronizado no Supabase:', upsertedLead);
+    }
 
     // ✅ FASE 3: Registro robusto em sync_events com try-catch
     try {
