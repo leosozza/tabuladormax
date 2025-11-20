@@ -360,8 +360,26 @@ async function processBatch(supabase: any, jobId: string) {
 
             let transformedValue = bitrixValue;
 
-            // Aplicar transformações
-            if (mapping.transform_function) {
+            // FASE 1: Resolver PARENT_ID_1144 para nome do telemarketing
+            if (mapping.bitrix_field === 'PARENT_ID_1144' && mapping.leads_column === 'responsible') {
+              const telemarketingId = Number(bitrixValue);
+              
+              const { data: tmMapping } = await supabase
+                .from('agent_telemarketing_mapping')
+                .select('bitrix_telemarketing_name')
+                .eq('bitrix_telemarketing_id', telemarketingId)
+                .maybeSingle();
+              
+              if (tmMapping?.bitrix_telemarketing_name) {
+                transformedValue = tmMapping.bitrix_telemarketing_name;
+                console.log(`✅ Resolved telemarketing ID ${telemarketingId} → "${transformedValue}"`);
+              } else {
+                console.warn(`⚠️ Telemarketing ID ${telemarketingId} não encontrado em agent_telemarketing_mapping`);
+                continue; // Pular se não encontrar
+              }
+            }
+            // Aplicar outras transformações
+            else if (mapping.transform_function) {
               try {
                 if (mapping.transform_function === 'toNumber') {
                   transformedValue = parseFloat(String(bitrixValue).replace(',', '.'));
@@ -397,6 +415,30 @@ async function processBatch(supabase: any, jobId: string) {
           totalSkipped++;
           totalProcessed++;
           continue;
+        }
+
+        // FASE 4: Validar dados críticos antes de salvar
+        if (mappedData.responsible) {
+          // Se responsible for numérico, alertar e tentar corrigir
+          if (/^\d+$/.test(String(mappedData.responsible))) {
+            console.warn(`⚠️ Lead ${lead.id}: responsible="${mappedData.responsible}" é numérico! Deveria ser nome.`);
+            
+            // Tentar corrigir em tempo real
+            const telemarketingId = Number(mappedData.responsible);
+            const { data: tmMapping } = await supabase
+              .from('agent_telemarketing_mapping')
+              .select('bitrix_telemarketing_name')
+              .eq('bitrix_telemarketing_id', telemarketingId)
+              .maybeSingle();
+            
+            if (tmMapping) {
+              mappedData.responsible = tmMapping.bitrix_telemarketing_name;
+              console.log(`✅ Corrigido para: "${mappedData.responsible}"`);
+            } else {
+              delete mappedData.responsible; // Remove campo se não conseguir resolver
+              console.warn(`⚠️ Não foi possível resolver telemarketing ID ${telemarketingId}, campo removido`);
+            }
+          }
         }
 
         console.log(`[processBatch] Lead ${lead.id}: ${Object.keys(mappedData).length} campos serão atualizados:`, Object.keys(mappedData).join(', '));

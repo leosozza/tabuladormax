@@ -36,7 +36,7 @@ O sistema usa **4 tabelas** de mapeamento com propósitos distintos mas alinhado
 | Campo Supabase | Campo Bitrix | Tipo | Prioridade | Transform | Notas |
 |---|---|---|---|---|---|
 | **name** | NAME | string | 0 | - | Primeiro nome do lead |
-| **responsible** | ASSIGNED_BY_ID | integer | 1 | toString | ID do usuário responsável no Bitrix |
+| **responsible** | PARENT_ID_1144 | text | 1 | resolveTelemarketingName | ✅ Nome do operador (via lookup em `agent_telemarketing_mapping`) |
 | **etapa** | STATUS_ID | string | 10 | - | Status/etapa do lead |
 | **fonte** | SOURCE_ID | string | 60 | - | Origem/fonte do lead (campo padrão Bitrix) |
 | **local_abordagem** | ADDRESS_CITY | string | 40 | - | Cidade do endereço (campo padrão Bitrix) |
@@ -111,6 +111,65 @@ Estes campos são preenchidos via resolução de entidades SPA (`bitrix_spa_enti
 2. Edge function consulta `bitrix_spa_entities` para obter o `title`
 3. `title` é salvo no campo correspondente em `leads`
 
+## Campo `responsible` (Operador de Telemarketing)
+
+### ⚠️ ATENÇÃO: Campo Crítico para RLS
+
+**Fonte Bitrix**: `PARENT_ID_1144` (ID da SPA de Telemarketing)  
+**Transformação**: Lookup em `agent_telemarketing_mapping.bitrix_telemarketing_name`  
+**Tipo Final**: `text` (nome do operador)  
+**Prioridade**: 1 (Alta - usado em RLS)
+
+#### ❌ **NÃO USE:**
+- `ASSIGNED_BY_ID` - Retorna ID numérico do usuário Bitrix (ex: "9")
+- Isso causa **falha nas políticas RLS** que comparam com `bitrix_telemarketing_name`
+
+#### ✅ **USE:**
+- `PARENT_ID_1144` - ID da entidade SPA de Telemarketing
+- Resolva para o NOME via lookup:
+  ```sql
+  SELECT bitrix_telemarketing_name 
+  FROM agent_telemarketing_mapping 
+  WHERE bitrix_telemarketing_id = [PARENT_ID_1144]
+  ```
+
+#### Exemplo Completo:
+1. **Bitrix**: `PARENT_ID_1144 = 156`
+2. **Lookup**: `agent_telemarketing_mapping` onde `bitrix_telemarketing_id = 156`
+3. **Resultado**: `bitrix_telemarketing_name = "Jennifer Sampaio"`
+4. **Supabase**: `leads.responsible = "Jennifer Sampaio"`
+
+#### Implementação:
+
+**Webhook (`bitrix-webhook/index.ts`):**
+- Linhas 293-309: Resolve via `resolveSpaEntityName('telemarketing', ...)`
+- Já implementado corretamente ✅
+
+**Resync (`bitrix-resync-leads/index.ts`):**
+- Detecta `PARENT_ID_1144` → `responsible`
+- Faz lookup em `agent_telemarketing_mapping`
+- Valida antes de salvar (previne IDs numéricos)
+- Corrige automaticamente se encontrar ID numérico
+
+**Política RLS (agents):**
+```sql
+responsible IN (
+  SELECT bitrix_telemarketing_name 
+  FROM agent_telemarketing_mapping 
+  WHERE tabuladormax_user_id = auth.uid()
+)
+```
+
+#### Correção de Dados Históricos:
+```sql
+-- Script executado em 2025-01-20
+UPDATE leads
+SET responsible = atm.bitrix_telemarketing_name
+FROM agent_telemarketing_mapping atm
+WHERE leads.responsible = atm.bitrix_telemarketing_id::text
+  AND leads.responsible ~ '^\d+$';
+```
+
 ## Campos Desativados (Auditoria 2025-01-20)
 
 ### Duplicatas Removidas
@@ -127,7 +186,8 @@ Estes campos são preenchidos via resolução de entidades SPA (`bitrix_spa_enti
 | local_abordagem | UF_CRM_1729775954 | Campo customizado (ADDRESS_CITY é padrão) |
 | name | TITLE | Campo título genérico (NAME é específico) |
 | presenca_confirmada | UF_CRM_1729776110 | Campo antigo |
-| responsible | UF_CRM_1622827519 | Campo customizado (ASSIGNED_BY_ID é padrão) |
+| responsible | ASSIGNED_BY_ID | ❌ Retorna ID numérico. Substituído por PARENT_ID_1144 (resolve para nome) |
+| responsible | UF_CRM_1622827519 | Campo customizado obsoleto |
 
 ## Validação de Consistência
 
