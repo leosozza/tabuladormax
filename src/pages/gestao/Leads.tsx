@@ -35,26 +35,47 @@ function GestaoLeadsContent() {
       // Campos obrigatórios (sempre necessários)
       const mandatoryFields = ['id', 'name', 'criado'];
       
-      // Campos das colunas visíveis
-      const visibleFieldKeys = visibleColumns || [];
+      // Separar campos diretos de campos de relacionamento
+      const directFields: string[] = [];
+      const relationshipFields = new Set<string>();
       
-      // Combinar e remover duplicatas
+      for (const key of visibleColumns || []) {
+        if (key.includes('.')) {
+          // Campo de relacionamento (ex: commercial_projects.name)
+          const [table] = key.split('.');
+          relationshipFields.add(table);
+        } else {
+          // Campo direto da tabela leads
+          directFields.push(key);
+        }
+      }
+      
+      // Combinar campos diretos com obrigatórios
       const fieldsToSelect = Array.from(new Set([
         ...mandatoryFields,
-        ...visibleFieldKeys
+        ...directFields
       ]));
       
-      // Detectar se algum campo visível precisa do relacionamento commercial_projects
-      const needsCommercialProject = visibleFieldKeys.some(key => 
-        key === 'commercial_project_id' || 
-        key.startsWith('commercial_projects.')
-      );
+      // Se precisa do relacionamento commercial_projects, garantir que commercial_project_id esteja no SELECT
+      if (relationshipFields.has('commercial_projects') && !fieldsToSelect.includes('commercial_project_id')) {
+        fieldsToSelect.push('commercial_project_id');
+      }
       
-      // Construir cláusula SELECT
+      // Construir SELECT para campos diretos
       let selectClause = fieldsToSelect.join(',');
-      if (needsCommercialProject && !selectClause.includes('commercial_projects:')) {
+      
+      // Adicionar relacionamentos necessários
+      if (relationshipFields.has('commercial_projects')) {
         selectClause += ',commercial_projects:commercial_project_id(id,name,code)';
       }
+      
+      // Debug logging (temporário)
+      console.log('[Query Debug]', {
+        visibleColumns,
+        directFields,
+        relationshipFields: Array.from(relationshipFields),
+        selectClause
+      });
       
       let query = supabase
         .from("leads")
