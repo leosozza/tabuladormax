@@ -45,8 +45,8 @@ export function LeadAnalysisModal({
         
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* LeadCard com rolagem interna */}
-          <div className="flex-1 overflow-y-auto px-4 py-4">
-            <div className="max-w-2xl mx-auto">
+          <div className="flex-1 overflow-y-auto px-3 py-3 md:px-4 md:py-4">
+            <div className="max-w-sm sm:max-w-md md:max-w-xl lg:max-w-2xl mx-auto">
               <LeadCard lead={lead} />
             </div>
           </div>
