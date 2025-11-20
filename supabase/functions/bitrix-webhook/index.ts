@@ -542,8 +542,8 @@ serve(async (req) => {
         updated_at: new Date().toISOString()
       };
       
-      // Tentar adicionar campos um por um
-      for (const [key, value] of Object.entries(leadData)) {
+      // Tentar adicionar campos um por um (usar dados já validados!)
+      for (const [key, value] of Object.entries(validatedData)) {
         if (['id', 'name', 'raw', 'sync_source', 'updated_at'].includes(key)) continue;
         
         try {
