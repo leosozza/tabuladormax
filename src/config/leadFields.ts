@@ -8,6 +8,8 @@ export interface ColumnConfig {
   sortable: boolean;
   defaultVisible: boolean;
   category: 'basic' | 'contact' | 'status' | 'location' | 'dates' | 'sync' | 'other';
+  bitrixField?: string | null;
+  bitrixFieldType?: string | null;
 }
 
 const formatDateBR = (dateString: string) => {

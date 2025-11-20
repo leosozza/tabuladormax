@@ -531,6 +531,13 @@ serve(async (req) => {
         continue;
       }
 
+      // ✅ FASE 1.3: Blindar campos SPA de nome já resolvidos
+      const SPA_NAME_FIELDS = ['scouter', 'gestao_scouter', 'telemarketing', 'projeto_comercial'];
+      if (SPA_NAME_FIELDS.includes(supabaseField)) {
+        console.log(`⏭️ Ignorando mapeamento dinâmico de ${supabaseField} (SPA já resolveu o nome)`);
+        continue;
+      }
+
       for (const mapping of (mappings as any[])) {
         let value = lead[mapping.bitrix_field];
         const originalValue = value;

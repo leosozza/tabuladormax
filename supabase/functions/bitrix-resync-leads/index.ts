@@ -531,8 +531,17 @@ async function processBatch(supabase: any, jobId: string) {
         
         console.log(`[processBatch] Lead ${lead.id}: Aplicando ${mappings?.length || 0} mapeamentos`);
         
+        // ✅ Campos SPA já resolvidos - não devem ser sobrescritos por mapeamentos dinâmicos
+        const SPA_NAME_FIELDS = ['scouter', 'gestao_scouter', 'telemarketing', 'projeto_comercial'];
+        
         for (const mapping of mappings) {
           try {
+            // Ignorar mapeamento se o campo de destino é um nome SPA já resolvido
+            if (SPA_NAME_FIELDS.includes(mapping.leads_column)) {
+              console.log(`⏭️ Ignorando mapeamento dinâmico de ${mapping.leads_column} (SPA já resolveu o nome)`);
+              continue;
+            }
+
             const bitrixValue = bitrixLead.result[mapping.bitrix_field];
             
             if (bitrixValue === null || bitrixValue === undefined || bitrixValue === '') {
