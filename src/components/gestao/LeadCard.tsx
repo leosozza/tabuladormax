@@ -38,15 +38,22 @@ export default function LeadCard({ lead }: LeadCardProps) {
   };
 
   const getFieldIcon = (key: string) => {
+    // Ícones de localização
     if (key.includes('local') || key.includes('address') || key.includes('localizacao')) {
-      return <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
+      return <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0" />;
     }
+    
+    // Ícones de telefone
     if (key.includes('telefone') || key.includes('celular')) {
-      return <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
+      return <Phone className="w-4 h-4 text-green-500 flex-shrink-0" />;
     }
-    if (key.includes('data') || key.includes('criado')) {
-      return <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
+    
+    // Ícones de data
+    if (key.includes('data') || key.includes('criado') || key.includes('nascimento')) {
+      return <Calendar className="w-4 h-4 text-orange-500 flex-shrink-0" />;
     }
+    
+    // Sem ícone para outros campos
     return null;
   };
 
@@ -126,11 +133,16 @@ export default function LeadCard({ lead }: LeadCardProps) {
       {/* Informações do Lead */}
       <CardContent className="p-3 md:p-5 lg:p-6 space-y-2 md:space-y-3 lg:space-y-4">
         <div>
-          <h3 className="text-lg md:text-xl lg:text-2xl font-bold mb-0.5 md:mb-1 truncate">
-            {mainValues[0]?.value || "Sem nome"}
+          {/* Nome do Modelo - Grande e Negrito */}
+          <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 truncate leading-tight">
+            {mainValues[0]?.value || "Sem nome do modelo"}
           </h3>
-          {mainValues[1]?.value && (
-            <p className="text-xs md:text-sm text-muted-foreground truncate">{mainValues[1].value}</p>
+          
+          {/* Nome - Menor, como referência */}
+          {mainValues[1]?.value && mainValues[1].value !== '-' && (
+            <p className="text-sm md:text-base text-muted-foreground truncate font-medium">
+              {mainValues[1].value}
+            </p>
           )}
         </div>
 
