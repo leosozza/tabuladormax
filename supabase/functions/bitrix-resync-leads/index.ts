@@ -312,10 +312,10 @@ async function processBatch(supabase: any, jobId: string) {
     }
 
     // Processar cada lead
-      for (const lead of leads) {
-        const syncStartTime = Date.now(); // ✅ Capturar tempo de início
-        
-        try {
+    for (const lead of leads) {
+      const syncStartTime = Date.now();
+      
+      try {
         // Buscar dados do Bitrix
         const bitrixResponse = await fetch(
           `${BITRIX_BASE_URL}/crm.lead.get.json?ID=${lead.id}`
@@ -443,7 +443,18 @@ async function processBatch(supabase: any, jobId: string) {
 
         console.log(`[processBatch] Lead ${lead.id}: ${Object.keys(mappedData).length} campos serão atualizados:`, Object.keys(mappedData).join(', '));
 
-        // Atualizar lead
+        // FASE 3: Fault-tolerant - coletar erros de campos
+        const fieldErrors: Array<{field: string; error: string; value: any}> = [];
+
+        // Skip lead if nothing to update
+        if (Object.keys(mappedData).length === 0) {
+          console.log(`⏭️ Lead ${lead.id} ignorado (sem campos para atualizar)`);
+          totalSkipped++;
+          totalProcessed++;
+          continue;
+        }
+
+        // Tentativa 1: Update completo
         const { error: updateError } = await supabase
           .from('leads')
           .update({
@@ -454,81 +465,134 @@ async function processBatch(supabase: any, jobId: string) {
           .eq('id', lead.id);
 
         if (updateError) {
-          console.error(`[processBatch] Error updating lead ${lead.id}:`, updateError);
-          totalErrors++;
+          console.warn(`⚠️ Erro no update do lead ${lead.id}, tentando salvamento parcial...`);
           
-          const errorMessage = updateError.message || JSON.stringify(updateError);
-          const isPostgresError = errorMessage.includes('invalid input syntax');
+          // Criar objeto seguro
+          const safeData: any = {
+            last_sync_at: new Date().toISOString(),
+            sync_status: 'synced'
+          };
           
-          errorDetails.push({
-            lead_id: lead.id,
-            error: errorMessage,
-            timestamp: new Date().toISOString(),
-            type: isPostgresError ? 'database_error' : 'api_error',
-            batch: currentBatch + 1,
-            field_data: mappedData ? JSON.stringify(mappedData).substring(0, 500) : null,
-            transform_errors: transformErrors.length > 0 ? transformErrors : null
-          });
-          
-          // Manter apenas os últimos 100 erros para não sobrecarregar o banco
-          if (errorDetails.length > 100) {
-            errorDetails.splice(0, errorDetails.length - 100);
+          // Tentar adicionar cada campo individualmente
+          for (const [key, value] of Object.entries(mappedData)) {
+            try {
+              // Validações básicas
+              if (key === 'commercial_project_id' && value) {
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                if (!uuidRegex.test(String(value))) {
+                  throw new Error(`UUID inválido: "${value}"`);
+                }
+              }
+              
+              safeData[key] = value;
+              
+            } catch (fieldError: any) {
+              fieldErrors.push({
+                field: key,
+                error: fieldError.message,
+                value: value
+              });
+              console.warn(`⚠️ Campo ${key} do lead ${lead.id} ignorado: ${fieldError.message}`);
+            }
           }
-
-          // ✅ Log do evento de sync com erro + tratamento de erro
-          try {
-            const { error: syncEventError } = await supabase.from('sync_events').insert({
+          
+          // Adicionar informações de erro
+          if (fieldErrors.length > 0) {
+            safeData.sync_errors = {
+              timestamp: new Date().toISOString(),
+              source: 'bitrix-resync',
+              errors: fieldErrors
+            };
+            safeData.has_sync_errors = true;
+          }
+          
+          // Tentativa final
+          const { error: safeUpdateError } = await supabase
+            .from('leads')
+            .update(safeData)
+            .eq('id', lead.id);
+            
+          if (safeUpdateError) {
+            totalErrors++;
+            console.error(`❌ Falha crítica no lead ${lead.id}:`, safeUpdateError);
+            
+            const errorMessage = safeUpdateError.message || JSON.stringify(safeUpdateError);
+            const isPostgresError = errorMessage.includes('invalid input syntax');
+            
+            errorDetails.push({
               lead_id: lead.id,
-              event_type: 'resync',
-              direction: 'bitrix_to_supabase',
-              status: 'error',
-              error_message: errorMessage,
-              sync_duration_ms: Date.now() - syncStartTime,
-              field_mappings: {
-                bitrix_to_supabase: Object.keys(mappedData || {}).map(key => ({
-                  bitrix_field: mappings?.find((m: any) => m.leads_column === key)?.bitrix_field || 'unknown',
-                  tabuladormax_field: key,
-                  value: mappedData?.[key],
-                  transformed: !!mappings?.find((m: any) => m.leads_column === key)?.transform_function
-                }))
-              },
-              fields_synced_count: Object.keys(mappedData || {}).length
+              error: errorMessage,
+              timestamp: new Date().toISOString(),
+              type: isPostgresError ? 'database_error' : 'api_error',
+              batch: currentBatch + 1,
+              field_data: mappedData ? JSON.stringify(mappedData).substring(0, 500) : null,
+              transform_errors: transformErrors.length > 0 ? transformErrors : null
             });
             
-            if (syncEventError) {
-              console.error(`⚠️ Erro ao registrar sync_event (não fatal):`, syncEventError);
+            // Manter apenas os últimos 100 erros
+            if (errorDetails.length > 100) {
+              errorDetails.splice(0, errorDetails.length - 100);
             }
-          } catch (syncError) {
-            console.error(`⚠️ Exceção ao registrar sync_event:`, syncError);
+            
+            // Registrar erro mas CONTINUAR processamento
+            try {
+              await supabase.from('sync_events').insert({
+                lead_id: lead.id,
+                event_type: 'resync',
+                direction: 'bitrix_to_supabase',
+                status: 'error',
+                error_message: `Falha total: ${errorMessage}`,
+                sync_duration_ms: Date.now() - syncStartTime,
+                field_mappings: null,
+                fields_synced_count: 0
+              });
+            } catch (syncErr) {
+              console.warn(`⚠️ Falha ao registrar sync_event:`, syncErr);
+            }
+          } else {
+            totalUpdated++;
+            console.log(`⚠️ Lead ${lead.id} atualizado PARCIALMENTE (${fieldErrors.length} erros, ${Object.keys(safeData).length - 2} campos ok)`);
+            
+            try {
+              await supabase.from('sync_events').insert({
+                lead_id: lead.id,
+                event_type: 'resync',
+                direction: 'bitrix_to_supabase',
+                status: 'partial_success',
+                error_message: `${fieldErrors.length} campos com erro`,
+                sync_duration_ms: Date.now() - syncStartTime,
+                field_mappings: { errors: fieldErrors },
+                fields_synced_count: Object.keys(safeData).length - 2
+              });
+            } catch (syncErr) {
+              console.warn(`⚠️ Falha ao registrar sync_event:`, syncErr);
+            }
           }
         } else {
           totalUpdated++;
-          console.log(`✅ Lead ${lead.id} atualizado com ${Object.keys(mappedData).length} campos`);
+          console.log(`✅ Lead ${lead.id} atualizado completamente (${Object.keys(mappedData).length} campos)`);
           
-          // ✅ Log do evento de sync com sucesso + tratamento de erro
+          // Limpar erros anteriores se houver
+          if (lead.has_sync_errors) {
+            await supabase
+              .from('leads')
+              .update({ sync_errors: null, has_sync_errors: false })
+              .eq('id', lead.id);
+          }
+          
+          // Log de sucesso no sync_events
           try {
-            const { error: syncEventError } = await supabase.from('sync_events').insert({
+            await supabase.from('sync_events').insert({
               lead_id: lead.id,
               event_type: 'resync',
               direction: 'bitrix_to_supabase',
               status: 'success',
               sync_duration_ms: Date.now() - syncStartTime,
-              field_mappings: {
-                bitrix_to_supabase: Object.keys(mappedData).map(key => ({
-                  bitrix_field: mappings?.find((m: any) => m.leads_column === key)?.bitrix_field || 'unknown',
-                  tabuladormax_field: key,
-                  value: mappedData[key],
-                  transformed: !!mappings?.find((m: any) => m.leads_column === key)?.transform_function
-                }))
-              },
+              field_mappings: { resync: true },
               fields_synced_count: Object.keys(mappedData).length
             });
-            
-            if (syncEventError) {
-              console.error(`⚠️ Erro ao registrar sync_event (não fatal):`, syncEventError);
-            }
-          } catch (syncError) {
-            console.error(`⚠️ Exceção ao registrar sync_event:`, syncError);
+          } catch (syncErr) {
+            console.warn(`⚠️ Falha ao registrar sync_event:`, syncErr);
           }
         }
 

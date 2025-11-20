@@ -31,6 +31,7 @@ import BitrixIntegration from "./pages/admin/BitrixIntegration";
 import LeadResync from "./pages/admin/LeadResync";
 import CsvImport from "./pages/admin/CsvImport";
 import LeadsReprocess from "./pages/admin/LeadsReprocess";
+import SyncErrors from "./pages/admin/SyncErrors";
 
 import FieldManagement from "./pages/admin/FieldManagement";
 
@@ -100,6 +101,7 @@ const App = () => (
           <Route path="/admin/lead-resync" element={<ProtectedRoute requireManager><LeadResync /></ProtectedRoute>} />
           <Route path="/admin/csv-import" element={<ProtectedRoute requireAdmin><CsvImport /></ProtectedRoute>} />
           <Route path="/admin/leads-reprocess" element={<ProtectedRoute requireManager><LeadsReprocess /></ProtectedRoute>} />
+          <Route path="/admin/sync-errors" element={<ProtectedRoute requireManager><SyncErrors /></ProtectedRoute>} />
           <Route path="/admin/field-management" element={<ProtectedRoute requireManager><FieldManagement /></ProtectedRoute>} />
 
           {/* Agenciamento (Negotiations) - Connected to 3D solar system planet button */}
