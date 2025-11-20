@@ -128,8 +128,19 @@ function GestaoLeadsContent() {
         for (const additionalFilter of filters.additionalFilters) {
           const { field, value, operator = 'eq' } = additionalFilter;
           
-          // Aplicar filtro baseado no operador usando type assertion
+          // Buscar tipo do campo
+          const fieldMapping = allFields?.find(f => f.key === field);
           const qb = queryBuilder as any;
+          
+          // Tratamento especial para booleanos
+          if (fieldMapping?.type === 'boolean' || 
+              (typeof value === 'string' && (value === 'true' || value === 'false'))) {
+            const boolValue = value === 'true' || value === 'Sim';
+            qb.eq(field, boolValue);
+            continue;
+          }
+          
+          // Aplicar filtro baseado no operador
           switch (operator) {
             case 'eq':
               qb.eq(field, value);

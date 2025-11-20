@@ -8,6 +8,13 @@ import { Plus, X, Filter } from "lucide-react";
 import { AdditionalFilter } from "@/types/filters";
 import { useGestaoFieldMappings } from "@/hooks/useGestaoFieldMappings";
 import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
+import { useFieldFilterOptions } from "@/hooks/useFieldFilterOptions";
+import { EnumFieldFilter } from "./filters/EnumFieldFilter";
+import { BooleanFieldFilter } from "./filters/BooleanFieldFilter";
+import { NumberFieldFilter } from "./filters/NumberFieldFilter";
+import { DateFieldFilter } from "./filters/DateFieldFilter";
+import { FilterValueLabel } from "./filters/FilterValueLabel";
+import { FieldTypeIcon } from "./filters/FieldTypeIcon";
 
 interface AdditionalFiltersProps {
   filters: AdditionalFilter[];
@@ -22,6 +29,9 @@ export function AdditionalFilters({ filters, onChange }: AdditionalFiltersProps)
   
   const { data: allFields } = useGestaoFieldMappings();
   const { visibleColumns } = useLeadColumnConfig();
+  
+  // Buscar configuração do campo selecionado
+  const fieldConfig = useFieldFilterOptions(selectedField);
 
   // Filtrar apenas campos visíveis e que são filtráveis
   const filterableFields = allFields?.filter(field => 
@@ -67,12 +77,103 @@ export function AdditionalFilters({ filters, onChange }: AdditionalFiltersProps)
     }
   };
 
+  // Operadores disponíveis baseados no tipo de campo
+  const getAvailableOperators = () => {
+    if (!fieldConfig) return ['eq', 'contains'];
+
+    switch (fieldConfig.type) {
+      case 'boolean':
+      case 'enum':
+        return ['eq']; // Apenas "Igual a"
+      
+      case 'number':
+      case 'date':
+        return ['eq', 'gt', 'lt', 'gte', 'lte'];
+      
+      default:
+        return ['eq', 'contains'];
+    }
+  };
+
+  // Renderizar input baseado no tipo de campo
+  const renderValueInput = () => {
+    if (!fieldConfig) {
+      return (
+        <Input
+          value={filterValue}
+          onChange={(e) => setFilterValue(e.target.value)}
+          placeholder="Digite o valor"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              handleAddFilter();
+            }
+          }}
+        />
+      );
+    }
+
+    switch (fieldConfig.type) {
+      case 'enum':
+        return (
+          <EnumFieldFilter
+            value={filterValue}
+            onChange={setFilterValue}
+            options={fieldConfig.options || []}
+            placeholder={`Selecione ${getFieldLabel(selectedField)}`}
+          />
+        );
+      
+      case 'boolean':
+        return (
+          <BooleanFieldFilter
+            value={filterValue}
+            onChange={setFilterValue}
+          />
+        );
+      
+      case 'number':
+        return (
+          <NumberFieldFilter
+            value={filterValue}
+            onChange={setFilterValue}
+            placeholder="Digite um número"
+          />
+        );
+      
+      case 'date':
+        return (
+          <DateFieldFilter
+            value={filterValue}
+            onChange={setFilterValue}
+          />
+        );
+      
+      default:
+        return (
+          <Input
+            value={filterValue}
+            onChange={(e) => setFilterValue(e.target.value)}
+            placeholder="Digite o valor"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleAddFilter();
+              }
+            }}
+          />
+        );
+    }
+  };
+
   return (
     <div className="flex items-center gap-2">
       {/* Badges dos filtros ativos */}
       {filters.map((filter, index) => (
-        <Badge key={index} variant="secondary" className="gap-1">
-          {getFieldLabel(filter.field)} {getOperatorLabel(filter.operator)} "{filter.value}"
+        <Badge key={index} variant="secondary" className="gap-1 flex items-center">
+          <FieldTypeIcon fieldKey={filter.field} />
+          <span>
+            {getFieldLabel(filter.field)} {getOperatorLabel(filter.operator)} "
+            <FilterValueLabel field={filter.field} value={filter.value} />"
+          </span>
           <X 
             className="h-3 w-3 cursor-pointer" 
             onClick={() => handleRemoveFilter(index)}
@@ -104,8 +205,12 @@ export function AdditionalFilters({ filters, onChange }: AdditionalFiltersProps)
                 <label className="text-sm font-medium">Filtros Ativos:</label>
                 <div className="flex flex-wrap gap-2">
                   {filters.map((filter, index) => (
-                    <Badge key={index} variant="secondary" className="gap-1">
-                      {getFieldLabel(filter.field)} {getOperatorLabel(filter.operator)} "{filter.value}"
+                    <Badge key={index} variant="secondary" className="gap-1 flex items-center">
+                      <FieldTypeIcon fieldKey={filter.field} />
+                      <span>
+                        {getFieldLabel(filter.field)} {getOperatorLabel(filter.operator)} "
+                        <FilterValueLabel field={filter.field} value={filter.value} />"
+                      </span>
                       <X 
                         className="h-3 w-3 cursor-pointer" 
                         onClick={() => handleRemoveFilter(index)}
@@ -141,28 +246,19 @@ export function AdditionalFilters({ filters, onChange }: AdditionalFiltersProps)
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="eq">Igual a</SelectItem>
-                    <SelectItem value="contains">Contém</SelectItem>
-                    <SelectItem value="gt">Maior que</SelectItem>
-                    <SelectItem value="lt">Menor que</SelectItem>
-                    <SelectItem value="gte">Maior ou igual</SelectItem>
-                    <SelectItem value="lte">Menor ou igual</SelectItem>
+                    {getAvailableOperators().includes('eq') && <SelectItem value="eq">Igual a</SelectItem>}
+                    {getAvailableOperators().includes('contains') && <SelectItem value="contains">Contém</SelectItem>}
+                    {getAvailableOperators().includes('gt') && <SelectItem value="gt">Maior que</SelectItem>}
+                    {getAvailableOperators().includes('lt') && <SelectItem value="lt">Menor que</SelectItem>}
+                    {getAvailableOperators().includes('gte') && <SelectItem value="gte">Maior ou igual</SelectItem>}
+                    {getAvailableOperators().includes('lte') && <SelectItem value="lte">Menor ou igual</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
                 <label className="text-sm font-medium mb-2 block">Valor</label>
-                <Input
-                  value={filterValue}
-                  onChange={(e) => setFilterValue(e.target.value)}
-                  placeholder="Digite o valor"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleAddFilter();
-                    }
-                  }}
-                />
+                {renderValueInput()}
               </div>
 
               <Button 
