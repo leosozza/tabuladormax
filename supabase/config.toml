@@ -9,13 +9,7 @@ verify_jwt = false
 [functions.get-leads-for-sync]
 verify_jwt = false
 
-[functions.validate-gestao-scouter-schema]
-verify_jwt = false
-
 [functions.reload-gestao-scouter-schema-cache]
-verify_jwt = false
-
-[functions.validate-gestao-scouter-config]
 verify_jwt = false
 
 [functions.import-csv-leads]
@@ -57,14 +51,8 @@ verify_jwt = true
 [functions.sync-bitrix-commercial-projects]
 verify_jwt = false
 
-[functions.sync-from-gestao-scouter]
-verify_jwt = false
-
 [functions.export-to-gestao-scouter-batch]
 verify_jwt = true
-
-[functions.export-schema]
-verify_jwt = false
 
 [functions.bitrix-entity-get]
 verify_jwt = false

@@ -1,5 +1,7 @@
 # TabuladorMax - Gestão Scouter Config Table Setup
 
+> ⚠️ **OBSOLETO**: A tabela `gestao_scouter_config` não está implementada neste projeto. A sincronização com Gestão Scouter funciona via `export-to-gestao-scouter-batch` sem necessidade desta tabela.
+
 ## Overview
 
 This document provides detailed information about the `gestao_scouter_config` table, which manages the configuration for integrating TabuladorMax with the Gestão Scouter system.

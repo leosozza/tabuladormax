@@ -477,23 +477,7 @@ export default function Users() {
         }
       });
 
-      if (authError) {
-        // Tentar via função edge
-        const { data: createData, error: createError } = await supabase.functions.invoke('create-user', {
-          body: {
-            email: newUserEmail,
-            password: tempPass,
-            displayName: newUserName,
-            role: newUserRole,
-            telemarketingId: newUserTelemarketing,
-            projectId: newUserProject,
-            supervisorId: newUserSupervisor,
-          }
-        });
-
-        if (createError) throw createError;
-        if (!createData?.userId) throw new Error("Falha ao criar usuário");
-      }
+      if (authError) throw authError;
 
       const userId = authData?.user?.id;
 
