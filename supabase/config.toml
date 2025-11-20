@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.test-sync]
 verify_jwt = false
+
+[functions.bitrix-photo-sync]
+verify_jwt = false

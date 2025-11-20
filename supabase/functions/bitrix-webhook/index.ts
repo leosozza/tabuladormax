@@ -873,6 +873,27 @@ serve(async (req) => {
         .eq('id', leadData.id);
 
       console.log('✅ Lead sincronizado no Supabase:', upsertedLead);
+      
+      // 🖼️ SINCRONIZAR FOTO SE NECESSÁRIO (em background)
+      if (lead.UF_CRM_LEAD_1733231445171) {
+        console.log('🖼️ Detectada foto do Bitrix, iniciando sincronização em background...');
+        
+        // Processar foto em background (não bloqueia resposta do webhook)
+        supabase.functions.invoke('bitrix-photo-sync', {
+          body: { 
+            leadId: Number(leadId),
+            photoData: lead.UF_CRM_LEAD_1733231445171
+          }
+        }).then((photoResponse: any) => {
+          if (photoResponse.data?.publicUrl) {
+            console.log(`✅ Foto sincronizada: ${photoResponse.data.publicUrl}`);
+          } else if (photoResponse.error) {
+            console.warn('⚠️ Erro ao sincronizar foto:', photoResponse.error);
+          }
+        }).catch((photoError: any) => {
+          console.warn('⚠️ Exceção ao sincronizar foto:', photoError);
+        });
+      }
     }
 
     // ✅ FASE 3: Registro robusto em sync_events com try-catch
