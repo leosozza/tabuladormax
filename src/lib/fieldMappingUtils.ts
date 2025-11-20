@@ -13,6 +13,7 @@ export interface FieldMapping {
   transform_function?: string;
   priority?: number;
   display_name?: string;  // ✨ Label legível do campo Bitrix
+  bitrix_field_type?: string;  // ✨ Tipo do campo para resolver enums
 }
 
 export interface SyncFieldMappings {
@@ -66,6 +67,9 @@ export function formatFieldMappingsForDisplay(mappings: SyncFieldMappings): {
   to: string;
   value: string;
   transformed: boolean;
+  bitrixField?: string;
+  bitrixFieldType?: string;
+  rawValue?: unknown;
 }[] {
   const formatted: {
     direction: string;
@@ -73,16 +77,22 @@ export function formatFieldMappingsForDisplay(mappings: SyncFieldMappings): {
     to: string;
     value: string;
     transformed: boolean;
+    bitrixField?: string;
+    bitrixFieldType?: string;
+    rawValue?: unknown;
   }[] = [];
 
   if (mappings.bitrix_to_supabase) {
     mappings.bitrix_to_supabase.forEach((mapping) => {
       formatted.push({
         direction: 'Bitrix → Supabase',
-        from: mapping.display_name || mapping.bitrix_field,  // ✨ Use display_name when available
+        from: mapping.display_name || mapping.bitrix_field,
         to: mapping.tabuladormax_field,
         value: formatValue(mapping.value),
         transformed: mapping.transformed,
+        bitrixField: mapping.bitrix_field,
+        bitrixFieldType: mapping.bitrix_field_type,
+        rawValue: mapping.value,
       });
     });
   }
@@ -92,9 +102,12 @@ export function formatFieldMappingsForDisplay(mappings: SyncFieldMappings): {
       formatted.push({
         direction: 'Supabase → Bitrix',
         from: mapping.tabuladormax_field,
-        to: mapping.display_name || mapping.bitrix_field,  // ✨ Use display_name when available
+        to: mapping.display_name || mapping.bitrix_field,
         value: formatValue(mapping.value),
         transformed: mapping.transformed,
+        bitrixField: mapping.bitrix_field,
+        bitrixFieldType: mapping.bitrix_field_type,
+        rawValue: mapping.value,
       });
     });
   }

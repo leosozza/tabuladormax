@@ -558,7 +558,8 @@ async function processBatch(supabase: any, jobId: string) {
                 transformed: !!mapping.transform_function,
                 transform_function: mapping.transform_function,
                 priority: mapping.sync_priority || mapping.priority,
-                display_name: mapping.display_name || null
+                display_name: mapping.display_name || null,
+                bitrix_field_type: mapping.bitrix_field_type || null  // ✨ Tipo do campo
               });
             }
           } catch (fieldError) {

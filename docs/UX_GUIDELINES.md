@@ -1,6 +1,6 @@
 # Diretrizes de UX do Sistema
 
-## REGRA #1: Sempre Mostrar Labels Legíveis para Campos
+## REGRA #1: Sempre Mostrar Labels Legíveis para Campos e Valores
 
 ### Problema
 Campos do Bitrix24 possuem IDs técnicos como `UF_CRM_1745431662`, que são incompreensíveis para usuários finais.
@@ -47,7 +47,88 @@ const label = getBitrixFieldLabel({
 - ✅ Logs e relatórios
 - ✅ Tooltips e hints
 
+---
+
+## REGRA #1B: Resolver Valores de Enum/Lista
+
+### Problema
+Campos de enum do Bitrix mostram IDs técnicos ao invés de labels legíveis:
+- `UC_DDVFX3` ao invés de "Lead a Qualificar"
+- `CALL` ao invés de "Scouter - Fichas"
+- `5494` ao invés de "NAO"
+
+### Solução Obrigatória
+Use o **Bitrix Enum Resolver** para resolver automaticamente valores de enum.
+
+### Como Implementar
+
+#### 1. Usar Hook React (Recomendado)
+```typescript
+import { useBitrixEnums } from '@/hooks/useBitrixEnums';
+
+// Preparar requests
+const enumRequests = formattedMappings
+  .filter(m => m.bitrixField && m.rawValue)
+  .map(m => ({
+    bitrixField: m.bitrixField!,
+    value: m.rawValue,
+    bitrixFieldType: m.bitrixFieldType,
+  }));
+
+// Resolver com cache
+const { getResolution } = useBitrixEnums(enumRequests);
+
+// Usar resolução
+const resolution = getResolution('STATUS_ID', 'UC_DDVFX3');
+if (resolution) {
+  console.log(resolution.formatted); // "Lead a Qualificar (UC_DDVFX3)"
+}
+```
+
+#### 2. Resolver Manualmente (Advanced)
+```typescript
+import { resolveBitrixEnumValue, resolveBitrixEnumValues } from '@/lib/bitrixEnumResolver';
+
+// Single value
+const resolution = await resolveBitrixEnumValue('STATUS_ID', 'UC_DDVFX3', 'crm_status');
+
+// Batch (mais eficiente)
+const results = await resolveBitrixEnumValues([
+  { bitrixField: 'STATUS_ID', value: 'UC_DDVFX3', bitrixFieldType: 'crm_status' },
+  { bitrixField: 'SOURCE_ID', value: 'CALL', bitrixFieldType: 'enumeration' }
+]);
+```
+
+### Formato de Exibição
+```tsx
+// Exibir como "Label (ID)"
+<span>{resolution ? resolution.formatted : rawValue}</span>
+
+// Ou com tooltip
+<span title={resolution?.id}>
+  {resolution?.label || rawValue}
+</span>
+```
+
+### Performance
+- ✅ Cache automático em memória
+- ✅ Batch resolution para múltiplos valores
+- ✅ React Query com staleTime de 5 min
+- ✅ Busca única por campo (não por valor)
+
+### Quando Aplicar
+- ✅ Monitor de sincronização (valores de campos)
+- ✅ Dashboards e relatórios
+- ✅ Tabelas de dados
+- ✅ Filtros e seletores
+- ✅ Qualquer exibição de valor de enum Bitrix
+
 ### Checklist para Novos Componentes
+- [ ] Uso `useBitrixEnums` para resolver valores de enum?
+- [ ] Exibo valores como "Label (ID)" quando resolvidos?
+- [ ] Testei com valores não resolvidos (fallback para ID)?
+
+### Checklist para Campos
 - [ ] Importei `getBitrixFieldLabel` do `fieldLabelUtils`?
 - [ ] Estou mostrando o label legível **antes** do ID técnico?
 - [ ] O ID técnico está em `<code>` ou badge secundário?

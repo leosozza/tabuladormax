@@ -28,6 +28,38 @@ Todos os `field_mappings` salvos em `sync_events` incluem o campo `display_name`
 
 ---
 
+## Resolução de Valores de Enum
+
+### Problema
+Campos de lista/enum do Bitrix (como STATUS_ID, SOURCE_ID) retornam IDs técnicos (ex: `UC_DDVFX3`, `CALL`, `5494`) que não são legíveis para usuários.
+
+### Solução
+Sistema de resolução automática usando `bitrix_fields_cache.list_items`:
+
+**Ferramentas:**
+- `src/lib/bitrixEnumResolver.ts` - Resolvedor com cache
+- `src/hooks/useBitrixEnums.ts` - Hook React com React Query
+- `FieldMappingDisplay` - Exibe automaticamente labels resolvidos
+
+**Formato de exibição:**
+```
+Label Legível (ID_TECNICO)
+Exemplo: "Lead a Qualificar (UC_DDVFX3)"
+```
+
+**Como funciona:**
+1. Edge functions incluem `bitrix_field_type` em `appliedMappings`
+2. `FieldMappingDisplay` detecta campos tipo enum/list
+3. `useBitrixEnums` busca e cacheia resoluções
+4. UI exibe "Label (ID)" automaticamente
+
+**Performance:**
+- Cache em memória para evitar consultas repetidas
+- Batch resolution para múltiplos valores
+- React Query staleTime de 5 minutos
+
+---
+
 ## Funções de Transformação
 
 ### toInteger
