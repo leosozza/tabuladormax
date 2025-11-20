@@ -11,6 +11,12 @@ interface LeadCardProps {
 
 export default function LeadCard({ lead }: LeadCardProps) {
   const { config } = useTinderCardConfig();
+  
+  // DEBUG: Ver dados do lead
+  console.log('[LeadCard] Config:', config);
+  console.log('[LeadCard] Lead data:', lead);
+  console.log('[LeadCard] mainFields:', config.mainFields);
+  console.log('[LeadCard] detailFields:', config.detailFields);
 
   const getFieldLabel = (key: string) => {
     const field = ALL_LEAD_FIELDS.find(f => f.key === key);
@@ -21,14 +27,13 @@ export default function LeadCard({ lead }: LeadCardProps) {
     const value = lead[key];
     const field = ALL_LEAD_FIELDS.find(f => f.key === key);
     
-    if (!value) return null;
-    
-    // Use the formatter from the field config if available
+    // Se tem formatter, usa ele (mesmo se o valor for null/undefined)
     if (field?.formatter) {
-      return field.formatter(value, lead);
+      return field.formatter(value, lead) || '-';
     }
     
-    return value;
+    // Retornar valor ou placeholder
+    return value || '-';
   };
 
   const getFieldIcon = (key: string) => {
@@ -112,15 +117,15 @@ export default function LeadCard({ lead }: LeadCardProps) {
 
         <div className="space-y-1.5 md:space-y-2 lg:space-y-3">
           {detailValues.map((detail, idx) => {
-            if (!detail.value) return null;
-            
             const icon = getFieldIcon(detail.key);
             
             return (
               <div key={idx} className="flex items-start gap-1.5 md:gap-2 text-[11px] md:text-xs lg:text-sm">
                 {icon}
                 <span className="font-medium whitespace-nowrap">{detail.label}:</span>
-                <span className="text-muted-foreground flex-1 break-words leading-tight">{detail.value}</span>
+                <span className="text-muted-foreground flex-1 break-words leading-tight">
+                  {detail.value || '-'}
+                </span>
               </div>
             );
           })}

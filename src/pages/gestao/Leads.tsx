@@ -47,7 +47,15 @@ function GestaoLeadsContent() {
     queryKey: ["gestao-leads", searchTerm, filters, visibleColumns],
     queryFn: async () => {
       // Campos obrigatórios (sempre necessários)
-      const mandatoryFields = ['id', 'name', 'criado'];
+      const mandatoryFields = [
+        'id', 
+        'name', 
+        'criado',
+        'nome_modelo',
+        'scouter',
+        'photo_url',
+        'projeto_comercial'
+      ];
       
       // Separar campos diretos de campos de relacionamento
       const directFields: string[] = [];
@@ -75,13 +83,14 @@ function GestaoLeadsContent() {
         fieldsToSelect.push('commercial_project_id');
       }
       
+      // Sempre incluir commercial_projects nos relacionamentos
+      relationshipFields.add('commercial_projects');
+      
       // Construir SELECT para campos diretos
       let selectClause = fieldsToSelect.join(',');
       
-      // Adicionar relacionamentos necessários
-      if (relationshipFields.has('commercial_projects')) {
-        selectClause += ',commercial_projects:commercial_project_id(id,name,code)';
-      }
+      // Adicionar relacionamentos necessários (sempre incluir commercial_projects)
+      selectClause += ',commercial_projects:commercial_project_id(id,name,code)';
       
       // Construir a query base
       const queryBuilder = supabase
@@ -243,7 +252,11 @@ function GestaoLeadsContent() {
     const enrichedLeads = leadsToAnalyze.map(lead => ({
       ...lead,
       // Mapear projeto comercial do relacionamento se existir
-      projeto_comercial: lead.commercial_projects?.name || lead.projeto_comercial || '-',
+      projeto_comercial: lead.commercial_projects?.name || lead.projeto_comercial || 'Sem projeto',
+      // Garantir outros campos essenciais com fallbacks
+      nome_modelo: lead.nome_modelo || 'Não informado',
+      scouter: lead.scouter || 'Não informado',
+      criado: lead.criado || new Date().toISOString(),
     }));
     
     setAnalysisLeads(enrichedLeads);
