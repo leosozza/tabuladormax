@@ -23,6 +23,17 @@ const formatDateBR = (dateString: string) => {
 };
 
 export const ALL_LEAD_FIELDS: ColumnConfig[] = [
+  // Identificação
+  { 
+    key: 'id', 
+    label: 'ID do Lead (Bitrix)', 
+    type: 'number', 
+    sortable: true, 
+    defaultVisible: true,
+    category: 'basic',
+    formatter: (value: number) => value?.toString() || '-'
+  },
+  
   // Dados Básicos
   { 
     key: 'name', 
