@@ -8,7 +8,6 @@ const corsHeaders = {
 
 interface PhotoSyncRequest {
   leadId: number;
-  photoData?: any;
 }
 
 // Helper para baixar e fazer upload de foto
@@ -101,18 +100,10 @@ serve(async (req) => {
   }
 
   try {
-    const { leadId, photoData }: PhotoSyncRequest = await req.json();
+    const { leadId }: PhotoSyncRequest = await req.json();
     
     if (!leadId) {
       throw new Error('leadId é obrigatório');
-    }
-
-    if (!photoData) {
-      console.log(`ℹ️ Nenhuma foto fornecida para lead ${leadId}`);
-      return new Response(
-        JSON.stringify({ success: true, message: 'Nenhuma foto para sincronizar' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -151,41 +142,57 @@ serve(async (req) => {
     }
     
     const leadData = await leadResponse.json();
-    console.log('✅ Lead obtido, extraindo fotos do campo UF_CRM_LEAD_1733231445171');
+    console.log('✅ Lead obtido, extraindo foto do campo UF_CRM_ID_FOTO');
     
-    // ✅ PASSO 2: Extrair campo de fotos
-    const photoField = leadData.result?.UF_CRM_LEAD_1733231445171;
+    // ✅ PASSO 2: Extrair ID da foto pública
+    const photoId = String(leadData.result?.UF_CRM_ID_FOTO || '').trim();
     
-    if (!Array.isArray(photoField) || photoField.length === 0) {
-      console.log('⏭️ Nenhuma foto encontrada no campo UF_CRM_LEAD_1733231445171');
+    if (!photoId) {
+      console.log('⏭️ Nenhuma foto encontrada no campo UF_CRM_ID_FOTO');
       return new Response(
         JSON.stringify({ success: true, message: 'Nenhuma foto para sincronizar' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    // ⚠️ IMPORTANTE: Log completo do campo de foto para debug
-    console.log('📸 Campo UF_CRM_LEAD_1733231445171 COMPLETO:', JSON.stringify(photoField, null, 2));
     
-    // ✅ PASSO 3: Pegar a primeira foto e extrair fileId
-    const firstPhoto = photoField[0];
-    console.log('📸 Primeira foto (objeto completo):', JSON.stringify(firstPhoto, null, 2));
+    console.log('📸 Foto encontrada - ID:', photoId);
     
-    const fileId = firstPhoto.id || firstPhoto.fileId;
+    // ✅ PASSO 3: Usar disk.file.get para obter DOWNLOAD_URL autenticada
+    console.log(`📡 Chamando disk.file.get para fileId: ${photoId}`);
+    const diskFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/disk.file.get?id=${photoId}`;
+    const diskResp = await fetch(diskFileUrl);
     
-    console.log('📸 Foto encontrada:', { id: fileId });
-    
-    if (!fileId) {
-      throw new Error('fileId não encontrado na foto');
+    if (!diskResp.ok) {
+      throw new Error(`Erro ao chamar disk.file.get: ${diskResp.status}`);
     }
     
-    // ⚠️ PROBLEMA CONFIRMADO: disk.file.get retorna 401 com webhook
-    // Webhooks NÃO têm permissão para acessar API Disk do Bitrix
-    throw new Error(
-      `[BLOQUEIO] Webhook não tem permissão para disk.file.get. ` +
-      `Campo foto: ${JSON.stringify(firstPhoto)}. ` +
-      `Soluções: 1) Processar foto no app antes de enviar ao Bitrix, ` +
-      `2) Usar OAuth2 ao invés de webhook, ` +
-      `3) Bitrix disponibilizar URL pública no campo.`
+    const diskJson = await diskResp.json();
+    console.log('📁 Resposta disk.file.get:', JSON.stringify(diskJson, null, 2));
+    
+    const downloadUrl = diskJson.result?.DOWNLOAD_URL;
+    
+    if (!downloadUrl) {
+      throw new Error('disk.file.get não retornou DOWNLOAD_URL. Verifique permissões do arquivo.');
+    }
+    
+    console.log('🔗 DOWNLOAD_URL obtida:', downloadUrl);
+
+    // ✅ PASSO 4-7: Baixar, fazer upload e atualizar
+    const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
+      leadId,
+      downloadUrl,
+      supabase
+    );
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        publicUrl,
+        leadId,
+        storagePath,
+        fileSize
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
