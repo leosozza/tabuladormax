@@ -1294,6 +1294,8 @@ export type Database = {
           direction: string
           error_message: string | null
           event_type: string
+          field_mappings: Json | null
+          fields_synced_count: number | null
           id: string
           lead_id: number
           status: string
@@ -1304,6 +1306,8 @@ export type Database = {
           direction: string
           error_message?: string | null
           event_type: string
+          field_mappings?: Json | null
+          fields_synced_count?: number | null
           id?: string
           lead_id: number
           status: string
@@ -1314,6 +1318,8 @@ export type Database = {
           direction?: string
           error_message?: string | null
           event_type?: string
+          field_mappings?: Json | null
+          fields_synced_count?: number | null
           id?: string
           lead_id?: number
           status?: string

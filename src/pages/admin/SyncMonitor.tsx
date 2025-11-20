@@ -56,6 +56,28 @@ export default function SyncMonitor() {
 
   useEffect(() => {
     loadSyncEvents();
+    
+    // ✅ Subscrever a mudanças em tempo real
+    const channel = supabase
+      .channel('sync-events-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'sync_events'
+        },
+        (payload) => {
+          console.log('🔔 Novo evento de sync:', payload);
+          // Adicionar novo evento à lista (máximo 50)
+          setSyncEvents(prev => [payload.new as SyncEvent, ...prev].slice(0, 50));
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleRefresh = async () => {
