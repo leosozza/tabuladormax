@@ -28,6 +28,43 @@ Todos os `field_mappings` salvos em `sync_events` incluem o campo `display_name`
 
 ---
 
+## Funções de Transformação
+
+### toInteger
+Converte valores para inteiro, arredondando decimais quando necessário.
+
+**Uso:** Campos numéricos que devem ser inteiros (ex: idade, quantidade).
+
+**Exemplo:**
+```typescript
+// Bitrix envia: "2.6" ou "0.1"
+// toInteger retorna: 3 ou 0
+```
+
+**Comportamento:**
+- `"2.6"` → `3` (arredondado)
+- `"0.1"` → `0` (arredondado)
+- `null`, `undefined`, `""` → `null`
+- Valores inválidos → `null` (com warning no log)
+
+**Configuração no unified_field_config:**
+```sql
+UPDATE unified_field_config
+SET transform_function = 'toInteger'
+WHERE supabase_field = 'age' AND bitrix_field = 'UF_CRM_1739563541';
+```
+
+### toBoolean
+Converte enums do Bitrix para valores booleanos.
+
+### toNumeric
+Converte valores monetários do Bitrix (formato "valor|MOEDA") para numérico.
+
+### toDate
+Converte datas brasileiras (dd/MM/yyyy) para formato ISO.
+
+---
+
 ## 🎯 Objetivo
 
 Garantir que **TODOS os leads sejam salvos**, mesmo que alguns campos individuais apresentem erros de validação ou mapeamento. O sistema nunca deve rejeitar um lead inteiro por causa de um único campo problemático.
