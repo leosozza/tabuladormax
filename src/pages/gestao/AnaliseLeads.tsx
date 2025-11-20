@@ -425,6 +425,7 @@ export default function AnaliseLeads() {
             <SwipeActions
               onApprove={handleApprove}
               onReject={handleReject}
+              onSuperApprove={handleApprove}
               onSkip={handleSkip}
               disabled={analyzeMutation.isPending || undoMutation.isPending}
             />
@@ -470,6 +471,7 @@ export default function AnaliseLeads() {
           onOpenChange={setAnalysisModalOpen}
           onApprove={handleApprove}
           onReject={handleReject}
+          onSuperApprove={handleApprove}
           onSkip={handleSkip}
           disabled={analyzeMutation.isPending || undoMutation.isPending}
           currentIndex={currentIndex}

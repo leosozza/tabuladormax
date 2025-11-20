@@ -1,14 +1,15 @@
 import { Button } from "@/components/ui/button";
-import { Heart, X, SkipForward } from "lucide-react";
+import { Heart, X, SkipForward, Star } from "lucide-react";
 
 interface SwipeActionsProps {
   onApprove: () => void;
   onReject: () => void;
+  onSuperApprove: () => void;
   onSkip: () => void;
   disabled?: boolean;
 }
 
-export default function SwipeActions({ onApprove, onReject, onSkip, disabled = false }: SwipeActionsProps) {
+export default function SwipeActions({ onApprove, onReject, onSuperApprove, onSkip, disabled = false }: SwipeActionsProps) {
   return (
     <div className="flex items-center justify-center gap-3 md:gap-4 py-4 md:py-6 px-4">
       {/* Rejeitar */}
@@ -45,6 +46,18 @@ export default function SwipeActions({ onApprove, onReject, onSkip, disabled = f
         aria-label="Aprovar lead"
       >
         <Heart className="w-6 h-6 md:w-8 md:h-8" />
+      </Button>
+
+      {/* Super Aprovar */}
+      <Button
+        variant="outline"
+        size="lg"
+        onClick={onSuperApprove}
+        disabled={disabled}
+        className="h-16 w-16 md:h-18 md:w-18 rounded-full border-2 border-yellow-500 hover:bg-yellow-500 hover:text-white transition-all hover:scale-110 flex-shrink-0"
+        aria-label="Super aprovar lead"
+      >
+        <Star className="w-7 h-7 md:w-9 md:h-9 fill-current" />
       </Button>
     </div>
   );

@@ -9,6 +9,7 @@ interface LeadAnalysisModalProps {
   onOpenChange: (open: boolean) => void;
   onApprove: () => void;
   onReject: () => void;
+  onSuperApprove: () => void;
   onSkip: () => void;
   disabled?: boolean;
   currentIndex: number;
@@ -21,6 +22,7 @@ export function LeadAnalysisModal({
   onOpenChange,
   onApprove,
   onReject,
+  onSuperApprove,
   onSkip,
   disabled,
   currentIndex,
@@ -42,6 +44,7 @@ export function LeadAnalysisModal({
           <SwipeActions
             onApprove={onApprove}
             onReject={onReject}
+            onSuperApprove={onSuperApprove}
             onSkip={onSkip}
             disabled={disabled}
           />
@@ -51,6 +54,10 @@ export function LeadAnalysisModal({
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500" />
               <span>Aprovar</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+              <span>Super Aprovar</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500" />
