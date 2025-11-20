@@ -1,5 +1,33 @@
 # Sistema Fault-Tolerant de Sincronização
 
+## Display Names nos Field Mappings
+
+### Implementação
+Todos os `field_mappings` salvos em `sync_events` incluem o campo `display_name` para melhor legibilidade nos logs e monitor de sincronização.
+
+### Estrutura
+```json
+{
+  "bitrix_to_supabase": [
+    {
+      "bitrix_field": "UF_CRM_1745431662",
+      "supabase_field": "cadastro_existe_foto",
+      "display_name": "Cadastro Existe Foto?",
+      "value": 5494,
+      "transformed": true,
+      "transform_function": "toBoolean"
+    }
+  ]
+}
+```
+
+### Benefícios
+- ✅ Labels legíveis no monitor de sync
+- ✅ Melhor debugging de erros
+- ✅ Compatível com eventos antigos (fallback para bitrix_field)
+
+---
+
 ## 🎯 Objetivo
 
 Garantir que **TODOS os leads sejam salvos**, mesmo que alguns campos individuais apresentem erros de validação ou mapeamento. O sistema nunca deve rejeitar um lead inteiro por causa de um único campo problemático.

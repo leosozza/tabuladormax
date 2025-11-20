@@ -473,6 +473,7 @@ async function processBatch(supabase: any, jobId: string) {
         // Mapear campos do Bitrix para TabuladorMax
         const mappedData: Record<string, any> = {};
         const transformErrors: string[] = [];
+        const appliedMappings: any[] = [];
         
         console.log(`[processBatch] Lead ${lead.id}: Aplicando ${mappings?.length || 0} mapeamentos`);
         
@@ -527,6 +528,15 @@ async function processBatch(supabase: any, jobId: string) {
 
             if (transformedValue !== null && transformedValue !== undefined) {
               mappedData[mapping.leads_column] = transformedValue;
+              appliedMappings.push({
+                bitrix_field: mapping.bitrix_field,
+                supabase_field: mapping.leads_column || mapping.supabase_field,
+                value: transformedValue,
+                transformed: !!mapping.transform_function,
+                transform_function: mapping.transform_function,
+                priority: mapping.sync_priority || mapping.priority,
+                display_name: mapping.display_name || null
+              });
             }
           } catch (fieldError) {
             const errMsg = `Erro no campo ${mapping.bitrix_field}: ${fieldError}`;
@@ -764,8 +774,10 @@ async function processBatch(supabase: any, jobId: string) {
               direction: 'bitrix_to_supabase',
               status: 'success',
               sync_duration_ms: Date.now() - syncStartTime,
-              field_mappings: { resync: true },
-              fields_synced_count: Object.keys(mappedData).length
+              field_mappings: {
+                bitrix_to_supabase: appliedMappings
+              },
+              fields_synced_count: appliedMappings.length
             });
           } catch (syncErr) {
             console.warn(`⚠️ Falha ao registrar sync_event:`, syncErr);
