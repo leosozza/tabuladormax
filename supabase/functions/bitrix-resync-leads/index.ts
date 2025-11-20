@@ -275,13 +275,29 @@ async function processBatch(supabase: any, jobId: string) {
     // Buscar mapeamentos
     let mappings;
     if (currentJob.mapping_id) {
+      console.log(`[processBatch] Buscando mapeamentos com ID: ${currentJob.mapping_id}`);
+      
+      // Primeiro tentar buscar por UUID em resync_field_mappings
       const { data: resyncMappings } = await supabase
         .from('resync_field_mappings')
         .select('*')
-        .eq('mapping_name', currentJob.mapping_id)
+        .eq('id', currentJob.mapping_id)
         .eq('active', true);
-      mappings = resyncMappings;
+      
+      // Se não encontrar por UUID, tentar por mapping_name (fallback)
+      if (!resyncMappings || resyncMappings.length === 0) {
+        console.log(`[processBatch] Tentando buscar por mapping_name: ${currentJob.mapping_id}`);
+        const { data: nameBasedMappings } = await supabase
+          .from('resync_field_mappings')
+          .select('*')
+          .eq('mapping_name', currentJob.mapping_id)
+          .eq('active', true);
+        mappings = nameBasedMappings;
+      } else {
+        mappings = resyncMappings;
+      }
     } else {
+      // Fallback: usar unified_field_config
       const { data: bitrixMappings } = await supabase
         .from('unified_field_config')
         .select('*')
@@ -290,7 +306,9 @@ async function processBatch(supabase: any, jobId: string) {
     }
 
     if (!mappings || mappings.length === 0) {
-      console.warn('[processBatch] No active mappings found');
+      console.error(`[processBatch] ❌ No active mappings found for mapping_id: ${currentJob.mapping_id}`);
+    } else {
+      console.log(`[processBatch] ✅ Found ${mappings.length} active mappings`);
     }
 
     // Processar cada lead
@@ -327,6 +345,8 @@ async function processBatch(supabase: any, jobId: string) {
         // Mapear campos do Bitrix para TabuladorMax
         const mappedData: Record<string, any> = {};
         const transformErrors: string[] = [];
+        
+        console.log(`[processBatch] Lead ${lead.id}: Aplicando ${mappings?.length || 0} mapeamentos`);
         
         for (const mapping of mappings) {
           try {
@@ -371,10 +391,13 @@ async function processBatch(supabase: any, jobId: string) {
 
         // Se não há dados para atualizar, pular
         if (Object.keys(mappedData).length === 0) {
+          console.log(`⚠️ Lead ${lead.id} ignorado (sem campos para atualizar)`);
           totalSkipped++;
           totalProcessed++;
           continue;
         }
+
+        console.log(`[processBatch] Lead ${lead.id}: ${Object.keys(mappedData).length} campos serão atualizados:`, Object.keys(mappedData).join(', '));
 
         // Atualizar lead
         const { error: updateError } = await supabase
@@ -418,6 +441,7 @@ async function processBatch(supabase: any, jobId: string) {
           });
         } else {
           totalUpdated++;
+          console.log(`✅ Lead ${lead.id} atualizado com ${Object.keys(mappedData).length} campos`);
           
           // Log do evento de sync com sucesso
           await supabase.from('sync_events').insert({
