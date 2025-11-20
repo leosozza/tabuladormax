@@ -76,7 +76,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
 
   return (
     <Card className={cn(
-      "w-full overflow-hidden border-2 shadow-lg",
+      "w-full h-full flex flex-col overflow-hidden border-2 shadow-lg",
       cardSizeClasses[config.photoSize]
     )}>
       {/* Foto do Lead */}
@@ -134,7 +134,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
       </div>
 
       {/* Informações do Lead */}
-      <CardContent className="p-3 md:p-5 lg:p-6 space-y-2 md:space-y-3 lg:space-y-4">
+      <CardContent className="flex-1 overflow-y-auto p-3 md:p-5 lg:p-6 space-y-2 md:space-y-3 lg:space-y-4">
         <div>
           {/* Nome do Modelo - Grande e Negrito */}
           <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 truncate leading-tight">
