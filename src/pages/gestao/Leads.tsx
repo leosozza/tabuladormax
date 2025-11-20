@@ -238,7 +238,15 @@ function GestaoLeadsContent() {
       toast.error('Selecione ao menos um lead para analisar');
       return;
     }
-    setAnalysisLeads(leadsToAnalyze);
+    
+    // Garantir que os campos essenciais estejam presentes para análise
+    const enrichedLeads = leadsToAnalyze.map(lead => ({
+      ...lead,
+      // Mapear projeto comercial do relacionamento se existir
+      projeto_comercial: lead.commercial_projects?.name || lead.projeto_comercial || '-',
+    }));
+    
+    setAnalysisLeads(enrichedLeads);
     setCurrentAnalysisIndex(0);
     setIsAnalysisMode(true);
   };
