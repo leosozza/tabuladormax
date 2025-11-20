@@ -63,9 +63,9 @@ export default function LeadCard({ lead }: LeadCardProps) {
   const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
 
   const photoContainerClasses = {
-    circle: "aspect-square rounded-full min-h-[25vh] sm:min-h-[30vh] md:min-h-[35vh] w-full",
-    rounded: "aspect-[3/4] rounded-lg min-h-[30vh] sm:min-h-[35vh] md:min-h-[40vh] w-full",
-    fullscreen: "w-full rounded-none min-h-[30vh] sm:min-h-[35vh] md:min-h-[45vh]"
+    circle: "aspect-square rounded-full min-h-[15vh] sm:min-h-[18vh] md:min-h-[20vh] w-full",
+    rounded: "aspect-[3/4] rounded-lg min-h-[18vh] sm:min-h-[20vh] md:min-h-[22vh] w-full",
+    fullscreen: "w-full rounded-none min-h-[18vh] sm:min-h-[20vh] md:min-h-[25vh]"
   };
 
   const cardSizeClasses = {
@@ -88,7 +88,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
           <img
             src={photoUrl}
             alt={String(lead.name || "Lead")}
-            className="w-full h-full object-contain"
+            className="w-full h-full object-cover"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted/30">
@@ -134,7 +134,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
       </div>
 
       {/* Informações do Lead */}
-      <CardContent className="flex-1 overflow-y-auto p-3 md:p-5 lg:p-6 space-y-2 md:space-y-3 lg:space-y-4">
+      <CardContent className="flex-1 overflow-y-auto p-4 md:p-5 lg:p-6 space-y-3 md:space-y-4 lg:space-y-5">
         <div>
           {/* Nome do Modelo - Grande e Negrito */}
           <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 truncate leading-tight">
