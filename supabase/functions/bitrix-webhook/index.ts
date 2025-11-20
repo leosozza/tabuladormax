@@ -495,10 +495,38 @@ serve(async (req) => {
       bitrix_field?: string;
     }> = [];
 
-    // Tentativa 1: Upsert completo
+    // FASE 2.1: Validação de campos booleanos ANTES do upsert
+    const validatedData = { ...leadData };
+    const booleanFields = ['ficha_confirmada', 'presenca_confirmada', 'compareceu', 'cadastro_existe_foto'];
+    
+    for (const field of booleanFields) {
+      if (validatedData[field] !== undefined && validatedData[field] !== null) {
+        const value = String(validatedData[field]);
+        
+        // Se for ID numérico alto (> 100), tratar como inválido
+        if (/^\d+$/.test(value) && Number(value) > 100) {
+          console.warn(`⚠️ Campo ${field} recebeu ID de lista do Bitrix: "${value}", convertendo para null`);
+          fieldErrors.push({
+            field: field,
+            attempted_value: validatedData[field],
+            error: `Valor "${value}" parece ser ID de lista do Bitrix, não booleano`,
+            bitrix_field: appliedMappings.find((m: any) => m.supabase_field === field)?.bitrix_field
+          });
+          validatedData[field] = null;
+        }
+        // Conversão segura para boolean
+        else if (['1', 'true', '1.0'].includes(value.toLowerCase())) {
+          validatedData[field] = true;
+        } else if (['0', 'false', '', '0.0'].includes(value.toLowerCase())) {
+          validatedData[field] = false;
+        }
+      }
+    }
+
+    // Tentativa 1: Upsert completo com dados validados
     const { data: upsertedLead, error: upsertError } = await supabase
       .from('leads')
-      .upsert(leadData, { onConflict: 'id' })
+      .upsert(validatedData, { onConflict: 'id' })
       .select()
       .single();
 
