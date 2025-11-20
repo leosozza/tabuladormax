@@ -99,6 +99,24 @@ The integration will provide:
 - Monorepo workspace structure
 - Shared dependencies and build configuration
 
+## 🎨 Diretrizes de UX
+
+### Labels de Campos
+Este sistema segue a regra: **SEMPRE mostrar labels legíveis, nunca IDs técnicos**.
+
+Ao desenvolver novos componentes que exibem campos do Bitrix:
+1. Use `getBitrixFieldLabel()` de `@/lib/fieldLabelUtils`
+2. Mostre o label legível em destaque
+3. Exiba o ID técnico apenas como referência secundária
+4. Consulte `docs/UX_GUIDELINES.md` para detalhes completos
+
+### Prioridade de Labels
+O sistema usa a seguinte ordem de prioridade para exibir nomes de campos:
+1. `display_name` - Customizado pelo administrador
+2. `listLabel` - Do metadata do Bitrix24
+3. `field_title` - Título original do campo
+4. `field_id` formatado - Último recurso (ex: "UF CRM 1745431662")
+
 ## Deployment
 
 Deploy via [Lovable](https://lovable.dev/projects/fa1475f9-ea99-4684-a990-84bdf96f348a):

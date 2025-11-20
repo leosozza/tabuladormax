@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { FieldMappingDisplay } from '@/components/sync/FieldMappingDisplay';
 import { SyncFieldMappings } from '@/lib/fieldMappingUtils';
+import { getBitrixFieldLabel } from '@/lib/fieldLabelUtils';
 import {
   Dialog,
   DialogContent,

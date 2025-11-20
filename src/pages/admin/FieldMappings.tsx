@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getBitrixFieldLabel } from '@/lib/fieldLabelUtils';
 
 interface BitrixField {
   field_id: string;
@@ -264,8 +265,12 @@ export default function FieldMappings() {
                       key={field.field_id}
                       className="p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer"
                     >
-                      <div className="font-medium text-sm">{field.field_title}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{field.field_id}</div>
+                      <div className="font-medium text-sm">
+                        {getBitrixFieldLabel(field)}
+                      </div>
+                      <code className="text-xs text-muted-foreground block mt-1">
+                        {field.field_id}
+                      </code>
                       <Badge variant="outline" className="mt-2 text-xs">
                         {field.field_type}
                       </Badge>

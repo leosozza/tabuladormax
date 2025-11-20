@@ -9,6 +9,7 @@ import { RefreshCw, AlertCircle, CheckCircle2, ExternalLink } from "lucide-react
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { getBitrixFieldLabel } from '@/lib/fieldLabelUtils';
 
 interface Lead {
   id: number;
@@ -226,7 +227,13 @@ export default function SyncErrors() {
                           </Badge>
                           {lead.sync_errors?.errors?.map((err: any, i: number) => (
                             <div key={i} className="text-xs border-l-2 border-destructive pl-2 py-1">
-                              <code className="text-destructive font-semibold">{err.field}</code>
+                              <div className="font-semibold text-destructive">
+                                {getBitrixFieldLabel({
+                                  field_id: err.field,
+                                  display_name: err.display_name
+                                })}
+                              </div>
+                              <code className="text-xs text-muted-foreground">({err.field})</code>
                               <br />
                               <span className="text-muted-foreground">{err.error}</span>
                               {err.attempted_value && (
