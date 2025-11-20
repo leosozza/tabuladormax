@@ -176,7 +176,7 @@ serve(async (req) => {
       try {
         console.log(`📡 Chamando disk.file.get para fileId: ${fileId}`);
         
-        const diskFileUrl = `https://${bitrixDomain}/rest/9/efcbke2jhg22nkdp/disk.file.get?id=${fileId}`;
+        const diskFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/disk.file.get?id=${fileId}`;
         const diskResponse = await fetch(diskFileUrl);
         
         if (!diskResponse.ok) {
