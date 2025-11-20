@@ -11,7 +11,7 @@ export default function Install() {
   const handleInstall = async () => {
     const success = await promptInstall();
     if (success) {
-      navigate('/scouter/analise');
+      navigate('/scouter/leads');
     }
   };
 
@@ -27,8 +27,8 @@ export default function Install() {
             <p className="text-muted-foreground mb-6">
               O app já está instalado no seu dispositivo.
             </p>
-            <Button onClick={() => navigate('/scouter/analise')}>
-              Ir para Análise de Leads
+            <Button onClick={() => navigate('/scouter/leads')}>
+              Ir para Leads
             </Button>
           </CardContent>
         </Card>
