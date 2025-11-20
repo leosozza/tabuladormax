@@ -24,7 +24,6 @@ export const useGestaoFieldMappings = () => {
         .from('field_mappings')
         .select('*')
         .eq('active', true)
-        .eq('default_visible', true)
         .order('priority');
       
       if (error) throw error;
