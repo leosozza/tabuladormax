@@ -130,7 +130,10 @@ serve(async (req) => {
     const bitrixDomain = urlMatch[1];
     const bitrixToken = urlMatch[2];
     
-    console.log('🔑 Bitrix config:', { domain: bitrixDomain, tokenLength: bitrixToken.length });
+    // Use dedicated file token if available, fallback to webhook token
+    const fileToken = Deno.env.get('BITRIX_FILE_TOKEN') || bitrixToken;
+    
+    console.log('🔑 Bitrix config:', { domain: bitrixDomain, tokenLength: bitrixToken.length, fileTokenLength: fileToken.length });
 
     // ✅ PASSO 1: Buscar dados completos do lead via crm.lead.get
     console.log(`📡 Buscando lead completo do Bitrix: crm.lead.get?ID=${leadId}`);
@@ -157,9 +160,9 @@ serve(async (req) => {
     
     console.log('📸 Foto encontrada - ID:', photoId);
     
-    // ✅ PASSO 3: Usar disk.file.get para obter DOWNLOAD_URL autenticada
+    // ✅ PASSO 3: Usar disk.file.get para obter DOWNLOAD_URL autenticada (com token dedicado)
     console.log(`📡 Chamando disk.file.get para fileId: ${photoId}`);
-    const diskFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/disk.file.get?id=${photoId}`;
+    const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}`;
     const diskResp = await fetch(diskFileUrl);
     
     if (!diskResp.ok) {
