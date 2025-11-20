@@ -26,6 +26,11 @@ const SUPABASE_TO_BITRIX_ENUM: Record<string, string> = {
   'ficha_confirmada': 'UF_CRM_1737378043893',
 };
 
+// Mapeamento de campos que são do tipo "money" no Bitrix
+const BITRIX_MONEY_FIELDS: Record<string, string> = {
+  'valor_ficha': 'UF_CRM_VALORFICHA',
+};
+
 // 🔧 FASE 2: Função de conversão inteligente de enumeração → boolean
 interface ConversionResult {
   converted: boolean | null;
@@ -73,6 +78,55 @@ function convertBitrixEnumToBoolean(
     hasError: true,
     errorMsg: `Valor "${value}" não pode ser convertido para boolean (campo ${bitrixField})`
   };
+}
+
+/**
+ * Converte valores de moeda do Bitrix (formato "valor|MOEDA") para numérico
+ * @param value - Valor recebido do Bitrix (ex: "6|BRL", "10.50|USD")
+ * @returns Objeto com valor convertido e status de erro
+ */
+function convertBitrixMoneyToNumeric(
+  value: any
+): { converted: number | null; hasError: boolean; errorMsg?: string } {
+  
+  if (value === null || value === undefined || value === '') {
+    return { converted: null, hasError: false };
+  }
+  
+  const valueStr = String(value).trim();
+  
+  // Formato esperado: "valor|MOEDA" (ex: "6|BRL", "10.50|USD")
+  if (valueStr.includes('|')) {
+    const parts = valueStr.split('|');
+    const numericPart = parts[0].trim();
+    const currency = parts[1]?.trim();
+    
+    const parsed = parseFloat(numericPart);
+    
+    if (isNaN(parsed)) {
+      return {
+        converted: null,
+        hasError: true,
+        errorMsg: `Valor de moeda inválido: "${valueStr}" (parte numérica não é número)`
+      };
+    }
+    
+    console.log(`💰 Convertendo moeda: "${valueStr}" → ${parsed} (${currency})`);
+    return { converted: parsed, hasError: false };
+  }
+  
+  // Se não tem pipe, tentar converter diretamente
+  const parsed = parseFloat(valueStr);
+  
+  if (isNaN(parsed)) {
+    return {
+      converted: null,
+      hasError: true,
+      errorMsg: `Valor numérico inválido: "${valueStr}"`
+    };
+  }
+  
+  return { converted: parsed, hasError: false };
 }
 
 interface JobConfig {
@@ -511,6 +565,29 @@ async function processBatch(supabase: any, jobId: string) {
               fieldErrors.push({
                 field: supabaseField,
                 error: conversion.errorMsg || 'Conversão de enumeração falhou',
+                value: originalValue
+              });
+            }
+            
+            mappedData[supabaseField] = conversion.converted;
+          }
+        }
+
+        // 🔧 FASE 5: Validação e conversão de campos MOEDA (money)
+        const moneyFields = Object.keys(BITRIX_MONEY_FIELDS);
+        
+        for (const supabaseField of moneyFields) {
+          if (mappedData[supabaseField] !== undefined && mappedData[supabaseField] !== null) {
+            
+            const bitrixField = BITRIX_MONEY_FIELDS[supabaseField];
+            const originalValue = mappedData[supabaseField];
+            const conversion = convertBitrixMoneyToNumeric(originalValue);
+            
+            if (conversion.hasError) {
+              console.warn(`⚠️ Lead ${lead.id} - Campo ${supabaseField}: ${conversion.errorMsg}`);
+              fieldErrors.push({
+                field: supabaseField,
+                error: conversion.errorMsg || 'Conversão de moeda falhou',
                 value: originalValue
               });
             }

@@ -533,6 +533,98 @@ ORDER BY occurrences DESC;
 
 ---
 
+## 💰 Campos de Moeda (Money) do Bitrix → Numeric
+
+### Problema
+Campos do tipo **`money`** no Bitrix24 retornam valores no formato `"valor|MOEDA"` (ex: `"6|BRL"`, `"10.50|USD"`), mas campos `numeric` no Supabase esperam apenas o número.
+
+**Exemplo:** Campo `valor_ficha` (numeric) mapeado de `UF_CRM_VALORFICHA` (money):
+- Bitrix retorna: `"6|BRL"`
+- Supabase espera: `6.0`
+- **Resultado sem conversão:** Erro `invalid input syntax for type numeric: "6|BRL"`
+
+### Campos Afetados
+
+| Campo Supabase | Campo Bitrix | Tipo Bitrix | Conversão |
+|----------------|--------------|-------------|-----------|
+| `valor_ficha` | `UF_CRM_VALORFICHA` | money | `"6|BRL"` → `6.0`<br>`"10.50|USD"` → `10.5` |
+
+### Como Funciona
+
+1. **Detecção:** Sistema identifica formato `"valor|MOEDA"` pelo caractere `|`
+2. **Extração:** Separa a parte numérica (antes do `|`)
+3. **Conversão:** Converte para `float` usando `parseFloat()`
+4. **Validação:** Se conversão falhar, registra em `sync_errors` e define como `null`
+
+### Exemplo de Log
+
+```
+💰 Convertendo moeda: "6|BRL" → 6 (BRL)
+✓ Campo valor_ficha: "6|BRL" → 6
+```
+
+### Como Adicionar Novos Campos Money
+
+1. Verificar tipo do campo no Bitrix (`fields_bitrix.txt`)
+2. Se for tipo `"money"`, adicionar ao dicionário `BITRIX_MONEY_FIELDS`:
+
+```typescript
+const BITRIX_MONEY_FIELDS: Record<string, string> = {
+  'valor_ficha': 'UF_CRM_VALORFICHA',
+  'novo_campo': 'UF_CRM_XXXXX', // adicionar aqui
+};
+```
+
+3. Campo será automaticamente validado na sincronização
+
+### Diagnóstico
+
+**Verificar erros de moeda:**
+```sql
+SELECT 
+  COUNT(*) as total_erros,
+  COUNT(DISTINCT lead_id) as leads_afetados
+FROM sync_events
+WHERE status = 'error'
+  AND error_message LIKE '%invalid input syntax for type numeric%'
+  AND error_message LIKE '%|BRL%'
+  AND created_at > NOW() - INTERVAL '1 day';
+```
+
+**Verificar leads com problemas em valor_ficha:**
+```sql
+SELECT 
+  id,
+  name,
+  valor_ficha,
+  sync_errors->>'valor_ficha' as erro_valor
+FROM leads
+WHERE has_sync_errors = true
+  AND sync_errors ? 'valor_ficha'
+LIMIT 20;
+```
+
+**Monitoramento pós-correção (executar após deploy):**
+```sql
+-- Verificar se ainda há erros de numeric após correção
+SELECT 
+  COUNT(*) as total_erros,
+  COUNT(DISTINCT lead_id) as leads_afetados,
+  MIN(created_at) as primeiro_erro,
+  MAX(created_at) as ultimo_erro
+FROM sync_events
+WHERE status = 'error'
+  AND error_message LIKE '%invalid input syntax for type numeric%'
+  AND created_at > NOW() - INTERVAL '1 hour';
+```
+
+**Estatísticas esperadas:**
+- ✅ Erros novos de `numeric` devem ser **zero**
+- ✅ Logs devem mostrar `💰 Convertendo moeda: "6|BRL" → 6`
+- ✅ Leads devem ter `valor_ficha` com valores numéricos corretos
+
+---
+
 ## 🎓 Princípios de Design
 
 1. **Nunca Rejeitar Lead Completo**
