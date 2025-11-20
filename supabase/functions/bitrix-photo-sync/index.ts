@@ -41,6 +41,18 @@ async function downloadAndUploadPhoto(
     throw new Error(`Erro ao baixar do Bitrix: ${bitrixResponse.status} ${bitrixResponse.statusText}`);
   }
 
+  // Validar Content-Type antes de processar
+  const contentType = bitrixResponse.headers.get('content-type') || '';
+  console.log(`📋 Content-Type recebido: ${contentType}`);
+  
+  if (contentType.includes('text/html')) {
+    throw new Error(`URL retornou HTML ao invés de imagem. Possível erro de autenticação ou URL inválida. Content-Type: ${contentType}`);
+  }
+  
+  if (!contentType.startsWith('image/')) {
+    console.warn(`⚠️ Content-Type inesperado: ${contentType}. Tentando processar mesmo assim...`);
+  }
+
   const photoBlob = await bitrixResponse.blob();
   
   if (photoBlob.size === 0) {
