@@ -13,8 +13,8 @@ const STORAGE_KEY = 'tinder_card_config';
 
 const DEFAULT_CONFIG: TinderCardConfig = {
   photoField: 'photo_url',
-  mainFields: ['name', 'nome_modelo'],
-  detailFields: ['scouter', 'projeto_comercial', 'criado'],
+  mainFields: ['id'], // Apenas ID do Bitrix
+  detailFields: ['name', 'nome_modelo', 'scouter', 'projeto_comercial', 'criado'],
   badgeFields: ['ficha_confirmada', 'presenca_confirmada', 'etapa'],
   version: CONFIG_VERSION
 };
