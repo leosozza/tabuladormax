@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 
 export interface TinderCardConfig {
   photoField: string;
+  photoStyle: 'circle' | 'rounded' | 'fullscreen';
+  photoSize: 'small' | 'medium' | 'large';
   mainFields: string[];
   detailFields: string[];
   badgeFields: string[];
@@ -13,6 +15,8 @@ const STORAGE_KEY = 'tinder_card_config';
 
 const DEFAULT_CONFIG: TinderCardConfig = {
   photoField: 'photo_url',
+  photoStyle: 'rounded',
+  photoSize: 'large',
   mainFields: ['id'], // Apenas ID do Bitrix
   detailFields: ['name', 'nome_modelo', 'scouter', 'projeto_comercial', 'criado'],
   badgeFields: ['ficha_confirmada', 'presenca_confirmada', 'etapa'],
@@ -123,6 +127,22 @@ export const useTinderCardConfig = () => {
     }));
   };
 
+  const setPhotoStyle = (style: 'circle' | 'rounded' | 'fullscreen') => {
+    setConfig(prev => ({ ...prev, photoStyle: style }));
+  };
+
+  const setPhotoSize = (size: 'small' | 'medium' | 'large') => {
+    setConfig(prev => ({ ...prev, photoSize: size }));
+  };
+
+  const reorderDetailFields = (fields: string[]) => {
+    setConfig(prev => ({ ...prev, detailFields: fields }));
+  };
+
+  const reorderBadgeFields = (fields: string[]) => {
+    setConfig(prev => ({ ...prev, badgeFields: fields }));
+  };
+
   const resetToDefault = () => {
     setConfig(DEFAULT_CONFIG);
   };
@@ -135,12 +155,16 @@ export const useTinderCardConfig = () => {
   return {
     config,
     setPhotoField,
+    setPhotoStyle,
+    setPhotoSize,
     addMainField,
     removeMainField,
     addDetailField,
     removeDetailField,
     addBadgeField,
     removeBadgeField,
+    reorderDetailFields,
+    reorderBadgeFields,
     resetToDefault,
     canAddMainField,
     canRemoveMainField,
