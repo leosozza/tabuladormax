@@ -63,15 +63,15 @@ export default function LeadCard({ lead }: LeadCardProps) {
   const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
 
   const photoContainerClasses = {
-    circle: "aspect-square rounded-full max-h-[30vh]",
-    rounded: "aspect-[3/4] rounded-lg max-h-[35vh]",
-    fullscreen: "rounded-none max-h-[40vh]"
+    circle: "aspect-square rounded-full max-h-[25vh] w-full",
+    rounded: "aspect-[3/4] rounded-lg max-h-[28vh] w-full",
+    fullscreen: "w-full rounded-none max-h-[30vh]"
   };
 
   const cardSizeClasses = {
     small: "max-w-xs",
     medium: "max-w-md",
-    large: "max-w-lg"
+    large: "max-w-full"
   };
 
   return (
@@ -91,8 +91,11 @@ export default function LeadCard({ lead }: LeadCardProps) {
             className="w-full h-full object-contain"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <User className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 text-muted-foreground opacity-20" />
+          <div className="w-full h-full flex items-center justify-center bg-muted/30">
+            <div className="flex flex-col items-center gap-2">
+              <User className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground opacity-40" />
+              <span className="text-xs text-muted-foreground opacity-60">Sem foto</span>
+            </div>
           </div>
         )}
         
