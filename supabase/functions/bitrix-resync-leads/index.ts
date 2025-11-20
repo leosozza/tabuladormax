@@ -197,6 +197,29 @@ const parseBrazilianDate = (dateStr: string | null | undefined): string | null =
   }
 };
 
+// ✅ Função auxiliar para resolver nomes de entidades SPA
+async function resolveSpaEntityName(
+  supabase: any,
+  entityTypeId: number,
+  bitrixItemId: number | null
+): Promise<string | null> {
+  if (!bitrixItemId) return null;
+  
+  const { data, error } = await supabase
+    .from('bitrix_spa_entities')
+    .select('title')
+    .eq('entity_type_id', entityTypeId)
+    .eq('bitrix_item_id', bitrixItemId)
+    .maybeSingle();
+  
+  if (error || !data) {
+    console.warn(`⚠️ SPA ${entityTypeId}/${bitrixItemId} não encontrada`);
+    return null;
+  }
+  
+  return data.title?.trim() || null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -491,6 +514,16 @@ async function processBatch(supabase: any, jobId: string) {
           continue;
         }
 
+        // ✅ FASE 2: Resolver campos SPA antes de aplicar mapeamentos
+        const bitrixScouterId = bitrixLead.result.PARENT_ID_1096 ? Number(bitrixLead.result.PARENT_ID_1096) : null;
+        const scouterName = await resolveSpaEntityName(supabase, 1096, bitrixScouterId);
+        
+        const projectIdFromParent = bitrixLead.result.PARENT_ID_1120 ? Number(bitrixLead.result.PARENT_ID_1120) : null;
+        const projetoComercialName = await resolveSpaEntityName(supabase, 1120, projectIdFromParent);
+        
+        const bitrixTelemarketingId = bitrixLead.result.PARENT_ID_1144 ? Number(bitrixLead.result.PARENT_ID_1144) : null;
+        const telemarketingName = await resolveSpaEntityName(supabase, 1144, bitrixTelemarketingId);
+
         // Mapear campos do Bitrix para TabuladorMax
         const mappedData: Record<string, any> = {};
         const transformErrors: string[] = [];
@@ -575,6 +608,46 @@ async function processBatch(supabase: any, jobId: string) {
           totalSkipped++;
           totalProcessed++;
           continue;
+        }
+
+        // ✅ FASE 2: Adicionar campos SPA resolvidos ao appliedMappings
+        if (scouterName && bitrixScouterId) {
+          appliedMappings.push({
+            bitrix_field: 'PARENT_ID_1096',
+            supabase_field: 'scouter',
+            value: `${scouterName} (${bitrixScouterId})`,
+            original_id: bitrixScouterId,
+            transformed: true,
+            priority: 900,
+            display_name: 'Scouter',
+            bitrix_field_type: 'crm_entity'
+          });
+        }
+
+        if (projetoComercialName && projectIdFromParent) {
+          appliedMappings.push({
+            bitrix_field: 'PARENT_ID_1120',
+            supabase_field: 'projeto_comercial',
+            value: `${projetoComercialName} (${projectIdFromParent})`,
+            original_id: projectIdFromParent,
+            transformed: true,
+            priority: 900,
+            display_name: 'Projeto Comercial',
+            bitrix_field_type: 'crm_entity'
+          });
+        }
+
+        if (telemarketingName && bitrixTelemarketingId) {
+          appliedMappings.push({
+            bitrix_field: 'PARENT_ID_1144',
+            supabase_field: 'telemarketing',
+            value: `${telemarketingName} (${bitrixTelemarketingId})`,
+            original_id: bitrixTelemarketingId,
+            transformed: true,
+            priority: 900,
+            display_name: 'Telemarketing',
+            bitrix_field_type: 'crm_entity'
+          });
         }
 
         // FASE 3: Fault-tolerant - coletar erros de campos

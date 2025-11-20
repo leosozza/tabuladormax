@@ -28,6 +28,41 @@ Todos os `field_mappings` salvos em `sync_events` incluem o campo `display_name`
 
 ---
 
+## Resolução de Entidades SPA
+
+### Campos SPA Suportados
+- `PARENT_ID_1096` → Scouter (Entity Type: 1096)
+- `PARENT_ID_1120` → Projeto Comercial (Entity Type: 1120)
+- `PARENT_ID_1144` → Telemarketing (Entity Type: 1144)
+
+### Como Funciona
+1. IDs chegam do Bitrix (ex: `430`)
+2. São resolvidos via tabela `bitrix_spa_entities` → `"SELETIVA MACAÉ-RJ"`
+3. Salvos no banco de dados como nomes legíveis
+4. No `sync_events.field_mappings`, aparecem formatados: `"SELETIVA MACAÉ-RJ (430)"`
+5. No Sync Monitor, exibidos como **Nome (ID)** para clareza
+
+### Sincronização da Tabela SPA
+- Tabela `bitrix_spa_entities` sincronizada via edge function `sync-bitrix-spa-entities`
+- Botão manual disponível no Admin Hub (canto inferior direito)
+- Recomendado: sincronização diária automática (via cron se disponível)
+
+### Frontend
+- Hook `useBitrixSpa` faz cache inteligente das resoluções
+- Lib `bitrixSpaResolver` gerencia chamadas batch otimizadas
+- Component `FieldMappingDisplay` exibe automaticamente nomes + IDs
+
+**Exemplo de exibição:**
+```
+Projeto Comercial
+SELETIVA MACAÉ-RJ (430)
+
+Scouter  
+José Viatronski (1052)
+```
+
+---
+
 ## Resolução de Valores de Enum
 
 ### Problema

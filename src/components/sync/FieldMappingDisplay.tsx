@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { SyncFieldMappings, formatFieldMappingsForDisplay, getFieldMappingSummary } from '@/lib/fieldMappingUtils';
 import { useMemo } from 'react';
 import { useBitrixEnums } from '@/hooks/useBitrixEnums';
+import { useBitrixSpa } from '@/hooks/useBitrixSpa';
 
 interface FieldMappingDisplayProps {
   mappings: SyncFieldMappings;
@@ -17,7 +18,7 @@ export function FieldMappingDisplay({ mappings, compact = false }: FieldMappingD
   // Coletar todas as solicitações de resolução de enum
   const enumRequests = useMemo(() => {
     return formattedMappings
-      .filter(m => m.bitrixField && m.rawValue)
+      .filter(m => m.bitrixField && m.rawValue && m.bitrixFieldType !== 'crm_entity')
       .map(m => ({
         bitrixField: m.bitrixField!,
         value: m.rawValue,
@@ -25,8 +26,22 @@ export function FieldMappingDisplay({ mappings, compact = false }: FieldMappingD
       }));
   }, [formattedMappings]);
 
+  // ✅ FASE 5: Coletar solicitações de resolução de SPA
+  const spaRequests = useMemo(() => {
+    return formattedMappings
+      .filter(m => m.bitrixFieldType === 'crm_entity' && m.bitrixField && m.rawValue)
+      .map(m => ({
+        bitrixField: m.bitrixField!,
+        bitrixItemId: typeof m.rawValue === 'number' ? m.rawValue : parseInt(String(m.rawValue))
+      }))
+      .filter(req => !isNaN(req.bitrixItemId));
+  }, [formattedMappings]);
+
   // Resolver todos os enums de uma vez
   const { getResolution } = useBitrixEnums(enumRequests);
+  
+  // Resolver todas as SPAs de uma vez
+  const { data: spaResolutions } = useBitrixSpa(spaRequests);
 
   if (compact) {
     return (
@@ -58,14 +73,27 @@ export function FieldMappingDisplay({ mappings, compact = false }: FieldMappingD
       {/* Field Mappings */}
       <div className="space-y-2">
         {formattedMappings.map((mapping, index) => {
-          // Tentar resolver enum se disponível
-          const enumResolution = mapping.bitrixField && mapping.rawValue
-            ? getResolution(mapping.bitrixField, mapping.rawValue)
-            : null;
+          let displayValue = mapping.value;
           
-          const displayValue = enumResolution 
-            ? enumResolution.formatted 
-            : mapping.value;
+          // ✅ FASE 5: Resolver SPA se for crm_entity
+          if (mapping.bitrixFieldType === 'crm_entity' && mapping.bitrixField && mapping.rawValue) {
+            const itemId = typeof mapping.rawValue === 'number' ? mapping.rawValue : parseInt(String(mapping.rawValue));
+            const spaKey = `${mapping.bitrixField}-${itemId}`;
+            const spaResolution = spaResolutions?.[spaKey];
+            if (spaResolution) {
+              displayValue = `${spaResolution.name} (${spaResolution.id})`;
+            }
+          }
+          // Tentar resolver enum se disponível
+          else {
+            const enumResolution = mapping.bitrixField && mapping.rawValue
+              ? getResolution(mapping.bitrixField, mapping.rawValue)
+              : null;
+            
+            if (enumResolution) {
+              displayValue = enumResolution.formatted;
+            }
+          }
 
           return (
             <div
