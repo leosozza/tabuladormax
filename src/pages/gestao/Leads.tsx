@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, PlayCircle } from "lucide-react";
+import { Search, Download, PlayCircle, Settings2 } from "lucide-react";
 import { format } from "date-fns";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
@@ -20,6 +20,7 @@ import { useGestaoFieldMappings } from "@/hooks/useGestaoFieldMappings";
 import { useBitrixSpa } from "@/hooks/useBitrixSpa";
 import { useBitrixEnums } from "@/hooks/useBitrixEnums";
 import { toast } from "sonner";
+import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal";
 
 function GestaoLeadsContent() {
   const queryClient = useQueryClient();
@@ -39,6 +40,9 @@ function GestaoLeadsContent() {
   const [analysisLeads, setAnalysisLeads] = useState<any[]>([]);
   const [currentAnalysisIndex, setCurrentAnalysisIndex] = useState(0);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
+  
+  // Estado para controlar o modal de configuração do cartão
+  const [configModalOpen, setConfigModalOpen] = useState(false);
   
   const { visibleColumns } = useLeadColumnConfig();
   const { data: allFields, isLoading: isLoadingFields } = useGestaoFieldMappings();
@@ -496,8 +500,19 @@ function GestaoLeadsContent() {
             <h1 className="text-3xl font-bold">Gestão de Leads</h1>
             <div className="flex gap-2">
               <LeadColumnSelector />
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfigModalOpen(true)}
+                className="gap-2"
+              >
+                <Settings2 className="w-4 h-4" />
+                Personalizar Cartão
+              </Button>
+              
               {selectedLeadIds.size > 0 && (
-                <Button 
+                <Button
                   onClick={handleStartAnalysis}
                   variant="default"
                   size="sm"
@@ -622,6 +637,11 @@ function GestaoLeadsContent() {
           totalLeads={analysisLeads.length}
         />
       )}
+      
+      <TinderCardConfigModal 
+        open={configModalOpen} 
+        onOpenChange={setConfigModalOpen} 
+      />
     </div>
   );
 }
