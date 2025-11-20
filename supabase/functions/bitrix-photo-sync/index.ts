@@ -120,7 +120,6 @@ serve(async (req) => {
     }
     
     // Extrair domínio e token da webhook_url
-    // Formato: https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json
     const urlMatch = config.webhook_url.match(/https:\/\/([^\/]+)\/rest\/(.+?)\/crm\.lead\.update\.json/);
     if (!urlMatch) {
       throw new Error('Formato de webhook_url inválido');
@@ -154,32 +153,36 @@ serve(async (req) => {
       );
     }
     
-    // ✅ PASSO 3: Pegar a primeira foto
+    // ✅ PASSO 3: Pegar a primeira foto e extrair fileId
     const firstPhoto = photoField[0];
-    console.log('📸 Foto encontrada:', { id: firstPhoto.id, downloadUrl: firstPhoto.downloadUrl });
+    const fileId = firstPhoto.id || firstPhoto.fileId;
     
-    let downloadUrl = firstPhoto.downloadUrl;
+    console.log('📸 Foto encontrada:', { id: fileId });
     
-    if (!downloadUrl) {
-      throw new Error('downloadUrl não encontrada na foto');
+    if (!fileId) {
+      throw new Error('fileId não encontrado na foto');
     }
     
-    // ✅ PASSO 4: Completar URL com domínio (se for relativa)
-    console.log('🔗 URL relativa:', downloadUrl);
-    if (downloadUrl.startsWith('/')) {
-      downloadUrl = `https://${bitrixDomain}${downloadUrl}`;
-      console.log('🔗 URL completa:', downloadUrl);
+    // ✅ PASSO 4: Usar disk.file.getExternalLink para obter URL de download autenticada
+    console.log(`📡 Chamando disk.file.getExternalLink para fileId: ${fileId}`);
+    const diskLinkUrl = `https://${bitrixDomain}/rest/${bitrixToken}/disk.file.getExternalLink?id=${fileId}`;
+    const diskLinkResponse = await fetch(diskLinkUrl);
+    
+    if (!diskLinkResponse.ok) {
+      throw new Error(`Erro ao chamar disk.file.getExternalLink: ${diskLinkResponse.status}`);
     }
     
-    // ✅ PASSO 5: Substituir auth= vazio pelo token
-    if (downloadUrl.includes('auth=&')) {
-      downloadUrl = downloadUrl.replace('auth=&', `auth=${bitrixToken}&`);
-      console.log('🔑 URL autenticada:', downloadUrl);
+    const diskLinkData = await diskLinkResponse.json();
+    console.log('📦 Resposta disk.file.getExternalLink:', JSON.stringify(diskLinkData, null, 2));
+    
+    if (!diskLinkData.result) {
+      throw new Error('disk.file.getExternalLink não retornou link válido');
     }
     
-    console.log('🌐 URL final para download:', downloadUrl);
+    const downloadUrl = diskLinkData.result;
+    console.log('🔗 URL de download obtida:', downloadUrl);
 
-    // ✅ PASSO 6-10: Baixar, fazer upload e atualizar
+    // ✅ PASSO 5-9: Baixar, fazer upload e atualizar
     const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
       leadId,
       downloadUrl,
