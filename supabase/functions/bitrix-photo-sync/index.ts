@@ -38,32 +38,56 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    console.log('📸 Dados recebidos:', JSON.stringify(photoData, null, 2));
+
     // Processar array de fotos do Bitrix
     let photoArray = Array.isArray(photoData) ? photoData : [photoData];
     
     // Pegar primeira foto válida
-    const firstPhoto = photoArray.find(p => p?.downloadUrl || p?.showUrl);
+    const firstPhoto = photoArray.find(p => p?.id || p?.fileId || p?.downloadUrl || p?.showUrl);
     
     if (!firstPhoto) {
-      console.log(`⚠️ Nenhuma URL de foto válida encontrada para lead ${leadId}`);
+      console.log(`⚠️ Nenhuma foto válida encontrada para lead ${leadId}`);
       return new Response(
-        JSON.stringify({ success: true, message: 'Nenhuma URL de foto válida' }),
+        JSON.stringify({ success: true, message: 'Nenhuma foto válida' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Construir URL de download completa
-    let downloadUrl = firstPhoto.downloadUrl || firstPhoto.showUrl;
-    
-    // Se a URL não tem protocolo, adicionar domínio do Bitrix
-    if (downloadUrl.startsWith('/')) {
-      downloadUrl = `https://${bitrixDomain}${downloadUrl}`;
+    // Extrair fileId e downloadUrl
+    const fileId = firstPhoto.id || firstPhoto.fileId || null;
+    let downloadUrl = firstPhoto.downloadUrl || firstPhoto.showUrl || null;
+
+    console.log('🔍 Extraído:', { fileId, downloadUrl });
+
+    // PRIORIDADE 1: Usar disk.file.get se temos fileId
+    if (fileId) {
+      console.log(`📡 Chamando disk.file.get para fileId: ${fileId}`);
+      
+      const diskFileUrl = `https://${bitrixDomain}/rest/9/efcbke2jhg22nkdp/disk.file.get?id=${fileId}`;
+      
+      const diskResponse = await fetch(diskFileUrl);
+      
+      if (!diskResponse.ok) {
+        throw new Error(`Erro ao chamar disk.file.get: ${diskResponse.status} ${diskResponse.statusText}`);
+      }
+      
+      const diskData = await diskResponse.json();
+      
+      console.log('📦 Resposta disk.file.get:', JSON.stringify(diskData, null, 2));
+      
+      if (diskData.result?.DOWNLOAD_URL) {
+        downloadUrl = diskData.result.DOWNLOAD_URL;
+        console.log(`✅ DOWNLOAD_URL obtida: ${downloadUrl}`);
+      } else {
+        console.warn('⚠️ disk.file.get não retornou DOWNLOAD_URL');
+        throw new Error('DOWNLOAD_URL não encontrada na resposta de disk.file.get');
+      }
     }
-    
-    // Adicionar token de autenticação se necessário
-    if (!downloadUrl.includes('auth=') && bitrixToken) {
-      const separator = downloadUrl.includes('?') ? '&' : '?';
-      downloadUrl = `${downloadUrl}${separator}auth=${bitrixToken}`;
+
+    // PRIORIDADE 2: Validar que temos downloadUrl
+    if (!downloadUrl) {
+      throw new Error('Nenhuma URL de download disponível (sem fileId e sem downloadUrl)');
     }
 
     console.log(`📥 Baixando foto do Bitrix: ${downloadUrl}`);
@@ -80,6 +104,8 @@ serve(async (req) => {
     if (photoBlob.size === 0) {
       throw new Error('Foto baixada está vazia');
     }
+
+    console.log(`✅ Foto baixada: ${photoBlob.size} bytes, tipo: ${photoBlob.type}`);
 
     // Determinar extensão e nome do arquivo
     const mimeType = photoBlob.type || 'image/jpeg';
@@ -135,12 +161,18 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('❌ Erro ao sincronizar foto:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('❌ Erro detalhado ao sincronizar foto:', {
+      error: errorMessage,
+      stack: errorStack
+    });
     
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error instanceof Error ? error.message : String(error) 
+        error: errorMessage
       }),
       { 
         status: 500,
