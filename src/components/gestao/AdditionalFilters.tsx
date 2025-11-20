@@ -83,11 +83,10 @@ export function AdditionalFilters({ filters, onChange }: AdditionalFiltersProps)
       {/* Botão para abrir dialog de filtros */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2 relative">
             <Filter className="h-4 w-4" />
-            Mais Filtros
             {filters.length > 0 && (
-              <Badge variant="default" className="ml-1">
+              <Badge variant="default" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
                 {filters.length}
               </Badge>
             )}
