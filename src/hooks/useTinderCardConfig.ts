@@ -8,7 +8,7 @@ export interface TinderCardConfig {
   version?: number;
 }
 
-const CONFIG_VERSION = 2; // Incrementar quando houver mudanças importantes
+const CONFIG_VERSION = 3; // Incrementar quando houver mudanças importantes
 const STORAGE_KEY = 'tinder_card_config';
 
 const DEFAULT_CONFIG: TinderCardConfig = {
