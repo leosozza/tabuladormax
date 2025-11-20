@@ -10,16 +10,16 @@ export interface TinderCardConfig {
   version?: number;
 }
 
-const CONFIG_VERSION = 3; // Incrementar quando houver mudanças importantes
+const CONFIG_VERSION = 4; // Incrementar quando houver mudanças importantes
 const STORAGE_KEY = 'tinder_card_config';
 
 const DEFAULT_CONFIG: TinderCardConfig = {
   photoField: 'photo_url',
   photoStyle: 'rounded',
   photoSize: 'large',
-  mainFields: ['id'], // Apenas ID do Bitrix
-  detailFields: ['name', 'nome_modelo', 'scouter', 'projeto_comercial', 'criado'],
-  badgeFields: ['ficha_confirmada', 'presenca_confirmada', 'etapa'],
+  mainFields: ['nome_modelo', 'name'], // Nome do Modelo em destaque, Nome como referência
+  detailFields: ['scouter', 'projeto_comercial', 'criado', 'local_abordagem'],
+  badgeFields: ['id'], // Apenas ID do Bitrix
   version: CONFIG_VERSION
 };
 

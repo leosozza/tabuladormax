@@ -17,6 +17,7 @@ export function TinderCardPreview({ config }: TinderCardPreviewProps) {
     scouter: "CINTIA BARRETO PINHEIROS",
     projeto_comercial: "SELETIVA SÃO PAULO - PINHEIROS",
     criado: "20/11/2025",
+    local_abordagem: "Shopping Paulista",
     etapa: "AGENDADO",
     ficha_confirmada: "SIM",
     presenca_confirmada: true,
@@ -76,13 +77,16 @@ export function TinderCardPreview({ config }: TinderCardPreviewProps) {
 
         {/* Content */}
         <CardContent className="p-4 space-y-3">
-          {/* Main Fields */}
+          {/* Main Fields - Hierarquia Visual */}
           <div>
-            <h3 className="text-xl font-bold">
-              {config.mainFields.length > 0 ? getFieldValue(config.mainFields[0]) : "Sem dados"}
+            {/* Nome do Modelo - Grande e Negrito */}
+            <h3 className="text-xl md:text-2xl font-bold truncate leading-tight">
+              {config.mainFields.length > 0 ? getFieldValue(config.mainFields[0]) : "Sem nome do modelo"}
             </h3>
+            
+            {/* Nome - Menor, como referência */}
             {config.mainFields[1] && (
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground truncate font-medium mt-1">
                 {getFieldValue(config.mainFields[1])}
               </p>
             )}

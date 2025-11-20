@@ -184,14 +184,24 @@ export function TinderCardConfigModal({ open, onOpenChange }: TinderCardConfigMo
 
               <Separator />
 
-              {/* Campos Principais (Read-only) */}
+              {/* Campos Principais */}
               <Card className="p-4 space-y-3">
-                <h3 className="text-sm font-semibold">🆔 Campo Principal</h3>
-                <Badge variant="default" className="text-sm">
-                  {getFieldLabel(config.mainFields[0])}
-                </Badge>
+                <h3 className="text-sm font-semibold">🆔 Campos Principais</h3>
+                <div className="space-y-2">
+                  {config.mainFields.map((field, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Badge variant="default" className="text-sm">
+                        {getFieldLabel(field)}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {idx === 0 ? '(Título principal - grande)' : '(Subtítulo - referência)'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Este campo é fixo e exibe o ID do Bitrix
+                  💡 O primeiro campo é exibido em destaque (grande e negrito). 
+                  O segundo campo aparece menor, como referência.
                 </p>
               </Card>
 
