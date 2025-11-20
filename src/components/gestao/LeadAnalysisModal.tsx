@@ -2,7 +2,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import SwipeableCard from './SwipeableCard';
 import SwipeActions from './SwipeActions';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import AnalysisStats from './AnalysisStats';
 import UndoButton from './UndoButton';
 
@@ -61,14 +60,6 @@ export function LeadAnalysisModal({
               {currentIndex + 1} de {totalLeads}
             </Badge>
           </div>
-          
-          {/* Barra de progresso */}
-          <div className="space-y-1">
-            <Progress value={progress} className="h-1.5" />
-            <p className="text-xs text-muted-foreground text-center">
-              {Math.round(progress)}% concluído
-            </p>
-          </div>
 
           {/* Estatísticas */}
           {stats && stats.total > 0 && (
@@ -109,6 +100,7 @@ export function LeadAnalysisModal({
               onSuperApprove={onSuperApprove}
               onSkip={onSkip}
               disabled={disabled}
+              progress={progress}
             />
           </div>
           

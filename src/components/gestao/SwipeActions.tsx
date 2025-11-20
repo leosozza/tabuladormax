@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Heart, X, SkipForward, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import CircularProgress from "./CircularProgress";
 
 interface SwipeActionsProps {
   onApprove: () => void;
@@ -8,9 +9,10 @@ interface SwipeActionsProps {
   onSuperApprove: () => void;
   onSkip: () => void;
   disabled?: boolean;
+  progress?: number;
 }
 
-export default function SwipeActions({ onApprove, onReject, onSuperApprove, onSkip, disabled = false }: SwipeActionsProps) {
+export default function SwipeActions({ onApprove, onReject, onSuperApprove, onSkip, disabled = false, progress = 0 }: SwipeActionsProps) {
   return (
     <div className="flex items-center justify-center gap-3 md:gap-4 py-3 px-4">
       {/* Rejeitar */}
@@ -35,19 +37,30 @@ export default function SwipeActions({ onApprove, onReject, onSuperApprove, onSk
 
       {/* Pular */}
       <div className="relative flex-shrink-0">
+        {/* Circular Progress ao redor do botão */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <CircularProgress 
+            percentage={progress} 
+            size={64} 
+            strokeWidth={4}
+            className="absolute"
+          />
+        </div>
+        
         <Button
           variant="outline"
           size="lg"
           onClick={onSkip}
           disabled={disabled}
-          className="h-14 w-14 sm:h-12 sm:w-12 md:h-14 md:w-14 rounded-full hover:scale-110 transition-all touch-manipulation"
+          className="h-14 w-14 sm:h-12 sm:w-12 md:h-14 md:w-14 rounded-full hover:scale-110 transition-all touch-manipulation relative z-10"
           aria-label="Pular lead"
         >
           <SkipForward className="w-5 h-5 md:w-6 md:h-6" />
         </Button>
+        
         <Badge 
           variant="secondary" 
-          className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px] pointer-events-none"
+          className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px] pointer-events-none z-20"
         >
           ↓
         </Badge>
