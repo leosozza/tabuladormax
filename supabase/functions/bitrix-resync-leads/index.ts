@@ -417,6 +417,35 @@ async function processBatch(supabase: any, jobId: string) {
           continue;
         }
 
+        // FASE 3: Fault-tolerant - coletar erros de campos
+        const fieldErrors: Array<{field: string; error: string; value: any}> = [];
+
+        // FASE 3.1: Validação de campos booleanos
+        const booleanFields = ['ficha_confirmada', 'presenca_confirmada', 'compareceu', 'cadastro_existe_foto'];
+        
+        for (const field of booleanFields) {
+          if (mappedData[field] !== undefined && mappedData[field] !== null) {
+            const value = String(mappedData[field]);
+            
+            // Detectar IDs de lista
+            if (/^\d+$/.test(value) && Number(value) > 100) {
+              console.warn(`⚠️ Lead ${lead.id} - Campo ${field} recebeu ID: "${value}", convertendo para null`);
+              fieldErrors.push({
+                field: field,
+                error: `ID de lista Bitrix: "${value}"`,
+                value: mappedData[field]
+              });
+              mappedData[field] = null;
+            }
+            // Conversão segura
+            else if (['1', 'true'].includes(value.toLowerCase())) {
+              mappedData[field] = true;
+            } else if (['0', 'false', ''].includes(value.toLowerCase())) {
+              mappedData[field] = false;
+            }
+          }
+        }
+
         // FASE 4: Validar dados críticos antes de salvar
         if (mappedData.responsible) {
           // Se responsible for numérico, alertar e tentar corrigir
@@ -442,9 +471,6 @@ async function processBatch(supabase: any, jobId: string) {
         }
 
         console.log(`[processBatch] Lead ${lead.id}: ${Object.keys(mappedData).length} campos serão atualizados:`, Object.keys(mappedData).join(', '));
-
-        // FASE 3: Fault-tolerant - coletar erros de campos
-        const fieldErrors: Array<{field: string; error: string; value: any}> = [];
 
         // Skip lead if nothing to update
         if (Object.keys(mappedData).length === 0) {

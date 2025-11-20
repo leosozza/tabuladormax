@@ -154,6 +154,72 @@ has_sync_errors BOOLEAN  -- Flag rápida para queries
 - Revisar função `parseBrazilianDate()`
 - Adicionar validação de dia/mês
 
+### 4. ID de Lista em Campo Boolean ⚠️ **ERRO COMUM**
+
+**Causa:** Campos booleanos recebendo IDs numéricos de listas do Bitrix24 (ex: `5492`, `5494`)
+
+**Erro Original:**
+```
+invalid input syntax for type boolean: "5492"
+```
+
+**Por que acontece:**
+- Campo configurado no Bitrix24 como **Lista** ao invés de **Sim/Não**
+- Bitrix retorna ID da opção selecionada (ex: `5492 = "Sim"`, `5494 = "Não"`)
+- PostgreSQL não aceita IDs numéricos altos como boolean
+
+**Campos Afetados:**
+- `cadastro_existe_foto` (UF_CRM_1745431662)
+- `presenca_confirmada` (UF_CRM_XXXXX)
+- `compareceu` (UF_CRM_XXXXX)
+- `ficha_confirmada` (UF_CRM_XXXXX)
+
+**Erro registrado:**
+```json
+{
+  "field": "cadastro_existe_foto",
+  "attempted_value": "5492",
+  "error": "Valor \"5492\" parece ser ID de lista do Bitrix, não booleano",
+  "bitrix_field": "UF_CRM_1745431662"
+}
+```
+
+**Solução Aplicada (Automática):**
+1. ✅ Validação pré-salvamento detecta IDs > 100
+2. ✅ Converte automaticamente para `null` com warning
+3. ✅ Registra erro em `sync_errors` para investigação
+4. ✅ Lead é salvo com demais campos válidos
+
+**Como Corrigir Permanentemente:**
+
+**Opção A - Reconfigurar Campo no Bitrix (RECOMENDADO):**
+1. Acesse Bitrix24 → CRM → Configurações → Campos Personalizados
+2. Localize o campo (ex: UF_CRM_1745431662)
+3. Alterar tipo de **Lista** para **Sim/Não**
+4. Re-sincronizar leads afetados
+
+**Opção B - Criar Mapeamento de IDs:**
+Se não puder alterar o Bitrix, adicione transformação:
+```typescript
+// Em unified_field_config ou no webhook
+const listIdToBool = {
+  '5492': true,  // ID que significa "Sim"
+  '5494': false  // ID que significa "Não"
+};
+```
+
+**Monitoramento:**
+```sql
+-- Verificar leads com IDs em campos boolean
+SELECT id, name, 
+  sync_errors->>'errors' as errors
+FROM leads
+WHERE has_sync_errors = true
+  AND sync_errors::text LIKE '%ID de lista Bitrix%'
+ORDER BY updated_at DESC
+LIMIT 20;
+```
+
 ## 🔧 Manutenção
 
 ### Query: Listar Leads com Erros
