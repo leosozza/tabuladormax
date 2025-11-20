@@ -39,7 +39,9 @@ export const useGestaoFieldMappings = () => {
         sortable: mapping.sortable,
         defaultVisible: mapping.default_visible,
         category: mapping.category as any,
-        formatter: getFormatterFunction(mapping.formatter_function)
+        formatter: getFormatterFunction(mapping.formatter_function),
+        bitrixField: mapping.bitrix_field,
+        bitrixFieldType: mapping.bitrix_field_type,
       }));
       
       return fields;

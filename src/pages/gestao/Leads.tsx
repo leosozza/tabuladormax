@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import GestaoSidebar from "@/components/gestao/Sidebar";
@@ -14,6 +14,8 @@ import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
 import { useLeadColumnConfig, LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
 import { useGestaoFieldMappings } from "@/hooks/useGestaoFieldMappings";
+import { useBitrixSpa } from "@/hooks/useBitrixSpa";
+import { useBitrixEnums } from "@/hooks/useBitrixEnums";
 
 function GestaoLeadsContent() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -100,6 +102,67 @@ function GestaoLeadsContent() {
     .map(key => allFields?.find(field => field.key === key))
     .filter((field): field is NonNullable<typeof field> => field !== undefined);
 
+  // Montar requisições SPA para resolver IDs antigos
+  const spaRequests = useMemo(() => {
+    if (!leads || !visibleFields) return [];
+
+    const requests: { bitrixField: string; bitrixItemId: number }[] = [];
+    const seen = new Set<string>();
+
+    for (const lead of leads) {
+      for (const field of visibleFields) {
+        if (field.bitrixFieldType !== 'crm_entity' || !field.bitrixField) continue;
+        
+        const raw = lead[field.key as keyof typeof lead];
+        const id = raw != null ? Number(raw) : NaN;
+        
+        if (!Number.isNaN(id) && id > 0) {
+          const key = `${field.bitrixField}-${id}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            requests.push({ bitrixField: field.bitrixField, bitrixItemId: id });
+          }
+        }
+      }
+    }
+
+    return requests;
+  }, [leads, visibleFields]);
+
+  const { data: spaResolutions } = useBitrixSpa(spaRequests);
+
+  // Montar requisições de enum para resolver códigos técnicos
+  const enumRequests = useMemo(() => {
+    if (!leads || !visibleFields) return [];
+
+    const requests: { bitrixField: string; value: unknown; bitrixFieldType?: string }[] = [];
+    const seen = new Set<string>();
+
+    for (const lead of leads) {
+      for (const field of visibleFields) {
+        if (!field.bitrixField || !field.bitrixFieldType) continue;
+        if (!['enumeration', 'crm_status', 'crm_stage'].includes(field.bitrixFieldType)) continue;
+
+        const rawValue = lead[field.key as keyof typeof lead];
+        if (rawValue == null || rawValue === '') continue;
+
+        const key = `${field.bitrixField}:${rawValue}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          requests.push({
+            bitrixField: field.bitrixField,
+            value: rawValue,
+            bitrixFieldType: field.bitrixFieldType,
+          });
+        }
+      }
+    }
+
+    return requests;
+  }, [leads, visibleFields]);
+
+  const { getResolution } = useBitrixEnums(enumRequests);
+
   const handleExport = () => {
     if (!leads) return;
     
@@ -115,82 +178,99 @@ function GestaoLeadsContent() {
           value = lead[field.key];
         }
         
-        if (field.formatter && value) {
+        // Apply formatter if available
+        if (field.formatter) {
           const formatted = field.formatter(value, lead);
-          // Convert ReactNode to string for CSV
-          return typeof formatted === 'string' ? formatted : String(formatted);
+          // Se o formatter retorna um ReactNode, tentar extrair texto
+          return typeof formatted === 'string' ? formatted : value;
         }
-        return value || "";
+        
+        return value || "-";
       })
     );
     
-    const csv = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const csv = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n");
     
     const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `leads-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.download = `leads_${format(new Date(), "yyyy-MM-dd")}.csv`;
     a.click();
   };
 
+  const handleLeadClick = (lead: any) => {
+    setSelectedLead(lead);
+    setModalOpen(true);
+  };
+
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden">
       <GestaoSidebar />
       
-      <div className="flex-1 p-8">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Leads</h1>
-            <p className="text-muted-foreground">Gerencie todos os leads capturados</p>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="p-6 border-b bg-background">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold">Gestão de Leads</h1>
+            <div className="flex gap-2">
+              <LeadColumnSelector />
+              <Button onClick={handleExport} variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Exportar CSV
+              </Button>
+            </div>
           </div>
           
-          <Button onClick={handleExport} variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Exportar CSV
-          </Button>
-        </div>
-
-        <GestaoFiltersComponent filters={filters} onChange={setFilters} />
-
-        <div className="mb-6 flex gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome, telefone ou scouter..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <Input
+                placeholder="Buscar por nome ou scouter..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-md"
+              />
+            </div>
+            
+            <GestaoFiltersComponent
+              filters={filters}
+              onChange={setFilters}
             />
           </div>
-              <div className="flex gap-2">
-                <LeadColumnSelector />
-              </div>
         </div>
 
-        {isLoading || isLoadingFields ? (
-          <div className="text-center py-12">Carregando...</div>
-        ) : (
-          <div className="border rounded-lg bg-card overflow-x-auto">
+        <div className="flex-1 overflow-auto p-6">
+          <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
                   {visibleFields.map((field) => (
                     <TableHead key={field.key}>{field.label}</TableHead>
                   ))}
-                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {leads?.length === 0 ? (
+                {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={visibleFields.length + 1} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={visibleFields.length} className="text-center">
+                      Carregando...
+                    </TableCell>
+                  </TableRow>
+                ) : !leads?.length ? (
+                  <TableRow>
+                    <TableCell colSpan={visibleFields.length} className="text-center">
                       Nenhum lead encontrado
                     </TableCell>
                   </TableRow>
                 ) : (
                   leads?.map((lead) => (
-                    <TableRow key={lead.id}>
+                    <TableRow 
+                      key={lead.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleLeadClick(lead)}
+                    >
                       {visibleFields.map((field) => {
                         // Lidar com campos aninhados (e.g., commercial_projects.name)
                         let value;
@@ -201,41 +281,45 @@ function GestaoLeadsContent() {
                           value = lead[field.key];
                         }
                         
-                        const formattedValue = field.formatter 
+                        let displayValue = field.formatter 
                           ? field.formatter(value, lead) 
                           : value || "-";
+
+                        // Resolver SPA (ex: scouter, projeto_comercial)
+                        if (field.bitrixFieldType === 'crm_entity' && field.bitrixField && value != null) {
+                          const id = Number(value);
+                          if (!Number.isNaN(id) && id > 0) {
+                            const spaKey = `${field.bitrixField}-${id}`;
+                            const spaResolution = spaResolutions?.[spaKey];
+                            if (spaResolution) {
+                              displayValue = spaResolution.name;
+                            }
+                          }
+                        }
+
+                        // Resolver Enum (ex: etapa, status_fluxo)
+                        if (field.bitrixField && field.bitrixFieldType && 
+                            ['enumeration', 'crm_status', 'crm_stage'].includes(field.bitrixFieldType) &&
+                            value != null && value !== '') {
+                          const enumResolution = getResolution(field.bitrixField, value);
+                          if (enumResolution) {
+                            displayValue = enumResolution.label;
+                          }
+                        }
                         
                         return (
                           <TableCell key={field.key} className={field.key === 'name' ? 'font-medium' : ''}>
-                            {formattedValue}
+                            {displayValue}
                           </TableCell>
                         );
                       })}
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setSelectedLead(lead);
-                            setModalOpen(true);
-                          }}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
           </div>
-        )}
-        
-        {leads && leads.length > 0 && (
-          <div className="mt-4 text-sm text-muted-foreground">
-            Mostrando {leads.length} leads
-          </div>
-        )}
+        </div>
       </div>
 
       <LeadDetailModal
