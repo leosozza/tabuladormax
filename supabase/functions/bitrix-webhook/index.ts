@@ -112,6 +112,12 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ✅ Declarar variáveis no escopo da função para usar no catch
+  let event = '';
+  let leadId = '';
+  let startTime = Date.now();
+  let supabase: any;
+
   try {
     // Detectar Content-Type e fazer parse adequado
     const contentType = req.headers.get('content-type') || '';
@@ -159,9 +165,9 @@ serve(async (req) => {
 
     console.log('📥 Processando evento:', payload.event, 'Lead ID:', payload.data?.FIELDS?.ID);
 
-    const event = payload.event;
-    const leadId = payload.data?.FIELDS?.ID;
-    const startTime = Date.now();
+    event = payload.event;
+    leadId = payload.data?.FIELDS?.ID;
+    startTime = Date.now();
 
     // Eventos suportados
     const supportedEvents = [
@@ -195,7 +201,7 @@ serve(async (req) => {
     // Conectar ao Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    supabase = createClient(supabaseUrl, supabaseKey);
 
     // ✅ SUPORTE A DELETE
     if (event.includes('DELETE')) {
@@ -358,7 +364,7 @@ serve(async (req) => {
     };
 
     // Agrupar mapeamentos por campo de destino
-    const mappingsByField = (fieldMappings || []).reduce((acc, mapping) => {
+    const mappingsByField = (fieldMappings || []).reduce((acc: Record<string, any[]>, mapping: any) => {
       if (!acc[mapping.supabase_field]) {
         acc[mapping.supabase_field] = [];
       }
@@ -371,6 +377,13 @@ serve(async (req) => {
 
     // Para cada campo do TabuladorMax, aplicar a primeira fonte não-vazia
     for (const [supabaseField, mappings] of Object.entries(mappingsByField)) {
+      // ✅ FASE 1.2: Blindar commercial_project_id contra sobrescrita
+      // Este campo crítico já foi resolvido via SPA (UUID), não deve ser mapeado dinamicamente
+      if (supabaseField === 'commercial_project_id') {
+        console.log('⏭️ Ignorando mapeamento dinâmico de commercial_project_id (SPA já resolveu o UUID)');
+        continue;
+      }
+
       for (const mapping of (mappings as any[])) {
         let value = lead[mapping.bitrix_field];
         const originalValue = value;
@@ -534,6 +547,33 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Erro ao processar webhook:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // ✅ FASE 2: Registrar evento de erro em sync_events
+    try {
+      const numericLeadId = Number(leadId);
+      const { error: syncEventError } = await supabase
+        .from('sync_events')
+        .insert({
+          event_type: event.includes('ADD') ? 'create' : 
+                      event.includes('UPDATE') ? 'update' : 
+                      event.includes('DELETE') ? 'delete' : 'unknown',
+          direction: 'bitrix_to_supabase',
+          lead_id: isNaN(numericLeadId) ? null : numericLeadId,
+          status: 'error',
+          error_message: errorMessage,
+          sync_duration_ms: Date.now() - startTime,
+          field_mappings: null,
+          fields_synced_count: 0
+        });
+
+      if (syncEventError) {
+        console.error('❌ Erro ao registrar sync_event de erro:', syncEventError);
+      } else {
+        console.log('✅ sync_event de erro registrado');
+      }
+    } catch (logError) {
+      console.error('❌ Exceção ao registrar sync_event de erro:', logError);
+    }
     
     return new Response(
       JSON.stringify({ 
