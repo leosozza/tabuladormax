@@ -28,20 +28,31 @@ async function downloadAndUploadPhoto(
   const contentType = bitrixResponse.headers.get('content-type') || '';
   console.log(`📋 Content-Type: ${contentType}`);
   
-  if (contentType.includes('text/html')) {
-    throw new Error(`URL retornou HTML ao invés de imagem. Content-Type: ${contentType}`);
+  // 🚨 VALIDAÇÃO FORTE: Se não começar com "image/", logar body e abortar
+  if (!contentType.startsWith('image/')) {
+    const textBody = await bitrixResponse.text().catch(() => '<erro ao ler body>');
+    console.error('❌ Conteúdo não é imagem. Body (primeiros 500 chars):');
+    console.error(textBody.slice(0, 500));
+    throw new Error(
+      `Bitrix devolveu conteúdo não-imagem. content-type="${contentType}"`
+    );
   }
 
-  const photoBlob = await bitrixResponse.blob();
+  const arrayBuffer = await bitrixResponse.arrayBuffer();
+  const uint8 = new Uint8Array(arrayBuffer);
   
-  if (photoBlob.size === 0) {
+  if (uint8.byteLength === 0) {
     throw new Error('Foto baixada está vazia');
   }
 
-  console.log(`✅ Foto baixada: ${photoBlob.size} bytes`);
+  console.log(`✅ Foto baixada: ${uint8.byteLength} bytes`);
 
-  const mimeType = photoBlob.type || 'image/jpeg';
-  const extension = mimeType.split('/')[1] || 'jpg';
+  // Determinar extensão pela content-type
+  let extension = 'jpg';
+  if (contentType.includes('png')) extension = 'png';
+  else if (contentType.includes('webp')) extension = 'webp';
+  else if (contentType.includes('jpeg')) extension = 'jpg';
+  
   const timestamp = Date.now();
   const finalFileName = `lead-${leadId}-${timestamp}.${extension}`;
   const storagePath = `photos/${finalFileName}`;
@@ -50,8 +61,8 @@ async function downloadAndUploadPhoto(
 
   const { data: uploadData, error: uploadError } = await supabase.storage
     .from('lead-photos')
-    .upload(storagePath, photoBlob, {
-      contentType: mimeType,
+    .upload(storagePath, uint8, {
+      contentType: contentType || 'image/jpeg',
       upsert: true,
       cacheControl: '3600'
     });
@@ -81,7 +92,7 @@ async function downloadAndUploadPhoto(
     console.log('✅ Sincronização concluída com sucesso!');
   }
 
-  return { publicUrl, storagePath, fileSize: photoBlob.size };
+  return { publicUrl, storagePath, fileSize: uint8.byteLength };
 }
 
 serve(async (req) => {
@@ -163,24 +174,25 @@ serve(async (req) => {
       throw new Error('fileId não encontrado na foto');
     }
     
-    // ✅ PASSO 4: Usar disk.file.getExternalLink para obter URL de download autenticada
-    console.log(`📡 Chamando disk.file.getExternalLink para fileId: ${fileId}`);
-    const diskLinkUrl = `https://${bitrixDomain}/rest/${bitrixToken}/disk.file.getExternalLink?id=${fileId}`;
-    const diskLinkResponse = await fetch(diskLinkUrl);
+    // ✅ PASSO 4: Usar disk.file.get para obter DOWNLOAD_URL autenticada
+    console.log(`📡 Chamando disk.file.get para fileId: ${fileId}`);
+    const diskFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/disk.file.get?id=${fileId}`;
+    const diskResp = await fetch(diskFileUrl);
     
-    if (!diskLinkResponse.ok) {
-      throw new Error(`Erro ao chamar disk.file.getExternalLink: ${diskLinkResponse.status}`);
+    if (!diskResp.ok) {
+      throw new Error(`Erro ao chamar disk.file.get: ${diskResp.status}`);
     }
     
-    const diskLinkData = await diskLinkResponse.json();
-    console.log('📦 Resposta disk.file.getExternalLink:', JSON.stringify(diskLinkData, null, 2));
+    const diskJson = await diskResp.json();
+    console.log('📁 Resposta disk.file.get:', JSON.stringify(diskJson, null, 2));
     
-    if (!diskLinkData.result) {
-      throw new Error('disk.file.getExternalLink não retornou link válido');
+    const downloadUrl = diskJson.result?.DOWNLOAD_URL;
+    
+    if (!downloadUrl) {
+      throw new Error('disk.file.get não retornou DOWNLOAD_URL. Verifique permissões do webhook.');
     }
     
-    const downloadUrl = diskLinkData.result;
-    console.log('🔗 URL de download obtida:', downloadUrl);
+    console.log('🔗 DOWNLOAD_URL obtida:', downloadUrl);
 
     // ✅ PASSO 5-9: Baixar, fazer upload e atualizar
     const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
