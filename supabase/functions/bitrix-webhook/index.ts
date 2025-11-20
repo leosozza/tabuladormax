@@ -87,6 +87,27 @@ function convertBitrixEnumToBoolean(
 }
 
 /**
+ * Converte valores para integer (arredonda decimais)
+ * @param value - Valor a ser convertido
+ * @returns Valor inteiro ou null
+ */
+function toInteger(value: any): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  
+  const valueStr = String(value).trim();
+  const parsed = parseFloat(valueStr);
+  
+  if (isNaN(parsed)) {
+    console.warn(`⚠️ toInteger: Valor não numérico: "${valueStr}"`);
+    return null;
+  }
+  
+  const rounded = Math.round(parsed);
+  console.log(`🔢 toInteger: "${valueStr}" → ${rounded}`);
+  return rounded;
+}
+
+/**
  * Converte valores de moeda do Bitrix (formato "valor|MOEDA") para numérico
  * @param value - Valor recebido do Bitrix (ex: "6|BRL", "10.50|USD")
  * @returns Objeto com valor convertido e status de erro
@@ -523,6 +544,8 @@ serve(async (req) => {
               value = String(value);
             } else if (mapping.transform_function === 'toBoolean') {
               value = value === '1' || value === 'Y' || value === true;
+            } else if (mapping.transform_function === 'toInteger') {
+              value = toInteger(value);
             } else if (mapping.transform_function === 'toDate') {
               // Parsear data brasileira e extrair apenas a parte yyyy-MM-dd
               const parsed = parseBrazilianDate(value);
