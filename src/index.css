@@ -158,9 +158,16 @@ All colors MUST be HSL.
 /* Melhorias Mobile e APK */
 @media (max-width: 768px) {
   /* Aumentar área tocável de botões (mínimo 44x44px - padrão Apple/Android) */
-  button {
+  /* Aplicar apenas em botões interativos, não em elementos de UI decorativos */
+  button:not([role="progressbar"]):not([data-radix-collection-item]) {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* Exceção explícita para barras de progressão */
+  [role="progressbar"],
+  [role="progressbar"] * {
+    min-height: unset !important;
   }
 
   /* Melhorar scrolling em mobile (webkit) */
