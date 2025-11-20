@@ -131,10 +131,30 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const bitrixDomain = 'maxsystem.bitrix24.com.br';
-    const bitrixToken = Deno.env.get('BITRIX_REST_TOKEN')!;
-    
     const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Buscar token do Bitrix do banco
+    const { data: config } = await supabase
+      .from('bitrix_sync_config')
+      .select('webhook_url')
+      .eq('active', true)
+      .single();
+    
+    if (!config?.webhook_url) {
+      throw new Error('Configuração Bitrix não encontrada');
+    }
+    
+    // Extrair domínio e token da webhook_url
+    // Formato: https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json
+    const urlMatch = config.webhook_url.match(/https:\/\/([^\/]+)\/rest\/(.+?)\/crm\.lead\.update\.json/);
+    if (!urlMatch) {
+      throw new Error('Formato de webhook_url inválido');
+    }
+    
+    const bitrixDomain = urlMatch[1];
+    const bitrixToken = urlMatch[2];
+    
+    console.log('🔑 Bitrix config:', { domain: bitrixDomain, tokenLength: bitrixToken.length });
 
     console.log('📸 Dados recebidos:', JSON.stringify(photoData, null, 2));
 
@@ -186,29 +206,39 @@ serve(async (req) => {
       isShowFilePhp: downloadUrl?.includes('show_file.php')
     });
 
-    // ✅ PRIORIDADE 1: SEMPRE tentar disk.file.get primeiro se temos fileId
+    // ✅ PRIORIDADE 1: Buscar DOWNLOAD_URL diretamente do lead via API
     if (fileId) {
       try {
-        console.log(`📡 Tentando disk.file.get para fileId: ${fileId}`);
+        console.log(`📡 Buscando informações completas do arquivo via crm.lead.get`);
         
-        const diskFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/disk.file.get?id=${fileId}`;
-        const diskResponse = await fetch(diskFileUrl);
+        const leadUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.lead.get?ID=${leadId}`;
+        const leadResponse = await fetch(leadUrl);
         
-        if (!diskResponse.ok) {
-          throw new Error(`Erro ao chamar disk.file.get: ${diskResponse.status} ${diskResponse.statusText}`);
+        if (!leadResponse.ok) {
+          throw new Error(`Erro ao buscar lead: ${leadResponse.status}`);
         }
         
-        const diskData = await diskResponse.json();
-        console.log('📦 Resposta disk.file.get:', JSON.stringify(diskData, null, 2));
+        const leadData = await leadResponse.json();
+        console.log('📦 Dados do lead obtidos');
         
-        if (diskData.result?.DOWNLOAD_URL) {
-          downloadUrl = diskData.result.DOWNLOAD_URL;
-          console.log(`✅ DOWNLOAD_URL obtida do disk.file.get: ${downloadUrl}`);
-        } else {
-          console.warn('⚠️ disk.file.get não retornou DOWNLOAD_URL');
+        // Procurar o campo de fotos (UF_CRM_LEAD_1733231445171)
+        const photoField = leadData.result?.UF_CRM_LEAD_1733231445171;
+        
+        if (Array.isArray(photoField) && photoField.length > 0) {
+          // Tentar encontrar a foto com o fileId correto
+          const targetPhoto = photoField.find((p: any) => 
+            String(p.id) === String(fileId) || String(p.fileId) === String(fileId)
+          );
+          
+          if (targetPhoto?.downloadUrl) {
+            downloadUrl = targetPhoto.downloadUrl;
+            console.log(`✅ DOWNLOAD_URL encontrada no lead: ${downloadUrl}`);
+          } else {
+            console.warn('⚠️ Foto não encontrada no campo do lead');
+          }
         }
       } catch (e) {
-        console.warn('⚠️ Falha ao usar disk.file.get, usando fallback:', String(e));
+        console.warn('⚠️ Falha ao buscar foto do lead:', String(e));
       }
     }
 
