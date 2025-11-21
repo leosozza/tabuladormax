@@ -60,29 +60,67 @@ serve(async (req) => {
     console.log('📱 App ID:', gupshupAppId);
 
     // Buscar templates da API Gupshup
-    // Endpoint correto: GET https://api.gupshup.io/wa/app/{app_id}/template
-    const gupshupUrl = `https://api.gupshup.io/wa/app/${gupshupAppId}/template`;
-    console.log('🌐 Chamando Gupshup URL:', gupshupUrl);
-    
-    const gupshupResponse = await fetch(
-      gupshupUrl,
-      {
-        method: 'GET',
-        headers: {
-          'apikey': gupshupApiKey
-        }
-      }
-    );
+    // Endpoint principal: GET https://api.gupshup.io/wa/app/{app_id}/template
+    const primaryUrl = `https://api.gupshup.io/wa/app/${gupshupAppId}/template`;
+    console.log('🌐 Chamando Gupshup URL principal:', primaryUrl);
 
-    if (!gupshupResponse.ok) {
-      const errorText = await gupshupResponse.text();
-      console.error('❌ Erro ao buscar templates do Gupshup:', errorText);
-      throw new Error(`Erro na API Gupshup: ${gupshupResponse.status} - ${errorText}`);
+    let gupshupData: GupshupApiResponse | null = null;
+
+    // Chamada principal (API nova)
+    const primaryResponse = await fetch(primaryUrl, {
+      method: 'GET',
+      headers: {
+        'apikey': gupshupApiKey,
+        'accept': 'application/json',
+      },
+    });
+
+    if (primaryResponse.ok) {
+      gupshupData = (await primaryResponse.json()) as GupshupApiResponse;
+      console.log('✅ Resposta da API Gupshup (endpoint principal) recebida com sucesso');
+    } else {
+      const primaryErrorText = await primaryResponse.text();
+      console.error(
+        `❌ Erro ao buscar templates (endpoint principal - status ${primaryResponse.status}):`,
+        primaryErrorText,
+      );
+
+      // Se for 404, tentar endpoint legado
+      if (primaryResponse.status === 404) {
+        const legacyUrl = new URL('https://api.gupshup.io/wa/api/v1/templates');
+        legacyUrl.searchParams.append('appName', gupshupAppId);
+        console.log('🌐 Tentando endpoint legado Gupshup URL:', legacyUrl.toString());
+
+        const legacyResponse = await fetch(legacyUrl.toString(), {
+          method: 'GET',
+          headers: {
+            'apikey': gupshupApiKey,
+            'accept': 'application/json',
+          },
+        });
+
+        if (!legacyResponse.ok) {
+          const legacyErrorText = await legacyResponse.text();
+          console.error(
+            `❌ Erro ao buscar templates (endpoint legado - status ${legacyResponse.status}):`,
+            legacyErrorText,
+          );
+          throw new Error(
+            `Erro na API Gupshup (principal e legado falharam): ` +
+              `principal ${primaryResponse.status} - ${primaryErrorText}; ` +
+              `legado ${legacyResponse.status} - ${legacyErrorText}`,
+          );
+        }
+
+        gupshupData = (await legacyResponse.json()) as GupshupApiResponse;
+        console.log('✅ Resposta da API Gupshup (endpoint legado) recebida com sucesso');
+      } else {
+        throw new Error(`Erro na API Gupshup: ${primaryResponse.status} - ${primaryErrorText}`);
+      }
     }
 
-    const gupshupData: GupshupApiResponse = await gupshupResponse.json();
-    
-    if (!gupshupData.templates || !Array.isArray(gupshupData.templates)) {
+    if (!gupshupData || !gupshupData.templates || !Array.isArray(gupshupData.templates)) {
+      console.error('❌ Resposta inválida da API Gupshup (sem campo templates array):', gupshupData);
       throw new Error('Resposta inválida da API Gupshup');
     }
 
