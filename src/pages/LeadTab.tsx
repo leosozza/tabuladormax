@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3 } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw } from "lucide-react";
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -161,6 +161,23 @@ const mapBitrixToProfile = (bitrixLead: BitrixLead, fieldMappings: FieldMapping[
   });
 
   return profile;
+};
+
+const mapSupabaseLeadToProfile = (lead: any): DynamicProfile => {
+  return {
+    'ID Bitrix': lead.id?.toString() || '—',
+    'Responsável': lead.responsible || '—',
+    'Nome': lead.name || '—',
+    'Idade': lead.age?.toString() || '—',
+    'Scouter': lead.scouter || '—',
+    'Telefone': lead.celular || lead.telefone_trabalho || lead.telefone_casa || '—',
+    'Endereço': lead.address || '—',
+    'Data da última tabulação': lead.date_modify 
+      ? new Date(lead.date_modify).toLocaleString('pt-BR') 
+      : '—',
+    'Última tabulação': lead.etapa || '—',
+    'Agente': lead.telemarketing || lead.responsible || '—',
+  };
 };
 
 const getNestedValue = (obj: any, path: string): any => {
@@ -423,7 +440,7 @@ const LeadTab = () => {
     loadFieldMappings();
   };
 
-  const loadLeadById = async (bitrixId: string, silent = false) => {
+  const loadLeadById = async (bitrixId: string, silent = false, forceBitrix = false) => {
     if (!bitrixId || !bitrixId.trim()) {
       if (!silent) toast.error("Digite um ID válido");
       return;
@@ -431,34 +448,48 @@ const LeadTab = () => {
 
     setSearchLoading(true);
     try {
-      // 1. Buscar primeiro no cache local (chatwoot_contacts)
-      console.log("🔍 Buscando lead no cache local...", bitrixId);
-      const { data: cachedContact, error: cacheError } = await supabase
-        .from('chatwoot_contacts')
-        .select('*')
-        .eq('bitrix_id', bitrixId)
-        .maybeSingle();
+      // 1️⃣ BUSCAR NA TABELA LEADS DO SUPABASE (mais rápido)
+      if (!forceBitrix) {
+        console.log("🔍 Buscando lead no Supabase...", bitrixId);
+        const { data: supabaseLead, error: supabaseError } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('id', Number(bitrixId))
+          .maybeSingle();
 
-      if (cacheError) {
-        console.error("Erro ao buscar no cache:", cacheError);
+        if (supabaseError) {
+          console.error("Erro ao buscar no Supabase:", supabaseError);
+        }
+
+        if (supabaseLead) {
+          console.log("✅ Lead encontrado no Supabase:", supabaseLead);
+          
+          // Mapear lead do Supabase → Profile
+          const newProfile = mapSupabaseLeadToProfile(supabaseLead);
+          setProfile(newProfile);
+          
+          // Salvar também no chatwoot_contacts para compatibilidade
+          const contactData = {
+            bitrix_id: bitrixId,
+            name: supabaseLead.name || '',
+            phone_number: supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa || '',
+            custom_attributes: { idbitrix: bitrixId },
+            additional_attributes: {},
+            conversation_id: null,
+            contact_id: null,
+          };
+          setChatwootData(contactData);
+          
+          toast.success("Lead carregado (Supabase)");
+          setSearchModal(false);
+          setSearchId("");
+          setSearchLoading(false);
+          return;
+        }
       }
 
-      if (cachedContact) {
-        console.log("✅ Lead encontrado no cache:", cachedContact);
-        
-        // Usar dados do cache
-        setChatwootData(cachedContact);
-        const newProfile = mapChatwootToProfile(cachedContact, fieldMappings);
-        setProfile(newProfile);
-        
-        toast.success("Lead carregado do cache!");
-        setSearchModal(false);
-        setSearchId("");
-        return;
-      }
-
-      // 2. Se não estiver no cache, buscar no Bitrix
-      console.log("⚠️ Lead não encontrado no cache, buscando no Bitrix...");
+      // 2️⃣ SE NÃO ENCONTRAR OU forceBitrix=true, BUSCAR NO BITRIX
+      console.log(forceBitrix ? "🔄 Forçando busca no Bitrix..." : "⚠️ Lead não encontrado no Supabase, buscando no Bitrix...");
       const bitrixLead = await getLead(bitrixId);
       
       console.log("✅ Lead encontrado no Bitrix:", bitrixLead);
@@ -526,9 +557,12 @@ const LeadTab = () => {
           date_modify: bitrixLead.DATE_MODIFY ? new Date(bitrixLead.DATE_MODIFY).toISOString() : null,
           raw: bitrixLead as any,
           sync_source: 'bitrix',
+          celular: phoneNumber,
+          etapa: bitrixLead.STATUS_ID || '',
+          telemarketing: bitrixLead.UF_RESPONSAVEL || bitrixLead.ASSIGNED_BY_NAME || '',
         }], { onConflict: 'id' });
 
-      toast.success("Lead carregado do Bitrix!");
+      toast.success(forceBitrix ? "Lead atualizado do Bitrix!" : "Lead carregado do Bitrix!");
       setSearchModal(false);
       setSearchId("");
 
@@ -557,9 +591,9 @@ const LeadTab = () => {
         console.error('❌ Erro ao carregar campos Bitrix:', error);
       }
       
-      // FASE 2: Carregar lead via query param ?id=
+      // FASE 2: Carregar lead via query param ?id= ou ?lead=
       const searchParams = new URLSearchParams(location.search);
-      const leadId = searchParams.get('id');
+      const leadId = searchParams.get('id') || searchParams.get('lead');
       if (leadId) {
         console.log('🔍 Carregando lead do query param:', leadId);
         await loadLeadById(leadId, true); // silent = true para não mostrar toast de erro
@@ -1688,6 +1722,20 @@ const LeadTab = () => {
                   title="Editar Perfil"
                 >
                   <Edit className="w-4 h-4" />
+                </Button>
+              )}
+              {profile['ID Bitrix'] && profile['ID Bitrix'] !== '—' && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    const bitrixId = profile['ID Bitrix'];
+                    loadLeadById(String(bitrixId), false, true);
+                  }}
+                  disabled={searchLoading}
+                  title="Atualizar do Bitrix"
+                >
+                  <RefreshCw className={`w-4 h-4 ${searchLoading ? 'animate-spin' : ''}`} />
                 </Button>
               )}
             </div>
