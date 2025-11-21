@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -352,6 +352,7 @@ const BITRIX_CONTACT_FIELD_MAPPING = {
 
 export default function CadastroFicha() {
   const { entityType, entityId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -364,6 +365,7 @@ export default function CadastroFicha() {
   const [bitrixDealFields, setBitrixDealFields] = useState<Record<string, any> | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
   
   // Estados para busca rápida
   const [searchType, setSearchType] = useState<'lead' | 'deal'>('deal');
@@ -565,6 +567,8 @@ export default function CadastroFicha() {
 
   const loadExistingData = async (type: 'lead' | 'deal', id: string) => {
     setIsLoadingData(true);
+    setHasLoadedInitialData(true); // Marcar que já tentou carregar
+    
     try {
       toast({
         title: 'Carregando dados',
@@ -743,15 +747,33 @@ export default function CadastroFicha() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load existing data from route parameters
+  // Load existing data from route parameters OR query params
   useEffect(() => {
+    // Evitar re-carregar se já carregou
+    if (hasLoadedInitialData) return;
+    
+    // Prioridade 1: Route params (/cadastro/atualizar/:entityType/:entityId)
     if (entityType && entityId) {
       if (entityType === 'lead' || entityType === 'deal') {
+        console.log('📍 Carregando via route params:', { entityType, entityId });
         loadExistingData(entityType as 'lead' | 'deal', entityId);
       }
+      return;
+    }
+    
+    // Prioridade 2: Query params (/cadastro?deal=ID ou /cadastro?lead=ID)
+    const dealIdFromQuery = searchParams.get('deal');
+    const leadIdFromQuery = searchParams.get('lead');
+    
+    if (dealIdFromQuery && /^\d+$/.test(dealIdFromQuery)) {
+      console.log('📍 Carregando via query param deal:', dealIdFromQuery);
+      loadExistingData('deal', dealIdFromQuery);
+    } else if (leadIdFromQuery && /^\d+$/.test(leadIdFromQuery)) {
+      console.log('📍 Carregando via query param lead:', leadIdFromQuery);
+      loadExistingData('lead', leadIdFromQuery);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, entityId]);
+  }, [entityType, entityId, searchParams]);
 
   // Funções de busca rápida
   const handleQuickSearch = async () => {
@@ -995,6 +1017,17 @@ export default function CadastroFicha() {
     setIsSubmitting(true);
     
     try {
+      // Verificar se estamos em modo de atualização sem dealFields
+      if (bitrixEntityType && bitrixEntityId && !bitrixDealFields) {
+        toast({
+          title: 'Dados não carregados',
+          description: 'Os dados do negócio ainda não foram carregados completamente. Aguarde alguns segundos e tente novamente.',
+          variant: 'destructive'
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
       // Prepare data for Bitrix integration using the mapping function
       const bitrixData = mapFormDataToBitrix(formData, bitrixDealFields || undefined);
       
@@ -1135,9 +1168,24 @@ export default function CadastroFicha() {
             {/* Lado Esquerdo - Título */}
             <div className="flex items-center gap-3 flex-1">
               <FileText className="w-8 h-8 text-primary" />
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                {bitrixEntityId ? 'Atualizar ficha do modelo' : 'Nova Ficha Cadastral'}
-              </h1>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  {bitrixEntityId ? 'Atualizar ficha do modelo' : 'Nova Ficha Cadastral'}
+                </h1>
+                {bitrixEntityId && bitrixEntityType && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="text-xs">
+                      {bitrixEntityType === 'deal' ? 'Negócio' : 'Lead'} #{bitrixEntityId}
+                    </Badge>
+                    {bitrixDealFields && (
+                      <Badge variant="default" className="text-xs">
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        Dados carregados
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Lado Direito - Busca Rápida Retrátil */}
@@ -1238,9 +1286,24 @@ export default function CadastroFicha() {
           <div className="flex md:hidden flex-col gap-4 mb-2">
             <div className="flex items-center gap-3">
               <FileText className="w-8 h-8 text-primary" />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                {bitrixEntityId ? 'Atualizar' : 'Nova Ficha'}
-              </h1>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  {bitrixEntityId ? 'Atualizar' : 'Nova Ficha'}
+                </h1>
+                {bitrixEntityId && bitrixEntityType && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="text-xs">
+                      {bitrixEntityType === 'deal' ? 'Negócio' : 'Lead'} #{bitrixEntityId}
+                    </Badge>
+                    {bitrixDealFields && (
+                      <Badge variant="default" className="text-xs">
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        OK
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             
             {isAuthenticated && (
