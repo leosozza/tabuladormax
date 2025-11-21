@@ -1,4 +1,4 @@
-import { Home, Target, DollarSign, Shield } from "lucide-react";
+import { Home, Target, DollarSign, Shield, Headset } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -14,6 +14,7 @@ import {
 
 const mainNavItems = [
   { path: "/home-choice", label: "Dashboard Geral", icon: Home },
+  { path: "/telemarketing", label: "Telemarketing", icon: Headset },
   { path: "/scouter", label: "Scouter", icon: Target },
   { path: "/agenciamento", label: "Agenciamento", icon: DollarSign },
   { path: "/admin", label: "Administrativo", icon: Shield },
