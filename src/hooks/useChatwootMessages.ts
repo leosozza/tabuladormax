@@ -44,8 +44,8 @@ export const useChatwootMessages = (conversationId: number | null) => {
 
       if (error) throw error;
 
-      // Ensure messages is always an array
-      const fetchedMessages = data?.messages;
+      // Ensure messages is always an array - access payload from Chatwoot response
+      const fetchedMessages = data?.messages?.payload;
       setMessages(Array.isArray(fetchedMessages) ? fetchedMessages : []);
     } catch (error) {
       console.error('Error fetching messages:', error);
