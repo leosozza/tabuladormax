@@ -1708,7 +1708,7 @@ const LeadTab = () => {
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="container mx-auto max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="p-6 flex flex-col items-center gap-4 h-fit relative">
+          <Card className="p-6 flex flex-col items-start gap-4 h-fit relative">
             <div className="absolute top-4 right-4 flex gap-2">
               <Button 
                 onClick={() => setSearchModal(true)} 
@@ -1758,14 +1758,14 @@ const LeadTab = () => {
             {/* Foto do perfil */}
             <div className="relative">
               {loadingProfile && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-full">
+                <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-lg">
                   <Loader2 className="w-8 h-8 animate-spin" />
                 </div>
               )}
               <img
                 src={getProfilePhotoUrl()}
                 alt={chatwootData?.name || 'Lead'}
-                className="rounded-full w-40 h-40 border-4 border-green-500 shadow-lg object-cover"
+                className="rounded-lg w-40 h-40 border-4 border-green-500 shadow-lg object-cover"
               />
             </div>
 
