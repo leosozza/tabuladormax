@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw, MessageSquare } from "lucide-react";
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -22,6 +22,7 @@ import { useHotkeys } from "@/hooks/useHotkeys";
 import { saveChatwootContact, extractChatwootData, type ChatwootEventData } from "@/lib/chatwoot";
 import { getLead, type BitrixLead, getLeadFields, type BitrixField } from "@/lib/bitrix";
 import { getTelemarketingId } from "@/handlers/tabular";
+import { ChatModal } from "@/components/chatwoot/ChatModal";
 import {
   BUTTON_CATEGORIES,
   categoryOrder,
@@ -281,6 +282,7 @@ const LeadTab = () => {
   const [bitrixResponseModal, setBitrixResponseModal] = useState(false);
   const [bitrixResponseMessage, setBitrixResponseMessage] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [chatModalOpen, setChatModalOpen] = useState(false);
   
 
   const checkUserRole = async () => {
@@ -1740,6 +1742,16 @@ const LeadTab = () => {
                   <RefreshCw className={`w-4 h-4 ${searchLoading ? 'animate-spin' : ''}`} />
                 </Button>
               )}
+              {chatwootData?.conversation_id && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setChatModalOpen(true)}
+                  title="Abrir Chat"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                </Button>
+              )}
             </div>
             
             {/* Foto do perfil */}
@@ -2574,6 +2586,13 @@ const LeadTab = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ChatModal
+        open={chatModalOpen}
+        onOpenChange={setChatModalOpen}
+        conversationId={chatwootData?.conversation_id || null}
+        contactName={chatwootData?.name || profile['Nome'] || 'Lead'}
+      />
     </div>
   );
 };
