@@ -262,8 +262,24 @@ const LeadTab = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bitrix_fields_cache')
-        .select('field_id, field_type, field_title, display_name')
+        .select('field_id, field_type, field_title, display_name, list_items')
         .not('field_type', 'is', null);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Buscar mapeamentos supabase → bitrix da unified_field_config
+  const { data: unifiedFieldMappings } = useQuery({
+    queryKey: ['unified-field-mappings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('unified_field_config')
+        .select('supabase_field, bitrix_field, bitrix_field_type')
+        .not('bitrix_field', 'is', null)
+        .not('bitrix_field_type', 'is', null);
       
       if (error) throw error;
       return data || [];
@@ -273,34 +289,52 @@ const LeadTab = () => {
 
   // Preparar requests de enum para resolver
   const enumRequests = useMemo(() => {
-    if (!fieldMappings || !profile || !bitrixFieldsMetadata) return [];
+    if (!fieldMappings || !profile || !bitrixFieldsMetadata || !unifiedFieldMappings) return [];
     
     const requests: Array<{ bitrixField: string; value: unknown; bitrixFieldType?: string }> = [];
     
+    // Mapeamento profile_field → supabase_field (baseado em mapSupabaseLeadToProfile)
+    const profileToSupabaseMap: Record<string, string> = {
+      'custom_1760116868521': 'etapa',           // Última tabulação
+      'custom_1760018636938': 'id',              // ID Bitrix
+      'responsible': 'nome_responsavel_legal',   // Responsável
+      'name': 'nome_modelo',                     // Nome
+      'age': 'age',                              // Idade
+      'scouter': 'scouter',                      // Scouter
+      'custom_1759958661434': 'celular',         // Telefone
+      'address': 'local_abordagem',              // Endereço
+      'custom_1760109345668': 'date_modify',     // Data da última tabulação
+      'custom_1760376794807': 'telemarketing'    // Agente
+    };
+    
     fieldMappings.forEach(mapping => {
       const value = (profile as any)[mapping.profile_field];
+      if (!value || value === '—') return;
       
-      // Verificar se há campo Bitrix mapeado
-      const chatwootField = mapping.chatwoot_field;
-      const fieldMeta = bitrixFieldsMetadata.find(
-        f => f.field_id === chatwootField || f.display_name === chatwootField
+      // Ponte: profile_field → supabase_field → bitrix_field
+      const supabaseField = profileToSupabaseMap[mapping.profile_field];
+      if (!supabaseField) return;
+      
+      const unifiedMapping = unifiedFieldMappings.find(
+        um => um.supabase_field === supabaseField
       );
       
-      if (fieldMeta && 
-          (fieldMeta.field_type === 'crm_status' || 
-           fieldMeta.field_type === 'enumeration') &&
-          value && 
-          value !== '—') {
+      if (!unifiedMapping) return;
+      
+      // Verificar se é enum/crm_status
+      if (unifiedMapping.bitrix_field_type === 'crm_status' || 
+          unifiedMapping.bitrix_field_type === 'enumeration') {
+        
         requests.push({
-          bitrixField: fieldMeta.field_id,
+          bitrixField: unifiedMapping.bitrix_field,
           value: value,
-          bitrixFieldType: fieldMeta.field_type,
+          bitrixFieldType: unifiedMapping.bitrix_field_type,
         });
       }
     });
     
     return requests;
-  }, [fieldMappings, profile, bitrixFieldsMetadata]);
+  }, [fieldMappings, profile, bitrixFieldsMetadata, unifiedFieldMappings]);
 
   // Resolver valores de enum
   const { getResolution } = useBitrixEnums(enumRequests);
@@ -441,6 +475,38 @@ const LeadTab = () => {
 
           // Mapear lead do Supabase → Profile
           const newProfile = mapSupabaseLeadToProfile(supabaseLead);
+          
+          // ⚠️ Se telefone estiver vazio, buscar no Bitrix
+          const hasPhone = supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa;
+          
+          if (!hasPhone) {
+            console.log("⚠️ Lead sem telefone no Supabase, buscando no Bitrix...");
+            try {
+              const bitrixLead = await getLead(bitrixId);
+              
+              // Extrair telefone do Bitrix
+              let phoneNumber = '';
+              const phones = bitrixLead.PHONE;
+              if (Array.isArray(phones) && phones.length > 0) {
+                phoneNumber = phones[0].VALUE || '';
+              }
+              
+              if (phoneNumber) {
+                console.log("✅ Telefone encontrado no Bitrix:", phoneNumber);
+                // Atualizar profile com telefone do Bitrix
+                newProfile['custom_1759958661434'] = phoneNumber;
+                
+                // Atualizar também no Supabase para cache
+                await supabase
+                  .from('leads')
+                  .update({ celular: phoneNumber })
+                  .eq('id', Number(bitrixId));
+              }
+            } catch (bitrixError) {
+              console.error("❌ Erro ao buscar telefone no Bitrix:", bitrixError);
+            }
+          }
+          
           setProfile(newProfile);
 
           // Salvar também no chatwoot_contacts para compatibilidade
@@ -1655,20 +1721,38 @@ const LeadTab = () => {
                         const rawValue = (profile as any)[mapping.profile_field];
                         if (!rawValue || rawValue === '—') return '—';
                         
-                        // Tentar resolver se for enum do Bitrix
-                        const chatwootField = mapping.chatwoot_field;
-                        const fieldMeta = bitrixFieldsMetadata?.find(
-                          f => f.field_id === chatwootField || f.display_name === chatwootField
-                        );
+                        // Mapeamento profile_field → supabase_field
+                        const profileToSupabaseMap: Record<string, string> = {
+                          'custom_1760116868521': 'etapa',
+                          'custom_1760018636938': 'id',
+                          'responsible': 'nome_responsavel_legal',
+                          'name': 'nome_modelo',
+                          'age': 'age',
+                          'scouter': 'scouter',
+                          'custom_1759958661434': 'celular',
+                          'address': 'local_abordagem',
+                          'custom_1760109345668': 'date_modify',
+                          'custom_1760376794807': 'telemarketing'
+                        };
                         
-                        if (fieldMeta) {
-                          const resolution = getResolution(fieldMeta.field_id, rawValue);
-                          if (resolution) {
-                            return (
-                              <span title={resolution.id}>
-                                {resolution.label}
-                              </span>
-                            );
+                        const supabaseField = profileToSupabaseMap[mapping.profile_field];
+                        
+                        if (supabaseField && unifiedFieldMappings) {
+                          const unifiedMapping = unifiedFieldMappings.find(
+                            um => um.supabase_field === supabaseField
+                          );
+                          
+                          if (unifiedMapping && 
+                              (unifiedMapping.bitrix_field_type === 'crm_status' || 
+                               unifiedMapping.bitrix_field_type === 'enumeration')) {
+                            const resolution = getResolution(unifiedMapping.bitrix_field, rawValue);
+                            if (resolution) {
+                              return (
+                                <span title={`${resolution.id} (${unifiedMapping.bitrix_field})`}>
+                                  {resolution.label}
+                                </span>
+                              );
+                            }
                           }
                         }
                         
