@@ -1498,6 +1498,17 @@ export type Database = {
         Args: { _route_path: string; _user_id: string }
         Returns: boolean
       }
+      get_general_stats: {
+        Args: never
+        Returns: {
+          compareceram: number
+          confirmados: number
+          leads_hoje: number
+          leads_semana: number
+          total_leads: number
+          valor_total: number
+        }[]
+      }
       get_leads_schema: {
         Args: never
         Returns: {
