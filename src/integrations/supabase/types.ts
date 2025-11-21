@@ -914,6 +914,8 @@ export type Database = {
           celular: string | null
           commercial_project_id: string | null
           compareceu: boolean | null
+          contact_id: number | null
+          conversation_id: number | null
           criado: string | null
           data_agendamento: string | null
           data_analise: string | null
@@ -971,6 +973,8 @@ export type Database = {
           celular?: string | null
           commercial_project_id?: string | null
           compareceu?: boolean | null
+          contact_id?: number | null
+          conversation_id?: number | null
           criado?: string | null
           data_agendamento?: string | null
           data_analise?: string | null
@@ -1028,6 +1032,8 @@ export type Database = {
           celular?: string | null
           commercial_project_id?: string | null
           compareceu?: boolean | null
+          contact_id?: number | null
+          conversation_id?: number | null
           criado?: string | null
           data_agendamento?: string | null
           data_analise?: string | null
