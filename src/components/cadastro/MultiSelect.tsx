@@ -72,7 +72,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
 
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className="text-base font-medium">{label}</Label>
       <div className="space-y-2">
         <div className="relative">
           <Input
@@ -86,6 +86,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
             onFocus={() => setShowSuggestions(availableOptions.length > 0)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             placeholder={placeholder}
+            className="h-12 text-base"
           />
           {showSuggestions && filteredOptions.length > 0 && (
             <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-md max-h-60 overflow-y-auto">
@@ -93,7 +94,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                 <button
                   key={option.value}
                   type="button"
-                  className="w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground text-sm"
+                  className="w-full px-3 py-3 text-left hover:bg-accent hover:text-accent-foreground text-base"
                   onClick={() => handleOptionClick(option.value)}
                 >
                   {option.label}
@@ -105,14 +106,14 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
         {value.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {value.map((itemValue) => (
-              <Badge key={itemValue} variant="secondary" className="pl-3 pr-1">
+              <Badge key={itemValue} variant="secondary" className="text-sm py-1.5 px-3 pr-1">
                 {getLabelForValue(itemValue)}
                 <button
                   type="button"
                   onClick={() => handleRemove(itemValue)}
-                  className="ml-2 hover:text-destructive"
+                  className="ml-2 hover:text-destructive min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-4 h-4" />
                 </button>
               </Badge>
             ))}

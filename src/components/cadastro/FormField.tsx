@@ -31,9 +31,9 @@ export const FormField: React.FC<FormFieldProps> = ({
 }) => {
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>
+      <Label htmlFor={id} className="text-base font-medium">
         {label}
-        {required && <span className="text-destructive ml-1">*</span>}
+        {required && <span className="text-destructive ml-1 text-lg">*</span>}
       </Label>
       
       {type === 'textarea' ? (
@@ -45,15 +45,16 @@ export const FormField: React.FC<FormFieldProps> = ({
           required={required}
           rows={rows}
           disabled={disabled}
+          className="min-h-[100px] text-base"
         />
       ) : type === 'select' ? (
         <Select value={value} onValueChange={onChange} disabled={disabled}>
-          <SelectTrigger id={id}>
+          <SelectTrigger id={id} className="h-12 text-base">
             <SelectValue placeholder={placeholder || 'Selecione...'} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-[60vh]">
             {options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
+              <SelectItem key={option.value} value={option.value} className="text-base py-3">
                 {option.label}
               </SelectItem>
             ))}
@@ -68,7 +69,7 @@ export const FormField: React.FC<FormFieldProps> = ({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
-          className="w-full"
+          className="h-12 text-base w-full"
         />
       ) : (
         <Input
@@ -79,6 +80,7 @@ export const FormField: React.FC<FormFieldProps> = ({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
+          className="h-12 text-base"
         />
       )}
     </div>
