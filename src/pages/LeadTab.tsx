@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw } from "lucide-react";
+import noPhotoPlaceholder from "@/assets/no-photo-placeholder.png";
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -26,6 +27,10 @@ import { ChatModal } from "@/components/chatwoot/ChatModal";
 import { BUTTON_CATEGORIES, categoryOrder, ensureButtonLayout, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
+import { useQuery } from '@tanstack/react-query';
+import { useLeadAnalysis } from "@/hooks/useLeadAnalysis";
+import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
+import { useBitrixEnums } from '@/hooks/useBitrixEnums';
 
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, unknown>;
@@ -227,7 +232,6 @@ const LeadTab = () => {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingButtons, setLoadingButtons] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [showFieldMappingModal, setShowFieldMappingModal] = useState(false);
   const [isManager, setIsManager] = useState(false);
   const [buttonColumns, setButtonColumns] = useState(3); // 3, 4 ou 5 colunas
@@ -236,6 +240,71 @@ const LeadTab = () => {
   const [bitrixResponseMessage, setBitrixResponseMessage] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [chatModalOpen, setChatModalOpen] = useState(false);
+
+  // Query para field mappings
+  const { data: fieldMappings = [], refetch: refetchFieldMappings } = useQuery({
+    queryKey: ['profile-field-mappings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profile_field_mapping')
+        .select('*')
+        .order('sort_order');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Buscar metadados dos campos Bitrix para identificar enums
+  const { data: bitrixFieldsMetadata } = useQuery({
+    queryKey: ['bitrix-fields-metadata'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bitrix_fields_cache')
+        .select('field_id, field_type, field_title, display_name')
+        .not('field_type', 'is', null);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Preparar requests de enum para resolver
+  const enumRequests = useMemo(() => {
+    if (!fieldMappings || !profile || !bitrixFieldsMetadata) return [];
+    
+    const requests: Array<{ bitrixField: string; value: unknown; bitrixFieldType?: string }> = [];
+    
+    fieldMappings.forEach(mapping => {
+      const value = (profile as any)[mapping.profile_field];
+      
+      // Verificar se há campo Bitrix mapeado
+      const chatwootField = mapping.chatwoot_field;
+      const fieldMeta = bitrixFieldsMetadata.find(
+        f => f.field_id === chatwootField || f.display_name === chatwootField
+      );
+      
+      if (fieldMeta && 
+          (fieldMeta.field_type === 'crm_status' || 
+           fieldMeta.field_type === 'enumeration') &&
+          value && 
+          value !== '—') {
+        requests.push({
+          bitrixField: fieldMeta.field_id,
+          value: value,
+          bitrixFieldType: fieldMeta.field_type,
+        });
+      }
+    });
+    
+    return requests;
+  }, [fieldMappings, profile, bitrixFieldsMetadata]);
+
+  // Resolver valores de enum
+  const { getResolution } = useBitrixEnums(enumRequests);
+
   const checkUserRole = async () => {
     try {
       const {
@@ -256,27 +325,6 @@ const LeadTab = () => {
       console.error('Erro ao verificar role:', error);
     }
   };
-  const loadFieldMappings = async () => {
-    try {
-      console.log("🔄 Carregando field mappings...");
-      const {
-        data,
-        error
-      } = await supabase.from("profile_field_mapping").select("*").order('sort_order', {
-        ascending: true
-      });
-      if (error) throw error;
-      if (data) {
-        console.log("✅ Field mappings carregados:", data);
-        setFieldMappings(data as FieldMapping[]);
-      } else {
-        console.log("⚠️ Nenhum field mapping encontrado");
-      }
-    } catch (error) {
-      console.error("❌ Erro ao carregar mapeamentos:", error);
-      toast.error("Erro ao carregar configurações de campos");
-    }
-  };
   const saveFieldMapping = async (profileField: string, chatwootField: string, displayName?: string, isProfilePhoto?: boolean) => {
     try {
       const {
@@ -291,7 +339,7 @@ const LeadTab = () => {
       });
       if (error) throw error;
       toast.success("Mapeamento salvo com sucesso!");
-      loadFieldMappings();
+      refetchFieldMappings();
     } catch (error) {
       console.error("Erro ao salvar mapeamento:", error);
       toast.error("Erro ao salvar mapeamento");
@@ -304,7 +352,7 @@ const LeadTab = () => {
       } = await supabase.from("profile_field_mapping").delete().eq("profile_field", profileField);
       if (error) throw error;
       toast.success("Campo removido com sucesso!");
-      loadFieldMappings();
+      refetchFieldMappings();
     } catch (error) {
       console.error("Erro ao remover campo:", error);
       toast.error("Erro ao remover campo");
@@ -323,7 +371,7 @@ const LeadTab = () => {
     });
     if (!error) {
       toast.success("Novo campo adicionado!");
-      loadFieldMappings();
+      refetchFieldMappings();
     }
   };
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -343,7 +391,7 @@ const LeadTab = () => {
       }).eq('id', reordered[i].id);
     }
     toast.success("Ordem atualizada!");
-    loadFieldMappings();
+    refetchFieldMappings();
   };
   const moveFieldUp = async (index: number) => {
     if (index === 0) return;
@@ -356,7 +404,7 @@ const LeadTab = () => {
         sort_order: i
       }).eq('id', reordered[i].id);
     }
-    loadFieldMappings();
+    refetchFieldMappings();
   };
   const moveFieldDown = async (index: number) => {
     if (index === fieldMappings.length - 1) return;
@@ -369,7 +417,7 @@ const LeadTab = () => {
         sort_order: i
       }).eq('id', reordered[i].id);
     }
-    loadFieldMappings();
+    refetchFieldMappings();
   };
   const loadLeadById = async (bitrixId: string, silent = false, forceBitrix = false) => {
     if (!bitrixId || !bitrixId.trim()) {
@@ -494,7 +542,6 @@ const LeadTab = () => {
     const initialize = async () => {
       checkUserRole();
       loadButtons();
-      loadFieldMappings();
 
       // Carregar metadados dos campos Bitrix para conversão automática
       try {
@@ -1585,7 +1632,17 @@ const LeadTab = () => {
               {loadingProfile && <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-lg">
                   <Loader2 className="w-8 h-8 animate-spin" />
                 </div>}
-              <img src={getProfilePhotoUrl()} alt={chatwootData?.name || 'Lead'} className="rounded-lg w-40 h-40 border-4 border-green-500 shadow-lg object-cover" />
+              <img 
+                src={getProfilePhotoUrl()} 
+                alt={chatwootData?.name || 'Lead'} 
+                className="rounded-lg w-40 h-40 border-4 border-green-500 shadow-lg object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (target.src !== noPhotoPlaceholder) {
+                    target.src = noPhotoPlaceholder;
+                  }
+                }}
+              />
             </div>
 
             {!editMode ? <>
@@ -1594,7 +1651,29 @@ const LeadTab = () => {
                   {fieldMappings.filter(mapping => !mapping.is_profile_photo) // Não exibir o campo da foto na lista
               .map(mapping => <p key={mapping.profile_field}>
                       <strong>{mapping.display_name || mapping.profile_field}:</strong>{' '}
-                        {String((profile as any)[mapping.profile_field] || '—')}
+                      {(() => {
+                        const rawValue = (profile as any)[mapping.profile_field];
+                        if (!rawValue || rawValue === '—') return '—';
+                        
+                        // Tentar resolver se for enum do Bitrix
+                        const chatwootField = mapping.chatwoot_field;
+                        const fieldMeta = bitrixFieldsMetadata?.find(
+                          f => f.field_id === chatwootField || f.display_name === chatwootField
+                        );
+                        
+                        if (fieldMeta) {
+                          const resolution = getResolution(fieldMeta.field_id, rawValue);
+                          if (resolution) {
+                            return (
+                              <span title={resolution.id}>
+                                {resolution.label}
+                              </span>
+                            );
+                          }
+                        }
+                        
+                        return String(rawValue);
+                      })()}
                       </p>)}
                 </div>
 
