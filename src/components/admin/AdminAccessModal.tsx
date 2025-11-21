@@ -20,6 +20,7 @@ import {
   LayoutDashboard,
   Upload,
   Database,
+  MessageSquare,
 } from 'lucide-react';
 
 interface AdminAccessModalProps {
@@ -90,6 +91,13 @@ const adminOptions = [
     title: 'Re-processar Leads',
     description: 'Re-processar leads históricos do campo raw',
     color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  },
+  {
+    path: '/admin/template-management',
+    icon: MessageSquare,
+    title: 'Templates WhatsApp',
+    description: 'Gerenciar templates Gupshup',
+    color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   },
 ];
 

@@ -34,6 +34,7 @@ import LeadsReprocess from "./pages/admin/LeadsReprocess";
 import SyncErrors from "./pages/admin/SyncErrors";
 
 import FieldManagement from "./pages/admin/FieldManagement";
+import TemplateManagement from "./pages/admin/TemplateManagement";
 
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
@@ -102,6 +103,7 @@ const App = () => (
           <Route path="/admin/leads-reprocess" element={<ProtectedRoute requireManager><LeadsReprocess /></ProtectedRoute>} />
           <Route path="/admin/sync-errors" element={<ProtectedRoute requireManager><SyncErrors /></ProtectedRoute>} />
           <Route path="/admin/field-management" element={<ProtectedRoute requireManager><FieldManagement /></ProtectedRoute>} />
+          <Route path="/admin/template-management" element={<ProtectedRoute requireManager><TemplateManagement /></ProtectedRoute>} />
 
           {/* Agenciamento (Negotiations) - Connected to 3D solar system planet button */}
           <Route path="/agenciamento" element={<ProtectedRoute><Agenciamento /></ProtectedRoute>} />
