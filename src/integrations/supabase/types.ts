@@ -943,6 +943,7 @@ export type Database = {
           maxsystem_id_ficha: string | null
           name: string | null
           nome_modelo: string | null
+          nome_responsavel_legal: string | null
           op_telemarketing: string | null
           photo_url: string | null
           presenca_confirmada: boolean | null
@@ -1002,6 +1003,7 @@ export type Database = {
           maxsystem_id_ficha?: string | null
           name?: string | null
           nome_modelo?: string | null
+          nome_responsavel_legal?: string | null
           op_telemarketing?: string | null
           photo_url?: string | null
           presenca_confirmada?: boolean | null
@@ -1061,6 +1063,7 @@ export type Database = {
           maxsystem_id_ficha?: string | null
           name?: string | null
           nome_modelo?: string | null
+          nome_responsavel_legal?: string | null
           op_telemarketing?: string | null
           photo_url?: string | null
           presenca_confirmada?: boolean | null

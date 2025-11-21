@@ -167,12 +167,12 @@ const mapBitrixToProfile = (bitrixLead: BitrixLead, fieldMappings: FieldMapping[
 const mapSupabaseLeadToProfile = (lead: any): DynamicProfile => {
   return {
     'ID Bitrix': lead.id?.toString() || '—',
-    'Responsável': lead.responsible || '—',
+    'Responsável': lead.nome_responsavel_legal || '—',
     'Nome': lead.name || '—',
     'Idade': lead.age?.toString() || '—',
     'Scouter': lead.scouter || '—',
     'Telefone': lead.celular || lead.telefone_trabalho || lead.telefone_casa || '—',
-    'Endereço': lead.address || '—',
+    'Endereço': lead.local_abordagem || lead.address || '—',
     'Data da última tabulação': lead.date_modify 
       ? new Date(lead.date_modify).toLocaleString('pt-BR') 
       : '—',
