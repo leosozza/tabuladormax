@@ -4,6 +4,7 @@ import { User } from "lucide-react";
 import { TinderCardConfig } from "@/hooks/useTinderCardConfig";
 import { ALL_LEAD_FIELDS } from "@/config/leadFields";
 import { cn } from "@/lib/utils";
+import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
 
 interface TinderCardPreviewProps {
   config: TinderCardConfig;
@@ -61,9 +62,11 @@ export function TinderCardPreview({ config }: TinderCardPreviewProps) {
           "relative bg-muted overflow-hidden",
           photoClasses[config.photoStyle]
         )}>
-          <div className="w-full h-full flex items-center justify-center">
-            <User className="w-16 h-16 text-muted-foreground opacity-20" />
-          </div>
+          <img
+            src={getLeadPhotoUrl('')}
+            alt="Preview"
+            className="w-full h-full object-cover"
+          />
           
           {/* Badges */}
           <div className="absolute top-2 right-2 flex flex-col gap-1.5">

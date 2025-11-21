@@ -31,6 +31,7 @@ import {
   type ButtonLayout,
 } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
+import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
 
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, unknown>;
@@ -909,12 +910,12 @@ const LeadTab = () => {
   const getProfilePhotoUrl = () => {
     const photoField = fieldMappings.find(m => m.is_profile_photo);
     if (!photoField) {
-      return chatwootData?.thumbnail || "/placeholder.svg";
+      return getLeadPhotoUrl(chatwootData?.thumbnail);
     }
     
     // Obter o valor do campo marcado como foto
     const photoUrl = profile[photoField.profile_field];
-    return photoUrl || chatwootData?.thumbnail || "/placeholder.svg";
+    return getLeadPhotoUrl(photoUrl || chatwootData?.thumbnail);
   };
 
   const hotkeyMapping = useMemo(() => buttons.flatMap(btn => {
