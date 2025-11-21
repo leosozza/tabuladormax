@@ -1735,42 +1735,27 @@ export default function CadastroFicha() {
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 sticky bottom-0 bg-background/95 backdrop-blur-sm py-4 -mx-4 px-4 border-t">
+            
+            {/* Botão Buscar - Apenas quando não há dados carregados */}
+            {!bitrixEntityId && (
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  if (bitrixEntityId) {
-                    // Limpar formulário e remover dados carregados
-                    setFormData(INITIAL_FORM_DATA);
-                    setBitrixEntityId(null);
-                    setBitrixEntityType(null);
-                    setBitrixDealFields(null);
-                    // Limpar URL
-                    window.history.replaceState({}, '', '/cadastro');
-                  } else {
-                    // Abrir busca
-                    setIsSearchExpanded(true);
-                  }
-                }}
+                size="icon"
+                onClick={() => setIsSearchExpanded(true)}
                 disabled={isSubmitting}
-                className="h-12 text-base w-full sm:w-auto"
+                className="h-12 w-12 shrink-0"
+                title="Buscar cadastro existente"
               >
-                {bitrixEntityId ? (
-                  <>
-                    <Trash2 className="w-5 h-5 mr-2" />
-                    Limpar
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-5 h-5 mr-2" />
-                    Buscar
-                  </>
-                )}
+                <Search className="w-5 h-5" />
               </Button>
+            )}
+
+            {/* Botão Salvar - Sempre visível */}
             <Button 
               type="submit" 
               disabled={isSubmitting}
-              className="h-12 text-base w-full sm:w-auto"
+              className={`h-12 text-base ${!bitrixEntityId ? 'w-full sm:flex-1' : 'w-full'}`}
             >
               {isSubmitting ? (
                 <>
