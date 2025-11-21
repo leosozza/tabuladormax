@@ -44,7 +44,9 @@ export const useChatwootMessages = (conversationId: number | null) => {
 
       if (error) throw error;
 
-      setMessages(data.messages || []);
+      // Ensure messages is always an array
+      const fetchedMessages = data?.messages;
+      setMessages(Array.isArray(fetchedMessages) ? fetchedMessages : []);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast.error('Erro ao carregar mensagens');
