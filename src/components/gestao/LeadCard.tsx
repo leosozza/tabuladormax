@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { User, MapPin, Calendar, Phone, AlertCircle } from "lucide-react";
 import { useTinderCardConfig } from "@/hooks/useTinderCardConfig";
 import { ALL_LEAD_FIELDS } from "@/config/leadFields";
+import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
 
 interface LeadCardProps {
   lead: Record<string, unknown>; // Dynamic lead object
@@ -84,20 +85,11 @@ export default function LeadCard({ lead }: LeadCardProps) {
         "relative bg-muted overflow-hidden",
         photoContainerClasses[config.photoStyle]
       )}>
-        {photoUrl ? (
-          <img
-            src={photoUrl}
-            alt={String(lead.name || "Lead")}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-muted/30">
-            <div className="flex flex-col items-center gap-2">
-              <User className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground opacity-40" />
-              <span className="text-xs text-muted-foreground opacity-60">Sem foto</span>
-            </div>
-          </div>
-        )}
+        <img
+          src={getLeadPhotoUrl(photoUrl)}
+          alt={String(lead.name || "Lead")}
+          className="w-full h-full object-cover"
+        />
         
         {/* Badges de Status */}
         <div className="absolute top-2 right-2 md:top-3 md:right-3 lg:top-4 lg:right-4 flex flex-col gap-1.5 md:gap-2">
