@@ -35,95 +35,94 @@ serve(async (req) => {
     let skipped = 0;
     let errors = 0;
     const errorDetails: any[] = [];
+    
+    // Processar em lotes de 100 para melhor performance
+    const BATCH_SIZE = 100;
+    
+    for (let i = 0; i < (allLeads?.length || 0); i += BATCH_SIZE) {
+      const batch = allLeads!.slice(i, i + BATCH_SIZE);
+      console.log(`📦 Processando lote ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil((allLeads?.length || 0) / BATCH_SIZE)}`);
+      
+      for (const lead of batch) {
+        try {
+          const raw = lead.raw as any;
+          const parentId = raw?.PARENT_ID_1120 ? Number(raw.PARENT_ID_1120) : null;
 
-    for (const lead of allLeads || []) {
-      try {
-        const raw = lead.raw as any;
-        const parentId = raw?.PARENT_ID_1120 ? Number(raw.PARENT_ID_1120) : null;
+          if (!parentId) {
+            skipped++;
+            continue;
+          }
 
-        if (!parentId) {
-          skipped++;
-          continue;
-        }
+          // Buscar entidade SPA
+          const { data: spaEntity, error: spaError } = await supabase
+            .from('bitrix_spa_entities')
+            .select('bitrix_item_id, title')
+            .eq('entity_type_id', 1120)
+            .eq('bitrix_item_id', parentId)
+            .maybeSingle();
 
-        console.log(`🔍 Lead ${lead.id}: PARENT_ID_1120=${parentId}`);
+          if (spaError) {
+            console.error(`❌ Erro ao buscar SPA para lead ${lead.id}:`, spaError);
+            errors++;
+            errorDetails.push({ lead_id: lead.id, error: `SPA error: ${spaError.message}` });
+            continue;
+          }
 
-        // Buscar entidade SPA
-        const { data: spaEntity, error: spaError } = await supabase
-          .from('bitrix_spa_entities')
-          .select('bitrix_item_id, title')
-          .eq('entity_type_id', 1120)
-          .eq('bitrix_item_id', parentId)
-          .maybeSingle();
+          if (!spaEntity) {
+            skipped++;
+            continue;
+          }
 
-        if (spaError) {
-          console.error(`❌ Erro ao buscar SPA para lead ${lead.id}:`, spaError);
+          // Buscar UUID do projeto na tabela commercial_projects
+          const { data: project, error: projectError } = await supabase
+            .from('commercial_projects')
+            .select('id, name')
+            .eq('code', String(spaEntity.bitrix_item_id))
+            .eq('active', true)
+            .maybeSingle();
+
+          if (projectError) {
+            console.error(`❌ Erro ao buscar projeto para lead ${lead.id}:`, projectError);
+            errors++;
+            errorDetails.push({ lead_id: lead.id, error: `Project error: ${projectError.message}` });
+            continue;
+          }
+
+          if (!project) {
+            console.warn(`⚠️ Projeto não encontrado para code=${spaEntity.bitrix_item_id} (lead ${lead.id})`);
+            skipped++;
+            continue;
+          }
+
+          // Verificar se já está correto
+          if (lead.commercial_project_id === project.id) {
+            skipped++;
+            continue;
+          }
+
+          // Atualizar lead
+          const { error: updateError } = await supabase
+            .from('leads')
+            .update({ 
+              commercial_project_id: project.id,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', lead.id);
+
+          if (updateError) {
+            console.error(`❌ Erro ao atualizar lead ${lead.id}:`, updateError);
+            errors++;
+            errorDetails.push({ lead_id: lead.id, error: `Update error: ${updateError.message}` });
+            continue;
+          }
+
+          fixed++;
+
+        } catch (leadError: any) {
+          console.error(`❌ Erro ao processar lead ${lead.id}:`, leadError);
           errors++;
-          errorDetails.push({ lead_id: lead.id, error: `SPA error: ${spaError.message}` });
-          continue;
+          errorDetails.push({ lead_id: lead.id, error: leadError.message });
         }
-
-        if (!spaEntity) {
-          console.warn(`⚠️ SPA não encontrado para lead ${lead.id} (PARENT_ID_1120=${parentId})`);
-          skipped++;
-          continue;
-        }
-
-        console.log(`✅ SPA encontrado: ${spaEntity.title} (${spaEntity.bitrix_item_id})`);
-
-        // Buscar UUID do projeto na tabela commercial_projects
-        const { data: project, error: projectError } = await supabase
-          .from('commercial_projects')
-          .select('id, name')
-          .eq('code', String(spaEntity.bitrix_item_id))
-          .eq('active', true)
-          .maybeSingle();
-
-        if (projectError) {
-          console.error(`❌ Erro ao buscar projeto para lead ${lead.id}:`, projectError);
-          errors++;
-          errorDetails.push({ lead_id: lead.id, error: `Project error: ${projectError.message}` });
-          continue;
-        }
-
-        if (!project) {
-          console.warn(`⚠️ Projeto não encontrado para code=${spaEntity.bitrix_item_id} (lead ${lead.id})`);
-          skipped++;
-          continue;
-        }
-
-        // Verificar se já está correto
-        if (lead.commercial_project_id === project.id) {
-          console.log(`✓ Lead ${lead.id} já tem o projeto correto: ${project.name}`);
-          skipped++;
-          continue;
-        }
-
-        // Atualizar lead
-        console.log(`🔄 Atualizando lead ${lead.id}: ${lead.commercial_project_id} → ${project.id} (${project.name})`);
-        
-        const { error: updateError } = await supabase
-          .from('leads')
-          .update({ 
-            commercial_project_id: project.id,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', lead.id);
-
-        if (updateError) {
-          console.error(`❌ Erro ao atualizar lead ${lead.id}:`, updateError);
-          errors++;
-          errorDetails.push({ lead_id: lead.id, error: `Update error: ${updateError.message}` });
-          continue;
-        }
-
-        console.log(`✅ Lead ${lead.id} atualizado com sucesso`);
-        fixed++;
-
-      } catch (leadError: any) {
-        console.error(`❌ Erro ao processar lead ${lead.id}:`, leadError);
-        errors++;
-        errorDetails.push({ lead_id: lead.id, error: leadError.message });
       }
     }
 
