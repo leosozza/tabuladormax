@@ -1282,14 +1282,14 @@ export default function CadastroFicha() {
               <div className="w-full">
                 {!isSearchExpanded ? (
                   /* Botão Retraído Mobile - Apenas Lupa */
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsSearchExpanded(true)}
-                    className="h-12 w-12 rounded-full border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5 mx-auto block"
-                  >
-                    <Search className="w-5 h-5 text-primary" />
-                  </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsSearchExpanded(true)}
+              className="h-12 w-12 rounded-full border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5 mx-auto block"
+            >
+              <Search className="w-6 h-6 text-primary" />
+            </Button>
                 ) : (
                   /* Campo Expandido Mobile */
                   <Card className="p-2 border-2 border-primary/20 animate-in fade-in duration-300">
