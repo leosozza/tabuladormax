@@ -1152,17 +1152,6 @@ export default function CadastroFicha() {
       <div className="container max-w-6xl mx-auto py-8 px-4">
         {/* Header */}
         <div className="mb-8">
-          {isAuthenticated && (
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/home-choice')}
-              className="mb-4"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Voltar
-            </Button>
-          )}
-          
           {/* Desktop Layout */}
           <div className="hidden md:flex items-start justify-between mb-2 gap-4">
             {/* Lado Esquerdo - Título */}
@@ -1173,17 +1162,9 @@ export default function CadastroFicha() {
                   {bitrixEntityId ? 'Atualizar ficha do modelo' : 'Nova Ficha Cadastral'}
                 </h1>
                 {bitrixEntityId && bitrixEntityType && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="secondary" className="text-xs">
-                      {bitrixEntityType === 'deal' ? 'Negócio' : 'Lead'} #{bitrixEntityId}
-                    </Badge>
-                    {bitrixDealFields && (
-                      <Badge variant="default" className="text-xs">
-                        <Sparkles className="w-3 h-3 mr-1" />
-                        Dados carregados
-                      </Badge>
-                    )}
-                  </div>
+                  <Badge variant="secondary" className="text-sm mt-1">
+                    {bitrixEntityType === 'deal' ? 'Negócio' : 'Lead'} #{bitrixEntityId}
+                  </Badge>
                 )}
               </div>
             </div>
@@ -1291,17 +1272,9 @@ export default function CadastroFicha() {
                   {bitrixEntityId ? 'Atualizar' : 'Nova Ficha'}
                 </h1>
                 {bitrixEntityId && bitrixEntityType && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="secondary" className="text-xs">
-                      {bitrixEntityType === 'deal' ? 'Negócio' : 'Lead'} #{bitrixEntityId}
-                    </Badge>
-                    {bitrixDealFields && (
-                      <Badge variant="default" className="text-xs">
-                        <Sparkles className="w-3 h-3 mr-1" />
-                        OK
-                      </Badge>
-                    )}
-                  </div>
+                  <Badge variant="secondary" className="text-sm mt-1">
+                    {bitrixEntityType === 'deal' ? 'Negócio' : 'Lead'} #{bitrixEntityId}
+                  </Badge>
                 )}
               </div>
             </div>
@@ -1394,33 +1367,12 @@ export default function CadastroFicha() {
             )}
           </div>
 
-          {/* Descrição e Badge de Fonte */}
-          <div className="flex flex-col gap-2">
-            <p className="text-muted-foreground">
-              {bitrixEntityId 
-                ? (
-                  <>
-                    credencial numero: <strong>{bitrixEntityId}</strong>
-                  </>
-                )
-                : 'Preencha os dados para criar um novo cadastro de modelo'}
-            </p>
-            
-            {/* Badge mostrando fonte dos dados */}
-            {bitrixEntityId && (
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="gap-1">
-                  <FileText className="w-3 h-3" />
-                  {bitrixEntityType === 'deal' ? 'Deal' : 'Lead'} #{bitrixEntityId}
-                </Badge>
-                {entityType && entityId && (
-                  <Badge variant="outline" className="gap-1 text-xs">
-                    Carregado via URL
-                  </Badge>
-                )}
-              </div>
-            )}
-          </div>
+          {/* Descrição */}
+          <p className="text-muted-foreground">
+            {bitrixEntityId 
+              ? 'Atualize os dados do cadastro abaixo'
+              : 'Preencha os dados para criar um novo cadastro de modelo'}
+          </p>
         </div>
 
         {/* Debug Mode Panel */}
