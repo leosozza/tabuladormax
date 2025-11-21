@@ -15,6 +15,8 @@ import { NumberFieldFilter } from "./filters/NumberFieldFilter";
 import { DateFieldFilter } from "./filters/DateFieldFilter";
 import { FilterValueLabel } from "./filters/FilterValueLabel";
 import { FieldTypeIcon } from "./filters/FieldTypeIcon";
+import { getFilterableField } from "@/lib/fieldFilterUtils";
+import { toast } from "sonner";
 
 interface AdditionalFiltersProps {
   filters: AdditionalFilter[];
@@ -33,14 +35,26 @@ export function AdditionalFilters({ filters, onChange }: AdditionalFiltersProps)
   // Buscar configuração do campo selecionado
   const fieldConfig = useFieldFilterOptions(selectedField);
 
-  // Filtrar apenas campos visíveis e que são filtráveis
-  const filterableFields = allFields?.filter(field => 
-    visibleColumns.includes(field.key) &&
-    !['id'].includes(field.key) // Excluir campos que não fazem sentido filtrar
-  ) || [];
+  // Filtrar apenas campos que podem ser filtrados na query
+  const filterableFields = allFields?.filter(field => {
+    const actualField = getFilterableField(field.key);
+    return actualField !== null && 
+           visibleColumns.includes(field.key) &&
+           !['id'].includes(field.key);
+  }) || [];
 
   const handleAddFilter = () => {
-    if (!selectedField || !filterValue) return;
+    if (!selectedField || !filterValue) {
+      toast.error("Selecione um campo e digite um valor");
+      return;
+    }
+
+    // Validar se campo pode ser filtrado
+    const actualField = getFilterableField(selectedField);
+    if (!actualField) {
+      toast.error(`O campo "${getFieldLabel(selectedField)}" não pode ser filtrado diretamente. Use o campo base da tabela.`);
+      return;
+    }
 
     const field = filterableFields.find(f => f.key === selectedField);
     if (!field) return;
@@ -55,6 +69,8 @@ export function AdditionalFilters({ filters, onChange }: AdditionalFiltersProps)
     setSelectedField("");
     setFilterValue("");
     setOperator('eq');
+    
+    toast.success("Filtro adicionado com sucesso!");
   };
 
   const handleRemoveFilter = (index: number) => {

@@ -22,6 +22,7 @@ import { useBitrixSpa } from "@/hooks/useBitrixSpa";
 import { useBitrixEnums } from "@/hooks/useBitrixEnums";
 import { toast } from "sonner";
 import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal";
+import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtils";
 
 function GestaoLeadsContent() {
   const queryClient = useQueryClient();
@@ -136,38 +137,66 @@ function GestaoLeadsContent() {
         for (const additionalFilter of filters.additionalFilters) {
           const { field, value, operator = 'eq' } = additionalFilter;
           
-          // Buscar tipo do campo
+          // 1. Resolver campo real (tratar JOINs)
+          const actualField = getFilterableField(field);
+          if (!actualField) {
+            console.warn(`Campo ${field} não pode ser filtrado diretamente`);
+            continue; // Pular filtro inválido
+          }
+          
+          // 2. Buscar tipo do campo
           const fieldMapping = allFields?.find(f => f.key === field);
           const qb = queryBuilder as any;
           
-          // Tratamento especial para booleanos
-          if (fieldMapping?.type === 'boolean' || 
-              (typeof value === 'string' && (value === 'true' || value === 'false'))) {
-            const boolValue = value === 'true' || value === 'Sim';
-            qb.eq(field, boolValue);
+          // 3. Validar valor não vazio
+          if (!value || value === '') {
+            console.warn(`Valor vazio para filtro em ${field}`);
             continue;
           }
           
-          // Aplicar filtro baseado no operador
+          // 4. Tratamento especial para booleanos
+          if (fieldMapping?.type === 'boolean' || 
+              (typeof value === 'string' && (value === 'true' || value === 'false'))) {
+            const boolValue = value === 'true' || value === 'Sim';
+            qb.eq(actualField, boolValue);
+            continue;
+          }
+          
+          // 5. Tratamento especial para campos JOIN (commercial_projects)
+          if (actualField === 'commercial_project_id' && field.startsWith('commercial_projects.')) {
+            // Usuário filtrou por nome/code, mas precisa converter para UUID
+            const resolvedValue = await resolveJoinFieldValue(field, value);
+            
+            if (resolvedValue) {
+              qb.eq('commercial_project_id', resolvedValue);
+            } else {
+              console.warn(`Não foi possível resolver ${field} = ${value}`);
+            }
+            continue;
+          }
+          
+          // 6. Aplicar filtro baseado no operador
           switch (operator) {
             case 'eq':
-              qb.eq(field, value);
+              qb.eq(actualField, value);
               break;
             case 'contains':
-              qb.ilike(field, `%${value}%`);
+              qb.ilike(actualField, `%${value}%`);
               break;
             case 'gt':
-              qb.gt(field, value);
+              qb.gt(actualField, value);
               break;
             case 'lt':
-              qb.lt(field, value);
+              qb.lt(actualField, value);
               break;
             case 'gte':
-              qb.gte(field, value);
+              qb.gte(actualField, value);
               break;
             case 'lte':
-              qb.lte(field, value);
+              qb.lte(actualField, value);
               break;
+            default:
+              console.warn(`Operador ${operator} não suportado`);
           }
         }
       }
