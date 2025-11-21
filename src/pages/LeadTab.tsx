@@ -479,8 +479,8 @@ const LeadTab = () => {
           thumbnail: supabaseLead.photo_url || '',
           custom_attributes: { idbitrix: bitrixId },
           additional_attributes: {},
-          conversation_id: null,
-          contact_id: null,
+          conversation_id: supabaseLead.conversation_id || null,
+          contact_id: supabaseLead.contact_id || null,
         };
           setChatwootData(contactData);
           

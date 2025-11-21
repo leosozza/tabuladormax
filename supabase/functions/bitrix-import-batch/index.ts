@@ -216,6 +216,8 @@ async function processBatchJob(jobId: string) {
           photo_url: bitrixLead.UF_CRM_1730995486349,
           responsible: bitrixLead.UF_CRM_1730995472155,
           scouter: bitrixLead.UF_CRM_1730995479506,
+          conversation_id: bitrixLead.UF_CRM_1759783630582 ? Number(bitrixLead.UF_CRM_1759783630582) : null,
+          contact_id: bitrixLead.UF_CRM_1759783643206 ? Number(bitrixLead.UF_CRM_1759783643206) : null,
           date_modify: bitrixLead.DATE_MODIFY,
           commercial_project_id,
           raw: bitrixLead,
