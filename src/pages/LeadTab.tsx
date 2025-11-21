@@ -177,6 +177,7 @@ const mapSupabaseLeadToProfile = (lead: any): DynamicProfile => {
       : '—',
     'Última tabulação': lead.etapa || '—',
     'Agente': lead.telemarketing || lead.responsible || '—',
+    'Foto': lead.photo_url || '—',
   };
 };
 
@@ -468,16 +469,17 @@ const LeadTab = () => {
           const newProfile = mapSupabaseLeadToProfile(supabaseLead);
           setProfile(newProfile);
           
-          // Salvar também no chatwoot_contacts para compatibilidade
-          const contactData = {
-            bitrix_id: bitrixId,
-            name: supabaseLead.name || '',
-            phone_number: supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa || '',
-            custom_attributes: { idbitrix: bitrixId },
-            additional_attributes: {},
-            conversation_id: null,
-            contact_id: null,
-          };
+        // Salvar também no chatwoot_contacts para compatibilidade
+        const contactData = {
+          bitrix_id: bitrixId,
+          name: supabaseLead.name || '',
+          phone_number: supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa || '',
+          thumbnail: supabaseLead.photo_url || '',
+          custom_attributes: { idbitrix: bitrixId },
+          additional_attributes: {},
+          conversation_id: null,
+          contact_id: null,
+        };
           setChatwootData(contactData);
           
           toast.success("Lead carregado (Supabase)");
@@ -533,7 +535,7 @@ const LeadTab = () => {
         name: bitrixLead.NAME || bitrixLead.TITLE || '',
         phone_number: phoneNumber,
         email: '',
-        thumbnail: '',
+        thumbnail: bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
         custom_attributes: customAttributes,
         additional_attributes: {},
         conversation_id: null,
