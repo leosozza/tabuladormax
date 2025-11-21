@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.bitrix-photo-sync]
 verify_jwt = false
+
+[functions.fix-commercial-project-ids]
+verify_jwt = false
