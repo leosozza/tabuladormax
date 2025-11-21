@@ -1587,7 +1587,7 @@ const LeadTab = () => {
             </div>
 
             {!editMode ? <>
-                <h2 className="text-2xl font-bold text-center">{chatwootData?.name || 'Lead sem nome'}</h2>
+                <h2 className="text-2xl font-bold text-center">{(profile as any).name || 'Lead sem nome'}</h2>
                 <div className="w-full space-y-2 text-sm">
                   {fieldMappings.filter(mapping => !mapping.is_profile_photo) // Não exibir o campo da foto na lista
               .map(mapping => <p key={mapping.profile_field}>
