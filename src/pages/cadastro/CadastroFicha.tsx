@@ -364,7 +364,6 @@ export default function CadastroFicha() {
   const [bitrixEntityId, setBitrixEntityId] = useState<string | null>(null);
   const [bitrixDealFields, setBitrixDealFields] = useState<Record<string, any> | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
   const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
   
   // Estados para busca rápida
@@ -1148,8 +1147,8 @@ export default function CadastroFicha() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
-      <div className="container max-w-6xl mx-auto py-8 px-4">
+    <div className="min-h-screen bg-background">
+      <div className="container max-w-6xl mx-auto py-4 md:py-8 px-3 md:px-4 pb-24">
         {/* Header */}
         <div className="mb-8">
           {/* Desktop Layout */}
@@ -1268,8 +1267,8 @@ export default function CadastroFicha() {
             <div className="flex items-center gap-3">
               <FileText className="w-8 h-8 text-primary" />
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                  {bitrixEntityId ? 'Atualizar' : 'Nova Ficha'}
+                <h1 className="text-xl font-bold text-foreground">
+                  {bitrixEntityId ? 'Atualizar Cadastro' : 'Novo Cadastro'}
                 </h1>
                 {bitrixEntityId && bitrixEntityType && (
                   <Badge variant="secondary" className="text-sm mt-1">
@@ -1375,80 +1374,6 @@ export default function CadastroFicha() {
           </p>
         </div>
 
-        {/* Debug Mode Panel */}
-        {bitrixEntityId && (
-          <div className="mb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDebugMode(!debugMode)}
-            >
-              {debugMode ? 'Fechar Debug' : 'Abrir Debug'}
-            </Button>
-          </div>
-        )}
-
-        {debugMode && (
-          <Card className="p-4 bg-yellow-50 border-yellow-300 mb-6">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-bold text-lg">🔧 Debug Info</h3>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setDebugMode(false)}
-              >
-                Fechar
-              </Button>
-            </div>
-            
-            <div className="space-y-2 text-xs">
-              <div>
-                <strong>Campos do Deal:</strong>
-                <pre className="bg-white p-2 rounded mt-1 overflow-auto max-h-32">
-                  {JSON.stringify({
-                    estadoCivil: formData.estadoCivil,
-                    estado: formData.estado,
-                    sexo: formData.sexo,
-                    cpf: formData.cpf,
-                    corCabelo: formData.corCabelo,
-                    tipoCabelo: formData.tipoCabelo,
-                    corOlhos: formData.corOlhos,
-                    tiktokLink: formData.tiktokLink
-                  }, null, 2)}
-                </pre>
-              </div>
-              
-              <div>
-                <strong>Opções Dinâmicas Carregadas:</strong>
-                <pre className="bg-white p-2 rounded mt-1 overflow-auto max-h-32">
-                  {JSON.stringify({
-                    estadoCivil: dynamicOptions.estadoCivil.length,
-                    estado: dynamicOptions.estado.length,
-                    sexo: dynamicOptions.sexo.length,
-                    corCabelo: dynamicOptions.corCabelo.length,
-                    tipoCabelo: dynamicOptions.tipoCabelo.length,
-                    corOlhos: dynamicOptions.corOlhos.length,
-                    habilidades: dynamicOptions.habilidades.length,
-                    cursos: dynamicOptions.cursos.length,
-                    caracteristicasEspeciais: dynamicOptions.caracteristicasEspeciais.length,
-                    tipoModelo: dynamicOptions.tipoModelo.length
-                  }, null, 2)}
-                </pre>
-              </div>
-
-              <div>
-                <strong>IDs:</strong>
-                <pre className="bg-white p-2 rounded mt-1">
-                  {JSON.stringify({ 
-                    bitrixEntityType,
-                    bitrixEntityId,
-                    hasFieldStructure: !!bitrixDealFields
-                  }, null, 2)}
-                </pre>
-              </div>
-            </div>
-          </Card>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Dados Cadastrais */}
@@ -1808,24 +1733,29 @@ export default function CadastroFicha() {
           </FormSection>
 
           {/* Actions */}
-          <div className="flex justify-end gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 sticky bottom-0 bg-background/95 backdrop-blur-sm py-4 -mx-4 px-4 border-t">
             <Button
               type="button"
               variant="outline"
               onClick={() => setFormData(INITIAL_FORM_DATA)}
               disabled={isSubmitting}
+              className="h-12 text-base w-full sm:w-auto"
             >
               Limpar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="h-12 text-base w-full sm:w-auto"
+            >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   Salvando...
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4 mr-2" />
+                  <Save className="w-5 h-5 mr-2" />
                   Salvar Cadastro
                 </>
               )}
