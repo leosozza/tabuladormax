@@ -164,23 +164,23 @@ const mapBitrixToProfile = (bitrixLead: BitrixLead, fieldMappings: FieldMapping[
   return profile;
 };
 
-const mapSupabaseLeadToProfile = (lead: any): DynamicProfile => {
-  return {
-    'ID Bitrix': lead.id?.toString() || '—',
-    'Responsável': lead.nome_responsavel_legal || '—',
-    'Nome': lead.name || '—',
-    'Idade': lead.age?.toString() || '—',
-    'Scouter': lead.scouter || '—',
-    'Telefone': lead.celular || lead.telefone_trabalho || lead.telefone_casa || '—',
-    'Endereço': lead.local_abordagem || lead.address || '—',
-    'Data da última tabulação': lead.date_modify 
-      ? new Date(lead.date_modify).toLocaleString('pt-BR') 
-      : '—',
-    'Última tabulação': lead.etapa || '—',
-    'Agente': lead.telemarketing || lead.responsible || '—',
-    'Foto': lead.photo_url || '—',
+  const mapSupabaseLeadToProfile = (lead: any): DynamicProfile => {
+    return {
+      // Mapear usando os profile_field da tabela profile_field_mapping
+      'custom_1760018636938': lead.id?.toString() || '—',  // ID Bitrix
+      'responsible': lead.nome_responsavel_legal || '—',    // Responsável Legal
+      'name': lead.name || '—',                             // Nome do Modelo
+      'age': lead.age?.toString() || '—',                   // Idade
+      'scouter': lead.scouter || '—',                       // Scouter
+      'custom_1759958661434': lead.celular || lead.telefone_trabalho || lead.telefone_casa || '—',  // Telefone
+      'address': lead.local_abordagem || lead.address || '—',  // Endereço
+      'custom_1760109345668': lead.date_modify 
+        ? new Date(lead.date_modify).toLocaleString('pt-BR') 
+        : '—',  // Data da última tabulação
+      'custom_1760116868521': lead.etapa || '—',  // Última tabulação
+      'custom_1760376794807': lead.telemarketing || lead.responsible || '—',  // Agente
+    };
   };
-};
 
 const getNestedValue = (obj: any, path: string): any => {
   if (!path) return '';
