@@ -57,18 +57,20 @@ serve(async (req) => {
     }
 
     console.log('🔄 Sincronizando templates do Gupshup...');
+    console.log('📱 App ID:', gupshupAppId);
 
     // Buscar templates da API Gupshup
-    const gupshupResponse = await fetch(
-      `https://api.gupshup.io/wa/app/${gupshupAppId}/templates`,
-      {
-        method: 'GET',
-        headers: {
-          'apikey': gupshupApiKey,
-          'Content-Type': 'application/json'
-        }
+    // Endpoint correto: https://api.gupshup.io/wa/api/v1/templates
+    const gupshupUrl = new URL('https://api.gupshup.io/wa/api/v1/templates');
+    gupshupUrl.searchParams.append('appName', gupshupAppId);
+    
+    const gupshupResponse = await fetch(gupshupUrl.toString(), {
+      method: 'GET',
+      headers: {
+        'apikey': gupshupApiKey,
+        'Content-Type': 'application/x-www-form-urlencoded'
       }
-    );
+    });
 
     if (!gupshupResponse.ok) {
       const errorText = await gupshupResponse.text();
