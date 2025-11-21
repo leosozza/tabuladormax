@@ -19,10 +19,8 @@ export interface ChatwootMessage {
 }
 
 export interface TemplateParams {
-  name: string;
-  namespace: string;
-  language: string;
-  parameters?: Array<{ type: string; text: string }>;
+  templateId: string;
+  variables: string[];
 }
 
 export const useChatwootMessages = (conversationId: number | null) => {

@@ -9,10 +9,8 @@ interface SendMessageRequest {
   conversation_id: number;
   content?: string;
   template_params?: {
-    name: string;
-    namespace: string;
-    language: string;
-    parameters?: Array<{ type: string; text: string }>;
+    templateId: string;
+    variables: string[];
   };
 }
 
@@ -79,21 +77,42 @@ Deno.serve(async (req) => {
       message_type: 'outgoing',
     };
 
-    // Send WhatsApp template
+    // Send WhatsApp template (Gupshup BBCode format)
     if (template_params) {
-      body.content = `Template: ${template_params.name}`;
-      body.template_params = {
-        name: template_params.name,
-        category: 'MARKETING',
-        language: template_params.language,
-        namespace: template_params.namespace,
-      };
+      const { templateId, variables } = template_params;
       
-      if (template_params.parameters) {
-        body.template_params.processed_params = {
-          body_params: template_params.parameters.map((p: { type: string; text: string }) => p.text),
-        };
+      // Buscar template do banco para validação
+      const { data: template, error: templateError } = await supabase
+        .from('gupshup_templates')
+        .select('*')
+        .eq('template_id', templateId)
+        .single();
+      
+      if (templateError || !template) {
+        console.error('❌ Template não encontrado:', templateId);
+        return new Response(
+          JSON.stringify({ error: 'Template não encontrado' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+      
+      console.log('📝 Construindo template BBCode:', template.element_name);
+      
+      // Construir conteúdo no formato BBCode do Gupshup
+      let templateContent = '[template]\n';
+      templateContent += '[type]text[/type]\n';
+      
+      // Adicionar variáveis
+      for (const variable of variables) {
+        templateContent += `[var]${variable}[/var]\n`;
+      }
+      
+      templateContent += `[id]${templateId}[/id]\n`;
+      templateContent += '[/template]';
+      
+      body.content = templateContent;
+      
+      console.log('📤 Template BBCode construído:', templateContent);
     } else if (content) {
       // Send regular text message
       body.content = content;

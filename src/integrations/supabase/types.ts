@@ -101,6 +101,55 @@ export type Database = {
           },
         ]
       }
+      agent_template_permissions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          department: string | null
+          id: string
+          template_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          department?: string | null
+          id?: string
+          template_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          department?: string | null
+          id?: string
+          template_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_template_permissions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_template_permissions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "gupshup_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_template_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_routes: {
         Row: {
           active: boolean
@@ -815,6 +864,57 @@ export type Database = {
           sortable?: boolean | null
           updated_at?: string | null
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      gupshup_templates: {
+        Row: {
+          category: string
+          created_at: string | null
+          display_name: string
+          element_name: string
+          id: string
+          language_code: string
+          metadata: Json | null
+          preview_url: string | null
+          status: string
+          synced_at: string | null
+          template_body: string
+          template_id: string
+          updated_at: string | null
+          variables: Json
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          display_name: string
+          element_name: string
+          id?: string
+          language_code?: string
+          metadata?: Json | null
+          preview_url?: string | null
+          status: string
+          synced_at?: string | null
+          template_body: string
+          template_id: string
+          updated_at?: string | null
+          variables?: Json
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          display_name?: string
+          element_name?: string
+          id?: string
+          language_code?: string
+          metadata?: Json | null
+          preview_url?: string | null
+          status?: string
+          synced_at?: string | null
+          template_body?: string
+          template_id?: string
+          updated_at?: string | null
+          variables?: Json
         }
         Relationships: []
       }
