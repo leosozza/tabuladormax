@@ -399,44 +399,9 @@ serve(async (req) => {
     const lead = bitrixData.result;
     console.log('✅ Lead obtido do Bitrix:', lead);
 
-    // 1. EXTRAIR PROJETO COMERCIAL
-    // Usar o campo correto UF_CRM_1741215746 que contém o código do projeto
-    const projectCode = lead['UF_CRM_1741215746'];
-    let commercialProjectId = null;
-
-    if (projectCode) {
-      console.log(`🔍 Buscando projeto com code: "${projectCode}"`);
-      
-      const { data: project, error: projectError } = await supabase
-        .from('commercial_projects')
-        .select('id, name, code')
-        .eq('code', String(projectCode))
-        .eq('active', true)
-        .maybeSingle();
-      
-      if (project) {
-        commercialProjectId = project.id;
-        console.log(`✅ Projeto encontrado: ${project.name} (code: ${project.code})`);
-      } else {
-        console.warn(`⚠️ Projeto não encontrado para code: "${projectCode}"`, projectError);
-      }
-    }
-
-    // Fallback apenas se realmente não encontrou
-    if (!commercialProjectId) {
-      console.warn('⚠️ Usando projeto padrão (Pinheiros) pois não foi encontrado projeto específico');
-      
-      const { data: defaultProject } = await supabase
-        .from('commercial_projects')
-        .select('id')
-        .eq('code', 'PINHEIROS')
-        .eq('active', true)
-        .maybeSingle();
-      
-      commercialProjectId = defaultProject?.id;
-    }
-
-    // 2. EXTRAIR OPERADOR DE TELEMARKETING (PARENT_ID_1144)
+    // 1. EXTRAIR ENTIDADES SPA PRIMEIRO (necessário para fallback de commercial_project_id)
+    
+    // 1.1 EXTRAIR OPERADOR DE TELEMARKETING (PARENT_ID_1144)
     const bitrixTelemarketingId = lead.PARENT_ID_1144 ? Number(lead.PARENT_ID_1144) : null;
     let responsibleUserId = null;
     let responsibleName = null;
@@ -455,13 +420,81 @@ serve(async (req) => {
       }
     }
 
-    // 3. EXTRAIR SCOUTER (PARENT_ID_1096)
+    // 1.2 EXTRAIR SCOUTER (PARENT_ID_1096)
     const bitrixScouterId = lead.PARENT_ID_1096 ? Number(lead.PARENT_ID_1096) : null;
     const scouterName = await resolveSpaEntityName(supabase, 1096, bitrixScouterId);
 
-    // 4. EXTRAIR PROJETO COMERCIAL (PARENT_ID_1120)
+    // 1.3 EXTRAIR PROJETO COMERCIAL STRING (PARENT_ID_1120)
     const projectIdFromParent = lead.PARENT_ID_1120 ? Number(lead.PARENT_ID_1120) : null;
     const projetoComercialName = await resolveSpaEntityName(supabase, 1120, projectIdFromParent);
+
+    // 2. RESOLVER COMMERCIAL_PROJECT_ID (UUID)
+    // Usar o campo correto UF_CRM_1741215746 que contém o código do projeto
+    const projectCode = lead['UF_CRM_1741215746'];
+    let commercialProjectId = null;
+
+    if (projectCode) {
+      console.log(`🔍 Buscando projeto com code: "${projectCode}"`);
+      
+      const { data: project, error: projectError } = await supabase
+        .from('commercial_projects')
+        .select('id, name, code')
+        .eq('code', String(projectCode))
+        .eq('active', true)
+        .maybeSingle();
+      
+      if (project) {
+        commercialProjectId = project.id;
+        console.log(`✅ Projeto encontrado via UF_CRM_1741215746: ${project.name} (code: ${project.code})`);
+      } else {
+        console.warn(`⚠️ Projeto não encontrado para code: "${projectCode}"`, projectError);
+      }
+    }
+
+    // FALLBACK 1: Usar PARENT_ID_1120 (SPA) se UF_CRM_1741215746 não funcionou
+    if (!commercialProjectId && projectIdFromParent) {
+      console.log(`🔄 Tentando fallback via PARENT_ID_1120: ${projectIdFromParent}`);
+      
+      const { data: spaProject } = await supabase
+        .from('bitrix_spa_entities')
+        .select('bitrix_item_id, title')
+        .eq('entity_type_id', 1120)
+        .eq('bitrix_item_id', projectIdFromParent)
+        .maybeSingle();
+      
+      if (spaProject) {
+        // Buscar na tabela commercial_projects pelo code (bitrix_item_id)
+        const { data: project } = await supabase
+          .from('commercial_projects')
+          .select('id, name')
+          .eq('code', String(spaProject.bitrix_item_id))
+          .eq('active', true)
+          .maybeSingle();
+        
+        if (project) {
+          commercialProjectId = project.id;
+          console.log(`✅ Projeto encontrado via SPA fallback: ${spaProject.title} → ${project.name}`);
+        } else {
+          console.warn(`⚠️ SPA encontrado (${spaProject.title}) mas não há commercial_project com code=${spaProject.bitrix_item_id}`);
+        }
+      } else {
+        console.warn(`⚠️ SPA não encontrado para PARENT_ID_1120=${projectIdFromParent}`);
+      }
+    }
+
+    // FALLBACK 2: Apenas como último recurso usar PINHEIROS
+    if (!commercialProjectId) {
+      console.warn('⚠️ Usando projeto padrão (Pinheiros) como último recurso');
+      
+      const { data: defaultProject } = await supabase
+        .from('commercial_projects')
+        .select('id')
+        .eq('code', 'PINHEIROS')
+        .eq('active', true)
+        .maybeSingle();
+      
+      commercialProjectId = defaultProject?.id;
+    }
 
     console.log('📝 Dados extraídos:', {
       leadId,

@@ -69,8 +69,8 @@ function getFormatterFunction(name: string | null) {
     formatBoolean: (value: boolean) => value ? 'Sim' : 'Não',
     stripTag: (value: string) => stripTagFromName(value),
     formatCommercialProject: (value: any, lead: any) => {
-      // Acessar o campo aninhado do JOIN
-      return lead?.commercial_projects?.name || '-';
+      // Priorizar campo string que é sempre correto, depois JOIN
+      return lead?.projeto_comercial || lead?.commercial_projects?.name || '-';
     },
   };
   
