@@ -169,7 +169,7 @@ const mapBitrixToProfile = (bitrixLead: BitrixLead, fieldMappings: FieldMapping[
       // Mapear usando os profile_field da tabela profile_field_mapping
       'custom_1760018636938': lead.id?.toString() || '—',  // ID Bitrix
       'responsible': lead.nome_responsavel_legal || '—',    // Responsável Legal
-      'name': lead.name || '—',                             // Nome do Modelo
+      'name': lead.nome_modelo || '—',                      // Nome do Modelo
       'age': lead.age?.toString() || '—',                   // Idade
       'scouter': lead.scouter || '—',                       // Scouter
       'custom_1759958661434': lead.celular || lead.telefone_trabalho || lead.telefone_casa || '—',  // Telefone
