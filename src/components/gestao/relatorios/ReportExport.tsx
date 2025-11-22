@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FileDown, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { generateCSVReport, downloadFile, formatLeadsForExport } from "@/lib/gestao/reportGenerator";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import type { FilterValues } from "./ReportFilters";
 
 interface ReportExportProps {
@@ -18,24 +19,26 @@ export default function ReportExport({ filters }: ReportExportProps) {
   const { data: leadsData, isLoading } = useQuery({
     queryKey: ["leads-for-export", filters],
     queryFn: async () => {
-      let query = supabase.from("leads").select("*");
-
-      if (filters.startDate) {
-        query = query.gte("criado", filters.startDate);
-      }
-      if (filters.endDate) {
-        query = query.lte("criado", filters.endDate);
-      }
-      if (filters.scouter) {
-        query = query.eq("scouter", filters.scouter);
-      }
-      if (filters.area) {
-        query = query.ilike("local_abordagem", `%${filters.area}%`);
-      }
-
-      const { data, error } = await query.order("criado", { ascending: false });
+      const data = await fetchAllLeads(
+        supabase,
+        "*",
+        (query) => {
+          if (filters.startDate) {
+            query = query.gte("criado", filters.startDate);
+          }
+          if (filters.endDate) {
+            query = query.lte("criado", filters.endDate);
+          }
+          if (filters.scouter) {
+            query = query.eq("scouter", filters.scouter);
+          }
+          if (filters.area) {
+            query = query.ilike("local_abordagem", `%${filters.area}%`);
+          }
+          return query.order("criado", { ascending: false });
+        }
+      );
       
-      if (error) throw error;
       return data;
     },
   });
