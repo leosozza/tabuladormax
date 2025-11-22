@@ -1752,6 +1752,15 @@ export type Database = {
           is_nullable: string
         }[]
       }
+      get_projection_data: {
+        Args: {
+          p_end_date: string
+          p_project_id?: string
+          p_scouter?: string
+          p_start_date: string
+        }
+        Returns: Json
+      }
       get_table_columns: {
         Args: { table_name: string }
         Returns: {

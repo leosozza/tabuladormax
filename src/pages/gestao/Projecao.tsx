@@ -10,19 +10,13 @@ import { PeriodSelector } from "@/components/gestao/projection/PeriodSelector";
 import { HistoricalAnalysisCharts } from "@/components/gestao/projection/HistoricalAnalysisCharts";
 import { ProjectionResults } from "@/components/gestao/projection/ProjectionResults";
 import { ProjectionBreakdown } from "@/components/gestao/projection/ProjectionBreakdown";
-import { analyzeHistoricalData } from "@/services/projectionAnalyzer";
+import { convertAggregatedData } from "@/services/projectionAggregator";
+import type { AggregatedData } from "@/services/projectionAggregator";
 import { calculateProjection } from "@/services/projectionCalculator";
-import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info } from "lucide-react";
 import type { HistoricalAnalysis, Projection } from "@/types/projection";
-
-type HistoricalLeadRow = {
-  criado: string | null;
-  ficha_confirmada: boolean | null;
-  valor_ficha: number | null;
-};
 
 function GestaoProjecaoContent() {
   // Filtros básicos
@@ -53,46 +47,34 @@ function GestaoProjecaoContent() {
   const [projection, setProjection] = useState<Projection | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
 
-  // Buscar dados históricos (sem limite de 1000 registros)
-  const { data: historicalLeads, isLoading: isLoadingHistorical } = useQuery({
-    queryKey: ["historical-leads", historicalStart, historicalEnd, filters.projectId, filters.scouterId],
+  // Buscar dados agregados do servidor (1 única requisição otimizada)
+  const { data: projectionData, isLoading: isLoadingHistorical } = useQuery<AggregatedData | null>({
+    queryKey: ["projection-data", historicalStart, historicalEnd, filters.projectId, filters.scouterId],
     queryFn: async () => {
-      if (!historicalStart || !historicalEnd) return [];
+      if (!historicalStart || !historicalEnd) return null;
 
-      const data = await fetchAllLeads<HistoricalLeadRow>(
-        supabase,
-        "criado, ficha_confirmada, valor_ficha",
-        (query) => {
-          query = query
-            .gte("criado", historicalStart.toISOString())
-            .lte("criado", historicalEnd.toISOString());
+      const { data, error } = await supabase.rpc('get_projection_data', {
+        p_start_date: historicalStart.toISOString(),
+        p_end_date: historicalEnd.toISOString(),
+        p_project_id: filters.projectId || null,
+        p_scouter: filters.scouterId || null
+      });
 
-          if (filters.projectId) {
-            query = query.eq("commercial_project_id", filters.projectId);
-          }
-
-          if (filters.scouterId) {
-            query = query.eq("scouter", filters.scouterId);
-          }
-
-          return query;
-        }
-      );
-
-      return data || [];
+      if (error) throw error;
+      return data as unknown as AggregatedData;
     },
     enabled: !!historicalStart && !!historicalEnd,
   });
 
   // Função para calcular projeção
   const handleCalculateProjection = () => {
-    if (!historicalLeads || !projectionStart || !projectionEnd) return;
+    if (!projectionData || !projectionStart || !projectionEnd) return;
 
     setIsCalculating(true);
 
     try {
-      // Analisar dados históricos
-      const analysisResult = analyzeHistoricalData(historicalLeads);
+      // Converter dados agregados para formato de análise
+      const analysisResult = convertAggregatedData(projectionData);
       setAnalysis(analysisResult);
 
       // Calcular projeção
@@ -109,7 +91,7 @@ function GestaoProjecaoContent() {
     }
   };
 
-  const hasInsufficientData = historicalLeads && historicalLeads.length < 10;
+  const hasInsufficientData = projectionData && projectionData.totals.totalLeads < 10;
 
   return (
     <GestaoPageLayout
