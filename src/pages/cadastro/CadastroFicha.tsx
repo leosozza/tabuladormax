@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { FormSection } from '@/components/cadastro/FormSection';
 import { FormField } from '@/components/cadastro/FormField';
+import { DateSelectField } from '@/components/cadastro/DateSelectField';
 import { MultiSelect } from '@/components/cadastro/MultiSelect';
 import { 
   User, 
@@ -1521,12 +1522,12 @@ export default function CadastroFicha() {
                   required
                 />
               </div>
-              <FormField
+              <DateSelectField
                 id="dataNascimento"
                 label="Data de Nascimento"
-                type="date"
                 value={formData.dataNascimento}
                 onChange={(v) => handleFieldChange('dataNascimento', v)}
+                disabled={isSubmitting}
               />
               <FormField
                 id="sexo"
