@@ -37,7 +37,7 @@ export function HistoricalAnalysisCharts({ analysis }: HistoricalAnalysisChartsP
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Fichas Confirmadas
+              Leads Confirmados
             </CardTitle>
             <Target className="w-4 h-4 text-chart-2" />
           </CardHeader>
@@ -61,7 +61,7 @@ export function HistoricalAnalysisCharts({ analysis }: HistoricalAnalysisChartsP
               R$ {trend.totalValue.toLocaleString('pt-BR')}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              R$ {trend.avgValuePerFicha.toFixed(2)} por ficha
+              R$ {trend.avgValuePerFicha.toFixed(2)} por lead confirmado
             </p>
           </CardContent>
         </Card>
@@ -78,7 +78,7 @@ export function HistoricalAnalysisCharts({ analysis }: HistoricalAnalysisChartsP
               {(trend.totalFichas / trend.daysAnalyzed).toFixed(1)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              fichas por dia
+              leads confirmados por dia
             </p>
           </CardContent>
         </Card>
@@ -107,7 +107,7 @@ export function HistoricalAnalysisCharts({ analysis }: HistoricalAnalysisChartsP
                   <div className="text-lg font-bold">{performanceByMonthPart.inicio.avgLeads.toFixed(1)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Fichas/dia</div>
+                  <div className="text-xs text-muted-foreground">Leads Confirmados/dia</div>
                   <div className="text-lg font-bold">{performanceByMonthPart.inicio.avgFichas.toFixed(1)}</div>
                 </div>
                 <div>
@@ -127,7 +127,7 @@ export function HistoricalAnalysisCharts({ analysis }: HistoricalAnalysisChartsP
                   <div className="text-lg font-bold">{performanceByMonthPart.meio.avgLeads.toFixed(1)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Fichas/dia</div>
+                  <div className="text-xs text-muted-foreground">Leads Confirmados/dia</div>
                   <div className="text-lg font-bold">{performanceByMonthPart.meio.avgFichas.toFixed(1)}</div>
                 </div>
                 <div>
@@ -147,7 +147,7 @@ export function HistoricalAnalysisCharts({ analysis }: HistoricalAnalysisChartsP
                   <div className="text-lg font-bold">{performanceByMonthPart.fim.avgLeads.toFixed(1)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Fichas/dia</div>
+                  <div className="text-xs text-muted-foreground">Leads Confirmados/dia</div>
                   <div className="text-lg font-bold">{performanceByMonthPart.fim.avgFichas.toFixed(1)}</div>
                 </div>
                 <div>

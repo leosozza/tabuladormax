@@ -14,14 +14,14 @@ export function ProjectionBreakdown({ projection }: ProjectionBreakdownProps) {
   // Dados por semana
   const weeklyData = projection.breakdown.byWeek.map((week) => ({
     week: `Semana ${week.week + 1}`,
-    fichas: Math.round(week.estimated),
+    leadsConfirmados: Math.round(week.estimated),
     data: format(week.date, "dd/MM", { locale: ptBR }),
   }));
 
   // Dados por dia da semana
   const weekdayData = Object.entries(projection.breakdown.byWeekday).map(([day, count]) => ({
     name: WEEKDAY_NAMES[parseInt(day)],
-    fichas: Math.round(count),
+    leadsConfirmados: Math.round(count),
   }));
 
   return (
@@ -31,7 +31,7 @@ export function ProjectionBreakdown({ projection }: ProjectionBreakdownProps) {
         <CardHeader>
           <CardTitle>Projeção Semanal</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Distribuição estimada de fichas ao longo das semanas
+            Distribuição estimada de leads confirmados ao longo das semanas
           </p>
         </CardHeader>
         <CardContent>
@@ -56,11 +56,11 @@ export function ProjectionBreakdown({ projection }: ProjectionBreakdownProps) {
               />
               <Line 
                 type="monotone" 
-                dataKey="fichas" 
+                dataKey="leadsConfirmados" 
                 stroke="hsl(var(--primary))" 
                 strokeWidth={2}
                 dot={{ fill: 'hsl(var(--primary))', r: 4 }}
-                name="Fichas"
+                name="Leads Confirmados"
               />
             </LineChart>
           </ResponsiveContainer>
@@ -70,7 +70,7 @@ export function ProjectionBreakdown({ projection }: ProjectionBreakdownProps) {
             {weeklyData.map((week, idx) => (
               <div key={idx} className="text-center p-3 rounded-lg bg-muted/50">
                 <div className="text-xs font-medium text-muted-foreground">{week.week}</div>
-                <div className="text-lg font-bold mt-1">{week.fichas}</div>
+                <div className="text-lg font-bold mt-1">{week.leadsConfirmados}</div>
                 <div className="text-xs text-muted-foreground">{week.data}</div>
               </div>
             ))}
@@ -83,7 +83,7 @@ export function ProjectionBreakdown({ projection }: ProjectionBreakdownProps) {
         <CardHeader>
           <CardTitle>Distribuição por Dia da Semana</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Total estimado de fichas por dia da semana no período
+            Total estimado de leads confirmados por dia da semana no período
           </p>
         </CardHeader>
         <CardContent>
@@ -103,10 +103,10 @@ export function ProjectionBreakdown({ projection }: ProjectionBreakdownProps) {
                 }}
               />
               <Bar 
-                dataKey="fichas" 
+                dataKey="leadsConfirmados" 
                 fill="hsl(var(--chart-2))" 
                 radius={[4, 4, 0, 0]}
-                name="Fichas"
+                name="Leads Confirmados"
               />
             </BarChart>
           </ResponsiveContainer>
