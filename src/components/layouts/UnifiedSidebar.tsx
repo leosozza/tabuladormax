@@ -71,17 +71,17 @@ export function UnifiedSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="w-64">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel 
-            className="text-base font-bold px-4 py-4 flex items-center justify-between cursor-pointer hover:text-primary transition-colors"
+            className="text-xl font-bold px-4 py-6 flex items-center justify-between cursor-pointer hover:text-primary transition-colors"
             onClick={() => navigate('/home-choice')}
           >
             {open && "Maxconnect"}
           </SidebarGroupLabel>
           
-          <SidebarGroupContent>
+          <SidebarGroupContent className="px-3 py-4">
             <SidebarMenu>
               {mainNavItems.map((item) => (
                 <SidebarMenuItem key={item.path}>
@@ -89,8 +89,8 @@ export function UnifiedSidebar() {
                     <NavLink 
                       to={item.path} 
                       end={item.path === "/home-choice"}
-                      className="flex items-center gap-3"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      className="flex items-center gap-3 px-4 py-3 text-base rounded-lg mb-1 transition-all duration-200"
+                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-md"
                     >
                       <item.icon className="h-5 w-5" />
                       {open && <span>{item.label}</span>}

@@ -79,7 +79,7 @@ export default function GestaoSidebar({
       <nav className="flex-1 px-3 py-4">
         {navItems.map(item => {
         const Icon = item.icon;
-        return <Link key={item.path} to={item.path} state={item.state} onClick={onNavigate} className={cn("flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all duration-200", isActive(item.path) ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-md" : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground")}>
+        return <Link key={item.path} to={item.path} state={item.state} onClick={onNavigate} className={cn("flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all duration-200", isActive(item.path) ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-md" : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground")}>
               <Icon className="w-5 h-5" />
               <span>{item.label}</span>
             </Link>;
