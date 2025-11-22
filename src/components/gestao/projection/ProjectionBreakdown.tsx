@@ -18,10 +18,10 @@ export function ProjectionBreakdown({ projection }: ProjectionBreakdownProps) {
     data: format(week.date, "dd/MM", { locale: ptBR }),
   }));
 
-  // Dados por dia da semana
-  const weekdayData = Object.entries(projection.breakdown.byWeekday).map(([day, count]) => ({
-    name: WEEKDAY_NAMES[parseInt(day)],
-    leadsConfirmados: Math.round(count),
+  // Dados por dia da semana - garantir que todos os 7 dias apareçam
+  const weekdayData = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+    name: WEEKDAY_NAMES[day],
+    leadsConfirmados: Math.round(projection.breakdown.byWeekday[day] || 0),
   }));
 
   return (
