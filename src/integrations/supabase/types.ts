@@ -1560,6 +1560,66 @@ export type Database = {
           },
         ]
       }
+      scouters: {
+        Row: {
+          bitrix_id: number | null
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          hired_at: string | null
+          id: string
+          last_activity_at: string | null
+          leads_last_30_days: number | null
+          name: string
+          notes: string | null
+          phone: string | null
+          photo_url: string | null
+          responsible_user_id: string | null
+          status: string
+          total_leads: number | null
+          updated_at: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          bitrix_id?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          hired_at?: string | null
+          id?: string
+          last_activity_at?: string | null
+          leads_last_30_days?: number | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          responsible_user_id?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          bitrix_id?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          hired_at?: string | null
+          id?: string
+          last_activity_at?: string | null
+          leads_last_30_days?: number | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          responsible_user_id?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       sync_events: {
         Row: {
           created_at: string | null
@@ -1844,6 +1904,10 @@ export type Database = {
           p_project_id?: string
           p_scouter?: string
         }
+        Returns: Json
+      }
+      get_scouter_performance_detail: {
+        Args: { p_scouter_id: string }
         Returns: Json
       }
       get_table_columns: {

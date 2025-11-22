@@ -1,125 +1,244 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllLeads } from "@/lib/supabaseUtils";
-import GestaoSidebar from "@/components/gestao/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, TrendingUp, Award } from "lucide-react";
-
-interface ScouterData {
-  name: string;
-  leadsCount: number;
-}
-
+import { Button } from "@/components/ui/button";
+import { Users, TrendingUp, Award, Plus, Clock } from "lucide-react";
+import { ScoutersKanban } from "@/components/scouters/ScoutersKanban";
+import { ScouterDialog } from "@/components/scouters/ScouterDialog";
+import { ScouterPerformanceDialog } from "@/components/scouters/ScouterPerformanceDialog";
+import { useToast } from "@/hooks/use-toast";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 
+interface Scouter {
+  id: string;
+  name: string;
+  photo_url?: string;
+  whatsapp?: string;
+  phone?: string;
+  email?: string;
+  responsible_user_id?: string;
+  last_activity_at?: string;
+  total_leads: number;
+  leads_last_30_days: number;
+  status: 'ativo' | 'inativo' | 'standby' | 'blacklist';
+  notes?: string;
+}
+
 export default function GestaoScouters() {
-  const { data: scoutersData, isLoading } = useQuery({
-    queryKey: ["gestao-scouters"],
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [performanceDialogOpen, setPerformanceDialogOpen] = useState(false);
+  const [selectedScouter, setSelectedScouter] = useState<Scouter | null>(null);
+
+  // Fetch scouters
+  const { data: scouters = [], isLoading } = useQuery({
+    queryKey: ["scouters"],
     queryFn: async () => {
-      // Fetch all leads with pagination to ensure we get more than 1000 records
-      const data = await fetchAllLeads<{ scouter: string }>(
-        supabase,
-        "scouter",
-        (query) => query.not("scouter", "is", null)
-      );
-      
-      // Agrupar por scouter e contar
-      const scouterCounts = data.reduce((acc: Record<string, number>, lead) => {
-        const scouter = lead.scouter || "Sem Scouter";
-        if (!acc[scouter]) {
-          acc[scouter] = 0;
-        }
-        acc[scouter]++;
-        return acc;
-      }, {});
-      
-      return Object.entries(scouterCounts)
-        .map(([name, count]) => ({ name, leadsCount: count as number }))
-        .sort((a, b) => b.leadsCount - a.leadsCount);
+      const { data, error } = await supabase
+        .from("scouters")
+        .select("*")
+        .order("name");
+
+      if (error) throw error;
+      return data as Scouter[];
     },
   });
 
-  const totalLeads = scoutersData?.reduce((sum: number, s: ScouterData) => sum + s.leadsCount, 0) || 0;
-  const totalScouters = scoutersData?.length || 0;
-  const avgLeadsPerScouter = totalScouters > 0 ? (totalLeads / totalScouters).toFixed(1) : "0";
+  // Mutation para atualizar status
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase
+        .from("scouters")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["scouters"] });
+      toast({
+        title: "Status atualizado",
+        description: `Scouter movido para ${variables.status}`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao atualizar status",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation para criar/editar scouter
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (selectedScouter) {
+        const { error } = await supabase
+          .from("scouters")
+          .update(data)
+          .eq("id", selectedScouter.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("scouters").insert([data]);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scouters"] });
+      toast({
+        title: selectedScouter ? "Scouter atualizado" : "Scouter cadastrado",
+        description: selectedScouter
+          ? "Informações atualizadas com sucesso"
+          : "Novo scouter cadastrado com sucesso",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao salvar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Stats
+  const activeScouters = scouters.filter((s) => s.status === "ativo").length;
+  const totalLeads = scouters.reduce((sum, s) => sum + s.total_leads, 0);
+  const totalLeads30d = scouters.reduce((sum, s) => sum + s.leads_last_30_days, 0);
+  const avgLeadsPerScouter =
+    activeScouters > 0 ? (totalLeads / activeScouters).toFixed(1) : "0";
+
+  const handleStatusChange = (id: string, newStatus: string) => {
+    updateStatusMutation.mutate({ id, status: newStatus });
+  };
+
+  const handleEdit = (scouter: Scouter) => {
+    setSelectedScouter(scouter);
+    setDialogOpen(true);
+  };
+
+  const handleViewPerformance = (scouter: Scouter) => {
+    setSelectedScouter(scouter);
+    setPerformanceDialogOpen(true);
+  };
+
+  const handleCreate = () => {
+    setSelectedScouter(null);
+    setDialogOpen(true);
+  };
+
+  const handleSave = async (data: any) => {
+    await saveMutation.mutateAsync(data);
+  };
 
   return (
     <GestaoPageLayout
-      title="Scouters"
-      description="Performance e estatísticas da equipe"
+      title="Gestão de Scouters"
+      description="Gerencie o status e performance da equipe de scouters"
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total de Scouters
-              </CardTitle>
-              <Users className="w-5 h-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{totalScouters}</div>
-            </CardContent>
-          </Card>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Scouters Ativos
+            </CardTitle>
+            <Users className="w-5 h-5 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-600">{activeScouters}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              de {scouters.length} total
+            </p>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total de Leads
-              </CardTitle>
-              <TrendingUp className="w-5 h-5 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{totalLeads}</div>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total de Leads
+            </CardTitle>
+            <TrendingUp className="w-5 h-5 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-600">{totalLeads}</div>
+            <p className="text-xs text-muted-foreground mt-1">Histórico completo</p>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Média por Scouter
-              </CardTitle>
-              <Award className="w-5 h-5 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{avgLeadsPerScouter}</div>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Leads (30 dias)
+            </CardTitle>
+            <Clock className="w-5 h-5 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-purple-600">{totalLeads30d}</div>
+            <p className="text-xs text-muted-foreground mt-1">Último mês</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Média por Scouter
+            </CardTitle>
+            <Award className="w-5 h-5 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-orange-600">
+              {avgLeadsPerScouter}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Leads por scouter ativo</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Action Bar */}
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h2 className="text-xl font-semibold">Quadro de Scouters</h2>
+          <p className="text-sm text-muted-foreground">
+            Arraste os cards para mudar o status
+          </p>
         </div>
+        <Button onClick={handleCreate}>
+          <Plus className="h-4 w-4 mr-2" />
+          Cadastrar Scouter
+        </Button>
+      </div>
 
-        {isLoading ? (
-          <div className="text-center py-12">Carregando scouters...</div>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Performance Individual</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Posição</TableHead>
-                    <TableHead>Nome do Scouter</TableHead>
-                    <TableHead className="text-right">Leads Capturados</TableHead>
-                    <TableHead className="text-right">% do Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {scoutersData?.map((scouter: ScouterData, index: number) => (
-                    <TableRow key={scouter.name}>
-                      <TableCell className="font-medium">#{index + 1}</TableCell>
-                      <TableCell>{scouter.name}</TableCell>
-                      <TableCell className="text-right font-semibold">{scouter.leadsCount}</TableCell>
-                      <TableCell className="text-right">
-                        {((scouter.leadsCount / totalLeads) * 100).toFixed(1)}%
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
+      {/* Kanban Board */}
+      {isLoading ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Carregando scouters...</p>
+        </div>
+      ) : (
+        <ScoutersKanban
+          scouters={scouters}
+          onStatusChange={handleStatusChange}
+          onEdit={handleEdit}
+          onViewPerformance={handleViewPerformance}
+        />
+      )}
+
+      {/* Dialogs */}
+      <ScouterDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        scouter={selectedScouter}
+        onSave={handleSave}
+      />
+
+      <ScouterPerformanceDialog
+        open={performanceDialogOpen}
+        onOpenChange={setPerformanceDialogOpen}
+        scouter={selectedScouter}
+      />
     </GestaoPageLayout>
   );
 }
