@@ -44,7 +44,14 @@ export default function GestaoSidebar({ onNavigate }: GestaoSidebarProps = {}) {
   return (
     <div className="w-64 bg-sidebar border-r border-sidebar-border min-h-screen flex flex-col">
       <div className="p-6 border-b border-sidebar-border">
-        <h2 className="text-2xl font-bold mb-2 text-sidebar-foreground">Gestão Scouter</h2>
+        <Link 
+          to="/home-choice" 
+          onClick={onNavigate}
+          className="block mb-3 cursor-pointer hover:text-primary transition-colors"
+        >
+          <h2 className="text-xl font-bold text-sidebar-foreground">Maxconnect</h2>
+        </Link>
+        <h3 className="text-lg font-semibold mb-1 text-sidebar-foreground">Gestão Scouter</h3>
         <p className="text-sm text-sidebar-foreground/70">Gerenciamento de Leads</p>
       </div>
       

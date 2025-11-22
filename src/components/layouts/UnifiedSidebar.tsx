@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -26,6 +27,7 @@ const mainNavItems = [
 
 export function UnifiedSidebar() {
   const { open } = useSidebar();
+  const navigate = useNavigate();
 
   // Buscar a versão mais recente do APK
   const { data: latestRelease } = useQuery({
@@ -72,7 +74,10 @@ export function UnifiedSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-base font-bold px-4 py-4 flex items-center justify-between">
+          <SidebarGroupLabel 
+            className="text-base font-bold px-4 py-4 flex items-center justify-between cursor-pointer hover:text-primary transition-colors"
+            onClick={() => navigate('/home-choice')}
+          >
             {open && "Maxconnect"}
           </SidebarGroupLabel>
           
