@@ -31,24 +31,23 @@ export function RetroactivePaymentUpdate() {
   const handlePreview = async () => {
     setIsLoading(true);
     try {
-      const { data: leads, error } = await supabase
-        .from('leads')
-        .select('id, valor_ficha')
-        .lte('criado', `${cutoffDate}T23:59:59`)
-        .not('scouter', 'is', null)
-        .not('valor_ficha', 'is', null)
-        .or('ficha_paga.is.null,ficha_paga.eq.false');
+      const { data, error } = await supabase.rpc('get_retroactive_payment_preview', {
+        p_cutoff_date: cutoffDate,
+        p_project_id: null,
+        p_scouter: null,
+      });
 
       if (error) throw error;
 
-      const count = leads?.length || 0;
-      const totalValue = leads?.reduce((sum, lead) => sum + (lead.valor_ficha || 0), 0) || 0;
-
-      setPreviewData({ count, totalValue });
+      const result = data as { count: number; total_value: number };
+      setPreviewData({ 
+        count: result.count, 
+        totalValue: result.total_value 
+      });
 
       toast({
         title: "Prévia Carregada",
-        description: `Encontrados ${count} leads para marcar como pagos.`,
+        description: `Encontrados ${result.count} leads para marcar como pagos.`,
       });
     } catch (error: any) {
       console.error('Erro ao buscar prévia:', error);

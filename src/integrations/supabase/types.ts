@@ -1776,6 +1776,14 @@ export type Database = {
         }
         Returns: Json
       }
+      get_retroactive_payment_preview: {
+        Args: {
+          p_cutoff_date: string
+          p_project_id?: string
+          p_scouter?: string
+        }
+        Returns: Json
+      }
       get_table_columns: {
         Args: { table_name: string }
         Returns: {
