@@ -133,8 +133,23 @@ Deno.serve(async (req) => {
     console.log('✅ Conversa transferida com sucesso!');
     console.log('📦 Resposta completa do Chatwoot:', JSON.stringify(transferResult, null, 2));
 
-    // Log transfer to actions_log if lead_id is provided
+    // Update responsible_user_id in leads table
     if (lead_id) {
+      const { error: leadUpdateError } = await supabaseAdmin
+        .from('leads')
+        .update({ 
+          responsible_user_id: operator_user_id,
+          responsible: targetAgent.name || operatorEmail
+        })
+        .eq('id', lead_id);
+
+      if (leadUpdateError) {
+        console.error('⚠️ Erro ao atualizar responsible_user_id no lead:', leadUpdateError);
+      } else {
+        console.log('✅ Lead atualizado com responsible_user_id:', operator_user_id);
+      }
+
+      // Log transfer to actions_log
       await supabaseAdmin.from('actions_log').insert([{
         lead_id: lead_id,
         action_label: `Transferência Chatwoot: ${targetAgent.name || operatorEmail}`,
@@ -142,10 +157,17 @@ Deno.serve(async (req) => {
           conversation_id,
           assignee_id: assigneeId,
           operator_email: operatorEmail,
+          operator_user_id,
         },
         status: 'SUCCESS'
       }]);
     }
+
+    // Update last_message_at in chatwoot_contacts
+    await supabaseAdmin
+      .from('chatwoot_contacts')
+      .update({ last_message_at: new Date().toISOString() })
+      .eq('conversation_id', conversation_id);
 
     return new Response(
       JSON.stringify({
