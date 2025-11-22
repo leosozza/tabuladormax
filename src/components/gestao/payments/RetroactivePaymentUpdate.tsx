@@ -20,7 +20,7 @@ import { formatCurrency } from "@/lib/formatters";
 
 export function RetroactivePaymentUpdate() {
   const { toast } = useToast();
-  const [cutoffDate, setCutoffDate] = useState("2024-10-15");
+  const [cutoffDate, setCutoffDate] = useState("2024-11-16");
   const [isLoading, setIsLoading] = useState(false);
   const [previewData, setPreviewData] = useState<{
     count: number;
@@ -35,7 +35,8 @@ export function RetroactivePaymentUpdate() {
         .from('leads')
         .select('id, valor_ficha')
         .lte('criado', `${cutoffDate}T23:59:59`)
-        .eq('etapa', 'Scouter-fichas')
+        .not('scouter', 'is', null)
+        .not('valor_ficha', 'is', null)
         .or('ficha_paga.is.null,ficha_paga.eq.false');
 
       if (error) throw error;
@@ -66,7 +67,7 @@ export function RetroactivePaymentUpdate() {
     try {
       const { data, error } = await supabase.rpc('bulk_mark_as_paid', {
         p_cutoff_date: cutoffDate,
-        p_etapa: 'Scouter-fichas',
+        p_etapa: null,
       });
 
       if (error) throw error;
@@ -112,7 +113,7 @@ export function RetroactivePaymentUpdate() {
               max={new Date().toISOString().split('T')[0]}
             />
             <p className="text-xs text-muted-foreground">
-              Filtro: Etapa = "Scouter-fichas" | Status = Não Pago
+              Filtro: Leads com Scouter e Valor | Status = Não Pago
             </p>
           </div>
 
