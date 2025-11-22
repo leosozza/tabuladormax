@@ -6,6 +6,7 @@ import { User, MapPin, Calendar, Phone, AlertCircle } from "lucide-react";
 import { useTinderCardConfig } from "@/hooks/useTinderCardConfig";
 import { ALL_LEAD_FIELDS } from "@/config/leadFields";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
+import noPhotoPlaceholder from "@/assets/no-photo-placeholder.png";
 
 interface LeadCardProps {
   lead: Record<string, unknown>; // Dynamic lead object
@@ -64,10 +65,12 @@ export default function LeadCard({ lead }: LeadCardProps) {
   const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
 
   const photoContainerClasses = {
-    circle: "aspect-square rounded-full min-h-[15vh] sm:min-h-[18vh] md:min-h-[20vh] w-full",
-    rounded: "aspect-[3/4] rounded-lg min-h-[18vh] sm:min-h-[20vh] md:min-h-[22vh] w-full",
-    fullscreen: "w-full rounded-none min-h-[18vh] sm:min-h-[20vh] md:min-h-[25vh]"
+    circle: "aspect-square rounded-full min-h-[100px] max-h-[150px] sm:max-h-[180px] md:max-h-[200px] w-full",
+    rounded: "aspect-[3/4] rounded-lg min-h-[140px] max-h-[200px] sm:max-h-[240px] md:max-h-[280px] w-full",
+    fullscreen: "w-full rounded-none min-h-[160px] max-h-[220px] sm:max-h-[280px] md:max-h-[320px]"
   };
+
+  const isPlaceholder = photoUrl === noPhotoPlaceholder || !photoUrl || photoUrl === getLeadPhotoUrl(null);
 
   const cardSizeClasses = {
     small: "max-w-xs",
@@ -82,14 +85,25 @@ export default function LeadCard({ lead }: LeadCardProps) {
     )}>
       {/* Foto do Lead */}
       <div className={cn(
-        "relative bg-muted overflow-hidden",
-        photoContainerClasses[config.photoStyle]
+        "relative bg-muted overflow-hidden flex-shrink-0",
+        photoContainerClasses[config.photoStyle],
+        isPlaceholder && "border-2 border-dashed border-border"
       )}>
         <img
           src={getLeadPhotoUrl(photoUrl)}
           alt={String(lead.name || "Lead")}
           className="w-full h-full object-cover"
         />
+        
+        {/* Indicador visual para "sem foto" */}
+        {isPlaceholder && (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted/90">
+            <div className="text-center">
+              <User className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mx-auto text-muted-foreground mb-2" />
+              <p className="text-xs sm:text-sm text-muted-foreground font-medium">Sem Foto</p>
+            </div>
+          </div>
+        )}
         
         {/* Badges de Status */}
         <div className="absolute top-2 right-2 md:top-3 md:right-3 lg:top-4 lg:right-4 flex flex-col gap-1.5 md:gap-2">
@@ -126,7 +140,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
       </div>
 
       {/* Informações do Lead */}
-      <CardContent className="flex-1 overflow-y-auto p-4 md:p-5 lg:p-6 space-y-3 md:space-y-4 lg:space-y-5">
+      <CardContent className="flex-1 min-h-0 overflow-y-auto p-4 md:p-5 lg:p-6 space-y-3 md:space-y-4 lg:space-y-5">
         <div>
           {/* Nome do Modelo - Grande e Negrito */}
           <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 truncate leading-tight">
