@@ -23,29 +23,7 @@ import { useBitrixEnums } from "@/hooks/useBitrixEnums";
 import { toast } from "sonner";
 import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal";
 import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtils";
-
-// Hook para detectar long press
-const useLongPress = (callback: () => void, ms = 500) => {
-  const [startLongPress, setStartLongPress] = useState(false);
-
-  useEffect(() => {
-    let timerId: NodeJS.Timeout;
-    if (startLongPress) {
-      timerId = setTimeout(callback, ms);
-    }
-    return () => {
-      clearTimeout(timerId);
-    };
-  }, [callback, ms, startLongPress]);
-
-  return {
-    onMouseDown: () => setStartLongPress(true),
-    onMouseUp: () => setStartLongPress(false),
-    onMouseLeave: () => setStartLongPress(false),
-    onTouchStart: () => setStartLongPress(true),
-    onTouchEnd: () => setStartLongPress(false),
-  };
-};
+import { useRef, useCallback } from "react";
 
 function GestaoLeadsContent() {
   const queryClient = useQueryClient();
@@ -70,6 +48,9 @@ function GestaoLeadsContent() {
   
   // Estado para controlar o modal de configuração do cartão
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  
+  // Ref para controlar o timer do long press
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const { visibleColumns } = useLeadColumnConfig();
   const { data: allFields, isLoading: isLoadingFields } = useGestaoFieldMappings();
@@ -326,7 +307,7 @@ function GestaoLeadsContent() {
   };
 
   // Ativar modo de seleção via long press e selecionar o lead
-  const activateSelectionModeWithLead = (leadId: number) => {
+  const activateSelectionModeWithLead = useCallback((leadId: number) => {
     setIsSelectionMode(true);
     const newSet = new Set(selectedLeadIds);
     newSet.add(leadId);
@@ -335,7 +316,23 @@ function GestaoLeadsContent() {
     // Feedback visual
     navigator?.vibrate?.(50); // Vibração curta se disponível
     toast.info('Modo de seleção ativado');
-  };
+  }, [selectedLeadIds]);
+
+  // Handlers para long press
+  const handleLongPressStart = useCallback((leadId: number) => {
+    if (!isSelectionMode) {
+      longPressTimerRef.current = setTimeout(() => {
+        activateSelectionModeWithLead(leadId);
+      }, 500); // 500ms para ativar
+    }
+  }, [isSelectionMode, activateSelectionModeWithLead]);
+
+  const handleLongPressEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
 
   // Iniciar análise
   const handleStartAnalysis = () => {
@@ -759,11 +756,12 @@ function GestaoLeadsContent() {
                         "cursor-pointer hover:bg-muted/50 transition-colors",
                         selectedLeadIds.has(lead.id) && isSelectionMode && "bg-blue-50 hover:bg-blue-100"
                       )}
-                      {...useLongPress(() => {
-                        if (!isSelectionMode) {
-                          activateSelectionModeWithLead(lead.id);
-                        }
-                      })}
+                      onTouchStart={() => handleLongPressStart(lead.id)}
+                      onTouchEnd={handleLongPressEnd}
+                      onTouchMove={handleLongPressEnd}
+                      onMouseDown={() => handleLongPressStart(lead.id)}
+                      onMouseUp={handleLongPressEnd}
+                      onMouseLeave={handleLongPressEnd}
                     >
                       <TableCell 
                         onClick={(e) => e.stopPropagation()}
