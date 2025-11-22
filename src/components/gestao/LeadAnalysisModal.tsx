@@ -90,7 +90,6 @@ export function LeadAnalysisModal({
               onUndo={onUndo || (() => {})}
               canUndo={canUndo || false}
               disabled={disabled}
-              progress={progress}
             />
           </div>
           
