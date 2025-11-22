@@ -11,8 +11,9 @@ import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
 import { GestaoFiltersComponent } from '@/components/gestao/GestaoFilters';
 import { createDateFilter } from '@/lib/dateUtils';
 import type { GestaoFilters } from '@/types/filters';
+import { LeadColumnConfigProvider } from '@/hooks/useLeadColumnConfig';
 
-export default function AdvancedDashboard() {
+function AdvancedDashboardContent() {
   const navigate = useNavigate();
   const { dashboards, isLoading } = useDashboard();
   
@@ -117,5 +118,13 @@ export default function AdvancedDashboard() {
         </Card>
       )}
     </AdminPageLayout>
+  );
+}
+
+export default function AdvancedDashboard() {
+  return (
+    <LeadColumnConfigProvider>
+      <AdvancedDashboardContent />
+    </LeadColumnConfigProvider>
   );
 }

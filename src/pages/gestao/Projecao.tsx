@@ -10,8 +10,9 @@ import { ptBR } from "date-fns/locale";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
+import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
 
-export default function GestaoProjecao() {
+function GestaoProjecaoContent() {
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('month'),
     projectId: null,
@@ -148,5 +149,13 @@ export default function GestaoProjecao() {
           </div>
         )}
     </GestaoPageLayout>
+  );
+}
+
+export default function GestaoProjecao() {
+  return (
+    <LeadColumnConfigProvider>
+      <GestaoProjecaoContent />
+    </LeadColumnConfigProvider>
   );
 }

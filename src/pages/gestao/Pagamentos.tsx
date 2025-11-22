@@ -25,8 +25,9 @@ import {
   type ProjectPaymentSettings,
   type LeadForPayment,
 } from "@/services/paymentsCoordinator";
+import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
 
-export default function GestaoPagamentos() {
+function GestaoPagamentosContent() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(new Set());
@@ -394,5 +395,13 @@ export default function GestaoPagamentos() {
         isProcessing={isProcessingPayment}
       />
     </GestaoPageLayout>
+  );
+}
+
+export default function GestaoPagamentos() {
+  return (
+    <LeadColumnConfigProvider>
+      <GestaoPagamentosContent />
+    </LeadColumnConfigProvider>
   );
 }

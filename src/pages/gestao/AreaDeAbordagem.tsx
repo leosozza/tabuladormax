@@ -13,8 +13,9 @@ import { MapPin, Users, TrendingUp, Target, BarChart3, Radio, Flame } from "luci
 import { geocodeAddress } from "@/hooks/useGeolocation";
 import { createDateFilter } from "@/lib/dateUtils";
 import type { GestaoFilters as FilterType } from "@/types/filters";
+import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
 
-export default function GestaoAreaDeAbordagem() {
+function GestaoAreaDeAbordagemContent() {
   const [filters, setFilters] = useState<FilterType>({
     dateFilter: createDateFilter('month'),
     projectId: null,
@@ -408,5 +409,13 @@ export default function GestaoAreaDeAbordagem() {
           </TabsContent>
         </Tabs>
     </GestaoPageLayout>
+  );
+}
+
+export default function GestaoAreaDeAbordagem() {
+  return (
+    <LeadColumnConfigProvider>
+      <GestaoAreaDeAbordagemContent />
+    </LeadColumnConfigProvider>
   );
 }
