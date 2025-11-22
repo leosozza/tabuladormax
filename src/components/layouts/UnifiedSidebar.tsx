@@ -1,5 +1,9 @@
-import { Home, Target, DollarSign, Shield, Headset } from "lucide-react";
+import { Home, Target, DollarSign, Shield, Headset, Smartphone } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +26,47 @@ const mainNavItems = [
 
 export function UnifiedSidebar() {
   const { open } = useSidebar();
+
+  // Buscar a versão mais recente do APK
+  const { data: latestRelease } = useQuery({
+    queryKey: ['latest-app-release'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('app_releases')
+        .select('*')
+        .eq('is_latest', true)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  const handleDownloadApp = async () => {
+    if (!latestRelease) {
+      toast.error('Nenhuma versão disponível');
+      return;
+    }
+
+    try {
+      const { data } = supabase.storage
+        .from('app-releases')
+        .getPublicUrl(latestRelease.file_path);
+      
+      // Criar elemento <a> temporário para forçar download
+      const link = document.createElement('a');
+      link.href = data.publicUrl;
+      link.download = `tabuladormax-${latestRelease.version}.apk`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('Download iniciado!');
+    } catch (error) {
+      toast.error('Erro ao baixar o aplicativo');
+      console.error(error);
+    }
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -51,6 +96,22 @@ export function UnifiedSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Botão discreto para baixar o app Android */}
+        {latestRelease && (
+          <div className="mt-auto p-4">
+            <Button
+              variant="ghost"
+              size={open ? "default" : "icon"}
+              onClick={handleDownloadApp}
+              className="w-full justify-start text-muted-foreground hover:text-foreground"
+              title="Baixar App Android"
+            >
+              <Smartphone className="h-4 w-4" />
+              {open && <span className="ml-2 text-xs">App Android v{latestRelease.version}</span>}
+            </Button>
+          </div>
+        )}
       </SidebarContent>
     </Sidebar>
   );
