@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -17,15 +17,19 @@ import {
 interface ProjectScouterSelectorProps {
   startDate: Date;
   endDate: Date;
+  selectedProjectId?: string | null;
   onScoutersSelected: (projectId: string, scouterNames: string[]) => void;
 }
 
 export function ProjectScouterSelector({
   startDate,
   endDate,
+  selectedProjectId: preSelectedProjectId,
   onScoutersSelected,
 }: ProjectScouterSelectorProps) {
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    preSelectedProjectId || null
+  );
   const [selectedScouters, setSelectedScouters] = useState<Set<string>>(new Set());
 
   // Buscar projetos
@@ -54,6 +58,14 @@ export function ProjectScouterSelector({
     setSelectedProjectId(projectId);
     setSelectedScouters(new Set());
   };
+
+  // Atualizar quando o projeto pré-selecionado mudar
+  useEffect(() => {
+    if (preSelectedProjectId !== selectedProjectId) {
+      setSelectedProjectId(preSelectedProjectId || null);
+      setSelectedScouters(new Set());
+    }
+  }, [preSelectedProjectId]);
 
   const handleScouterToggle = (scouter: string, selected: boolean) => {
     const newSelection = new Set(selectedScouters);
@@ -91,35 +103,37 @@ export function ProjectScouterSelector({
 
   return (
     <div className="space-y-6">
-      {/* Seleção de Projeto */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            1. Selecionar Projeto
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Select value={selectedProjectId || ""} onValueChange={handleProjectChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Escolha um projeto comercial" />
-            </SelectTrigger>
-            <SelectContent>
-              {loadingProjects ? (
-                <SelectItem value="loading" disabled>
-                  Carregando projetos...
-                </SelectItem>
-              ) : (
-                projects?.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name} ({project.code})
+      {/* Seleção de Projeto - Mostrar apenas se não estiver pré-selecionado */}
+      {!preSelectedProjectId && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              1. Selecionar Projeto
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Select value={selectedProjectId || ""} onValueChange={handleProjectChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Escolha um projeto comercial" />
+              </SelectTrigger>
+              <SelectContent>
+                {loadingProjects ? (
+                  <SelectItem value="loading" disabled>
+                    Carregando projetos...
                   </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+                ) : (
+                  projects?.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name} ({project.code})
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Lista de Scouters */}
       {selectedProjectId && (
@@ -128,7 +142,7 @@ export function ProjectScouterSelector({
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5" />
-                2. Selecionar Scouters
+                {preSelectedProjectId ? 'Selecionar Scouters' : '2. Selecionar Scouters'}
               </CardTitle>
               <div className="flex gap-2">
                 <Button

@@ -96,6 +96,7 @@ function GestaoPagamentosContent() {
           <ProjectScouterSelector
             startDate={filters.dateFilter.startDate}
             endDate={filters.dateFilter.endDate}
+            selectedProjectId={filters.projectId}
             onScoutersSelected={handleScoutersSelected}
           />
         </TabsContent>
