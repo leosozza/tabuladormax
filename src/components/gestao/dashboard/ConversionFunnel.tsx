@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { GestaoFilters } from "@/types/filters";
 
 const COLORS = [
   "hsl(217 91% 60%)", // Total
@@ -11,14 +12,39 @@ const COLORS = [
   "hsl(24 95% 53%)",  // Conversão
 ];
 
-export default function ConversionFunnel() {
+interface ConversionFunnelProps {
+  filters?: GestaoFilters;
+}
+
+export default function ConversionFunnel({ filters }: ConversionFunnelProps) {
   const { data: funnelData, isLoading } = useQuery({
-    queryKey: ["conversion-funnel"],
+    queryKey: ["conversion-funnel", filters],
     queryFn: async () => {
       // Fetch all leads with pagination to ensure we get more than 1000 records
       const data = await fetchAllLeads(
         supabase,
-        "ficha_confirmada, compareceu"
+        "ficha_confirmada, compareceu",
+        (query) => {
+          let q = query;
+          
+          // Aplicar filtros se fornecidos
+          if (filters?.dateFilter.preset !== 'all') {
+            q = q
+              .gte("criado", filters.dateFilter.startDate.toISOString())
+              .lte("criado", filters.dateFilter.endDate.toISOString());
+          }
+          if (filters?.projectId) {
+            q = q.eq("commercial_project_id", filters.projectId);
+          }
+          if (filters?.scouterId) {
+            q = q.eq("scouter", filters.scouterId);
+          }
+          if (filters?.fonte) {
+            q = q.or(`fonte.ilike.%${filters.fonte}%`);
+          }
+          
+          return q;
+        }
       );
       
       const total = data.length;

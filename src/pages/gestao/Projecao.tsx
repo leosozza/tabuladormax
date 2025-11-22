@@ -23,7 +23,8 @@ function GestaoProjecaoContent() {
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('all'),
     projectId: null,
-    scouterId: null
+    scouterId: null,
+    fonte: null
   });
 
   // Datas para período histórico (últimos 3 meses por padrão)

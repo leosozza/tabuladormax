@@ -16,6 +16,7 @@ export interface GestaoFilters {
   dateFilter: DateFilter;
   projectId: string | null;
   scouterId: string | null;
+  fonte: string | null;
   additionalFilters?: AdditionalFilter[];
 }
 

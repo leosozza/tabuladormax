@@ -1947,6 +1947,21 @@ export type Database = {
           total: number
         }[]
       }
+      get_leads_stats_filtered: {
+        Args: {
+          p_end_date?: string
+          p_fonte?: string
+          p_project_id?: string
+          p_scouter?: string
+          p_start_date?: string
+        }
+        Returns: {
+          compareceram: number
+          confirmados: number
+          pendentes: number
+          total: number
+        }[]
+      }
       get_leads_table_columns: {
         Args: never
         Returns: {
@@ -1958,6 +1973,16 @@ export type Database = {
       get_projection_data: {
         Args: {
           p_end_date: string
+          p_project_id?: string
+          p_scouter?: string
+          p_start_date: string
+        }
+        Returns: Json
+      }
+      get_projection_data_filtered: {
+        Args: {
+          p_end_date: string
+          p_fonte?: string
           p_project_id?: string
           p_scouter?: string
           p_start_date: string
@@ -1992,6 +2017,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      normalize_fonte: { Args: { raw_fonte: string }; Returns: string }
     }
     Enums: {
       app_department:

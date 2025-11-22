@@ -96,12 +96,69 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
     },
   });
 
+  // Buscar fontes únicas que têm leads no período selecionado, projeto e scouter
+  const { data: fontes } = useQuery({
+    queryKey: ["fontes-list-filtered", filters.dateFilter, filters.projectId, filters.scouterId],
+    queryFn: async () => {
+      let query = supabase
+        .from("leads")
+        .select("fonte")
+        .not("fonte", "is", null);
+
+      // Aplicar filtro de data se não for "todo período"
+      if (filters.dateFilter.preset !== 'all') {
+        query = query
+          .gte("criado", filters.dateFilter.startDate.toISOString())
+          .lte("criado", filters.dateFilter.endDate.toISOString());
+      }
+
+      // Filtrar por projeto quando selecionado
+      if (filters.projectId) {
+        query = query.eq("commercial_project_id", filters.projectId);
+      }
+
+      // Filtrar por scouter quando selecionado
+      if (filters.scouterId) {
+        query = query.eq("scouter", filters.scouterId);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      // Normalizar e extrair fontes únicas
+      const uniqueFontes = [...new Set(data.map(l => {
+        const fonte = l.fonte || 'Sem Fonte';
+        if (fonte.toLowerCase().includes('meta') || fonte.toLowerCase().includes('instagram') || fonte.toLowerCase().includes('facebook')) {
+          return 'Meta';
+        } else if (fonte.toLowerCase().includes('scouter') || fonte.toLowerCase().includes('fichas')) {
+          return 'Scouters';
+        } else if (fonte.toLowerCase().includes('recep')) {
+          return 'Recepção';
+        } else if (fonte.toLowerCase().includes('openline')) {
+          return 'OpenLine';
+        } else if (fonte.toLowerCase().includes('maxsystem')) {
+          return 'MaxSystem';
+        }
+        return fonte;
+      }).filter(Boolean))];
+      
+      return uniqueFontes.sort();
+    },
+  });
+
   // Reset scouterId se o scouter selecionado não estiver mais na lista
   useEffect(() => {
     if (filters.scouterId && scouters && !scouters.includes(filters.scouterId)) {
       onChange({ ...filters, scouterId: null });
     }
   }, [scouters, filters.scouterId]);
+
+  // Reset fonte se a fonte selecionada não estiver mais na lista
+  useEffect(() => {
+    if (filters.fonte && fontes && !fontes.includes(filters.fonte)) {
+      onChange({ ...filters, fonte: null });
+    }
+  }, [fontes, filters.fonte]);
 
   const handlePresetChange = (preset: string) => {
     if (preset !== 'custom') {
@@ -152,6 +209,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
   const activeFiltersCount = 
     (filters.projectId ? 1 : 0) + 
     (filters.scouterId ? 1 : 0) + 
+    (filters.fonte ? 1 : 0) +
     (showDateFilter && filters.dateFilter.preset !== 'month' ? 1 : 0) +
     (filters.additionalFilters?.length || 0);
 
@@ -278,6 +336,35 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
                 </Select>
               </div>
 
+              {/* Filtro de Fonte */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Fonte:</label>
+                <Select
+                  value={filters.fonte || "all"}
+                  onValueChange={(value) => 
+                    onChange({ ...filters, fonte: value === "all" ? null : value })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todas as fontes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as fontes</SelectItem>
+                    {fontes?.length === 0 ? (
+                      <SelectItem value="none" disabled>
+                        Nenhuma fonte encontrada
+                      </SelectItem>
+                    ) : (
+                      fontes?.map((fonte) => (
+                        <SelectItem key={fonte} value={fonte}>
+                          {fonte}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Filtros Adicionais */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Filtros Avançados:</label>
@@ -292,12 +379,13 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
                 <Button
                   variant="outline"
                   onClick={() => {
-                    onChange({
-                      dateFilter: createDateFilter('all'),
-                      projectId: null,
-                      scouterId: null,
-                      additionalFilters: []
-                    });
+                  onChange({
+                    dateFilter: createDateFilter('all'),
+                    projectId: null,
+                    scouterId: null,
+                    fonte: null,
+                    additionalFilters: []
+                  });
                   }}
                   className="flex-1"
                 >
@@ -440,6 +528,35 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
         </Select>
       </div>
 
+      {/* Filtro de Fonte */}
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-medium text-muted-foreground">Fonte:</label>
+        <Select
+          value={filters.fonte || "all"}
+          onValueChange={(value) => 
+            onChange({ ...filters, fonte: value === "all" ? null : value })
+          }
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Todas as fontes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as fontes</SelectItem>
+            {fontes?.length === 0 ? (
+              <SelectItem value="none" disabled>
+                Nenhuma fonte encontrada
+              </SelectItem>
+            ) : (
+              fontes?.map((fonte) => (
+                <SelectItem key={fonte} value={fonte}>
+                  {fonte}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Filtros Adicionais */}
       <AdditionalFilters
         filters={filters.additionalFilters || []}
@@ -447,16 +564,17 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
       />
 
       {/* Botão Limpar Filtros */}
-      {(filters.projectId || filters.scouterId || (showDateFilter && filters.dateFilter.preset !== 'all') || (filters.additionalFilters && filters.additionalFilters.length > 0)) && (
+      {(filters.projectId || filters.scouterId || filters.fonte || (showDateFilter && filters.dateFilter.preset !== 'all') || (filters.additionalFilters && filters.additionalFilters.length > 0)) && (
                   <Button 
                     variant="ghost" 
                     size="sm"
-                    onClick={() => onChange({
-                      dateFilter: createDateFilter('all'),
-                      projectId: null,
-            scouterId: null,
-            additionalFilters: []
-          })}
+                  onClick={() => onChange({
+                    dateFilter: createDateFilter('all'),
+                    projectId: null,
+                    scouterId: null,
+                    fonte: null,
+                    additionalFilters: []
+                  })}
         >
           Limpar Filtros
         </Button>

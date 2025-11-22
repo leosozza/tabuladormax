@@ -21,7 +21,8 @@ function AdvancedDashboardContent() {
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('all'),
     projectId: null,
-    scouterId: null
+    scouterId: null,
+    fonte: null
   });
 
   // Usar o primeiro dashboard ou dashboard padrão
