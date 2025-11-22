@@ -38,8 +38,7 @@ export default function LeadsChart({ filters }: LeadsChartProps) {
             q = q.eq("scouter", filters.scouterId);
           }
           if (filters?.fonte) {
-            // Aplicar filtro de fonte normalizado
-            q = q.or(`fonte.ilike.%${filters.fonte}%`);
+            q = q.eq("fonte_normalizada", filters.fonte);
           }
           
           return q;

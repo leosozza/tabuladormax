@@ -96,53 +96,23 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
     },
   });
 
-  // Buscar fontes únicas que têm leads no período selecionado, projeto e scouter
+  // Buscar fontes únicas normalizadas que têm leads no período selecionado, projeto e scouter
   const { data: fontes } = useQuery({
     queryKey: ["fontes-list-filtered", filters.dateFilter, filters.projectId, filters.scouterId],
     queryFn: async () => {
-      let query = supabase
-        .from("leads")
-        .select("fonte")
-        .not("fonte", "is", null);
-
-      // Aplicar filtro de data se não for "todo período"
-      if (filters.dateFilter.preset !== 'all') {
-        query = query
-          .gte("criado", filters.dateFilter.startDate.toISOString())
-          .lte("criado", filters.dateFilter.endDate.toISOString());
-      }
-
-      // Filtrar por projeto quando selecionado
-      if (filters.projectId) {
-        query = query.eq("commercial_project_id", filters.projectId);
-      }
-
-      // Filtrar por scouter quando selecionado
-      if (filters.scouterId) {
-        query = query.eq("scouter", filters.scouterId);
-      }
+      const { data, error } = await supabase.rpc('get_normalized_fontes', {
+        p_start_date: filters.dateFilter.preset !== 'all' 
+          ? filters.dateFilter.startDate.toISOString() 
+          : null,
+        p_end_date: filters.dateFilter.preset !== 'all'
+          ? filters.dateFilter.endDate.toISOString()
+          : null,
+        p_project_id: filters.projectId,
+        p_scouter: filters.scouterId
+      });
       
-      const { data, error } = await query;
       if (error) throw error;
-      
-      // Normalizar e extrair fontes únicas
-      const uniqueFontes = [...new Set(data.map(l => {
-        const fonte = l.fonte || 'Sem Fonte';
-        if (fonte.toLowerCase().includes('meta') || fonte.toLowerCase().includes('instagram') || fonte.toLowerCase().includes('facebook')) {
-          return 'Meta';
-        } else if (fonte.toLowerCase().includes('scouter') || fonte.toLowerCase().includes('fichas')) {
-          return 'Scouters';
-        } else if (fonte.toLowerCase().includes('recep')) {
-          return 'Recepção';
-        } else if (fonte.toLowerCase().includes('openline')) {
-          return 'OpenLine';
-        } else if (fonte.toLowerCase().includes('maxsystem')) {
-          return 'MaxSystem';
-        }
-        return fonte;
-      }).filter(Boolean))];
-      
-      return uniqueFontes.sort();
+      return data?.map(item => item.fonte_normalizada) || [];
     },
   });
 

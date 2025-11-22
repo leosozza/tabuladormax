@@ -40,7 +40,7 @@ export default function ConversionFunnel({ filters }: ConversionFunnelProps) {
             q = q.eq("scouter", filters.scouterId);
           }
           if (filters?.fonte) {
-            q = q.or(`fonte.ilike.%${filters.fonte}%`);
+            q = q.eq("fonte_normalizada", filters.fonte);
           }
           
           return q;

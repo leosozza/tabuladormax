@@ -1248,6 +1248,7 @@ export type Database = {
           ficha_confirmada: boolean | null
           ficha_paga: boolean | null
           fonte: string | null
+          fonte_normalizada: string | null
           funil_fichas: string | null
           geocoded_at: string | null
           gerenciamento_funil: string | null
@@ -1310,6 +1311,7 @@ export type Database = {
           ficha_confirmada?: boolean | null
           ficha_paga?: boolean | null
           fonte?: string | null
+          fonte_normalizada?: string | null
           funil_fichas?: string | null
           geocoded_at?: string | null
           gerenciamento_funil?: string | null
@@ -1372,6 +1374,7 @@ export type Database = {
           ficha_confirmada?: boolean | null
           ficha_paga?: boolean | null
           fonte?: string | null
+          fonte_normalizada?: string | null
           funil_fichas?: string | null
           geocoded_at?: string | null
           gerenciamento_funil?: string | null
@@ -1970,6 +1973,17 @@ export type Database = {
           is_nullable: string
         }[]
       }
+      get_normalized_fontes: {
+        Args: {
+          p_end_date?: string
+          p_project_id?: string
+          p_scouter?: string
+          p_start_date?: string
+        }
+        Returns: {
+          fonte_normalizada: string
+        }[]
+      }
       get_projection_data: {
         Args: {
           p_end_date: string
@@ -2000,6 +2014,21 @@ export type Database = {
       get_scouter_performance_detail: {
         Args: { p_scouter_id: string }
         Returns: Json
+      }
+      get_source_analysis: {
+        Args: {
+          p_end_date?: string
+          p_fonte?: string
+          p_project_id?: string
+          p_scouter?: string
+          p_start_date?: string
+        }
+        Returns: {
+          compareceram: number
+          confirmados: number
+          fonte_normalizada: string
+          total: number
+        }[]
       }
       get_table_columns: {
         Args: { table_name: string }
