@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
@@ -24,6 +24,8 @@ import { toast } from "sonner";
 import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal";
 import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtils";
 
+let longPressTimer: number | null = null;
+
 function GestaoLeadsContent() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -47,9 +49,6 @@ function GestaoLeadsContent() {
   
   // Estado para controlar o modal de configuração do cartão
   const [configModalOpen, setConfigModalOpen] = useState(false);
-  
-  // Ref para controlar o timer do long press
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const { visibleColumns } = useLeadColumnConfig();
   const { data: allFields, isLoading: isLoadingFields } = useGestaoFieldMappings();
@@ -306,7 +305,7 @@ function GestaoLeadsContent() {
   };
 
   // Ativar modo de seleção via long press e selecionar o lead
-  const activateSelectionModeWithLead = useCallback((leadId: number) => {
+  const activateSelectionModeWithLead = (leadId: number) => {
     setIsSelectionMode(true);
     setSelectedLeadIds(prev => {
       const newSet = new Set(prev);
@@ -314,31 +313,29 @@ function GestaoLeadsContent() {
       return newSet;
     });
     
-    // Feedback visual
     if (navigator?.vibrate) {
       navigator.vibrate(50);
     }
     toast.info('Modo de seleção ativado');
-  }, []); // Sem dependências - usa apenas setters
+  };
 
-  // Handlers para long press
-  const handleLongPressStart = useCallback((leadId: number) => {
-    // Limpar timer anterior se existir
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
+  // Handlers para long press (sem hooks)
+  const handleLongPressStart = (leadId: number) => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
     }
-    
-    longPressTimerRef.current = setTimeout(() => {
+
+    longPressTimer = window.setTimeout(() => {
       activateSelectionModeWithLead(leadId);
     }, 500);
-  }, [activateSelectionModeWithLead]);
+  };
 
-  const handleLongPressEnd = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
     }
-  }, []);
+  };
 
   // Iniciar análise
   const handleStartAnalysis = () => {
