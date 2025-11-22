@@ -7,9 +7,10 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tag } from 'lucide-react';
+import { Tag, Settings } from 'lucide-react';
 import { useConversationLabels } from '@/hooks/useConversationLabels';
 import { LabelBadge } from './LabelBadge';
+import { LabelSettingsManager } from './LabelSettingsManager';
 
 interface LabelManagerProps {
   conversationId: number;
@@ -17,6 +18,7 @@ interface LabelManagerProps {
 
 export function LabelManager({ conversationId }: LabelManagerProps) {
   const [open, setOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { labels, assignedLabels, loading, toggleLabel } = useConversationLabels(conversationId);
 
   const handleToggleLabel = async (labelId: string) => {
@@ -28,6 +30,7 @@ export function LabelManager({ conversationId }: LabelManagerProps) {
   };
 
   return (
+    <>
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
@@ -42,8 +45,22 @@ export function LabelManager({ conversationId }: LabelManagerProps) {
       </PopoverTrigger>
       <PopoverContent className="w-80" align="end">
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium">Gerenciar Etiquetas</h4>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setOpen(false);
+                setSettingsOpen(true);
+              }}
+              className="h-7 px-2"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+          </div>
+          
           <div>
-            <h4 className="font-medium mb-3">Gerenciar Etiquetas</h4>
             
             {/* Labels atualmente atribuídas */}
             {assignedLabels.length > 0 && (
@@ -98,5 +115,11 @@ export function LabelManager({ conversationId }: LabelManagerProps) {
         </div>
       </PopoverContent>
     </Popover>
+
+    <LabelSettingsManager
+      open={settingsOpen}
+      onOpenChange={setSettingsOpen}
+    />
+  </>
   );
 }

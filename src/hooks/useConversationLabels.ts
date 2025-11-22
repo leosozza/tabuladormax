@@ -148,6 +148,80 @@ export function useConversationLabels(conversationId?: number | null) {
     }
   }, [conversationId]);
 
+  // Criar nova label
+  const createLabel = async (name: string, color: string) => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data, error } = await supabase
+        .from('conversation_labels')
+        .insert({
+          name: name.trim(),
+          color,
+          created_by: user?.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      await fetchLabels();
+      toast.success('Etiqueta criada com sucesso');
+      return data;
+    } catch (error: any) {
+      console.error('Erro ao criar label:', error);
+      toast.error('Erro ao criar etiqueta');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Atualizar label existente
+  const updateLabel = async (labelId: string, name: string, color: string) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('conversation_labels')
+        .update({ name: name.trim(), color })
+        .eq('id', labelId);
+
+      if (error) throw error;
+      
+      await fetchLabels();
+      toast.success('Etiqueta atualizada');
+    } catch (error: any) {
+      console.error('Erro ao atualizar label:', error);
+      toast.error('Erro ao atualizar etiqueta');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Deletar label
+  const deleteLabel = async (labelId: string) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('conversation_labels')
+        .delete()
+        .eq('id', labelId);
+
+      if (error) throw error;
+      
+      await fetchLabels();
+      toast.success('Etiqueta excluída');
+    } catch (error: any) {
+      console.error('Erro ao deletar label:', error);
+      toast.error('Erro ao excluir etiqueta');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     labels,
     assignedLabels,
@@ -155,6 +229,9 @@ export function useConversationLabels(conversationId?: number | null) {
     assignLabel,
     removeLabel,
     toggleLabel,
+    createLabel,
+    updateLabel,
+    deleteLabel,
     fetchLabels,
     fetchAssignedLabels,
     fetchLabelsForConversations,
