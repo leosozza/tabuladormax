@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Send, RefreshCw, MessageSquare } from 'lucide-react';
 import { useChatwootMessages } from '@/hooks/useChatwootMessages';
 import { TemplateSelector } from './TemplateSelector';
+import { LabelManager } from './LabelManager';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -42,11 +43,13 @@ export function ChatPanel({ conversationId, contactName }: ChatPanelProps) {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Ctrl+Enter ou Cmd+Enter para enviar
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       handleSendMessage();
     }
+    // Enter simples adiciona nova linha (comportamento padrão do textarea)
   };
 
   if (!conversationId) {
@@ -74,15 +77,18 @@ export function ChatPanel({ conversationId, contactName }: ChatPanelProps) {
               Conversa #{conversationId}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchMessages}
-            disabled={loading}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
+          <div className="flex items-center gap-2">
+            <LabelManager conversationId={conversationId} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchMessages}
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -154,22 +160,28 @@ export function ChatPanel({ conversationId, contactName }: ChatPanelProps) {
           </ScrollArea>
 
           <div className="border-t p-4 bg-card">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Digite sua mensagem..."
+            <div className="flex gap-2 items-end">
+              <Textarea
+                placeholder="Digite sua mensagem... (Ctrl+Enter para enviar)"
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 disabled={sending}
+                className="min-h-[80px] max-h-[160px] resize-none"
+                rows={3}
               />
               <Button
                 onClick={handleSendMessage}
                 disabled={sending || !messageInput.trim()}
                 size="icon"
+                className="flex-shrink-0"
               >
                 <Send className="w-4 h-4" />
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Pressione <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> para enviar
+            </p>
           </div>
         </TabsContent>
 

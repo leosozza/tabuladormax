@@ -662,6 +662,62 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_label_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          conversation_id: number
+          id: string
+          label_id: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          conversation_id: number
+          id?: string
+          label_id?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          conversation_id?: number
+          id?: string
+          label_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_label_assignments_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_labels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_labels: {
+        Row: {
+          color: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       csv_field_mappings: {
         Row: {
           active: boolean | null
