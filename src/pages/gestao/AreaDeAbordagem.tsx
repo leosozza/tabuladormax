@@ -20,6 +20,7 @@ function GestaoAreaDeAbordagemContent() {
     dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null,
+    fonte: null,
   });
   const [drawnAreas, setDrawnAreas] = useState<DrawnArea[]>([]);
 

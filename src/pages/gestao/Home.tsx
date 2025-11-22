@@ -10,6 +10,7 @@ import LeadsChart from "@/components/gestao/dashboard/LeadsChart";
 import ConversionFunnel from "@/components/gestao/dashboard/ConversionFunnel";
 import ScouterPerformance from "@/components/gestao/dashboard/ScouterPerformance";
 import StatusDistribution from "@/components/gestao/dashboard/StatusDistribution";
+import SourceAnalysis from "@/components/gestao/dashboard/SourceAnalysis";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
@@ -20,7 +21,8 @@ function GestaoHomeContent() {
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('all'),
     projectId: null,
-    scouterId: null
+    scouterId: null,
+    fonte: null
   });
 
   // Estatísticas principais
@@ -166,14 +168,19 @@ function GestaoHomeContent() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-        <LeadsChart />
-        <ConversionFunnel />
+      {/* Análise por Fonte */}
+      <div className="mt-8">
+        <SourceAnalysis filters={filters} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-        <ScouterPerformance />
-        <StatusDistribution />
+        <LeadsChart filters={filters} />
+        <ConversionFunnel filters={filters} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <ScouterPerformance filters={filters} />
+        <StatusDistribution filters={filters} />
       </div>
     </GestaoPageLayout>
   );

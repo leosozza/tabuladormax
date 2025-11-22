@@ -17,6 +17,7 @@ function GestaoPagamentosContent() {
     dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null,
+    fonte: null,
   });
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedScouters, setSelectedScouters] = useState<string[]>([]);

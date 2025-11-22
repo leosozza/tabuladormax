@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { GestaoFilters } from "@/types/filters";
 
 const COLORS = [
   "hsl(217 91% 60%)",
@@ -12,14 +13,39 @@ const COLORS = [
   "hsl(336 87% 59%)",
 ];
 
-export default function StatusDistribution() {
+interface StatusDistributionProps {
+  filters?: GestaoFilters;
+}
+
+export default function StatusDistribution({ filters }: StatusDistributionProps) {
   const { data: chartData, isLoading } = useQuery({
-    queryKey: ["status-distribution"],
+    queryKey: ["status-distribution", filters],
     queryFn: async () => {
       // Fetch all leads with pagination to ensure we get more than 1000 records
       const data = await fetchAllLeads(
         supabase,
-        "etapa"
+        "etapa",
+        (query) => {
+          let q = query;
+          
+          // Aplicar filtros se fornecidos
+          if (filters?.dateFilter.preset !== 'all') {
+            q = q
+              .gte("criado", filters.dateFilter.startDate.toISOString())
+              .lte("criado", filters.dateFilter.endDate.toISOString());
+          }
+          if (filters?.projectId) {
+            q = q.eq("commercial_project_id", filters.projectId);
+          }
+          if (filters?.scouterId) {
+            q = q.eq("scouter", filters.scouterId);
+          }
+          if (filters?.fonte) {
+            q = q.or(`fonte.ilike.%${filters.fonte}%`);
+          }
+          
+          return q;
+        }
       );
       
       // Agrupar por etapa

@@ -852,6 +852,7 @@ export default function GestaoLeads() {
     dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null,
+    fonte: null,
     additionalFilters: [],
   });
 

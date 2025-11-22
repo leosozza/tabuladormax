@@ -5,10 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { GestaoFilters } from "@/types/filters";
 
-export default function LeadsChart() {
+interface LeadsChartProps {
+  filters?: GestaoFilters;
+}
+
+export default function LeadsChart({ filters }: LeadsChartProps) {
   const { data: chartData, isLoading } = useQuery({
-    queryKey: ["leads-chart"],
+    queryKey: ["leads-chart", filters],
     queryFn: async () => {
       const days = 30;
       const startDate = startOfDay(subDays(new Date(), days));
@@ -17,7 +22,28 @@ export default function LeadsChart() {
       const data = await fetchAllLeads(
         supabase,
         "criado, ficha_confirmada, compareceu",
-        (query) => query.gte("criado", startDate.toISOString())
+        (query) => {
+          let q = query.gte("criado", startDate.toISOString());
+          
+          // Aplicar filtros se fornecidos
+          if (filters?.dateFilter.preset !== 'all') {
+            q = q
+              .gte("criado", filters.dateFilter.startDate.toISOString())
+              .lte("criado", filters.dateFilter.endDate.toISOString());
+          }
+          if (filters?.projectId) {
+            q = q.eq("commercial_project_id", filters.projectId);
+          }
+          if (filters?.scouterId) {
+            q = q.eq("scouter", filters.scouterId);
+          }
+          if (filters?.fonte) {
+            // Aplicar filtro de fonte normalizado
+            q = q.or(`fonte.ilike.%${filters.fonte}%`);
+          }
+          
+          return q;
+        }
       );
       
       // Agrupar por dia

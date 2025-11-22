@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { GestaoFilters } from "@/types/filters";
 
 interface LeadPerformanceData {
   scouter: string;
@@ -10,15 +11,39 @@ interface LeadPerformanceData {
   compareceu?: boolean;
 }
 
-export default function ScouterPerformance() {
+interface ScouterPerformanceProps {
+  filters?: GestaoFilters;
+}
+
+export default function ScouterPerformance({ filters }: ScouterPerformanceProps) {
   const { data: performanceData, isLoading } = useQuery({
-    queryKey: ["scouter-performance"],
+    queryKey: ["scouter-performance", filters],
     queryFn: async () => {
       // Fetch all leads with pagination to ensure we get more than 1000 records
       const data = await fetchAllLeads<LeadPerformanceData>(
         supabase,
         "scouter, ficha_confirmada, compareceu",
-        (query) => query.not("scouter", "is", null)
+        (query) => {
+          let q = query.not("scouter", "is", null);
+          
+          // Aplicar filtros se fornecidos
+          if (filters?.dateFilter.preset !== 'all') {
+            q = q
+              .gte("criado", filters.dateFilter.startDate.toISOString())
+              .lte("criado", filters.dateFilter.endDate.toISOString());
+          }
+          if (filters?.projectId) {
+            q = q.eq("commercial_project_id", filters.projectId);
+          }
+          if (filters?.scouterId) {
+            q = q.eq("scouter", filters.scouterId);
+          }
+          if (filters?.fonte) {
+            q = q.or(`fonte.ilike.%${filters.fonte}%`);
+          }
+          
+          return q;
+        }
       );
       
       // Agrupar por scouter
