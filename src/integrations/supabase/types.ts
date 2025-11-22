@@ -1780,6 +1780,13 @@ export type Database = {
           leads_not_found: number
         }[]
       }
+      fix_scouter_names_filtered: {
+        Args: { p_end_date: string; p_project_id: string; p_start_date: string }
+        Returns: {
+          leads_fixed: number
+          leads_not_found: number
+        }[]
+      }
       get_general_stats: {
         Args: never
         Returns: {
