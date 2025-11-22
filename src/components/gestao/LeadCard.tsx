@@ -65,9 +65,9 @@ export default function LeadCard({ lead }: LeadCardProps) {
   const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
 
   const photoContainerClasses = {
-    circle: "aspect-square rounded-full min-h-[100px] max-h-[150px] sm:max-h-[180px] md:max-h-[200px] w-full",
-    rounded: "aspect-[3/4] rounded-lg min-h-[140px] max-h-[200px] sm:max-h-[240px] md:max-h-[280px] w-full",
-    fullscreen: "w-full rounded-none min-h-[160px] max-h-[220px] sm:max-h-[280px] md:max-h-[320px]"
+    circle: "aspect-square rounded-full min-h-[160px] max-h-[220px] sm:max-h-[250px] md:max-h-[280px] w-full",
+    rounded: "aspect-[3/4] rounded-lg min-h-[200px] max-h-[280px] sm:max-h-[320px] md:max-h-[360px] w-full",
+    fullscreen: "w-full rounded-none min-h-[220px] max-h-[320px] sm:max-h-[380px] md:max-h-[420px]"
   };
 
   const isPlaceholder = photoUrl === noPhotoPlaceholder || !photoUrl || photoUrl === getLeadPhotoUrl(null);
@@ -140,7 +140,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
       </div>
 
       {/* Informações do Lead */}
-      <CardContent className="flex-1 min-h-0 overflow-y-auto p-4 md:p-5 lg:p-6 space-y-3 md:space-y-4 lg:space-y-5">
+      <CardContent className="flex-1 min-h-0 overflow-y-auto p-3 md:p-4 lg:p-5 space-y-2 md:space-y-3 lg:space-y-4">
         <div>
           {/* Nome do Modelo - Grande e Negrito */}
           <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 truncate leading-tight">
