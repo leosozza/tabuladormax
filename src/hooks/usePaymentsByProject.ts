@@ -24,8 +24,8 @@ export function usePaymentsByProject(
         .from('leads')
         .select('scouter, valor_ficha, ficha_paga, id')
         .eq('commercial_project_id', projectId)
-        .eq('etapa', 'Scouter-fichas')
         .not('scouter', 'is', null)
+        .not('valor_ficha', 'is', null)
         .gte('criado', startDate.toISOString())
         .lte('criado', endDate.toISOString());
 

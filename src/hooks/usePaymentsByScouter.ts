@@ -27,7 +27,7 @@ export function usePaymentsByScouter(
         .select('id, criado, valor_ficha, ficha_paga')
         .eq('commercial_project_id', projectId)
         .eq('scouter', scouter)
-        .eq('etapa', 'Scouter-fichas')
+        .not('valor_ficha', 'is', null)
         .gte('criado', startDate.toISOString())
         .lte('criado', endDate.toISOString())
         .order('criado', { ascending: true });
