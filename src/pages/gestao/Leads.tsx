@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, type Dispatch, type SetStateAction } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
@@ -26,18 +26,17 @@ import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtil
 
 let longPressTimer: number | null = null;
 
-function GestaoLeadsContent() {
+type GestaoLeadsContentProps = {
+  filters: GestaoFilters;
+  setFilters: Dispatch<SetStateAction<GestaoFilters>>;
+};
+
+function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [filters, setFilters] = useState<GestaoFilters>({
-    dateFilter: createDateFilter('month'),
-    projectId: null,
-    scouterId: null,
-    additionalFilters: []
-  });
   
   // Estados para análise de leads
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(new Set());
@@ -859,9 +858,25 @@ function GestaoLeadsContent() {
 }
 
 export default function GestaoLeads() {
+  const [filters, setFilters] = useState<GestaoFilters>({
+    dateFilter: createDateFilter('month'),
+    projectId: null,
+    scouterId: null,
+    additionalFilters: [],
+  });
+
+  const filtersKey = useMemo(
+    () => JSON.stringify(filters.additionalFilters || []),
+    [filters.additionalFilters]
+  );
+
   return (
     <LeadColumnConfigProvider>
-      <GestaoLeadsContent />
+      <GestaoLeadsContent
+        key={filtersKey}
+        filters={filters}
+        setFilters={setFilters}
+      />
     </LeadColumnConfigProvider>
   );
 }
