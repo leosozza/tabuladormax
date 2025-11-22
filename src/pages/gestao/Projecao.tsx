@@ -104,7 +104,7 @@ function GestaoProjecaoContent() {
   return (
     <GestaoPageLayout
       title="Projeções Inteligentes"
-      description="Análise histórica e projeção de fichas futuras"
+      description="Análise histórica e projeção de leads futuros"
     >
       <div className="space-y-6">
         {/* Filtros Básicos */}
@@ -119,7 +119,7 @@ function GestaoProjecaoContent() {
           <Info className="h-4 w-4" />
           <AlertDescription>
             Este sistema analisa seus dados históricos considerando dias da semana, período do mês, 
-            feriados e tendências para projetar quantas fichas você pode fazer em um período futuro.
+            feriados e tendências para projetar quantos leads confirmados você pode fazer em um período futuro.
           </AlertDescription>
         </Alert>
 

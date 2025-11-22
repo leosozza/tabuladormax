@@ -115,9 +115,9 @@ export function ProjectionResults({ projection }: ProjectionResultsProps) {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <div className="text-sm text-muted-foreground mb-1">Valor Médio por Lead Confirmado</div>
+              <div className="text-sm text-muted-foreground mb-1">Valor Médio por Lead</div>
               <div className="text-2xl font-bold">
-                R$ {estimatedFichas > 0 ? (estimatedValue / estimatedFichas).toFixed(2) : '0.00'}
+                R$ {estimatedLeads > 0 ? (estimatedValue / estimatedLeads).toFixed(2) : '0.00'}
               </div>
             </div>
             <div>

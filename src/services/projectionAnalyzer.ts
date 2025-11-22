@@ -143,7 +143,7 @@ function calculateTrends(leads: Lead[]) {
     totalFichas,
     totalValue,
     avgConversionRate: totalLeads > 0 ? (totalFichas / totalLeads) * 100 : 0,
-    avgValuePerFicha: totalFichas > 0 ? totalValue / totalFichas : 0,
+    avgValuePerLead: totalLeads > 0 ? totalValue / totalLeads : 0,
     daysAnalyzed: uniqueDays.size,
   };
 }
