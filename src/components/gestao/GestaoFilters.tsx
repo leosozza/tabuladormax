@@ -30,7 +30,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
 
   // Buscar projetos comerciais que têm leads no período selecionado
   const { data: projects } = useQuery({
-    queryKey: ["commercial-projects-filtered", filters.dateFilter],
+    queryKey: ["commercial-projects-filtered", filters.dateFilter, filters.scouterId, filters.fonte],
     queryFn: async () => {
       // Buscar IDs de projetos que existem nos leads do período
       let query = supabase
@@ -43,6 +43,16 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
         query = query
           .gte("criado", filters.dateFilter.startDate.toISOString())
           .lte("criado", filters.dateFilter.endDate.toISOString());
+      }
+
+      // Filtrar por scouter quando selecionado
+      if (filters.scouterId) {
+        query = query.eq("scouter", filters.scouterId);
+      }
+
+      // Filtrar por fonte quando selecionada
+      if (filters.fonte) {
+        query = query.eq("fonte_normalizada", filters.fonte);
       }
 
       const { data: leadProjects, error: leadsError } = await query;
@@ -68,7 +78,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
 
   // Buscar scouters únicos que têm leads no período selecionado e no projeto selecionado
   const { data: scouters } = useQuery({
-    queryKey: ["scouters-list-filtered", filters.dateFilter, filters.projectId],
+    queryKey: ["scouters-list-filtered", filters.dateFilter, filters.projectId, filters.fonte],
     queryFn: async () => {
       let query = supabase
         .from("leads")
@@ -85,6 +95,11 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
       // Filtrar por projeto quando selecionado
       if (filters.projectId) {
         query = query.eq("commercial_project_id", filters.projectId);
+      }
+
+      // Filtrar por fonte quando selecionada
+      if (filters.fonte) {
+        query = query.eq("fonte_normalizada", filters.fonte);
       }
       
       const { data, error } = await query;
