@@ -99,6 +99,13 @@ const adminOptions = [
     description: 'Gerenciar templates Gupshup',
     color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   },
+  {
+    path: '/admin/stage-mappings',
+    icon: Settings,
+    title: 'Mapeamento de Stages',
+    description: 'Configurar sincronização de status dos scouters',
+    color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  },
 ];
 
 export const AdminAccessModal: React.FC<AdminAccessModalProps> = ({
