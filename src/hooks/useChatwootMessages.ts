@@ -40,7 +40,32 @@ export const useChatwootMessages = (conversationId: number | null) => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar mensagens:', error);
+        toast.error('Erro ao buscar mensagens. Verifique sua conexão.');
+        return;
+      }
+
+      // Verificar se há erro no response da edge function
+      if (data?.error) {
+        console.error('Erro da API Chatwoot:', data.error, data.details);
+        
+        if (data.details?.includes('Connection refused') || data.details?.includes('os error 111')) {
+          toast.error('Servidor Chatwoot inacessível', {
+            description: 'O servidor não está respondendo. Entre em contato com o suporte.',
+            duration: 6000,
+          });
+        } else if (data.error?.includes('Timeout')) {
+          toast.error('Timeout ao buscar mensagens', {
+            description: 'Tente novamente em alguns instantes.',
+          });
+        } else {
+          toast.error('Erro ao carregar mensagens', {
+            description: data.error,
+          });
+        }
+        return;
+      }
 
       // Ensure messages is always an array - access payload from Chatwoot response
       const fetchedMessages = data?.messages?.payload;
@@ -54,7 +79,7 @@ export const useChatwootMessages = (conversationId: number | null) => {
   };
 
   const sendMessage = async (content: string) => {
-    if (!conversationId || !content.trim()) return;
+    if (!conversationId || !content.trim()) return false;
 
     setSending(true);
     try {
@@ -65,7 +90,32 @@ export const useChatwootMessages = (conversationId: number | null) => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao enviar mensagem:', error);
+        toast.error('Erro ao enviar mensagem. Verifique sua conexão.');
+        return false;
+      }
+
+      // Verificar se há erro no response da edge function
+      if (data?.error) {
+        console.error('Erro da API Chatwoot:', data.error, data.details);
+        
+        if (data.details?.includes('Connection refused') || data.details?.includes('os error 111')) {
+          toast.error('Servidor Chatwoot inacessível', {
+            description: 'Não foi possível enviar. Entre em contato com o suporte.',
+            duration: 6000,
+          });
+        } else if (data.error?.includes('Timeout')) {
+          toast.error('Timeout ao enviar mensagem', {
+            description: 'Tente novamente em alguns instantes.',
+          });
+        } else {
+          toast.error('Erro ao enviar mensagem', {
+            description: data.error,
+          });
+        }
+        return false;
+      }
 
       // Add message optimistically
       const newMessage: ChatwootMessage = {
@@ -93,7 +143,7 @@ export const useChatwootMessages = (conversationId: number | null) => {
   };
 
   const sendTemplate = async (templateParams: TemplateParams) => {
-    if (!conversationId) return;
+    if (!conversationId) return false;
 
     setSending(true);
     try {
@@ -104,7 +154,32 @@ export const useChatwootMessages = (conversationId: number | null) => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao enviar template:', error);
+        toast.error('Erro ao enviar template. Verifique sua conexão.');
+        return false;
+      }
+
+      // Verificar se há erro no response da edge function
+      if (data?.error) {
+        console.error('Erro da API Chatwoot:', data.error, data.details);
+        
+        if (data.details?.includes('Connection refused') || data.details?.includes('os error 111')) {
+          toast.error('Servidor Chatwoot inacessível', {
+            description: 'Não foi possível enviar o template. Entre em contato com o suporte.',
+            duration: 6000,
+          });
+        } else if (data.error?.includes('Timeout')) {
+          toast.error('Timeout ao enviar template', {
+            description: 'Tente novamente em alguns instantes.',
+          });
+        } else {
+          toast.error('Erro ao enviar template', {
+            description: data.error,
+          });
+        }
+        return false;
+      }
 
       toast.success('Template enviado');
       await fetchMessages(); // Refresh to show template
