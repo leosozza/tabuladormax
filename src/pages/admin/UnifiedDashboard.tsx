@@ -11,6 +11,7 @@ import { ProblemsPanel } from '@/components/diagnostic/ProblemsPanel';
 import { AlertsPanel } from '@/components/diagnostic/AlertsPanel';
 import { PerformanceMonitoringDashboard } from '@/components/monitoring/PerformanceMonitoringDashboard';
 import { LogsPanel } from '@/components/admin/Diagnostics/LogsPanel';
+import { DataQualityPanel } from '@/components/admin/DataQualityPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -234,10 +235,11 @@ export default function UnifiedDashboard() {
 
             {/* Main Content Tabs */}
             <Tabs defaultValue="overview" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview">Visão Geral</TabsTrigger>
                 <TabsTrigger value="monitoring">Monitoramento</TabsTrigger>
                 <TabsTrigger value="diagnostics">Diagnósticos</TabsTrigger>
+                <TabsTrigger value="quality">Qualidade</TabsTrigger>
                 <TabsTrigger value="logs">Logs</TabsTrigger>
               </TabsList>
 
@@ -311,6 +313,11 @@ export default function UnifiedDashboard() {
                   <ProblemsPanel />
                   <AlertsPanel />
                 </div>
+              </TabsContent>
+
+              {/* Qualidade de Dados Tab */}
+              <TabsContent value="quality" className="space-y-4">
+                <DataQualityPanel />
               </TabsContent>
 
               {/* Logs Tab */}

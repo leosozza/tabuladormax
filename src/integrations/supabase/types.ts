@@ -1773,6 +1773,13 @@ export type Database = {
         Args: { _route_path: string; _user_id: string }
         Returns: boolean
       }
+      fix_scouter_names: {
+        Args: never
+        Returns: {
+          leads_fixed: number
+          leads_not_found: number
+        }[]
+      }
       get_general_stats: {
         Args: never
         Returns: {
