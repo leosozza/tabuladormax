@@ -14,45 +14,90 @@ import { supabase } from "@/integrations/supabase/client";
 import { stripTagFromName } from "@/utils/formatters";
 import { AdditionalFilters } from "./AdditionalFilters";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtils";
+import { useGestaoFieldMappings } from "@/hooks/useGestaoFieldMappings";
 
 interface GestaoFiltersProps {
   filters: GestaoFilters;
   onChange: (filters: GestaoFilters) => void;
   showDateFilter?: boolean;
+  searchTerm?: string;
 }
 
-export function GestaoFiltersComponent({ filters, onChange, showDateFilter = true }: GestaoFiltersProps) {
+export function GestaoFiltersComponent({ filters, onChange, showDateFilter = true, searchTerm = "" }: GestaoFiltersProps) {
   const isMobile = useIsMobile();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(filters.dateFilter.startDate);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(filters.dateFilter.endDate);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  
+  const { data: allFields } = useGestaoFieldMappings();
 
   // Buscar projetos comerciais que têm leads no período selecionado
   const { data: projects } = useQuery({
-    queryKey: ["commercial-projects-filtered", filters.dateFilter, filters.scouterId, filters.fonte],
+    queryKey: ["commercial-projects-filtered", filters.dateFilter, filters.scouterId, filters.fonte, filters.additionalFilters, searchTerm],
     queryFn: async () => {
-      // Buscar IDs de projetos que existem nos leads do período
       let query = supabase
         .from("leads")
         .select("commercial_project_id")
         .not("commercial_project_id", "is", null);
 
-      // Aplicar filtro de data se não for "todo período"
       if (filters.dateFilter.preset !== 'all') {
         query = query
           .gte("criado", filters.dateFilter.startDate.toISOString())
           .lte("criado", filters.dateFilter.endDate.toISOString());
       }
 
-      // Filtrar por scouter quando selecionado
       if (filters.scouterId) {
         query = query.eq("scouter", filters.scouterId);
       }
 
-      // Filtrar por fonte quando selecionada
       if (filters.fonte) {
         query = query.eq("fonte_normalizada", filters.fonte);
+      }
+
+      if (searchTerm) {
+        const isNumeric = /^\d+$/.test(searchTerm);
+        if (isNumeric) {
+          query = query.or(`name.ilike.%${searchTerm}%,id.eq.${searchTerm},nome_modelo.ilike.%${searchTerm}%`);
+        } else {
+          query = query.or(`name.ilike.%${searchTerm}%,nome_modelo.ilike.%${searchTerm}%`);
+        }
+      }
+
+      if (filters.additionalFilters && filters.additionalFilters.length > 0) {
+        for (const additionalFilter of filters.additionalFilters) {
+          const { field, value, operator = 'eq' } = additionalFilter;
+          const actualField = getFilterableField(field);
+          if (!actualField || !value) continue;
+          
+          const fieldMapping = allFields?.find(f => f.key === field);
+          const qb = query as any;
+          
+          if (fieldMapping?.type === 'boolean') {
+            const normalized = String(value).toLowerCase();
+            const boolValue = normalized === 'true' || normalized === 'sim' || normalized === '1';
+            qb.eq(actualField, boolValue);
+            continue;
+          }
+          
+          if (actualField === 'commercial_project_id' && field.startsWith('commercial_projects.')) {
+            const resolvedValue = await resolveJoinFieldValue(field, value);
+            if (resolvedValue) {
+              qb.eq('commercial_project_id', resolvedValue);
+            }
+            continue;
+          }
+          
+          switch (operator) {
+            case 'eq': qb.eq(actualField, value); break;
+            case 'contains': qb.ilike(actualField, `%${value}%`); break;
+            case 'gt': qb.gt(actualField, value); break;
+            case 'lt': qb.lt(actualField, value); break;
+            case 'gte': qb.gte(actualField, value); break;
+            case 'lte': qb.lte(actualField, value); break;
+          }
+        }
       }
 
       const { data: leadProjects, error: leadsError } = await query;
@@ -78,28 +123,69 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
 
   // Buscar scouters únicos que têm leads no período selecionado e no projeto selecionado
   const { data: scouters } = useQuery({
-    queryKey: ["scouters-list-filtered", filters.dateFilter, filters.projectId, filters.fonte],
+    queryKey: ["scouters-list-filtered", filters.dateFilter, filters.projectId, filters.fonte, filters.additionalFilters, searchTerm],
     queryFn: async () => {
       let query = supabase
         .from("leads")
         .select("scouter")
         .not("scouter", "is", null);
 
-      // Aplicar filtro de data se não for "todo período"
       if (filters.dateFilter.preset !== 'all') {
         query = query
           .gte("criado", filters.dateFilter.startDate.toISOString())
           .lte("criado", filters.dateFilter.endDate.toISOString());
       }
 
-      // Filtrar por projeto quando selecionado
       if (filters.projectId) {
         query = query.eq("commercial_project_id", filters.projectId);
       }
 
-      // Filtrar por fonte quando selecionada
       if (filters.fonte) {
         query = query.eq("fonte_normalizada", filters.fonte);
+      }
+
+      if (searchTerm) {
+        const isNumeric = /^\d+$/.test(searchTerm);
+        if (isNumeric) {
+          query = query.or(`name.ilike.%${searchTerm}%,id.eq.${searchTerm},nome_modelo.ilike.%${searchTerm}%`);
+        } else {
+          query = query.or(`name.ilike.%${searchTerm}%,nome_modelo.ilike.%${searchTerm}%`);
+        }
+      }
+
+      if (filters.additionalFilters && filters.additionalFilters.length > 0) {
+        for (const additionalFilter of filters.additionalFilters) {
+          const { field, value, operator = 'eq' } = additionalFilter;
+          const actualField = getFilterableField(field);
+          if (!actualField || !value) continue;
+          
+          const fieldMapping = allFields?.find(f => f.key === field);
+          const qb = query as any;
+          
+          if (fieldMapping?.type === 'boolean') {
+            const normalized = String(value).toLowerCase();
+            const boolValue = normalized === 'true' || normalized === 'sim' || normalized === '1';
+            qb.eq(actualField, boolValue);
+            continue;
+          }
+          
+          if (actualField === 'commercial_project_id' && field.startsWith('commercial_projects.')) {
+            const resolvedValue = await resolveJoinFieldValue(field, value);
+            if (resolvedValue) {
+              qb.eq('commercial_project_id', resolvedValue);
+            }
+            continue;
+          }
+          
+          switch (operator) {
+            case 'eq': qb.eq(actualField, value); break;
+            case 'contains': qb.ilike(actualField, `%${value}%`); break;
+            case 'gt': qb.gt(actualField, value); break;
+            case 'lt': qb.lt(actualField, value); break;
+            case 'gte': qb.gte(actualField, value); break;
+            case 'lte': qb.lte(actualField, value); break;
+          }
+        }
       }
       
       const { data, error } = await query;
@@ -111,23 +197,77 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
     },
   });
 
-  // Buscar fontes únicas normalizadas que têm leads no período selecionado, projeto e scouter
+  // Buscar fontes únicas normalizadas que têm leads no período selecionado
   const { data: fontes } = useQuery({
-    queryKey: ["fontes-list-filtered", filters.dateFilter, filters.projectId, filters.scouterId],
+    queryKey: ["fontes-list-filtered", filters.dateFilter, filters.projectId, filters.scouterId, filters.additionalFilters, searchTerm],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_normalized_fontes', {
-        p_start_date: filters.dateFilter.preset !== 'all' 
-          ? filters.dateFilter.startDate.toISOString() 
-          : null,
-        p_end_date: filters.dateFilter.preset !== 'all'
-          ? filters.dateFilter.endDate.toISOString()
-          : null,
-        p_project_id: filters.projectId,
-        p_scouter: filters.scouterId
-      });
-      
+      let query = supabase
+        .from("leads")
+        .select("fonte_normalizada")
+        .not("fonte_normalizada", "is", null);
+
+      if (filters.dateFilter.preset !== 'all') {
+        query = query
+          .gte("criado", filters.dateFilter.startDate.toISOString())
+          .lte("criado", filters.dateFilter.endDate.toISOString());
+      }
+
+      if (filters.projectId) {
+        query = query.eq("commercial_project_id", filters.projectId);
+      }
+
+      if (filters.scouterId) {
+        query = query.eq("scouter", filters.scouterId);
+      }
+
+      if (searchTerm) {
+        const isNumeric = /^\d+$/.test(searchTerm);
+        if (isNumeric) {
+          query = query.or(`name.ilike.%${searchTerm}%,id.eq.${searchTerm},nome_modelo.ilike.%${searchTerm}%`);
+        } else {
+          query = query.or(`name.ilike.%${searchTerm}%,nome_modelo.ilike.%${searchTerm}%`);
+        }
+      }
+
+      if (filters.additionalFilters && filters.additionalFilters.length > 0) {
+        for (const additionalFilter of filters.additionalFilters) {
+          const { field, value, operator = 'eq' } = additionalFilter;
+          const actualField = getFilterableField(field);
+          if (!actualField || !value) continue;
+          
+          const fieldMapping = allFields?.find(f => f.key === field);
+          const qb = query as any;
+          
+          if (fieldMapping?.type === 'boolean') {
+            const normalized = String(value).toLowerCase();
+            const boolValue = normalized === 'true' || normalized === 'sim' || normalized === '1';
+            qb.eq(actualField, boolValue);
+            continue;
+          }
+          
+          if (actualField === 'commercial_project_id' && field.startsWith('commercial_projects.')) {
+            const resolvedValue = await resolveJoinFieldValue(field, value);
+            if (resolvedValue) {
+              qb.eq('commercial_project_id', resolvedValue);
+            }
+            continue;
+          }
+          
+          switch (operator) {
+            case 'eq': qb.eq(actualField, value); break;
+            case 'contains': qb.ilike(actualField, `%${value}%`); break;
+            case 'gt': qb.gt(actualField, value); break;
+            case 'lt': qb.lt(actualField, value); break;
+            case 'gte': qb.gte(actualField, value); break;
+            case 'lte': qb.lte(actualField, value); break;
+          }
+        }
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-      return data?.map(item => item.fonte_normalizada) || [];
+      
+      return [...new Set(data.map(l => l.fonte_normalizada))].sort();
     },
   });
 

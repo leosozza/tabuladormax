@@ -695,10 +695,11 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
           </div>
 
           {/* Filtros */}
-          <GestaoFiltersComponent
-            filters={filters}
-            onChange={setFilters}
-          />
+      <GestaoFiltersComponent 
+        filters={filters} 
+        onChange={setFilters}
+        searchTerm={searchTerm}
+      />
         </div>
 
         {/* Banner do Modo de Seleção */}
