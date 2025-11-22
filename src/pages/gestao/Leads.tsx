@@ -805,16 +805,6 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
           </div>
         </div>
 
-        {/* Botão flutuante para ativar modo de seleção - só aparece em mobile/tablet */}
-        {!isSelectionMode && (
-          <Button
-            onClick={toggleSelectionMode}
-            className="lg:hidden fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg z-10"
-            size="icon"
-          >
-            <Checkbox className="h-5 w-5" />
-          </Button>
-        )}
       </div>
 
       <LeadDetailModal
