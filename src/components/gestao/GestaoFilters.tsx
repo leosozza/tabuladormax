@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar as CalendarIcon, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -66,9 +66,9 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
     },
   });
 
-  // Buscar scouters únicos que têm leads no período selecionado
+  // Buscar scouters únicos que têm leads no período selecionado e no projeto selecionado
   const { data: scouters } = useQuery({
-    queryKey: ["scouters-list-filtered", filters.dateFilter],
+    queryKey: ["scouters-list-filtered", filters.dateFilter, filters.projectId],
     queryFn: async () => {
       let query = supabase
         .from("leads")
@@ -81,6 +81,11 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
           .gte("criado", filters.dateFilter.startDate.toISOString())
           .lte("criado", filters.dateFilter.endDate.toISOString());
       }
+
+      // Filtrar por projeto quando selecionado
+      if (filters.projectId) {
+        query = query.eq("commercial_project_id", filters.projectId);
+      }
       
       const { data, error } = await query;
       if (error) throw error;
@@ -90,6 +95,13 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
       return uniqueScouters.sort();
     },
   });
+
+  // Reset scouterId se o scouter selecionado não estiver mais na lista
+  useEffect(() => {
+    if (filters.scouterId && scouters && !scouters.includes(filters.scouterId)) {
+      onChange({ ...filters, scouterId: null });
+    }
+  }, [scouters, filters.scouterId]);
 
   const handlePresetChange = (preset: string) => {
     if (preset !== 'custom') {
@@ -251,11 +263,17 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos os scouters</SelectItem>
-                    {scouters?.map((scouter) => (
-                      <SelectItem key={scouter} value={scouter!}>
-                        {stripTagFromName(scouter)}
+                    {scouters?.length === 0 ? (
+                      <SelectItem value="none" disabled>
+                        Nenhum scouter encontrado
                       </SelectItem>
-                    ))}
+                    ) : (
+                      scouters?.map((scouter) => (
+                        <SelectItem key={scouter} value={scouter!}>
+                          {stripTagFromName(scouter)}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -407,11 +425,17 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os scouters</SelectItem>
-            {scouters?.map((scouter) => (
-              <SelectItem key={scouter} value={scouter!}>
-                {stripTagFromName(scouter)}
+            {scouters?.length === 0 ? (
+              <SelectItem value="none" disabled>
+                Nenhum scouter encontrado
               </SelectItem>
-            ))}
+            ) : (
+              scouters?.map((scouter) => (
+                <SelectItem key={scouter} value={scouter!}>
+                  {stripTagFromName(scouter)}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>
