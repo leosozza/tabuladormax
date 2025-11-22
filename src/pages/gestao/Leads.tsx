@@ -134,6 +134,11 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
         queryBuilder.eq("scouter", filters.scouterId);
       }
 
+      // Aplicar filtro de fonte normalizada
+      if (filters.fonte) {
+        queryBuilder.eq("fonte_normalizada", filters.fonte);
+      }
+
       // Aplicar filtros adicionais dinamicamente
       if (filters.additionalFilters && filters.additionalFilters.length > 0) {
         for (const additionalFilter of filters.additionalFilters) {
