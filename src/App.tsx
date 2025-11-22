@@ -37,6 +37,7 @@ import FieldManagement from "./pages/admin/FieldManagement";
 import TemplateManagement from "./pages/admin/TemplateManagement";
 import AITraining from './pages/admin/AITraining';
 import StageMappings from './pages/admin/StageMappings';
+import AppReleases from './pages/admin/AppReleases';
 
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
@@ -109,6 +110,7 @@ const App = () => (
           <Route path="/admin/template-management" element={<ProtectedRoute requireManager><TemplateManagement /></ProtectedRoute>} />
           <Route path="/admin/ai-training" element={<ProtectedRoute requireAdmin><AITraining /></ProtectedRoute>} />
           <Route path="/admin/stage-mappings" element={<ProtectedRoute requireManager><StageMappings /></ProtectedRoute>} />
+          <Route path="/admin/app-releases" element={<ProtectedRoute requireAdmin><AppReleases /></ProtectedRoute>} />
 
           {/* Agenciamento (Negotiations) - Connected to 3D solar system planet button */}
           <Route path="/agenciamento" element={<ProtectedRoute><Agenciamento /></ProtectedRoute>} />

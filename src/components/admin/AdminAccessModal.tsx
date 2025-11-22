@@ -21,6 +21,7 @@ import {
   Upload,
   Database,
   MessageSquare,
+  Smartphone,
 } from 'lucide-react';
 
 interface AdminAccessModalProps {
@@ -105,6 +106,13 @@ const adminOptions = [
     title: 'Mapeamento de Stages',
     description: 'Configurar sincronização de status dos scouters',
     color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  },
+  {
+    path: '/admin/app-releases',
+    icon: Smartphone,
+    title: 'App Android',
+    description: 'Gerenciar versões do aplicativo Android',
+    color: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
   },
 ];
 

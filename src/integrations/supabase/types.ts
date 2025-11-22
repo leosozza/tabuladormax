@@ -198,6 +198,39 @@ export type Database = {
         }
         Relationships: []
       }
+      app_releases: {
+        Row: {
+          file_path: string
+          file_size: number
+          id: string
+          is_latest: boolean | null
+          notes: string | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+          version: string
+        }
+        Insert: {
+          file_path: string
+          file_size: number
+          id?: string
+          is_latest?: boolean | null
+          notes?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          version: string
+        }
+        Update: {
+          file_path?: string
+          file_size?: number
+          id?: string
+          is_latest?: boolean | null
+          notes?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          version?: string
+        }
+        Relationships: []
+      }
       app_routes: {
         Row: {
           active: boolean
