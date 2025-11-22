@@ -37,7 +37,6 @@ Deno.serve(async (req) => {
         .select('id')
         .lte('criado', `${cutoffDate}T23:59:59`)
         .not('scouter', 'is', null)
-        .not('valor_ficha', 'is', null)
         .or('ficha_paga.is.null,ficha_paga.eq.false')
         .limit(BATCH_SIZE);
 
