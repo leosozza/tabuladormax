@@ -28,9 +28,24 @@ export function ChatPanel({ conversationId, contactName }: ChatPanelProps) {
     sendTemplate,
   } = useChatwootMessages(conversationId);
 
+  // Limpar data-scroll-locked ao montar/desmontar
+  useEffect(() => {
+    const clearScrollLock = () => {
+      document.body.removeAttribute('data-scroll-locked');
+      document.body.style.removeProperty('pointer-events');
+    };
+    
+    clearScrollLock();
+    return () => clearScrollLock();
+  }, []);
+
+  // Scroll automático para o final quando mensagens mudarem
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const lastMessage = scrollRef.current.lastElementChild;
+      if (lastMessage) {
+        lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
     }
   }, [messages]);
 
@@ -102,8 +117,8 @@ export function ChatPanel({ conversationId, contactName }: ChatPanelProps) {
         </div>
 
         <TabsContent value="messages" className="flex-1 flex flex-col min-h-0 mt-0">
-          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-            <div className="space-y-4">
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-4" ref={scrollRef}>
               {loading && messages.length === 0 ? (
                 <div className="flex justify-center py-8">
                   <div className="text-muted-foreground">Carregando mensagens...</div>
