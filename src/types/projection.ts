@@ -34,7 +34,7 @@ export interface Projection {
   estimatedValue: number;
   confidenceLevel: number; // 0-100%
   breakdown: {
-    byWeekday: { [weekday: number]: number };
+    byWeekday: { [weekday: number]: { leads: number; fichas: number } };
     byWeek: { week: number; estimated: number; date: Date }[];
   };
 }
