@@ -3,7 +3,6 @@ import SwipeableCard from './SwipeableCard';
 import SwipeActions from './SwipeActions';
 import { Badge } from '@/components/ui/badge';
 import AnalysisStats from './AnalysisStats';
-import UndoButton from './UndoButton';
 
 interface LeadAnalysisModalProps {
   lead: any;
@@ -81,17 +80,6 @@ export function LeadAnalysisModal({
             </div>
           </div>
           
-          {/* Botão de Undo */}
-          {canUndo && onUndo && (
-            <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20">
-              <UndoButton
-                onUndo={onUndo}
-                isVisible={canUndo}
-                timeoutMs={5000}
-              />
-            </div>
-          )}
-          
           {/* SwipeActions fixo */}
           <div className="flex-shrink-0 border-t bg-background">
             <SwipeActions
@@ -99,6 +87,8 @@ export function LeadAnalysisModal({
               onReject={onReject}
               onSuperApprove={onSuperApprove}
               onSkip={onSkip}
+              onUndo={onUndo || (() => {})}
+              canUndo={canUndo || false}
               disabled={disabled}
               progress={progress}
             />
