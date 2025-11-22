@@ -46,8 +46,9 @@ function calculateWeekdayPerformance(leads: Lead[]) {
     
     if (lead.ficha_confirmada) {
       weekdayData[weekday].fichas++;
-      weekdayData[weekday].totalValue += Number(lead.valor_ficha) || 0;
     }
+    // Valor conta para TODOS os leads
+    weekdayData[weekday].totalValue += Number(lead.valor_ficha) || 0;
   });
   
   // Calcular médias
@@ -96,8 +97,9 @@ function calculateMonthPartPerformance(leads: Lead[]) {
     
     if (lead.ficha_confirmada) {
       partData[part].fichas++;
-      partData[part].totalValue += Number(lead.valor_ficha) || 0;
     }
+    // Valor conta para TODOS os leads
+    partData[part].totalValue += Number(lead.valor_ficha) || 0;
   });
   
   // Calcular médias
@@ -124,7 +126,7 @@ function calculateTrends(leads: Lead[]) {
   const totalLeads = leads.length;
   const fichasConfirmadas = leads.filter(l => l.ficha_confirmada);
   const totalFichas = fichasConfirmadas.length;
-  const totalValue = fichasConfirmadas.reduce(
+  const totalValue = leads.reduce(
     (sum, l) => sum + (Number(l.valor_ficha) || 0),
     0
   );
