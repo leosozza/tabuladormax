@@ -339,15 +339,6 @@ function GestaoLeadsContent() {
       longPressTimerRef.current = null;
     }
   }, []);
-  
-  // Cleanup do timer ao desmontar
-  useEffect(() => {
-    return () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-      }
-    };
-  }, []);
 
   // Iniciar análise
   const handleStartAnalysis = () => {
