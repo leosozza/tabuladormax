@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.bitrix-resync-leads]
 verify_jwt = true
+
+[functions.process-retroactive-payments]
+verify_jwt = true

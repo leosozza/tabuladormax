@@ -64,18 +64,19 @@ export function RetroactivePaymentUpdate() {
   const handleExecute = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.rpc('bulk_mark_as_paid', {
-        p_cutoff_date: cutoffDate,
-        p_etapa: null,
+      const { data, error } = await supabase.functions.invoke('process-retroactive-payments', {
+        body: { cutoffDate }
       });
 
       if (error) throw error;
 
-      const result = data as { updated_count: number; success: boolean };
+      if (!data?.success) {
+        throw new Error(data?.error || 'Erro desconhecido ao processar pagamentos');
+      }
 
       toast({
-        title: "Atualização Concluída",
-        description: `${result.updated_count} leads foram marcados como pagos até ${cutoffDate}.`,
+        title: "✅ Atualização Concluída",
+        description: `${data.totalProcessed} leads marcados como pagos até ${cutoffDate} em ${data.durationSeconds}s`,
       });
 
       setPreviewData(null);
