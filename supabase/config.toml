@@ -116,3 +116,6 @@ verify_jwt = true
 
 [functions.process-retroactive-payments]
 verify_jwt = true
+
+[functions.maxconnect-agent]
+verify_jwt = false
