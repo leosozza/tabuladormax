@@ -65,9 +65,9 @@ export default function LeadCard({ lead }: LeadCardProps) {
   const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
 
   const photoContainerClasses = {
-    circle: "aspect-square rounded-full min-h-[160px] max-h-[220px] sm:max-h-[250px] md:max-h-[280px] w-full",
-    rounded: "aspect-[3/4] rounded-lg min-h-[200px] max-h-[280px] sm:max-h-[320px] md:max-h-[360px] w-full",
-    fullscreen: "w-full rounded-none min-h-[220px] max-h-[320px] sm:max-h-[380px] md:max-h-[420px]"
+    circle: "aspect-square rounded-full min-h-[280px] max-h-[380px] sm:max-h-[420px] md:max-h-[460px] w-full",
+    rounded: "aspect-[3/4] rounded-lg min-h-[320px] max-h-[450px] sm:max-h-[500px] md:max-h-[550px] w-full",
+    fullscreen: "w-full rounded-none min-h-[350px] max-h-[480px] sm:max-h-[540px] md:max-h-[600px]"
   };
 
   const isPlaceholder = photoUrl === noPhotoPlaceholder || !photoUrl || photoUrl === getLeadPhotoUrl(null);
@@ -140,10 +140,10 @@ export default function LeadCard({ lead }: LeadCardProps) {
       </div>
 
       {/* Informações do Lead */}
-      <CardContent className="flex-1 min-h-0 overflow-y-auto p-3 md:p-4 lg:p-5 space-y-2 md:space-y-3 lg:space-y-4">
+      <CardContent className="flex-1 min-h-0 overflow-y-auto p-2.5 md:p-3 space-y-1.5 md:space-y-2">
         <div>
           {/* Nome do Modelo - Grande e Negrito */}
-          <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 truncate leading-tight">
+          <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-0.5 truncate leading-tight">
             {mainValues[0]?.value || "Sem nome do modelo"}
           </h3>
           
@@ -155,7 +155,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
           )}
         </div>
 
-        <div className="space-y-1.5 md:space-y-2 lg:space-y-3">
+        <div className="space-y-1 md:space-y-1.5">
           {detailValues.map((detail, idx) => {
             const icon = getFieldIcon(detail.key);
             
