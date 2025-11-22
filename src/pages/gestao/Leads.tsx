@@ -24,6 +24,29 @@ import { toast } from "sonner";
 import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal";
 import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtils";
 
+// Hook para detectar long press
+const useLongPress = (callback: () => void, ms = 500) => {
+  const [startLongPress, setStartLongPress] = useState(false);
+
+  useEffect(() => {
+    let timerId: NodeJS.Timeout;
+    if (startLongPress) {
+      timerId = setTimeout(callback, ms);
+    }
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [callback, ms, startLongPress]);
+
+  return {
+    onMouseDown: () => setStartLongPress(true),
+    onMouseUp: () => setStartLongPress(false),
+    onMouseLeave: () => setStartLongPress(false),
+    onTouchStart: () => setStartLongPress(true),
+    onTouchEnd: () => setStartLongPress(false),
+  };
+};
+
 function GestaoLeadsContent() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -40,6 +63,7 @@ function GestaoLeadsContent() {
   // Estados para análise de leads
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(new Set());
   const [isAnalysisMode, setIsAnalysisMode] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [analysisLeads, setAnalysisLeads] = useState<any[]>([]);
   const [currentAnalysisIndex, setCurrentAnalysisIndex] = useState(0);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
@@ -292,8 +316,32 @@ function GestaoLeadsContent() {
     setSelectedLeadIds(newSet);
   };
 
+  // Ativar/desativar modo de seleção
+  const toggleSelectionMode = () => {
+    setIsSelectionMode(!isSelectionMode);
+    // Se estiver desativando e não houver leads selecionados, limpar seleção
+    if (isSelectionMode && selectedLeadIds.size === 0) {
+      setSelectedLeadIds(new Set());
+    }
+  };
+
+  // Ativar modo de seleção via long press e selecionar o lead
+  const activateSelectionModeWithLead = (leadId: number) => {
+    setIsSelectionMode(true);
+    const newSet = new Set(selectedLeadIds);
+    newSet.add(leadId);
+    setSelectedLeadIds(newSet);
+    
+    // Feedback visual
+    navigator?.vibrate?.(50); // Vibração curta se disponível
+    toast.info('Modo de seleção ativado');
+  };
+
   // Iniciar análise
   const handleStartAnalysis = () => {
+    // Desativar modo de seleção ao iniciar análise
+    setIsSelectionMode(false);
+    
     const leadsToAnalyze = leads?.filter(l => selectedLeadIds.has(l.id)) || [];
     if (leadsToAnalyze.length === 0) {
       toast.error('Selecione ao menos um lead para analisar');
@@ -646,12 +694,38 @@ function GestaoLeadsContent() {
           />
         </div>
 
+        {/* Banner do Modo de Seleção */}
+        {isSelectionMode && (
+          <div className="lg:hidden bg-blue-100 border border-blue-300 rounded-lg p-3 flex items-center justify-between animate-in slide-in-from-top-2">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 bg-blue-600 rounded-full animate-pulse" />
+              <span className="text-sm font-medium text-blue-900">
+                {selectedLeadIds.size > 0 
+                  ? `${selectedLeadIds.size} lead${selectedLeadIds.size > 1 ? 's' : ''} selecionado${selectedLeadIds.size > 1 ? 's' : ''}`
+                  : 'Modo de seleção ativo'
+                }
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleSelectionMode}
+              className="h-7 text-blue-700 hover:text-blue-900 hover:bg-blue-200"
+            >
+              Sair
+            </Button>
+          </div>
+        )}
+
         <div className="flex-1 overflow-auto">
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="hidden lg:table-cell w-8 p-1 text-center h-8">
+                  <TableHead className={cn(
+                    "w-8 p-1 text-center h-8",
+                    !isSelectionMode && "hidden lg:table-cell"
+                  )}>
                     <Checkbox
                       className="h-2 w-2"
                       checked={selectedLeadIds.size === leads?.length && leads.length > 0}
@@ -681,11 +755,22 @@ function GestaoLeadsContent() {
                   leads?.map((lead) => (
                     <TableRow 
                       key={lead.id}
-                      className="cursor-pointer hover:bg-muted/50"
+                      className={cn(
+                        "cursor-pointer hover:bg-muted/50 transition-colors",
+                        selectedLeadIds.has(lead.id) && isSelectionMode && "bg-blue-50 hover:bg-blue-100"
+                      )}
+                      {...useLongPress(() => {
+                        if (!isSelectionMode) {
+                          activateSelectionModeWithLead(lead.id);
+                        }
+                      })}
                     >
                       <TableCell 
                         onClick={(e) => e.stopPropagation()}
-                        className="hidden lg:table-cell w-8 p-1 text-center"
+                        className={cn(
+                          "w-8 p-1 text-center",
+                          !isSelectionMode && "hidden lg:table-cell"
+                        )}
                       >
                         <Checkbox
                           className="h-2 w-2"
@@ -713,6 +798,17 @@ function GestaoLeadsContent() {
             </Table>
           </div>
         </div>
+
+        {/* Botão flutuante para ativar modo de seleção - só aparece em mobile/tablet */}
+        {!isSelectionMode && (
+          <Button
+            onClick={toggleSelectionMode}
+            className="lg:hidden fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg z-10"
+            size="icon"
+          >
+            <Checkbox className="h-5 w-5" />
+          </Button>
+        )}
       </div>
 
       <LeadDetailModal
