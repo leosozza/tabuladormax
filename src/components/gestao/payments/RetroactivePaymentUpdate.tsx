@@ -113,7 +113,7 @@ export function RetroactivePaymentUpdate() {
               max={new Date().toISOString().split('T')[0]}
             />
             <p className="text-xs text-muted-foreground">
-              Filtro: Leads com Scouter e Valor | Status = Não Pago
+              Filtro: Leads com Scouter | Status = Não Pago (independente de valor)
             </p>
           </div>
 
