@@ -158,9 +158,12 @@ function GestaoLeadsContent() {
           }
           
           // 4. Tratamento especial para booleanos
-          if (fieldMapping?.type === 'boolean' || 
-              (typeof value === 'string' && (value === 'true' || value === 'false'))) {
-            const boolValue = value === 'true' || value === 'Sim';
+          if (fieldMapping?.type === 'boolean') {
+            const normalized = String(value).toLowerCase();
+            const boolValue =
+              normalized === 'true' ||
+              normalized === 'sim' ||
+              normalized === '1';
             qb.eq(actualField, boolValue);
             continue;
           }
@@ -217,7 +220,7 @@ function GestaoLeadsContent() {
 
   // Montar requisições SPA para resolver IDs antigos
   const spaRequests = useMemo(() => {
-    if (!leads || !visibleFields) return [];
+    if (!leads || !visibleFields || leads.length === 0) return [];
 
     const requests: { bitrixField: string; bitrixItemId: number }[] = [];
     const seen = new Set<string>();
@@ -246,7 +249,7 @@ function GestaoLeadsContent() {
 
   // Montar requisições de enum para resolver códigos técnicos
   const enumRequests = useMemo(() => {
-    if (!leads || !visibleFields) return [];
+    if (!leads || !visibleFields || leads.length === 0) return [];
 
     const requests: { bitrixField: string; value: unknown; bitrixFieldType?: string }[] = [];
     const seen = new Set<string>();
