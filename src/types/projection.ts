@@ -22,7 +22,7 @@ export interface HistoricalAnalysis {
     totalFichas: number;
     totalValue: number;
     avgConversionRate: number;
-    avgValuePerFicha: number;
+    avgValuePerLead: number;
     daysAnalyzed: number;
   };
 }

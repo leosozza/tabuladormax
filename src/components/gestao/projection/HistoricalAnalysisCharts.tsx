@@ -61,7 +61,7 @@ export function HistoricalAnalysisCharts({ analysis }: HistoricalAnalysisChartsP
               R$ {trend.totalValue.toLocaleString('pt-BR')}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              R$ {trend.avgValuePerFicha.toFixed(2)} por lead confirmado
+              R$ {trend.avgValuePerLead.toFixed(2)} por lead
             </p>
           </CardContent>
         </Card>
