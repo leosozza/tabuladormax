@@ -12,10 +12,17 @@ import { ProjectionResults } from "@/components/gestao/projection/ProjectionResu
 import { ProjectionBreakdown } from "@/components/gestao/projection/ProjectionBreakdown";
 import { analyzeHistoricalData } from "@/services/projectionAnalyzer";
 import { calculateProjection } from "@/services/projectionCalculator";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info } from "lucide-react";
 import type { HistoricalAnalysis, Projection } from "@/types/projection";
+
+type HistoricalLeadRow = {
+  criado: string | null;
+  ficha_confirmada: boolean | null;
+  valor_ficha: number | null;
+};
 
 function GestaoProjecaoContent() {
   // Filtros básicos
@@ -46,29 +53,32 @@ function GestaoProjecaoContent() {
   const [projection, setProjection] = useState<Projection | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
 
-  // Buscar dados históricos
+  // Buscar dados históricos (sem limite de 1000 registros)
   const { data: historicalLeads, isLoading: isLoadingHistorical } = useQuery({
     queryKey: ["historical-leads", historicalStart, historicalEnd, filters.projectId, filters.scouterId],
     queryFn: async () => {
       if (!historicalStart || !historicalEnd) return [];
 
-      let query = supabase
-        .from("leads")
-        .select("criado, ficha_confirmada, valor_ficha")
-        .gte("criado", historicalStart.toISOString())
-        .lte("criado", historicalEnd.toISOString());
+      const data = await fetchAllLeads<HistoricalLeadRow>(
+        supabase,
+        "criado, ficha_confirmada, valor_ficha",
+        (query) => {
+          query = query
+            .gte("criado", historicalStart.toISOString())
+            .lte("criado", historicalEnd.toISOString());
 
-      if (filters.projectId) {
-        query = query.eq("commercial_project_id", filters.projectId);
-      }
+          if (filters.projectId) {
+            query = query.eq("commercial_project_id", filters.projectId);
+          }
 
-      if (filters.scouterId) {
-        query = query.eq("scouter", filters.scouterId);
-      }
+          if (filters.scouterId) {
+            query = query.eq("scouter", filters.scouterId);
+          }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      
+          return query;
+        }
+      );
+
       return data || [];
     },
     enabled: !!historicalStart && !!historicalEnd,

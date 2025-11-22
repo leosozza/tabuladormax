@@ -7,10 +7,37 @@ interface Lead {
   valor_ficha: number | null;
 }
 
+function calculateUnitValue(leads: Lead[]) {
+  const leadsWithValue = leads.filter(l => l.valor_ficha !== null && l.valor_ficha !== undefined);
+  
+  if (leadsWithValue.length === 0) {
+    return {
+      unitValue: 0,
+      totalValue: 0,
+    };
+  }
+
+  const totalValueFromPaid = leadsWithValue.reduce(
+    (sum, l) => sum + (Number(l.valor_ficha) || 0),
+    0
+  );
+
+  const unitValue = totalValueFromPaid / leadsWithValue.length;
+  const totalLeads = leads.length;
+  const normalizedTotalValue = unitValue * totalLeads;
+
+  return {
+    unitValue,
+    totalValue: normalizedTotalValue,
+  };
+}
+
 export function analyzeHistoricalData(leads: Lead[]): HistoricalAnalysis {
-  const performanceByWeekday = calculateWeekdayPerformance(leads);
-  const performanceByMonthPart = calculateMonthPartPerformance(leads);
-  const trend = calculateTrends(leads);
+  const { unitValue, totalValue } = calculateUnitValue(leads);
+  
+  const performanceByWeekday = calculateWeekdayPerformance(leads, unitValue);
+  const performanceByMonthPart = calculateMonthPartPerformance(leads, unitValue);
+  const trend = calculateTrends(leads, unitValue, totalValue);
   
   return {
     performanceByWeekday,
@@ -19,19 +46,18 @@ export function analyzeHistoricalData(leads: Lead[]): HistoricalAnalysis {
   };
 }
 
-function calculateWeekdayPerformance(leads: Lead[]) {
+function calculateWeekdayPerformance(leads: Lead[], unitValue: number) {
   const weekdayData: {
     [key: number]: {
       leads: number;
       fichas: number;
-      totalValue: number;
       days: Set<string>;
     };
   } = {};
   
   // Inicializar dados para cada dia da semana
   for (let i = 0; i < 7; i++) {
-    weekdayData[i] = { leads: 0, fichas: 0, totalValue: 0, days: new Set() };
+    weekdayData[i] = { leads: 0, fichas: 0, days: new Set() };
   }
   
   leads.forEach(lead => {
@@ -47,8 +73,6 @@ function calculateWeekdayPerformance(leads: Lead[]) {
     if (lead.ficha_confirmada) {
       weekdayData[weekday].fichas++;
     }
-    // Valor conta para TODOS os leads
-    weekdayData[weekday].totalValue += Number(lead.valor_ficha) || 0;
   });
   
   // Calcular médias
@@ -61,7 +85,7 @@ function calculateWeekdayPerformance(leads: Lead[]) {
     result[i] = {
       avgLeads: data.leads / daysCount,
       avgFichas: data.fichas / daysCount,
-      avgValue: data.totalValue / daysCount,
+      avgValue: (data.leads / daysCount) * unitValue,
       conversionRate: data.leads > 0 ? (data.fichas / data.leads) * 100 : 0,
     };
   }
@@ -69,11 +93,11 @@ function calculateWeekdayPerformance(leads: Lead[]) {
   return result;
 }
 
-function calculateMonthPartPerformance(leads: Lead[]) {
+function calculateMonthPartPerformance(leads: Lead[], unitValue: number) {
   const partData = {
-    inicio: { leads: 0, fichas: 0, totalValue: 0, days: new Set<string>() },
-    meio: { leads: 0, fichas: 0, totalValue: 0, days: new Set<string>() },
-    fim: { leads: 0, fichas: 0, totalValue: 0, days: new Set<string>() },
+    inicio: { leads: 0, fichas: 0, days: new Set<string>() },
+    meio: { leads: 0, fichas: 0, days: new Set<string>() },
+    fim: { leads: 0, fichas: 0, days: new Set<string>() },
   };
   
   leads.forEach(lead => {
@@ -98,8 +122,6 @@ function calculateMonthPartPerformance(leads: Lead[]) {
     if (lead.ficha_confirmada) {
       partData[part].fichas++;
     }
-    // Valor conta para TODOS os leads
-    partData[part].totalValue += Number(lead.valor_ficha) || 0;
   });
   
   // Calcular médias
@@ -107,29 +129,25 @@ function calculateMonthPartPerformance(leads: Lead[]) {
     inicio: {
       avgLeads: partData.inicio.leads / (partData.inicio.days.size || 1),
       avgFichas: partData.inicio.fichas / (partData.inicio.days.size || 1),
-      avgValue: partData.inicio.totalValue / (partData.inicio.days.size || 1),
+      avgValue: (partData.inicio.leads / (partData.inicio.days.size || 1)) * unitValue,
     },
     meio: {
       avgLeads: partData.meio.leads / (partData.meio.days.size || 1),
       avgFichas: partData.meio.fichas / (partData.meio.days.size || 1),
-      avgValue: partData.meio.totalValue / (partData.meio.days.size || 1),
+      avgValue: (partData.meio.leads / (partData.meio.days.size || 1)) * unitValue,
     },
     fim: {
       avgLeads: partData.fim.leads / (partData.fim.days.size || 1),
       avgFichas: partData.fim.fichas / (partData.fim.days.size || 1),
-      avgValue: partData.fim.totalValue / (partData.fim.days.size || 1),
+      avgValue: (partData.fim.leads / (partData.fim.days.size || 1)) * unitValue,
     },
   };
 }
 
-function calculateTrends(leads: Lead[]) {
+function calculateTrends(leads: Lead[], unitValue: number, totalValue: number) {
   const totalLeads = leads.length;
   const fichasConfirmadas = leads.filter(l => l.ficha_confirmada);
   const totalFichas = fichasConfirmadas.length;
-  const totalValue = leads.reduce(
-    (sum, l) => sum + (Number(l.valor_ficha) || 0),
-    0
-  );
   
   // Calcular dias únicos analisados
   const uniqueDays = new Set(
@@ -143,7 +161,7 @@ function calculateTrends(leads: Lead[]) {
     totalFichas,
     totalValue,
     avgConversionRate: totalLeads > 0 ? (totalFichas / totalLeads) * 100 : 0,
-    avgValuePerLead: totalLeads > 0 ? totalValue / totalLeads : 0,
+    avgValuePerLead: unitValue,
     daysAnalyzed: uniqueDays.size,
   };
 }
