@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Users, TrendingUp, DollarSign, MapPin, ArrowLeft, FileText, Settings } from "lucide-react";
+import { Home, Users, TrendingUp, DollarSign, MapPin, ArrowLeft, FileText, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +33,7 @@ export default function GestaoSidebar({ onNavigate }: GestaoSidebarProps = {}) {
   const navItems = [
     { path: "/scouter", label: "Dashboard", icon: Home },
     { path: "/scouter/leads", label: "Leads", icon: Users },
+    { path: "/scouter/conversas", label: "Conversas", icon: MessageSquare },
     { path: "/scouter/scouters", label: "Scouters", icon: Users },
     { path: "/scouter/projecao", label: "Projeção", icon: TrendingUp },
     { path: "/scouter/pagamentos", label: "Pagamentos", icon: DollarSign },
