@@ -3,8 +3,7 @@ import {
   eachDayOfInterval, 
   startOfWeek, 
   addDays,
-  differenceInDays,
-  isWeekend
+  differenceInDays
 } from 'date-fns';
 import type { HistoricalAnalysis, Projection, ScenarioProjection, ProjectionAdjustments } from '@/types/projection';
 import { getHolidays, isHoliday } from './holidayService';
@@ -46,8 +45,8 @@ export function calculateProjection(
       weekEstimate = 0;
     }
     
-    // Pular finais de semana e feriados (reduzir drasticamente)
-    if (isWeekend(day) || isHoliday(day, holidays)) {
+    // Pular apenas feriados
+    if (isHoliday(day, holidays)) {
       return;
     }
     

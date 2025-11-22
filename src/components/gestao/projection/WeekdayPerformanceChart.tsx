@@ -9,12 +9,16 @@ interface WeekdayPerformanceChartProps {
 const WEEKDAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export function WeekdayPerformanceChart({ analysis }: WeekdayPerformanceChartProps) {
-  const data = Object.entries(analysis.performanceByWeekday).map(([day, perf]) => ({
-    name: WEEKDAY_NAMES[parseInt(day)],
-    leads: Math.round(perf.avgLeads),
-    leadsConfirmados: Math.round(perf.avgFichas),
-    conversao: Math.round(perf.conversionRate),
-  }));
+  // Garantir que todos os 7 dias da semana apareçam
+  const data = [0, 1, 2, 3, 4, 5, 6].map((day) => {
+    const perf = analysis.performanceByWeekday[day];
+    return {
+      name: WEEKDAY_NAMES[day],
+      leads: perf ? Math.round(perf.avgLeads) : 0,
+      leadsConfirmados: perf ? Math.round(perf.avgFichas) : 0,
+      conversao: perf ? Math.round(perf.conversionRate * 100) : 0,
+    };
+  });
 
   return (
     <Card>
