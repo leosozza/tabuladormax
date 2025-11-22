@@ -2,152 +2,180 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, DollarSign, Target, Calendar } from "lucide-react";
-import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
 import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
+import { PeriodSelector } from "@/components/gestao/projection/PeriodSelector";
+import { HistoricalAnalysisCharts } from "@/components/gestao/projection/HistoricalAnalysisCharts";
+import { ProjectionResults } from "@/components/gestao/projection/ProjectionResults";
+import { ProjectionBreakdown } from "@/components/gestao/projection/ProjectionBreakdown";
+import { analyzeHistoricalData } from "@/services/projectionAnalyzer";
+import { calculateProjection } from "@/services/projectionCalculator";
+import { subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Info } from "lucide-react";
+import type { HistoricalAnalysis, Projection } from "@/types/projection";
 
 function GestaoProjecaoContent() {
+  // Filtros básicos
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('month'),
     projectId: null,
     scouterId: null
   });
-  
-  const { data: projectionData, isLoading } = useQuery({
-    queryKey: ["gestao-projection", filters],
+
+  // Datas para período histórico (últimos 3 meses por padrão)
+  const [historicalStart, setHistoricalStart] = useState<Date | undefined>(
+    startOfMonth(subMonths(new Date(), 3))
+  );
+  const [historicalEnd, setHistoricalEnd] = useState<Date | undefined>(
+    endOfMonth(subMonths(new Date(), 1))
+  );
+
+  // Datas para período de projeção (mês atual por padrão)
+  const [projectionStart, setProjectionStart] = useState<Date | undefined>(
+    startOfMonth(new Date())
+  );
+  const [projectionEnd, setProjectionEnd] = useState<Date | undefined>(
+    endOfMonth(new Date())
+  );
+
+  // Estados para análise e projeção
+  const [analysis, setAnalysis] = useState<HistoricalAnalysis | null>(null);
+  const [projection, setProjection] = useState<Projection | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+
+  // Buscar dados históricos
+  const { data: historicalLeads, isLoading: isLoadingHistorical } = useQuery({
+    queryKey: ["historical-leads", historicalStart, historicalEnd, filters.projectId, filters.scouterId],
     queryFn: async () => {
+      if (!historicalStart || !historicalEnd) return [];
+
       let query = supabase
         .from("leads")
-        .select("*")
-        .gte("criado", filters.dateFilter.startDate.toISOString())
-        .lte("criado", filters.dateFilter.endDate.toISOString());
+        .select("criado, ficha_confirmada, valor_ficha")
+        .gte("criado", historicalStart.toISOString())
+        .lte("criado", historicalEnd.toISOString());
 
-      // Filtro de projeto
       if (filters.projectId) {
         query = query.eq("commercial_project_id", filters.projectId);
       }
 
-      // Filtro de scouter
       if (filters.scouterId) {
         query = query.eq("scouter", filters.scouterId);
       }
-      
-      const { data: leads, error } = await query;
+
+      const { data, error } = await query;
       if (error) throw error;
       
-      const confirmed = leads?.filter(l => l.ficha_confirmada).length || 0;
-      const present = leads?.filter(l => l.compareceu).length || 0;
-      const avgValue = leads?.filter(l => l.valor_ficha).reduce((sum, l) => sum + (Number(l.valor_ficha) || 0), 0) || 0;
-      
-      return {
-        totalLeads: leads?.length || 0,
-        confirmed,
-        present,
-        totalValue: avgValue,
-        avgValue: leads?.length ? avgValue / leads.length : 0,
-        conversionRate: leads?.length ? (present / leads.length * 100) : 0
-      };
+      return data || [];
     },
+    enabled: !!historicalStart && !!historicalEnd,
   });
+
+  // Função para calcular projeção
+  const handleCalculateProjection = () => {
+    if (!historicalLeads || !projectionStart || !projectionEnd) return;
+
+    setIsCalculating(true);
+
+    try {
+      // Analisar dados históricos
+      const analysisResult = analyzeHistoricalData(historicalLeads);
+      setAnalysis(analysisResult);
+
+      // Calcular projeção
+      const projectionResult = calculateProjection(
+        analysisResult,
+        projectionStart,
+        projectionEnd
+      );
+      setProjection(projectionResult);
+    } catch (error) {
+      console.error("Erro ao calcular projeção:", error);
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
+  const hasInsufficientData = historicalLeads && historicalLeads.length < 10;
 
   return (
     <GestaoPageLayout
-      title="Projeções"
-      description="Análise de performance e metas"
+      title="Projeções Inteligentes"
+      description="Análise histórica e projeção de fichas futuras"
     >
-      <GestaoFiltersComponent filters={filters} onChange={setFilters} />
+      <div className="space-y-6">
+        {/* Filtros Básicos */}
+        <GestaoFiltersComponent 
+          filters={filters} 
+          onChange={setFilters}
+        />
 
-      {isLoading ? (
-        <div className="text-center py-12">Carregando projeções...</div>
-      ) : (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total de Leads
-                  </CardTitle>
-                  <Calendar className="w-5 h-5 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{projectionData?.totalLeads}</div>
-                </CardContent>
-              </Card>
+        {/* Info sobre o sistema */}
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Este sistema analisa seus dados históricos considerando dias da semana, período do mês, 
+            feriados e tendências para projetar quantas fichas você pode fazer em um período futuro.
+          </AlertDescription>
+        </Alert>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Taxa de Conversão
-                  </CardTitle>
-                  <TrendingUp className="w-5 h-5 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">
-                    {projectionData?.conversionRate.toFixed(1)}%
-                  </div>
-                </CardContent>
-              </Card>
+        {/* Seleção de Períodos */}
+        <PeriodSelector
+          historicalStart={historicalStart}
+          historicalEnd={historicalEnd}
+          projectionStart={projectionStart}
+          projectionEnd={projectionEnd}
+          onHistoricalStartChange={setHistoricalStart}
+          onHistoricalEndChange={setHistoricalEnd}
+          onProjectionStartChange={setProjectionStart}
+          onProjectionEndChange={setProjectionEnd}
+          onCalculate={handleCalculateProjection}
+          isLoading={isCalculating || isLoadingHistorical}
+        />
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Valor Total
-                  </CardTitle>
-                  <DollarSign className="w-5 h-5 text-purple-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">
-                    R$ {projectionData?.totalValue.toFixed(2)}
-                  </div>
-                </CardContent>
-              </Card>
+        {/* Alerta de dados insuficientes */}
+        {hasInsufficientData && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              Dados históricos insuficientes para gerar uma projeção confiável. 
+              Recomendamos pelo menos 10 leads no período histórico selecionado.
+            </AlertDescription>
+          </Alert>
+        )}
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Valor Médio
-                  </CardTitle>
-                  <Target className="w-5 h-5 text-orange-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">
-                    R$ {projectionData?.avgValue.toFixed(2)}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+        {/* Análise Histórica */}
+        {analysis && !hasInsufficientData && (
+          <HistoricalAnalysisCharts analysis={analysis} />
+        )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Resumo do Período</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center pb-4 border-b">
-                    <span className="text-muted-foreground">Fichas Confirmadas</span>
-                    <span className="text-xl font-bold">{projectionData?.confirmed}</span>
-                  </div>
-                  <div className="flex justify-between items-center pb-4 border-b">
-                    <span className="text-muted-foreground">Comparecimentos</span>
-                    <span className="text-xl font-bold">{projectionData?.present}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Leads Pendentes</span>
-                    <span className="text-xl font-bold">
-                      {(projectionData?.totalLeads || 0) - (projectionData?.confirmed || 0)}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        {/* Resultados da Projeção */}
+        {projection && !hasInsufficientData && (
+          <>
+            <ProjectionResults projection={projection} />
+            <ProjectionBreakdown projection={projection} />
+          </>
+        )}
+
+        {/* Estado vazio */}
+        {!analysis && !isLoadingHistorical && !isCalculating && (
+          <div className="text-center py-12 text-muted-foreground">
+            Selecione os períodos e clique em "Calcular Projeção" para começar
           </div>
         )}
+
+        {/* Loading */}
+        {(isLoadingHistorical || isCalculating) && !analysis && (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">
+              {isLoadingHistorical ? "Carregando dados históricos..." : "Calculando projeção..."}
+            </p>
+          </div>
+        )}
+      </div>
     </GestaoPageLayout>
   );
 }
