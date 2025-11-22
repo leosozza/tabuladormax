@@ -461,13 +461,14 @@ export function SupabaseBasedMappingTable() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12">
+              <TableHead className="w-8 md:w-12 px-2 md:px-4">
                 <Checkbox
                   checked={
                     selectedMappings.size === filteredRows.filter((r) => r.mapping_id).length &&
                     filteredRows.filter((r) => r.mapping_id).length > 0
                   }
                   onCheckedChange={toggleSelectAll}
+                  className="h-3.5 w-3.5 md:h-4 md:w-4"
                 />
               </TableHead>
               <TableHead>Campo Supabase</TableHead>
@@ -494,10 +495,11 @@ export function SupabaseBasedMappingTable() {
 
                 return (
                   <TableRow key={row.supabase_field}>
-                    <TableCell>
+                    <TableCell className="w-8 md:w-12 px-2 md:px-4">
                       {row.mapping_id && (
                         <Checkbox
                           checked={isSelected}
+                          className="h-3.5 w-3.5 md:h-4 md:w-4"
                           onCheckedChange={() => toggleSelection(row.mapping_id!)}
                         />
                       )}

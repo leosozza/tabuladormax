@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ interface LeadCardProps {
 
 export default function LeadCard({ lead }: LeadCardProps) {
   const { config } = useTinderCardConfig();
+  const [hasPhotoError, setHasPhotoError] = useState(false);
   
   // DEBUG: Ver dados do lead
   console.log('[LeadCard] Config:', config);
@@ -59,14 +61,12 @@ export default function LeadCard({ lead }: LeadCardProps) {
     return null;
   };
 
-  const photoUrl = String(lead[config.photoField] || '');
+  const rawPhotoUrl = String(lead[config.photoField] || '');
+  const photoSrc = hasPhotoError ? noPhotoPlaceholder : getLeadPhotoUrl(rawPhotoUrl);
+  
   const mainValues = config.mainFields.map(key => ({ key, value: String(getFieldValue(key) || '') }));
   const detailValues = config.detailFields.map(key => ({ key, value: String(getFieldValue(key) || ''), label: getFieldLabel(key) }));
   const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
-
-  // Removido photoContainerClasses - foto sempre fullscreen no layout overlay
-
-  const isPlaceholder = photoUrl === noPhotoPlaceholder || !photoUrl || photoUrl === getLeadPhotoUrl(null);
 
   const cardSizeClasses = {
     small: "max-w-xs",
@@ -82,9 +82,14 @@ export default function LeadCard({ lead }: LeadCardProps) {
       {/* Foto do Lead - Fullscreen */}
       <div className="absolute inset-0 bg-muted overflow-hidden">
         <img
-          src={getLeadPhotoUrl(photoUrl)}
+          src={photoSrc}
           alt={String(lead.name || "Lead")}
           className="w-full h-full object-cover"
+          onError={() => {
+            if (!hasPhotoError) {
+              setHasPhotoError(true);
+            }
+          }}
         />
       </div>
         
