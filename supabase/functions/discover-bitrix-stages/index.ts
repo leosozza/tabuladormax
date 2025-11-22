@@ -19,16 +19,13 @@ serve(async (req) => {
 
     console.log('🔍 Discovering Bitrix stages for entity type 1096 (Scouters)...');
 
-    // Dicionário de nomes amigáveis (fallback)
+    // Dicionário de nomes amigáveis (fallback) - apenas scouters
     const defaultFriendlyNames: Record<string, string> = {
       'DT1096_210:CLIENT': 'Scouter Ativos',
       'DT1096_210:NEW': 'Scouter Ativos (Novos)',
       'DT1096_210:PREPARATION': 'Scouter Standby',
       'DT1096_210:FAIL': 'Demissão',
-      'DT1096_210:UC_GG3W33': 'Scouter Inativos',
-      'DT1096_244:UC_R8Q8P5': 'Supervisores Ativos',
-      'DT1096_244:PREPARATION': 'Supervisores Standby',
-      'DT1096_244:NEW': 'Supervisores Novos'
+      'DT1096_210:UC_GG3W33': 'Scouter Inativos'
     };
 
     // Buscar nomes oficiais das stages na API do Bitrix
@@ -59,7 +56,8 @@ serve(async (req) => {
       .from('bitrix_spa_entities')
       .select('stage_id, title')
       .eq('entity_type_id', 1096)
-      .not('stage_id', 'is', null);
+      .not('stage_id', 'is', null)
+      .not('stage_id', 'like', 'DT1096_244:%');
 
     if (spaError) {
       console.error('Erro ao consultar bitrix_spa_entities:', spaError);
