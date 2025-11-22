@@ -98,7 +98,10 @@ export default function AppReleases() {
         .from('app-releases')
         .remove([release.file_path]);
 
-      if (storageError) throw storageError;
+      if (storageError) {
+        console.error('Storage error:', storageError);
+        throw new Error(`Erro ao remover arquivo: ${storageError.message}`);
+      }
 
       // Deletar metadados
       const { error: dbError } = await supabase
@@ -106,14 +109,17 @@ export default function AppReleases() {
         .delete()
         .eq('id', release.id);
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('Database error:', dbError);
+        throw new Error(`Erro ao remover registro: ${dbError.message}`);
+      }
     },
     onSuccess: () => {
-      toast.success('Release removida com sucesso');
+      toast.success('Versão removida com sucesso');
       queryClient.invalidateQueries({ queryKey: ['app-releases'] });
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao remover release: ${error.message}`);
+      toast.error(error.message);
     }
   });
 
@@ -248,10 +254,16 @@ export default function AppReleases() {
                       </Button>
                       <Button
                         variant="outline"
-                        size="icon"
-                        onClick={() => deleteMutation.mutate(release)}
+                        size="sm"
+                        onClick={() => {
+                          if (confirm(`Tem certeza que deseja remover a versão ${release.version}?`)) {
+                            deleteMutation.mutate(release);
+                          }
+                        }}
+                        disabled={deleteMutation.isPending}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        {deleteMutation.isPending ? 'Removendo...' : 'Remover'}
                       </Button>
                     </div>
                   </div>
