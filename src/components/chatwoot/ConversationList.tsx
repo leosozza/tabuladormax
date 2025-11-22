@@ -1,10 +1,13 @@
+import { useState, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, RefreshCw, CheckSquare, Square } from 'lucide-react';
 import { ConversationItem } from './ConversationItem';
 import { ConversationStats } from './ConversationStats';
+import { LabelFilter } from './LabelFilter';
 import { useAgentConversations } from '@/hooks/useAgentConversations';
+import { useConversationLabels, LabelAssignment } from '@/hooks/useConversationLabels';
 
 interface ConversationListProps {
   onSelectConversation: (conversationId: number) => void;
@@ -27,6 +30,38 @@ export function ConversationList({
     allSelected,
   } = useAgentConversations();
 
+  const { fetchLabelsForConversations } = useConversationLabels();
+  
+  const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
+  const [conversationLabels, setConversationLabels] = useState<Record<number, LabelAssignment[]>>({});
+
+  // Buscar labels para as conversas visíveis
+  useEffect(() => {
+    if (conversations.length > 0) {
+      const conversationIds = conversations.map(c => c.conversation_id);
+      fetchLabelsForConversations(conversationIds).then((labels) => {
+        const labelsByConversation: Record<number, LabelAssignment[]> = {};
+        labels.forEach((label) => {
+          if (!labelsByConversation[label.conversation_id]) {
+            labelsByConversation[label.conversation_id] = [];
+          }
+          labelsByConversation[label.conversation_id].push(label);
+        });
+        setConversationLabels(labelsByConversation);
+      });
+    }
+  }, [conversations]);
+
+  // Filtrar conversas por labels selecionadas
+  const filteredConversations = selectedLabelIds.length > 0
+    ? conversations.filter((conv) => {
+        const convLabels = conversationLabels[conv.conversation_id] || [];
+        return selectedLabelIds.some((labelId) =>
+          convLabels.some((assignment) => assignment.label_id === labelId)
+        );
+      })
+    : conversations;
+
   return (
     <div className="flex flex-col h-full border-r bg-card">
       {/* Stats */}
@@ -45,6 +80,12 @@ export function ConversationList({
             className="pl-9"
           />
         </div>
+
+        {/* Filtro de Labels */}
+        <LabelFilter
+          selectedLabelIds={selectedLabelIds}
+          onSelectedLabelsChange={setSelectedLabelIds}
+        />
 
         <div className="flex items-center gap-2">
           <Button
@@ -89,17 +130,21 @@ export function ConversationList({
           <div className="flex items-center justify-center p-8">
             <p className="text-sm text-muted-foreground">Carregando conversas...</p>
           </div>
-        ) : conversations.length === 0 ? (
+        ) : filteredConversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center">
             <p className="text-sm text-muted-foreground">
-              Nenhuma conversa encontrada
+              {selectedLabelIds.length > 0 
+                ? 'Nenhuma conversa com estas etiquetas'
+                : 'Nenhuma conversa encontrada'}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Conversas aparecerão aqui quando você tabular leads
+              {selectedLabelIds.length > 0
+                ? 'Tente remover alguns filtros'
+                : 'Conversas aparecerão aqui quando você tabular leads'}
             </p>
           </div>
         ) : (
-          conversations.map((conversation) => (
+          filteredConversations.map((conversation) => (
             <ConversationItem
               key={conversation.conversation_id}
               conversation={conversation}
@@ -107,6 +152,7 @@ export function ConversationList({
               onSelect={() => toggleSelection(conversation.conversation_id)}
               onClick={() => onSelectConversation(conversation.conversation_id)}
               isActive={activeConversationId === conversation.conversation_id}
+              labels={conversationLabels[conversation.conversation_id] || []}
             />
           ))
         )}

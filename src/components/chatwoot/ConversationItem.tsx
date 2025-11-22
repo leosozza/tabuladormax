@@ -4,6 +4,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { AgentConversation } from '@/hooks/useAgentConversations';
+import { LabelBadge } from './LabelBadge';
+import { LabelAssignment } from '@/hooks/useConversationLabels';
 
 interface ConversationItemProps {
   conversation: AgentConversation;
@@ -11,6 +13,7 @@ interface ConversationItemProps {
   onSelect: () => void;
   onClick: () => void;
   isActive: boolean;
+  labels?: LabelAssignment[];
 }
 
 export function ConversationItem({
@@ -19,6 +22,7 @@ export function ConversationItem({
   onSelect,
   onClick,
   isActive,
+  labels = [],
 }: ConversationItemProps) {
   const initials = conversation.name
     .split(' ')
@@ -66,6 +70,22 @@ export function ConversationItem({
         <p className="text-xs text-muted-foreground truncate">
           {conversation.phone_number}
         </p>
+        {labels.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {labels.map((assignment) => {
+              const label = assignment.label;
+              if (!label) return null;
+              return (
+                <LabelBadge
+                  key={assignment.id}
+                  name={label.name}
+                  color={label.color}
+                  size="sm"
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
