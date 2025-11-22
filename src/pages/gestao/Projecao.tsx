@@ -111,6 +111,7 @@ function GestaoProjecaoContent() {
         <GestaoFiltersComponent 
           filters={filters} 
           onChange={setFilters}
+          showDateFilter={false}
         />
 
         {/* Info sobre o sistema */}
