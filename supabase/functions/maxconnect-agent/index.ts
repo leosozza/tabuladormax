@@ -617,6 +617,56 @@ function processMetrics(data: any[], groupBy?: string[], metrics?: string[]) {
   return results.sort((a: any, b: any) => b.total - a.total);
 }
 
+// Helper function to load training instructions from database
+async function loadTrainingInstructions(supabase: any): Promise<string> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_training_instructions')
+      .select('title, content, category, priority')
+      .eq('is_active', true)
+      .order('priority', { ascending: false });
+    
+    if (error || !data || data.length === 0) {
+      console.log('No active training instructions found');
+      return '';
+    }
+
+    console.log(`Loading ${data.length} active training instructions`);
+
+    let customInstructions = '\n\n=== TREINAMENTO CUSTOMIZADO ===\n\n';
+    
+    // Group by category
+    const byCategory = data.reduce((acc: any, item: any) => {
+      if (!acc[item.category]) acc[item.category] = [];
+      acc[item.category].push(item);
+      return acc;
+    }, {});
+    
+    const categoryLabels: Record<string, string> = {
+      procedures: 'PROCEDIMENTOS',
+      product_knowledge: 'CONHECIMENTO DE PRODUTO',
+      responses: 'TOM DE RESPOSTA',
+      business_rules: 'REGRAS DE NEGÓCIO',
+      other: 'OUTROS',
+    };
+
+    // Format instructions by category
+    for (const [category, items] of Object.entries(byCategory)) {
+      customInstructions += `\n### ${categoryLabels[category] || category.toUpperCase()}\n\n`;
+      
+      (items as any[]).forEach((item: any) => {
+        customInstructions += `**${item.title}** (Prioridade: ${item.priority})\n${item.content}\n\n`;
+      });
+    }
+    
+    console.log(`Generated custom instructions: ${customInstructions.length} characters`);
+    return customInstructions;
+  } catch (error) {
+    console.error('Error loading training instructions:', error);
+    return '';
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -635,9 +685,13 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Load custom training instructions
+    const trainingContext = await loadTrainingInstructions(supabaseAdmin);
+    const fullSystemPrompt = systemPrompt + trainingContext;
+
     // Preparar mensagens com system prompt
     const allMessages = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: fullSystemPrompt },
       ...messages
     ];
 

@@ -150,6 +150,54 @@ export type Database = {
           },
         ]
       }
+      ai_training_instructions: {
+        Row: {
+          category: string | null
+          content: string | null
+          created_at: string | null
+          created_by: string | null
+          file_path: string | null
+          id: string
+          is_active: boolean | null
+          last_used_at: string | null
+          priority: number | null
+          title: string
+          type: string
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          file_path?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          priority?: number | null
+          title: string
+          type: string
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          file_path?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          priority?: number | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
       app_routes: {
         Row: {
           active: boolean
