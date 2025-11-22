@@ -4,6 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Send, Trash2, Loader2 } from "lucide-react";
 import { AgentChatMessage } from "./AgentChatMessage";
+import { AgentChartVisualization } from "./AgentChartVisualization";
+import { AgentExportButton } from "./AgentExportButton";
+import { AgentFavorites } from "./AgentFavorites";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,10 +18,10 @@ interface Message {
 
 const SUGGESTIONS = [
   "Quantas leads foram feitas hoje?",
-  "Quantas leads no projeto Seletiva Pinheiros?",
-  "Separa por scouter o último mês",
-  "Quantas leads confirmaram esse mês?",
-  "Qual a taxa de comparecimento?",
+  "Previsão de leads para próximo mês",
+  "Quais projetos precisam de atenção?",
+  "O que fazer para melhorar a performance?",
+  "Mostrar evolução mensal de leads",
 ];
 
 export function MaxconnectAgent() {
@@ -42,6 +45,27 @@ export function MaxconnectAgent() {
     scrollToBottom();
   }, [messages]);
 
+  const parseChartData = (content: string) => {
+    const charts: any[] = [];
+    
+    // Detectar [CHART:tipo]
+    const chartMatches = content.matchAll(/\[CHART:(LINE|BAR|PIE)\]/gi);
+    
+    for (const match of chartMatches) {
+      const type = match[1].toLowerCase() as 'line' | 'bar' | 'pie';
+      
+      // Extrair dados próximos ao marcador (simplificado)
+      // Em produção, isso seria mais sofisticado
+      charts.push({
+        type,
+        data: [], // Dados seriam extraídos do contexto
+        title: 'Visualização de Dados'
+      });
+    }
+    
+    return charts;
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -58,7 +82,7 @@ export function MaxconnectAgent() {
     try {
       // Preparar histórico de mensagens para a API
       const apiMessages = messages
-        .filter(m => m.role !== 'assistant' || m.content !== messages[0].content) // Remover mensagem inicial
+        .filter(m => m.role !== 'assistant' || m.content !== messages[0].content)
         .map(m => ({
           role: m.role,
           content: m.content,
@@ -135,30 +159,50 @@ export function MaxconnectAgent() {
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
           <h2 className="text-lg font-semibold">Agente MAXconnect</h2>
           <span className="text-xs text-muted-foreground">
-            Análise de dados por IA
+            Análise avançada com IA
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleClear}
-          disabled={isLoading}
-        >
-          <Trash2 className="w-4 h-4 mr-2" />
-          Limpar
-        </Button>
+        <div className="flex gap-2">
+          <AgentFavorites 
+            currentQuestion={input}
+            onSelectFavorite={(q) => setInput(q)}
+          />
+          <AgentExportButton messages={messages} />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClear}
+            disabled={isLoading}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Limpar
+          </Button>
+        </div>
       </div>
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((msg, idx) => (
-          <AgentChatMessage
-            key={idx}
-            role={msg.role}
-            content={msg.content}
-            timestamp={msg.timestamp}
-          />
-        ))}
+        {messages.map((msg, idx) => {
+          const charts = msg.role === 'assistant' ? parseChartData(msg.content) : [];
+          
+          return (
+            <div key={idx}>
+              <AgentChatMessage
+                role={msg.role}
+                content={msg.content}
+                timestamp={msg.timestamp}
+              />
+              {charts.map((chart, chartIdx) => (
+                <AgentChartVisualization
+                  key={chartIdx}
+                  type={chart.type}
+                  data={chart.data}
+                  title={chart.title}
+                />
+              ))}
+            </div>
+          );
+        })}
         
         {isLoading && (
           <div className="flex items-center gap-3 mb-4">
