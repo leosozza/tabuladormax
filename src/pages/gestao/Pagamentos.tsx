@@ -316,13 +316,13 @@ export default function GestaoPagamentos() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12">
+                    <TableHead className="w-8 md:w-12 px-2 md:px-4">
                       <Checkbox
                         checked={isAllSelected}
                         onCheckedChange={toggleSelectAll}
                         aria-label="Selecionar todos os pendentes"
                         disabled={pendingPayments.length === 0}
-                        className={isSomeSelected ? "data-[state=checked]:bg-primary/50" : ""}
+                        className={isSomeSelected ? "h-3.5 w-3.5 md:h-4 md:w-4 data-[state=checked]:bg-primary/50" : "h-3.5 w-3.5 md:h-4 md:w-4"}
                       />
                     </TableHead>
                     <TableHead>Lead</TableHead>
@@ -343,12 +343,13 @@ export default function GestaoPagamentos() {
                   ) : (
                     payments?.map((payment) => (
                       <TableRow key={payment.id}>
-                        <TableCell>
+                        <TableCell className="w-8 md:w-12 px-2 md:px-4">
                           {!payment.ficha_confirmada && (
                             <Checkbox
                               checked={selectedLeadIds.has(payment.id)}
                               onCheckedChange={() => toggleSelection(payment.id)}
                               aria-label={`Selecionar ${payment.name}`}
+                              className="h-3.5 w-3.5 md:h-4 md:w-4"
                             />
                           )}
                         </TableCell>
