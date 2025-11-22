@@ -14,6 +14,7 @@ interface BitrixStage {
   ENTITY_ID: string;
   SORT?: number;
   scouter_count?: number;
+  examples?: string[];
 }
 
 interface StageMapping {
@@ -183,7 +184,7 @@ export default function StageMappings() {
             <div className="flex-1 space-y-2">
               <h3 className="font-semibold">Descobrir Stages no Bitrix</h3>
               <p className="text-sm text-muted-foreground">
-                Buscar automaticamente todas as stages configuradas no Bitrix para Gestão Scouter
+                Busca stages diretamente dos scouters cadastrados (bitrix_spa_entities)
               </p>
               <Button
                 onClick={() => discoverMutation.mutate()}
@@ -237,7 +238,12 @@ export default function StageMappings() {
                           <div className="text-xs text-muted-foreground">{stage.STATUS_ID}</div>
                           {stage.scouter_count && (
                             <div className="text-xs text-muted-foreground mt-1">
-                              {stage.scouter_count} scouter(s) nesta stage
+                              {stage.scouter_count} scouter{stage.scouter_count !== 1 ? 's' : ''} nesta stage
+                            </div>
+                          )}
+                          {stage.examples && stage.examples.length > 0 && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Ex: {stage.examples.slice(0, 2).join(', ')}
                             </div>
                           )}
                         </div>
