@@ -1,6 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Calendar } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface DateSelectFieldProps {
   id: string;
@@ -21,11 +25,35 @@ export const DateSelectField: React.FC<DateSelectFieldProps> = ({
 }) => {
   // Parse current value (YYYY-MM-DD)
   const [year, month, day] = value ? value.split('-') : ['', '', ''];
+  
+  // Temporary state for popover selections
+  const [tempDay, setTempDay] = useState(day);
+  const [tempMonth, setTempMonth] = useState(month);
+  const [tempYear, setTempYear] = useState(year);
+  const [open, setOpen] = useState(false);
+  
+  // Update temp values when value prop changes
+  React.useEffect(() => {
+    const [y, m, d] = value ? value.split('-') : ['', '', ''];
+    setTempDay(d);
+    setTempMonth(m);
+    setTempYear(y);
+  }, [value]);
 
+  // Format display date
+  const formatDisplayDate = (d: string, m: string, y: string) => {
+    if (!d || !m || !y) return 'Selecione a data';
+    const monthName = months.find(mo => mo.value === m)?.label || m;
+    return `${d}/${monthName}/${y}`;
+  };
+  
+  // Check if date is complete
+  const isDateComplete = tempDay && tempMonth && tempYear;
+  
   // Generate options
   const days = useMemo(() => {
-    const selectedMonth = parseInt(month) || 1;
-    const selectedYear = parseInt(year) || new Date().getFullYear();
+    const selectedMonth = parseInt(tempMonth) || 1;
+    const selectedYear = parseInt(tempYear) || new Date().getFullYear();
     
     // Days in month logic
     let maxDays = 31;
@@ -41,7 +69,7 @@ export const DateSelectField: React.FC<DateSelectFieldProps> = ({
       const d = i + 1;
       return { value: String(d).padStart(2, '0'), label: String(d) };
     });
-  }, [month, year]);
+  }, [tempMonth, tempYear]);
 
   const months = useMemo(() => [
     { value: '01', label: 'Janeiro' },
@@ -67,44 +95,50 @@ export const DateSelectField: React.FC<DateSelectFieldProps> = ({
   }, []);
 
   const handleDayChange = (newDay: string) => {
-    if (month && year) {
-      onChange(`${year}-${month}-${newDay}`);
-    }
+    setTempDay(newDay);
   };
 
   const handleMonthChange = (newMonth: string) => {
-    let finalDay = day;
+    setTempMonth(newMonth);
     
     // Validate day for new month
     const maxDaysInNewMonth = [4, 6, 9, 11].includes(parseInt(newMonth)) ? 30 :
                                parseInt(newMonth) === 2 ? 28 : 31;
     
-    if (parseInt(day) > maxDaysInNewMonth) {
-      finalDay = String(maxDaysInNewMonth).padStart(2, '0');
-    }
-    
-    if (year) {
-      onChange(`${year}-${newMonth}-${finalDay || '01'}`);
+    if (tempDay && parseInt(tempDay) > maxDaysInNewMonth) {
+      setTempDay(String(maxDaysInNewMonth).padStart(2, '0'));
     }
   };
 
   const handleYearChange = (newYear: string) => {
-    let finalDay = day;
+    setTempYear(newYear);
     
     // Check if February and leap year
-    if (month === '02') {
+    if (tempMonth === '02' && tempDay) {
       const isLeap = (parseInt(newYear) % 4 === 0 && parseInt(newYear) % 100 !== 0) || 
                      (parseInt(newYear) % 400 === 0);
       const maxDays = isLeap ? 29 : 28;
       
-      if (parseInt(day) > maxDays) {
-        finalDay = String(maxDays).padStart(2, '0');
+      if (parseInt(tempDay) > maxDays) {
+        setTempDay(String(maxDays).padStart(2, '0'));
       }
     }
-    
-    if (month) {
-      onChange(`${newYear}-${month}-${finalDay || '01'}`);
+  };
+  
+  const handleConfirm = () => {
+    if (tempDay && tempMonth && tempYear) {
+      onChange(`${tempYear}-${tempMonth}-${tempDay}`);
+      setOpen(false);
     }
+  };
+  
+  const handleCancel = () => {
+    // Restore original values
+    const [y, m, d] = value ? value.split('-') : ['', '', ''];
+    setTempDay(d);
+    setTempMonth(m);
+    setTempYear(y);
+    setOpen(false);
   };
 
   return (
@@ -114,46 +148,90 @@ export const DateSelectField: React.FC<DateSelectFieldProps> = ({
         {required && <span className="text-destructive ml-1 text-lg">*</span>}
       </Label>
       
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Select value={day} onValueChange={handleDayChange} disabled={disabled}>
-          <SelectTrigger id={id} className="h-12 text-base">
-            <SelectValue placeholder="Dia" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[60vh]">
-            {days.map((d) => (
-              <SelectItem key={d.value} value={d.value} className="text-base py-3">
-                {d.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={month} onValueChange={handleMonthChange} disabled={disabled}>
-          <SelectTrigger className="h-12 text-base">
-            <SelectValue placeholder="Mês" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[60vh]">
-            {months.map((m) => (
-              <SelectItem key={m.value} value={m.value} className="text-base py-3">
-                {m.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={year} onValueChange={handleYearChange} disabled={disabled}>
-          <SelectTrigger className="h-12 text-base">
-            <SelectValue placeholder="Ano" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[60vh]">
-            {years.map((y) => (
-              <SelectItem key={y.value} value={y.value} className="text-base py-3">
-                {y.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            id={id}
+            variant="outline"
+            className={cn(
+              "w-full h-12 justify-start text-left font-normal text-base",
+              !value && "text-muted-foreground"
+            )}
+            disabled={disabled}
+          >
+            <Calendar className="mr-2 h-4 w-4" />
+            {formatDisplayDate(day, month, year)}
+          </Button>
+        </PopoverTrigger>
+        
+        <PopoverContent className="w-auto p-4" align="start">
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-2">
+              <Select value={tempDay} onValueChange={handleDayChange}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Dia" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[200px]">
+                  {days.map((d) => (
+                    <SelectItem key={d.value} value={d.value}>
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={tempMonth} onValueChange={handleMonthChange}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Mês" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[200px]">
+                  {months.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={tempYear} onValueChange={handleYearChange}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Ano" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[200px]">
+                  {years.map((y) => (
+                    <SelectItem key={y.value} value={y.value}>
+                      {y.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button
+                onClick={handleConfirm}
+                disabled={!isDateComplete}
+                className="flex-1"
+              >
+                Confirmar
+              </Button>
+              <Button
+                onClick={handleCancel}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+            
+            {!isDateComplete && (
+              <p className="text-xs text-muted-foreground text-center">
+                Selecione dia, mês e ano
+              </p>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 };
