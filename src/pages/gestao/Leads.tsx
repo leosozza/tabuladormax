@@ -651,12 +651,11 @@ function GestaoLeadsContent() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8 md:w-12 px-2 md:px-4">
+                  <TableHead className="w-6 sm:w-8 md:w-12 px-1 sm:px-2 md:px-4">
                     <Checkbox
                       checked={selectedLeadIds.size === leads?.length && leads.length > 0}
                       onCheckedChange={toggleSelectAll}
                       aria-label="Selecionar todos"
-                      className="h-3.5 w-3.5 md:h-4 md:w-4"
                     />
                   </TableHead>
                   {visibleFields.map((field) => (
@@ -685,13 +684,12 @@ function GestaoLeadsContent() {
                     >
                       <TableCell 
                         onClick={(e) => e.stopPropagation()}
-                        className="w-8 md:w-12 px-2 md:px-4"
+                        className="w-6 sm:w-8 md:w-12 px-1 sm:px-2 md:px-4"
                       >
                         <Checkbox
                           checked={selectedLeadIds.has(lead.id)}
                           onCheckedChange={() => toggleSelectLead(lead.id)}
                           aria-label={`Selecionar lead ${lead.id}`}
-                          className="h-3.5 w-3.5 md:h-4 md:w-4"
                         />
                       </TableCell>
                       {visibleFields.map((field) => {

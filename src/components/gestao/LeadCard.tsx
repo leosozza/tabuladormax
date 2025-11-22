@@ -80,11 +80,15 @@ export default function LeadCard({ lead }: LeadCardProps) {
       cardSizeClasses[config.photoSize]
     )}>
       {/* Foto do Lead - Fullscreen */}
-      <div className="absolute inset-0 bg-muted overflow-hidden">
+      <div className="absolute inset-0 bg-muted overflow-hidden flex items-center justify-center">
         <img
           src={photoSrc}
           alt={String(lead.name || "Lead")}
-          className="w-full h-full object-cover"
+          className={cn(
+            hasPhotoError || !rawPhotoUrl || rawPhotoUrl === '' 
+              ? "w-2/3 h-2/3 object-contain" 
+              : "w-full h-full object-cover"
+          )}
           onError={() => {
             if (!hasPhotoError) {
               setHasPhotoError(true);
