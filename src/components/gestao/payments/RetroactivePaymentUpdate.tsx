@@ -20,7 +20,7 @@ import { formatCurrency } from "@/lib/formatters";
 
 export function RetroactivePaymentUpdate() {
   const { toast } = useToast();
-  const [cutoffDate, setCutoffDate] = useState("2024-11-16");
+  const [cutoffDate, setCutoffDate] = useState("2025-11-16");
   const [isLoading, setIsLoading] = useState(false);
   const [previewData, setPreviewData] = useState<{
     count: number;
