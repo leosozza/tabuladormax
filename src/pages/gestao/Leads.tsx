@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
@@ -23,7 +23,6 @@ import { useBitrixEnums } from "@/hooks/useBitrixEnums";
 import { toast } from "sonner";
 import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal";
 import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtils";
-import { useRef, useCallback } from "react";
 
 function GestaoLeadsContent() {
   const queryClient = useQueryClient();
@@ -309,29 +308,45 @@ function GestaoLeadsContent() {
   // Ativar modo de seleção via long press e selecionar o lead
   const activateSelectionModeWithLead = useCallback((leadId: number) => {
     setIsSelectionMode(true);
-    const newSet = new Set(selectedLeadIds);
-    newSet.add(leadId);
-    setSelectedLeadIds(newSet);
+    setSelectedLeadIds(prev => {
+      const newSet = new Set(prev);
+      newSet.add(leadId);
+      return newSet;
+    });
     
     // Feedback visual
-    navigator?.vibrate?.(50); // Vibração curta se disponível
+    if (navigator?.vibrate) {
+      navigator.vibrate(50);
+    }
     toast.info('Modo de seleção ativado');
-  }, [selectedLeadIds]);
+  }, []); // Sem dependências - usa apenas setters
 
   // Handlers para long press
   const handleLongPressStart = useCallback((leadId: number) => {
-    if (!isSelectionMode) {
-      longPressTimerRef.current = setTimeout(() => {
-        activateSelectionModeWithLead(leadId);
-      }, 500); // 500ms para ativar
+    // Limpar timer anterior se existir
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
     }
-  }, [isSelectionMode, activateSelectionModeWithLead]);
+    
+    longPressTimerRef.current = setTimeout(() => {
+      activateSelectionModeWithLead(leadId);
+    }, 500);
+  }, [activateSelectionModeWithLead]);
 
   const handleLongPressEnd = useCallback(() => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+  }, []);
+  
+  // Cleanup do timer ao desmontar
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
   }, []);
 
   // Iniciar análise
@@ -756,7 +771,10 @@ function GestaoLeadsContent() {
                         "cursor-pointer hover:bg-muted/50 transition-colors",
                         selectedLeadIds.has(lead.id) && isSelectionMode && "bg-blue-50 hover:bg-blue-100"
                       )}
-                      onTouchStart={() => handleLongPressStart(lead.id)}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        handleLongPressStart(lead.id);
+                      }}
                       onTouchEnd={handleLongPressEnd}
                       onTouchMove={handleLongPressEnd}
                       onMouseDown={() => handleLongPressStart(lead.id)}
