@@ -21,7 +21,7 @@ import type { HistoricalAnalysis, Projection } from "@/types/projection";
 function GestaoProjecaoContent() {
   // Filtros básicos
   const [filters, setFilters] = useState<GestaoFilters>({
-    dateFilter: createDateFilter('month'),
+    dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null
   });

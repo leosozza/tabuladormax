@@ -19,7 +19,7 @@ function AdvancedDashboardContent() {
   
   // Filtros globais do dashboard
   const [filters, setFilters] = useState<GestaoFilters>({
-    dateFilter: createDateFilter('month'),
+    dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null
   });

@@ -17,7 +17,7 @@ import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
 
 function GestaoAreaDeAbordagemContent() {
   const [filters, setFilters] = useState<FilterType>({
-    dateFilter: createDateFilter('month'),
+    dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null,
   });

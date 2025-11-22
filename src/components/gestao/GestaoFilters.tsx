@@ -108,7 +108,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
       const newFilter = createDateFilter(preset as any);
       onChange({ ...filters, dateFilter: newFilter });
     } else {
-      const currentFilter = filters.dateFilter || createDateFilter('month');
+      const currentFilter = filters.dateFilter || createDateFilter('all');
       onChange({ ...filters, dateFilter: { ...currentFilter, preset: 'custom' } });
     }
   };
@@ -293,7 +293,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
                   variant="outline"
                   onClick={() => {
                     onChange({
-                      dateFilter: createDateFilter('month'),
+                      dateFilter: createDateFilter('all'),
                       projectId: null,
                       scouterId: null,
                       additionalFilters: []
@@ -447,13 +447,13 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
       />
 
       {/* Botão Limpar Filtros */}
-      {(filters.projectId || filters.scouterId || (showDateFilter && filters.dateFilter.preset !== 'month') || (filters.additionalFilters && filters.additionalFilters.length > 0)) && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onChange({
-            dateFilter: createDateFilter('month'),
-            projectId: null,
+      {(filters.projectId || filters.scouterId || (showDateFilter && filters.dateFilter.preset !== 'all') || (filters.additionalFilters && filters.additionalFilters.length > 0)) && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => onChange({
+                      dateFilter: createDateFilter('all'),
+                      projectId: null,
             scouterId: null,
             additionalFilters: []
           })}

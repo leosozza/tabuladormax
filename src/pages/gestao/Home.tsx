@@ -18,7 +18,7 @@ import { LeadColumnConfigProvider } from '@/hooks/useLeadColumnConfig';
 
 function GestaoHomeContent() {
   const [filters, setFilters] = useState<GestaoFilters>({
-    dateFilter: createDateFilter('month'),
+    dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null
   });
