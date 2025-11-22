@@ -18,9 +18,10 @@ import { useIsMobile } from "@/hooks/use-mobile";
 interface GestaoFiltersProps {
   filters: GestaoFilters;
   onChange: (filters: GestaoFilters) => void;
+  showDateFilter?: boolean;
 }
 
-export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps) {
+export function GestaoFiltersComponent({ filters, onChange, showDateFilter = true }: GestaoFiltersProps) {
   const isMobile = useIsMobile();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(filters.dateFilter.startDate);
@@ -139,7 +140,7 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
   const activeFiltersCount = 
     (filters.projectId ? 1 : 0) + 
     (filters.scouterId ? 1 : 0) + 
-    (filters.dateFilter.preset !== 'month' ? 1 : 0) +
+    (showDateFilter && filters.dateFilter.preset !== 'month' ? 1 : 0) +
     (filters.additionalFilters?.length || 0);
 
   if (isMobile) {
@@ -163,53 +164,55 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
             </SheetHeader>
             <div className="space-y-6 pt-6">
               {/* Filtro de Data */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Período:</label>
-                <Select 
-                  value={filters.dateFilter.preset} 
-                  onValueChange={handlePresetChange}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="today">Hoje</SelectItem>
-                    <SelectItem value="week">Esta Semana</SelectItem>
-                    <SelectItem value="month">Este Mês</SelectItem>
-                    <SelectItem value="all">Todo Período</SelectItem>
-                    <SelectItem value="custom">Personalizado</SelectItem>
-                  </SelectContent>
-                </Select>
+              {showDateFilter && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Período:</label>
+                  <Select 
+                    value={filters.dateFilter.preset} 
+                    onValueChange={handlePresetChange}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">Hoje</SelectItem>
+                      <SelectItem value="week">Esta Semana</SelectItem>
+                      <SelectItem value="month">Este Mês</SelectItem>
+                      <SelectItem value="all">Todo Período</SelectItem>
+                      <SelectItem value="custom">Personalizado</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                {filters.dateFilter.preset === 'custom' && (
-                  <div className="space-y-4 pt-2">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Data Inicial</label>
-                      <Calendar
-                        mode="single"
-                        selected={customStartDate}
-                        onSelect={setCustomStartDate}
-                      />
+                  {filters.dateFilter.preset === 'custom' && (
+                    <div className="space-y-4 pt-2">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Data Inicial</label>
+                        <Calendar
+                          mode="single"
+                          selected={customStartDate}
+                          onSelect={setCustomStartDate}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Data Final</label>
+                        <Calendar
+                          mode="single"
+                          selected={customEndDate}
+                          onSelect={setCustomEndDate}
+                          disabled={(date) => customStartDate ? date < customStartDate : false}
+                        />
+                      </div>
+                      <Button 
+                        onClick={handleCustomDateApply} 
+                        disabled={!customStartDate || !customEndDate}
+                        className="w-full"
+                      >
+                        Aplicar Datas
+                      </Button>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Data Final</label>
-                      <Calendar
-                        mode="single"
-                        selected={customEndDate}
-                        onSelect={setCustomEndDate}
-                        disabled={(date) => customStartDate ? date < customStartDate : false}
-                      />
-                    </div>
-                    <Button 
-                      onClick={handleCustomDateApply} 
-                      disabled={!customStartDate || !customEndDate}
-                      className="w-full"
-                    >
-                      Aplicar Datas
-                    </Button>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {/* Filtro de Projeto */}
               <div className="space-y-2">
@@ -300,70 +303,72 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
   return (
     <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-card rounded-lg border">
       {/* Filtro de Data */}
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-muted-foreground">Período:</label>
-          <Select 
-            value={filters.dateFilter.preset} 
-            onValueChange={handlePresetChange}
-          >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Hoje</SelectItem>
-            <SelectItem value="week">Esta Semana</SelectItem>
-            <SelectItem value="month">Este Mês</SelectItem>
-            <SelectItem value="all">Todo Período</SelectItem>
-            <SelectItem value="custom">Personalizado</SelectItem>
-          </SelectContent>
-        </Select>
+      {showDateFilter && (
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-muted-foreground">Período:</label>
+            <Select 
+              value={filters.dateFilter.preset} 
+              onValueChange={handlePresetChange}
+            >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Hoje</SelectItem>
+              <SelectItem value="week">Esta Semana</SelectItem>
+              <SelectItem value="month">Este Mês</SelectItem>
+              <SelectItem value="all">Todo Período</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
+            </SelectContent>
+          </Select>
 
-        {filters.dateFilter.preset === 'custom' && (
-          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-[280px] justify-start text-left font-normal",
-                  !customStartDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {getDisplayText()}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <div className="p-4 space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Data Inicial</label>
-                  <Calendar
-                    mode="single"
-                    selected={customStartDate}
-                    onSelect={setCustomStartDate}
-                    initialFocus
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Data Final</label>
-                  <Calendar
-                    mode="single"
-                    selected={customEndDate}
-                    onSelect={setCustomEndDate}
-                    disabled={(date) => customStartDate ? date < customStartDate : false}
-                  />
-                </div>
-                <Button 
-                  onClick={handleCustomDateApply} 
-                  disabled={!customStartDate || !customEndDate}
-                  className="w-full"
+          {filters.dateFilter.preset === 'custom' && (
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[280px] justify-start text-left font-normal",
+                    !customStartDate && "text-muted-foreground"
+                  )}
                 >
-                  Aplicar
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {getDisplayText()}
                 </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
-      </div>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="p-4 space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Data Inicial</label>
+                    <Calendar
+                      mode="single"
+                      selected={customStartDate}
+                      onSelect={setCustomStartDate}
+                      initialFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Data Final</label>
+                    <Calendar
+                      mode="single"
+                      selected={customEndDate}
+                      onSelect={setCustomEndDate}
+                      disabled={(date) => customStartDate ? date < customStartDate : false}
+                    />
+                  </div>
+                  <Button 
+                    onClick={handleCustomDateApply} 
+                    disabled={!customStartDate || !customEndDate}
+                    className="w-full"
+                  >
+                    Aplicar
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+      )}
 
       {/* Filtro de Projeto */}
       <div className="flex items-center gap-2">
@@ -418,7 +423,7 @@ export function GestaoFiltersComponent({ filters, onChange }: GestaoFiltersProps
       />
 
       {/* Botão Limpar Filtros */}
-      {(filters.projectId || filters.scouterId || filters.dateFilter.preset !== 'month' || (filters.additionalFilters && filters.additionalFilters.length > 0)) && (
+      {(filters.projectId || filters.scouterId || (showDateFilter && filters.dateFilter.preset !== 'month') || (filters.additionalFilters && filters.additionalFilters.length > 0)) && (
         <Button
           variant="ghost"
           size="sm"
