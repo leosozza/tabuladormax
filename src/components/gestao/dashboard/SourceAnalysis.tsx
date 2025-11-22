@@ -20,81 +20,42 @@ export default function SourceAnalysis({ filters }: SourceAnalysisProps) {
   const { data: sourceData, isLoading } = useQuery({
     queryKey: ["source-analysis", filters],
     queryFn: async () => {
-      let query = supabase
-        .from("leads")
-        .select("fonte, ficha_confirmada, compareceu");
-
-      // Aplicar filtros de data
-      if (filters?.dateFilter.preset !== 'all') {
-        query = query
-          .gte("criado", filters.dateFilter.startDate.toISOString())
-          .lte("criado", filters.dateFilter.endDate.toISOString());
-      }
-
-      // Aplicar filtro de projeto
-      if (filters?.projectId) {
-        query = query.eq("commercial_project_id", filters.projectId);
-      }
-
-      // Aplicar filtro de scouter
-      if (filters?.scouterId) {
-        query = query.eq("scouter", filters.scouterId);
-      }
-
-      const { data, error } = await query;
+      // Usar RPC otimizada que retorna dados já normalizados
+      const { data, error } = await supabase.rpc('get_source_analysis', {
+        p_start_date: filters?.dateFilter.preset !== 'all'
+          ? filters.dateFilter.startDate.toISOString()
+          : null,
+        p_end_date: filters?.dateFilter.preset !== 'all'
+          ? filters.dateFilter.endDate.toISOString()
+          : null,
+        p_project_id: filters?.projectId,
+        p_scouter: filters?.scouterId,
+        p_fonte: filters?.fonte
+      });
+      
       if (error) throw error;
 
-      // Normalizar e agrupar por fonte
-      const grouped = new Map<string, { total: number; confirmados: number; compareceram: number }>();
-
-      data?.forEach((lead) => {
-        // Normalização inline (mesma lógica da função do banco)
-        let fonte = lead.fonte || 'Sem Fonte';
-        if (fonte.toLowerCase().includes('meta') || fonte.toLowerCase().includes('instagram') || fonte.toLowerCase().includes('facebook')) {
-          fonte = 'Meta';
-        } else if (fonte.toLowerCase().includes('scouter') || fonte.toLowerCase().includes('fichas')) {
-          fonte = 'Scouters';
-        } else if (fonte.toLowerCase().includes('recep')) {
-          fonte = 'Recepção';
-        } else if (fonte.toLowerCase().includes('openline')) {
-          fonte = 'OpenLine';
-        } else if (fonte.toLowerCase().includes('maxsystem')) {
-          fonte = 'MaxSystem';
-        }
-
-        if (!grouped.has(fonte)) {
-          grouped.set(fonte, { total: 0, confirmados: 0, compareceram: 0 });
-        }
-
-        const stats = grouped.get(fonte)!;
-        stats.total++;
-        if (lead.ficha_confirmada) stats.confirmados++;
-        if (lead.compareceu) stats.compareceram++;
-      });
-
-      // Converter para array
-      const pieData = Array.from(grouped.entries())
-        .map(([name, stats]) => ({
-          name,
-          value: stats.total,
-          percentage: 0 // calculado depois
-        }))
-        .sort((a, b) => b.value - a.value);
+      // Converter para formato dos gráficos
+      const pieData = data?.map(item => ({
+        name: item.fonte_normalizada,
+        value: Number(item.total),
+        percentage: 0 // calculado depois
+      })) || [];
 
       const total = pieData.reduce((sum, item) => sum + item.value, 0);
       pieData.forEach(item => {
         item.percentage = total > 0 ? (item.value / total) * 100 : 0;
       });
 
-      const barData = Array.from(grouped.entries())
-        .map(([name, stats]) => ({
-          fonte: name,
-          total: stats.total,
-          confirmados: stats.confirmados,
-          compareceram: stats.compareceram,
-          taxaConversao: stats.total > 0 ? (stats.compareceram / stats.total) * 100 : 0
-        }))
-        .sort((a, b) => b.total - a.total);
+      const barData = data?.map(item => ({
+        fonte: item.fonte_normalizada,
+        total: Number(item.total),
+        confirmados: Number(item.confirmados),
+        compareceram: Number(item.compareceram),
+        taxaConversao: Number(item.total) > 0 
+          ? (Number(item.compareceram) / Number(item.total)) * 100 
+          : 0
+      })) || [];
 
       return { pieData, barData };
     },
