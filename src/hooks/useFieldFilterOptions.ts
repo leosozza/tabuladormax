@@ -9,7 +9,7 @@ export interface FieldFilterConfig {
 }
 
 export function useFieldFilterOptions(supabaseField: string): FieldFilterConfig | null {
-  // 1. Buscar field_mapping do campo
+  // 1. Buscar field_mapping do campo - SEMPRE executar este hook
   const { data: mapping } = useQuery({
     queryKey: ['field-mapping', supabaseField],
     queryFn: async () => {
@@ -27,18 +27,7 @@ export function useFieldFilterOptions(supabaseField: string): FieldFilterConfig 
     enabled: !!supabaseField,
   });
 
-  // 2. Se for campo booleano, retornar opções Sim/Não
-  if (mapping?.field_type === 'boolean' || mapping?.supabase_field_type === 'boolean') {
-    return {
-      type: 'boolean',
-      options: [
-        { value: 'true', label: 'Sim' },
-        { value: 'false', label: 'Não' }
-      ]
-    };
-  }
-
-  // 3. Se for enum do Bitrix, buscar opções do cache
+  // 2. Buscar cache de enums do Bitrix - SEMPRE executar este hook
   const { data: cache } = useQuery({
     queryKey: ['bitrix-field-cache', mapping?.bitrix_field],
     queryFn: async () => {
@@ -55,6 +44,20 @@ export function useFieldFilterOptions(supabaseField: string): FieldFilterConfig 
     enabled: !!mapping?.bitrix_field && ['crm_status', 'enumeration'].includes(mapping?.bitrix_field_type || ''),
   });
 
+  // 3. Agora que ambos os hooks foram chamados, decidir qual config retornar
+  
+  // Se for campo booleano, retornar opções Sim/Não
+  if (mapping?.field_type === 'boolean' || mapping?.supabase_field_type === 'boolean') {
+    return {
+      type: 'boolean',
+      options: [
+        { value: 'true', label: 'Sim' },
+        { value: 'false', label: 'Não' }
+      ]
+    };
+  }
+
+  // Se for enum do Bitrix com opções no cache
   if (cache?.list_items && Array.isArray(cache.list_items)) {
     return {
       type: 'enum',
@@ -67,18 +70,18 @@ export function useFieldFilterOptions(supabaseField: string): FieldFilterConfig 
     };
   }
 
-  // 4. Para campos numéricos
+  // Para campos numéricos
   if (mapping?.field_type === 'number' || mapping?.field_type === 'integer' || 
       mapping?.supabase_field_type === 'integer' || mapping?.supabase_field_type === 'numeric') {
     return { type: 'number' };
   }
 
-  // 5. Para campos de data
+  // Para campos de data
   if (mapping?.field_type === 'date' || mapping?.field_type === 'datetime' ||
       mapping?.supabase_field_type?.includes('timestamp')) {
     return { type: 'date' };
   }
 
-  // 6. Padrão: texto
+  // Padrão: texto
   return { type: 'text' };
 }
