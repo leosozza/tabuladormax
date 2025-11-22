@@ -22,7 +22,7 @@ interface StageMapping {
   entity_type_id: number;
   stage_id: string;
   stage_name: string;
-  app_status: 'ativo' | 'inativo' | 'standby' | 'blacklist';
+  app_status: 'ativo' | 'inativo' | 'standby' | 'blacklist' | 'demissao';
 }
 
 export default function StageMappings() {
@@ -79,7 +79,7 @@ export default function StageMappings() {
             entity_type_id: 1096,
             stage_id: stageId,
             stage_name: stageName,
-            app_status: appStatus as 'ativo' | 'inativo' | 'standby' | 'blacklist'
+            app_status: appStatus as 'ativo' | 'inativo' | 'standby' | 'blacklist' | 'demissao'
           };
         });
 
@@ -156,6 +156,7 @@ export default function StageMappings() {
       case 'inativo': return 'bg-purple-500';
       case 'standby': return 'bg-cyan-500';
       case 'blacklist': return 'bg-gray-800';
+      case 'demissao': return 'bg-red-600';
       default: return 'bg-gray-500';
     }
   };
@@ -166,6 +167,7 @@ export default function StageMappings() {
       case 'inativo': return 'Inativo';
       case 'standby': return 'Standby';
       case 'blacklist': return 'Black-list';
+      case 'demissao': return 'Demissão';
       default: return status;
     }
   };
@@ -289,6 +291,7 @@ export default function StageMappings() {
                                 <SelectItem value="ativo">Ativo</SelectItem>
                                 <SelectItem value="inativo">Inativo</SelectItem>
                                 <SelectItem value="standby">Standby</SelectItem>
+                                <SelectItem value="demissao">Demissão</SelectItem>
                                 <SelectItem value="blacklist">Black-list</SelectItem>
                               </SelectContent>
                             </Select>
