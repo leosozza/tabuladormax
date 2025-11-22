@@ -75,10 +75,10 @@ export function HistoricalAnalysisCharts({ analysis }: HistoricalAnalysisChartsP
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {(trend.totalFichas / trend.daysAnalyzed).toFixed(1)}
+              {(trend.totalLeads / trend.daysAnalyzed).toFixed(1)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              leads confirmados por dia
+              leads por dia
             </p>
           </CardContent>
         </Card>

@@ -52,7 +52,7 @@ export function convertAggregatedData(data: AggregatedData): HistoricalAnalysis 
       performanceByWeekday[weekday] = {
         avgLeads,
         avgFichas,
-        avgValue: avgFichas * data.unitValue,
+        avgValue: avgLeads * data.unitValue,
         conversionRate,
       };
     } else {
@@ -77,7 +77,7 @@ export function convertAggregatedData(data: AggregatedData): HistoricalAnalysis 
     performanceByMonthPart.inicio = {
       avgLeads: stats.daysCount > 0 ? stats.totalLeads / stats.daysCount : 0,
       avgFichas: stats.daysCount > 0 ? stats.totalFichas / stats.daysCount : 0,
-      avgValue: stats.daysCount > 0 ? (stats.totalFichas / stats.daysCount) * data.unitValue : 0,
+      avgValue: stats.daysCount > 0 ? (stats.totalLeads / stats.daysCount) * data.unitValue : 0,
     };
   }
 
@@ -86,7 +86,7 @@ export function convertAggregatedData(data: AggregatedData): HistoricalAnalysis 
     performanceByMonthPart.meio = {
       avgLeads: stats.daysCount > 0 ? stats.totalLeads / stats.daysCount : 0,
       avgFichas: stats.daysCount > 0 ? stats.totalFichas / stats.daysCount : 0,
-      avgValue: stats.daysCount > 0 ? (stats.totalFichas / stats.daysCount) * data.unitValue : 0,
+      avgValue: stats.daysCount > 0 ? (stats.totalLeads / stats.daysCount) * data.unitValue : 0,
     };
   }
 
@@ -95,7 +95,7 @@ export function convertAggregatedData(data: AggregatedData): HistoricalAnalysis 
     performanceByMonthPart.fim = {
       avgLeads: stats.daysCount > 0 ? stats.totalLeads / stats.daysCount : 0,
       avgFichas: stats.daysCount > 0 ? stats.totalFichas / stats.daysCount : 0,
-      avgValue: stats.daysCount > 0 ? (stats.totalFichas / stats.daysCount) * data.unitValue : 0,
+      avgValue: stats.daysCount > 0 ? (stats.totalLeads / stats.daysCount) * data.unitValue : 0,
     };
   }
 
