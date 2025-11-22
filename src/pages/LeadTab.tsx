@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { saveChatwootContact, extractChatwootData, type ChatwootEventData } from "@/lib/chatwoot";
 import { getLead, type BitrixLead, getLeadFields, type BitrixField } from "@/lib/bitrix";
 import { getTelemarketingId } from "@/handlers/tabular";
@@ -31,6 +32,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useLeadAnalysis } from "@/hooks/useLeadAnalysis";
 import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
 import { useBitrixEnums } from '@/hooks/useBitrixEnums';
+import { MainLayout } from "@/components/layouts/MainLayout";
 
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, unknown>;
@@ -212,6 +214,7 @@ const DEFAULT_WEBHOOK = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjj
 const LeadTab = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const [profile, setProfile] = useState<DynamicProfile>(emptyProfile);
   const [buttons, setButtons] = useState<ButtonConfig[]>([]);
   const [editMode, setEditMode] = useState(false);
@@ -1669,52 +1672,59 @@ const LeadTab = () => {
     executeAction(selectedButton, undefined, scheduleDate, scheduleTime);
     setScheduleModal(false);
   };
-  return <div className="min-h-screen bg-background py-8 px-4">
-      <div className="container mx-auto max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="p-6 flex flex-col items-start gap-4 h-fit relative">
-            <div className="absolute top-4 right-4 gap-2 flex flex-col">
-              <Button onClick={() => setSearchModal(true)} size="icon" variant="outline" title="Buscar Lead por ID">
-                <Search className="w-4 h-4" />
-              </Button>
-              {!editMode && <Button onClick={() => setEditMode(true)} size="icon" variant="outline" disabled={loadingProfile} title="Editar Perfil">
-                  <Edit className="w-4 h-4" />
-                </Button>}
-              {profile['ID Bitrix'] && profile['ID Bitrix'] !== '—' && <Button variant="outline" size="icon" onClick={() => {
-              const bitrixId = profile['ID Bitrix'];
-              loadLeadById(String(bitrixId), false, true);
-            }} disabled={searchLoading} title="Atualizar do Bitrix">
-                  <RefreshCw className={`w-4 h-4 ${searchLoading ? 'animate-spin' : ''}`} />
-                </Button>}
-              {chatwootData?.conversation_id && <Button variant="outline" size="icon" onClick={() => setChatModalOpen(true)} title="Abrir WhatsApp">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                  </svg>
-                </Button>}
-            </div>
+  return (
+    <MainLayout
+      title="Telemarketing"
+      subtitle="Tabulação de Leads"
+      showBackButton
+      backTo="/home-choice"
+      actions={
+        <UserMenu />
+      }
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <Card className="p-4 md:p-6 flex flex-col items-start gap-3 md:gap-4 h-fit relative">
+          <div className="absolute top-2 right-2 md:top-4 md:right-4 gap-2 flex flex-col">
+            <Button onClick={() => setSearchModal(true)} size="icon" variant="outline" title="Buscar Lead por ID" className="h-8 w-8 md:h-10 md:w-10">
+              <Search className="w-3 h-3 md:w-4 md:h-4" />
+            </Button>
+            {!editMode && <Button onClick={() => setEditMode(true)} size="icon" variant="outline" disabled={loadingProfile} title="Editar Perfil" className="h-8 w-8 md:h-10 md:w-10">
+                <Edit className="w-3 h-3 md:w-4 md:h-4" />
+              </Button>}
+            {profile['ID Bitrix'] && profile['ID Bitrix'] !== '—' && <Button variant="outline" size="icon" onClick={() => {
+            const bitrixId = profile['ID Bitrix'];
+            loadLeadById(String(bitrixId), false, true);
+          }} disabled={searchLoading} title="Atualizar do Bitrix" className="h-8 w-8 md:h-10 md:w-10">
+                <RefreshCw className={`w-3 h-3 md:w-4 md:h-4 ${searchLoading ? 'animate-spin' : ''}`} />
+              </Button>}
+            {chatwootData?.conversation_id && <Button variant="outline" size="icon" onClick={() => setChatModalOpen(true)} title="Abrir WhatsApp" className="h-8 w-8 md:h-10 md:w-10">
+                <svg className="w-3 h-3 md:w-4 md:h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                </svg>
+              </Button>}
+          </div>
             
-            {/* Foto do perfil */}
-            <div className="relative">
-              {loadingProfile && <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-lg">
-                  <Loader2 className="w-8 h-8 animate-spin" />
-                </div>}
-              <img 
-                src={getProfilePhotoUrl()} 
-                alt={chatwootData?.name || 'Lead'} 
-                className="rounded-lg w-40 h-40 border-4 border-green-500 shadow-lg object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  if (target.src !== noPhotoPlaceholder) {
-                    target.src = noPhotoPlaceholder;
-                  }
-                }}
-              />
-            </div>
+          {/* Foto do perfil */}
+          <div className="relative w-full flex justify-center">
+            {loadingProfile && <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg z-10">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>}
+            <img 
+              src={getProfilePhotoUrl()} 
+              alt={chatwootData?.name || 'Lead'} 
+              className="rounded-lg w-32 h-32 md:w-40 md:h-40 border-4 border-green-500 shadow-lg object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (target.src !== noPhotoPlaceholder) {
+                  target.src = noPhotoPlaceholder;
+                }
+              }}
+            />
+          </div>
 
-            {!editMode ? <>
-                <h2 className="text-2xl font-bold text-center">{(profile as any).name || 'Lead sem nome'}</h2>
-                <div className="w-full space-y-2 text-sm">
-                  {fieldMappings.filter(mapping => !mapping.is_profile_photo) // Não exibir o campo da foto na lista
+          {!editMode ? <>
+              <h2 className="text-lg md:text-2xl font-bold text-center w-full">{(profile as any).name || 'Lead sem nome'}</h2>
+              <div className="w-full space-y-1 md:space-y-2 text-xs md:text-sm">{fieldMappings.filter(mapping => !mapping.is_profile_photo) // Não exibir o campo da foto na lista
               .map(mapping => <p key={mapping.profile_field}>
                       <strong>{mapping.display_name || mapping.profile_field}:</strong>{' '}
                       {(() => {
@@ -1759,112 +1769,114 @@ const LeadTab = () => {
                         return String(rawValue);
                       })()}
                       </p>)}
-                </div>
+              </div>
 
-                <div className="flex flex-col gap-2 w-full mt-4">
-                  <div className="flex gap-2 w-full">
-                    <Button variant="secondary" onClick={() => navigate('/dashboard')} className="flex-1 gap-2">
-                      <BarChart3 className="w-4 h-4" />
+              <div className="flex flex-col gap-2 w-full mt-2 md:mt-4">
+                {!isMobile && <div className="flex gap-2 w-full">
+                    <Button variant="secondary" onClick={() => navigate('/dashboard')} className="flex-1 gap-2 text-xs md:text-sm">
+                      <BarChart3 className="w-3 h-3 md:w-4 md:h-4" />
                       Dashboard
                     </Button>
-                    <Button variant="secondary" onClick={() => navigate('/whatsapp', { state: { from: 'telemarketing' } })} className="flex-1 gap-2">
-                      <MessageSquare className="w-4 h-4" />
+                    <Button variant="secondary" onClick={() => navigate('/whatsapp', { state: { from: 'telemarketing' } })} className="flex-1 gap-2 text-xs md:text-sm">
+                      <MessageSquare className="w-3 h-3 md:w-4 md:h-4" />
                       WhatsApp
                     </Button>
-                    <UserMenu />
-                  </div>
-                  
+                  </div>}
+                
                   {isManager && <div className="flex flex-col gap-2 w-full">
-                      <Button variant="outline" onClick={() => setShowFieldMappingModal(true)} className="w-full">
-                        <Settings className="w-4 h-4 mr-2" />
+                      <Button variant="outline" onClick={() => setShowFieldMappingModal(true)} className="w-full text-xs md:text-sm">
+                        <Settings className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                         Configurar Campos
                       </Button>
-                      <Button variant="outline" onClick={() => navigate('/config')} className="w-full">
-                        <Settings className="w-4 h-4 mr-2" />
+                      <Button variant="outline" onClick={() => navigate('/config')} className="w-full text-xs md:text-sm">
+                        <Settings className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                         Configurar Botões
                       </Button>
-                      <Button variant="outline" onClick={() => navigate('/logs')} className="w-full">
-                        <Settings className="w-4 h-4 mr-2" />
+                      <Button variant="outline" onClick={() => navigate('/logs')} className="w-full text-xs md:text-sm">
+                        <Settings className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                         Ver Logs
                       </Button>
                     </div>}
-                </div>
-              </> : <div className="w-full space-y-3">
-                <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={fieldMappings.filter(mapping => !mapping.is_profile_photo).map(m => m.id || m.profile_field)} strategy={verticalListSortingStrategy}>
-                    {fieldMappings.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).filter(mapping => !mapping.is_profile_photo).map(mapping => {
-                  const SortableFieldInput = () => {
-                    const {
-                      attributes,
-                      listeners,
-                      setNodeRef,
-                      transform,
-                      transition
-                    } = useSortable({
-                      id: mapping.id || mapping.profile_field
-                    });
-                    const style = {
-                      transform: CSS.Transform.toString(transform),
-                      transition
-                    };
-                    return <div ref={setNodeRef} style={style} key={mapping.profile_field} className="flex gap-2 items-end">
-                              <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing pb-2">
-                                <GripVertical className="h-5 w-5 text-muted-foreground" />
-                              </div>
-                              <div className="flex-1">
-                                <Label>{mapping.display_name || mapping.profile_field}</Label>
-                                <Input value={String((profile as any)[mapping.profile_field] || '')} onChange={e => setProfile({
-                          ...profile,
-                          [mapping.profile_field]: e.target.value
-                        })} placeholder={`Digite ${mapping.display_name || mapping.profile_field}`} />
-                              </div>
-                            </div>;
+              </div>
+            </> : <div className="w-full space-y-2 md:space-y-3">
+              <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={fieldMappings.filter(mapping => !mapping.is_profile_photo).map(m => m.id || m.profile_field)} strategy={verticalListSortingStrategy}>
+                  {fieldMappings.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).filter(mapping => !mapping.is_profile_photo).map(mapping => {
+                const SortableFieldInput = () => {
+                  const {
+                    attributes,
+                    listeners,
+                    setNodeRef,
+                    transform,
+                    transition
+                  } = useSortable({
+                    id: mapping.id || mapping.profile_field
+                  });
+                  const style = {
+                    transform: CSS.Transform.toString(transform),
+                    transition
                   };
-                  return <SortableFieldInput key={mapping.profile_field} />;
-                })}
-                  </SortableContext>
-                </DndContext>
+                  return <div ref={setNodeRef} style={style} key={mapping.profile_field} className="flex gap-2 items-end">
+                            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing pb-2">
+                              <GripVertical className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1">
+                              <Label className="text-xs md:text-sm">{mapping.display_name || mapping.profile_field}</Label>
+                              <Input 
+                                value={String((profile as any)[mapping.profile_field] || '')} 
+                                onChange={e => setProfile({
+                        ...profile,
+                        [mapping.profile_field]: e.target.value
+                      })} 
+                                placeholder={`Digite ${mapping.display_name || mapping.profile_field}`}
+                                className="text-xs md:text-sm"
+                              />
+                            </div>
+                          </div>;
+                };
+                return <SortableFieldInput key={mapping.profile_field} />;
+              })}
+                </SortableContext>
+              </DndContext>
 
-                <div className="flex gap-2 mt-4">
-                  <Button variant="outline" onClick={() => setEditMode(false)} className="flex-1" disabled={savingProfile}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={updateCache} className="flex-1" disabled={savingProfile}>
-                    {savingProfile ? <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" /> Salvando...
-                      </span> : "💾 Salvar"}
-                  </Button>
-                </div>
-              </div>}
-          </Card>
+              <div className="flex gap-2 mt-2 md:mt-4">
+                <Button variant="outline" onClick={() => setEditMode(false)} className="flex-1 text-xs md:text-sm" disabled={savingProfile}>
+                  Cancelar
+                </Button>
+                <Button onClick={updateCache} className="flex-1 text-xs md:text-sm" disabled={savingProfile}>{savingProfile ? <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-3 h-3 md:w-4 md:h-4 animate-spin" /> Salvando...
+                    </span> : "💾 Salvar"}
+                </Button>
+              </div>
+            </div>}
+        </Card>
 
-          <Card className="p-6 relative min-h-[320px]">
-            {showHelp && <div className="absolute right-4 top-4 bg-gray-900/95 text-white rounded-xl p-4 z-10 max-w-sm shadow-2xl">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-bold">⌨️ Atalhos</h3>
-                  <Button variant="ghost" size="sm" onClick={() => setShowHelp(false)} className="text-white hover:text-gray-300">
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="space-y-1 text-sm">
-                  {buttons.map(btn => <div key={btn.id}>
-                      <p className="text-gray-200">
-                        {btn.label} — <span className="text-yellow-300">{btn.hotkey || '—'}</span>
-                      </p>
-                      {btn.sub_buttons?.map(sb => <p key={sb.subLabel} className="text-gray-400 ml-4 text-xs">
-                          › {sb.subLabel} — <span className="text-yellow-300">{sb.subHotkey || '—'}</span>
-                        </p>)}
-                    </div>)}
-                </div>
-              </div>}
+        <Card className="p-4 md:p-6 relative min-h-[320px]">
+          {showHelp && <div className="absolute right-2 top-2 md:right-4 md:top-4 bg-gray-900/95 text-white rounded-xl p-3 md:p-4 z-10 max-w-xs md:max-w-sm shadow-2xl max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-2 md:mb-3">
+                <h3 className="font-bold text-sm md:text-base">⌨️ Atalhos</h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowHelp(false)} className="text-white hover:text-gray-300 h-6 w-6 md:h-8 md:w-8">
+                  <X className="w-3 h-3 md:w-4 md:h-4" />
+                </Button>
+              </div>
+              <div className="space-y-1 text-xs md:text-sm">{buttons.map(btn => <div key={btn.id}>
+                    <p className="text-gray-200">
+                      {btn.label} — <span className="text-yellow-300">{btn.hotkey || '—'}</span>
+                    </p>
+                    {btn.sub_buttons?.map(sb => <p key={sb.subLabel} className="text-gray-400 ml-4 text-xs">
+                        › {sb.subLabel} — <span className="text-yellow-300">{sb.subHotkey || '—'}</span>
+                      </p>)}
+                  </div>)}
+              </div>
+            </div>}
 
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold">⚙️ Ações de Tabulação</h3>
-              <div className="flex items-center gap-2">
-                {loadingButtons && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
-                
-                {/* Controle de tamanho dos botões */}
-                <div className="flex items-center gap-1 border rounded-md">
+          <div className="flex items-center justify-between mb-3 md:mb-4 gap-2">
+            <h3 className="text-base md:text-xl font-bold">⚙️ Ações</h3>
+            <div className="flex items-center gap-1 md:gap-2">
+              {loadingButtons && <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin text-muted-foreground" />}
+              
+              {/* Controle de tamanho - apenas desktop */}
+              {!isMobile && <div className="flex items-center gap-1 border rounded-md">
                   <Button variant="ghost" size="icon" onClick={() => setButtonColumns(Math.min(5, buttonColumns + 1))} disabled={buttonColumns >= 5} title="Diminuir tamanho (mais colunas)" className="h-8 w-8">
                     <Plus className="w-4 h-4" />
                   </Button>
@@ -1872,123 +1884,130 @@ const LeadTab = () => {
                   <Button variant="ghost" size="icon" onClick={() => setButtonColumns(Math.max(3, buttonColumns - 1))} disabled={buttonColumns <= 3} title="Aumentar tamanho (menos colunas)" className="h-8 w-8">
                     <Minus className="w-4 h-4" />
                   </Button>
-                </div>
-                
-                <Button variant="outline" onClick={() => setShowHelp(!showHelp)} size="icon" title="Atalhos">
-                  <HelpCircle className="w-4 h-4" />
-                </Button>
-              </div>
+                </div>}
+              
+              <Button variant="outline" onClick={() => setShowHelp(!showHelp)} size="icon" title="Atalhos" className="h-8 w-8 md:h-10 md:w-10">
+                <HelpCircle className="w-3 h-3 md:w-4 md:h-4" />
+              </Button>
             </div>
+          </div>
 
-            {buttons.length === 0 && !loadingButtons ? <p className="text-sm text-muted-foreground">
-                Nenhum botão configurado. Clique em "Configurar Botões" para começar.
-              </p> : <div className="space-y-6">
-                {BUTTON_CATEGORIES.map(category => {
-              const categoryButtons = buttons.filter(button => button.category === category.id);
-              return <div key={category.id}>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                          {category.label}
-                        </h4>
-                        <span className="text-xs text-muted-foreground">
-                          {categoryButtons.length} botões
-                        </span>
-                      </div>
+          {buttons.length === 0 && !loadingButtons ? <p className="text-xs md:text-sm text-muted-foreground">
+              Nenhum botão configurado. Clique em "Configurar Botões" para começar.
+            </p> : <div className="space-y-4 md:space-y-6">{BUTTON_CATEGORIES.map(category => {
+            const categoryButtons = buttons.filter(button => button.category === category.id);
+            return <div key={category.id}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs md:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                        {category.label}
+                      </h4>
+                      <span className="text-xs text-muted-foreground">
+                        {categoryButtons.length} botões
+                      </span>
+                    </div>
 
-                      {categoryButtons.length === 0 ? <Card className="border-dashed bg-muted/20 p-6 text-xs text-muted-foreground">
-                          Nenhuma ação configurada para esta categoria.
-                        </Card> : <div className="grid gap-3" style={{
-                  gridTemplateColumns: `repeat(${buttonColumns}, minmax(0, 1fr))`
-                }}>
-                          {categoryButtons.map(btn => {
-                    const ButtonContent = <Button variant="ghost" key={btn.id} data-btn-id={btn.id} onClick={() => handleButtonClick(btn)} className="flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-center text-sm font-semibold text-white shadow-lg transition-transform duration-150 hover:scale-[1.02] focus-visible:scale-[1.02] hover:bg-white/20 hover:text-white min-h-[56px] w-full" style={{
-                      backgroundColor: btn.color
-                    }}>
-                                {btn.description && <Info className="w-3 h-3 flex-shrink-0" />}
-                                <span className="break-words whitespace-normal leading-tight flex-1">{btn.label}</span>
-                              </Button>;
-                    if (btn.description) {
-                      return <TooltipProvider key={btn.id}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      {ButtonContent}
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-xs">
-                                      <p className="text-xs">{btn.description}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>;
-                    }
-                    return ButtonContent;
-                  })}
-                        </div>}
-                    </div>;
-            })}
-            </div>}
-          </Card>
-        </div>
+                    {categoryButtons.length === 0 ? <Card className="border-dashed bg-muted/20 p-4 md:p-6 text-xs text-muted-foreground">
+                        Nenhuma ação configurada para esta categoria.
+                      </Card> : <div 
+                        className={cn(
+                          "grid gap-2 md:gap-3",
+                          isMobile 
+                            ? "grid-cols-2" 
+                            : buttonColumns === 3 
+                              ? "grid-cols-2 sm:grid-cols-3" 
+                              : buttonColumns === 4 
+                                ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+                                : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+                        )}
+                      >{categoryButtons.map(btn => {
+                  const ButtonContent = <Button variant="ghost" key={btn.id} data-btn-id={btn.id} onClick={() => handleButtonClick(btn)} className="flex items-center justify-center gap-1 rounded-lg px-2 md:px-3 py-2 text-center text-xs md:text-sm font-semibold text-white shadow-lg transition-transform duration-150 hover:scale-[1.02] focus-visible:scale-[1.02] hover:bg-white/20 hover:text-white min-h-[48px] md:min-h-[56px] w-full" style={{
+                    backgroundColor: btn.color
+                  }}>
+                              {btn.description && <Info className="w-3 h-3 flex-shrink-0" />}
+                              <span className="break-words whitespace-normal leading-tight flex-1">{btn.label}</span>
+                            </Button>;
+                  if (btn.description) {
+                    return <TooltipProvider key={btn.id}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    {ButtonContent}
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <p className="text-xs">{btn.description}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>;
+                  }
+                  return ButtonContent;
+                })}
+                      </div>}
+                  </div>;
+          })}
+          </div>}
+        </Card>
       </div>
 
       <Dialog open={subButtonModal} onOpenChange={setSubButtonModal}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>{selectedButton?.label} - Selecione o motivo</DialogTitle>
+            <DialogTitle className="text-sm md:text-base">{selectedButton?.label} - Selecione o motivo</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            {selectedButton?.sub_buttons?.map(sub => <Button key={sub.subLabel} data-btn-id={`${selectedButton.id}::${sub.subLabel}`} onClick={() => executeAction(selectedButton, sub)} variant="outline" className="w-full justify-start">
-                {sub.subLabel}
-                {sub.subHotkey && <span className="ml-2 text-xs opacity-60">[{sub.subHotkey}]</span>}
-              </Button>)}
-          </div>
+          <ScrollArea className="flex-1 max-h-[70vh]">
+            <div className="space-y-2 pr-4">{selectedButton?.sub_buttons?.map(sub => <Button key={sub.subLabel} data-btn-id={`${selectedButton.id}::${sub.subLabel}`} onClick={() => executeAction(selectedButton, sub)} variant="outline" className="w-full justify-start text-xs md:text-sm">
+                  {sub.subLabel}
+                  {sub.subHotkey && <span className="ml-2 text-xs opacity-60">[{sub.subHotkey}]</span>}
+                </Button>)}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
       <Dialog open={scheduleModal} onOpenChange={setScheduleModal}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Agendar {selectedButton?.label}</DialogTitle>
-            <DialogDescription>Escolha a data e horário</DialogDescription>
+            <DialogTitle className="text-sm md:text-base">Agendar {selectedButton?.label}</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">Escolha a data e horário</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 overflow-y-auto flex-1">
             <div className="space-y-2">
-              <Label>Data</Label>
-              <Input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} />
+              <Label className="text-xs md:text-sm">Data</Label>
+              <Input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="text-xs md:text-sm" />
             </div>
             <div className="space-y-2">
-              <Label>Horário</Label>
+              <Label className="text-xs md:text-sm">Horário</Label>
               {timeOptions.length > 0 ? <Select value={scheduleTime} onValueChange={setScheduleTime}>
-                  <SelectTrigger>
+                  <SelectTrigger className="text-xs md:text-sm">
                     <SelectValue placeholder="Selecione o horário" />
                   </SelectTrigger>
                   <SelectContent>
-                    {timeOptions.map(option => <SelectItem key={option.id} value={option.id}>
+                    {timeOptions.map(option => <SelectItem key={option.id} value={option.id} className="text-xs md:text-sm">
                         {option.name}
                       </SelectItem>)}
                   </SelectContent>
-                </Select> : <Input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} />}
+                </Select> : <Input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} className="text-xs md:text-sm" />}
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setScheduleModal(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setScheduleModal(false)} className="w-full sm:w-auto text-xs md:text-sm">
               Cancelar
             </Button>
-            <Button onClick={handleScheduleConfirm}>
+            <Button onClick={handleScheduleConfirm} className="w-full sm:w-auto text-xs md:text-sm">
               Confirmar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Modal de Configuração de Campos - scrollable */}
       <Dialog open={showFieldMappingModal} onOpenChange={setShowFieldMappingModal}>
-        <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] md:max-w-6xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Configurar Campos do Perfil</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-sm md:text-base">Configurar Campos do Perfil</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">
               Clique nos campos do Chatwoot para selecioná-los automaticamente
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-6 h-[600px]">
-            {/* Coluna da esquerda: Campos disponíveis do Chatwoot */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 flex-1 min-h-0 overflow-hidden">{/* Coluna da esquerda: Campos disponíveis do Chatwoot */}
             <div className="border rounded-lg bg-muted/30 flex flex-col">
               <h3 className="font-semibold p-4 pb-3 text-sm border-b">📋 Campos Disponíveis do Chatwoot</h3>
               <ScrollArea className="flex-1 p-4">
@@ -2318,6 +2337,7 @@ const LeadTab = () => {
       </Dialog>
 
       <ChatModal open={chatModalOpen} onOpenChange={setChatModalOpen} conversationId={chatwootData?.conversation_id || null} contactName={chatwootData?.name || profile['Nome'] || 'Lead'} />
-    </div>;
+    </MainLayout>
+  );
 };
 export default LeadTab;

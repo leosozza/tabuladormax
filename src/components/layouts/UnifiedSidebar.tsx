@@ -27,7 +27,7 @@ export function UnifiedSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-base font-bold px-4 py-4">
+          <SidebarGroupLabel className="text-base font-bold px-4 py-4 flex items-center justify-between">
             {open && "Maxconnect"}
           </SidebarGroupLabel>
           
