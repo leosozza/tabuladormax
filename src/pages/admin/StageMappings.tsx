@@ -29,6 +29,7 @@ export default function StageMappings() {
   const queryClient = useQueryClient();
   const [discoveredStages, setDiscoveredStages] = useState<BitrixStage[]>([]);
   const [pendingMappings, setPendingMappings] = useState<Record<string, string>>({});
+  const [customNames, setCustomNames] = useState<Record<string, string>>({});
 
   // Buscar mapeamentos existentes
   const { data: existingMappings, isLoading: loadingMappings } = useQuery({
@@ -72,10 +73,12 @@ export default function StageMappings() {
         .filter(([_, appStatus]) => appStatus)
         .map(([stageId, appStatus]) => {
           const stage = discoveredStages.find(s => s.STATUS_ID === stageId);
+          // Usar nome customizado se existir, senão usar o nome descoberto
+          const stageName = customNames[stageId] || stage?.NAME || stageId;
           return {
             entity_type_id: 1096,
             stage_id: stageId,
-            stage_name: stage?.NAME || stageId,
+            stage_name: stageName,
             app_status: appStatus as 'ativo' | 'inativo' | 'standby' | 'blacklist'
           };
         });
@@ -137,6 +140,13 @@ export default function StageMappings() {
     setPendingMappings(prev => ({
       ...prev,
       [stageId]: appStatus
+    }));
+  };
+
+  const handleNameChange = (stageId: string, customName: string) => {
+    setCustomNames(prev => ({
+      ...prev,
+      [stageId]: customName
     }));
   };
 
@@ -232,41 +242,57 @@ export default function StageMappings() {
                     const currentValue = pendingMappings[stage.STATUS_ID] || existingMapping?.app_status || '';
                     
                     return (
-                      <div key={stage.STATUS_ID} className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
-                        <div className="flex-1">
-                          <div className="font-medium">{stage.NAME}</div>
-                          <div className="text-xs text-muted-foreground">{stage.STATUS_ID}</div>
-                          {stage.scouter_count && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {stage.scouter_count} scouter{stage.scouter_count !== 1 ? 's' : ''} nesta stage
+                      <div key={stage.STATUS_ID} className="flex flex-col gap-3 p-4 border rounded-lg bg-card">
+                        <div className="flex items-start gap-4">
+                          <div className="flex-1 space-y-3">
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Nome descoberto:</p>
+                              <p className="font-medium">{stage.NAME}</p>
                             </div>
-                          )}
-                          {stage.examples && stage.examples.length > 0 && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Ex: {stage.examples.slice(0, 2).join(', ')}
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Nome customizado (editável):</p>
+                              <input
+                                type="text"
+                                placeholder="Editar nome amigável (opcional)"
+                                value={customNames[stage.STATUS_ID] ?? stage.NAME}
+                                onChange={(e) => handleNameChange(stage.STATUS_ID, e.target.value)}
+                                className="w-full px-3 py-2 text-sm border rounded-md bg-background"
+                              />
                             </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {existingMapping && !pendingMappings[stage.STATUS_ID] && (
-                            <Badge className={getStatusColor(existingMapping.app_status)}>
-                              {getStatusLabel(existingMapping.app_status)}
-                            </Badge>
-                          )}
-                          <Select
-                            value={currentValue}
-                            onValueChange={(value) => handleMappingChange(stage.STATUS_ID, value)}
-                          >
-                            <SelectTrigger className="w-[180px]">
-                              <SelectValue placeholder="Selecione status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="ativo">Ativo</SelectItem>
-                              <SelectItem value="inativo">Inativo</SelectItem>
-                              <SelectItem value="standby">Standby</SelectItem>
-                              <SelectItem value="blacklist">Black-list</SelectItem>
-                            </SelectContent>
-                          </Select>
+                            <p className="text-xs text-muted-foreground">ID Técnico: {stage.STATUS_ID}</p>
+                            {stage.scouter_count && (
+                              <p className="text-xs text-muted-foreground">
+                                📊 {stage.scouter_count} scouter{stage.scouter_count !== 1 ? 's' : ''}
+                                {stage.examples && stage.examples.length > 0 && (
+                                  <span className="ml-2">
+                                    (ex: {stage.examples.slice(0, 2).join(', ')})
+                                  </span>
+                                )}
+                              </p>
+                            )}
+                          </div>
+                          <div className="w-[200px] space-y-2">
+                            <p className="text-xs text-muted-foreground">Status do app:</p>
+                            {existingMapping && !pendingMappings[stage.STATUS_ID] && (
+                              <Badge className={getStatusColor(existingMapping.app_status)}>
+                                {getStatusLabel(existingMapping.app_status)}
+                              </Badge>
+                            )}
+                            <Select
+                              value={currentValue}
+                              onValueChange={(value) => handleMappingChange(stage.STATUS_ID, value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ativo">Ativo</SelectItem>
+                                <SelectItem value="inativo">Inativo</SelectItem>
+                                <SelectItem value="standby">Standby</SelectItem>
+                                <SelectItem value="blacklist">Black-list</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                       </div>
                     );

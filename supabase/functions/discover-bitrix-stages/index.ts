@@ -19,6 +19,39 @@ serve(async (req) => {
 
     console.log('🔍 Discovering Bitrix stages for entity type 1096 (Scouters)...');
 
+    // Dicionário de nomes amigáveis (fallback)
+    const defaultFriendlyNames: Record<string, string> = {
+      'DT1096_210:CLIENT': 'Scouter Ativos',
+      'DT1096_210:NEW': 'Scouter Ativos (Novos)',
+      'DT1096_210:PREPARATION': 'Scouter Standby',
+      'DT1096_210:FAIL': 'Demissão',
+      'DT1096_210:UC_GG3W33': 'Scouter Inativos',
+      'DT1096_244:UC_R8Q8P5': 'Supervisores Ativos',
+      'DT1096_244:PREPARATION': 'Supervisores Standby',
+      'DT1096_244:NEW': 'Supervisores Novos'
+    };
+
+    // Buscar nomes oficiais das stages na API do Bitrix
+    const bitrixDomain = 'maxsystem.bitrix24.com.br';
+    const bitrixToken = Deno.env.get('BITRIX_REST_TOKEN') || '9/85e3cex48z1zc0qp';
+    const statusUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.status.list.json?filter[ENTITY_ID]=DYNAMIC_1096`;
+    
+    let bitrixStageNames = new Map<string, string>();
+    try {
+      console.log('Consultando API crm.status.list do Bitrix...');
+      const statusResponse = await fetch(statusUrl);
+      const statusData = await statusResponse.json();
+      
+      if (statusData.result) {
+        for (const status of statusData.result) {
+          bitrixStageNames.set(status.STATUS_ID, status.NAME);
+        }
+        console.log(`✅ Obtidos ${bitrixStageNames.size} nomes de stages da API do Bitrix`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao buscar nomes da API do Bitrix, usando fallback:', error);
+    }
+
     // MÉTODO PRIORITÁRIO: Buscar stages diretamente do banco de dados local (bitrix_spa_entities)
     console.log('Consultando bitrix_spa_entities para descobrir stages reais...');
     
@@ -39,11 +72,25 @@ serve(async (req) => {
       for (const entity of spaEntities) {
         if (entity.stage_id) {
           if (!stagesMap.has(entity.stage_id)) {
-            // Formatar nome da stage de forma mais amigável
-            const stageName = entity.stage_id
-              .replace('DT1096_', '')
-              .replace(':', ' - ')
-              .replace(/_/g, ' ');
+            // Priorizar nomes: API do Bitrix → Dicionário de fallback → Formatação básica
+            let stageName: string;
+            
+            if (bitrixStageNames.has(entity.stage_id)) {
+              // 1º prioridade: Nome da API do Bitrix
+              stageName = bitrixStageNames.get(entity.stage_id)!;
+              console.log(`  ✅ Usando nome da API: ${entity.stage_id} → ${stageName}`);
+            } else if (defaultFriendlyNames[entity.stage_id]) {
+              // 2º prioridade: Nome do dicionário de fallback
+              stageName = defaultFriendlyNames[entity.stage_id];
+              console.log(`  📝 Usando nome do dicionário: ${entity.stage_id} → ${stageName}`);
+            } else {
+              // 3º prioridade: Formatação básica
+              stageName = entity.stage_id
+                .replace('DT1096_', '')
+                .replace(':', ' - ')
+                .replace(/_/g, ' ');
+              console.log(`  ⚙️ Usando formatação básica: ${entity.stage_id} → ${stageName}`);
+            }
             
             stagesMap.set(entity.stage_id, {
               id: entity.stage_id,
@@ -95,8 +142,6 @@ serve(async (req) => {
     // FALLBACK: Se não houver dados locais, consultar o Bitrix diretamente
     console.log('Nenhum dado local encontrado, consultando Bitrix API...');
     
-    const bitrixDomain = 'maxsystem.bitrix24.com.br';
-    const bitrixToken = Deno.env.get('BITRIX_REST_TOKEN') || '9/85e3cex48z1zc0qp';
     const itemsUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=1096&select[]=id&select[]=title&select[]=stageId`;
     
     const itemsResponse = await fetch(itemsUrl);
