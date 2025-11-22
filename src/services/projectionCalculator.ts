@@ -26,7 +26,7 @@ export function calculateProjection(
   let estimatedFichas = 0;
   let estimatedValue = 0;
   
-  const byWeekday: { [key: number]: number } = {};
+  const byWeekday: { [key: number]: { leads: number; fichas: number } } = {};
   const byWeek: { week: number; estimated: number; date: Date }[] = [];
   
   let currentWeek = 0;
@@ -87,7 +87,11 @@ export function calculateProjection(
     estimatedFichas += dayFichas * adjustmentFactor;
     estimatedValue += dayValue * adjustmentFactor;
     
-    byWeekday[weekday] = (byWeekday[weekday] || 0) + dayFichas * adjustmentFactor;
+    if (!byWeekday[weekday]) {
+      byWeekday[weekday] = { leads: 0, fichas: 0 };
+    }
+    byWeekday[weekday].leads += dayLeads * adjustmentFactor;
+    byWeekday[weekday].fichas += dayFichas * adjustmentFactor;
     weekEstimate += dayFichas * adjustmentFactor;
   });
   

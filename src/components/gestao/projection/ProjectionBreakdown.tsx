@@ -19,10 +19,14 @@ export function ProjectionBreakdown({ projection }: ProjectionBreakdownProps) {
   }));
 
   // Dados por dia da semana - garantir que todos os 7 dias apareçam
-  const weekdayData = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
-    name: WEEKDAY_NAMES[day],
-    leadsConfirmados: Math.round(projection.breakdown.byWeekday[day] || 0),
-  }));
+  const weekdayData = [0, 1, 2, 3, 4, 5, 6].map((day) => {
+    const data = projection.breakdown.byWeekday[day];
+    return {
+      name: WEEKDAY_NAMES[day],
+      leads: data ? Math.round(data.leads) : 0,
+      leadsConfirmados: data ? Math.round(data.fichas) : 0,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -101,6 +105,12 @@ export function ProjectionBreakdown({ projection }: ProjectionBreakdownProps) {
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px'
                 }}
+              />
+              <Bar 
+                dataKey="leads" 
+                fill="hsl(var(--primary))" 
+                radius={[4, 4, 0, 0]}
+                name="Total de Leads"
               />
               <Bar 
                 dataKey="leadsConfirmados" 
