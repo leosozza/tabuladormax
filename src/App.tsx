@@ -44,7 +44,7 @@ import GestaoProjecao from "./pages/gestao/Projecao";
 import GestaoPagamentos from "./pages/gestao/Pagamentos";
 import GestaoArea from "./pages/gestao/AreaDeAbordagem";
 import GestaoRelatorios from "./pages/gestao/Relatorios";
-import GestaoConversas from "./pages/gestao/Conversas";
+import WhatsApp from "./pages/WhatsApp";
 
 import Install from "./pages/Install";
 
@@ -118,7 +118,7 @@ const App = () => (
           <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />
           
           <Route path="/scouter/leads" element={<ProtectedRoute><GestaoLeads /></ProtectedRoute>} />
-          <Route path="/scouter/conversas" element={<ProtectedRoute><GestaoConversas /></ProtectedRoute>} />
+          <Route path="/whatsapp" element={<ProtectedRoute><WhatsApp /></ProtectedRoute>} />
           <Route path="/scouter/scouters" element={<ProtectedRoute><GestaoScouters /></ProtectedRoute>} />
           <Route path="/scouter/projecao" element={<ProtectedRoute><GestaoProjecao /></ProtectedRoute>} />
           <Route path="/scouter/pagamentos" element={<ProtectedRoute><GestaoPagamentos /></ProtectedRoute>} />

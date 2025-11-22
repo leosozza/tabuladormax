@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw, MessageSquare } from "lucide-react";
 import noPhotoPlaceholder from "@/assets/no-photo-placeholder.png";
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
@@ -1766,6 +1766,10 @@ const LeadTab = () => {
                     <Button variant="secondary" onClick={() => navigate('/dashboard')} className="flex-1 gap-2">
                       <BarChart3 className="w-4 h-4" />
                       Dashboard
+                    </Button>
+                    <Button variant="secondary" onClick={() => navigate('/whatsapp', { state: { from: 'telemarketing' } })} className="flex-1 gap-2">
+                      <MessageSquare className="w-4 h-4" />
+                      WhatsApp
                     </Button>
                     <UserMenu />
                   </div>

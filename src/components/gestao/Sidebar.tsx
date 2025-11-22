@@ -33,7 +33,7 @@ export default function GestaoSidebar({ onNavigate }: GestaoSidebarProps = {}) {
   const navItems = [
     { path: "/scouter", label: "Dashboard", icon: Home },
     { path: "/scouter/leads", label: "Leads", icon: Users },
-    { path: "/scouter/conversas", label: "Conversas", icon: MessageSquare },
+    { path: "/whatsapp", label: "WhatsApp", icon: MessageSquare, state: { from: 'scouter' } },
     { path: "/scouter/scouters", label: "Scouters", icon: Users },
     { path: "/scouter/projecao", label: "Projeção", icon: TrendingUp },
     { path: "/scouter/pagamentos", label: "Pagamentos", icon: DollarSign },
@@ -55,6 +55,7 @@ export default function GestaoSidebar({ onNavigate }: GestaoSidebarProps = {}) {
             <Link
               key={item.path}
               to={item.path}
+              state={item.state}
               onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all duration-200",
