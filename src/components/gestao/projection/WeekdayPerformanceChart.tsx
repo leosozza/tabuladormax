@@ -12,7 +12,7 @@ export function WeekdayPerformanceChart({ analysis }: WeekdayPerformanceChartPro
   const data = Object.entries(analysis.performanceByWeekday).map(([day, perf]) => ({
     name: WEEKDAY_NAMES[parseInt(day)],
     leads: Math.round(perf.avgLeads),
-    fichas: Math.round(perf.avgFichas),
+    leadsConfirmados: Math.round(perf.avgFichas),
     conversao: Math.round(perf.conversionRate),
   }));
 
@@ -21,7 +21,7 @@ export function WeekdayPerformanceChart({ analysis }: WeekdayPerformanceChartPro
       <CardHeader>
         <CardTitle>Performance por Dia da Semana</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Média diária de leads e fichas por dia da semana
+          Média diária de leads e leads confirmados por dia da semana
         </p>
       </CardHeader>
       <CardContent>
@@ -42,7 +42,7 @@ export function WeekdayPerformanceChart({ analysis }: WeekdayPerformanceChartPro
             />
             <Legend />
             <Bar dataKey="leads" fill="hsl(var(--primary))" name="Leads" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="fichas" fill="hsl(var(--chart-2))" name="Fichas" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="leadsConfirmados" fill="hsl(var(--chart-2))" name="Leads Confirmados" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
         

@@ -44,9 +44,9 @@ export function ProjectionResults({ projection }: ProjectionResultsProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-2 border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Fichas Estimadas
-            </CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Leads Confirmados Estimados
+          </CardTitle>
             <Target className="w-5 h-5 text-primary" />
           </CardHeader>
           <CardContent>
@@ -115,7 +115,7 @@ export function ProjectionResults({ projection }: ProjectionResultsProps) {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <div className="text-sm text-muted-foreground mb-1">Valor Médio por Ficha</div>
+              <div className="text-sm text-muted-foreground mb-1">Valor Médio por Lead Confirmado</div>
               <div className="text-2xl font-bold">
                 R$ {estimatedFichas > 0 ? (estimatedValue / estimatedFichas).toFixed(2) : '0.00'}
               </div>
@@ -127,7 +127,7 @@ export function ProjectionResults({ projection }: ProjectionResultsProps) {
               </div>
             </div>
             <div>
-              <div className="text-sm text-muted-foreground mb-1">Fichas por Dia</div>
+              <div className="text-sm text-muted-foreground mb-1">Leads Confirmados por Dia</div>
               <div className="text-2xl font-bold">
                 {(() => {
                   const days = Math.ceil((projection.period.end.getTime() - projection.period.start.getTime()) / (1000 * 60 * 60 * 24));
