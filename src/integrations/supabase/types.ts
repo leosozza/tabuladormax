@@ -384,6 +384,50 @@ export type Database = {
         }
         Relationships: []
       }
+      bulk_message_logs: {
+        Row: {
+          completed_at: string | null
+          conversation_ids: number[] | null
+          created_at: string | null
+          id: string
+          results: Json | null
+          template_id: string | null
+          total_failed: number | null
+          total_sent: number | null
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          conversation_ids?: number[] | null
+          created_at?: string | null
+          id?: string
+          results?: Json | null
+          template_id?: string | null
+          total_failed?: number | null
+          total_sent?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          conversation_ids?: number[] | null
+          created_at?: string | null
+          id?: string
+          results?: Json | null
+          template_id?: string | null
+          total_failed?: number | null
+          total_sent?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_message_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       button_categories: {
         Row: {
           created_at: string
@@ -521,6 +565,7 @@ export type Database = {
           email: string | null
           id: string
           last_activity_at: number | null
+          last_message_at: string | null
           last_sync_at: string | null
           name: string | null
           phone_number: string | null
@@ -539,6 +584,7 @@ export type Database = {
           email?: string | null
           id?: string
           last_activity_at?: number | null
+          last_message_at?: string | null
           last_sync_at?: string | null
           name?: string | null
           phone_number?: string | null
@@ -557,6 +603,7 @@ export type Database = {
           email?: string | null
           id?: string
           last_activity_at?: number | null
+          last_message_at?: string | null
           last_sync_at?: string | null
           name?: string | null
           phone_number?: string | null
