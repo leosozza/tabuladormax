@@ -45,7 +45,7 @@ serve(async (req) => {
 
         // Implementar paginação para buscar todos os registros
         while (hasMore) {
-          const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}&select[]=id&select[]=title&start=${start}`;
+          const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}&select[]=id&select[]=title&select[]=stageId&select[]=categoryId&start=${start}`;
           
           console.log(`  📄 Buscando página ${Math.floor(start / limit) + 1} (offset: ${start})...`);
           
@@ -78,17 +78,18 @@ serve(async (req) => {
 
         // Upsert em lote
         for (const item of allItems) {
-          const { error: upsertError } = await supabase
-            .from('bitrix_spa_entities')
-            .upsert({
-              entity_type_id: entityType.id,
-              bitrix_item_id: item.id,
-              title: (item.title || `Item ${item.id}`).trim(),
-              cached_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'entity_type_id,bitrix_item_id'
-            });
+        const { error: upsertError } = await supabase
+          .from('bitrix_spa_entities')
+          .upsert({
+            entity_type_id: entityType.id,
+            bitrix_item_id: item.id,
+            title: (item.title || `Item ${item.id}`).trim(),
+            stage_id: item.stageId || null,
+            cached_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'entity_type_id,bitrix_item_id'
+          });
 
           if (upsertError) {
             console.error(`❌ Erro ao inserir ${entityType.name} ID ${item.id}:`, upsertError);
