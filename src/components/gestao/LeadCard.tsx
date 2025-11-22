@@ -40,19 +40,19 @@ export default function LeadCard({ lead }: LeadCardProps) {
   };
 
   const getFieldIcon = (key: string) => {
-    // Ícones de localização
+    // Ícones de localização - cores mais escuras para contraste com fundo claro
     if (key.includes('local') || key.includes('address') || key.includes('localizacao')) {
-      return <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0" />;
+      return <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />;
     }
     
     // Ícones de telefone
     if (key.includes('telefone') || key.includes('celular')) {
-      return <Phone className="w-4 h-4 text-green-500 flex-shrink-0" />;
+      return <Phone className="w-4 h-4 text-green-600 flex-shrink-0" />;
     }
     
     // Ícones de data
     if (key.includes('data') || key.includes('criado') || key.includes('nascimento')) {
-      return <Calendar className="w-4 h-4 text-orange-500 flex-shrink-0" />;
+      return <Calendar className="w-4 h-4 text-orange-600 flex-shrink-0" />;
     }
     
     // Sem ícone para outros campos
@@ -64,11 +64,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
   const detailValues = config.detailFields.map(key => ({ key, value: String(getFieldValue(key) || ''), label: getFieldLabel(key) }));
   const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
 
-  const photoContainerClasses = {
-    circle: "aspect-square rounded-full min-h-[280px] max-h-[380px] sm:max-h-[420px] md:max-h-[460px] w-full",
-    rounded: "aspect-[3/4] rounded-lg min-h-[320px] max-h-[450px] sm:max-h-[500px] md:max-h-[550px] w-full",
-    fullscreen: "w-full rounded-none min-h-[350px] max-h-[480px] sm:max-h-[540px] md:max-h-[600px]"
-  };
+  // Removido photoContainerClasses - foto sempre fullscreen no layout overlay
 
   const isPlaceholder = photoUrl === noPhotoPlaceholder || !photoUrl || photoUrl === getLeadPhotoUrl(null);
 
@@ -80,15 +76,11 @@ export default function LeadCard({ lead }: LeadCardProps) {
 
   return (
     <Card className={cn(
-      "w-full h-full flex flex-col overflow-hidden border-2 shadow-lg",
+      "w-full h-full relative overflow-hidden border-2 shadow-lg",
       cardSizeClasses[config.photoSize]
     )}>
-      {/* Foto do Lead */}
-      <div className={cn(
-        "relative bg-muted overflow-hidden flex-shrink-0",
-        photoContainerClasses[config.photoStyle],
-        isPlaceholder && "border-2 border-dashed border-border"
-      )}>
+      {/* Foto do Lead - Fullscreen */}
+      <div className="absolute inset-0 bg-muted overflow-hidden">
         <img
           src={getLeadPhotoUrl(photoUrl)}
           alt={String(lead.name || "Lead")}
@@ -104,9 +96,10 @@ export default function LeadCard({ lead }: LeadCardProps) {
             </div>
           </div>
         )}
+      </div>
         
-        {/* Badges de Status */}
-        <div className="absolute top-2 right-2 md:top-3 md:right-3 lg:top-4 lg:right-4 flex flex-col gap-1.5 md:gap-2">
+      {/* Badges de Status - Topo Direito */}
+      <div className="absolute top-2 right-2 md:top-3 md:right-3 lg:top-4 lg:right-4 flex flex-col gap-1.5 md:gap-2 z-10">
           {/* FASE 4: Badge de erro de sincronização */}
           {lead.has_sync_errors && (
             <Tooltip>
@@ -136,41 +129,42 @@ export default function LeadCard({ lead }: LeadCardProps) {
               {badge.value}
             </Badge>
           ))}
-        </div>
       </div>
 
-      {/* Informações do Lead */}
-      <CardContent className="flex-1 min-h-0 overflow-y-auto p-2.5 md:p-3 space-y-1.5 md:space-y-2">
-        <div>
-          {/* Nome do Modelo - Grande e Negrito */}
-          <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-0.5 truncate leading-tight">
-            {mainValues[0]?.value || "Sem nome do modelo"}
-          </h3>
-          
-          {/* Nome - Menor, como referência */}
-          {mainValues[1]?.value && mainValues[1].value !== '-' && (
-            <p className="text-sm md:text-base text-muted-foreground truncate font-medium">
-              {mainValues[1].value}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-1 md:space-y-1.5">
-          {detailValues.map((detail, idx) => {
-            const icon = getFieldIcon(detail.key);
+      {/* Informações do Lead - Overlay com Gradiente Claro */}
+      <div className="absolute bottom-0 left-0 right-0 z-10">
+        <div className="bg-gradient-to-t from-white/90 via-white/70 to-transparent px-4 py-5 pb-4 space-y-2">
+          <div>
+            {/* Nome do Modelo - Grande e Negrito */}
+            <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-0.5 truncate leading-tight text-gray-900">
+              {mainValues[0]?.value || "Sem nome do modelo"}
+            </h3>
             
-            return (
-              <div key={idx} className="flex items-start gap-1.5 md:gap-2 text-[11px] md:text-xs lg:text-sm">
-                {icon}
-                <span className="font-medium whitespace-nowrap">{detail.label}:</span>
-                <span className="text-muted-foreground flex-1 break-words leading-tight">
-                  {detail.value || '-'}
-                </span>
-              </div>
-            );
-          })}
+            {/* Nome - Menor, como referência */}
+            {mainValues[1]?.value && mainValues[1].value !== '-' && (
+              <p className="text-sm md:text-base text-gray-700 truncate font-medium">
+                {mainValues[1].value}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            {detailValues.map((detail, idx) => {
+              const icon = getFieldIcon(detail.key);
+              
+              return (
+                <div key={idx} className="flex items-start gap-2 text-xs md:text-sm">
+                  {icon}
+                  <span className="font-medium whitespace-nowrap text-gray-900">{detail.label}:</span>
+                  <span className="text-gray-700 flex-1 break-words leading-tight">
+                    {detail.value || '-'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }
