@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.ai-training-parser]
 verify_jwt = true
+
+[functions.fix-scouter-names]
+verify_jwt = true
