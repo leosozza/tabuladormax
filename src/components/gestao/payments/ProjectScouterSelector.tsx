@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePaymentsByProject } from "@/hooks/usePaymentsByProject";
+import { useContextualDataFix } from "@/hooks/useContextualDataFix";
 import { ScouterPaymentCard } from "./ScouterPaymentCard";
-import { Loader2, Users, CheckCircle2 } from "lucide-react";
+import { Loader2, Users, CheckCircle2, AlertCircle, Wrench } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -31,6 +33,9 @@ export function ProjectScouterSelector({
     preSelectedProjectId || null
   );
   const [selectedScouters, setSelectedScouters] = useState<Set<string>>(new Set());
+
+  // Hook para correção contextual
+  const { fixScoutersByProject, isFixing } = useContextualDataFix();
 
   // Buscar projetos
   const { data: projects, isLoading: loadingProjects } = useQuery({
@@ -93,6 +98,15 @@ export function ProjectScouterSelector({
     }
   };
 
+  const handleFixScouters = () => {
+    if (!selectedProjectId) return;
+    fixScoutersByProject({ projectId: selectedProjectId, startDate, endDate });
+  };
+
+  // Detectar scouters com IDs numéricos
+  const scoutersWithIds = scouterSummaries?.filter(s => /^\d+$/.test(s.scouter)) || [];
+  const hasNumericScouters = scoutersWithIds.length > 0;
+
   const totalSelected = selectedScouters.size;
   const totalLeadsSelected = scouterSummaries
     ?.filter(s => selectedScouters.has(s.scouter))
@@ -144,7 +158,36 @@ export function ProjectScouterSelector({
                 <CheckCircle2 className="h-5 w-5" />
                 {preSelectedProjectId ? 'Selecionar Scouters' : '2. Selecionar Scouters'}
               </CardTitle>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                {/* Badge de Alerta */}
+                {hasNumericScouters && (
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {scoutersWithIds.length} com IDs
+                  </Badge>
+                )}
+                
+                {/* Botão de Correção Contextual */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleFixScouters}
+                  disabled={isFixing || !hasNumericScouters}
+                >
+                  {isFixing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Corrigindo...
+                    </>
+                  ) : (
+                    <>
+                      <Wrench className="h-4 w-4 mr-2" />
+                      Corrigir Nomes
+                    </>
+                  )}
+                </Button>
+                
+                {/* Botões Existentes */}
                 <Button
                   variant="outline"
                   size="sm"
