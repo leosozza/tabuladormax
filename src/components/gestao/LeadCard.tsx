@@ -86,16 +86,6 @@ export default function LeadCard({ lead }: LeadCardProps) {
           alt={String(lead.name || "Lead")}
           className="w-full h-full object-cover"
         />
-        
-        {/* Indicador visual para "sem foto" */}
-        {isPlaceholder && (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted/90">
-            <div className="text-center">
-              <User className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mx-auto text-muted-foreground mb-2" />
-              <p className="text-xs sm:text-sm text-muted-foreground font-medium">Sem Foto</p>
-            </div>
-          </div>
-        )}
       </div>
         
       {/* Badges de Status - Topo Direito */}
