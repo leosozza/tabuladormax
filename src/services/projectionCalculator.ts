@@ -21,6 +21,8 @@ export function calculateProjection(
     holidays.push(...getHolidays(endDate.getFullYear()));
   }
   
+  const unitValue = analysis.trend.avgValuePerLead || 0;
+  
   let estimatedLeads = 0;
   let estimatedFichas = 0;
   let estimatedValue = 0;
@@ -68,8 +70,8 @@ export function calculateProjection(
     
     // Calcular estimativa baseada em média ponderada
     const dayFichas = (weekdayPerf.avgFichas * 0.6 + monthPartPerf.avgFichas * 0.4);
-    const dayValue = (weekdayPerf.avgValue * 0.6 + monthPartPerf.avgValue * 0.4);
     const dayLeads = (weekdayPerf.avgLeads * 0.6 + monthPartPerf.avgLeads * 0.4);
+    const dayValue = dayLeads * unitValue;
     
     // Aplicar ajustes se fornecidos
     let adjustmentFactor = 1;
