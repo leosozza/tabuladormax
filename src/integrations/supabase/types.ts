@@ -1125,12 +1125,14 @@ export type Database = {
           data_confirmacao_ficha: string | null
           data_criacao_agendamento: string | null
           data_criacao_ficha: string | null
+          data_pagamento: string | null
           data_retorno_ligacao: string | null
           date_modify: string | null
           etapa: string | null
           etapa_fluxo: string | null
           etapa_funil: string | null
           ficha_confirmada: boolean | null
+          ficha_paga: boolean | null
           fonte: string | null
           funil_fichas: string | null
           geocoded_at: string | null
@@ -1185,12 +1187,14 @@ export type Database = {
           data_confirmacao_ficha?: string | null
           data_criacao_agendamento?: string | null
           data_criacao_ficha?: string | null
+          data_pagamento?: string | null
           data_retorno_ligacao?: string | null
           date_modify?: string | null
           etapa?: string | null
           etapa_fluxo?: string | null
           etapa_funil?: string | null
           ficha_confirmada?: boolean | null
+          ficha_paga?: boolean | null
           fonte?: string | null
           funil_fichas?: string | null
           geocoded_at?: string | null
@@ -1245,12 +1249,14 @@ export type Database = {
           data_confirmacao_ficha?: string | null
           data_criacao_agendamento?: string | null
           data_criacao_ficha?: string | null
+          data_pagamento?: string | null
           data_retorno_ligacao?: string | null
           date_modify?: string | null
           etapa?: string | null
           etapa_fluxo?: string | null
           etapa_funil?: string | null
           ficha_confirmada?: boolean | null
+          ficha_paga?: boolean | null
           fonte?: string | null
           funil_fichas?: string | null
           geocoded_at?: string | null
@@ -1706,6 +1712,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bulk_mark_as_paid: {
+        Args: {
+          p_cutoff_date: string
+          p_etapa?: string
+          p_project_id?: string
+          p_scouter?: string
+        }
+        Returns: Json
+      }
       can_access_route: {
         Args: { _route_path: string; _user_id: string }
         Returns: boolean

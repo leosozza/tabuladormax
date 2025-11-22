@@ -1,400 +1,123 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { fetchAllRecords } from "@/lib/supabaseUtils";
-import type { Database } from "@/integrations/supabase/types";
-import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
+import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProjectScouterSelector } from "@/components/gestao/payments/ProjectScouterSelector";
+import { PaymentDetailModal } from "@/components/gestao/payments/PaymentDetailModal";
+import { RetroactivePaymentUpdate } from "@/components/gestao/payments/RetroactivePaymentUpdate";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
 import { createDateFilter } from "@/lib/dateUtils";
-import type { GestaoFilters as FilterType } from "@/types/filters";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { DollarSign, CheckCircle, Clock, AlertCircle, Wallet } from "lucide-react";
-import { format } from "date-fns";
-import { toast } from "sonner";
-import PaymentConfirmModal from "@/components/gestao/PaymentConfirmModal";
-import { formatCurrency, stripTagFromName, parseBrazilianCurrency } from "@/utils/formatters";
-import {
-  executeBatchPayment,
-  calculateAjudaCustoForScouter,
-  calculateFaltasForScouter,
-  type PaymentItem,
-  type ProjectPaymentSettings,
-  type LeadForPayment,
-} from "@/services/paymentsCoordinator";
-import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
+import type { GestaoFilters } from "@/types/filters";
+import { CreditCard, History } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 function GestaoPagamentosContent() {
-  const queryClient = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(new Set());
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [showPaidOnly, setShowPaidOnly] = useState(false);
-  const [filters, setFilters] = useState<FilterType>({
+  const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('month'),
     projectId: null,
     scouterId: null,
   });
-  
-  type LeadRow = Database['public']['Tables']['leads']['Row'];
-  
-  const { data: payments, isLoading } = useQuery({
-    queryKey: ["gestao-payments", searchTerm, filters, showPaidOnly],
-    queryFn: async () => {
-      // Usar fetchAllRecords para buscar TODOS os pagamentos sem limite de 1000
-      const data = await fetchAllRecords<LeadRow>(
-        supabase,
-        "leads",
-        "*",
-        (query) => {
-          query = query.not("valor_ficha", "is", null);
-          
-          // Filtro de busca por nome ou scouter
-          if (searchTerm) {
-            query = query.or(`name.ilike.%${searchTerm}%,scouter.ilike.%${searchTerm}%`);
-          }
-          
-          // Aplicar filtros de data
-          query = query
-            .gte("criado", filters.dateFilter.startDate.toISOString())
-            .lte("criado", filters.dateFilter.endDate.toISOString());
-          
-          // Aplicar filtro de projeto
-          if (filters.projectId) {
-            query = query.eq("commercial_project_id", filters.projectId);
-          }
-          
-          // Aplicar filtro de scouter
-          if (filters.scouterId) {
-            query = query.eq("scouter", filters.scouterId);
-          }
-          
-          // Filtro de ficha paga
-          if (showPaidOnly) {
-            query = query.eq("ficha_confirmada", true);
-          }
-          
-          return query;
-        }
-      );
-      
-      // Ordenar por data de confirmação
-      return data.sort((a, b) => {
-        const dateA = a.data_confirmacao_ficha ? new Date(a.data_confirmacao_ficha as string).getTime() : 0;
-        const dateB = b.data_confirmacao_ficha ? new Date(b.data_confirmacao_ficha as string).getTime() : 0;
-        return dateB - dateA;
-      });
-    },
-  });
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedScouters, setSelectedScouters] = useState<string[]>([]);
+  const [currentScouterIndex, setCurrentScouterIndex] = useState(0);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [projectName, setProjectName] = useState("");
+  const { toast } = useToast();
 
-  // Get project settings for payment calculations (tabela projects não existe ainda)
-  const projectSettings: ProjectPaymentSettings | null = null;
+  const handleScoutersSelected = async (projectId: string, scouterNames: string[]) => {
+    setSelectedProjectId(projectId);
+    setSelectedScouters(scouterNames);
+    setCurrentScouterIndex(0);
 
-  const totalValue = payments?.reduce((sum, p) => sum + parseBrazilianCurrency(p.valor_ficha), 0) || 0;
-  const paidCount = payments?.filter(p => p.ficha_confirmada).length || 0;
-  const pendingCount = (payments?.length || 0) - paidCount;
+    // Buscar nome do projeto
+    const { data: project } = await supabase
+      .from('commercial_projects')
+      .select('name')
+      .eq('id', projectId)
+      .single();
 
-  // Filter pending payments only for selection
-  const pendingPayments = payments?.filter(p => !p.ficha_confirmada) || [];
-  const selectedPayments = pendingPayments.filter(p => selectedLeadIds.has(p.id));
+    if (project) {
+      setProjectName(project.name);
+    }
 
-  // Toggle individual selection
-  const toggleSelection = (leadId: number) => {
-    setSelectedLeadIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(leadId)) {
-        newSet.delete(leadId);
-      } else {
-        newSet.add(leadId);
-      }
-      return newSet;
-    });
-  };
-
-  // Toggle select all pending
-  const toggleSelectAll = () => {
-    if (selectedLeadIds.size === pendingPayments.length && pendingPayments.length > 0) {
-      setSelectedLeadIds(new Set());
-    } else {
-      setSelectedLeadIds(new Set(pendingPayments.map(p => p.id)));
+    // Abrir modal do primeiro scouter
+    if (scouterNames.length > 0) {
+      setDetailModalOpen(true);
     }
   };
 
-  const isAllSelected = pendingPayments.length > 0 && selectedLeadIds.size === pendingPayments.length;
-  const isSomeSelected = selectedLeadIds.size > 0 && !isAllSelected;
-
-  // Prepare payment items for batch processing
-  const preparePaymentItems = (): PaymentItem[] => {
-    return selectedPayments.map(lead => {
-      const scouter = stripTagFromName(lead.scouter) || "Não informado";
-      const valorFicha = parseBrazilianCurrency(lead.valor_ficha);
-      const numFichas = (lead as any).num_fichas ? Number((lead as any).num_fichas) : 1;
-      const valorFichasTotal = valorFicha * numFichas;
-
-      // Calculate ajuda de custo
-      const ajudaCusto = calculateAjudaCustoForScouter(
-        lead as LeadForPayment,
-        projectSettings
-      );
-
-      // Calculate faltas
-      const faltas = calculateFaltasForScouter(
-        lead as LeadForPayment,
-        projectSettings
-      );
-
-      // Calculate totals
-      const valorBruto = valorFichasTotal + ajudaCusto.ajuda_custo_total;
-      const valorDescontos = faltas.desconto_faltas_total;
-      const valorLiquido = valorBruto - valorDescontos;
-
-      return {
-        lead_id: lead.id,
-        scouter: scouter,
-        commercial_project_id: lead.commercial_project_id,
-        num_fichas: numFichas,
-        valor_ficha: valorFicha,
-        valor_fichas_total: valorFichasTotal,
-        dias_trabalhados: ajudaCusto.dias_trabalhados,
-        ajuda_custo_por_dia: ajudaCusto.ajuda_custo_por_dia,
-        ajuda_custo_total: ajudaCusto.ajuda_custo_total,
-        num_faltas: faltas.num_faltas,
-        desconto_falta_unitario: faltas.desconto_falta_unitario,
-        desconto_faltas_total: faltas.desconto_faltas_total,
-        valor_bruto: valorBruto,
-        valor_descontos: valorDescontos,
-        valor_liquido: valorLiquido,
-        status: "paid",
-      };
-    });
+  const handleNextScouter = () => {
+    if (currentScouterIndex < selectedScouters.length - 1) {
+      setCurrentScouterIndex(currentScouterIndex + 1);
+      setDetailModalOpen(true);
+    }
   };
 
-  // Handle payment confirmation
-  const handleConfirmPayment = async () => {
-    const paymentItems = preparePaymentItems();
-    
-    if (paymentItems.length === 0) {
-      toast.error("Nenhum pagamento selecionado");
-      return;
-    }
-
-    setIsProcessingPayment(true);
-
-    try {
-      const result = await executeBatchPayment(paymentItems);
-
-      if (result.success) {
-        toast.success(
-          `Pagamento realizado com sucesso! ${result.success_count} fichas processadas.`,
-          {
-            description: `Método: ${result.method === 'rpc' ? 'RPC' : 'Fallback'}`,
-          }
-        );
-
-        // Clear selections
-        setSelectedLeadIds(new Set());
-        
-        // Refetch payments data
-        await queryClient.invalidateQueries({ queryKey: ["gestao-payments"] });
-        
-        // Close modal
-        setIsPaymentModalOpen(false);
-      } else {
-        toast.error(
-          `Erro ao processar pagamentos. ${result.error_count} falhas.`,
-          {
-            description: "Verifique o console para detalhes.",
-          }
-        );
-        console.error("Payment errors:", result.errors);
-      }
-    } catch (error) {
-      console.error("Error processing batch payment:", error);
-      const errorMessage = error instanceof Error ? error.message : "Tente novamente mais tarde.";
-      toast.error("Erro ao processar pagamento", {
-        description: errorMessage,
-      });
-    } finally {
-      setIsProcessingPayment(false);
+  const handleModalClose = (open: boolean) => {
+    setDetailModalOpen(open);
+    if (!open && currentScouterIndex < selectedScouters.length - 1) {
+      // Perguntar se quer processar o próximo
+      handleNextScouter();
     }
   };
 
   return (
-    <GestaoPageLayout
-      title="Pagamentos"
-      description="Controle financeiro de fichas"
-      actions={
-        selectedLeadIds.size > 0 ? (
-          <Button
-            onClick={() => setIsPaymentModalOpen(true)}
-            disabled={selectedLeadIds.size === 0}
-            className="gap-2"
-          >
-            <Wallet className="w-4 h-4" />
-            Pagar Selecionados ({selectedLeadIds.size})
-          </Button>
-        ) : null
-      }
-    >
-      {/* Filtros */}
-      <div className="mb-4 md:mb-6">
-        <GestaoFiltersComponent
-            filters={filters}
-            onChange={setFilters}
-        />
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Pagamentos de Scouters</h1>
+          <p className="text-muted-foreground">
+            Gestão completa de pagamentos por projeto e scouter
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Valor Total
-              </CardTitle>
-              <DollarSign className="w-5 h-5 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{formatCurrency(totalValue)}</div>
-            </CardContent>
-          </Card>
+      <Tabs defaultValue="new-payments" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="new-payments" className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            Novos Pagamentos
+          </TabsTrigger>
+          <TabsTrigger value="retroactive" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            Atualização Retroativa
+          </TabsTrigger>
+        </TabsList>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Confirmados
-              </CardTitle>
-              <CheckCircle className="w-5 h-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{paidCount}</div>
-            </CardContent>
-      </Card>
+        <TabsContent value="new-payments" className="space-y-6">
+          {/* Filtros */}
+          <GestaoFiltersComponent
+            filters={filters}
+            onChange={setFilters}
+          />
 
-      <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Pendentes
-              </CardTitle>
-              <Clock className="w-5 h-5 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{pendingCount}</div>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Seleção de Projeto e Scouters */}
+          <ProjectScouterSelector
+            startDate={filters.dateFilter.startDate}
+            endDate={filters.dateFilter.endDate}
+            onScoutersSelected={handleScoutersSelected}
+          />
+        </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4">
-              <CardTitle>Histórico de Pagamentos</CardTitle>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap">
-                <Input
-                  placeholder="Buscar por nome ou scouter..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full sm:w-[250px] md:w-[300px]"
-                />
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="show-paid"
-                    checked={showPaidOnly}
-                    onCheckedChange={(checked) => setShowPaidOnly(checked === true)}
-                  />
-                  <label htmlFor="show-paid" className="text-sm font-medium cursor-pointer">
-                    Apenas Pagas
-                  </label>
-                </div>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="text-center py-12">Carregando pagamentos...</div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-6 sm:w-8 md:w-12 px-1 sm:px-2 md:px-4">
-                      <Checkbox
-                        checked={isAllSelected}
-                        onCheckedChange={toggleSelectAll}
-                        aria-label="Selecionar todos os pendentes"
-                        disabled={pendingPayments.length === 0}
-                        className={isSomeSelected ? "data-[state=checked]:bg-primary/50" : ""}
-                      />
-                    </TableHead>
-                    <TableHead>Lead</TableHead>
-                    <TableHead>Scouter</TableHead>
-                    <TableHead>Qtd. Fichas</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Data Confirmação</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments?.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        Nenhum pagamento encontrado
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    payments?.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="w-6 sm:w-8 md:w-12 px-1 sm:px-2 md:px-4">
-                          {!payment.ficha_confirmada && (
-                            <Checkbox
-                              checked={selectedLeadIds.has(payment.id)}
-                              onCheckedChange={() => toggleSelection(payment.id)}
-                              aria-label={`Selecionar ${payment.name}`}
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium">{payment.name || "-"}</TableCell>
-                        <TableCell>{stripTagFromName(payment.scouter) || "-"}</TableCell>
-                        <TableCell>{(payment as any).num_fichas || "1"}</TableCell>
-                        <TableCell className="font-semibold">
-                          {formatCurrency(parseBrazilianCurrency(payment.valor_ficha))}
-                        </TableCell>
-                        <TableCell>
-                          {payment.ficha_confirmada ? (
-                            <span className="flex items-center gap-1 text-green-600">
-                              <CheckCircle className="w-4 h-4" />
-                              Confirmado
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-orange-600">
-                              <AlertCircle className="w-4 h-4" />
-                              Pendente
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {payment.data_confirmacao_ficha
-                            ? format(new Date(payment.data_confirmacao_ficha), "dd/MM/yyyy")
-                            : "-"}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-      </Card>
+        <TabsContent value="retroactive">
+          <RetroactivePaymentUpdate />
+        </TabsContent>
+      </Tabs>
 
-      {/* Payment Confirmation Modal */}
-      <PaymentConfirmModal
-        open={isPaymentModalOpen}
-        onOpenChange={setIsPaymentModalOpen}
-        payments={preparePaymentItems()}
-        onConfirm={handleConfirmPayment}
-        isProcessing={isProcessingPayment}
-      />
-    </GestaoPageLayout>
+      {/* Modal de Detalhamento */}
+      {selectedProjectId && selectedScouters.length > 0 && (
+        <PaymentDetailModal
+          open={detailModalOpen}
+          onOpenChange={handleModalClose}
+          projectId={selectedProjectId}
+          projectName={projectName}
+          scouter={selectedScouters[currentScouterIndex]}
+          startDate={filters.dateFilter.startDate}
+          endDate={filters.dateFilter.endDate}
+        />
+      )}
+    </div>
   );
 }
 
