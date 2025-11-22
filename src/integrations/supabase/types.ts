@@ -387,6 +387,7 @@ export type Database = {
           cached_at: string | null
           entity_type_id: number
           id: string
+          stage_id: string | null
           title: string
           updated_at: string | null
         }
@@ -395,6 +396,7 @@ export type Database = {
           cached_at?: string | null
           entity_type_id: number
           id?: string
+          stage_id?: string | null
           title: string
           updated_at?: string | null
         }
@@ -403,7 +405,38 @@ export type Database = {
           cached_at?: string | null
           entity_type_id?: number
           id?: string
+          stage_id?: string | null
           title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      bitrix_stage_mapping: {
+        Row: {
+          app_status: string
+          created_at: string | null
+          entity_type_id: number
+          id: string
+          stage_id: string
+          stage_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          app_status: string
+          created_at?: string | null
+          entity_type_id: number
+          id?: string
+          stage_id: string
+          stage_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          app_status?: string
+          created_at?: string | null
+          entity_type_id?: number
+          id?: string
+          stage_id?: string
+          stage_name?: string
           updated_at?: string | null
         }
         Relationships: []
