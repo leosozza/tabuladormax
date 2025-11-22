@@ -119,3 +119,6 @@ verify_jwt = true
 
 [functions.maxconnect-agent]
 verify_jwt = false
+
+[functions.ai-training-parser]
+verify_jwt = true
