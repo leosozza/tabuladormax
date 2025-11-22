@@ -82,7 +82,7 @@ export function ChatPanel({ conversationId, contactName }: ChatPanelProps) {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-background">
+    <div className="flex h-full flex-col bg-background">
       {/* Header */}
       <div className="border-b p-4 bg-card">
         <div className="flex items-center justify-between">

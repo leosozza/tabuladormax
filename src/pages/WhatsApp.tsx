@@ -75,7 +75,7 @@ export default function WhatsApp() {
           </div>
 
           {/* Painel de Chat */}
-          <div className="flex-1 border rounded-lg overflow-hidden">
+          <div className="flex-1 border rounded-lg overflow-hidden flex flex-col">
             <ChatPanel
               conversationId={activeConversationId}
               contactName={activeConversation?.name || 'Selecione uma conversa'}
