@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Send, RefreshCw, MessageSquare } from 'lucide-react';
+import { Send, RefreshCw, MessageSquare, ArrowLeft } from 'lucide-react';
 import { useChatwootMessages } from '@/hooks/useChatwootMessages';
 import { TemplateSelector } from './TemplateSelector';
 import { LabelManager } from './LabelManager';
@@ -13,9 +13,10 @@ import { ptBR } from 'date-fns/locale';
 interface ChatPanelProps {
   conversationId: number | null;
   contactName: string;
+  onBack?: () => void;
 }
 
-export function ChatPanel({ conversationId, contactName }: ChatPanelProps) {
+export function ChatPanel({ conversationId, contactName, onBack }: ChatPanelProps) {
   const [messageInput, setMessageInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -86,11 +87,22 @@ export function ChatPanel({ conversationId, contactName }: ChatPanelProps) {
       {/* Header */}
       <div className="border-b p-4 bg-card">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">{contactName}</h2>
-            <p className="text-xs text-muted-foreground">
-              Conversa #{conversationId}
-            </p>
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onBack}
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            )}
+            <div>
+              <h2 className="text-lg font-semibold">{contactName}</h2>
+              <p className="text-xs text-muted-foreground">
+                Conversa #{conversationId}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <LabelManager conversationId={conversationId} />
@@ -100,8 +112,8 @@ export function ChatPanel({ conversationId, contactName }: ChatPanelProps) {
               onClick={fetchMessages}
               disabled={loading}
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Atualizar
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline ml-2">Atualizar</span>
             </Button>
           </div>
         </div>

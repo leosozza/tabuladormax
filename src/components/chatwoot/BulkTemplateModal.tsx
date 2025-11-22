@@ -81,9 +81,9 @@ export function BulkTemplateModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="max-w-2xl max-h-[90vh] w-[95vw] sm:w-full flex flex-col">
+        <DialogHeader className="px-4 sm:px-6">
+          <DialogTitle className="text-base sm:text-lg">
             Enviar Template em Lote
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -151,7 +151,7 @@ export function BulkTemplateModal({
           </div>
         ) : (
           // Formulário
-          <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+          <div className="flex-1 flex flex-col gap-4 overflow-hidden px-4 sm:px-6">
             {/* Lista de conversas selecionadas */}
             <div>
               <Label className="mb-2 block">Conversas selecionadas:</Label>
@@ -248,15 +248,15 @@ export function BulkTemplateModal({
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="px-4 sm:px-6 flex-col-reverse sm:flex-row gap-2">
           {results.length > 0 ? (
-            <Button onClick={handleClose}>Fechar</Button>
+            <Button onClick={handleClose} className="w-full sm:w-auto">Fechar</Button>
           ) : (
             <>
-              <Button variant="outline" onClick={handleClose} disabled={sending}>
+              <Button variant="outline" onClick={handleClose} disabled={sending} className="w-full sm:w-auto">
                 Cancelar
               </Button>
-              <Button onClick={handleSend} disabled={!canSend || sending}>
+              <Button onClick={handleSend} disabled={!canSend || sending} className="w-full sm:w-auto">
                 <Send className="h-4 w-4 mr-2" />
                 Enviar para {selectedConversations.length}
               </Button>
