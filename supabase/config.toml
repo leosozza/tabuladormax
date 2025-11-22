@@ -80,3 +80,36 @@ verify_jwt = false
 
 [functions.fix-commercial-project-ids]
 verify_jwt = false
+
+[functions.chatwoot-messages]
+verify_jwt = false
+
+[functions.chatwoot-bulk-send-template]
+verify_jwt = true
+
+[functions.sync-gupshup-templates]
+verify_jwt = false
+
+[functions.create-bitrix-commercial-project]
+verify_jwt = false
+
+[functions.create-chatwoot-agent]
+verify_jwt = false
+
+[functions.update-chatwoot-agent]
+verify_jwt = false
+
+[functions.reload-schema-cache]
+verify_jwt = false
+
+[functions.reprocess-leads-from-raw]
+verify_jwt = true
+
+[functions.search-bitrix-commercial-projects]
+verify_jwt = false
+
+[functions.sync-gestao-scouter-fields]
+verify_jwt = false
+
+[functions.bitrix-resync-leads]
+verify_jwt = true
