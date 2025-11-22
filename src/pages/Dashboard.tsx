@@ -70,7 +70,7 @@ const Index = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAllUsers, setShowAllUsers] = useState(false);
   const [actionStats, setActionStats] = useState<Record<string, number>>({});
-  const [dateFilter, setDateFilter] = useState<DateFilter>(() => createDateFilter('today'));
+  const [dateFilter, setDateFilter] = useState<DateFilter>(() => createDateFilter('all'));
   const [selectedOperator, setSelectedOperator] = useState<string | null>(null);
   const [operators, setOperators] = useState<Array<{ id: string; name: string }>>([]);
   const [showLeadsModal, setShowLeadsModal] = useState(false);
@@ -496,7 +496,7 @@ const Index = () => {
                   size="sm"
                   className="min-h-[44px] self-start sm:self-center"
                   onClick={() => {
-                    setDateFilter(createDateFilter('today'));
+                    setDateFilter(createDateFilter('all'));
                     setSelectedOperator(null);
                   }}
                 >

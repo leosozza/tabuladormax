@@ -849,7 +849,7 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
 
 export default function GestaoLeads() {
   const [filters, setFilters] = useState<GestaoFilters>({
-    dateFilter: createDateFilter('month'),
+    dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null,
     additionalFilters: [],

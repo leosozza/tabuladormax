@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 
 function GestaoPagamentosContent() {
   const [filters, setFilters] = useState<GestaoFilters>({
-    dateFilter: createDateFilter('month'),
+    dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null,
   });
