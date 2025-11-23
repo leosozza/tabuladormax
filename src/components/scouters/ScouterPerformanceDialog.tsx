@@ -58,10 +58,14 @@ export function ScouterPerformanceDialog({
         p_scouter_id: scouter.id,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ [ERROR] Erro ao buscar performance:", error);
+        throw error;
+      }
       return data as unknown as PerformanceData;
     },
     enabled: !!scouter?.id && open,
+    retry: 1,
   });
 
   const { data: timesheet, isLoading: timesheetLoading, error: timesheetError } = useScouterTimesheet(
@@ -87,7 +91,16 @@ export function ScouterPerformanceDialog({
   });
 
   const handleExportTimesheet = () => {
-    if (!scouter || !timesheet) return;
+    if (!scouter || !timesheet || timesheet.length === 0) {
+      toast({
+        title: "Não foi possível exportar",
+        description: "Não há dados de ponto disponíveis para exportar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
 
     const doc = new jsPDF();
 
@@ -134,27 +147,52 @@ export function ScouterPerformanceDialog({
       footStyles: { fillColor: [229, 231, 235], textColor: [0, 0, 0] },
     });
 
-    doc.save(`ponto_${scouter.name.replace(/\s+/g, "_")}_${Date.now()}.pdf`);
+      doc.save(`ponto_${scouter.name.replace(/\s+/g, "_")}_${Date.now()}.pdf`);
 
-    toast({
-      title: "PDF gerado com sucesso",
-      description: "O relatório de ponto foi baixado",
-    });
+      toast({
+        title: "PDF gerado com sucesso",
+        description: "O relatório de ponto foi baixado",
+      });
+    } catch (error) {
+      console.error("❌ [ERROR] Erro ao gerar PDF:", error);
+      toast({
+        title: "Erro ao gerar PDF",
+        description: "Ocorreu um erro ao tentar gerar o relatório",
+        variant: "destructive",
+      });
+    }
   };
-
-  if (!scouter) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Performance de {scouter.name}</DialogTitle>
+          <DialogTitle className="text-2xl">
+            {scouter ? `Performance de ${scouter.name}` : "Selecione um scouter"}
+          </DialogTitle>
           <DialogDescription>
-            Análise detalhada de performance e estatísticas
+            {scouter 
+              ? "Análise detalhada de performance e estatísticas"
+              : "Nenhum scouter selecionado"
+            }
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading ? (
+        {!scouter ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Por favor, selecione um scouter para visualizar os dados</p>
+          </div>
+        ) : performanceError ? (
+          <div className="text-center py-12 space-y-4">
+            <p className="text-destructive font-semibold">Erro ao carregar dados de performance</p>
+            <p className="text-sm text-muted-foreground">
+              {performanceError instanceof Error ? performanceError.message : "Erro desconhecido"}
+            </p>
+            <Button onClick={() => window.location.reload()} variant="outline">
+              Recarregar página
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[1, 2, 3, 4].map((i) => (
@@ -321,6 +359,13 @@ export function ScouterPerformanceDialog({
               <CardContent>
                 {timesheetLoading ? (
                   <Skeleton className="h-64" />
+                ) : timesheetError ? (
+                  <div className="text-center py-8">
+                    <p className="text-destructive font-semibold mb-2">Erro ao carregar dados de ponto</p>
+                    <p className="text-sm text-muted-foreground">
+                      {timesheetError instanceof Error ? timesheetError.message : "Erro desconhecido"}
+                    </p>
+                  </div>
                 ) : timesheet && timesheet.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">

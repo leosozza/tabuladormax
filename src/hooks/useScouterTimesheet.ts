@@ -27,9 +27,13 @@ export function useScouterTimesheet(
         p_limit: limit,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ [ERROR] Erro ao buscar timesheet:", error);
+        throw error;
+      }
       return (data || []) as TimesheetEntry[];
     },
     enabled: !!scouterName,
+    retry: 1,
   });
 }
