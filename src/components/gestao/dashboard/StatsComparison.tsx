@@ -73,11 +73,13 @@ export default function StatsComparison() {
 
       const currentTotal = currentData?.length || 0;
       const currentConfirmed = currentData?.filter(l => l.ficha_confirmada).length || 0;
+      // Use compareceu (actually showed up) as the TRUE CONVERSION metric
       const currentPresent = currentData?.filter(l => l.compareceu).length || 0;
       const currentConversion = currentTotal > 0 ? (currentPresent / currentTotal * 100) : 0;
 
       const previousTotal = previousData?.length || 0;
       const previousConfirmed = previousData?.filter(l => l.ficha_confirmada).length || 0;
+      // Use compareceu (actually showed up) as the TRUE CONVERSION metric
       const previousPresent = previousData?.filter(l => l.compareceu).length || 0;
       const previousConversion = previousTotal > 0 ? (previousPresent / previousTotal * 100) : 0;
 
@@ -124,12 +126,12 @@ export default function StatsComparison() {
         previousValue={stats.previous.total}
       />
       <StatCard
-        title="Fichas Confirmadas"
+        title="Fichas Confirmadas (Validadas)"
         currentValue={stats.current.confirmed}
         previousValue={stats.previous.confirmed}
       />
       <StatCard
-        title="Comparecimentos"
+        title="Comparecimentos (Convertidos)"
         currentValue={stats.current.present}
         previousValue={stats.previous.present}
       />

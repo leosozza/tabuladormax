@@ -46,7 +46,11 @@ export default function ScouterPerformance({ filters }: ScouterPerformanceProps)
         }
       );
       
-      // Agrupar por scouter
+      // Group by scouter
+      // Metrics tracked:
+      // - total: All leads by this scouter
+      // - confirmados: Leads with confirmed/validated ficha (secondary metric)
+      // - compareceram: Leads that actually showed up (PRIMARY CONVERSION metric)
       const grouped = new Map<string, { total: number; confirmados: number; compareceram: number }>();
       
       data?.forEach((lead) => {
@@ -108,8 +112,8 @@ export default function ScouterPerformance({ filters }: ScouterPerformanceProps)
               />
               <Legend />
               <Bar dataKey="total" fill="hsl(var(--primary))" name="Total" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="confirmados" fill="hsl(142 76% 36%)" name="Confirmados" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="compareceram" fill="hsl(262 83% 58%)" name="Compareceram" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="confirmados" fill="hsl(142 76% 36%)" name="Confirmados (Validados)" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="compareceram" fill="hsl(262 83% 58%)" name="Compareceram (Convertidos)" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}

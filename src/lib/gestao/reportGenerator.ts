@@ -64,8 +64,8 @@ export function formatLeadsForExport(leads: any[]) {
     Endereço: lead.address || "",
     Celular: lead.celular || "",
     Status: lead.etapa || "",
-    "Ficha Confirmada": lead.ficha_confirmada ? "Sim" : "Não",
-    Compareceu: lead.compareceu ? "Sim" : "Não",
+    "Ficha Confirmada (Validada)": lead.ficha_confirmada ? "Sim" : "Não",
+    "Convertido (Compareceu)": lead.compareceu ? "Sim" : "Não",
     "Valor Ficha": lead.valor_ficha || "",
     "Data Criação": lead.criado ? new Date(lead.criado).toLocaleDateString("pt-BR") : "",
     "Qualidade": lead.qualidade_lead || "Não analisado",
@@ -74,13 +74,14 @@ export function formatLeadsForExport(leads: any[]) {
 
 /**
  * Formata dados de scouters para exportação
+ * Note: "Convertidos" = compareceram (actually showed up), not ficha_confirmada
  */
 export function formatScoutersForExport(scouters: any[]) {
   return scouters.map(scouter => ({
     Scouter: scouter.scouter,
     "Total Leads": scouter.total,
-    "Fichas Confirmadas": scouter.confirmados,
-    Comparecimentos: scouter.compareceram,
+    "Fichas Confirmadas (Validadas)": scouter.confirmados,
+    "Convertidos (Compareceram)": scouter.compareceram,
     "Taxa de Conversão": `${scouter.taxa_conversao}%`,
   }));
 }

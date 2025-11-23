@@ -45,7 +45,11 @@ export default function LeadsChart({ filters }: LeadsChartProps) {
         }
       );
       
-      // Agrupar por dia
+      // Group by day
+      // Metrics tracked:
+      // - total: All leads created
+      // - confirmados: Leads with confirmed/validated ficha (validation step)
+      // - compareceram: Leads that actually showed up (TRUE CONVERSION metric)
       const grouped = new Map<string, { total: number; confirmados: number; compareceram: number }>();
       
       for (let i = 0; i <= days; i++) {
@@ -117,7 +121,7 @@ export default function LeadsChart({ filters }: LeadsChartProps) {
                 dataKey="confirmados" 
                 stroke="hsl(142 76% 36%)" 
                 strokeWidth={2}
-                name="Confirmados"
+                name="Confirmados (Validados)"
                 dot={false}
               />
               <Line 
@@ -125,7 +129,7 @@ export default function LeadsChart({ filters }: LeadsChartProps) {
                 dataKey="compareceram" 
                 stroke="hsl(262 83% 58%)" 
                 strokeWidth={2}
-                name="Compareceram"
+                name="Compareceram (Convertidos)"
                 dot={false}
               />
             </LineChart>

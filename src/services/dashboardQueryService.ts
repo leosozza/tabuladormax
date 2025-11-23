@@ -232,11 +232,14 @@ function calculateMetric(rows: any[], metric: MetricType): number {
       return totalRows > 0 ? (comFoto / totalRows) * 100 : 0;
     
     case 'percent_confirmadas':
+      // NOTE: ficha_confirmada = ficha was confirmed/validated (NOT conversion)
+      // This is a validation step, not actual conversion
       const totalConfirmadas = rows.length;
       const confirmadas = rows.filter(r => r.ficha_confirmada === true || r.ficha_confirmada === 'Confirmada').length;
       return totalConfirmadas > 0 ? (confirmadas / totalConfirmadas) * 100 : 0;
     
     case 'percent_compareceu':
+      // NOTE: compareceu = lead actually showed up (TRUE CONVERSION metric)
       const agendadas = rows.filter(r => r.data_agendamento || r.horario_agendamento).length;
       const compareceu = rows.filter(r => r.compareceu === true || r.compareceu === '1').length;
       return agendadas > 0 ? (compareceu / agendadas) * 100 : 0;

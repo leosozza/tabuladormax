@@ -51,10 +51,14 @@ export default function ConversionFunnel({ filters }: ConversionFunnelProps) {
       const confirmados = data.filter(l => l.ficha_confirmada).length;
       const compareceram = data.filter(l => l.compareceu).length;
       
+      // Conversion funnel stages:
+      // 1. Total de Leads - All leads created
+      // 2. Fichas Confirmadas (Validadas) - Leads where ficha was confirmed/validated (not yet conversion)
+      // 3. Compareceram (Convertidos) - Leads that actually showed up (TRUE CONVERSION)
       return [
         { name: "Total de Leads", value: total, percentage: 100 },
-        { name: "Fichas Confirmadas", value: confirmados, percentage: total ? (confirmados / total * 100) : 0 },
-        { name: "Compareceram", value: compareceram, percentage: total ? (compareceram / total * 100) : 0 },
+        { name: "Fichas Confirmadas (Validadas)", value: confirmados, percentage: total ? (confirmados / total * 100) : 0 },
+        { name: "Compareceram (Convertidos)", value: compareceram, percentage: total ? (compareceram / total * 100) : 0 },
         { name: "Taxa de Conversão", value: compareceram, percentage: total ? (compareceram / total * 100) : 0 },
       ];
     },
