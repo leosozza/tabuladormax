@@ -121,8 +121,11 @@ export default function GestaoScouters() {
   };
 
   const handleViewPerformance = (scouter: Scouter) => {
+    console.log("🔍 [DEBUG] Abrindo performance de:", scouter.name, scouter);
+    console.log("🔍 [DEBUG] Estado atual performanceDialogOpen:", performanceDialogOpen);
     setSelectedScouter(scouter);
     setPerformanceDialogOpen(true);
+    console.log("✅ [DEBUG] Dialog state definido para true");
   };
 
   const handleCreate = () => {
