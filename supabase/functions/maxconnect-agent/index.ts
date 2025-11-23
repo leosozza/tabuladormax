@@ -6,7 +6,40 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// FASE 1: Contexto Temporal Dinâmico ⏰
+function getTemporalContext() {
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0]; // 2025-11-23
+  const currentTime = now.toLocaleTimeString('pt-BR');
+  const weekday = now.toLocaleDateString('pt-BR', { weekday: 'long' });
+  const monthName = now.toLocaleDateString('pt-BR', { month: 'long' });
+  const fullDate = now.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  
+  return {
+    now,
+    todayStr,
+    currentTime,
+    weekday,
+    monthName,
+    fullDate,
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    day: now.getDate()
+  };
+}
+
+const temporal = getTemporalContext();
+
 const systemPrompt = `Você é o MAXconnect Agent, um assistente inteligente especializado em análise de dados de leads da plataforma MAXconnect.
+
+=== INFORMAÇÕES TEMPORAIS ATUAIS ===
+📅 Data de hoje: ${temporal.todayStr} (${temporal.fullDate})
+⏰ Hora atual: ${temporal.currentTime}
+📆 Dia da semana: ${temporal.weekday}
+🗓️ Mês: ${temporal.monthName}
+📊 Ano: ${temporal.year}
+
+⚠️ REGRA CRÍTICA TEMPORAL: Quando usuário perguntar sobre "hoje", "esta semana", "este mês", use SEMPRE a tool calculate_date_range PRIMEIRO para obter as datas corretas baseadas em ${temporal.todayStr}.
 
 PAPEL E CAPACIDADES:
 - Você tem acesso direto ao banco de dados de leads via a função query_leads
@@ -19,18 +52,60 @@ DADOS DISPONÍVEIS:
 - Métricas: total de leads, confirmadas, comparecimento, valores
 - Histórico completo desde o início das operações (287.341 leads no total)
 
+=== FLUXO DE TRABALHO RECOMENDADO PARA PERGUNTAS COM PERÍODO ===
+
+1️⃣ Usuário pergunta: "Quantas leads hoje?"
+   ↓
+2️⃣ Chamar: calculate_date_range({ period: "today" })
+   ↓
+3️⃣ Receber: { start_date: "${temporal.todayStr}", end_date: "${temporal.todayStr}", description: "Hoje (23/nov)" }
+   ↓
+4️⃣ Chamar: query_leads({ date_start: "${temporal.todayStr}", date_end: "${temporal.todayStr}" })
+   ↓
+5️⃣ Responder: "Hoje (23/nov) foram captadas X leads."
+
+=== EXEMPLOS PRÁTICOS ===
+
+❌ ERRADO:
+User: "Quantas leads hoje?"
+Agent: query_leads({ date_start: "2024-05-16" })  ← DATA ERRADA! Ano passado!
+
+✅ CORRETO:
+User: "Quantas leads hoje?"
+Agent: 
+  1. calculate_date_range({ period: "today" })
+  2. query_leads({ date_start: "${temporal.todayStr}", date_end: "${temporal.todayStr}" })
+Response: "Hoje (23/nov) foram captadas 127 leads."
+
+✅ CORRETO:
+User: "Leads desta semana"
+Agent:
+  1. calculate_date_range({ period: "this_week" })
+  2. query_leads({ date_start: "...", date_end: "${temporal.todayStr}" })
+Response: "Nesta semana (18/nov a 23/nov) foram 571 leads."
+
+✅ CORRETO:
+User: "Últimos 15 dias"
+Agent:
+  1. calculate_date_range({ period: "custom", custom_days: 15 })
+  2. query_leads({ date_start: "...", end_date: "${temporal.todayStr}" })
+
+✅ CORRETO:
+User: "Quantas leads no projeto pinheiros?"
+Agent: query_leads({ project_name: "pinheiros" })  ← SEM DATAS (todas as leads)
+Response: "No projeto Seletiva Pinheiros foram captadas 1.234 leads no total."
+
 REGRAS CRÍTICAS SOBRE FILTROS:
 
-1. ⚠️ DATAS SÃO OPCIONAIS - NÃO USE POR PADRÃO:
+1. ⚠️ DATAS SÃO OPCIONAIS - USE calculate_date_range QUANDO NECESSÁRIO:
    - Por padrão, busque TODAS as leads (não especifique date_start/date_end)
    - SOMENTE use filtros de data se o usuário EXPLICITAMENTE mencionar período:
-     ✅ "leads desta semana" → use date_start
-     ✅ "leads de novembro" → use date_start e date_end
-     ✅ "últimos 30 dias" → use date_start
-     ❌ "quantas leads no projeto X" → NÃO use filtros de data
-     ❌ "separa por scouter" → NÃO use filtros de data
-     ❌ "qual o melhor captador" → NÃO use filtros de data
-     ❌ "quantas confirmaram" → NÃO use filtros de data
+     ✅ "leads desta semana" → calculate_date_range + query_leads
+     ✅ "leads de novembro" → calculate_date_range + query_leads
+     ✅ "últimos 30 dias" → calculate_date_range + query_leads
+     ❌ "quantas leads no projeto X" → query_leads (SEM DATAS)
+     ❌ "separa por scouter" → query_leads (SEM DATAS)
+     ❌ "qual o melhor captador" → query_leads (SEM DATAS)
 
 2. PROJETO E SCOUTER:
    - Use project_name quando o usuário mencionar nome do projeto
@@ -50,8 +125,10 @@ COMO RESPONDER:
 3. Quando relevante, sugira ações práticas
 4. Formate valores monetários em R$ com separadores de milhares
 5. Use porcentagens para comparações e taxas
+6. Sempre mencione o período analisado nas respostas
 
 FERRAMENTAS DISPONÍVEIS:
+- calculate_date_range: Calcula datas para períodos (hoje, esta semana, últimos N dias)
 - query_leads: Consulta leads com filtros opcionais (projeto, scouter, datas)
 - predict_trends: Análise preditiva e projeções
 - generate_alerts: Identifica problemas e oportunidades
@@ -67,37 +144,6 @@ FORMATO DOS DADOS PARA GRÁFICOS:
 - Line/Bar: [{"name":"Jan","value":100},{"name":"Feb","value":150}]
 - Pie: [{"name":"João","value":45},{"name":"Maria","value":30}]
 
-EXEMPLOS CORRETOS DE USO:
-
-❌ ERRADO:
-Pergunta: "Quantas leads no projeto pinheiros?"
-Ação: query_leads com date_start="2025-01-01" ← NÃO FAÇA ISSO!
-
-✅ CORRETO:
-Pergunta: "Quantas leads no projeto pinheiros?"
-Ação: query_leads com project_name="pinheiros" (SEM DATAS)
-Resposta: "No projeto Seletiva Pinheiros foram captadas 1.234 leads no total."
-
-✅ CORRETO:
-Pergunta: "Separa por scouter o projeto pinheiros"
-Ação: query_leads com project_name="pinheiros", group_by=["scouter"] (SEM DATAS)
-Resposta: "No projeto Seletiva Pinheiros:\n- João Silva: 320 leads\n- Maria Santos: 298 leads..."
-
-✅ CORRETO:
-Pergunta: "Quantas leads foram feitas essa semana?"
-Ação: query_leads com date_start="2025-11-18" (AGORA SIM USA DATA)
-Resposta: "Nesta semana foram captadas 571 leads."
-
-✅ CORRETO:
-Pergunta: "Qual o melhor scouter?"
-Ação: query_leads com group_by=["scouter"] (SEM DATAS)
-Resposta: "O scouter com melhor performance é João Silva com 320 leads."
-
-✅ CORRETO:
-Pergunta: "Mostra a evolução nos últimos 3 meses"
-Ação: query_leads com group_by=["date"], date_start="2025-08-22" (PERÍODO SOLICITADO)
-Resposta: "Evolução:\n[CHART:line]..."
-
 PERGUNTAS COMUNS (SEM NECESSIDADE DE DATAS):
 ✅ "Quantas leads no total?" → query_leads() sem filtros
 ✅ "Quantas leads no projeto X?" → query_leads(project_name="X")
@@ -106,19 +152,43 @@ PERGUNTAS COMUNS (SEM NECESSIDADE DE DATAS):
 ✅ "Taxa de conversão do João?" → query_leads(scouter_name="João")
 
 PERGUNTAS QUE PRECISAM DE DATAS:
-✅ "Leads desta semana?" → query_leads(date_start="2025-11-18")
-✅ "Comparar novembro vs outubro?" → múltiplas queries com date_start/date_end
-✅ "Evolução mensal do último trimestre?" → query_leads(group_by=["date"], date_start="2025-08-01")
+✅ "Leads desta semana?" → calculate_date_range + query_leads
+✅ "Comparar novembro vs outubro?" → calculate_date_range + múltiplas queries
+✅ "Evolução mensal do último trimestre?" → calculate_date_range + query_leads
 
 IMPORTANTE:
 - Sempre contextualize os números (comparações, taxas, tendências)
 - Identifique padrões e anomalias
 - Sugira ações quando identificar oportunidades ou problemas
 - Use linguagem profissional mas acessível
-- NUNCA peça datas ao usuário se ele não mencionou período específico
+- NUNCA use datas do passado sem calcular com calculate_date_range
+- SEMPRE mencione o período analisado na resposta
 `;
 
+// FASE 2: Tool de Cálculo de Datas 📅
 const tools = [
+  {
+    type: "function",
+    function: {
+      name: "calculate_date_range",
+      description: "Calcula intervalo de datas para períodos comuns (hoje, esta semana, este mês, últimos N dias). Use SEMPRE que usuário mencionar período temporal antes de chamar query_leads.",
+      parameters: {
+        type: "object",
+        properties: {
+          period: {
+            type: "string",
+            enum: ["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "last_7_days", "last_30_days", "last_90_days", "this_year", "custom"],
+            description: "Período a calcular. Use 'custom' com custom_days para períodos específicos."
+          },
+          custom_days: {
+            type: "number",
+            description: "Número de dias para período customizado (ex: 'últimos 15 dias' = 15). Só use com period='custom'."
+          }
+        },
+        required: ["period"]
+      }
+    }
+  },
   {
     type: "function",
     function: {
@@ -137,11 +207,11 @@ const tools = [
           },
           date_start: { 
             type: "string", 
-            description: "OPCIONAL - Data início (YYYY-MM-DD). OMITA para buscar desde sempre. Use SOMENTE se usuário mencionar período específico (ex: 'esta semana', 'em novembro', 'últimos 30 dias')." 
+            description: "OPCIONAL - Data início (YYYY-MM-DD). OMITA para buscar desde sempre. Use SOMENTE se usuário mencionar período específico. SEMPRE use calculate_date_range primeiro para obter esta data." 
           },
           date_end: { 
             type: "string", 
-            description: "OPCIONAL - Data fim (YYYY-MM-DD). OMITA para buscar até hoje. Use junto com date_start para períodos fechados (ex: 'em novembro' = 2025-11-01 a 2025-11-30)." 
+            description: "OPCIONAL - Data fim (YYYY-MM-DD). OMITA para buscar até hoje. Use junto com date_start para períodos fechados." 
           },
           group_by: { 
             type: "array", 
@@ -233,8 +303,160 @@ const tools = [
   }
 ];
 
-async function executeQueryLeads(supabaseAdmin: any, params: any) {
-  console.log('Executing query_leads with params:', params);
+// FASE 2: Implementação da função calculate_date_range
+async function executeCalculateDateRange(params: any) {
+  console.log('🔧 [calculate_date_range] Params:', params);
+  
+  const temporal = getTemporalContext();
+  const now = temporal.now;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  let startDate: Date;
+  let endDate: Date = today;
+  
+  switch (params.period) {
+    case 'today':
+      startDate = today;
+      break;
+    case 'yesterday':
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 1);
+      endDate = startDate;
+      break;
+    case 'this_week':
+      startDate = new Date(today);
+      const dayOfWeek = startDate.getDay();
+      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Segunda-feira
+      startDate.setDate(startDate.getDate() + diff);
+      break;
+    case 'last_week':
+      const lastWeekEnd = new Date(today);
+      lastWeekEnd.setDate(today.getDate() - today.getDay()); // Domingo passado
+      endDate = lastWeekEnd;
+      startDate = new Date(lastWeekEnd);
+      startDate.setDate(startDate.getDate() - 6); // Segunda da semana passada
+      break;
+    case 'last_7_days':
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 7);
+      break;
+    case 'last_30_days':
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 30);
+      break;
+    case 'last_90_days':
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 90);
+      break;
+    case 'this_month':
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    case 'last_month':
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0); // Último dia do mês passado
+      break;
+    case 'this_year':
+      startDate = new Date(now.getFullYear(), 0, 1);
+      break;
+    case 'custom':
+      if (!params.custom_days || params.custom_days <= 0) {
+        throw new Error('custom_days deve ser um número positivo');
+      }
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - params.custom_days);
+      break;
+    default:
+      throw new Error(`Período inválido: ${params.period}`);
+  }
+  
+  const startStr = startDate.toISOString().split('T')[0];
+  const endStr = endDate.toISOString().split('T')[0];
+  const daysIncluded = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  
+  function formatPeriodDescription(period: string, start: Date, end: Date): string {
+    const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
+    const isSameDay = start.toDateString() === end.toDateString();
+    
+    switch (period) {
+      case 'today': 
+        return `Hoje (${end.toLocaleDateString('pt-BR', opts)})`;
+      case 'yesterday': 
+        return `Ontem (${end.toLocaleDateString('pt-BR', opts)})`;
+      case 'this_week': 
+        return `Esta semana (${start.toLocaleDateString('pt-BR', opts)} a ${end.toLocaleDateString('pt-BR', opts)})`;
+      case 'last_week': 
+        return `Semana passada (${start.toLocaleDateString('pt-BR', opts)} a ${end.toLocaleDateString('pt-BR', opts)})`;
+      case 'last_7_days': 
+        return `Últimos 7 dias`;
+      case 'last_30_days': 
+        return `Últimos 30 dias`;
+      case 'last_90_days': 
+        return `Últimos 90 dias`;
+      case 'this_month': 
+        return `Este mês (${start.toLocaleDateString('pt-BR', { month: 'long' })})`;
+      case 'last_month': 
+        return `Mês passado (${start.toLocaleDateString('pt-BR', { month: 'long' })})`;
+      case 'this_year': 
+        return `Este ano (${start.getFullYear()})`;
+      case 'custom': 
+        return `Últimos ${params.custom_days} dias`;
+      default: 
+        return isSameDay 
+          ? end.toLocaleDateString('pt-BR', opts)
+          : `${start.toLocaleDateString('pt-BR', opts)} a ${end.toLocaleDateString('pt-BR', opts)}`;
+    }
+  }
+  
+  const result = {
+    period: params.period,
+    start_date: startStr,
+    end_date: endStr,
+    days_included: daysIncluded,
+    description: formatPeriodDescription(params.period, startDate, endDate),
+    current_date: temporal.todayStr,
+    weekday: temporal.weekday
+  };
+  
+  console.log('✅ [calculate_date_range] Result:', result);
+  return result;
+}
+
+// FASE 3: Validação de Datas ✅
+async function executeQueryLeads(supabaseAdmin: any, params: any, dateContext?: any) {
+  console.log('📊 [query_leads] Params:', params);
+  
+  // VALIDAÇÃO DE DATAS
+  const temporal = getTemporalContext();
+  const now = temporal.now;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const oneYearAgo = new Date(today);
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  if (params.date_start) {
+    const startDate = new Date(params.date_start);
+    
+    // Bloquear datas no futuro
+    if (startDate > tomorrow) {
+      console.warn(`⚠️ date_start no futuro (${params.date_start}), ajustando para hoje`);
+      params.date_start = today.toISOString().split('T')[0];
+    }
+    
+    // Alertar se muito antiga (> 1 ano)
+    if (startDate < oneYearAgo) {
+      console.warn(`⚠️ date_start muito antiga (${params.date_start}), pode retornar poucos resultados`);
+    }
+  }
+  
+  if (params.date_end) {
+    const endDate = new Date(params.date_end);
+    
+    if (endDate > tomorrow) {
+      console.warn(`⚠️ date_end no futuro (${params.date_end}), ajustando para hoje`);
+      params.date_end = today.toISOString().split('T')[0];
+    }
+  }
   
   let query = supabaseAdmin
     .from('leads')
@@ -242,38 +464,52 @@ async function executeQueryLeads(supabaseAdmin: any, params: any) {
 
   // Filtros
   if (params.project_name) {
+    console.log(`🔍 Filtrando por projeto: ${params.project_name}`);
     query = query.ilike('projeto_comercial', `%${params.project_name}%`);
   }
 
   if (params.scouter_name) {
+    console.log(`🔍 Filtrando por scouter: ${params.scouter_name}`);
     query = query.ilike('scouter', `%${params.scouter_name}%`);
   }
 
   if (params.date_start) {
+    console.log(`📅 Filtrando data início: ${params.date_start}`);
     query = query.gte('criado', params.date_start);
   }
 
   if (params.date_end) {
+    console.log(`📅 Filtrando data fim: ${params.date_end}`);
     query = query.lte('criado', params.date_end);
   }
 
   const { data, error } = await query.limit(500000);
   
   if (error) {
-    console.error('Query error:', error);
+    console.error('❌ Query error:', error);
     throw error;
   }
 
-  console.log(`Query returned ${data?.length || 0} leads`);
+  const leadsCount = data?.length || 0;
+  console.log(`✅ Query returned ${leadsCount} leads`);
+  
+  // Log de contexto
+  if (params.date_start || params.date_end) {
+    const rangeDesc = dateContext?.description || 
+      `${params.date_start || 'início'} a ${params.date_end || 'hoje'}`;
+    console.log(`📈 Período: ${rangeDesc} (${leadsCount} leads encontradas)`);
+  } else {
+    console.log(`📈 Todas as leads (sem filtro de data): ${leadsCount} leads`);
+  }
 
-  // Processar métricas e agrupamentos
-  const result = processMetrics(data || [], params.group_by, params.metrics);
+  // FASE 5: Processar métricas com contexto temporal
+  const result = processMetrics(data || [], params.group_by, params.metrics, dateContext);
   
   return result;
 }
 
 async function executePredictTrends(supabaseAdmin: any, params: any) {
-  console.log('Executing predict_trends with params:', params);
+  console.log('🔮 [predict_trends] Params:', params);
   
   // Buscar dados históricos dos últimos 3-6 meses
   const sixMonthsAgo = new Date();
@@ -291,6 +527,8 @@ async function executePredictTrends(supabaseAdmin: any, params: any) {
   const { data, error } = await query;
   
   if (error) throw error;
+  
+  console.log(`📊 Dados históricos: ${data?.length || 0} leads`);
   
   // Agrupar por mês para calcular tendência
   const monthlyData: any = {};
@@ -339,7 +577,7 @@ async function executePredictTrends(supabaseAdmin: any, params: any) {
   const trendFactor = 1 + (trend / 100);
   const prediction = Math.round(avgLeads * multiplier * trendFactor);
   
-  return {
+  const result = {
     metric: params.metric,
     period: params.period,
     prediction,
@@ -352,21 +590,25 @@ async function executePredictTrends(supabaseAdmin: any, params: any) {
       value: monthlyData[month].count
     }))
   };
+  
+  console.log('✅ [predict_trends] Previsão:', prediction);
+  return result;
 }
 
 async function executeGenerateAlerts(supabaseAdmin: any, params: any) {
-  console.log('Executing generate_alerts with params:', params);
+  console.log('🚨 [generate_alerts] Params:', params);
   
   const alerts: any[] = [];
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
   
   // Buscar dados do último mês
   const { data: recentLeads } = await supabaseAdmin
     .from('leads')
     .select('*')
     .gte('criado', thirtyDaysAgo.toISOString());
+  
+  console.log(`📊 Analisando ${recentLeads?.length || 0} leads do último mês`);
   
   // 1. Projetos abaixo da meta (assumindo meta de 100 leads/mês por projeto)
   const projectCounts: any = {};
@@ -446,7 +688,7 @@ async function executeGenerateAlerts(supabaseAdmin: any, params: any) {
   const severityOrder: { [key: string]: number } = { critical: 0, warning: 1, info: 2 };
   alerts.sort((a, b) => (severityOrder[a.severity] || 0) - (severityOrder[b.severity] || 0));
   
-  return {
+  const result = {
     total_alerts: alerts.length,
     critical_count: alerts.filter(a => a.severity === 'critical').length,
     warning_count: alerts.filter(a => a.severity === 'warning').length,
@@ -454,10 +696,13 @@ async function executeGenerateAlerts(supabaseAdmin: any, params: any) {
       ? alerts.filter(a => a.severity === 'critical')
       : alerts
   };
+  
+  console.log(`🚨 Alertas gerados: ${result.total_alerts} (${result.critical_count} críticos)`);
+  return result;
 }
 
 async function executeSuggestActions(supabaseAdmin: any, params: any) {
-  console.log('Executing suggest_actions with params:', params);
+  console.log('💡 [suggest_actions] Params:', params);
   
   const suggestions: any[] = [];
   const now = new Date();
@@ -468,6 +713,8 @@ async function executeSuggestActions(supabaseAdmin: any, params: any) {
     .from('leads')
     .select('*')
     .gte('criado', sevenDaysAgo.toISOString());
+  
+  console.log(`📊 Analisando ${recentLeads?.length || 0} leads da última semana`);
   
   if (params.focus_area === 'scouters' || params.focus_area === 'general') {
     // Identificar scouters inativos
@@ -549,7 +796,7 @@ async function executeSuggestActions(supabaseAdmin: any, params: any) {
     expected_impact: 'Melhoria contínua de 5-10%'
   });
   
-  return {
+  const result = {
     total_suggestions: suggestions.length,
     high_priority: suggestions.filter(s => s.priority === 'high').length,
     suggestions: suggestions.sort((a, b) => {
@@ -557,9 +804,13 @@ async function executeSuggestActions(supabaseAdmin: any, params: any) {
       return (priority[a.priority] || 0) - (priority[b.priority] || 0);
     })
   };
+  
+  console.log(`💡 Sugestões geradas: ${result.total_suggestions} (${result.high_priority} alta prioridade)`);
+  return result;
 }
 
-function processMetrics(data: any[], groupBy?: string[], metrics?: string[]) {
+// FASE 5: Melhorar Feedback Visual 📊
+function processMetrics(data: any[], groupBy?: string[], metrics?: string[], dateContext?: any) {
   if (!groupBy || groupBy.length === 0) {
     // Sem agrupamento - métricas totais
     const total = data.length;
@@ -568,7 +819,7 @@ function processMetrics(data: any[], groupBy?: string[], metrics?: string[]) {
     const compareceu = data.filter(d => d.compareceu === true).length;
     const valor_total = data.reduce((sum, d) => sum + (Number(d.valor_ficha) || 0), 0);
 
-    return {
+    const result: any = {
       total,
       confirmadas,
       agendadas,
@@ -578,6 +829,20 @@ function processMetrics(data: any[], groupBy?: string[], metrics?: string[]) {
       taxa_agendamento: total > 0 ? ((agendadas / total) * 100).toFixed(1) : 0,
       taxa_comparecimento: agendadas > 0 ? ((compareceu / agendadas) * 100).toFixed(1) : 0,
     };
+    
+    // Adicionar contexto temporal se disponível
+    if (dateContext) {
+      result.period_info = {
+        description: dateContext.description,
+        start_date: dateContext.start_date,
+        end_date: dateContext.end_date,
+        days_included: dateContext.days_included,
+        current_date: dateContext.current_date
+      };
+      console.log(`📆 Período: ${dateContext.description} (${dateContext.days_included} dias)`);
+    }
+    
+    return result;
   }
 
   // Com agrupamento
@@ -614,7 +879,23 @@ function processMetrics(data: any[], groupBy?: string[], metrics?: string[]) {
   });
 
   // Ordenar por total decrescente
-  return results.sort((a: any, b: any) => b.total - a.total);
+  const sorted = results.sort((a: any, b: any) => b.total - a.total);
+  
+  // Adicionar contexto temporal no resultado agrupado
+  if (dateContext) {
+    return {
+      results: sorted,
+      period_info: {
+        description: dateContext.description,
+        start_date: dateContext.start_date,
+        end_date: dateContext.end_date,
+        days_included: dateContext.days_included,
+        current_date: dateContext.current_date
+      }
+    };
+  }
+  
+  return sorted;
 }
 
 // Helper function to load training instructions from database
@@ -674,7 +955,15 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    console.log('Received messages:', messages?.length);
+    
+    // FASE 6: Logs Detalhados 🔍
+    const temporal = getTemporalContext();
+    console.log('========================================');
+    console.log('🚀 [MAXconnect Agent] Nova requisição');
+    console.log('📅 Data/Hora:', temporal.fullDate, temporal.currentTime);
+    console.log('📨 Mensagens recebidas:', messages?.length);
+    console.log('💬 Última mensagem do usuário:', messages[messages.length - 1]?.content);
+    console.log('========================================');
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -695,7 +984,7 @@ serve(async (req) => {
       ...messages
     ];
 
-    console.log('Calling Lovable AI...');
+    console.log('🤖 Chamando Lovable AI (google/gemini-2.5-flash)...');
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -714,30 +1003,35 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI API error:', response.status, errorText);
+      console.error('❌ AI API error:', response.status, errorText);
       throw new Error(`AI API error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('AI response received');
+    console.log('✅ AI response received');
 
     // Verificar se precisa executar tool calls
     const assistantMessage = data.choices[0].message;
     
     if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
-      console.log('Processing tool calls:', assistantMessage.tool_calls.length);
+      console.log(`🔧 Processando ${assistantMessage.tool_calls.length} tool calls`);
       
       // Executar tool calls
       const toolMessages = [];
+      let dateContext: any = null;
       
       for (const toolCall of assistantMessage.tool_calls) {
-        console.log('Executing tool:', toolCall.function.name);
+        console.log(`⚙️ Executando tool: ${toolCall.function.name}`);
+        const args = JSON.parse(toolCall.function.arguments);
+        console.log('📝 Argumentos:', JSON.stringify(args, null, 2));
         
         let toolResult;
-        const args = JSON.parse(toolCall.function.arguments);
         
-        if (toolCall.function.name === 'query_leads') {
-          toolResult = await executeQueryLeads(supabaseAdmin, args);
+        if (toolCall.function.name === 'calculate_date_range') {
+          toolResult = await executeCalculateDateRange(args);
+          dateContext = toolResult; // Guardar contexto para próxima query
+        } else if (toolCall.function.name === 'query_leads') {
+          toolResult = await executeQueryLeads(supabaseAdmin, args, dateContext);
         } else if (toolCall.function.name === 'predict_trends') {
           toolResult = await executePredictTrends(supabaseAdmin, args);
         } else if (toolCall.function.name === 'generate_alerts') {
@@ -746,8 +1040,11 @@ serve(async (req) => {
           toolResult = await executeSuggestActions(supabaseAdmin, args);
         } else {
           toolResult = { error: 'Tool not implemented' };
+          console.error('❌ Tool não implementado:', toolCall.function.name);
         }
 
+        console.log(`✅ Tool ${toolCall.function.name} executado com sucesso`);
+        
         toolMessages.push({
           role: "tool",
           tool_call_id: toolCall.id,
@@ -756,7 +1053,7 @@ serve(async (req) => {
       }
 
       // Segunda chamada com resultados das tools
-      console.log('Calling AI again with tool results...');
+      console.log('🤖 Chamando AI novamente com resultados das tools...');
       const finalResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -777,26 +1074,35 @@ serve(async (req) => {
 
       if (!finalResponse.ok) {
         const errorText = await finalResponse.text();
-        console.error('AI API error on second call:', finalResponse.status, errorText);
+        console.error('❌ AI API error on second call:', finalResponse.status, errorText);
         throw new Error(`AI API error: ${finalResponse.status}`);
       }
 
       const finalData = await finalResponse.json();
       const finalMessage = finalData.choices[0].message.content;
 
-      console.log('Final response generated');
+      console.log('✅ Resposta final gerada');
+      console.log('📤 Tamanho da resposta:', finalMessage.length, 'caracteres');
+      console.log('========================================');
+      
       return new Response(JSON.stringify({ message: finalMessage }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Se não há tool calls, retornar resposta direta
+    console.log('✅ Resposta direta (sem tool calls)');
+    console.log('========================================');
+    
     return new Response(JSON.stringify({ message: assistantMessage.content }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Error in maxconnect-agent:', error);
+    console.error('❌ Error in maxconnect-agent:', error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A');
+    console.log('========================================');
+    
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Unknown error',
