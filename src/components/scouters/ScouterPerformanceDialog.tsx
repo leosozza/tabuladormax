@@ -45,9 +45,11 @@ export function ScouterPerformanceDialog({
   onOpenChange,
   scouter,
 }: ScouterPerformanceDialogProps) {
+  console.log("🎯 [DEBUG] Dialog render - open:", open, "scouter:", scouter?.name, "scouterId:", scouter?.id);
+  
   const { toast } = useToast();
   
-  const { data: performance, isLoading } = useQuery<PerformanceData | null>({
+  const { data: performance, isLoading, error: performanceError } = useQuery<PerformanceData | null>({
     queryKey: ["scouter-performance", scouter?.id],
     queryFn: async () => {
       if (!scouter) return null;
@@ -62,12 +64,27 @@ export function ScouterPerformanceDialog({
     enabled: !!scouter?.id && open,
   });
 
-  const { data: timesheet, isLoading: timesheetLoading } = useScouterTimesheet(
+  const { data: timesheet, isLoading: timesheetLoading, error: timesheetError } = useScouterTimesheet(
     scouter?.name || null,
     undefined,
     undefined,
     30
   );
+
+  console.log("📊 [DEBUG] Performance query:", { 
+    data: performance, 
+    isLoading, 
+    error: performanceError,
+    scouterId: scouter?.id 
+  });
+  
+  console.log("⏰ [DEBUG] Timesheet query:", { 
+    data: timesheet, 
+    isLoading: timesheetLoading, 
+    error: timesheetError,
+    scouterName: scouter?.name,
+    timesheetLength: timesheet?.length 
+  });
 
   const handleExportTimesheet = () => {
     if (!scouter || !timesheet) return;
