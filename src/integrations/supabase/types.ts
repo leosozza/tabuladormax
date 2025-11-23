@@ -1886,7 +1886,28 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      scouter_daily_timesheet: {
+        Row: {
+          first_lead_time: string | null
+          hours_worked: number | null
+          last_lead_time: string | null
+          scouter: string | null
+          total_leads: number | null
+          work_date: string | null
+        }
+        Relationships: []
+      }
+      scouter_timesheet_secure: {
+        Row: {
+          first_lead_time: string | null
+          hours_worked: number | null
+          last_lead_time: string | null
+          scouter: string | null
+          total_leads: number | null
+          work_date: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       bulk_mark_as_paid: {
@@ -2014,6 +2035,21 @@ export type Database = {
       get_scouter_performance_detail: {
         Args: { p_scouter_id: string }
         Returns: Json
+      }
+      get_scouter_timesheet: {
+        Args: {
+          p_end_date?: string
+          p_limit?: number
+          p_scouter_name: string
+          p_start_date?: string
+        }
+        Returns: {
+          clock_in: string
+          clock_out: string
+          hours_worked: number
+          total_leads: number
+          work_date: string
+        }[]
       }
       get_source_analysis: {
         Args: {

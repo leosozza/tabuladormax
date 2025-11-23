@@ -9,8 +9,13 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, CheckCircle2, Users, DollarSign, Calendar } from "lucide-react";
+import { TrendingUp, CheckCircle2, Users, DollarSign, Calendar, Clock, FileDown } from "lucide-react";
+import { useScouterTimesheet } from "@/hooks/useScouterTimesheet";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Scouter {
   id: string;
@@ -40,6 +45,8 @@ export function ScouterPerformanceDialog({
   onOpenChange,
   scouter,
 }: ScouterPerformanceDialogProps) {
+  const { toast } = useToast();
+  
   const { data: performance, isLoading } = useQuery<PerformanceData | null>({
     queryKey: ["scouter-performance", scouter?.id],
     queryFn: async () => {
@@ -54,6 +61,69 @@ export function ScouterPerformanceDialog({
     },
     enabled: !!scouter?.id && open,
   });
+
+  const { data: timesheet, isLoading: timesheetLoading } = useScouterTimesheet(
+    scouter?.name || null,
+    undefined,
+    undefined,
+    30
+  );
+
+  const handleExportTimesheet = () => {
+    if (!scouter || !timesheet) return;
+
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFontSize(18);
+    doc.text(`Relatório de Ponto - ${scouter.name}`, 14, 22);
+
+    doc.setFontSize(11);
+    doc.text(`Período: Últimos 30 dias`, 14, 32);
+    doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 14, 38);
+
+    // Resumo
+    const totalDays = timesheet.length;
+    const totalLeads = timesheet.reduce((sum, e) => sum + e.total_leads, 0);
+    const totalHours = timesheet.reduce((sum, e) => sum + e.hours_worked, 0);
+    const avgHours = totalDays > 0 ? (totalHours / totalDays).toFixed(2) : "0";
+
+    doc.setFontSize(10);
+    doc.text(`Dias trabalhados: ${totalDays}`, 14, 48);
+    doc.text(`Total de fichas: ${totalLeads}`, 14, 54);
+    doc.text(`Total de horas: ${totalHours.toFixed(2)}h`, 14, 60);
+    doc.text(`Média de horas/dia: ${avgHours}h`, 14, 66);
+
+    // Tabela
+    autoTable(doc, {
+      startY: 75,
+      head: [["Data", "Entrada", "Saída", "Fichas", "Horas"]],
+      body: timesheet.map((entry) => [
+        new Date(entry.work_date).toLocaleDateString("pt-BR"),
+        entry.clock_in,
+        entry.clock_out,
+        entry.total_leads.toString(),
+        `${entry.hours_worked.toFixed(2)}h`,
+      ]),
+      foot: [[
+        "TOTAL",
+        "",
+        "",
+        totalLeads.toString(),
+        `${totalHours.toFixed(2)}h`,
+      ]],
+      theme: "grid",
+      headStyles: { fillColor: [59, 130, 246] },
+      footStyles: { fillColor: [229, 231, 235], textColor: [0, 0, 0] },
+    });
+
+    doc.save(`ponto_${scouter.name.replace(/\s+/g, "_")}_${Date.now()}.pdf`);
+
+    toast({
+      title: "PDF gerado com sucesso",
+      description: "O relatório de ponto foi baixado",
+    });
+  };
 
   if (!scouter) return null;
 
@@ -209,6 +279,80 @@ export function ScouterPerformanceDialog({
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-8">
                     Nenhum projeto encontrado
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Controle de Ponto */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Controle de Ponto (últimos 30 dias)
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportTimesheet}
+                  disabled={!timesheet || timesheet.length === 0}
+                >
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Exportar PDF
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {timesheetLoading ? (
+                  <Skeleton className="h-64" />
+                ) : timesheet && timesheet.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2 font-semibold">Data</th>
+                          <th className="text-left p-2 font-semibold">Entrada</th>
+                          <th className="text-left p-2 font-semibold">Saída</th>
+                          <th className="text-center p-2 font-semibold">Fichas</th>
+                          <th className="text-right p-2 font-semibold">Horas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {timesheet.map((entry) => (
+                          <tr key={entry.work_date} className="border-b hover:bg-muted/50">
+                            <td className="p-2">
+                              {new Date(entry.work_date).toLocaleDateString("pt-BR")}
+                            </td>
+                            <td className="p-2 font-mono text-green-600">
+                              {entry.clock_in}
+                            </td>
+                            <td className="p-2 font-mono text-red-600">
+                              {entry.clock_out}
+                            </td>
+                            <td className="p-2 text-center">
+                              <Badge variant="secondary">{entry.total_leads}</Badge>
+                            </td>
+                            <td className="p-2 text-right font-semibold">
+                              {entry.hours_worked.toFixed(2)}h
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="font-bold bg-muted">
+                          <td colSpan={3} className="p-2">Total</td>
+                          <td className="p-2 text-center">
+                            {timesheet.reduce((sum, e) => sum + e.total_leads, 0)}
+                          </td>
+                          <td className="p-2 text-right">
+                            {timesheet.reduce((sum, e) => sum + e.hours_worked, 0).toFixed(2)}h
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Nenhum registro de ponto encontrado
                   </p>
                 )}
               </CardContent>
