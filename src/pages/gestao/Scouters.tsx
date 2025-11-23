@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, TrendingUp, Award, Plus, Clock } from "lucide-react";
+import { Users, TrendingUp, Award, Plus, Clock, LayoutGrid, List } from "lucide-react";
 import { ScoutersKanban } from "@/components/scouters/ScoutersKanban";
+import { ScoutersListView } from "@/components/scouters/ScoutersListView";
 import { ScouterDialog } from "@/components/scouters/ScouterDialog";
 import { ScouterPerformanceDialog } from "@/components/scouters/ScouterPerformanceDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +29,7 @@ interface Scouter {
 export default function GestaoScouters() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [performanceDialogOpen, setPerformanceDialogOpen] = useState(false);
   const [selectedScouter, setSelectedScouter] = useState<Scouter | null>(null);
@@ -203,11 +205,35 @@ export default function GestaoScouters() {
 
       {/* Action Bar */}
       <div className="flex justify-between items-center mb-4">
-        <div>
-          <h2 className="text-xl font-semibold">Quadro de Scouters</h2>
-          <p className="text-sm text-muted-foreground">
-            Arraste os cards para mudar o status
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-xl font-semibold">Quadro de Scouters</h2>
+            <p className="text-sm text-muted-foreground">
+              {viewMode === 'kanban' 
+                ? "Arraste os cards para mudar o status" 
+                : "Clique em ações para gerenciar scouters"}
+            </p>
+          </div>
+          <div className="flex items-center gap-1 border rounded-md p-1 bg-muted/50">
+            <Button
+              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('kanban')}
+              className="h-8"
+            >
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Kanban
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className="h-8"
+            >
+              <List className="h-4 w-4 mr-2" />
+              Lista
+            </Button>
+          </div>
         </div>
         <Button onClick={handleCreate}>
           <Plus className="h-4 w-4 mr-2" />
@@ -215,13 +241,20 @@ export default function GestaoScouters() {
         </Button>
       </div>
 
-      {/* Kanban Board */}
+      {/* Board */}
       {isLoading ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">Carregando scouters...</p>
         </div>
-      ) : (
+      ) : viewMode === 'kanban' ? (
         <ScoutersKanban
+          scouters={scouters}
+          onStatusChange={handleStatusChange}
+          onEdit={handleEdit}
+          onViewPerformance={handleViewPerformance}
+        />
+      ) : (
+        <ScoutersListView
           scouters={scouters}
           onStatusChange={handleStatusChange}
           onEdit={handleEdit}
