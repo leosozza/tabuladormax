@@ -7,18 +7,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { RefreshCw, PlayCircle, AlertTriangle, CheckCircle2, Database, TrendingUp } from 'lucide-react';
+import { RefreshCw, PlayCircle, AlertTriangle, CheckCircle2, Database } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-interface ReprocessStats {
-  totalLeads: number;
-  processedLeads: number;
-  updatedLeads: number;
-  skippedLeads: number;
-  errorLeads: number;
-  fieldsUpdated: { [key: string]: number };
-}
 
 interface DiagnosticStats {
   totalLeadsWithRaw: number;
@@ -32,7 +23,6 @@ interface DiagnosticStats {
 export default function LeadsReprocess() {
   const [loading, setLoading] = useState(false);
   const [diagnosticStats, setDiagnosticStats] = useState<DiagnosticStats | null>(null);
-  const [reprocessStats, setReprocessStats] = useState<ReprocessStats | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   
@@ -70,15 +60,15 @@ export default function LeadsReprocess() {
     }
 
     setIsProcessing(true);
-    setReprocessStats(null);
     setLogs([]);
-    addLog('🚀 Iniciando re-processamento de leads...');
+    addLog('🚀 Iniciando re-processamento instantâneo de TODOS os leads...');
 
     try {
+      const startTime = Date.now();
+      
       const { data, error } = await supabase.functions.invoke('reprocess-leads-from-raw', {
         body: {
           action: 'start',
-          batchSize: 100,
           filters: {
             onlyMissingFields
           }
@@ -87,15 +77,12 @@ export default function LeadsReprocess() {
 
       if (error) throw error;
 
-      setReprocessStats(data);
-      addLog(`✅ Re-processamento concluído!`);
-      addLog(`📊 ${data.updatedLeads} leads atualizados`);
-      addLog(`⏭️ ${data.skippedLeads} leads ignorados (sem mudanças)`);
-      if (data.errorLeads > 0) {
-        addLog(`⚠️ ${data.errorLeads} leads com erro`);
-      }
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      
+      addLog(`✅ Re-processamento concluído em ${duration}s!`);
+      addLog(`📊 ${data.updated_count?.toLocaleString('pt-BR') || 0} leads atualizados`);
 
-      toast.success('Re-processamento concluído!');
+      toast.success(`${data.updated_count?.toLocaleString('pt-BR') || 0} leads re-processados em ${duration}s!`);
       
       // Recarregar diagnóstico
       await loadDiagnostics();
@@ -113,10 +100,6 @@ export default function LeadsReprocess() {
     setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
   };
 
-  const getProgressPercentage = () => {
-    if (!reprocessStats || reprocessStats.totalLeads === 0) return 0;
-    return Math.round((reprocessStats.processedLeads / reprocessStats.totalLeads) * 100);
-  };
 
   return (
     <AdminPageLayout 
@@ -229,51 +212,13 @@ export default function LeadsReprocess() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {reprocessStats && (
-                <>
-                  <Progress value={getProgressPercentage()} className="w-full" />
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Total:</span>
-                      <span className="ml-2 font-semibold">{reprocessStats.totalLeads.toLocaleString('pt-BR')}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Processados:</span>
-                      <span className="ml-2 font-semibold">{reprocessStats.processedLeads.toLocaleString('pt-BR')}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Atualizados:</span>
-                      <span className="ml-2 font-semibold text-green-600">{reprocessStats.updatedLeads.toLocaleString('pt-BR')}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Ignorados:</span>
-                      <span className="ml-2 font-semibold text-blue-600">{reprocessStats.skippedLeads.toLocaleString('pt-BR')}</span>
-                    </div>
-                    {reprocessStats.errorLeads > 0 && (
-                      <div>
-                        <span className="text-muted-foreground">Erros:</span>
-                        <span className="ml-2 font-semibold text-red-600">{reprocessStats.errorLeads.toLocaleString('pt-BR')}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {Object.keys(reprocessStats.fieldsUpdated).length > 0 && (
-                    <div className="border rounded-lg p-4 space-y-2">
-                      <h4 className="text-sm font-semibold flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4" />
-                        Campos Atualizados
-                      </h4>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        {Object.entries(reprocessStats.fieldsUpdated).map(([field, count]) => (
-                          <div key={field} className="flex items-center justify-between">
-                            <span className="text-muted-foreground">{field}:</span>
-                            <Badge variant="secondary">{(count as number).toLocaleString('pt-BR')}</Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
+              {logs.length > 0 && (
+                <Alert>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <AlertDescription>
+                    {logs[logs.length - 1].split('] ')[1]}
+                  </AlertDescription>
+                </Alert>
               )}
 
               <Button 
