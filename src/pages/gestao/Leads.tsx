@@ -378,12 +378,12 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
 
   // Funções de análise
   const moveToNextLead = () => {
-    // Limpar undo ao avançar naturalmente
-    clearUndo();
-    
     if (currentAnalysisIndex < analysisLeads.length - 1) {
       setCurrentAnalysisIndex(prev => prev + 1);
+      // Limpar undo após avançar (com delay para permitir janela de 5s completa)
+      setTimeout(() => clearUndo(), 100);
     } else {
+      clearUndo();
       setIsAnalysisMode(false);
       setSelectedLeadIds(new Set());
       toast.success('Análise concluída!');
@@ -520,7 +520,14 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
   // Função para desfazer última ação
   const handleUndo = async () => {
     const lastAction = getLastAction();
-    if (!lastAction || !lastProcessedLead) return;
+    if (!lastAction || !lastProcessedLead) {
+      console.warn('[handleUndo] Sem ação para desfazer');
+      return;
+    }
+    
+    console.log('[handleUndo] lastAction:', lastAction);
+    console.log('[handleUndo] lastProcessedLead:', lastProcessedLead);
+    console.log('[handleUndo] isUndoAvailable:', isUndoAvailable);
     
     setIsProcessingAction(true);
     
@@ -530,27 +537,29 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
         setCurrentAnalysisIndex(prev => Math.max(0, prev - 1));
         clearUndo();
         toast.success('Voltou ao lead anterior');
-        return;
+      } else {
+        // Se foi approve/reject/super, restaurar estado anterior no DB
+        const { error } = await supabase
+          .from('leads')
+          .update({
+            qualidade_lead: lastProcessedLead.qualidade_lead_anterior || null,
+            data_analise: lastProcessedLead.data_analise_anterior || null,
+            analisado_por: lastProcessedLead.analisado_por_anterior || null
+          })
+          .eq('id', lastAction.leadId);
+        
+        if (error) throw error;
+        
+        // Voltar índice
+        setCurrentAnalysisIndex(prev => Math.max(0, prev - 1));
+        clearUndo();
+        toast.success('Ação desfeita!');
       }
-      
-      // Se foi approve/reject/super, restaurar estado anterior no DB
-      await supabase
-        .from('leads')
-        .update({
-          qualidade_lead: lastProcessedLead.qualidade_lead_anterior || null,
-          data_analise: lastProcessedLead.data_analise_anterior || null,
-          analisado_por: lastProcessedLead.analisado_por_anterior || null
-        })
-        .eq('id', lastAction.leadId);
-      
-      // Voltar índice
-      setCurrentAnalysisIndex(prev => Math.max(0, prev - 1));
-      clearUndo();
-      toast.success('Ação desfeita!');
     } catch (error) {
       console.error('Erro ao desfazer ação:', error);
       toast.error('Erro ao desfazer ação');
     } finally {
+      // Sempre executado, independente do caminho
       setIsProcessingAction(false);
     }
   };
