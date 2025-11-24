@@ -236,7 +236,7 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case 'create':
-        return await createResyncJob(supabase, filters, batchSize, mappingId);
+        return await createResyncJob(supabase, { filters }, batchSize, mappingId);
       
       case 'process':
         return await processBatch(supabase, jobId);
