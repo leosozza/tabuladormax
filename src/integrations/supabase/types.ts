@@ -2032,6 +2032,15 @@ export type Database = {
         }
         Returns: Json
       }
+      get_scouter_hourly_leads: {
+        Args: { p_date: string; p_scouter_name: string }
+        Returns: {
+          confirmed_leads: number
+          conversion_rate: number
+          hour: number
+          total_leads: number
+        }[]
+      }
       get_scouter_performance_detail: {
         Args: { p_scouter_id: string }
         Returns: Json
