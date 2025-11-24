@@ -62,6 +62,22 @@ Deno.serve(async (req) => {
         if (!response.ok) {
           const error = await response.text();
           console.error('❌ Chatwoot API error:', error);
+          
+          // If conversation not found (404), return success with found: false
+          if (response.status === 404) {
+            console.info('ℹ️ Conversa não encontrada no Chatwoot:', conversation_id);
+            return new Response(
+              JSON.stringify({ 
+                found: false,
+                reason: 'conversation_not_found',
+                conversation_id,
+                messages: []
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          // For other errors, return error details
           return new Response(
             JSON.stringify({ error: 'Failed to fetch messages', details: error }),
             { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -72,7 +88,7 @@ Deno.serve(async (req) => {
         console.log('✅ Messages fetched:', messages.length);
 
         return new Response(
-          JSON.stringify({ messages }),
+          JSON.stringify({ found: true, messages }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (fetchError: any) {
