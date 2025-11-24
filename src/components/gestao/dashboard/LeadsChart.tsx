@@ -60,7 +60,7 @@ export default function LeadsChart({ filters }: LeadsChartProps) {
         if (current) {
           current.total++;
           if (lead.ficha_confirmada) current.confirmados++;
-          if (lead.compareceu) current.compareceram++;
+          if (lead.presenca_confirmada) current.compareceram++;
         }
       });
       

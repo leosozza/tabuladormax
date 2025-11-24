@@ -8,7 +8,7 @@ import { GestaoFilters } from "@/types/filters";
 interface LeadPerformanceData {
   scouter: string;
   ficha_confirmada?: boolean;
-  compareceu?: boolean;
+  presenca_confirmada?: boolean;
 }
 
 interface ScouterPerformanceProps {
@@ -57,7 +57,7 @@ export default function ScouterPerformance({ filters }: ScouterPerformanceProps)
         const stats = grouped.get(scouter)!;
         stats.total++;
         if (lead.ficha_confirmada) stats.confirmados++;
-        if (lead.compareceu) stats.compareceram++;
+        if (lead.presenca_confirmada) stats.compareceram++;
       });
       
       // Converter para array e ordenar por total

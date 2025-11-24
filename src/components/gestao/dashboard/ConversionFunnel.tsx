@@ -49,7 +49,7 @@ export default function ConversionFunnel({ filters }: ConversionFunnelProps) {
       
       const total = data.length;
       const confirmados = data.filter(l => l.ficha_confirmada).length;
-      const compareceram = data.filter(l => l.compareceu).length;
+      const compareceram = data.filter(l => l.presenca_confirmada).length;
       
       return [
         { name: "Total de Leads", value: total, percentage: 100 },
