@@ -83,6 +83,16 @@ export function LeadColumnSelector() {
   // Colunas Inativas = campos que existem no mapeamento, mas não estão em visibleColumns
   const inactiveFields = allFields.filter(f => !visibleColumns.includes(f.key));
 
+  // Debug: Campos no localStorage mas não no banco
+  const missingFields = visibleColumns.filter(key => !allFields.find(f => f.key === key));
+
+  // Debug logging
+  console.log('🔍 Debug LeadColumnSelector:');
+  console.log('  visibleColumns (localStorage):', visibleColumns);
+  console.log('  allFields (banco):', allFields?.map(f => f.key));
+  console.log('  activeFields (filtrado):', activeFields.map(f => f.key));
+  console.log('  missingFields:', missingFields);
+
   // Agrupar por categoria
   const groupByCategory = (fields: typeof allFields) => {
     return fields.reduce((acc, field) => {
@@ -111,7 +121,7 @@ export function LeadColumnSelector() {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm">
           <Settings2 className="w-4 h-4 mr-2" />
-          Colunas ({visibleColumns.length})
+          Colunas ({activeFields.length})
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72 max-h-[500px] overflow-y-auto">
@@ -127,6 +137,16 @@ export function LeadColumnSelector() {
           </Button>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+
+        {/* Badge de Aviso para campos inválidos */}
+        {missingFields.length > 0 && (
+          <div className="mx-2 mb-2 text-xs text-amber-600 p-2 bg-amber-50 rounded-md border border-amber-200">
+            ⚠️ {missingFields.length} campo(s) não encontrado(s) no banco de dados. 
+            <div className="text-[10px] mt-1 text-amber-700">
+              {missingFields.join(', ')}
+            </div>
+          </div>
+        )}
 
         {/* Colunas Ativas */}
         <DropdownMenuLabel className="text-xs font-semibold text-primary">
