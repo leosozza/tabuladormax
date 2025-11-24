@@ -21,10 +21,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { saveChatwootContact, extractChatwootData, extractConversationFromOpenLine, type ChatwootEventData } from "@/lib/chatwoot";
+import { saveChatwootContact, extractChatwootData, extractBitrixOpenLineData, extractConversationFromOpenLine, type ChatwootEventData, type BitrixOpenLineData } from "@/lib/chatwoot";
 import { getLead, type BitrixLead, getLeadFields, type BitrixField } from "@/lib/bitrix";
 import { getTelemarketingId } from "@/handlers/tabular";
 import { ChatModal } from "@/components/chatwoot/ChatModal";
+import { BitrixChatModal } from "@/components/bitrix/BitrixChatModal";
 import { BUTTON_CATEGORIES, categoryOrder, ensureButtonLayout, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
@@ -244,6 +245,8 @@ const LeadTab = () => {
   const [bitrixResponseMessage, setBitrixResponseMessage] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [bitrixChatModal, setBitrixChatModal] = useState(false);
+  const [bitrixOpenLineData, setBitrixOpenLineData] = useState<BitrixOpenLineData | null>(null);
   const [searchSteps, setSearchSteps] = useState<Array<{
     name: string;
     status: 'pending' | 'loading' | 'success' | 'error';
@@ -606,14 +609,24 @@ const LeadTab = () => {
           let conversationId = supabaseLead.conversation_id;
           let source = '';
 
+          // === PRIMEIRO: Verificar se tem sessão Bitrix OpenLine ===
+          if (supabaseLead.raw) {
+            const bitrixData = extractBitrixOpenLineData(supabaseLead.raw);
+            if (bitrixData) {
+              setBitrixOpenLineData(bitrixData);
+              updateStep(chatwootStepIndex, 'success', `✅ Sessão Bitrix OpenLine encontrada (#${bitrixData.sessionId})`, 0);
+              console.log('✅ Conversa Bitrix OpenLine encontrada:', bitrixData);
+            }
+          }
+
           // ESTRATÉGIA 1: Lead já tem conversation_id salvo
           if (conversationId) {
             source = 'supabase (cached)';
             updateStep(chatwootStepIndex, 'success', 'Conversa já salva no banco', 0);
             console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
           } 
-          // ESTRATÉGIA 2: Buscar no OpenLine (Bitrix IM)
-          else if (supabaseLead.raw) {
+          // ESTRATÉGIA 2: Buscar no OpenLine (Bitrix IM) - apenas para Chatwoot
+          else if (supabaseLead.raw && !bitrixOpenLineData) {
             updateStep(chatwootStepIndex, 'loading', 'Buscando no OpenLine...');
             const chatwootStart = Date.now();
             
@@ -2066,6 +2079,17 @@ const LeadTab = () => {
                       <MessageSquare className="w-3 h-3 md:w-4 md:h-4" />
                       WhatsApp
                     </Button>
+                    {bitrixOpenLineData && (
+                      <Button 
+                        variant="secondary" 
+                        onClick={() => setBitrixChatModal(true)}
+                        className="flex-1 gap-2 text-xs md:text-sm bg-green-600 hover:bg-green-700 text-white"
+                        title="Chat Bitrix OpenLine"
+                      >
+                        <MessageSquare className="w-3 h-3 md:w-4 md:h-4" />
+                        Bitrix
+                      </Button>
+                    )}
                   </div>}
                 
                   {isManager && <div className="flex flex-col gap-2 w-full">
@@ -2644,6 +2668,15 @@ const LeadTab = () => {
       </Dialog>
 
       <ChatModal open={chatModalOpen} onOpenChange={setChatModalOpen} conversationId={chatwootData?.conversation_id || null} contactName={chatwootData?.name || profile['Nome'] || 'Lead'} />
+      
+      <BitrixChatModal
+        open={bitrixChatModal}
+        onOpenChange={setBitrixChatModal}
+        sessionId={bitrixOpenLineData?.sessionId || null}
+        chatId={bitrixOpenLineData?.chatId || null}
+        leadId={chatwootData?.bitrix_id || ''}
+        contactName={chatwootData?.name || profile['Nome'] || 'Lead'}
+      />
       
       {/* Progresso de Busca */}
       {showSearchProgress && (

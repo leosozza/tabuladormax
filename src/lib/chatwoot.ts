@@ -179,20 +179,55 @@ export function extractAssigneeData(eventData: ChatwootEventData): ChatwootAssig
 }
 
 /**
- * Extrai conversation_id do campo IM no raw do lead (OpenLine)
- * Formato: imol|connector|accountId|chatId|conversationId
+ * Interface para dados extraídos do Bitrix OpenLine
  */
-export function extractConversationFromOpenLine(raw: any): number | null {
+export interface BitrixOpenLineData {
+  sessionId: number;
+  chatId: string;
+  connector: string;
+  accountId: string;
+  fullValue: string;
+}
+
+/**
+ * Extrai dados completos do Bitrix OpenLine do campo IM no raw
+ * Formato: imol|connector|accountId|chatId|sessionId
+ * Exemplo: "imol|whatsappbyedna|55021992610062|chat58a294bb2e6aae5f7ab78f7afb5bc2a5|161166"
+ */
+export function extractBitrixOpenLineData(raw: any): BitrixOpenLineData | null {
   const imData = raw?.IM?.[0]?.VALUE;
   if (!imData || typeof imData !== 'string') return null;
   
-  // Formato: imol|connector|accountId|chatId|conversationId
   const parts = imData.split('|');
   if (parts.length >= 5) {
-    const conversationId = parseInt(parts[4], 10);
-    return isNaN(conversationId) ? null : conversationId;
+    const sessionId = parseInt(parts[4], 10);
+    if (!isNaN(sessionId)) {
+      console.log('✅ Bitrix OpenLine data extracted:', {
+        sessionId,
+        chatId: parts[3],
+        connector: parts[1]
+      });
+      return {
+        sessionId,
+        chatId: parts[3],
+        connector: parts[1],
+        accountId: parts[2],
+        fullValue: imData
+      };
+    }
   }
+  
+  console.log('⚠️ Não foi possível extrair dados do Bitrix OpenLine');
   return null;
+}
+
+/**
+ * Extrai conversation_id do campo IM no raw do lead (OpenLine)
+ * Mantido para compatibilidade retroativa
+ */
+export function extractConversationFromOpenLine(raw: any): number | null {
+  const data = extractBitrixOpenLineData(raw);
+  return data?.sessionId || null;
 }
 
 /**
