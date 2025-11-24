@@ -17,6 +17,7 @@ export interface GestaoFilters {
   projectId: string | null;
   scouterId: string | null;
   fonte: string | null;
+  photoFilter: 'all' | 'with-photo' | null;
   additionalFilters?: AdditionalFilter[];
 }
 

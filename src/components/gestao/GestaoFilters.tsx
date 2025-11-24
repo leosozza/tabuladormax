@@ -461,7 +461,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
                 </Select>
               </div>
 
-              {/* Filtro de Fonte */}
+      {/* Filtro de Fonte */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Fonte:</label>
                 <Select
@@ -490,6 +490,25 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
                 </Select>
               </div>
 
+              {/* Filtro de Fotos */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Fotos:</label>
+                <Select
+                  value={filters.photoFilter || "all"}
+                  onValueChange={(value) => 
+                    onChange({ ...filters, photoFilter: value === "all" ? null : value as 'with-photo' })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="with-photo">Com Foto</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Filtros Adicionais */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Filtros Avançados:</label>
@@ -509,6 +528,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
                     projectId: null,
                     scouterId: null,
                     fonte: null,
+                    photoFilter: null,
                     additionalFilters: []
                   });
                   }}
@@ -682,6 +702,25 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
         </Select>
       </div>
 
+      {/* Filtro de Fotos */}
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-medium text-muted-foreground">Fotos:</label>
+        <Select
+          value={filters.photoFilter || "all"}
+          onValueChange={(value) => 
+            onChange({ ...filters, photoFilter: value === "all" ? null : value as 'with-photo' })
+          }
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="with-photo">Com Foto</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Filtros Adicionais */}
       <AdditionalFilters
         filters={filters.additionalFilters || []}
@@ -689,7 +728,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
       />
 
       {/* Botão Limpar Filtros */}
-      {(filters.projectId || filters.scouterId || filters.fonte || (showDateFilter && filters.dateFilter.preset !== 'all') || (filters.additionalFilters && filters.additionalFilters.length > 0)) && (
+      {(filters.projectId || filters.scouterId || filters.fonte || filters.photoFilter || (showDateFilter && filters.dateFilter.preset !== 'all') || (filters.additionalFilters && filters.additionalFilters.length > 0)) && (
                   <Button 
                     variant="ghost" 
                     size="sm"
@@ -698,6 +737,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
                     projectId: null,
                     scouterId: null,
                     fonte: null,
+                    photoFilter: null,
                     additionalFilters: []
                   })}
         >
