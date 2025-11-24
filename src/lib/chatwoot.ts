@@ -190,6 +190,36 @@ export interface BitrixOpenLineData {
 }
 
 /**
+ * Interface para IDs do Chatwoot armazenados no Bitrix
+ */
+export interface BitrixChatwootIds {
+  conversation_id: number | null;
+  contact_id: number | null;
+}
+
+/**
+ * Extrai IDs do Chatwoot armazenados nos campos customizados do Bitrix
+ * UF_CRM_1759783630582 = chatwoot-conversa-id
+ * UF_CRM_1759783643206 = chatwoot-contato-id
+ */
+export function extractChatwootIdsFromBitrix(raw: any): BitrixChatwootIds | null {
+  const conversationId = raw?.UF_CRM_1759783630582;
+  const contactId = raw?.UF_CRM_1759783643206;
+  
+  if (!conversationId && !contactId) {
+    return null;
+  }
+  
+  const result: BitrixChatwootIds = {
+    conversation_id: conversationId ? parseInt(conversationId, 10) : null,
+    contact_id: contactId ? parseInt(contactId, 10) : null
+  };
+  
+  console.log('🔍 IDs do Chatwoot extraídos do Bitrix:', result);
+  return result;
+}
+
+/**
  * Extrai dados completos do Bitrix OpenLine do campo IM no raw
  * Formato: imol|connector|accountId|chatId|sessionId
  * Exemplo: "imol|whatsappbyedna|55021992610062|chat58a294bb2e6aae5f7ab78f7afb5bc2a5|161166"
