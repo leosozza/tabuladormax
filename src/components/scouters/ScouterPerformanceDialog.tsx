@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -10,10 +12,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, CheckCircle2, Users, DollarSign, Calendar, Clock, FileDown } from "lucide-react";
+import { TrendingUp, CheckCircle2, Users, DollarSign, Calendar, Clock, FileDown, CalendarIcon, RotateCcw } from "lucide-react";
 import { useScouterTimesheet } from "@/hooks/useScouterTimesheet";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -49,6 +58,23 @@ export function ScouterPerformanceDialog({
   
   const { toast } = useToast();
   
+  // Date filters for timesheet
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  const [startDate, setStartDate] = useState<Date | undefined>(thirtyDaysAgo);
+  const [endDate, setEndDate] = useState<Date | undefined>(new Date());
+  
+  const formattedStartDate = startDate ? format(startDate, "yyyy-MM-dd") : undefined;
+  const formattedEndDate = endDate ? format(endDate, "yyyy-MM-dd") : undefined;
+  
+  const handleResetDates = () => {
+    const newThirtyDaysAgo = new Date();
+    newThirtyDaysAgo.setDate(newThirtyDaysAgo.getDate() - 30);
+    setStartDate(newThirtyDaysAgo);
+    setEndDate(new Date());
+  };
+  
   const { data: performance, isLoading, error: performanceError } = useQuery<PerformanceData | null>({
     queryKey: ["scouter-performance", scouter?.id],
     queryFn: async () => {
@@ -70,9 +96,9 @@ export function ScouterPerformanceDialog({
 
   const { data: timesheet, isLoading: timesheetLoading, error: timesheetError } = useScouterTimesheet(
     scouter?.name || null,
-    undefined,
-    undefined,
-    30
+    formattedStartDate,
+    formattedEndDate,
+    1000 // Large limit to get all records in range
   );
 
   console.log("📊 [DEBUG] Performance query:", { 
@@ -109,7 +135,10 @@ export function ScouterPerformanceDialog({
     doc.text(`Relatório de Ponto - ${scouter.name}`, 14, 22);
 
     doc.setFontSize(11);
-    doc.text(`Período: Últimos 30 dias`, 14, 32);
+    const periodText = startDate && endDate 
+      ? `Período: ${format(startDate, "dd/MM/yyyy")} a ${format(endDate, "dd/MM/yyyy")}`
+      : "Período: Últimos 30 dias";
+    doc.text(periodText, 14, 32);
     doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 14, 38);
 
     // Resumo
@@ -341,20 +370,98 @@ export function ScouterPerformanceDialog({
 
             {/* Controle de Ponto */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Controle de Ponto (últimos 30 dias)
-                </CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportTimesheet}
-                  disabled={!timesheet || timesheet.length === 0}
-                >
-                  <FileDown className="h-4 w-4 mr-2" />
-                  Exportar PDF
-                </Button>
+              <CardHeader className="space-y-4">
+                <div className="flex flex-row items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Controle de Ponto
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportTimesheet}
+                    disabled={!timesheet || timesheet.length === 0}
+                  >
+                    <FileDown className="h-4 w-4 mr-2" />
+                    Exportar PDF
+                  </Button>
+                </div>
+                
+                {/* Date Filters */}
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex-1 min-w-[180px]">
+                    <label className="text-sm font-medium mb-2 block">Data Inicial</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !startDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {startDate ? format(startDate, "dd/MM/yyyy") : "Selecione"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={startDate}
+                          onSelect={setStartDate}
+                          disabled={(date) => date > new Date()}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="flex-1 min-w-[180px]">
+                    <label className="text-sm font-medium mb-2 block">Data Final</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !endDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {endDate ? format(endDate, "dd/MM/yyyy") : "Selecione"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={endDate}
+                          onSelect={setEndDate}
+                          disabled={(date) => 
+                            date > new Date() || (startDate ? date < startDate : false)
+                          }
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleResetDates}
+                    title="Resetar para últimos 30 dias"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                {startDate && endDate && (
+                  <p className="text-sm text-muted-foreground">
+                    Exibindo {timesheet?.length || 0} dia(s) de trabalho no período selecionado
+                  </p>
+                )}
               </CardHeader>
               <CardContent>
                 {timesheetLoading ? (
