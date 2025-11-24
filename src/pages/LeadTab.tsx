@@ -631,6 +631,7 @@ const LeadTab = () => {
                 
                 const duration = Date.now() - chatwootStart;
                 
+                // Sucesso
                 if (chatwootData && !chatwootError) {
                   // Salvar conversation_id no Supabase
                   await supabase.from('leads').update({
@@ -655,10 +656,18 @@ const LeadTab = () => {
                   
                   updateStep(chatwootStepIndex, 'success', `✅ Conversa encontrada (OpenLine)`, duration);
                   console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
-                } else {
+                } 
+                // Erro 404 - Conversa não existe (normal, não bloqueia)
+                else if (chatwootError?.message?.includes('404') || chatwootData?.error?.includes('não encontrada')) {
                   updateStep(chatwootStepIndex, 'error', `Conversa ${conversationId} não existe no Chatwoot`, duration);
                   console.warn(`⚠️ Conversa ${conversationId} não encontrada no Chatwoot`);
                   conversationId = null; // Limpar para tentar Gupshup
+                }
+                // Outros erros
+                else {
+                  updateStep(chatwootStepIndex, 'error', `Erro ao buscar no Chatwoot`, duration);
+                  console.error('❌ Erro ao buscar conversa do Chatwoot:', chatwootError);
+                  conversationId = null;
                 }
               } catch (error: any) {
                 const duration = Date.now() - chatwootStart;
@@ -682,7 +691,18 @@ const LeadTab = () => {
               
               const duration = Date.now() - gupshupStart;
               
-              if (gupshupData?.conversation_id && !gupshupError) {
+              // Tratar 501 (Not Implemented) como funcionalidade desabilitada
+              if (gupshupError?.message?.includes('501') || gupshupData?.error?.includes('desabilitada')) {
+                updateStep(chatwootStepIndex, 'error', 'Gupshup temporariamente desabilitado', duration);
+                console.warn('⚠️ Gupshup desabilitado - endpoint não validado');
+              }
+              // Tratar 404 como não encontrado (normal)
+              else if (gupshupError?.message?.includes('404') || gupshupData?.error?.includes('não encontrada')) {
+                updateStep(chatwootStepIndex, 'error', 'Nenhuma conversa encontrada no Gupshup', duration);
+                console.warn('⚠️ Nenhuma conversa encontrada no Gupshup');
+              }
+              // Sucesso
+              else if (gupshupData?.conversation_id && !gupshupError) {
                 conversationId = gupshupData.conversation_id;
                 source = 'gupshup';
                 
@@ -706,9 +726,11 @@ const LeadTab = () => {
                 
                 updateStep(chatwootStepIndex, 'success', `✅ Conversa encontrada (Gupshup)`, duration);
                 console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
-              } else {
-                updateStep(chatwootStepIndex, 'error', `Nenhuma conversa encontrada no Gupshup`, duration);
-                console.warn('⚠️ Nenhuma conversa encontrada no Gupshup');
+              }
+              // Erro inesperado
+              else {
+                updateStep(chatwootStepIndex, 'error', `Erro ao buscar no Gupshup`, duration);
+                console.error('❌ Erro ao buscar no Gupshup:', gupshupError);
               }
             } catch (error: any) {
               const duration = Date.now() - gupshupStart;
@@ -719,8 +741,14 @@ const LeadTab = () => {
 
           // Resultado final
           if (!conversationId) {
-            updateStep(chatwootStepIndex, 'error', 'Lead sem conversa WhatsApp', 0);
-            console.log('ℹ️ Lead não possui conversa em nenhuma plataforma');
+            // Verificar se tentou buscar ou se não tinha dados para buscar
+            if (!supabaseLead.raw && !contactData.phone_number) {
+              updateStep(chatwootStepIndex, 'error', 'Sem dados para buscar conversa (sem OpenLine nem telefone)', 0);
+              console.log('ℹ️ Lead não possui dados OpenLine nem telefone para buscar conversa');
+            } else {
+              updateStep(chatwootStepIndex, 'error', 'Lead sem conversa WhatsApp em nenhuma fonte', 0);
+              console.log('ℹ️ Lead não possui conversa em nenhuma plataforma (tentou todas as fontes)');
+            }
           } else {
             console.log(`✅ Conversa final: ${conversationId} (fonte: ${source})`);
           }

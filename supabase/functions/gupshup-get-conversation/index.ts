@@ -25,8 +25,26 @@ Deno.serve(async (req) => {
     }
 
     console.log(`🔍 Buscando conversa no Gupshup para telefone: ${phone_number}`);
+    
+    // NOTA: Endpoint do Gupshup pode variar. Verificar documentação oficial.
+    // Por enquanto, retornar erro 501 (Not Implemented) até configurar endpoint correto
+    console.warn('⚠️ Gupshup: Endpoint não configurado. Precisa validar API Gupshup.');
+    
+    return new Response(
+      JSON.stringify({ 
+        error: 'Busca no Gupshup temporariamente desabilitada (endpoint não validado)',
+        phone_number,
+        message: 'Configure o endpoint correto da API Gupshup para habilitar esta funcionalidade'
+      }),
+      { 
+        status: 501, // Not Implemented
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
 
-    // Buscar conversas do usuário por telefone
+    /* CÓDIGO ORIGINAL COMENTADO - Reativar após validar endpoint Gupshup
+    
+    // Endpoint alternativo: pode ser /app/api/conversation ou /wa/api/v1/msg
     const gupshupUrl = `https://api.gupshup.io/wa/api/v1/users/${gupshupAppId}/conversations?phone=${encodeURIComponent(phone_number)}`;
     
     const response = await fetch(gupshupUrl, {
@@ -39,7 +57,21 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Erro da API Gupshup:', errorText);
+      console.error(`❌ Gupshup API error ${response.status}:`, errorText);
+      
+      if (response.status === 404) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Nenhuma conversa encontrada no Gupshup',
+            phone_number 
+          }),
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      
       throw new Error(`Gupshup API error: ${response.status} - ${errorText}`);
     }
 
@@ -47,7 +79,6 @@ Deno.serve(async (req) => {
     
     console.log('📦 Resposta Gupshup:', JSON.stringify(data, null, 2));
 
-    // Verificar se encontrou conversas
     if (!data.conversations || data.conversations.length === 0) {
       return new Response(
         JSON.stringify({ 
@@ -61,7 +92,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Pegar a conversa mais recente (primeira do array)
     const latestConversation = data.conversations[0];
     
     const result = {
@@ -81,6 +111,7 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
+    */
 
   } catch (error) {
     console.error('❌ Erro ao buscar conversa no Gupshup:', error);

@@ -46,11 +46,24 @@ Deno.serve(async (req) => {
 
     if (!conversationResponse.ok) {
       const errorText = await conversationResponse.text();
-      console.error(`❌ Erro ao buscar conversa: ${conversationResponse.status} - ${errorText}`);
-      return new Response(
-        JSON.stringify({ error: `Conversa não encontrada: ${conversationResponse.status}` }),
-        { status: conversationResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.error(`❌ Chatwoot API error ${conversationResponse.status}:`, errorText);
+      
+      // Retornar 404 para indicar que conversa não existe (não é erro fatal)
+      if (conversationResponse.status === 404) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Conversa não encontrada no Chatwoot',
+            conversation_id 
+          }),
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      
+      // Outros erros são fatais
+      throw new Error(`Chatwoot API error: ${conversationResponse.status} - ${errorText}`);
     }
 
     const conversationData = await conversationResponse.json();
