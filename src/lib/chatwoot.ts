@@ -178,6 +178,23 @@ export function extractAssigneeData(eventData: ChatwootEventData): ChatwootAssig
   };
 }
 
+/**
+ * Extrai conversation_id do campo IM no raw do lead (OpenLine)
+ * Formato: imol|connector|accountId|chatId|conversationId
+ */
+export function extractConversationFromOpenLine(raw: any): number | null {
+  const imData = raw?.IM?.[0]?.VALUE;
+  if (!imData || typeof imData !== 'string') return null;
+  
+  // Formato: imol|connector|accountId|chatId|conversationId
+  const parts = imData.split('|');
+  if (parts.length >= 5) {
+    const conversationId = parseInt(parts[4], 10);
+    return isNaN(conversationId) ? null : conversationId;
+  }
+  return null;
+}
+
 export function extractChatwootData(eventData: ChatwootEventData): ChatwootContact | null {
   // Extrair dados do agente - PRIORIDADE: data.currentAgent, FALLBACK: conversation.meta.assignee
   const currentAgent = eventData.data?.currentAgent;

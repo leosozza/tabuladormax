@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { saveChatwootContact, extractChatwootData, type ChatwootEventData } from "@/lib/chatwoot";
+import { saveChatwootContact, extractChatwootData, extractConversationFromOpenLine, type ChatwootEventData } from "@/lib/chatwoot";
 import { getLead, type BitrixLead, getLeadFields, type BitrixField } from "@/lib/bitrix";
 import { getTelemarketingId } from "@/handlers/tabular";
 import { ChatModal } from "@/components/chatwoot/ChatModal";
@@ -590,7 +590,7 @@ const LeadTab = () => {
           
           setProfile(newProfile);
 
-          const contactData = {
+          let contactData = {
             bitrix_id: bitrixId,
             name: supabaseLead.name || '',
             phone_number: supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa || '',
@@ -600,6 +600,68 @@ const LeadTab = () => {
             conversation_id: supabaseLead.conversation_id || null,
             contact_id: supabaseLead.contact_id || null
           };
+          
+          // 🔍 NOVA ETAPA: Buscar conversa do Chatwoot via OpenLine
+          if (supabaseLead.raw && !supabaseLead.conversation_id) {
+            const conversationId = extractConversationFromOpenLine(supabaseLead.raw);
+            
+            if (conversationId) {
+              updateStep(3, 'loading', 'Buscando conversa no Chatwoot...');
+              const chatwootStart = Date.now();
+              
+              try {
+                const { data: chatwootData, error: chatwootError } = await supabase.functions.invoke(
+                  'chatwoot-get-conversation',
+                  { body: { conversation_id: conversationId } }
+                );
+                
+                const chatwootDuration = Date.now() - chatwootStart;
+                
+                if (chatwootData && !chatwootError) {
+                  updateStep(3, 'success', `Conversa encontrada (${(chatwootDuration / 1000).toFixed(2)}s)`, chatwootDuration);
+                  
+                  // Atualizar contactData com dados do Chatwoot
+                  contactData = {
+                    ...contactData,
+                    conversation_id: chatwootData.conversation_id,
+                    contact_id: chatwootData.contact_id,
+                    name: chatwootData.name || contactData.name,
+                    phone_number: chatwootData.phone_number || contactData.phone_number,
+                    thumbnail: chatwootData.thumbnail || contactData.thumbnail,
+                    custom_attributes: { ...contactData.custom_attributes, ...chatwootData.custom_attributes },
+                    additional_attributes: chatwootData.additional_attributes || {}
+                  };
+                  
+                  // Atualizar Supabase
+                  await supabase.from('leads').update({
+                    conversation_id: chatwootData.conversation_id,
+                    contact_id: chatwootData.contact_id
+                  }).eq('id', Number(bitrixId));
+                  
+                  // Salvar em chatwoot_contacts
+                  await saveChatwootContact(contactData);
+                  
+                  console.log('✅ Conversa do Chatwoot sincronizada:', {
+                    conversation_id: chatwootData.conversation_id,
+                    contact_id: chatwootData.contact_id
+                  });
+                } else {
+                  updateStep(3, 'error', `Erro ao buscar conversa: ${chatwootError?.message || 'Desconhecido'}`, chatwootDuration);
+                  console.error('❌ Erro ao buscar conversa do Chatwoot:', chatwootError);
+                }
+              } catch (error: any) {
+                const chatwootDuration = Date.now() - chatwootStart;
+                updateStep(3, 'error', `Erro: ${error.message}`, chatwootDuration);
+                console.error('❌ Erro ao buscar conversa do Chatwoot:', error);
+              }
+            } else {
+              updateStep(3, 'success', 'Sem OpenLine', 0);
+            }
+          } else if (supabaseLead.conversation_id) {
+            updateStep(3, 'success', 'Já possui conversa', 0);
+          } else {
+            updateStep(3, 'success', 'Sem OpenLine', 0);
+          }
           
           setChatwootData(contactData);
           await logSearch('supabase', true);

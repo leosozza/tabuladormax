@@ -1,4 +1,4 @@
-import { Loader2, Check, X, Database, ExternalLink } from "lucide-react";
+import { Loader2, Check, X, Database, ExternalLink, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SearchStep {
@@ -59,6 +59,7 @@ export function LeadSearchProgress({ steps, onClose }: LeadSearchProgressProps) 
                     <p className="font-medium text-sm">{step.name}</p>
                     {step.name === 'Supabase' && <Database className="w-3 h-3 text-muted-foreground" />}
                     {step.name === 'Bitrix' && <ExternalLink className="w-3 h-3 text-muted-foreground" />}
+                    {step.name === 'Chatwoot' && <MessageSquare className="w-3 h-3 text-muted-foreground" />}
                   </div>
                   {step.message && (
                     <p className="text-xs text-muted-foreground mt-1">{step.message}</p>
