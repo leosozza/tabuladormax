@@ -109,7 +109,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
       </div>
         
       {/* Badges de Status - Topo Direito */}
-      <div className="absolute top-2 right-2 md:top-3 md:right-3 lg:top-4 lg:right-4 flex flex-row flex-wrap gap-1.5 md:gap-2 z-10">
+      <div className="absolute top-2 right-2 md:top-3 md:right-3 lg:top-4 lg:right-4 flex flex-row items-center gap-1 z-10 max-w-[85%]">
           {/* FASE 4: Badge de erro de sincronização */}
           {lead.has_sync_errors && (
             <Tooltip>
@@ -147,16 +147,16 @@ export default function LeadCard({ lead }: LeadCardProps) {
                 key={idx} 
                 variant="default"
                 className={cn(
-                  "backdrop-blur-sm text-[10px] md:text-xs flex items-center gap-1",
+                  "backdrop-blur-sm text-[9px] md:text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 whitespace-nowrap",
                   isId && isFichaConfirmada && "bg-green-500/90 text-white hover:bg-green-500/80",
                   isId && !isFichaConfirmada && "bg-gray-500/90 text-white hover:bg-gray-500/80",
                   isProject && "bg-yellow-500/90 text-white hover:bg-yellow-500/80", // ✅ Amarelo
                   isScouter && "bg-blue-500/90 text-white hover:bg-blue-500/80", // ✅ Azul
                 )}
               >
-                {isProject && <Building2 className="w-3 h-3" />}
-                {isScouter && <UserCheck className="w-3 h-3" />}
-                {badge.value}
+                {isProject && <Building2 className="w-2.5 h-2.5 md:w-3 md:h-3" />}
+                {isScouter && <UserCheck className="w-2.5 h-2.5 md:w-3 md:h-3" />}
+                <span className="truncate max-w-[120px]">{badge.value}</span>
               </Badge>
             );
           })}
