@@ -26,7 +26,7 @@ interface FichaLocation {
   name: string;
   scouter: string;
   confirmed: boolean;
-  compareceu: boolean;
+  presenca_confirmada: boolean;
 }
 
 interface HeatmapFichasMapProps {
@@ -62,7 +62,7 @@ export default function HeatmapFichasMap({
     queryFn: async () => {
       let query = supabase
         .from("leads")
-        .select("id, name, address, scouter, ficha_confirmada, compareceu, data_confirmacao_ficha")
+        .select("id, name, address, scouter, ficha_confirmada, presenca_confirmada, data_confirmacao_ficha")
         .eq("ficha_confirmada", true)
         .not("address", "is", null)
         .gte("data_confirmacao_ficha", dateRange.startDate.toISOString())
@@ -88,11 +88,11 @@ export default function HeatmapFichasMap({
         locations.push({
           lat: baseCoords.lat + (Math.random() - 0.5) * offset,
           lng: baseCoords.lng + (Math.random() - 0.5) * offset,
-          value: ficha.compareceu ? 2 : 1, // Peso maior para quem compareceu
+          value: ficha.presenca_confirmada ? 2 : 1, // Peso maior para quem compareceu
           name: ficha.name || "Sem nome",
           scouter: ficha.scouter || "Sem scouter",
           confirmed: ficha.ficha_confirmada,
-          compareceu: ficha.compareceu || false,
+          presenca_confirmada: ficha.presenca_confirmada || false,
         });
       });
 
@@ -121,7 +121,7 @@ export default function HeatmapFichasMap({
           name: update.name,
           scouter: update.scouter || "Sem scouter",
           confirmed: true,
-          compareceu: false,
+          presenca_confirmada: false,
         });
       }
     });
@@ -149,7 +149,7 @@ export default function HeatmapFichasMap({
 
   // Estatísticas - use merged data
   const totalFichas = mergedFichasData?.length || 0;
-  const fichasCompareceram = mergedFichasData?.filter((f) => f.compareceu).length || 0;
+  const fichasCompareceram = mergedFichasData?.filter((f) => f.presenca_confirmada).length || 0;
   const taxaComparecimento = totalFichas > 0 ? (fichasCompareceram / totalFichas) * 100 : 0;
 
   // Inicializar mapa
@@ -251,7 +251,7 @@ export default function HeatmapFichasMap({
             <div class="flex justify-between text-xs">
               <span class="text-gray-600">Compareceram:</span>
               <span class="font-semibold text-green-600">
-                ${cell.fichas.filter(f => f.compareceu).length}
+                ${cell.fichas.filter(f => f.presenca_confirmada).length}
               </span>
             </div>
             <div class="flex justify-between text-xs">
@@ -273,7 +273,7 @@ export default function HeatmapFichasMap({
       const icon = L.divIcon({
         html: `
           <div class="w-3 h-3 rounded-full ${
-            ficha.compareceu ? 'bg-green-500' : 'bg-blue-500'
+            ficha.presenca_confirmada ? 'bg-green-500' : 'bg-blue-500'
           } border-2 border-white shadow-lg"></div>
         `,
         className: '',
@@ -294,7 +294,7 @@ export default function HeatmapFichasMap({
               ${ficha.confirmed ? 'Confirmada' : 'Pendente'}
             </span>
             ${
-              ficha.compareceu
+              ficha.presenca_confirmada
                 ? '<span class="px-2 py-0.5 text-[10px] rounded bg-green-100 text-green-800">Compareceu</span>'
                 : '<span class="px-2 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600">Não compareceu</span>'
             }
