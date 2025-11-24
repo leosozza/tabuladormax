@@ -623,6 +623,24 @@ const LeadTab = () => {
             }
           }
 
+          // Função helper para classificar resposta
+          const classifyResponse = (error: any, data: any) => {
+            if (data && !error) return 'success';
+            if (error?.message?.includes('404') || 
+                error?.message?.includes('não encontrada') ||
+                data?.error?.includes('não encontrad')) {
+              return 'not_found';
+            }
+            if (error?.message?.includes('501') || 
+                data?.error?.includes('desabilitada')) {
+              return 'disabled';
+            }
+            return 'error';
+          };
+
+          // Flag para rastrear se Gupshup está disponível
+          let gupshupAvailable = true;
+
           // === ESTRATÉGIA 2: Chatwoot - Lead já tem conversation_id salvo ===
           if (conversationId) {
             source = 'supabase (cached)';
@@ -630,27 +648,33 @@ const LeadTab = () => {
             const start = Date.now();
             
             try {
-              console.log(`🔍 [ESTRATÉGIA 2] Buscando dados completos da conversa #${conversationId}`);
-              // Buscar dados completos da conversa
               const { data, error } = await supabase.functions.invoke(
                 'chatwoot-get-conversation',
                 { body: { conversation_id: conversationId } }
               );
               
-              if (data && !error) {
-                // Atualizar contactData com dados completos
-                contactData = { ...contactData, ...data };
-                updateStep(chatwootStepIndex, 'success', `✅ Conversa #${conversationId} carregada`, Date.now() - start);
-                console.log(`✅ [ESTRATÉGIA 2] Conversa carregada com sucesso:`, data);
-                console.log(`✅ [ESTRATÉGIA 2] contactData atualizado:`, contactData);
-              } else {
-                // Se falhar, continuar com próxima estratégia
-                console.warn(`⚠️ [ESTRATÉGIA 2] Falha ao carregar conversa:`, error);
-                conversationId = null;
-                updateStep(chatwootStepIndex, 'error', 'Conversa não encontrada, tentando outras fontes...', Date.now() - start);
+              const result = classifyResponse(error, data);
+              const duration = Date.now() - start;
+              
+              switch (result) {
+                case 'success':
+                  contactData = { ...contactData, ...data };
+                  updateStep(chatwootStepIndex, 'success', `✅ Conversa #${conversationId}`, duration);
+                  console.log(`✅ [Estratégia 2] Conversa carregada`);
+                  break;
+                  
+                case 'not_found':
+                  conversationId = null;
+                  console.info(`ℹ️ [Estratégia 2] Conversa #${conversationId} não existe mais, tentando outras fontes`);
+                  break;
+                  
+                case 'error':
+                  conversationId = null;
+                  console.warn(`⚠️ [Estratégia 2] Erro técnico:`, error);
+                  break;
               }
             } catch (error) {
-              console.warn('⚠️ [ESTRATÉGIA 2] Erro ao buscar conversa salva:', error);
+              console.warn('⚠️ [Estratégia 2] Exceção:', error);
               conversationId = null;
             }
           }
@@ -731,23 +755,25 @@ const LeadTab = () => {
                   { body: { phone_number: telefone } }
                 );
                 
-                if (data && !error) {
-                  // Salvar no Supabase
+                const result = classifyResponse(error, data);
+                const duration = Date.now() - start;
+                
+                if (result === 'success') {
                   await supabase.from('leads').update({
                     conversation_id: data.conversation_id,
                     contact_id: data.contact_id
                   }).eq('id', Number(bitrixId));
                   
                   contactData = { ...contactData, ...data };
-                  
-                  updateStep(chatwootStepIndex, 'success', `✅ Conversa encontrada por telefone`, Date.now() - start);
                   conversationId = data.conversation_id;
+                  updateStep(chatwootStepIndex, 'success', `✅ Encontrado por telefone`, duration);
+                  console.log(`✅ [Estratégia 4] Conversa encontrada`);
                   source = 'chatwoot phone search';
-                } else {
-                  console.warn('⚠️ Não encontrado no Chatwoot por telefone');
+                } else if (result === 'not_found') {
+                  console.info(`ℹ️ [Estratégia 4] Nenhuma conversa com telefone ${telefone}`);
                 }
               } catch (error) {
-                console.warn('⚠️ Erro ao buscar por telefone no Chatwoot');
+                console.info(`ℹ️ [Estratégia 4] Telefone sem conversa`);
               }
             }
           }
@@ -819,78 +845,62 @@ const LeadTab = () => {
           }
 
           // ESTRATÉGIA 3: Fallback para Gupshup (por telefone)
-          if (!conversationId && contactData.phone_number) {
+          if (!conversationId && contactData.phone_number && gupshupAvailable) {
             updateStep(chatwootStepIndex, 'loading', 'Buscando no Gupshup por telefone...');
-            const gupshupStart = Date.now();
+            const start = Date.now();
             
             try {
-              const { data: gupshupData, error: gupshupError } = await supabase.functions.invoke(
+              const { data, error } = await supabase.functions.invoke(
                 'gupshup-get-conversation',
                 { body: { phone_number: contactData.phone_number } }
               );
               
-              const duration = Date.now() - gupshupStart;
+              const result = classifyResponse(error, data);
+              const duration = Date.now() - start;
               
-              // Tratar 501 (Not Implemented) como funcionalidade desabilitada
-              if (gupshupError?.message?.includes('501') || gupshupData?.error?.includes('desabilitada')) {
-                updateStep(chatwootStepIndex, 'error', 'Gupshup temporariamente desabilitado', duration);
-                console.warn('⚠️ Gupshup desabilitado - endpoint não validado');
+              switch (result) {
+                case 'success':
+                  conversationId = data.conversation_id;
+                  contactData = { ...contactData, ...data };
+                  await supabase.from('leads').update({
+                    conversation_id: data.conversation_id,
+                    contact_id: data.contact_id
+                  }).eq('id', Number(bitrixId));
+                  await saveChatwootContact(contactData);
+                  updateStep(chatwootStepIndex, 'success', `✅ Gupshup`, duration);
+                  console.log(`✅ Conversa encontrada no Gupshup`);
+                  source = 'gupshup';
+                  break;
+                  
+                case 'disabled':
+                  gupshupAvailable = false;
+                  console.info(`ℹ️ Gupshup desabilitado (não tentará novamente)`);
+                  break;
+                  
+                case 'not_found':
+                  console.info(`ℹ️ Telefone sem conversa no Gupshup`);
+                  break;
+                  
+                case 'error':
+                  console.warn(`⚠️ Erro ao buscar no Gupshup:`, error);
+                  break;
               }
-              // Tratar 404 como não encontrado (normal)
-              else if (gupshupError?.message?.includes('404') || gupshupData?.error?.includes('não encontrada')) {
-                updateStep(chatwootStepIndex, 'error', 'Nenhuma conversa encontrada no Gupshup', duration);
-                console.warn('⚠️ Nenhuma conversa encontrada no Gupshup');
-              }
-              // Sucesso
-              else if (gupshupData?.conversation_id && !gupshupError) {
-                conversationId = gupshupData.conversation_id;
-                source = 'gupshup';
-                
-                // Salvar no Supabase
-                await supabase.from('leads').update({
-                  conversation_id: gupshupData.conversation_id,
-                  contact_id: gupshupData.contact_id
-                }).eq('id', Number(bitrixId));
-                
-                // Atualizar contactData
-                contactData = {
-                  ...contactData,
-                  conversation_id: gupshupData.conversation_id,
-                  contact_id: gupshupData.contact_id,
-                  name: gupshupData.name || contactData.name,
-                  phone_number: gupshupData.phone_number || contactData.phone_number,
-                };
-                
-                // Salvar em chatwoot_contacts
-                await saveChatwootContact(contactData);
-                
-                updateStep(chatwootStepIndex, 'success', `✅ Conversa encontrada (Gupshup)`, duration);
-                console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
-              }
-              // Erro inesperado
-              else {
-                updateStep(chatwootStepIndex, 'error', `Erro ao buscar no Gupshup`, duration);
-                console.error('❌ Erro ao buscar no Gupshup:', gupshupError);
-              }
-            } catch (error: any) {
-              const duration = Date.now() - gupshupStart;
-              updateStep(chatwootStepIndex, 'error', `Erro ao buscar no Gupshup: ${error.message}`, duration);
-              console.error('❌ Erro ao buscar no Gupshup:', error);
+            } catch (error) {
+              console.info(`ℹ️ Gupshup não disponível`);
             }
           }
 
           // Resultado final
           if (!conversationId) {
-            // Verificar se tentou buscar ou se não tinha dados para buscar
             if (!supabaseLead.raw && !contactData.phone_number) {
-              updateStep(chatwootStepIndex, 'error', 'Sem dados para buscar conversa (sem OpenLine nem telefone)', 0);
-              console.log('ℹ️ Lead não possui dados OpenLine nem telefone para buscar conversa');
+              updateStep(chatwootStepIndex, 'error', 'Sem dados para buscar (sem OpenLine nem telefone)', 0);
+              console.info('ℹ️ Lead sem dados OpenLine ou telefone');
             } else {
-              updateStep(chatwootStepIndex, 'error', 'Lead sem conversa WhatsApp em nenhuma fonte', 0);
-              console.log('ℹ️ Lead não possui conversa em nenhuma plataforma (tentou todas as fontes)');
+              updateStep(chatwootStepIndex, 'pending', 'Lead sem conversa WhatsApp', 0);
+              console.info('ℹ️ Lead não possui conversa em nenhuma plataforma (situação normal)');
             }
           } else {
-            console.log(`✅ Conversa final: ${conversationId} (fonte: ${source})`);
+            console.log(`✅ Conversa: ${conversationId} (fonte: ${source})`);
           }
           
           setChatwootData(contactData);
