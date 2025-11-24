@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { User, MapPin, Calendar, Phone, AlertCircle } from "lucide-react";
+import { User, MapPin, Calendar, Phone, AlertCircle, Building2, UserCheck } from "lucide-react";
 import { useTinderCardConfig } from "@/hooks/useTinderCardConfig";
 import { ALL_LEAD_FIELDS } from "@/config/leadFields";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
@@ -123,11 +123,27 @@ export default function LeadCard({ lead }: LeadCardProps) {
             </Tooltip>
           )}
           
-          {badgeValues.length > 0 && badgeValues.map((badge, idx) => (
-            <Badge key={idx} variant="secondary" className="backdrop-blur-sm bg-background/80 text-[10px] md:text-xs">
-              {badge.value}
-            </Badge>
-          ))}
+          {badgeValues.length > 0 && badgeValues.map((badge, idx) => {
+            const isProject = badge.key === 'projeto_comercial';
+            const isScouter = badge.key === 'scouter';
+            
+            return (
+              <Badge 
+                key={idx} 
+                variant={isProject || isScouter ? "default" : "secondary"}
+                className={cn(
+                  "backdrop-blur-sm text-[10px] md:text-xs flex items-center gap-1",
+                  isProject && "bg-blue-500/90 text-white hover:bg-blue-500/80",
+                  isScouter && "bg-purple-500/90 text-white hover:bg-purple-500/80",
+                  !isProject && !isScouter && "bg-background/80"
+                )}
+              >
+                {isProject && <Building2 className="w-3 h-3" />}
+                {isScouter && <UserCheck className="w-3 h-3" />}
+                {badge.value}
+              </Badge>
+            );
+          })}
       </div>
 
       {/* Informações do Lead - Overlay com Gradiente Claro */}
