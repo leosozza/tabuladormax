@@ -377,6 +377,7 @@ export default function GestaoScouters() {
               onStatusChange={handleStatusChange}
               onEdit={handleEdit}
               onViewPerformance={handleViewPerformance}
+              statusFilter={statusFilter}
             />
           ) : (
             <ScoutersListView

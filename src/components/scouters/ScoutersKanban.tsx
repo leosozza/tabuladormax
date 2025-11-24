@@ -23,6 +23,7 @@ interface ScoutersKanbanProps {
   onStatusChange: (id: string, newStatus: string) => void;
   onEdit: (scouter: Scouter) => void;
   onViewPerformance: (scouter: Scouter) => void;
+  statusFilter?: 'todos' | 'ativo' | 'inativo' | 'standby' | 'blacklist';
 }
 
 const STATUS_CONFIG = {
@@ -57,8 +58,14 @@ export function ScoutersKanban({
   onStatusChange,
   onEdit,
   onViewPerformance,
+  statusFilter = 'todos',
 }: ScoutersKanbanProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  
+  // Filter visible columns based on statusFilter
+  const visibleStatuses = statusFilter === 'todos' 
+    ? Object.keys(STATUS_CONFIG) 
+    : [statusFilter];
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -93,19 +100,21 @@ export function ScoutersKanban({
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex gap-4 overflow-x-auto pb-4">
-        {Object.entries(STATUS_CONFIG).map(([status, config]) => (
-          <ScouterColumn
-            key={status}
-            id={status}
-            title={config.label}
-            icon={config.icon}
-            color={config.color}
-            scouters={groupedScouters[status as keyof typeof groupedScouters]}
-            onStatusChange={onStatusChange}
-            onEdit={onEdit}
-            onViewPerformance={onViewPerformance}
-          />
-        ))}
+        {Object.entries(STATUS_CONFIG)
+          .filter(([status]) => visibleStatuses.includes(status))
+          .map(([status, config]) => (
+            <ScouterColumn
+              key={status}
+              id={status}
+              title={config.label}
+              icon={config.icon}
+              color={config.color}
+              scouters={groupedScouters[status as keyof typeof groupedScouters]}
+              onStatusChange={onStatusChange}
+              onEdit={onEdit}
+              onViewPerformance={onViewPerformance}
+            />
+          ))}
       </div>
 
       <DragOverlay>
