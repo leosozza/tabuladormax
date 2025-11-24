@@ -626,9 +626,31 @@ const LeadTab = () => {
           // === ESTRATÉGIA 2: Chatwoot - Lead já tem conversation_id salvo ===
           if (conversationId) {
             source = 'supabase (cached)';
-            updateStep(chatwootStepIndex, 'success', 'Conversa já salva no banco', 0);
-            console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
-          } 
+            updateStep(chatwootStepIndex, 'loading', `Carregando conversa #${conversationId}...`);
+            const start = Date.now();
+            
+            try {
+              // Buscar dados completos da conversa
+              const { data, error } = await supabase.functions.invoke(
+                'chatwoot-get-conversation',
+                { body: { conversation_id: conversationId } }
+              );
+              
+              if (data && !error) {
+                // Atualizar contactData com dados completos
+                contactData = { ...contactData, ...data };
+                updateStep(chatwootStepIndex, 'success', `✅ Conversa #${conversationId} carregada`, Date.now() - start);
+                console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
+              } else {
+                // Se falhar, continuar com próxima estratégia
+                conversationId = null;
+                updateStep(chatwootStepIndex, 'error', 'Conversa não encontrada, tentando outras fontes...', Date.now() - start);
+              }
+            } catch (error) {
+              console.warn('⚠️ Erro ao buscar conversa salva, tentando outras estratégias');
+              conversationId = null;
+            }
+          }
           // === ESTRATÉGIA 3: IDs do Chatwoot armazenados no Bitrix ===
           else if (supabaseLead.raw) {
             const chatwootIds = extractChatwootIdsFromBitrix(supabaseLead.raw);
