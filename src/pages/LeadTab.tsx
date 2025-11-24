@@ -33,6 +33,7 @@ import { useLeadAnalysis } from "@/hooks/useLeadAnalysis";
 import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
 import { useBitrixEnums } from '@/hooks/useBitrixEnums';
 import { MainLayout } from "@/components/layouts/MainLayout";
+import { LeadSearchProgress } from "@/components/telemarketing/LeadSearchProgress";
 
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, unknown>;
@@ -243,6 +244,15 @@ const LeadTab = () => {
   const [bitrixResponseMessage, setBitrixResponseMessage] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [searchSteps, setSearchSteps] = useState<Array<{
+    name: string;
+    status: 'pending' | 'loading' | 'success' | 'error';
+    message?: string;
+    duration?: number;
+  }>>([]);
+  const [showSearchProgress, setShowSearchProgress] = useState(false);
+  const [showDebugModal, setShowDebugModal] = useState(false);
+  const [debugHistory, setDebugHistory] = useState<any[]>([]);
 
   // Query para field mappings
   const { data: fieldMappings = [], refetch: refetchFieldMappings } = useQuery({
@@ -461,148 +471,271 @@ const LeadTab = () => {
       if (!silent) toast.error("Digite um ID válido");
       return;
     }
+
+    const startTime = Date.now();
+    const steps: typeof searchSteps = [
+      { name: 'Cache', status: 'pending', message: 'Verificando cache de buscas...' },
+      { name: 'Supabase', status: 'pending', message: 'Buscando no banco de dados...' },
+      { name: 'Bitrix', status: 'pending', message: 'Buscando na API externa...' },
+    ];
+
+    setSearchSteps(steps);
+    setShowSearchProgress(true);
     setSearchLoading(true);
+
+    const updateStep = (index: number, status: typeof steps[0]['status'], message?: string, duration?: number) => {
+      setSearchSteps(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], status, message: message || updated[index].message, duration };
+        return updated;
+      });
+    };
+
+    const logSearch = async (source: string, found: boolean, errorMsg?: string) => {
+      try {
+        await supabase.from('actions_log').insert({
+          lead_id: Number(bitrixId),
+          action_label: `Lead Search: ${source}`,
+          payload: {
+            source,
+            found,
+            error: errorMsg,
+            duration_ms: Date.now() - startTime,
+            forced_bitrix: forceBitrix
+          } as any,
+          status: found ? 'OK' : 'ERROR',
+          error: errorMsg
+        });
+      } catch (err) {
+        console.error('Erro ao registrar log:', err);
+      }
+    };
+
     try {
-      // 1️⃣ BUSCAR NA TABELA LEADS DO SUPABASE (mais rápido)
+      // 🔍 PASSO 1: Verificar cache de buscas (evitar buscas repetidas)
       if (!forceBitrix) {
-        console.log("🔍 Buscando lead no Supabase...", bitrixId);
-        const {
-          data: supabaseLead,
-          error: supabaseError
-        } = await supabase.from('leads').select('*').eq('id', Number(bitrixId)).maybeSingle();
+        updateStep(0, 'loading');
+        const cacheStart = Date.now();
+
+        const { data: cached } = await supabase
+          .from('lead_search_cache')
+          .select('*')
+          .eq('lead_id', Number(bitrixId))
+          .gte('last_search', new Date(Date.now() - 3600000).toISOString()) // 1 hora
+          .maybeSingle();
+
+        const cacheDuration = Date.now() - cacheStart;
+
+        if (cached) {
+          if (!cached.found) {
+            updateStep(0, 'success', `Cache negativo encontrado (${(cacheDuration / 1000).toFixed(2)}s)`, cacheDuration);
+            updateStep(1, 'error', 'Pulado devido ao cache');
+            updateStep(2, 'error', 'Lead não existe');
+            
+            toast.error(`Lead ${bitrixId} não encontrado (cache)`);
+            await logSearch('cache', false, cached.error_message || 'Lead não existe');
+            
+            setTimeout(() => setShowSearchProgress(false), 3000);
+            setSearchModal(false);
+            setSearchId("");
+            setSearchLoading(false);
+            return;
+          }
+          updateStep(0, 'success', `Cache positivo (${(cacheDuration / 1000).toFixed(2)}s)`, cacheDuration);
+        } else {
+          updateStep(0, 'success', `Sem cache recente (${(cacheDuration / 1000).toFixed(2)}s)`, cacheDuration);
+        }
+      } else {
+        updateStep(0, 'success', 'Cache ignorado (busca forçada)', 0);
+      }
+
+      // 🔍 PASSO 2: Buscar na tabela leads do Supabase
+      if (!forceBitrix) {
+        updateStep(1, 'loading');
+        const supabaseStart = Date.now();
+
+        const { data: supabaseLead, error: supabaseError } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('id', Number(bitrixId))
+          .maybeSingle();
+
+        const supabaseDuration = Date.now() - supabaseStart;
+
         if (supabaseError) {
           console.error("Erro ao buscar no Supabase:", supabaseError);
-        }
-        if (supabaseLead) {
-          console.log("✅ Lead encontrado no Supabase:", supabaseLead);
+          updateStep(1, 'error', `Erro: ${supabaseError.message}`, supabaseDuration);
+        } else if (supabaseLead) {
+          updateStep(1, 'success', `Lead encontrado (${(supabaseDuration / 1000).toFixed(2)}s)`, supabaseDuration);
+          updateStep(2, 'success', 'Não necessário', 0);
 
-          // Mapear lead do Supabase → Profile
           const newProfile = mapSupabaseLeadToProfile(supabaseLead);
           
-          // ⚠️ Se telefone estiver vazio, buscar no Bitrix
+          // Verificar telefone
           const hasPhone = supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa;
           
           if (!hasPhone) {
-            console.log("⚠️ Lead sem telefone no Supabase, buscando no Bitrix...");
             try {
               const bitrixLead = await getLead(bitrixId);
-              
-              // Extrair telefone do Bitrix
-              let phoneNumber = '';
               const phones = bitrixLead.PHONE;
               if (Array.isArray(phones) && phones.length > 0) {
-                phoneNumber = phones[0].VALUE || '';
-              }
-              
-              if (phoneNumber) {
-                console.log("✅ Telefone encontrado no Bitrix:", phoneNumber);
-                // Atualizar profile com telefone do Bitrix
+                const phoneNumber = phones[0].VALUE || '';
                 newProfile['custom_1759958661434'] = phoneNumber;
-                
-                // Atualizar também no Supabase para cache
-                await supabase
-                  .from('leads')
-                  .update({ celular: phoneNumber })
-                  .eq('id', Number(bitrixId));
+                await supabase.from('leads').update({ celular: phoneNumber }).eq('id', Number(bitrixId));
               }
             } catch (bitrixError) {
-              console.error("❌ Erro ao buscar telefone no Bitrix:", bitrixError);
+              console.error("Erro ao buscar telefone no Bitrix:", bitrixError);
             }
           }
           
           setProfile(newProfile);
 
-          // Salvar também no chatwoot_contacts para compatibilidade
           const contactData = {
             bitrix_id: bitrixId,
             name: supabaseLead.name || '',
             phone_number: supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa || '',
             thumbnail: supabaseLead.photo_url || '',
-            custom_attributes: {
-              idbitrix: bitrixId
-            },
+            custom_attributes: { idbitrix: bitrixId },
             additional_attributes: {},
             conversation_id: supabaseLead.conversation_id || null,
             contact_id: supabaseLead.contact_id || null
           };
+          
           setChatwootData(contactData);
+          await logSearch('supabase', true);
+          
+          // Atualizar cache positivo
+          await supabase.from('lead_search_cache').upsert({
+            lead_id: Number(bitrixId),
+            found: true,
+            last_search: new Date().toISOString(),
+            source: 'supabase',
+            error_message: null
+          }, { onConflict: 'lead_id' });
+
           toast.success("Lead carregado (Supabase)");
+          setTimeout(() => setShowSearchProgress(false), 2000);
           setSearchModal(false);
           setSearchId("");
           setSearchLoading(false);
           return;
+        } else {
+          updateStep(1, 'error', `Lead não encontrado (${(supabaseDuration / 1000).toFixed(2)}s)`, supabaseDuration);
         }
+      } else {
+        updateStep(1, 'success', 'Pulado (busca forçada no Bitrix)', 0);
       }
 
-      // 2️⃣ SE NÃO ENCONTRAR OU forceBitrix=true, BUSCAR NO BITRIX
-      console.log(forceBitrix ? "🔄 Forçando busca no Bitrix..." : "⚠️ Lead não encontrado no Supabase, buscando no Bitrix...");
-      const bitrixLead = await getLead(bitrixId);
-      console.log("✅ Lead encontrado no Bitrix:", bitrixLead);
+      // 🔍 PASSO 3: Buscar no Bitrix
+      updateStep(2, 'loading');
+      const bitrixStart = Date.now();
 
-      // 3. Mapear Bitrix → Profile
-      const newProfile = mapBitrixToProfile(bitrixLead, fieldMappings);
-      setProfile(newProfile);
+      try {
+        const bitrixLead = await getLead(bitrixId);
+        const bitrixDuration = Date.now() - bitrixStart;
+        
+        updateStep(2, 'success', `Lead encontrado (${(bitrixDuration / 1000).toFixed(2)}s)`, bitrixDuration);
 
-      // 4. Salvar no cache para próximas buscas
-      // Construir custom_attributes dinamicamente baseado nos field mappings
-      const customAttributes: Record<string, unknown> = {
-        idbitrix: bitrixId
-      };
-      fieldMappings.forEach(mapping => {
-        const chatwootField = mapping.chatwoot_field;
-        const cleanPath = chatwootField.replace('data.contact.', '').replace('contact.', '');
-        if (cleanPath.startsWith('custom_attributes.')) {
-          const attrKey = cleanPath.replace('custom_attributes.', '');
-          // Buscar valor no Bitrix usando diferentes variações
-          const value = bitrixLead[`UF_CRM_${attrKey.toUpperCase()}`] || bitrixLead[`UF_${attrKey.toUpperCase()}`] || bitrixLead[attrKey.toUpperCase()] || (bitrixLead as any)[attrKey] || '';
-          customAttributes[attrKey] = value;
+        const newProfile = mapBitrixToProfile(bitrixLead, fieldMappings);
+        setProfile(newProfile);
+
+        const customAttributes: Record<string, unknown> = { idbitrix: bitrixId };
+        fieldMappings.forEach(mapping => {
+          const chatwootField = mapping.chatwoot_field;
+          const cleanPath = chatwootField.replace('data.contact.', '').replace('contact.', '');
+          if (cleanPath.startsWith('custom_attributes.')) {
+            const attrKey = cleanPath.replace('custom_attributes.', '');
+            const value = bitrixLead[`UF_CRM_${attrKey.toUpperCase()}`] || 
+                         bitrixLead[`UF_${attrKey.toUpperCase()}`] || 
+                         bitrixLead[attrKey.toUpperCase()] || 
+                         (bitrixLead as any)[attrKey] || '';
+            customAttributes[attrKey] = value;
+          }
+        });
+
+        let phoneNumber = '';
+        const phones = bitrixLead.PHONE;
+        if (Array.isArray(phones) && phones.length > 0) {
+          phoneNumber = phones[0].VALUE || '';
         }
-      });
 
-      // Extrair telefone
-      let phoneNumber = '';
-      const phones = bitrixLead.PHONE;
-      if (Array.isArray(phones) && phones.length > 0) {
-        phoneNumber = phones[0].VALUE || '';
+        const contactData = {
+          bitrix_id: bitrixId,
+          name: bitrixLead.NAME || bitrixLead.TITLE || '',
+          phone_number: phoneNumber,
+          email: '',
+          thumbnail: bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
+          custom_attributes: customAttributes,
+          additional_attributes: {},
+          conversation_id: null,
+          contact_id: null
+        };
+        
+        setChatwootData(contactData);
+        await saveChatwootContact(contactData);
+
+        // Salvar na tabela leads
+        await supabase.from('leads').upsert([{
+          id: Number(bitrixId),
+          name: contactData.name,
+          age: bitrixLead.UF_IDADE ? Number(bitrixLead.UF_IDADE) : null,
+          address: bitrixLead.UF_LOCAL || bitrixLead.ADDRESS || '',
+          responsible: bitrixLead.UF_RESPONSAVEL || bitrixLead.ASSIGNED_BY_NAME || '',
+          scouter: bitrixLead.UF_SCOUTER || '',
+          photo_url: bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
+          date_modify: bitrixLead.DATE_MODIFY ? new Date(bitrixLead.DATE_MODIFY).toISOString() : null,
+          raw: bitrixLead as any,
+          sync_source: 'bitrix',
+          celular: phoneNumber,
+          etapa: bitrixLead.STATUS_ID || '',
+          telemarketing: bitrixLead.UF_RESPONSAVEL || bitrixLead.ASSIGNED_BY_NAME || ''
+        }], { onConflict: 'id' });
+
+        // Atualizar cache positivo
+        await supabase.from('lead_search_cache').upsert({
+          lead_id: Number(bitrixId),
+          found: true,
+          last_search: new Date().toISOString(),
+          source: 'bitrix',
+          error_message: null
+        }, { onConflict: 'lead_id' });
+
+        await logSearch('bitrix', true);
+        toast.success(forceBitrix ? "Lead atualizado do Bitrix!" : "Lead carregado do Bitrix!");
+        
+        setTimeout(() => setShowSearchProgress(false), 2000);
+        setSearchModal(false);
+        setSearchId("");
+      } catch (bitrixError: any) {
+        const bitrixDuration = Date.now() - bitrixStart;
+        const isNotFound = bitrixError?.status === 404 || bitrixError?.message?.includes('não encontrado');
+        
+        updateStep(2, 'error', 
+          isNotFound ? `Lead não existe (${(bitrixDuration / 1000).toFixed(2)}s)` : `Erro: ${bitrixError.message}`,
+          bitrixDuration
+        );
+
+        // Salvar cache negativo se for 404
+        if (isNotFound) {
+          await supabase.from('lead_search_cache').upsert({
+            lead_id: Number(bitrixId),
+            found: false,
+            last_search: new Date().toISOString(),
+            source: 'bitrix',
+            error_message: 'Lead não encontrado no Bitrix'
+          }, { onConflict: 'lead_id' });
+        }
+
+        await logSearch('bitrix', false, bitrixError.message);
+        toast.error(isNotFound ? `Lead ${bitrixId} não encontrado` : "Erro ao buscar lead no Bitrix");
+        
+        setTimeout(() => setShowSearchProgress(false), 3000);
       }
-      const contactData = {
-        bitrix_id: bitrixId,
-        name: bitrixLead.NAME || bitrixLead.TITLE || '',
-        phone_number: phoneNumber,
-        email: '',
-        thumbnail: bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
-        custom_attributes: customAttributes,
-        additional_attributes: {},
-        conversation_id: null,
-        contact_id: null
-      };
-      setChatwootData(contactData);
-      await saveChatwootContact(contactData);
-
-      // 5. Salvar também na tabela leads (para Power BI)
-      await supabase.from('leads').upsert([{
-        id: Number(bitrixId),
-        name: contactData.name,
-        age: bitrixLead.UF_IDADE ? Number(bitrixLead.UF_IDADE) : null,
-        address: bitrixLead.UF_LOCAL || bitrixLead.ADDRESS || '',
-        responsible: bitrixLead.UF_RESPONSAVEL || bitrixLead.ASSIGNED_BY_NAME || '',
-        scouter: bitrixLead.UF_SCOUTER || '',
-        photo_url: bitrixLead.UF_PHOTO || bitrixLead.PHOTO || '',
-        date_modify: bitrixLead.DATE_MODIFY ? new Date(bitrixLead.DATE_MODIFY).toISOString() : null,
-        raw: bitrixLead as any,
-        sync_source: 'bitrix',
-        celular: phoneNumber,
-        etapa: bitrixLead.STATUS_ID || '',
-        telemarketing: bitrixLead.UF_RESPONSAVEL || bitrixLead.ASSIGNED_BY_NAME || ''
-      }], {
-        onConflict: 'id'
-      });
-      toast.success(forceBitrix ? "Lead atualizado do Bitrix!" : "Lead carregado do Bitrix!");
-      setSearchModal(false);
-      setSearchId("");
-    } catch (error) {
-      console.error("❌ Erro ao buscar lead:", error);
-      toast.error("Lead não encontrado ou erro ao buscar");
+    } catch (error: any) {
+      console.error("Erro geral ao buscar lead:", error);
+      toast.error("Erro ao buscar lead");
+      await logSearch('error', false, error.message);
+      setTimeout(() => setShowSearchProgress(false), 3000);
     } finally {
       setSearchLoading(false);
     }
@@ -1796,6 +1929,28 @@ const LeadTab = () => {
                         <Settings className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                         Ver Logs
                       </Button>
+                      {chatwootData?.bitrix_id && (
+                        <Button 
+                          variant="outline" 
+                          onClick={async () => {
+                            // Carregar histórico de buscas
+                            const { data } = await supabase
+                              .from('actions_log')
+                              .select('*')
+                              .eq('lead_id', Number(chatwootData.bitrix_id))
+                              .ilike('action_label', '%Lead Search%')
+                              .order('created_at', { ascending: false })
+                              .limit(10);
+                            
+                            setDebugHistory(data || []);
+                            setShowDebugModal(true);
+                          }}
+                          className="w-full text-xs md:text-sm"
+                        >
+                          <Search className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                          Debug Busca
+                        </Button>
+                      )}
                     </div>}
               </div>
             </> : <div className="w-full space-y-2 md:space-y-3">
@@ -2337,6 +2492,92 @@ const LeadTab = () => {
       </Dialog>
 
       <ChatModal open={chatModalOpen} onOpenChange={setChatModalOpen} conversationId={chatwootData?.conversation_id || null} contactName={chatwootData?.name || profile['Nome'] || 'Lead'} />
+      
+      {/* Progresso de Busca */}
+      {showSearchProgress && (
+        <LeadSearchProgress 
+          steps={searchSteps} 
+          onClose={() => setShowSearchProgress(false)}
+        />
+      )}
+
+      {/* Modal de Debug (apenas para managers) */}
+      {isManager && (
+        <Dialog open={showDebugModal} onOpenChange={setShowDebugModal}>
+          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>🔍 Debug - Histórico de Buscas</DialogTitle>
+              <DialogDescription>
+                Veja o histórico de buscas deste lead e force uma nova busca no Bitrix
+              </DialogDescription>
+            </DialogHeader>
+            
+            <ScrollArea className="flex-1 max-h-[60vh]">
+              <div className="space-y-4 p-4">
+                {chatwootData?.bitrix_id && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold">Lead Atual: {chatwootData.bitrix_id}</h4>
+                      <Button 
+                        onClick={() => {
+                          setShowDebugModal(false);
+                          loadLeadById(chatwootData.bitrix_id, false, true);
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Forçar Busca no Bitrix
+                      </Button>
+                    </div>
+                    
+                    <div className="text-sm text-muted-foreground">
+                      Use o botão acima para forçar uma nova busca deste lead diretamente no Bitrix,
+                      ignorando o cache do Supabase.
+                    </div>
+                  </div>
+                )}
+
+                {debugHistory.length > 0 ? (
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm">Histórico de Buscas</h4>
+                    {debugHistory.map((log, idx) => (
+                      <Card key={idx} className="p-3">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">{log.action_label}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(log.created_at).toLocaleString('pt-BR')}
+                            </p>
+                            {log.payload && (
+                              <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-x-auto">
+                                {JSON.stringify(log.payload, null, 2)}
+                              </pre>
+                            )}
+                          </div>
+                          <Badge variant={log.status === 'OK' ? 'default' : 'destructive'}>
+                            {log.status}
+                          </Badge>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Nenhum histórico de busca disponível
+                  </p>
+                )}
+              </div>
+            </ScrollArea>
+            
+            <DialogFooter>
+              <Button onClick={() => setShowDebugModal(false)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </MainLayout>
   );
 };
