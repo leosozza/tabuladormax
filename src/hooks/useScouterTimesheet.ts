@@ -7,6 +7,7 @@ export interface TimesheetEntry {
   clock_out: string;
   total_leads: number;
   hours_worked: number;
+  projects: string;
 }
 
 export function useScouterTimesheet(

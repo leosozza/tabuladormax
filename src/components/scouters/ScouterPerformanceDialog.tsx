@@ -158,16 +158,18 @@ export function ScouterPerformanceDialog({
     // Tabela
     autoTable(doc, {
       startY: 75,
-      head: [["Data", "Entrada", "Saída", "Fichas", "Horas"]],
+      head: [["Data", "Entrada", "Saída", "Projetos", "Fichas", "Horas"]],
       body: timesheet.map((entry) => [
         new Date(entry.work_date).toLocaleDateString("pt-BR"),
         entry.clock_in,
         entry.clock_out,
+        entry.projects || "Sem Projeto",
         entry.total_leads.toString(),
         `${entry.hours_worked.toFixed(2)}h`,
       ]),
       foot: [[
         "TOTAL",
+        "",
         "",
         "",
         totalLeads.toString(),
@@ -483,6 +485,7 @@ export function ScouterPerformanceDialog({
                           <th className="text-left p-2 font-semibold">Data</th>
                           <th className="text-left p-2 font-semibold">Entrada</th>
                           <th className="text-left p-2 font-semibold">Saída</th>
+                          <th className="text-left p-2 font-semibold">Projetos</th>
                           <th className="text-center p-2 font-semibold">Fichas</th>
                           <th className="text-right p-2 font-semibold">Horas</th>
                         </tr>
@@ -506,6 +509,9 @@ export function ScouterPerformanceDialog({
                             <td className="p-2 font-mono text-red-600">
                               {entry.clock_out}
                             </td>
+                            <td className="p-2 text-sm text-muted-foreground max-w-[200px] truncate" title={entry.projects}>
+                              {entry.projects || "Sem Projeto"}
+                            </td>
                             <td className="p-2 text-center">
                               <Badge variant="secondary">{entry.total_leads}</Badge>
                             </td>
@@ -517,7 +523,7 @@ export function ScouterPerformanceDialog({
                       </tbody>
                       <tfoot>
                         <tr className="font-bold bg-muted">
-                          <td colSpan={3} className="p-2">Total</td>
+                          <td colSpan={4} className="p-2">Total</td>
                           <td className="p-2 text-center">
                             {timesheet.reduce((sum, e) => sum + e.total_leads, 0)}
                           </td>
