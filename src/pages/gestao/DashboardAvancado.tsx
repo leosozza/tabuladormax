@@ -23,7 +23,7 @@ function AdvancedDashboardContent() {
     projectId: null,
     scouterId: null,
     fonte: null,
-    photoFilter: null,
+    photoFilter: false,
   });
 
   // Usar o primeiro dashboard ou dashboard padrão

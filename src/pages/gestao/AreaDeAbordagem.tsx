@@ -21,7 +21,7 @@ function GestaoAreaDeAbordagemContent() {
     projectId: null,
     scouterId: null,
     fonte: null,
-    photoFilter: null,
+    photoFilter: false,
   });
   const [drawnAreas, setDrawnAreas] = useState<DrawnArea[]>([]);
 

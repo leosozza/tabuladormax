@@ -25,7 +25,7 @@ function GestaoProjecaoContent() {
     projectId: null,
     scouterId: null,
     fonte: null,
-    photoFilter: null,
+    photoFilter: false,
   });
 
   // Datas para período histórico (últimos 3 meses por padrão)

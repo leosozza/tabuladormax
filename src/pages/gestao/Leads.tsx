@@ -145,7 +145,7 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
       }
 
       // Aplicar filtro de fotos
-      if (filters.photoFilter === 'with-photo') {
+      if (filters.photoFilter) {
         queryBuilder.eq("cadastro_existe_foto", true);
       }
 
@@ -962,7 +962,7 @@ export default function GestaoLeads() {
     projectId: null,
     scouterId: null,
     fonte: null,
-    photoFilter: null,
+    photoFilter: false,
     additionalFilters: [],
   });
 

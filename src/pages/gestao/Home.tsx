@@ -23,7 +23,7 @@ function GestaoHomeContent() {
     projectId: null,
     scouterId: null,
     fonte: null,
-    photoFilter: null,
+    photoFilter: false,
   });
 
   // Estatísticas principais
