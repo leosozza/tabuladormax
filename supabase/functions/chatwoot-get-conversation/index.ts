@@ -52,11 +52,13 @@ Deno.serve(async (req) => {
         if (conversationResponse.status === 404) {
           return new Response(
             JSON.stringify({ 
-              error: 'Conversa não encontrada no Chatwoot',
+              found: false,
+              reason: 'not_found',
+              message: 'Conversa não encontrada no Chatwoot',
               conversation_id 
             }),
             { 
-              status: 404, 
+              status: 200, 
               headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
             }
           );
@@ -71,12 +73,17 @@ Deno.serve(async (req) => {
       if (!contact) {
         console.error('❌ Dados do contato não encontrados na conversa');
         return new Response(
-          JSON.stringify({ error: 'Contato não encontrado na conversa' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ 
+            found: false,
+            reason: 'no_contact',
+            message: 'Contato não encontrado na conversa'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       const result = {
+        found: true,
         conversation_id: conversationData.id,
         contact_id: contact.id,
         name: contact.name || '',
@@ -111,8 +118,13 @@ Deno.serve(async (req) => {
         const errorText = await response.text();
         console.error(`❌ Erro ao buscar conversas do contato: ${response.status}`, errorText);
         return new Response(
-          JSON.stringify({ error: 'Contato não encontrado', contact_id }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ 
+            found: false,
+            reason: 'contact_not_found',
+            message: 'Contato não encontrado',
+            contact_id 
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
@@ -125,8 +137,13 @@ Deno.serve(async (req) => {
       if (!activeConversation) {
         console.error('❌ Nenhuma conversa encontrada para o contato');
         return new Response(
-          JSON.stringify({ error: 'Nenhuma conversa encontrada', contact_id }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ 
+            found: false,
+            reason: 'no_conversations',
+            message: 'Nenhuma conversa encontrada',
+            contact_id 
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -143,6 +160,7 @@ Deno.serve(async (req) => {
       const contact = conversationData.meta?.sender;
 
       const result = {
+        found: true,
         conversation_id: activeConversation.id,
         contact_id: contact_id,
         name: contact?.name || '',
@@ -178,8 +196,13 @@ Deno.serve(async (req) => {
         const errorText = await searchResponse.text();
         console.error(`❌ Erro ao buscar contato por telefone: ${searchResponse.status}`, errorText);
         return new Response(
-          JSON.stringify({ error: 'Erro ao buscar contato', phone_number }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ 
+            found: false,
+            reason: 'search_failed',
+            message: 'Erro ao buscar contato',
+            phone_number 
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
@@ -189,8 +212,13 @@ Deno.serve(async (req) => {
       if (!contact) {
         console.error('❌ Nenhum contato encontrado com este telefone');
         return new Response(
-          JSON.stringify({ error: 'Contato não encontrado', phone_number }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ 
+            found: false,
+            reason: 'no_contact_with_phone',
+            message: 'Contato não encontrado',
+            phone_number 
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -209,8 +237,12 @@ Deno.serve(async (req) => {
         const errorText = await convResponse.text();
         console.error(`❌ Erro ao buscar conversas: ${convResponse.status}`, errorText);
         return new Response(
-          JSON.stringify({ error: 'Erro ao buscar conversas do contato' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ 
+            found: false,
+            reason: 'conversations_fetch_failed',
+            message: 'Erro ao buscar conversas do contato'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
@@ -223,12 +255,18 @@ Deno.serve(async (req) => {
       if (!activeConversation) {
         console.error('❌ Nenhuma conversa encontrada para o contato');
         return new Response(
-          JSON.stringify({ error: 'Nenhuma conversa encontrada', phone_number }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ 
+            found: false,
+            reason: 'no_conversations_for_phone',
+            message: 'Nenhuma conversa encontrada',
+            phone_number 
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       const result = {
+        found: true,
         conversation_id: activeConversation.id,
         contact_id: contact.id,
         name: contact.name || '',

@@ -625,7 +625,14 @@ const LeadTab = () => {
 
           // Função helper para classificar resposta
           const classifyResponse = (error: any, data: any) => {
-            if (data && !error) return 'success';
+            // Sem erro e com dados encontrados
+            if (data?.found === true && !error) return 'success';
+            // Explicitamente não encontrado
+            if (data?.found === false) {
+              if (data?.available === false) return 'disabled';
+              return 'not_found';
+            }
+            // Fallback para códigos de status antigos
             if (error?.message?.includes('404') || 
                 error?.message?.includes('não encontrada') ||
                 data?.error?.includes('não encontrad')) {

@@ -27,17 +27,20 @@ Deno.serve(async (req) => {
     console.log(`🔍 Buscando conversa no Gupshup para telefone: ${phone_number}`);
     
     // NOTA: Endpoint do Gupshup pode variar. Verificar documentação oficial.
-    // Por enquanto, retornar erro 501 (Not Implemented) até configurar endpoint correto
+    // Por enquanto, retornar como não disponível até configurar endpoint correto
     console.warn('⚠️ Gupshup: Endpoint não configurado. Precisa validar API Gupshup.');
     
     return new Response(
       JSON.stringify({ 
-        error: 'Busca no Gupshup temporariamente desabilitada (endpoint não validado)',
+        found: false,
+        available: false,
+        reason: 'service_disabled',
+        message: 'Busca no Gupshup temporariamente desabilitada (endpoint não validado)',
         phone_number,
-        message: 'Configure o endpoint correto da API Gupshup para habilitar esta funcionalidade'
+        details: 'Configure o endpoint correto da API Gupshup para habilitar esta funcionalidade'
       }),
       { 
-        status: 501, // Not Implemented
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
