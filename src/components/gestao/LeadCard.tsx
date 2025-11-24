@@ -109,7 +109,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
       </div>
         
       {/* Badges de Status - Topo Direito */}
-      <div className="absolute top-2 right-2 md:top-3 md:right-3 lg:top-4 lg:right-4 flex flex-col gap-1.5 md:gap-2 z-10">
+      <div className="absolute top-2 right-2 md:top-3 md:right-3 lg:top-4 lg:right-4 flex flex-row flex-wrap gap-1.5 md:gap-2 z-10">
           {/* FASE 4: Badge de erro de sincronização */}
           {lead.has_sync_errors && (
             <Tooltip>
