@@ -64,6 +64,19 @@ export function LeadColumnConfigProvider({ children }: { children: ReactNode }) 
     }
   }, [visibleColumns]);
 
+  // Sincronizar visibleColumns com campos válidos do banco (remover campos inexistentes)
+  useEffect(() => {
+    if (!allFields || allFields.length === 0 || visibleColumns.length === 0) return;
+    
+    const validKeys = new Set(allFields.map(f => f.key));
+    const invalidKeys = visibleColumns.filter(key => !validKeys.has(key));
+    
+    if (invalidKeys.length > 0) {
+      console.warn('🧹 Removendo campos inválidos do localStorage:', invalidKeys);
+      setVisibleColumns(prev => prev.filter(key => validKeys.has(key)));
+    }
+  }, [allFields]);
+
   // Persistir no localStorage
   useEffect(() => {
     if (visibleColumns.length > 0) {
