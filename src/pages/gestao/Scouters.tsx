@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Users, TrendingUp, Award, Plus, Clock, LayoutGrid, List } from "lucide-react";
+import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 import { ScoutersKanban } from "@/components/scouters/ScoutersKanban";
 import { ScoutersListView } from "@/components/scouters/ScoutersListView";
 import { ScouterDialog } from "@/components/scouters/ScouterDialog";
 import { ScouterPerformanceDialog } from "@/components/scouters/ScouterPerformanceDialog";
+import { ScouterFilters } from "@/components/scouters/ScouterFilters";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Users, TrendingUp, Award, Plus, Clock, LayoutGrid, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 
 interface Scouter {
   id: string;
@@ -27,26 +29,91 @@ interface Scouter {
 }
 
 export default function GestaoScouters() {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [performanceDialogOpen, setPerformanceDialogOpen] = useState(false);
   const [selectedScouter, setSelectedScouter] = useState<Scouter | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'todos' | 'ativo' | 'inativo' | 'standby' | 'blacklist'>('todos');
+  const [sortBy, setSortBy] = useState<'recent' | 'name' | 'total_leads' | 'leads_30d' | 'no_activity'>('recent');
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Fetch scouters
+  // Load saved filters from localStorage
+  useEffect(() => {
+    const savedStatusFilter = localStorage.getItem('scouter-status-filter');
+    const savedSortBy = localStorage.getItem('scouter-sort-by');
+    
+    if (savedStatusFilter) setStatusFilter(savedStatusFilter as any);
+    if (savedSortBy) setSortBy(savedSortBy as any);
+  }, []);
+
+  // Save filters to localStorage
+  useEffect(() => {
+    localStorage.setItem('scouter-status-filter', statusFilter);
+    localStorage.setItem('scouter-sort-by', sortBy);
+  }, [statusFilter, sortBy]);
+
+  // Main query with filters
   const { data: scouters = [], isLoading } = useQuery({
-    queryKey: ["scouters"],
+    queryKey: ["scouters", statusFilter, sortBy],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("scouters")
-        .select("*")
-        .order("name");
-
+      let query = supabase.from("scouters").select("*");
+      
+      // Apply status filter
+      if (statusFilter !== 'todos') {
+        query = query.eq('status', statusFilter);
+      }
+      
+      // Apply sorting
+      switch (sortBy) {
+        case 'recent':
+          query = query.order('last_activity_at', { 
+            ascending: false,
+            nullsFirst: false
+          });
+          break;
+        case 'name':
+          query = query.order('name', { ascending: true });
+          break;
+        case 'total_leads':
+          query = query.order('total_leads', { ascending: false, nullsFirst: false });
+          break;
+        case 'leads_30d':
+          query = query.order('leads_last_30_days', { ascending: false, nullsFirst: false });
+          break;
+        case 'no_activity':
+          query = query.order('last_activity_at', { 
+            ascending: true, 
+            nullsFirst: true 
+          });
+          break;
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as Scouter[];
     },
   });
+
+  // Stats for filter badges (based on ALL scouters)
+  const { data: allScouters = [] } = useQuery({
+    queryKey: ["scouters-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("scouters")
+        .select("id, status, total_leads, leads_last_30_days");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const filterStats = {
+    total: allScouters.length,
+    ativo: allScouters.filter(s => s.status === 'ativo').length,
+    inativo: allScouters.filter(s => s.status === 'inativo').length,
+    standby: allScouters.filter(s => s.status === 'standby').length,
+    blacklist: allScouters.filter(s => s.status === 'blacklist').length,
+  };
 
   // Mutation para atualizar status
   const updateStatusMutation = useMutation({
@@ -60,6 +127,7 @@ export default function GestaoScouters() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["scouters"] });
+      queryClient.invalidateQueries({ queryKey: ["scouters-all"] });
       toast({
         title: "Status atualizado",
         description: `Scouter movido para ${variables.status}`,
@@ -90,6 +158,8 @@ export default function GestaoScouters() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["scouters"] });
+      queryClient.invalidateQueries({ queryKey: ["scouters-all"] });
+      setDialogOpen(false);
       toast({
         title: selectedScouter ? "Scouter atualizado" : "Scouter cadastrado",
         description: selectedScouter
@@ -106,12 +176,11 @@ export default function GestaoScouters() {
     },
   });
 
-  // Stats
-  const activeScouters = scouters.filter((s) => s.status === "ativo").length;
-  const totalLeads = scouters.reduce((sum, s) => sum + s.total_leads, 0);
-  const totalLeads30d = scouters.reduce((sum, s) => sum + s.leads_last_30_days, 0);
-  const avgLeadsPerScouter =
-    activeScouters > 0 ? (totalLeads / activeScouters).toFixed(1) : "0";
+  // Stats (based on ALL scouters)
+  const activeScouters = allScouters.filter((s) => s.status === "ativo").length;
+  const totalLeads = allScouters.reduce((sum, s) => sum + (s.total_leads || 0), 0);
+  const totalLeads30d = allScouters.reduce((sum, s) => sum + (s.leads_last_30_days || 0), 0);
+  const avgLeadsPerScouter = activeScouters > 0 ? (totalLeads / activeScouters).toFixed(1) : "0";
 
   const handleStatusChange = (id: string, newStatus: string) => {
     updateStatusMutation.mutate({ id, status: newStatus });
@@ -123,11 +192,8 @@ export default function GestaoScouters() {
   };
 
   const handleViewPerformance = (scouter: Scouter) => {
-    console.log("🔍 [DEBUG] Abrindo performance de:", scouter.name, scouter);
-    console.log("🔍 [DEBUG] Estado atual performanceDialogOpen:", performanceDialogOpen);
     setSelectedScouter(scouter);
     setPerformanceDialogOpen(true);
-    console.log("✅ [DEBUG] Dialog state definido para true");
   };
 
   const handleCreate = () => {
@@ -135,14 +201,53 @@ export default function GestaoScouters() {
     setDialogOpen(true);
   };
 
-  const handleSave = async (data: any) => {
-    await saveMutation.mutateAsync(data);
+  const handleSave = async (scouterData: any) => {
+    await saveMutation.mutateAsync(scouterData);
   };
+
+  const handleStatusFilterChange = (status: 'todos' | 'ativo' | 'inativo' | 'standby' | 'blacklist') => {
+    setStatusFilter(status);
+  };
+
+  const handleSortByChange = (sort: 'recent' | 'name' | 'total_leads' | 'leads_30d' | 'no_activity') => {
+    setSortBy(sort);
+  };
+
+  const handleClearFilters = () => {
+    setStatusFilter('todos');
+    setSortBy('recent');
+    toast({
+      title: "Filtros limpos",
+      description: "Mostrando todos os scouters ordenados por atividade recente"
+    });
+  };
+
+  const getSortLabel = (sort: string) => {
+    const labels: Record<string, string> = {
+      recent: 'Mais Recentes',
+      name: 'Nome (A-Z)',
+      total_leads: 'Mais Leads (Total)',
+      leads_30d: 'Mais Leads (30d)',
+      no_activity: 'Sem Atividade'
+    };
+    return labels[sort] || sort;
+  };
+
+  const titleText = (() => {
+    let base = "Gestão de Scouters";
+    if (statusFilter !== 'todos' || sortBy !== 'recent') {
+      const parts: string[] = [];
+      if (statusFilter !== 'todos') parts.push(`Status: ${statusFilter}`);
+      if (sortBy !== 'recent') parts.push(`Ordem: ${getSortLabel(sortBy)}`);
+      base += ` (${parts.join(' • ')})`;
+    }
+    return base;
+  })();
 
   return (
     <GestaoPageLayout
-      title="Gestão de Scouters"
-      description="Gerencie o status e performance da equipe de scouters"
+      title={titleText}
+      description="Gerencie e acompanhe o desempenho dos scouters"
     >
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -156,7 +261,7 @@ export default function GestaoScouters() {
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">{activeScouters}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              de {scouters.length} total
+              de {allScouters.length} total
             </p>
           </CardContent>
         </Card>
@@ -203,6 +308,16 @@ export default function GestaoScouters() {
         </Card>
       </div>
 
+      {/* Filters */}
+      <ScouterFilters
+        statusFilter={statusFilter}
+        onStatusFilterChange={handleStatusFilterChange}
+        sortBy={sortBy}
+        onSortByChange={handleSortByChange}
+        onClearFilters={handleClearFilters}
+        stats={filterStats}
+      />
+
       {/* Action Bar */}
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4">
@@ -241,25 +356,37 @@ export default function GestaoScouters() {
         </Button>
       </div>
 
-      {/* Board */}
-      {isLoading ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Carregando scouters...</p>
+      {/* Empty State */}
+      {scouters.length === 0 && !isLoading && (
+        <Card className="p-8 text-center">
+          <p className="text-muted-foreground mb-2">
+            Nenhum scouter encontrado com os filtros aplicados
+          </p>
+          <Button variant="outline" onClick={handleClearFilters}>
+            Limpar Filtros
+          </Button>
+        </Card>
+      )}
+
+      {/* Board/List View */}
+      {scouters.length > 0 && (
+        <div className="transition-all duration-300">
+          {viewMode === "kanban" ? (
+            <ScoutersKanban
+              scouters={scouters}
+              onStatusChange={handleStatusChange}
+              onEdit={handleEdit}
+              onViewPerformance={handleViewPerformance}
+            />
+          ) : (
+            <ScoutersListView
+              scouters={scouters}
+              onStatusChange={handleStatusChange}
+              onEdit={handleEdit}
+              onViewPerformance={handleViewPerformance}
+            />
+          )}
         </div>
-      ) : viewMode === 'kanban' ? (
-        <ScoutersKanban
-          scouters={scouters}
-          onStatusChange={handleStatusChange}
-          onEdit={handleEdit}
-          onViewPerformance={handleViewPerformance}
-        />
-      ) : (
-        <ScoutersListView
-          scouters={scouters}
-          onStatusChange={handleStatusChange}
-          onEdit={handleEdit}
-          onViewPerformance={handleViewPerformance}
-        />
       )}
 
       {/* Dialogs */}
