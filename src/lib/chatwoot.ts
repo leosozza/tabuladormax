@@ -195,6 +195,28 @@ export function extractConversationFromOpenLine(raw: any): number | null {
   return null;
 }
 
+/**
+ * Busca conversa no Gupshup por telefone (fallback)
+ */
+export async function getConversationFromGupshup(
+  phoneNumber: string
+): Promise<{ conversation_id: number; contact_id: number | null } | null> {
+  const { data, error } = await supabase.functions.invoke(
+    'gupshup-get-conversation',
+    { body: { phone_number: phoneNumber } }
+  );
+  
+  if (error || !data?.conversation_id) {
+    console.error('Erro ao buscar conversa no Gupshup:', error);
+    return null;
+  }
+  
+  return {
+    conversation_id: data.conversation_id,
+    contact_id: data.contact_id
+  };
+}
+
 export function extractChatwootData(eventData: ChatwootEventData): ChatwootContact | null {
   // Extrair dados do agente - PRIORIDADE: data.currentAgent, FALLBACK: conversation.meta.assignee
   const currentAgent = eventData.data?.currentAgent;

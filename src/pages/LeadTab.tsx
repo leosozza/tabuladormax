@@ -601,13 +601,27 @@ const LeadTab = () => {
             contact_id: supabaseLead.contact_id || null
           };
           
-          // 🔍 NOVA ETAPA: Buscar conversa do Chatwoot via OpenLine
-          if (supabaseLead.raw && !supabaseLead.conversation_id) {
-            const conversationId = extractConversationFromOpenLine(supabaseLead.raw);
+          // === BUSCA INTELIGENTE MULTI-FONTE ===
+          const chatwootStepIndex = 3;
+          let conversationId = supabaseLead.conversation_id;
+          let source = '';
+
+          // ESTRATÉGIA 1: Lead já tem conversation_id salvo
+          if (conversationId) {
+            source = 'supabase (cached)';
+            updateStep(chatwootStepIndex, 'success', 'Conversa já salva no banco', 0);
+            console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
+          } 
+          // ESTRATÉGIA 2: Buscar no OpenLine (Bitrix IM)
+          else if (supabaseLead.raw) {
+            updateStep(chatwootStepIndex, 'loading', 'Buscando no OpenLine...');
+            const chatwootStart = Date.now();
+            
+            conversationId = extractConversationFromOpenLine(supabaseLead.raw);
             
             if (conversationId) {
-              updateStep(3, 'loading', 'Buscando conversa no Chatwoot...');
-              const chatwootStart = Date.now();
+              source = 'bitrix openline';
+              updateStep(chatwootStepIndex, 'loading', `ID encontrado no OpenLine (${conversationId}), buscando detalhes...`);
               
               try {
                 const { data: chatwootData, error: chatwootError } = await supabase.functions.invoke(
@@ -615,12 +629,16 @@ const LeadTab = () => {
                   { body: { conversation_id: conversationId } }
                 );
                 
-                const chatwootDuration = Date.now() - chatwootStart;
+                const duration = Date.now() - chatwootStart;
                 
                 if (chatwootData && !chatwootError) {
-                  updateStep(3, 'success', `Conversa encontrada (${(chatwootDuration / 1000).toFixed(2)}s)`, chatwootDuration);
+                  // Salvar conversation_id no Supabase
+                  await supabase.from('leads').update({
+                    conversation_id: chatwootData.conversation_id,
+                    contact_id: chatwootData.contact_id
+                  }).eq('id', Number(bitrixId));
                   
-                  // Atualizar contactData com dados do Chatwoot
+                  // Atualizar contactData
                   contactData = {
                     ...contactData,
                     conversation_id: chatwootData.conversation_id,
@@ -632,35 +650,79 @@ const LeadTab = () => {
                     additional_attributes: chatwootData.additional_attributes || {}
                   };
                   
-                  // Atualizar Supabase
-                  await supabase.from('leads').update({
-                    conversation_id: chatwootData.conversation_id,
-                    contact_id: chatwootData.contact_id
-                  }).eq('id', Number(bitrixId));
-                  
                   // Salvar em chatwoot_contacts
                   await saveChatwootContact(contactData);
                   
-                  console.log('✅ Conversa do Chatwoot sincronizada:', {
-                    conversation_id: chatwootData.conversation_id,
-                    contact_id: chatwootData.contact_id
-                  });
+                  updateStep(chatwootStepIndex, 'success', `✅ Conversa encontrada (OpenLine)`, duration);
+                  console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
                 } else {
-                  updateStep(3, 'error', `Erro ao buscar conversa: ${chatwootError?.message || 'Desconhecido'}`, chatwootDuration);
-                  console.error('❌ Erro ao buscar conversa do Chatwoot:', chatwootError);
+                  updateStep(chatwootStepIndex, 'error', `Conversa ${conversationId} não existe no Chatwoot`, duration);
+                  console.warn(`⚠️ Conversa ${conversationId} não encontrada no Chatwoot`);
+                  conversationId = null; // Limpar para tentar Gupshup
                 }
               } catch (error: any) {
-                const chatwootDuration = Date.now() - chatwootStart;
-                updateStep(3, 'error', `Erro: ${error.message}`, chatwootDuration);
+                const duration = Date.now() - chatwootStart;
+                updateStep(chatwootStepIndex, 'error', `Erro ao buscar no Chatwoot: ${error.message}`, duration);
                 console.error('❌ Erro ao buscar conversa do Chatwoot:', error);
+                conversationId = null;
               }
-            } else {
-              updateStep(3, 'success', 'Sem OpenLine', 0);
             }
-          } else if (supabaseLead.conversation_id) {
-            updateStep(3, 'success', 'Já possui conversa', 0);
+          }
+
+          // ESTRATÉGIA 3: Fallback para Gupshup (por telefone)
+          if (!conversationId && contactData.phone_number) {
+            updateStep(chatwootStepIndex, 'loading', 'Buscando no Gupshup por telefone...');
+            const gupshupStart = Date.now();
+            
+            try {
+              const { data: gupshupData, error: gupshupError } = await supabase.functions.invoke(
+                'gupshup-get-conversation',
+                { body: { phone_number: contactData.phone_number } }
+              );
+              
+              const duration = Date.now() - gupshupStart;
+              
+              if (gupshupData?.conversation_id && !gupshupError) {
+                conversationId = gupshupData.conversation_id;
+                source = 'gupshup';
+                
+                // Salvar no Supabase
+                await supabase.from('leads').update({
+                  conversation_id: gupshupData.conversation_id,
+                  contact_id: gupshupData.contact_id
+                }).eq('id', Number(bitrixId));
+                
+                // Atualizar contactData
+                contactData = {
+                  ...contactData,
+                  conversation_id: gupshupData.conversation_id,
+                  contact_id: gupshupData.contact_id,
+                  name: gupshupData.name || contactData.name,
+                  phone_number: gupshupData.phone_number || contactData.phone_number,
+                };
+                
+                // Salvar em chatwoot_contacts
+                await saveChatwootContact(contactData);
+                
+                updateStep(chatwootStepIndex, 'success', `✅ Conversa encontrada (Gupshup)`, duration);
+                console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
+              } else {
+                updateStep(chatwootStepIndex, 'error', `Nenhuma conversa encontrada no Gupshup`, duration);
+                console.warn('⚠️ Nenhuma conversa encontrada no Gupshup');
+              }
+            } catch (error: any) {
+              const duration = Date.now() - gupshupStart;
+              updateStep(chatwootStepIndex, 'error', `Erro ao buscar no Gupshup: ${error.message}`, duration);
+              console.error('❌ Erro ao buscar no Gupshup:', error);
+            }
+          }
+
+          // Resultado final
+          if (!conversationId) {
+            updateStep(chatwootStepIndex, 'error', 'Lead sem conversa WhatsApp', 0);
+            console.log('ℹ️ Lead não possui conversa em nenhuma plataforma');
           } else {
-            updateStep(3, 'success', 'Sem OpenLine', 0);
+            console.log(`✅ Conversa final: ${conversationId} (fonte: ${source})`);
           }
           
           setChatwootData(contactData);
