@@ -18,8 +18,8 @@ const DEFAULT_CONFIG: TinderCardConfig = {
   photoStyle: 'rounded',
   photoSize: 'large',
   mainFields: ['nome_modelo', 'name'], // Nome do Modelo em destaque, Nome como referência
-  detailFields: ['scouter', 'projeto_comercial', 'criado', 'local_abordagem'],
-  badgeFields: ['id'], // Apenas ID do Bitrix
+  detailFields: ['criado', 'local_abordagem'],
+  badgeFields: ['id', 'projeto_comercial', 'scouter'], // ID do Bitrix + Badges coloridos
   version: CONFIG_VERSION
 };
 
