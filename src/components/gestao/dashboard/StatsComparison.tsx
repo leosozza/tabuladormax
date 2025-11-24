@@ -61,24 +61,24 @@ export default function StatsComparison() {
       // Período atual (últimos 30 dias)
       const { data: currentData } = await supabase
         .from("leads")
-        .select("ficha_confirmada, compareceu")
+        .select("ficha_confirmada, presenca_confirmada")
         .gte("criado", thirtyDaysAgo.toISOString());
 
       // Período anterior (30-60 dias atrás)
       const { data: previousData } = await supabase
         .from("leads")
-        .select("ficha_confirmada, compareceu")
+        .select("ficha_confirmada, presenca_confirmada")
         .gte("criado", sixtyDaysAgo.toISOString())
         .lt("criado", thirtyDaysAgo.toISOString());
 
       const currentTotal = currentData?.length || 0;
       const currentConfirmed = currentData?.filter(l => l.ficha_confirmada).length || 0;
-      const currentPresent = currentData?.filter(l => l.compareceu).length || 0;
+      const currentPresent = currentData?.filter(l => l.presenca_confirmada).length || 0;
       const currentConversion = currentTotal > 0 ? (currentPresent / currentTotal * 100) : 0;
 
       const previousTotal = previousData?.length || 0;
       const previousConfirmed = previousData?.filter(l => l.ficha_confirmada).length || 0;
-      const previousPresent = previousData?.filter(l => l.compareceu).length || 0;
+      const previousPresent = previousData?.filter(l => l.presenca_confirmada).length || 0;
       const previousConversion = previousTotal > 0 ? (previousPresent / previousTotal * 100) : 0;
 
       return {

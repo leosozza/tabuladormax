@@ -73,7 +73,7 @@ export default function ReportFilters({ onApplyFilters, onClearFilters }: Report
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="confirmado">Confirmados</SelectItem>
-                <SelectItem value="compareceu">Compareceram</SelectItem>
+                <SelectItem value="presenca_confirmada">Compareceram</SelectItem>
                 <SelectItem value="pendente">Pendentes</SelectItem>
               </SelectContent>
             </Select>

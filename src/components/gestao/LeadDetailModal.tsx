@@ -20,7 +20,7 @@ interface Lead {
   valor_ficha: number | null;
   etapa: string | null;
   ficha_confirmada: boolean | null;
-  compareceu: boolean | null;
+  presenca_confirmada: boolean | null;
   qualidade_lead: string | null;
 }
 
@@ -62,7 +62,7 @@ export default function LeadDetailModal({ lead, open, onOpenChange }: LeadDetail
               <div className="flex gap-2 mt-2">
                 {lead.etapa && <Badge>{lead.etapa}</Badge>}
                 {lead.ficha_confirmada && <Badge variant="secondary">Confirmado</Badge>}
-                {lead.compareceu && <Badge variant="outline">Compareceu</Badge>}
+                {lead.presenca_confirmada && <Badge variant="outline">Compareceu</Badge>}
                 {lead.qualidade_lead && (
                   <Badge variant={lead.qualidade_lead === "aprovado" ? "default" : "destructive"}>
                     {lead.qualidade_lead}
