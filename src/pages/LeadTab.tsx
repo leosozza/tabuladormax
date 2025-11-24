@@ -609,24 +609,32 @@ const LeadTab = () => {
           let conversationId = supabaseLead.conversation_id;
           let source = '';
 
-          // === PRIMEIRO: Verificar se tem sessão Bitrix OpenLine ===
+          // === ESTRATÉGIA 1: Bitrix OpenLine (PRIORIDADE MÁXIMA) ===
           if (supabaseLead.raw) {
             const bitrixData = extractBitrixOpenLineData(supabaseLead.raw);
             if (bitrixData) {
               setBitrixOpenLineData(bitrixData);
               updateStep(chatwootStepIndex, 'success', `✅ Sessão Bitrix OpenLine encontrada (#${bitrixData.sessionId})`, 0);
               console.log('✅ Conversa Bitrix OpenLine encontrada:', bitrixData);
+              
+              // Não buscar Chatwoot/Gupshup quando temos Bitrix OpenLine
+              await logSearch('bitrix openline', true);
+              setSearchLoading(false);
+              setSearchModal(false);
+              setSearchId("");
+              setTimeout(() => setShowSearchProgress(false), 2000);
+              return;
             }
           }
 
-          // ESTRATÉGIA 1: Lead já tem conversation_id salvo
+          // === ESTRATÉGIA 2: Chatwoot - Lead já tem conversation_id salvo ===
           if (conversationId) {
             source = 'supabase (cached)';
             updateStep(chatwootStepIndex, 'success', 'Conversa já salva no banco', 0);
             console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
           } 
-          // ESTRATÉGIA 2: Buscar no OpenLine (Bitrix IM) - apenas para Chatwoot
-          else if (supabaseLead.raw && !bitrixOpenLineData) {
+          // === ESTRATÉGIA 3: Buscar no OpenLine (Bitrix IM) para Chatwoot ===
+          else if (supabaseLead.raw) {
             updateStep(chatwootStepIndex, 'loading', 'Buscando no OpenLine...');
             const chatwootStart = Date.now();
             
