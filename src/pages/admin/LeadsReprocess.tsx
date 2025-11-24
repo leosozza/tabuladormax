@@ -146,7 +146,7 @@ export default function LeadsReprocess() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span>Leads sem scouter</span>
+                  <span>Leads sem scouter <span className="text-xs text-muted-foreground">(apenas Scouters/CALL)</span></span>
                   <Badge variant="outline">
                     {loading ? '...' : diagnosticStats?.leadsWithNullScouter.toLocaleString('pt-BR')}
                   </Badge>

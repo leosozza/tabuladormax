@@ -45,10 +45,13 @@ Deno.serve(async (req) => {
 async function getReprocessStats(supabase: any) {
   console.log('📊 Coletando estatísticas de leads...');
 
+  // Fontes que DEVEM ter scouter
+  const fontesComScouter = ['Scouter - Fichas', 'Scouters', 'Chamadas'];
+
   // Contar leads com raw mas com campos importantes NULL
   const { data: leadsWithProblem, error: countError } = await supabase
     .from('leads')
-    .select('id, scouter, fonte, etapa, commercial_project_id, raw')
+    .select('id, scouter, fonte, fonte_normalizada, etapa, commercial_project_id, raw')
     .not('raw', 'is', null);
 
   if (countError) {
@@ -57,12 +60,19 @@ async function getReprocessStats(supabase: any) {
 
   const stats = {
     totalLeadsWithRaw: leadsWithProblem?.length || 0,
-    leadsWithNullScouter: leadsWithProblem?.filter((l: any) => !l.scouter).length || 0,
+    // Contar apenas leads de fontes que DEVEM ter scouter
+    leadsWithNullScouter: leadsWithProblem?.filter((l: any) => 
+      !l.scouter && fontesComScouter.includes(l.fonte_normalizada)
+    ).length || 0,
     leadsWithNullFonte: leadsWithProblem?.filter((l: any) => !l.fonte).length || 0,
     leadsWithNullEtapa: leadsWithProblem?.filter((l: any) => !l.etapa).length || 0,
     leadsWithNullProject: leadsWithProblem?.filter((l: any) => !l.commercial_project_id).length || 0,
+    // Considerar scouter NULL problema apenas para fontes específicas
     leadsNeedingUpdate: leadsWithProblem?.filter((l: any) => 
-      !l.scouter || !l.fonte || !l.etapa || !l.commercial_project_id
+      (!l.scouter && fontesComScouter.includes(l.fonte_normalizada)) ||
+      !l.fonte || 
+      !l.etapa || 
+      !l.commercial_project_id
     ).length || 0
   };
 
@@ -117,12 +127,22 @@ async function startReprocessing(supabase: any, batchSize: number, filters: any)
   // 3. Buscar leads com raw preenchido
   let query = supabase
     .from('leads')
-    .select('id, raw')
+    .select('id, raw, fonte_normalizada')
     .not('raw', 'is', null);
 
   // Aplicar filtros opcionais
   if (filters?.onlyMissingFields) {
-    query = query.or('scouter.is.null,fonte.is.null,etapa.is.null,commercial_project_id.is.null');
+    // Fontes que DEVEM ter scouter
+    const fontesComScouter = ['Scouter - Fichas', 'Scouters', 'Chamadas'];
+    
+    // Filtrar leads sem scouter apenas para fontes específicas
+    // ou leads sem fonte, etapa ou projeto
+    query = query.or(
+      'and(scouter.is.null,fonte_normalizada.in.("Scouter - Fichas","Scouters","Chamadas")),' +
+      'fonte.is.null,' +
+      'etapa.is.null,' +
+      'commercial_project_id.is.null'
+    );
   }
 
   if (filters?.dateFrom) {
