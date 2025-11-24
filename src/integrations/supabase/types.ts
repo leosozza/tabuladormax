@@ -2056,6 +2056,7 @@ export type Database = {
           clock_in: string
           clock_out: string
           hours_worked: number
+          projects: string
           total_leads: number
           work_date: string
         }[]
