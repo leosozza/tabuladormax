@@ -1221,6 +1221,36 @@ export type Database = {
           },
         ]
       }
+      lead_search_cache: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          found: boolean
+          id: string
+          last_search: string
+          lead_id: number
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          found: boolean
+          id?: string
+          last_search?: string
+          lead_id: number
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          found?: boolean
+          id?: string
+          last_search?: string
+          lead_id?: number
+          source?: string | null
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           address: string | null
@@ -1923,6 +1953,7 @@ export type Database = {
         Args: { _route_path: string; _user_id: string }
         Returns: boolean
       }
+      clean_old_lead_search_cache: { Args: never; Returns: undefined }
       fix_scouter_names: {
         Args: never
         Returns: {

@@ -1,7 +1,9 @@
 export class BitrixError extends Error {
-  constructor(message: string) {
+  status?: number;
+  constructor(message: string, options?: { status?: number }) {
     super(message);
     this.name = 'BitrixError';
+    this.status = options?.status;
   }
 }
 
@@ -62,26 +64,65 @@ export async function listLeads(params?: { limit?: number }): Promise<BitrixLead
   }
 }
 
-export async function getLead(id: string | number): Promise<BitrixLead> {
+export async function getLead(id: string | number, retryCount = 0): Promise<BitrixLead> {
+  const maxRetries = 3;
+  const retryDelay = 1000 * (retryCount + 1); // 1s, 2s, 3s
+
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     const response = await fetch(
       `https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.get.json?id=${id}`,
-      { method: 'GET' }
+      { 
+        method: 'GET',
+        signal: controller.signal
+      }
     );
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
-      throw new BitrixError('Falha ao buscar lead do Bitrix');
+      if (response.status === 404) {
+        throw new BitrixError('Lead não encontrado no Bitrix', { status: 404 });
+      }
+      if (response.status >= 500) {
+        throw new BitrixError(`Erro do servidor Bitrix (${response.status})`, { status: response.status });
+      }
+      throw new BitrixError(`Erro HTTP ${response.status}`, { status: response.status });
     }
     
     const data = await response.json();
     
     if (data.error) {
+      if (data.error === 'NOT_FOUND' || data.error_description?.includes('not found')) {
+        throw new BitrixError('Lead não encontrado no Bitrix', { status: 404 });
+      }
       throw new BitrixError(data.error_description || 'Erro do Bitrix');
+    }
+
+    if (!data.result) {
+      throw new BitrixError('Lead não encontrado no Bitrix', { status: 404 });
     }
     
     return data.result;
   } catch (error) {
-    if (error instanceof BitrixError) throw error;
+    // Retry logic para timeouts e erros de rede
+    if (error instanceof Error && error.name === 'AbortError' && retryCount < maxRetries) {
+      console.warn(`Timeout ao buscar lead ${id}. Tentativa ${retryCount + 1}/${maxRetries}`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      return getLead(id, retryCount + 1);
+    }
+
+    // Retry para erros 5xx
+    if (error instanceof BitrixError && error.status && error.status >= 500 && retryCount < maxRetries) {
+      console.warn(`Erro do servidor ao buscar lead ${id}. Tentativa ${retryCount + 1}/${maxRetries}`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      return getLead(id, retryCount + 1);
+    }
+
+    if (error instanceof BitrixError) {
+      throw error;
+    }
     throw new BitrixError('Não foi possível conectar ao Bitrix');
   }
 }
