@@ -156,6 +156,8 @@ interface JobConfig {
     phoneNull?: boolean;
     valorNull?: boolean;
     responsibleNull?: boolean;
+    dateFrom?: string;
+    dateTo?: string;
   };
   batchSize?: number;
   maxLeads?: number;
@@ -286,6 +288,14 @@ async function createResyncJob(supabase: any, config: JobConfig, batchSize: numb
   if (config?.filters?.responsibleNull) {
     query = query.is('responsible', null);
   }
+  if (config?.filters?.dateFrom) {
+    query = query.gte('criado', config.filters.dateFrom);
+  }
+  if (config?.filters?.dateTo) {
+    const endDate = new Date(config.filters.dateTo);
+    endDate.setHours(23, 59, 59, 999);
+    query = query.lte('criado', endDate.toISOString());
+  }
 
   const { count, error: countError } = await query;
 
@@ -412,6 +422,14 @@ async function processBatch(supabase: any, jobId: string) {
     }
     if (currentJob.filter_criteria?.responsibleNull) {
       leadsQuery = leadsQuery.is('responsible', null);
+    }
+    if (currentJob.filter_criteria?.dateFrom) {
+      leadsQuery = leadsQuery.gte('criado', currentJob.filter_criteria.dateFrom);
+    }
+    if (currentJob.filter_criteria?.dateTo) {
+      const endDate = new Date(currentJob.filter_criteria.dateTo);
+      endDate.setHours(23, 59, 59, 999);
+      leadsQuery = leadsQuery.lte('criado', endDate.toISOString());
     }
 
     const { data: leads, error: fetchError } = await leadsQuery;
