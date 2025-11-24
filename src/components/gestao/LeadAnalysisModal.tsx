@@ -53,8 +53,10 @@ export function LeadAnalysisModal({
         data-tinder-modal="true"
       >
         <DialogHeader className="flex-shrink-0 border-b px-3 sm:px-4 py-2 sm:py-3 space-y-2 sm:space-y-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-base sm:text-lg font-semibold">Análise de Ficha</DialogTitle>
+          <div className="flex items-center justify-center gap-2">
+            <DialogTitle className="text-base sm:text-lg font-semibold text-center">
+              Análise de Ficha
+            </DialogTitle>
             <Badge variant="secondary" className="text-xs sm:text-sm">
               {currentIndex + 1} de {totalLeads}
             </Badge>

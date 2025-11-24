@@ -46,10 +46,11 @@ export default function SwipeActions({ onApprove, onReject, onSuperApprove, onSk
           className={cn(
             "h-12 w-12 md:h-14 md:w-14 rounded-full border-2 transition-all hover:scale-110 touch-manipulation",
             canUndo 
-              ? "border-blue-500 hover:bg-blue-500 hover:text-white" 
+              ? "border-blue-500 hover:bg-blue-500 hover:text-white animate-pulse" 
               : "border-gray-300 opacity-50 cursor-not-allowed"
           )}
           aria-label="Voltar"
+          title={canUndo ? "Desfazer última ação (5s)" : "Nenhuma ação para desfazer"}
         >
           <Undo2 className="w-5 h-5 md:w-6 md:h-6" />
         </Button>
