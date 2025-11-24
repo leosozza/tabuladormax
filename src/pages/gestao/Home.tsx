@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, FileText, TrendingUp, Activity, AlertCircle } from "lucide-react";
+import { Users, FileText, TrendingUp, Activity, AlertCircle, Camera, CalendarCheck, CalendarX } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
@@ -50,7 +50,15 @@ function GestaoHomeContent() {
         throw error;
       }
 
-      const stats = data?.[0] || { total: 0, confirmados: 0, compareceram: 0, pendentes: 0 };
+      const stats = data?.[0] || { 
+        total: 0, 
+        confirmados: 0, 
+        compareceram: 0, 
+        pendentes: 0,
+        com_foto: 0,
+        agendados: 0,
+        reagendar: 0
+      };
       console.log('[GestaoHome] Estatísticas retornadas:', stats);
 
       return stats;
@@ -110,61 +118,110 @@ function GestaoHomeContent() {
       {/* Cards de métricas principais */}
       {!isLoading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 my-6 md:my-8">
-        <Card className="border-l-4 border-l-primary">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total de Leads
-            </CardTitle>
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Users className="w-4 h-4 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.total || 0}</div>
-          </CardContent>
-        </Card>
+          {/* 1. Total de Leads */}
+          <Card className="border-l-4 border-l-primary">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total de Leads
+              </CardTitle>
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Users className="w-4 h-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.total || 0}</div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-l-4 border-l-success">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Fichas Confirmadas
-            </CardTitle>
-            <div className="p-2 bg-success/10 rounded-lg">
-              <FileText className="w-4 h-4 text-success" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.confirmados || 0}</div>
-          </CardContent>
-        </Card>
+          {/* 2. Com Foto */}
+          <Card className="border-l-4 border-l-blue-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Com Foto
+              </CardTitle>
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <Camera className="w-4 h-4 text-blue-500" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.com_foto || 0}</div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-l-4 border-l-accent">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Comparecimentos
-            </CardTitle>
-            <div className="p-2 bg-accent/10 rounded-lg">
-              <TrendingUp className="w-4 h-4 text-accent" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.compareceram || 0}</div>
-          </CardContent>
-        </Card>
+          {/* 3. Fichas Confirmadas */}
+          <Card className="border-l-4 border-l-success">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Fichas Confirmadas
+              </CardTitle>
+              <div className="p-2 bg-success/10 rounded-lg">
+                <FileText className="w-4 h-4 text-success" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.confirmados || 0}</div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-l-4 border-l-warning">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pendentes Análise
-            </CardTitle>
-            <div className="p-2 bg-warning/10 rounded-lg">
-              <Activity className="w-4 h-4 text-warning" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.pendentes || 0}</div>
-          </CardContent>
-        </Card>
+          {/* 4. Agendados */}
+          <Card className="border-l-4 border-l-purple-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Agendados
+              </CardTitle>
+              <div className="p-2 bg-purple-500/10 rounded-lg">
+                <CalendarCheck className="w-4 h-4 text-purple-500" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.agendados || 0}</div>
+            </CardContent>
+          </Card>
+
+          {/* 5. Reagendar */}
+          <Card className="border-l-4 border-l-orange-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Reagendar
+              </CardTitle>
+              <div className="p-2 bg-orange-500/10 rounded-lg">
+                <CalendarX className="w-4 h-4 text-orange-500" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.reagendar || 0}</div>
+            </CardContent>
+          </Card>
+
+          {/* 6. Comparecimentos */}
+          <Card className="border-l-4 border-l-accent">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Comparecimentos
+              </CardTitle>
+              <div className="p-2 bg-accent/10 rounded-lg">
+                <TrendingUp className="w-4 h-4 text-accent" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.compareceram || 0}</div>
+            </CardContent>
+          </Card>
+
+          {/* 7. Pendentes Análise */}
+          <Card className="border-l-4 border-l-warning">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Pendentes Análise
+              </CardTitle>
+              <div className="p-2 bg-warning/10 rounded-lg">
+                <Activity className="w-4 h-4 text-warning" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl md:text-3xl font-bold text-foreground">{stats?.pendentes || 0}</div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
