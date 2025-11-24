@@ -125,3 +125,6 @@ verify_jwt = true
 
 [functions.fix-scouter-names]
 verify_jwt = true
+
+[functions.chatwoot-get-conversation]
+verify_jwt = false
