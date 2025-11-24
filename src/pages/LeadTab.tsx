@@ -630,6 +630,7 @@ const LeadTab = () => {
             const start = Date.now();
             
             try {
+              console.log(`🔍 [ESTRATÉGIA 2] Buscando dados completos da conversa #${conversationId}`);
               // Buscar dados completos da conversa
               const { data, error } = await supabase.functions.invoke(
                 'chatwoot-get-conversation',
@@ -640,14 +641,16 @@ const LeadTab = () => {
                 // Atualizar contactData com dados completos
                 contactData = { ...contactData, ...data };
                 updateStep(chatwootStepIndex, 'success', `✅ Conversa #${conversationId} carregada`, Date.now() - start);
-                console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
+                console.log(`✅ [ESTRATÉGIA 2] Conversa carregada com sucesso:`, data);
+                console.log(`✅ [ESTRATÉGIA 2] contactData atualizado:`, contactData);
               } else {
                 // Se falhar, continuar com próxima estratégia
+                console.warn(`⚠️ [ESTRATÉGIA 2] Falha ao carregar conversa:`, error);
                 conversationId = null;
                 updateStep(chatwootStepIndex, 'error', 'Conversa não encontrada, tentando outras fontes...', Date.now() - start);
               }
             } catch (error) {
-              console.warn('⚠️ Erro ao buscar conversa salva, tentando outras estratégias');
+              console.warn('⚠️ [ESTRATÉGIA 2] Erro ao buscar conversa salva:', error);
               conversationId = null;
             }
           }
@@ -2123,7 +2126,13 @@ const LeadTab = () => {
               <Button 
                 variant="outline" 
                 size="icon" 
-                onClick={() => setUnifiedChatOpen(true)}
+                onClick={() => {
+                  console.log('🔘 [BOTÃO] Click detectado!');
+                  console.log('🔘 [BOTÃO] chatwootData:', chatwootData);
+                  console.log('🔘 [BOTÃO] bitrixOpenLineData:', bitrixOpenLineData);
+                  console.log('🔘 [BOTÃO] Abrindo modal...');
+                  setUnifiedChatOpen(true);
+                }}
                 title={bitrixOpenLineData && chatwootData?.conversation_id ? "Conversas (Bitrix + Chatwoot)" : bitrixOpenLineData ? "Chat Bitrix" : "Chat Chatwoot"}
                 className={`h-8 w-8 md:h-10 md:w-10 ${
                   bitrixOpenLineData && chatwootData?.conversation_id 
