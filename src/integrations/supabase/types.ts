@@ -1271,6 +1271,7 @@ export type Database = {
           data_criacao_ficha: string | null
           data_pagamento: string | null
           data_retorno_ligacao: string | null
+          date_closed: string | null
           date_modify: string | null
           etapa: string | null
           etapa_fluxo: string | null
@@ -1334,6 +1335,7 @@ export type Database = {
           data_criacao_ficha?: string | null
           data_pagamento?: string | null
           data_retorno_ligacao?: string | null
+          date_closed?: string | null
           date_modify?: string | null
           etapa?: string | null
           etapa_fluxo?: string | null
@@ -1397,6 +1399,7 @@ export type Database = {
           data_criacao_ficha?: string | null
           data_pagamento?: string | null
           data_retorno_ligacao?: string | null
+          date_closed?: string | null
           date_modify?: string | null
           etapa?: string | null
           etapa_fluxo?: string | null
