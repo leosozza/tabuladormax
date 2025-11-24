@@ -92,28 +92,6 @@ export function LeadAnalysisModal({
               disabled={disabled}
             />
           </div>
-          
-          {/* Legenda fixa com indicadores de swipe */}
-          <div className="flex-shrink-0 border-t px-4 py-2 bg-muted/50">
-            <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-green-500 flex-shrink-0" />
-                <span className="whitespace-nowrap">→ Aprovar</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-yellow-500 flex-shrink-0" />
-                <span className="whitespace-nowrap">↑ Super</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-500 flex-shrink-0" />
-                <span className="whitespace-nowrap">← Reprovar</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-muted flex-shrink-0" />
-                <span className="whitespace-nowrap">↓ Pular</span>
-              </div>
-            </div>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
