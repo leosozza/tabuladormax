@@ -10,7 +10,7 @@ export interface TinderCardConfig {
   version?: number;
 }
 
-const CONFIG_VERSION = 4; // Incrementar quando houver mudanças importantes
+const CONFIG_VERSION = 5; // ✅ Forçar atualização para badges
 const STORAGE_KEY = 'tinder_card_config';
 
 const DEFAULT_CONFIG: TinderCardConfig = {
