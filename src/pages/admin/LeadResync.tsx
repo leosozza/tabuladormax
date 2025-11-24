@@ -12,13 +12,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useLeadResyncJobs, JobFilters } from '@/hooks/useLeadResyncJobs';
 import { useResyncFieldMappings } from '@/hooks/useResyncFieldMappings';
 import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
 import { ResyncFieldMappingDialog } from '@/components/resync/ResyncFieldMappingDialog';
-import { Play, Pause, Loader2, CheckCircle2, XCircle, Clock, AlertCircle, Ban, Trash2, Settings, Download, FileText, AlertTriangle } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Play, Pause, Loader2, CheckCircle2, XCircle, Clock, AlertCircle, Ban, Trash2, Settings, Download, FileText, AlertTriangle, CalendarIcon } from 'lucide-react';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 export default function LeadResync() {
   const { jobs, isLoading, createJob, pauseJob, resumeJob, cancelJob, deleteJob, isCreating, isCancelling, isDeleting } = useLeadResyncJobs();
@@ -38,6 +41,7 @@ export default function LeadResync() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showErrorsSheet, setShowErrorsSheet] = useState(false);
   const [selectedJobErrors, setSelectedJobErrors] = useState<any>(null);
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
 
   const activeJob = jobs.find(j => j.status === 'running' || j.status === 'paused');
   const completedJobs = jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status));
@@ -49,7 +53,15 @@ export default function LeadResync() {
 
   const confirmStartResync = () => {
     if (!selectedMappingId) return;
-    createJob({ filters, batchSize, mappingId: selectedMappingId });
+    createJob({ 
+      filters: {
+        ...filters,
+        dateFrom: dateRange.from?.toISOString(),
+        dateTo: dateRange.to?.toISOString()
+      }, 
+      batchSize, 
+      mappingId: selectedMappingId 
+    });
     setShowConfirmDialog(false);
   };
 
@@ -92,6 +104,19 @@ export default function LeadResync() {
     if (filters.phoneNull) activeFilters.push('Telefone NULL');
     if (filters.valorNull) activeFilters.push('Valor NULL');
     if (filters.responsibleNull) activeFilters.push('Responsável NULL');
+    
+    if (filters.dateFrom && filters.dateTo) {
+      const from = format(new Date(filters.dateFrom), "dd/MM/yyyy", { locale: ptBR });
+      const to = format(new Date(filters.dateTo), "dd/MM/yyyy", { locale: ptBR });
+      activeFilters.push(`Período: ${from} - ${to}`);
+    } else if (filters.dateFrom) {
+      const from = format(new Date(filters.dateFrom), "dd/MM/yyyy", { locale: ptBR });
+      activeFilters.push(`A partir de: ${from}`);
+    } else if (filters.dateTo) {
+      const to = format(new Date(filters.dateTo), "dd/MM/yyyy", { locale: ptBR });
+      activeFilters.push(`Até: ${to}`);
+    }
+    
     return activeFilters.length > 0 ? activeFilters.join(', ') : 'Nenhum filtro';
   };
 
@@ -177,6 +202,76 @@ export default function LeadResync() {
                     <div className="flex items-center space-x-2"><Checkbox id="responsibleNull" checked={filters.responsibleNull} onCheckedChange={(checked) => setFilters(prev => ({ ...prev, responsibleNull: checked as boolean }))} /><Label htmlFor="responsibleNull" className="cursor-pointer">Responsável NULL ou vazio</Label></div>
                   </div>
                 </div>
+                
+                <div className="space-y-2">
+                  <Label>Período de Criação do Lead</Label>
+                  <div className="flex gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "flex-1 justify-start text-left font-normal",
+                            !dateRange.from && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRange.from ? format(dateRange.from, "dd/MM/yyyy", { locale: ptBR }) : "Data início"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateRange.from}
+                          onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "flex-1 justify-start text-left font-normal",
+                            !dateRange.to && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRange.to ? format(dateRange.to, "dd/MM/yyyy", { locale: ptBR }) : "Data fim"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateRange.to}
+                          onSelect={(date) => setDateRange(prev => ({ ...prev, to: date }))}
+                          disabled={(date) => dateRange.from ? date < dateRange.from : false}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground flex-1">
+                      Filtrar por data de criação do lead
+                    </p>
+                    {(dateRange.from || dateRange.to) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDateRange({})}
+                        className="h-auto py-1 px-2"
+                      >
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
                 <div><Label htmlFor="batchSize">Tamanho do Batch</Label><Input id="batchSize" type="number" value={batchSize} onChange={(e) => setBatchSize(parseInt(e.target.value))} min={1} max={200} /><p className="text-sm text-muted-foreground mt-1">Leads processados por vez (recomendado: 50)</p></div>
                 <div>
                   <div className="flex items-center justify-between mb-2"><Label>Mapeamento de Campos</Label><Button variant="ghost" size="sm" onClick={() => setShowMappingDialog(true)}><Settings className="w-4 h-4 mr-1" />Gerenciar</Button></div>
@@ -228,6 +323,16 @@ export default function LeadResync() {
             <Alert><AlertCircle className="h-4 w-4" /><AlertTitle>Ordem de Processamento</AlertTitle><AlertDescription>Os leads serão processados do <strong>mais recente</strong> (ID maior) para o <strong>mais antigo</strong> (ID menor).</AlertDescription></Alert>
             <div className="grid gap-3">
               <div className="flex justify-between py-2 border-b"><span className="font-medium">Filtros:</span><span className="text-muted-foreground">{getFiltersSummary(filters)}</span></div>
+              {(dateRange.from || dateRange.to) && (
+                <div className="flex justify-between py-2 border-b">
+                  <span className="font-medium">Período:</span>
+                  <span className="text-muted-foreground">
+                    {dateRange.from && format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })}
+                    {dateRange.from && dateRange.to && " - "}
+                    {dateRange.to && format(dateRange.to, "dd/MM/yyyy", { locale: ptBR })}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between py-2 border-b"><span className="font-medium">Tamanho do Batch:</span><span className="text-muted-foreground">{batchSize} leads</span></div>
               <div className="flex justify-between py-2 border-b"><span className="font-medium">Mapeamento:</span><span className="text-muted-foreground">{selectedMappingName}</span></div>
             </div>

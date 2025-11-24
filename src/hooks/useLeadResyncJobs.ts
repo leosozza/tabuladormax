@@ -32,6 +32,8 @@ export interface JobFilters {
   phoneNull?: boolean;
   valorNull?: boolean;
   responsibleNull?: boolean;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export function useLeadResyncJobs() {
