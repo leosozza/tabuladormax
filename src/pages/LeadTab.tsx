@@ -2150,14 +2150,14 @@ const LeadTab = () => {
           </div>
             
           {/* Foto do perfil */}
-          <div className="relative w-full flex justify-center">
-            {loadingProfile && <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg z-10">
+          <div className="relative w-full flex justify-center pointer-events-none">
+            {loadingProfile && <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg z-10 pointer-events-auto">
                 <Loader2 className="w-8 h-8 animate-spin" />
               </div>}
             <img 
               src={getProfilePhotoUrl()} 
               alt={chatwootData?.name || 'Lead'} 
-              className="rounded-lg w-32 h-32 md:w-40 md:h-40 border-4 border-green-500 shadow-lg object-cover"
+              className="rounded-lg w-32 h-32 md:w-40 md:h-40 border-4 border-green-500 shadow-lg object-cover pointer-events-auto"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 if (target.src !== noPhotoPlaceholder) {
