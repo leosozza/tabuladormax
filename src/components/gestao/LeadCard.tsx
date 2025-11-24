@@ -7,7 +7,8 @@ import { User, MapPin, Calendar, Phone, AlertCircle, Building2, UserCheck } from
 import { useTinderCardConfig } from "@/hooks/useTinderCardConfig";
 import { ALL_LEAD_FIELDS } from "@/config/leadFields";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
-import noPhotoPlaceholder from "@/assets/no-photo-placeholder.png";
+// SVG transparente para placeholder "Sem Imagem"
+const NO_PHOTO_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='none'/%3E%3Ccircle cx='100' cy='100' r='70' fill='none' stroke='%23D1D5DB' stroke-width='3'/%3E%3Cpath d='M70 70 L130 130 M130 70 L70 130' stroke='%23D1D5DB' stroke-width='3' stroke-linecap='round'/%3E%3Ctext x='100' y='175' text-anchor='middle' font-size='16' fill='%23D1D5DB' font-family='sans-serif'%3ESem Imagem%3C/text%3E%3C/svg%3E`;
 
 interface LeadCardProps {
   lead: Record<string, unknown>; // Dynamic lead object
@@ -62,7 +63,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
   };
 
   const rawPhotoUrl = String(lead[config.photoField] || '');
-  const photoSrc = hasPhotoError ? noPhotoPlaceholder : getLeadPhotoUrl(rawPhotoUrl);
+  const photoSrc = hasPhotoError ? NO_PHOTO_SVG : getLeadPhotoUrl(rawPhotoUrl);
   
   const mainValues = config.mainFields.map(key => ({ key, value: String(getFieldValue(key) || '') }));
   const detailValues = config.detailFields.map(key => ({ key, value: String(getFieldValue(key) || ''), label: getFieldLabel(key) }));
@@ -108,8 +109,8 @@ export default function LeadCard({ lead }: LeadCardProps) {
         />
       </div>
         
-      {/* Badges de Status - Topo Direito */}
-      <div className="absolute top-2 right-2 md:top-3 md:right-3 lg:top-4 lg:right-4 flex flex-row flex-nowrap items-center gap-1 z-10 max-w-[90%] overflow-hidden">
+      {/* Badges de Status - Centralizado no Topo */}
+      <div className="absolute top-2 inset-x-0 mx-auto flex flex-row flex-nowrap items-center justify-center gap-1 z-10 max-w-[95%] overflow-hidden">
           {/* FASE 4: Badge de erro de sincronização */}
           {lead.has_sync_errors && (
             <Tooltip>
