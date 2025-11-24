@@ -66,7 +66,18 @@ export default function LeadCard({ lead }: LeadCardProps) {
   
   const mainValues = config.mainFields.map(key => ({ key, value: String(getFieldValue(key) || '') }));
   const detailValues = config.detailFields.map(key => ({ key, value: String(getFieldValue(key) || ''), label: getFieldLabel(key) }));
-  const badgeValues = config.badgeFields.map(key => ({ key, value: String(getFieldValue(key) || '') })).filter(v => v.value);
+  // ✅ Mostrar badges mesmo se vazios (com placeholder)
+  const badgeValues = config.badgeFields.map(key => ({ 
+    key, 
+    value: String(getFieldValue(key) || 'Não informado') 
+  }));
+  
+  // DEBUG: Ver valores dos badges
+  console.log('[LeadCard] badgeFields config:', config.badgeFields);
+  console.log('[LeadCard] badgeValues:', badgeValues);
+  console.log('[LeadCard] lead.scouter:', lead.scouter);
+  console.log('[LeadCard] lead.projeto_comercial:', lead.projeto_comercial);
+  console.log('[LeadCard] lead.ficha_confirmada:', lead.ficha_confirmada);
 
   const cardSizeClasses = {
     small: "max-w-xs",
@@ -124,18 +135,23 @@ export default function LeadCard({ lead }: LeadCardProps) {
           )}
           
           {badgeValues.length > 0 && badgeValues.map((badge, idx) => {
+            const isId = badge.key === 'id';
             const isProject = badge.key === 'projeto_comercial';
             const isScouter = badge.key === 'scouter';
+            
+            // ✅ Badge ID: verde se confirmada, cinza se não
+            const isFichaConfirmada = lead.ficha_confirmada === true;
             
             return (
               <Badge 
                 key={idx} 
-                variant={isProject || isScouter ? "default" : "secondary"}
+                variant="default"
                 className={cn(
                   "backdrop-blur-sm text-[10px] md:text-xs flex items-center gap-1",
-                  isProject && "bg-blue-500/90 text-white hover:bg-blue-500/80",
-                  isScouter && "bg-purple-500/90 text-white hover:bg-purple-500/80",
-                  !isProject && !isScouter && "bg-background/80"
+                  isId && isFichaConfirmada && "bg-green-500/90 text-white hover:bg-green-500/80",
+                  isId && !isFichaConfirmada && "bg-gray-500/90 text-white hover:bg-gray-500/80",
+                  isProject && "bg-yellow-500/90 text-white hover:bg-yellow-500/80", // ✅ Amarelo
+                  isScouter && "bg-blue-500/90 text-white hover:bg-blue-500/80", // ✅ Azul
                 )}
               >
                 {isProject && <Building2 className="w-3 h-3" />}
