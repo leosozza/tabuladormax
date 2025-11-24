@@ -2093,6 +2093,14 @@ export type Database = {
         Returns: boolean
       }
       normalize_fonte: { Args: { raw_fonte: string }; Returns: string }
+      reprocess_leads_from_raw_bulk: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_only_missing_fields?: boolean
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_department:
