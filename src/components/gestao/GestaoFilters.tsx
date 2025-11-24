@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { GestaoFilters } from "@/types/filters";
 import { createDateFilter, formatDateForDisplay } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
@@ -491,22 +492,14 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
               </div>
 
               {/* Filtro de Fotos */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Fotos:</label>
-                <Select
-                  value={filters.photoFilter || "all"}
-                  onValueChange={(value) => 
-                    onChange({ ...filters, photoFilter: value === "all" ? null : value as 'with-photo' })
+              <div className="flex items-center justify-between py-2">
+                <label className="text-sm font-medium">Com Foto:</label>
+                <Switch
+                  checked={filters.photoFilter}
+                  onCheckedChange={(checked) => 
+                    onChange({ ...filters, photoFilter: checked })
                   }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="with-photo">Com Foto</SelectItem>
-                  </SelectContent>
-                </Select>
+                />
               </div>
 
               {/* Filtros Adicionais */}
@@ -528,7 +521,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
                     projectId: null,
                     scouterId: null,
                     fonte: null,
-                    photoFilter: null,
+                    photoFilter: false,
                     additionalFilters: []
                   });
                   }}
@@ -704,21 +697,13 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
 
       {/* Filtro de Fotos */}
       <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-muted-foreground">Fotos:</label>
-        <Select
-          value={filters.photoFilter || "all"}
-          onValueChange={(value) => 
-            onChange({ ...filters, photoFilter: value === "all" ? null : value as 'with-photo' })
+        <label className="text-sm font-medium text-muted-foreground">Com Foto:</label>
+        <Switch
+          checked={filters.photoFilter}
+          onCheckedChange={(checked) => 
+            onChange({ ...filters, photoFilter: checked })
           }
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="with-photo">Com Foto</SelectItem>
-          </SelectContent>
-        </Select>
+        />
       </div>
 
       {/* Filtros Adicionais */}
@@ -737,7 +722,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
                     projectId: null,
                     scouterId: null,
                     fonte: null,
-                    photoFilter: null,
+                    photoFilter: false,
                     additionalFilters: []
                   })}
         >
