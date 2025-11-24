@@ -1937,6 +1937,16 @@ export type Database = {
           leads_not_found: number
         }[]
       }
+      get_conversion_funnel_data: {
+        Args: {
+          p_end_date?: string
+          p_fonte?: string
+          p_project_id?: string
+          p_scouter?: string
+          p_start_date?: string
+        }
+        Returns: Json
+      }
       get_general_stats: {
         Args: never
         Returns: {
@@ -1947,6 +1957,16 @@ export type Database = {
           total_leads: number
           valor_total: number
         }[]
+      }
+      get_leads_chart_data: {
+        Args: {
+          p_end_date: string
+          p_fonte?: string
+          p_project_id?: string
+          p_scouter?: string
+          p_start_date: string
+        }
+        Returns: Json
       }
       get_leads_schema: {
         Args: never
@@ -2041,6 +2061,17 @@ export type Database = {
           total_leads: number
         }[]
       }
+      get_scouter_performance_data: {
+        Args: {
+          p_end_date?: string
+          p_fonte?: string
+          p_limit?: number
+          p_project_id?: string
+          p_scouter?: string
+          p_start_date?: string
+        }
+        Returns: Json
+      }
       get_scouter_performance_detail: {
         Args: { p_scouter_id: string }
         Returns: Json
@@ -2075,6 +2106,17 @@ export type Database = {
           fonte_normalizada: string
           total: number
         }[]
+      }
+      get_status_distribution_data: {
+        Args: {
+          p_end_date?: string
+          p_fonte?: string
+          p_limit?: number
+          p_project_id?: string
+          p_scouter?: string
+          p_start_date?: string
+        }
+        Returns: Json
       }
       get_table_columns: {
         Args: { table_name: string }

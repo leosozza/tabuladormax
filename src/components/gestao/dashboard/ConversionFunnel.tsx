@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { GestaoFilters } from "@/types/filters";
@@ -20,42 +19,31 @@ export default function ConversionFunnel({ filters }: ConversionFunnelProps) {
   const { data: funnelData, isLoading } = useQuery({
     queryKey: ["conversion-funnel", filters],
     queryFn: async () => {
-      // Fetch all leads with pagination to ensure we get more than 1000 records
-      const data = await fetchAllLeads(
-        supabase,
-        "ficha_confirmada, compareceu",
-        (query) => {
-          let q = query;
-          
-          // Aplicar filtros se fornecidos
-          if (filters?.dateFilter.preset !== 'all') {
-            q = q
-              .gte("criado", filters.dateFilter.startDate.toISOString())
-              .lte("criado", filters.dateFilter.endDate.toISOString());
-          }
-          if (filters?.projectId) {
-            q = q.eq("commercial_project_id", filters.projectId);
-          }
-          if (filters?.scouterId) {
-            q = q.eq("scouter", filters.scouterId);
-          }
-          if (filters?.fonte) {
-            q = q.eq("fonte_normalizada", filters.fonte);
-          }
-          
-          return q;
-        }
-      );
+      // Chamar RPC otimizada
+      const { data, error } = await supabase.rpc('get_conversion_funnel_data', {
+        p_start_date: filters?.dateFilter.preset !== 'all' 
+          ? filters.dateFilter.startDate.toISOString() 
+          : null,
+        p_end_date: filters?.dateFilter.preset !== 'all'
+          ? filters.dateFilter.endDate.toISOString()
+          : null,
+        p_project_id: filters?.projectId || null,
+        p_scouter: filters?.scouterId || null,
+        p_fonte: filters?.fonte || null,
+      });
       
-      const total = data.length;
-      const confirmados = data.filter(l => l.ficha_confirmada).length;
-      const compareceram = data.filter(l => l.presenca_confirmada).length;
+      if (error) throw error;
+      
+      const result = data as any;
+      const total = result?.total || 0;
+      const confirmados = result?.confirmados || 0;
+      const compareceram = result?.compareceram || 0;
       
       return [
         { name: "Total de Leads", value: total, percentage: 100 },
-        { name: "Fichas Confirmadas", value: confirmados, percentage: total ? (confirmados / total * 100) : 0 },
-        { name: "Compareceram", value: compareceram, percentage: total ? (compareceram / total * 100) : 0 },
-        { name: "Taxa de Conversão", value: compareceram, percentage: total ? (compareceram / total * 100) : 0 },
+        { name: "Fichas Confirmadas", value: confirmados, percentage: total ? Math.round((confirmados / total) * 100) : 0 },
+        { name: "Compareceram", value: compareceram, percentage: total ? Math.round((compareceram / total) * 100) : 0 },
+        { name: "Taxa de Conversão", value: compareceram, percentage: total ? Math.round((compareceram / total) * 100) : 0 },
       ];
     },
   });
