@@ -23,6 +23,7 @@ import { useBitrixEnums } from "@/hooks/useBitrixEnums";
 import { toast } from "sonner";
 import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal";
 import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtils";
+import { useUndoAction } from "@/hooks/useUndoAction";
 
 let longPressTimer: number | null = null;
 
@@ -48,6 +49,10 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
   
   // Estado para controlar o modal de configuração do cartão
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  
+  // Sistema de undo
+  const { recordAction, clearUndo, getLastAction, isUndoAvailable } = useUndoAction({ timeoutMs: 5000 });
+  const [lastProcessedLead, setLastProcessedLead] = useState<any>(null);
   
   const { visibleColumns } = useLeadColumnConfig();
   const { data: allFields, isLoading: isLoadingFields } = useGestaoFieldMappings();
@@ -373,6 +378,9 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
 
   // Funções de análise
   const moveToNextLead = () => {
+    // Limpar undo ao avançar naturalmente
+    clearUndo();
+    
     if (currentAnalysisIndex < analysisLeads.length - 1) {
       setCurrentAnalysisIndex(prev => prev + 1);
     } else {
@@ -388,6 +396,14 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
     setIsProcessingAction(true);
     
     try {
+      // Salvar estado anterior para undo
+      setLastProcessedLead({
+        ...currentLead,
+        qualidade_lead_anterior: currentLead.qualidade_lead,
+        data_analise_anterior: currentLead.data_analise,
+        analisado_por_anterior: currentLead.analisado_por
+      });
+      
       const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase
         .from('leads')
@@ -399,6 +415,9 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
         .eq('id', currentLead.id);
       
       if (error) throw error;
+      
+      // Registrar ação no undo
+      recordAction(currentLead.id, 'aprovado');
       
       toast.success('Lead aprovado!');
       moveToNextLead();
@@ -415,6 +434,14 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
     setIsProcessingAction(true);
     
     try {
+      // Salvar estado anterior para undo
+      setLastProcessedLead({
+        ...currentLead,
+        qualidade_lead_anterior: currentLead.qualidade_lead,
+        data_analise_anterior: currentLead.data_analise,
+        analisado_por_anterior: currentLead.analisado_por
+      });
+      
       const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase
         .from('leads')
@@ -426,6 +453,9 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
         .eq('id', currentLead.id);
       
       if (error) throw error;
+      
+      // Registrar ação no undo
+      recordAction(currentLead.id, 'reprovado');
       
       toast.success('Lead reprovado');
       moveToNextLead();
@@ -442,6 +472,14 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
     setIsProcessingAction(true);
     
     try {
+      // Salvar estado anterior para undo
+      setLastProcessedLead({
+        ...currentLead,
+        qualidade_lead_anterior: currentLead.qualidade_lead,
+        data_analise_anterior: currentLead.data_analise,
+        analisado_por_anterior: currentLead.analisado_por
+      });
+      
       const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase
         .from('leads')
@@ -454,6 +492,9 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
       
       if (error) throw error;
       
+      // Registrar ação no undo
+      recordAction(currentLead.id, 'super_aprovado');
+      
       toast.success('Lead super aprovado! ⭐');
       moveToNextLead();
     } catch (error) {
@@ -465,7 +506,53 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
   };
 
   const handleSkip = () => {
+    const currentLead = analysisLeads[currentAnalysisIndex];
+    
+    // Salvar lead atual para permitir voltar
+    setLastProcessedLead(currentLead);
+    
+    // Registrar ação de skip no undo
+    recordAction(currentLead.id, 'skipped');
+    
     moveToNextLead();
+  };
+  
+  // Função para desfazer última ação
+  const handleUndo = async () => {
+    const lastAction = getLastAction();
+    if (!lastAction || !lastProcessedLead) return;
+    
+    setIsProcessingAction(true);
+    
+    try {
+      // Se foi Skip, apenas voltar o índice (não precisa DB update)
+      if (lastAction.quality === 'skipped') {
+        setCurrentAnalysisIndex(prev => Math.max(0, prev - 1));
+        clearUndo();
+        toast.success('Voltou ao lead anterior');
+        return;
+      }
+      
+      // Se foi approve/reject/super, restaurar estado anterior no DB
+      await supabase
+        .from('leads')
+        .update({
+          qualidade_lead: lastProcessedLead.qualidade_lead_anterior || null,
+          data_analise: lastProcessedLead.data_analise_anterior || null,
+          analisado_por: lastProcessedLead.analisado_por_anterior || null
+        })
+        .eq('id', lastAction.leadId);
+      
+      // Voltar índice
+      setCurrentAnalysisIndex(prev => Math.max(0, prev - 1));
+      clearUndo();
+      toast.success('Ação desfeita!');
+    } catch (error) {
+      console.error('Erro ao desfazer ação:', error);
+      toast.error('Erro ao desfazer ação');
+    } finally {
+      setIsProcessingAction(false);
+    }
   };
 
   // Atalhos de teclado para análise
@@ -839,6 +926,8 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
           onReject={handleReject}
           onSuperApprove={handleSuperApprove}
           onSkip={handleSkip}
+          onUndo={handleUndo}
+          canUndo={isUndoAvailable}
           disabled={isProcessingAction}
           currentIndex={currentAnalysisIndex}
           totalLeads={analysisLeads.length}
