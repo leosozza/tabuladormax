@@ -144,6 +144,11 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
         queryBuilder.eq("fonte_normalizada", filters.fonte);
       }
 
+      // Aplicar filtro de fotos
+      if (filters.photoFilter === 'with-photo') {
+        queryBuilder.eq("cadastro_existe_foto", true);
+      }
+
       // Aplicar filtros adicionais dinamicamente
       if (filters.additionalFilters && filters.additionalFilters.length > 0) {
         for (const additionalFilter of filters.additionalFilters) {
@@ -957,6 +962,7 @@ export default function GestaoLeads() {
     projectId: null,
     scouterId: null,
     fonte: null,
+    photoFilter: null,
     additionalFilters: [],
   });
 

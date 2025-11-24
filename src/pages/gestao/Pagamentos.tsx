@@ -18,6 +18,7 @@ function GestaoPagamentosContent() {
     projectId: null,
     scouterId: null,
     fonte: null,
+    photoFilter: null,
   });
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedScouters, setSelectedScouters] = useState<string[]>([]);

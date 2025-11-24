@@ -24,7 +24,8 @@ function GestaoProjecaoContent() {
     dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null,
-    fonte: null
+    fonte: null,
+    photoFilter: null,
   });
 
   // Datas para período histórico (últimos 3 meses por padrão)

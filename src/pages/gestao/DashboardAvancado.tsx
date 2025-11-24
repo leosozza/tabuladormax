@@ -22,7 +22,8 @@ function AdvancedDashboardContent() {
     dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null,
-    fonte: null
+    fonte: null,
+    photoFilter: null,
   });
 
   // Usar o primeiro dashboard ou dashboard padrão

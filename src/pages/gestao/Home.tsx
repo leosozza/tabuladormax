@@ -22,7 +22,8 @@ function GestaoHomeContent() {
     dateFilter: createDateFilter('all'),
     projectId: null,
     scouterId: null,
-    fonte: null
+    fonte: null,
+    photoFilter: null,
   });
 
   // Estatísticas principais
