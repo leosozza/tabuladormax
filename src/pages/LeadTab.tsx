@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { saveChatwootContact, extractChatwootData, extractBitrixOpenLineData, extractConversationFromOpenLine, type ChatwootEventData, type BitrixOpenLineData } from "@/lib/chatwoot";
+import { saveChatwootContact, extractChatwootData, extractBitrixOpenLineData, extractChatwootIdsFromBitrix, extractConversationFromOpenLine, type ChatwootEventData, type BitrixOpenLineData } from "@/lib/chatwoot";
 import { getLead, type BitrixLead, getLeadFields, type BitrixField } from "@/lib/bitrix";
 import { getTelemarketingId } from "@/handlers/tabular";
 import { ChatModal } from "@/components/chatwoot/ChatModal";
@@ -633,9 +633,107 @@ const LeadTab = () => {
             updateStep(chatwootStepIndex, 'success', 'Conversa já salva no banco', 0);
             console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
           } 
-          // === ESTRATÉGIA 3: Buscar no OpenLine (Bitrix IM) para Chatwoot ===
+          // === ESTRATÉGIA 3: IDs do Chatwoot armazenados no Bitrix ===
           else if (supabaseLead.raw) {
-            updateStep(chatwootStepIndex, 'loading', 'Buscando no OpenLine...');
+            const chatwootIds = extractChatwootIdsFromBitrix(supabaseLead.raw);
+            
+            if (chatwootIds?.conversation_id) {
+              updateStep(chatwootStepIndex, 'loading', `Buscando conversa #${chatwootIds.conversation_id} (extraída do Bitrix)...`);
+              const start = Date.now();
+              
+              try {
+                const { data, error } = await supabase.functions.invoke(
+                  'chatwoot-get-conversation',
+                  { body: { conversation_id: chatwootIds.conversation_id } }
+                );
+                
+                if (data && !error) {
+                  // Salvar no Supabase
+                  await supabase.from('leads').update({
+                    conversation_id: data.conversation_id,
+                    contact_id: data.contact_id
+                  }).eq('id', Number(bitrixId));
+                  
+                  contactData = { ...contactData, ...data };
+                  
+                  updateStep(chatwootStepIndex, 'success', `✅ Conversa #${data.conversation_id} encontrada (Bitrix → Chatwoot)`, Date.now() - start);
+                  conversationId = data.conversation_id;
+                  source = 'bitrix custom fields';
+                } else {
+                  console.warn('⚠️ Conversa não encontrada com ID do Bitrix, tentando próxima estratégia');
+                }
+              } catch (error) {
+                console.warn('⚠️ Erro ao buscar com ID do Bitrix, tentando próxima estratégia');
+              }
+            } else if (chatwootIds?.contact_id) {
+              updateStep(chatwootStepIndex, 'loading', `Buscando por contact_id #${chatwootIds.contact_id}...`);
+              const start = Date.now();
+              
+              try {
+                const { data, error } = await supabase.functions.invoke(
+                  'chatwoot-get-conversation',
+                  { body: { contact_id: chatwootIds.contact_id } }
+                );
+                
+                if (data && !error) {
+                  // Salvar no Supabase
+                  await supabase.from('leads').update({
+                    conversation_id: data.conversation_id,
+                    contact_id: data.contact_id
+                  }).eq('id', Number(bitrixId));
+                  
+                  contactData = { ...contactData, ...data };
+                  
+                  updateStep(chatwootStepIndex, 'success', `✅ Conversa encontrada por contact_id (Bitrix)`, Date.now() - start);
+                  conversationId = data.conversation_id;
+                  source = 'bitrix contact_id';
+                } else {
+                  console.warn('⚠️ Conversa não encontrada com contact_id, tentando próxima estratégia');
+                }
+              } catch (error) {
+                console.warn('⚠️ Erro ao buscar com contact_id, tentando próxima estratégia');
+              }
+            }
+          }
+          
+          // === ESTRATÉGIA 4: Buscar por telefone no Chatwoot ===
+          if (!conversationId) {
+            const telefone = supabaseLead.celular || supabaseLead.telefone_trabalho;
+            
+            if (telefone) {
+              updateStep(chatwootStepIndex, 'loading', `Buscando por telefone ${telefone}...`);
+              const start = Date.now();
+              
+              try {
+                const { data, error } = await supabase.functions.invoke(
+                  'chatwoot-get-conversation',
+                  { body: { phone_number: telefone } }
+                );
+                
+                if (data && !error) {
+                  // Salvar no Supabase
+                  await supabase.from('leads').update({
+                    conversation_id: data.conversation_id,
+                    contact_id: data.contact_id
+                  }).eq('id', Number(bitrixId));
+                  
+                  contactData = { ...contactData, ...data };
+                  
+                  updateStep(chatwootStepIndex, 'success', `✅ Conversa encontrada por telefone`, Date.now() - start);
+                  conversationId = data.conversation_id;
+                  source = 'chatwoot phone search';
+                } else {
+                  console.warn('⚠️ Não encontrado no Chatwoot por telefone');
+                }
+              } catch (error) {
+                console.warn('⚠️ Erro ao buscar por telefone no Chatwoot');
+              }
+            }
+          }
+          
+          // === ESTRATÉGIA 5 (antiga): Buscar no OpenLine (Bitrix IM) ===
+          if (!conversationId && supabaseLead.raw) {
+            updateStep(chatwootStepIndex, 'loading', 'Buscando no OpenLine (Bitrix IM)...');
             const chatwootStart = Date.now();
             
             conversationId = extractConversationFromOpenLine(supabaseLead.raw);
