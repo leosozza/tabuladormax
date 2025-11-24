@@ -1,15 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { GestaoFilters } from "@/types/filters";
-
-interface LeadPerformanceData {
-  scouter: string;
-  ficha_confirmada?: boolean;
-  presenca_confirmada?: boolean;
-}
 
 interface ScouterPerformanceProps {
   filters?: GestaoFilters;
@@ -19,57 +12,31 @@ export default function ScouterPerformance({ filters }: ScouterPerformanceProps)
   const { data: performanceData, isLoading } = useQuery({
     queryKey: ["scouter-performance", filters],
     queryFn: async () => {
-      // Fetch all leads with pagination to ensure we get more than 1000 records
-      const data = await fetchAllLeads<LeadPerformanceData>(
-        supabase,
-        "scouter, ficha_confirmada, compareceu",
-        (query) => {
-          let q = query.not("scouter", "is", null);
-          
-          // Aplicar filtros se fornecidos
-          if (filters?.dateFilter.preset !== 'all') {
-            q = q
-              .gte("criado", filters.dateFilter.startDate.toISOString())
-              .lte("criado", filters.dateFilter.endDate.toISOString());
-          }
-          if (filters?.projectId) {
-            q = q.eq("commercial_project_id", filters.projectId);
-          }
-          if (filters?.scouterId) {
-            q = q.eq("scouter", filters.scouterId);
-          }
-          if (filters?.fonte) {
-            q = q.eq("fonte_normalizada", filters.fonte);
-          }
-          
-          return q;
-        }
-      );
-      
-      // Agrupar por scouter
-      const grouped = new Map<string, { total: number; confirmados: number; compareceram: number }>();
-      
-      data?.forEach((lead) => {
-        const scouter = lead.scouter || "Sem scouter";
-        if (!grouped.has(scouter)) {
-          grouped.set(scouter, { total: 0, confirmados: 0, compareceram: 0 });
-        }
-        const stats = grouped.get(scouter)!;
-        stats.total++;
-        if (lead.ficha_confirmada) stats.confirmados++;
-        if (lead.presenca_confirmada) stats.compareceram++;
+      // Chamar RPC otimizada
+      const { data, error } = await supabase.rpc('get_scouter_performance_data', {
+        p_start_date: filters?.dateFilter.preset !== 'all' 
+          ? filters.dateFilter.startDate.toISOString() 
+          : null,
+        p_end_date: filters?.dateFilter.preset !== 'all'
+          ? filters.dateFilter.endDate.toISOString()
+          : null,
+        p_project_id: filters?.projectId || null,
+        p_scouter: filters?.scouterId || null,
+        p_fonte: filters?.fonte || null,
+        p_limit: 10,
       });
       
-      // Converter para array e ordenar por total
-      return Array.from(grouped.entries())
-        .map(([scouter, stats]) => ({
-          scouter: scouter.length > 20 ? scouter.substring(0, 20) + "..." : scouter,
-          total: stats.total,
-          confirmados: stats.confirmados,
-          compareceram: stats.compareceram,
-        }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 10); // Top 10
+      if (error) throw error;
+      
+      // Truncar nomes longos
+      return ((data as any[]) || []).map((item: any) => ({
+        scouter: item.scouter.length > 20 
+          ? item.scouter.substring(0, 20) + "..." 
+          : item.scouter,
+        total: item.total,
+        confirmados: item.confirmados,
+        compareceram: item.compareceram,
+      }));
     },
   });
 
