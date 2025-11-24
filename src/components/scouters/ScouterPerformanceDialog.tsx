@@ -19,7 +19,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, CheckCircle2, Users, DollarSign, Calendar, Clock, FileDown, CalendarIcon, RotateCcw } from "lucide-react";
+import { TrendingUp, CheckCircle2, Users, DollarSign, Calendar, Clock, FileDown, CalendarIcon, RotateCcw, X } from "lucide-react";
+import { HourlyProductivityChart } from "./HourlyProductivityChart";
 import { useScouterTimesheet } from "@/hooks/useScouterTimesheet";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,7 @@ export function ScouterPerformanceDialog({
   
   const [startDate, setStartDate] = useState<Date | undefined>(thirtyDaysAgo);
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   
   const formattedStartDate = startDate ? format(startDate, "yyyy-MM-dd") : undefined;
   const formattedEndDate = endDate ? format(endDate, "yyyy-MM-dd") : undefined;
@@ -487,7 +489,14 @@ export function ScouterPerformanceDialog({
                       </thead>
                       <tbody>
                         {timesheet.map((entry) => (
-                          <tr key={entry.work_date} className="border-b hover:bg-muted/50">
+                          <tr 
+                            key={entry.work_date} 
+                            className={cn(
+                              "border-b hover:bg-muted/50 cursor-pointer transition-colors",
+                              selectedDate === entry.work_date && "bg-primary/10"
+                            )}
+                            onClick={() => setSelectedDate(entry.work_date)}
+                          >
                             <td className="p-2">
                               {new Date(entry.work_date).toLocaleDateString("pt-BR")}
                             </td>
@@ -526,9 +535,100 @@ export function ScouterPerformanceDialog({
                 )}
               </CardContent>
             </Card>
+
+            {/* Gráfico de Produtividade por Horário */}
+            {selectedDate && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Análise Detalhada do Dia</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {new Date(selectedDate).toLocaleDateString("pt-BR", { 
+                          day: 'numeric', 
+                          month: 'long', 
+                          year: 'numeric' 
+                        })}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSelectedDate(null)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <HourlyProductivityContent 
+                    scouterName={scouter.name} 
+                    date={selectedDate}
+                    timesheetEntry={timesheet?.find(e => e.work_date === selectedDate)}
+                  />
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+interface HourlyProductivityContentProps {
+  scouterName: string;
+  date: string;
+  timesheetEntry?: {
+    clock_in: string;
+    clock_out: string;
+  };
+}
+
+function HourlyProductivityContent({ scouterName, date, timesheetEntry }: HourlyProductivityContentProps) {
+  const { data: hourlyData, isLoading } = useQuery({
+    queryKey: ["scouter-hourly-leads", scouterName, date],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_scouter_hourly_leads", {
+        p_scouter_name: scouterName,
+        p_date: date,
+      });
+
+      if (error) {
+        console.error("Erro ao buscar dados por hora:", error);
+        throw error;
+      }
+      return data || [];
+    },
+    enabled: !!scouterName && !!date,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-[400px]" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!hourlyData || hourlyData.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        Nenhuma ficha encontrada neste dia
+      </div>
+    );
+  }
+
+  return (
+    <HourlyProductivityChart 
+      data={hourlyData}
+      clockIn={timesheetEntry?.clock_in}
+      clockOut={timesheetEntry?.clock_out}
+    />
   );
 }
