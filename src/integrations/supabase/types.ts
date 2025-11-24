@@ -1985,9 +1985,12 @@ export type Database = {
           p_start_date?: string
         }
         Returns: {
+          agendados: number
+          com_foto: number
           compareceram: number
           confirmados: number
           pendentes: number
+          reagendar: number
           total: number
         }[]
       }
