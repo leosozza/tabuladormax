@@ -38,6 +38,36 @@ export default function GestaoScouters() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Sincronização automática em background (a cada 30 minutos)
+  useEffect(() => {
+    const syncPhotos = async () => {
+      const lastSync = localStorage.getItem('last-scouter-photo-sync');
+      const now = Date.now();
+      
+      // Sincronizar se passou mais de 30 minutos (1800000 ms)
+      if (!lastSync || now - parseInt(lastSync) > 1800000) {
+        try {
+          console.log('🔄 Sincronizando fotos dos scouters em background...');
+          await supabase.functions.invoke('sync-bitrix-spa-entities');
+          localStorage.setItem('last-scouter-photo-sync', now.toString());
+          console.log('✅ Fotos dos scouters sincronizadas automaticamente');
+          
+          // Invalidar cache para atualizar UI
+          queryClient.invalidateQueries({ queryKey: ["scouters"] });
+          queryClient.invalidateQueries({ queryKey: ["scouters-all"] });
+        } catch (error) {
+          console.error('❌ Erro na sincronização automática de fotos:', error);
+        }
+      }
+    };
+
+    syncPhotos();
+    
+    // Repetir a cada 30 minutos
+    const interval = setInterval(syncPhotos, 1800000);
+    return () => clearInterval(interval);
+  }, [queryClient]);
+
   // Load saved filters from localStorage
   useEffect(() => {
     const savedStatusFilter = localStorage.getItem('scouter-status-filter');

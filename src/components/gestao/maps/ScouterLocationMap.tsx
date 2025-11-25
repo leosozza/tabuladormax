@@ -6,7 +6,7 @@ import "leaflet/dist/leaflet.css";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, MapPin, Clock, Navigation, Route, ChevronUp, ChevronDown, RefreshCw, Image } from "lucide-react";
+import { User, MapPin, Clock, Navigation, Route, ChevronUp, ChevronDown } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useChartPerformance } from "@/lib/monitoring";
@@ -65,47 +65,33 @@ export default function ScouterLocationMap({
   } | null>(null);
   const [locationHistory, setLocationHistory] = useState<LocationHistory[]>([]);
   const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
-  const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
 
-  // Função para sincronizar fotos
-  const handleSyncPhotos = async () => {
-    setIsSyncingPhotos(true);
-    
-    try {
-      toast({
-        title: "Sincronizando fotos...",
-        description: "Buscando fotos dos scouters do Bitrix",
-      });
-
-      const { data, error } = await supabase.functions.invoke('sync-bitrix-spa-entities');
-
-      if (error) {
-        throw error;
+  // Sincronização automática em background (a cada 30 minutos)
+  useEffect(() => {
+    const syncPhotos = async () => {
+      const lastSync = localStorage.getItem('last-scouter-photo-sync');
+      const now = Date.now();
+      
+      // Sincronizar se passou mais de 30 minutos (1800000 ms)
+      if (!lastSync || now - parseInt(lastSync) > 1800000) {
+        try {
+          console.log('🔄 Sincronizando fotos em background...');
+          await supabase.functions.invoke('sync-bitrix-spa-entities');
+          localStorage.setItem('last-scouter-photo-sync', now.toString());
+          console.log('✅ Fotos sincronizadas automaticamente');
+        } catch (error) {
+          console.error('❌ Erro na sincronização automática:', error);
+        }
       }
+    };
 
-      toast({
-        title: "Fotos sincronizadas!",
-        description: `${data.totalSynced} scouters atualizados com sucesso`,
-      });
-
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-
-    } catch (error) {
-      console.error('Erro ao sincronizar fotos:', error);
-      toast({
-        title: "Erro na sincronização",
-        description: error instanceof Error ? error.message : "Erro desconhecido",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSyncingPhotos(false);
-    }
-  };
+    syncPhotos();
+    
+    // Repetir a cada 30 minutos
+    const interval = setInterval(syncPhotos, 1800000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Buscar localizações mais recentes dos scouters diretamente do histórico
   const {
@@ -324,30 +310,11 @@ export default function ScouterLocationMap({
         </Card>
       </div>
 
-      {/* Indicador de atualização e botão de sincronização */}
-      <div className="absolute top-4 right-4 z-[1000] flex gap-2">
-        <Button
-          onClick={handleSyncPhotos}
-          disabled={isSyncingPhotos}
-          variant="outline"
-          size="sm"
-          className="gap-2 bg-white/95 backdrop-blur shadow-lg"
-        >
-          {isSyncingPhotos ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              Sincronizando...
-            </>
-          ) : (
-            <>
-              <Image className="w-4 h-4" />
-              Sincronizar Fotos
-            </>
-          )}
-        </Button>
+      {/* Indicador de atualização automática */}
+      <div className="absolute top-4 right-4 z-[1000]">
         <Badge variant="secondary" className="bg-white/95 backdrop-blur shadow-lg gap-2">
           <Clock className="w-3 h-3 animate-pulse" />
-          Atualização automática
+          Sincronização automática ativa
         </Badge>
       </div>
 
