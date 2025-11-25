@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { RefreshCw } from 'lucide-react';
+import { ResyncDateClosedButton } from '@/components/admin/ResyncDateClosedButton';
 
 export default function AdminHub() {
   const [modalOpen, setModalOpen] = useState(true);
@@ -40,6 +41,10 @@ export default function AdminHub() {
   return (
     <>
       <AdminAccessModal open={modalOpen} onOpenChange={setModalOpen} />
+      
+      <div className="container mx-auto p-6 space-y-6">
+        <ResyncDateClosedButton />
+      </div>
       
       {/* ✅ FASE 6: Botão para sincronizar SPAs manualmente */}
       <div className="fixed bottom-4 right-4 z-50">
