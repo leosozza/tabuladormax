@@ -414,6 +414,30 @@ export type Database = {
         }
         Relationships: []
       }
+      bitrix_source_mapping: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          status_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          status_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          status_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       bitrix_spa_entities: {
         Row: {
           bitrix_item_id: number
