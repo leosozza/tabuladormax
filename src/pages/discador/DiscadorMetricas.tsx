@@ -1,12 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MainLayout } from "@/components/layouts/MainLayout";
 
 export default function DiscadorMetricas() {
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Métricas do Discador</h1>
-        <p className="text-muted-foreground">Acompanhe a performance das campanhas</p>
-      </div>
+    <MainLayout
+      title="Métricas do Discador"
+      subtitle="Acompanhe a performance das campanhas"
+    >
+      <div className="space-y-6">
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -56,6 +57,7 @@ export default function DiscadorMetricas() {
           </p>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </MainLayout>
   );
 }

@@ -62,6 +62,7 @@ import { NegotiationDetailsDialog } from '@/components/agenciamento/NegotiationD
 import { NegotiationList } from '@/components/agenciamento/NegotiationList';
 import { NegotiationStats } from '@/components/agenciamento/NegotiationStats';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MainLayout } from '@/components/layouts/MainLayout';
 
 export default function Agenciamento() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -181,18 +182,17 @@ export default function Agenciamento() {
   );
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Agenciamento</h1>
-          <p className="text-muted-foreground">Gerencie negociações comerciais</p>
-        </div>
+    <MainLayout
+      title="Agenciamento"
+      subtitle="Gerencie negociações comerciais"
+      actions={
         <Button onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Nova Negociação
         </Button>
-      </div>
+      }
+    >
+      <div className="space-y-6">
 
       {/* Statistics */}
       <NegotiationStats negotiations={filteredNegotiations} />
@@ -336,7 +336,8 @@ export default function Agenciamento() {
           onClose={() => setViewingNegotiation(null)}
         />
       )}
-    </div>
+      </div>
+    </MainLayout>
   );
 }
 

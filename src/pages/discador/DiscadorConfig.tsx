@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useSyscallConfig } from "@/hooks/useSyscallConfig";
 import { Loader2 } from "lucide-react";
+import { MainLayout } from "@/components/layouts/MainLayout";
 
 export default function DiscadorConfig() {
   const { config, saveConfig, isSaving, testConnection, isTesting } = useSyscallConfig();
@@ -21,11 +22,11 @@ export default function DiscadorConfig() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Configuração do Syscall</h1>
-        <p className="text-muted-foreground">Configure a conexão com o discador</p>
-      </div>
+    <MainLayout
+      title="Configuração do Syscall"
+      subtitle="Configure a conexão com o discador"
+    >
+      <div className="space-y-6">
 
       <Card>
         <CardHeader>
@@ -91,6 +92,7 @@ export default function DiscadorConfig() {
           </p>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </MainLayout>
   );
 }

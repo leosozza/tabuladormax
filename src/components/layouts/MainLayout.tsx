@@ -36,8 +36,7 @@ export function MainLayout({
           {(title || actions || showBackButton) && (
             <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
               <div className="flex items-center gap-2 p-3 md:p-4">
-                {/* Mobile: trigger sempre visível */}
-                <SidebarTrigger className="md:hidden" />
+                <SidebarTrigger />
 
                 {/* Botão de voltar */}
                 {showBackButton && (
