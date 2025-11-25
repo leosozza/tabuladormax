@@ -2232,6 +2232,7 @@ export type Database = {
       }
       clean_corrupted_fonte: { Args: never; Returns: Json }
       clean_old_lead_search_cache: { Args: never; Returns: undefined }
+      cleanup_scouter_location_history: { Args: never; Returns: number }
       fix_scouter_names: {
         Args: never
         Returns: {
@@ -2399,6 +2400,7 @@ export type Database = {
           total_leads: number
         }[]
       }
+      get_scouter_location_stats: { Args: never; Returns: Json }
       get_scouter_performance_data: {
         Args: {
           p_end_date?: string
