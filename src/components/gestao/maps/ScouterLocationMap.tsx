@@ -6,7 +6,7 @@ import "leaflet/dist/leaflet.css";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, MapPin, Clock, Navigation, Route } from "lucide-react";
+import { User, MapPin, Clock, Navigation, Route, ChevronUp, ChevronDown } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useChartPerformance } from "@/lib/monitoring";
@@ -64,6 +64,7 @@ export default function ScouterLocationMap({
     photoUrl?: string;
   } | null>(null);
   const [locationHistory, setLocationHistory] = useState<LocationHistory[]>([]);
+  const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   const {
     toast
   } = useToast();
@@ -293,59 +294,76 @@ export default function ScouterLocationMap({
         </Badge>
       </div>
 
-      {/* Lista de scouters */}
-      {scouterLocations && scouterLocations.length > 0 && <div className="absolute bottom-4 right-4 z-[1000] max-w-xs max-h-96 overflow-y-auto">
-          <Card className="p-4 bg-white/95 backdrop-blur shadow-lg">
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Scouters em Campo
-            </h3>
-            <div className="space-y-2">
-              {scouterLocations.map(location => <div key={location.scouterBitrixId} className="p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => {
-            // Apenas zoom no marcador
-            const marker = markersRef.current.get(String(location.scouterBitrixId));
-            if (marker && mapRef.current) {
-              mapRef.current.setView([location.latitude, location.longitude], 15);
-              marker.openPopup();
-            }
-          }}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        {location.photoUrl ? <img src={location.photoUrl} alt={location.scouterName} className="w-8 h-8 rounded-full object-cover border-2 border-green-500" /> : <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                            <span className="text-white font-bold text-xs">
-                              {location.scouterName[0].toUpperCase()}
-                            </span>
-                          </div>}
-                        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border border-white animate-pulse"></div>
-                      </div>
+      {/* Lista de scouters - Colapsável */}
+      {scouterLocations && scouterLocations.length > 0 && <div className="absolute bottom-4 right-4 z-[1000]">
+          {isScouterListExpanded ? (
+            <Card className="p-4 bg-white/95 backdrop-blur shadow-lg max-w-xs max-h-96 overflow-y-auto">
+              <h3 
+                className="font-bold text-sm mb-3 flex items-center justify-between cursor-pointer hover:text-primary transition-colors"
+                onClick={() => setIsScouterListExpanded(false)}
+              >
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Scouters em Campo
+                </div>
+                <ChevronDown className="w-4 h-4" />
+              </h3>
+              <div className="space-y-2">
+                {scouterLocations.map(location => <div key={location.scouterBitrixId} className="p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => {
+              // Apenas zoom no marcador
+              const marker = markersRef.current.get(String(location.scouterBitrixId));
+              if (marker && mapRef.current) {
+                mapRef.current.setView([location.latitude, location.longitude], 15);
+                marker.openPopup();
+              }
+            }}>
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div>
-                          <p className="text-xs font-semibold">{location.scouterName}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {formatDistanceToNow(new Date(location.recordedAt), {
-                              locale: ptBR,
-                              addSuffix: true
-                            })}
-                          </p>
+                        <div className="relative">
+                          {location.photoUrl ? <img src={location.photoUrl} alt={location.scouterName} className="w-8 h-8 rounded-full object-cover border-2 border-green-500" /> : <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                              <span className="text-white font-bold text-xs">
+                                {location.scouterName[0].toUpperCase()}
+                              </span>
+                            </div>}
+                          <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border border-white animate-pulse"></div>
                         </div>
-                        <Button variant="outline" onClick={e => {
-                            e.stopPropagation();
-                            setSelectedScouterForTimeline({
-                              bitrixId: location.scouterBitrixId,
-                              name: location.scouterName,
-                              photoUrl: location.photoUrl
-                            });
-                            setTimelineModalOpen(true);
-                          }} className="h-[13px] w-[13px] p-0 min-h-0 min-w-0">
-                          <Route className="w-[13px] h-[13px]" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="text-xs font-semibold">{location.scouterName}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {formatDistanceToNow(new Date(location.recordedAt), {
+                                locale: ptBR,
+                                addSuffix: true
+                              })}
+                            </p>
+                          </div>
+                          <Button variant="outline" onClick={e => {
+                              e.stopPropagation();
+                              setSelectedScouterForTimeline({
+                                bitrixId: location.scouterBitrixId,
+                                name: location.scouterName,
+                                photoUrl: location.photoUrl
+                              });
+                              setTimelineModalOpen(true);
+                            }} className="h-[13px] w-[13px] p-0 min-h-0 min-w-0">
+                            <Route className="w-[13px] h-[13px]" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>)}
-            </div>
-          </Card>
+                  </div>)}
+              </div>
+            </Card>
+          ) : (
+            <Button 
+              variant="secondary"
+              className="bg-white/95 backdrop-blur shadow-lg"
+              onClick={() => setIsScouterListExpanded(true)}
+            >
+              <ChevronUp className="w-4 h-4 mr-2" />
+              <span className="text-xs font-semibold">{scouterLocations.length}</span>
+            </Button>
+          )}
         </div>}
 
       {/* Mapa */}

@@ -148,7 +148,7 @@ export function ScouterTimelineModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[80vh] p-0 gap-0">
+      <DialogContent className="max-w-6xl h-[80vh] p-0 gap-0 z-[1100]">
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="flex items-center gap-3">
             {scouterPhotoUrl ? (
