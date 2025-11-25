@@ -5,10 +5,12 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { User, MapPin, Clock } from "lucide-react";
+import { User, MapPin, Clock, Navigation } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useChartPerformance } from "@/lib/monitoring";
+import ScouterTimeline from "./ScouterTimeline";
+import { useToast } from "@/hooks/use-toast";
 
 // Ícones personalizados para scouters
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -22,12 +24,19 @@ L.Icon.Default.mergeOptions({
 });
 
 interface ScouterLocation {
-  scouter: string;
-  lat: number;
-  lng: number;
-  lastUpdate: string;
-  leadCount: number;
-  address?: string;
+  scouterBitrixId: number;
+  scouterName: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  recordedAt: string;
+}
+
+interface LocationHistory {
+  latitude: number;
+  longitude: number;
+  address: string;
+  recorded_at: string;
 }
 
 interface ScouterLocationMapProps {
@@ -48,72 +57,63 @@ export default function ScouterLocationMap({
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
-  const [selectedScouter, setSelectedScouter] = useState<string | null>(null);
+  const polylinesRef = useRef<Map<number, L.Polyline>>(new Map());
+  const [selectedScouter, setSelectedScouter] = useState<number | null>(null);
+  const [locationHistory, setLocationHistory] = useState<LocationHistory[]>([]);
+  const { toast } = useToast();
 
-  // Buscar localizações dos scouters
+  // Buscar localizações dos scouters em tempo real via Bitrix
   const { data: scouterLocations, isLoading } = useQuery({
-    queryKey: ["scouter-locations", projectId, scouterId, dateRange],
+    queryKey: ["scouter-realtime-locations"],
     queryFn: async () => {
-      let query = supabase
-        .from("leads")
-        .select("scouter, address, local_abordagem, criado, updated_at")
-        .not("scouter", "is", null)
-        .not("address", "is", null)
-        .gte("criado", dateRange.startDate.toISOString())
-        .lte("criado", dateRange.endDate.toISOString())
-        .order("updated_at", { ascending: false });
+      console.log('🔄 Fetching realtime scouter locations...');
+      
+      const { data, error } = await supabase.functions.invoke(
+        'fetch-scouters-realtime-location',
+        { body: {} }
+      );
 
-      if (projectId) {
-        query = query.eq("commercial_project_id", projectId);
+      if (error) {
+        console.error('❌ Error fetching locations:', error);
+        throw error;
       }
 
-      if (scouterId) {
-        query = query.eq("scouter", scouterId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      // Agrupar por scouter e pegar localização mais recente
-      const scouterMap = new Map<string, any>();
-      
-      data?.forEach((lead) => {
-        const scouter = lead.scouter!;
-        if (!scouterMap.has(scouter) || 
-            new Date(lead.updated_at!) > new Date(scouterMap.get(scouter).lastUpdate)) {
-          scouterMap.set(scouter, {
-            scouter,
-            address: lead.address,
-            localAbordagem: lead.local_abordagem,
-            lastUpdate: lead.updated_at || lead.criado,
-            leadCount: 0,
-          });
-        }
-        const entry = scouterMap.get(scouter);
-        entry.leadCount++;
-      });
-
-      // Geocodificar endereços (simulação - em produção usar API real)
-      const locations: ScouterLocation[] = [];
-      const baseCoords = { lat: -15.7801, lng: -47.9292 };
-      
-      Array.from(scouterMap.values()).forEach((entry, index) => {
-        // Simular coordenadas diferentes para cada scouter
-        const offset = 0.02;
-        locations.push({
-          scouter: entry.scouter,
-          lat: baseCoords.lat + (Math.random() - 0.5) * offset,
-          lng: baseCoords.lng + (Math.random() - 0.5) * offset,
-          lastUpdate: entry.lastUpdate,
-          leadCount: entry.leadCount,
-          address: entry.localAbordagem || entry.address,
-        });
-      });
-
-      return locations;
+      console.log('✅ Received locations:', data.locations?.length || 0);
+      return data.locations as ScouterLocation[];
     },
     refetchInterval: 30000, // Atualizar a cada 30 segundos
   });
+
+  // Buscar histórico de localização do scouter selecionado
+  useEffect(() => {
+    if (!selectedScouter) {
+      setLocationHistory([]);
+      return;
+    }
+
+    const fetchHistory = async () => {
+      const { data, error } = await supabase
+        .from('scouter_location_history')
+        .select('latitude, longitude, address, recorded_at')
+        .eq('scouter_bitrix_id', selectedScouter)
+        .order('recorded_at', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.error('Error fetching location history:', error);
+        toast({
+          title: "Erro ao carregar histórico",
+          description: "Não foi possível carregar o histórico de localizações",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setLocationHistory(data || []);
+    };
+
+    fetchHistory();
+  }, [selectedScouter]);
 
   // Monitor map performance
   const dataPoints = scouterLocations?.length || 0;
@@ -137,13 +137,15 @@ export default function ScouterLocationMap({
     };
   }, []);
 
-  // Atualizar marcadores
+  // Atualizar marcadores e rotas
   useEffect(() => {
     if (!mapRef.current || !scouterLocations) return;
 
-    // Limpar marcadores antigos
+    // Limpar marcadores e polylines antigos
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current.clear();
+    polylinesRef.current.forEach((polyline) => polyline.remove());
+    polylinesRef.current.clear();
 
     // Criar ícone personalizado para scouter ativo
     const scouterIcon = L.divIcon({
@@ -164,16 +166,16 @@ export default function ScouterLocationMap({
 
     // Adicionar marcadores
     scouterLocations.forEach((location) => {
-      const marker = L.marker([location.lat, location.lng], { icon: scouterIcon });
+      const marker = L.marker([location.latitude, location.longitude], { icon: scouterIcon });
 
       const popupContent = `
         <div class="p-3 min-w-[250px]">
           <div class="flex items-center gap-2 mb-2">
             <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-              <span class="text-white font-bold text-sm">${location.scouter[0].toUpperCase()}</span>
+              <span class="text-white font-bold text-sm">${location.scouterName[0].toUpperCase()}</span>
             </div>
             <div>
-              <p class="font-bold text-sm">${location.scouter}</p>
+              <p class="font-bold text-sm">${location.scouterName}</p>
               <p class="text-xs text-gray-500">Scouter Ativo</p>
             </div>
           </div>
@@ -182,47 +184,114 @@ export default function ScouterLocationMap({
               <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
               </svg>
-              ${location.address || 'Localização não especificada'}
+              ${location.address}
             </div>
             <div class="flex items-center gap-1">
               <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
               </svg>
-              Última atualização: ${formatDistanceToNow(new Date(location.lastUpdate), { 
+              Última atualização: ${formatDistanceToNow(new Date(location.recordedAt), { 
                 locale: ptBR,
                 addSuffix: true 
               })}
             </div>
             <div class="flex items-center gap-1 mt-2 pt-2 border-t">
-              <svg class="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+              <svg class="w-3 h-3 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M5.05 3.636l1.06-1.06 7.07 7.07-7.07 7.07-1.06-1.06L11.122 9.5z"/>
               </svg>
-              <span class="font-semibold text-blue-600">${location.leadCount} leads capturados</span>
+              <span class="font-semibold text-primary cursor-pointer hover:underline" onclick="window.dispatchEvent(new CustomEvent('show-timeline', { detail: ${location.scouterBitrixId} }))">Ver linha do tempo</span>
             </div>
           </div>
         </div>
       `;
 
       marker.bindPopup(popupContent);
-      marker.on('click', () => setSelectedScouter(location.scouter));
+      marker.on('click', () => setSelectedScouter(location.scouterBitrixId));
       marker.addTo(mapRef.current!);
-      markersRef.current.set(location.scouter, marker);
+      markersRef.current.set(String(location.scouterBitrixId), marker);
     });
 
     // Ajustar bounds
     if (scouterLocations.length > 0) {
-      const bounds = L.latLngBounds(scouterLocations.map(l => [l.lat, l.lng]));
+      const bounds = L.latLngBounds(scouterLocations.map(l => [l.latitude, l.longitude]));
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [scouterLocations]);
 
+  // Desenhar linha do tempo quando scouter selecionado
+  useEffect(() => {
+    if (!mapRef.current || !selectedScouter || locationHistory.length === 0) {
+      polylinesRef.current.forEach(polyline => polyline.remove());
+      polylinesRef.current.clear();
+      return;
+    }
+
+    // Criar polyline conectando os pontos
+    const coordinates = locationHistory.map(loc => [loc.latitude, loc.longitude] as [number, number]);
+    
+    const polyline = L.polyline(coordinates, {
+      color: '#3b82f6',
+      weight: 3,
+      opacity: 0.7,
+      dashArray: '10, 5',
+      smoothFactor: 1
+    }).addTo(mapRef.current);
+
+    polylinesRef.current.set(selectedScouter, polyline);
+
+    // Adicionar marcadores para histórico
+    locationHistory.forEach((loc, index) => {
+      const isFirst = index === 0;
+      const isLast = index === locationHistory.length - 1;
+
+      const historyIcon = L.divIcon({
+        html: `
+          <div class="w-6 h-6 rounded-full flex items-center justify-center shadow-md border-2 border-white ${
+            isFirst ? 'bg-green-500' : isLast ? 'bg-red-500' : 'bg-blue-500'
+          }">
+            <span class="text-white text-xs font-bold">${index + 1}</span>
+          </div>
+        `,
+        className: '',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      const marker = L.marker([loc.latitude, loc.longitude], { icon: historyIcon })
+        .bindPopup(`
+          <div class="text-xs p-2">
+            <p class="font-bold">${isFirst ? '📍 Posição Atual' : isLast ? '🔴 Início' : `Ponto ${index + 1}`}</p>
+            <p class="text-gray-600 mt-1">${loc.address}</p>
+            <p class="text-gray-500 mt-1">${formatDistanceToNow(new Date(loc.recorded_at), { locale: ptBR, addSuffix: true })}</p>
+          </div>
+        `)
+        .addTo(mapRef.current!);
+    });
+
+    // Zoom para a rota
+    mapRef.current.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+
+  }, [selectedScouter, locationHistory]);
+
   const activeScouters = scouterLocations?.length || 0;
-  const totalLeads = scouterLocations?.reduce((sum, s) => sum + s.leadCount, 0) || 0;
+  const selectedScouterData = scouterLocations?.find(s => s.scouterBitrixId === selectedScouter);
 
   return (
     <div className="relative">
+      {/* Timeline Sidebar */}
+      {selectedScouter && selectedScouterData && (
+        <ScouterTimeline
+          scouterName={selectedScouterData.scouterName}
+          locations={locationHistory}
+          onClose={() => {
+            setSelectedScouter(null);
+            setLocationHistory([]);
+          }}
+        />
+      )}
+
       {/* Estatísticas superiores */}
-      <div className="absolute top-4 left-4 z-[1000] flex gap-2">
+      <div className={`absolute top-4 z-[1000] flex gap-2 transition-all ${selectedScouter ? 'left-[340px]' : 'left-4'}`}>
         <Card className="p-3 bg-white/95 backdrop-blur shadow-lg">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
@@ -237,12 +306,12 @@ export default function ScouterLocationMap({
 
         <Card className="p-3 bg-white/95 backdrop-blur shadow-lg">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-blue-600" />
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+              <Navigation className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Leads Capturados</div>
-              <div className="text-2xl font-bold text-blue-600">{totalLeads}</div>
+              <div className="text-xs text-muted-foreground">Via Bitrix SPA</div>
+              <div className="text-sm font-bold text-primary">Tempo Real</div>
             </div>
           </div>
         </Card>
@@ -267,17 +336,17 @@ export default function ScouterLocationMap({
             <div className="space-y-2">
               {scouterLocations.map((location) => (
                 <div
-                  key={location.scouter}
+                  key={location.scouterBitrixId}
                   className={`p-2 rounded-lg border-2 cursor-pointer transition-all ${
-                    selectedScouter === location.scouter
+                    selectedScouter === location.scouterBitrixId
                       ? 'border-green-500 bg-green-50'
                       : 'border-transparent hover:bg-gray-50'
                   }`}
                   onClick={() => {
-                    setSelectedScouter(location.scouter);
-                    const marker = markersRef.current.get(location.scouter);
+                    setSelectedScouter(location.scouterBitrixId);
+                    const marker = markersRef.current.get(String(location.scouterBitrixId));
                     if (marker && mapRef.current) {
-                      mapRef.current.setView([location.lat, location.lng], 15);
+                      mapRef.current.setView([location.latitude, location.longitude], 15);
                       marker.openPopup();
                     }
                   }}
@@ -286,19 +355,19 @@ export default function ScouterLocationMap({
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center relative">
                         <span className="text-white font-bold text-xs">
-                          {location.scouter[0].toUpperCase()}
+                          {location.scouterName[0].toUpperCase()}
                         </span>
                         <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border border-white animate-pulse"></div>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold">{location.scouter}</p>
+                        <p className="text-xs font-semibold">{location.scouterName}</p>
                         <p className="text-[10px] text-muted-foreground">
-                          {location.leadCount} leads
+                          ID: {location.scouterBitrixId}
                         </p>
                       </div>
                     </div>
                     <div className="text-[10px] text-muted-foreground">
-                      {formatDistanceToNow(new Date(location.lastUpdate), {
+                      {formatDistanceToNow(new Date(location.recordedAt), {
                         locale: ptBR,
                         addSuffix: true,
                       })}
