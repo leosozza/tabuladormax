@@ -1745,6 +1745,39 @@ export type Database = {
           },
         ]
       }
+      scouter_location_history: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          id: string
+          latitude: number
+          longitude: number
+          recorded_at: string
+          scouter_bitrix_id: number
+          scouter_name: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          id?: string
+          latitude: number
+          longitude: number
+          recorded_at?: string
+          scouter_bitrix_id: number
+          scouter_name: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          recorded_at?: string
+          scouter_bitrix_id?: number
+          scouter_name?: string
+        }
+        Relationships: []
+      }
       scouters: {
         Row: {
           bitrix_id: number | null
