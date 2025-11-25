@@ -5,11 +5,12 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { User, MapPin, Clock, Navigation } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { User, MapPin, Clock, Navigation, Route } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useChartPerformance } from "@/lib/monitoring";
-import ScouterTimeline from "./ScouterTimeline";
+import { ScouterTimelineModal } from "./ScouterTimelineModal";
 import { useToast } from "@/hooks/use-toast";
 
 // Ícones personalizados para scouters
@@ -57,8 +58,12 @@ export default function ScouterLocationMap({
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
-  const polylinesRef = useRef<Map<number, L.Polyline>>(new Map());
-  const [selectedScouter, setSelectedScouter] = useState<number | null>(null);
+  
+  const [timelineModalOpen, setTimelineModalOpen] = useState(false);
+  const [selectedScouterForTimeline, setSelectedScouterForTimeline] = useState<{
+    bitrixId: number;
+    name: string;
+  } | null>(null);
   const [locationHistory, setLocationHistory] = useState<LocationHistory[]>([]);
   const { toast } = useToast();
 
@@ -102,9 +107,9 @@ export default function ScouterLocationMap({
     refetchInterval: 30000, // Atualizar a cada 30 segundos
   });
 
-  // Buscar histórico de localização do scouter selecionado
+  // Buscar histórico quando modal abre
   useEffect(() => {
-    if (!selectedScouter) {
+    if (!selectedScouterForTimeline) {
       setLocationHistory([]);
       return;
     }
@@ -113,7 +118,7 @@ export default function ScouterLocationMap({
       const { data, error } = await supabase
         .from('scouter_location_history')
         .select('latitude, longitude, address, recorded_at')
-        .eq('scouter_bitrix_id', selectedScouter)
+        .eq('scouter_bitrix_id', selectedScouterForTimeline.bitrixId)
         .order('recorded_at', { ascending: false })
         .limit(20);
 
@@ -131,7 +136,7 @@ export default function ScouterLocationMap({
     };
 
     fetchHistory();
-  }, [selectedScouter]);
+  }, [selectedScouterForTimeline]);
 
   // Monitor map performance
   const dataPoints = scouterLocations?.length || 0;
@@ -159,11 +164,9 @@ export default function ScouterLocationMap({
   useEffect(() => {
     if (!mapRef.current || !scouterLocations) return;
 
-    // Limpar marcadores e polylines antigos
+    // Limpar marcadores antigos
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current.clear();
-    polylinesRef.current.forEach((polyline) => polyline.remove());
-    polylinesRef.current.clear();
 
     // Criar ícone personalizado para scouter ativo
     const scouterIcon = L.divIcon({
@@ -213,18 +216,20 @@ export default function ScouterLocationMap({
                 addSuffix: true 
               })}
             </div>
-            <div class="flex items-center gap-1 mt-2 pt-2 border-t">
-              <svg class="w-3 h-3 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M5.05 3.636l1.06-1.06 7.07 7.07-7.07 7.07-1.06-1.06L11.122 9.5z"/>
+            <button 
+              class="w-full mt-2 px-3 py-2 bg-primary text-white rounded-md hover:bg-primary/90 text-xs font-medium flex items-center justify-center gap-2"
+              onclick="window.dispatchEvent(new CustomEvent('view-scouter-timeline', { detail: { scouterBitrixId: ${location.scouterBitrixId}, scouterName: '${location.scouterName}' } }))"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
               </svg>
-              <span class="font-semibold text-primary cursor-pointer hover:underline" onclick="window.dispatchEvent(new CustomEvent('show-timeline', { detail: ${location.scouterBitrixId} }))">Ver linha do tempo</span>
-            </div>
+              Ver Rota
+            </button>
           </div>
         </div>
       `;
 
       marker.bindPopup(popupContent);
-      marker.on('click', () => setSelectedScouter(location.scouterBitrixId));
       marker.addTo(mapRef.current!);
       markersRef.current.set(String(location.scouterBitrixId), marker);
     });
@@ -236,80 +241,33 @@ export default function ScouterLocationMap({
     }
   }, [scouterLocations]);
 
-  // Desenhar linha do tempo quando scouter selecionado
+  // Escutar evento de abrir timeline do popup
   useEffect(() => {
-    if (!mapRef.current || !selectedScouter || locationHistory.length === 0) {
-      polylinesRef.current.forEach(polyline => polyline.remove());
-      polylinesRef.current.clear();
-      return;
-    }
+    const handleViewTimeline = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { scouterBitrixId, scouterName } = customEvent.detail;
+      setSelectedScouterForTimeline({ bitrixId: scouterBitrixId, name: scouterName });
+      setTimelineModalOpen(true);
+    };
 
-    // Criar polyline conectando os pontos
-    const coordinates = locationHistory.map(loc => [loc.latitude, loc.longitude] as [number, number]);
-    
-    const polyline = L.polyline(coordinates, {
-      color: '#3b82f6',
-      weight: 3,
-      opacity: 0.7,
-      dashArray: '10, 5',
-      smoothFactor: 1
-    }).addTo(mapRef.current);
-
-    polylinesRef.current.set(selectedScouter, polyline);
-
-    // Adicionar marcadores para histórico
-    locationHistory.forEach((loc, index) => {
-      const isFirst = index === 0;
-      const isLast = index === locationHistory.length - 1;
-
-      const historyIcon = L.divIcon({
-        html: `
-          <div class="w-6 h-6 rounded-full flex items-center justify-center shadow-md border-2 border-white ${
-            isFirst ? 'bg-green-500' : isLast ? 'bg-red-500' : 'bg-blue-500'
-          }">
-            <span class="text-white text-xs font-bold">${index + 1}</span>
-          </div>
-        `,
-        className: '',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
-      });
-
-      const marker = L.marker([loc.latitude, loc.longitude], { icon: historyIcon })
-        .bindPopup(`
-          <div class="text-xs p-2">
-            <p class="font-bold">${isFirst ? '📍 Posição Atual' : isLast ? '🔴 Início' : `Ponto ${index + 1}`}</p>
-            <p class="text-gray-600 mt-1">${loc.address}</p>
-            <p class="text-gray-500 mt-1">${formatDistanceToNow(new Date(loc.recorded_at), { locale: ptBR, addSuffix: true })}</p>
-          </div>
-        `)
-        .addTo(mapRef.current!);
-    });
-
-    // Zoom para a rota
-    mapRef.current.fitBounds(polyline.getBounds(), { padding: [50, 50] });
-
-  }, [selectedScouter, locationHistory]);
+    window.addEventListener('view-scouter-timeline', handleViewTimeline);
+    return () => window.removeEventListener('view-scouter-timeline', handleViewTimeline);
+  }, []);
 
   const activeScouters = scouterLocations?.length || 0;
-  const selectedScouterData = scouterLocations?.find(s => s.scouterBitrixId === selectedScouter);
 
   return (
     <div className="relative">
-      {/* Timeline Sidebar */}
-      {selectedScouter && selectedScouterData && (
-        <ScouterTimeline
-          scouterName={selectedScouterData.scouterName}
-          locations={locationHistory}
-          onClose={() => {
-            setSelectedScouter(null);
-            setLocationHistory([]);
-          }}
-        />
-      )}
+      {/* Timeline Modal */}
+      <ScouterTimelineModal
+        open={timelineModalOpen}
+        onOpenChange={setTimelineModalOpen}
+        scouterName={selectedScouterForTimeline?.name || "Scouter"}
+        locations={locationHistory}
+      />
 
       {/* Estatísticas superiores */}
-      <div className={`absolute top-4 z-[1000] flex gap-2 transition-all ${selectedScouter ? 'left-[340px]' : 'left-4'}`}>
+      <div className="absolute top-4 left-4 z-[1000] flex gap-2">
         <Card className="p-3 bg-white/95 backdrop-blur shadow-lg">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
@@ -343,13 +301,9 @@ export default function ScouterLocationMap({
               {scouterLocations.map((location) => (
                 <div
                   key={location.scouterBitrixId}
-                  className={`p-2 rounded-lg border-2 cursor-pointer transition-all ${
-                    selectedScouter === location.scouterBitrixId
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-transparent hover:bg-gray-50'
-                  }`}
+                  className="p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
                   onClick={() => {
-                    setSelectedScouter(location.scouterBitrixId);
+                    // Apenas zoom no marcador
                     const marker = markersRef.current.get(String(location.scouterBitrixId));
                     if (marker && mapRef.current) {
                       mapRef.current.setView([location.latitude, location.longitude], 15);
@@ -379,6 +333,23 @@ export default function ScouterLocationMap({
                       })}
                     </div>
                   </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 w-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedScouterForTimeline({
+                        bitrixId: location.scouterBitrixId,
+                        name: location.scouterName,
+                      });
+                      setTimelineModalOpen(true);
+                    }}
+                  >
+                    <Route className="w-3 h-3 mr-2" />
+                    Ver Rota
+                  </Button>
                 </div>
               ))}
             </div>
