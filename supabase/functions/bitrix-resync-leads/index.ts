@@ -277,16 +277,16 @@ async function createResyncJob(supabase: any, config: JobConfig, batchSize: numb
   let query = supabase.from('leads').select('id', { count: 'exact', head: true });
 
   if (config?.filters?.addressNull) {
-    query = query.is('address', null);
+    query = query.or('address.is.null,address.eq.');
   }
   if (config?.filters?.phoneNull) {
-    query = query.or('celular.is.null,telefone_casa.is.null,telefone_trabalho.is.null');
+    query = query.or('celular.is.null,celular.eq.,telefone_casa.is.null,telefone_casa.eq.,telefone_trabalho.is.null,telefone_trabalho.eq.');
   }
   if (config?.filters?.valorNull) {
-    query = query.is('valor_ficha', null);
+    query = query.or('valor_ficha.is.null,valor_ficha.eq.0');
   }
   if (config?.filters?.responsibleNull) {
-    query = query.is('responsible', null);
+    query = query.or('responsible.is.null,responsible.eq.');
   }
   if (config?.filters?.dateFrom) {
     query = query.gte('criado', config.filters.dateFrom);
@@ -412,16 +412,16 @@ async function processBatch(supabase: any, jobId: string) {
 
     // Aplicar filtros se configurados
     if (currentJob.filter_criteria?.addressNull) {
-      leadsQuery = leadsQuery.is('address', null);
+      leadsQuery = leadsQuery.or('address.is.null,address.eq.');
     }
     if (currentJob.filter_criteria?.phoneNull) {
-      leadsQuery = leadsQuery.or('celular.is.null,telefone_casa.is.null,telefone_trabalho.is.null');
+      leadsQuery = leadsQuery.or('celular.is.null,celular.eq.,telefone_casa.is.null,telefone_casa.eq.,telefone_trabalho.is.null,telefone_trabalho.eq.');
     }
     if (currentJob.filter_criteria?.valorNull) {
-      leadsQuery = leadsQuery.is('valor_ficha', null);
+      leadsQuery = leadsQuery.or('valor_ficha.is.null,valor_ficha.eq.0');
     }
     if (currentJob.filter_criteria?.responsibleNull) {
-      leadsQuery = leadsQuery.is('responsible', null);
+      leadsQuery = leadsQuery.or('responsible.is.null,responsible.eq.');
     }
     if (currentJob.filter_criteria?.dateFrom) {
       leadsQuery = leadsQuery.gte('criado', currentJob.filter_criteria.dateFrom);
