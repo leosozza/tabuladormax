@@ -533,7 +533,7 @@ serve(async (req) => {
       sync_status: 'synced',
       last_sync_at: new Date().toISOString(),
       updated_at: lead.DATE_MODIFY || new Date().toISOString(),
-      commercial_project_id: commercialProjectId,
+    commercial_project_id: commercialProjectId,
     responsible_user_id: responsibleUserId,
     bitrix_telemarketing_id: bitrixTelemarketingId,
     // ✅ NOMES RESOLVIDOS DAS SPAS
@@ -542,12 +542,6 @@ serve(async (req) => {
     gestao_scouter: scouterName,
     projeto_comercial: projetoComercialName
     };
-
-    // ✅ EXTRAIR DATE_CLOSED diretamente (campo crítico para comparecimentos)
-    if (lead.DATE_CLOSED && lead.DATE_CLOSED !== '') {
-      leadData.date_closed = lead.DATE_CLOSED;
-      console.log(`✅ DATE_CLOSED extraído: ${lead.DATE_CLOSED}`);
-    }
 
     // Agrupar mapeamentos por campo de destino
     const mappingsByField = (fieldMappings || []).reduce((acc: Record<string, any[]>, mapping: any) => {
