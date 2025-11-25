@@ -1,6 +1,7 @@
 import { Home, Target, DollarSign, Shield, Headset, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -123,7 +124,7 @@ export function UnifiedSidebar() {
             {open && "Maxconnect"}
           </SidebarGroupLabel>
           
-          <SidebarGroupContent className="px-3 py-4">
+          <SidebarGroupContent>
             <SidebarMenu>
               {mainNavItems.map((item) => {
                 if (item.subItems) {
@@ -140,7 +141,7 @@ export function UnifiedSidebar() {
                       <SidebarMenuItem>
                         <CollapsibleTrigger asChild>
                           <SidebarMenuButton tooltip={item.label}>
-                            <item.icon className="h-5 w-5" />
+                            <item.icon className="h-4 w-4" />
                             {open && <span>{item.label}</span>}
                             {open && <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />}
                           </SidebarMenuButton>
@@ -152,7 +153,6 @@ export function UnifiedSidebar() {
                                 <SidebarMenuSubButton asChild>
                                   <NavLink 
                                     to={subItem.path}
-                                    className="flex items-center gap-3 px-4 py-2 text-sm rounded-lg"
                                     activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                                   >
                                     {subItem.icon && <subItem.icon className="h-4 w-4" />}
@@ -174,10 +174,9 @@ export function UnifiedSidebar() {
                       <NavLink 
                         to={item.path} 
                         end={item.path === "/home-choice"}
-                        className="flex items-center gap-3 px-4 py-3 text-base rounded-lg mb-1 transition-all duration-200"
-                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-md"
+                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                       >
-                        <item.icon className="h-5 w-5" />
+                        <item.icon className="h-4 w-4" />
                         {open && <span>{item.label}</span>}
                       </NavLink>
                     </SidebarMenuButton>
@@ -195,7 +194,10 @@ export function UnifiedSidebar() {
               variant="ghost"
               size={open ? "default" : "icon"}
               onClick={handleDownloadApp}
-              className="w-full justify-start text-muted-foreground hover:text-foreground"
+              className={cn(
+                "text-muted-foreground hover:text-foreground",
+                open ? "w-full justify-start" : "w-8 h-8 p-0 mx-auto"
+              )}
               title="Baixar App Android"
             >
               <Smartphone className="h-4 w-4" />
