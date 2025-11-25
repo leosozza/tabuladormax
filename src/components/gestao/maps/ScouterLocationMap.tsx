@@ -323,7 +323,10 @@ export default function ScouterLocationMap({
                         <div>
                           <p className="text-xs font-semibold">{location.scouterName}</p>
                           <p className="text-[10px] text-muted-foreground">
-                            ID: {location.scouterBitrixId}
+                            {formatDistanceToNow(new Date(location.recordedAt), {
+                              locale: ptBR,
+                              addSuffix: true
+                            })}
                           </p>
                         </div>
                         <Button variant="outline" onClick={e => {
@@ -338,12 +341,6 @@ export default function ScouterLocationMap({
                           <Route className="w-[13px] h-[13px]" />
                         </Button>
                       </div>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground">
-                      {formatDistanceToNow(new Date(location.recordedAt), {
-                  locale: ptBR,
-                  addSuffix: true
-                })}
                     </div>
                   </div>
                 </div>)}
