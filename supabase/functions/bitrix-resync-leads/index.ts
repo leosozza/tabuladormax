@@ -367,24 +367,25 @@ async function processBatch(supabase: any, jobId: string) {
   let totalSkipped = initialJob.skipped_leads || 0;
   let totalErrors = initialJob.error_leads || 0;
   const errorDetails: any[] = [];
-  let lastProcessedId = Number.MAX_SAFE_INTEGER; // Começar do maior ID (mais recente)
+  let lastProcessedId = Number.MAX_SAFE_INTEGER;
   let currentBatch = 0;
   const jobStartTime = Date.now();
 
   console.log(`
     ╔════════════════════════════════════════════════════════════════
-    ║ [Job ${jobId}] INICIANDO RESINCRONIZAÇÃO
+    ║ [Job ${jobId}] RESINCRONIZAÇÃO OTIMIZADA
     ╠════════════════════════════════════════════════════════════════
     ║ Total de leads: ${initialJob.total_leads.toLocaleString()}
     ║ Batch size: ${initialJob.batch_size}
     ║ Mapeamento: ${initialJob.mapping_id || 'Padrão (bitrix_field_mappings)'}
-    ║ Filtros: ${JSON.stringify(initialJob.filter_criteria)}
-    ║ Ordem: ⬇️ MAIS RECENTE (ID maior) → MAIS ANTIGO (ID menor)
+    ║ Otimizações: ✅ Batch API, Pre-load SPA, Parallel Processing
     ╚════════════════════════════════════════════════════════════════
   `);
 
   // Loop contínuo para processar todos os batches
   while (true) {
+    const batchStartTime = Date.now();
+    
     // Buscar job atualizado para verificar status
     const { data: currentJob } = await supabase
       .from('lead_resync_jobs')
@@ -393,7 +394,7 @@ async function processBatch(supabase: any, jobId: string) {
       .single();
 
     if (!currentJob || currentJob.status !== 'running') {
-      console.log(`[processBatch] Job paused or cancelled, stopping loop. Status: ${currentJob?.status}`);
+      console.log(`[processBatch] Job paused or cancelled. Status: ${currentJob?.status}`);
       return new Response(
         JSON.stringify({ success: true, message: 'Job paused or cancelled' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -402,15 +403,15 @@ async function processBatch(supabase: any, jobId: string) {
 
     const batchSize = currentJob.batch_size || 50;
     
-    // Buscar próximo lote de leads (do maior para o menor ID)
+    // 📦 FASE 1: Buscar leads do Supabase
     let leadsQuery = supabase
       .from('leads')
-      .select('*')
-      .lt('id', lastProcessedId) // Processar leads com ID menor que o último (mais antigos)
-      .order('id', { ascending: false }) // Ordenar do maior para o menor (mais recente → antigo)
+      .select('id,name')
+      .lt('id', lastProcessedId)
+      .order('id', { ascending: false })
       .limit(batchSize);
 
-    // Aplicar filtros se configurados
+    // Aplicar filtros
     if (currentJob.filter_criteria?.addressNull) {
       leadsQuery = leadsQuery.or('address.is.null,address.eq.');
     }
@@ -440,41 +441,109 @@ async function processBatch(supabase: any, jobId: string) {
     }
 
     if (!leads || leads.length === 0) {
-      console.log('[processBatch] ✅ Nenhum lead restante para processar');
+      console.log('[processBatch] ✅ Nenhum lead restante');
       break;
     }
 
     const batchProgress = ((totalProcessed / initialJob.total_leads) * 100).toFixed(1);
-    const elapsedTime = ((Date.now() - jobStartTime) / 1000).toFixed(1);
     console.log(`
       ┌─────────────────────────────────────────────────────────────
-      │ [Batch ${currentBatch + 1}] Progresso: ${batchProgress}%
-      ├─────────────────────────────────────────────────────────────
-      │ Leads neste batch: ${leads.length}
-      │ Processados: ${totalProcessed.toLocaleString()} / ${initialJob.total_leads.toLocaleString()}
-      │ Atualizados: ${totalUpdated.toLocaleString()}
-      │ Ignorados: ${totalSkipped.toLocaleString()}
-      │ Erros: ${totalErrors.toLocaleString()}
-      │ Last ID: ${lastProcessedId}
-      │ Tempo decorrido: ${elapsedTime}s
+      │ [Batch ${currentBatch + 1}] ${batchProgress}% - ${leads.length} leads
       └─────────────────────────────────────────────────────────────
     `);
 
-    // Buscar mapeamentos
+    // 🔧 FASE 2: Buscar Bitrix Batch + Pre-load
+    const leadIds = leads.map((l: any) => l.id);
+    
+    // 2.1: Batch request para Bitrix
+    const batchCommands: Record<string, string> = {};
+    leadIds.forEach((id: number, idx: number) => {
+      batchCommands[`lead_${idx}`] = `crm.lead.get?ID=${id}`;
+    });
+
+    const bitrixBatchResponse = await fetch(
+      `${BITRIX_BASE_URL}/batch.json`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cmd: batchCommands })
+      }
+    );
+
+    if (!bitrixBatchResponse.ok) {
+      throw new Error(`Bitrix batch API error: ${bitrixBatchResponse.status}`);
+    }
+
+    const bitrixBatchData = await bitrixBatchResponse.json();
+    const bitrixResults = bitrixBatchData.result?.result || {};
+
+    // 2.2: Extrair todos os SPA IDs necessários
+    const spaIds = {
+      scouters: new Set<number>(),
+      projetos: new Set<number>(),
+      telemarketing: new Set<number>()
+    };
+
+    Object.values(bitrixResults).forEach((bitrixLead: any) => {
+      const parent1096 = bitrixLead?.PARENT_ID_1096;
+      const parent1120 = bitrixLead?.PARENT_ID_1120;
+      const parent1144 = bitrixLead?.PARENT_ID_1144;
+      
+      if (parent1096) spaIds.scouters.add(Number(parent1096));
+      if (parent1120) spaIds.projetos.add(Number(parent1120));
+      if (parent1144) spaIds.telemarketing.add(Number(parent1144));
+    });
+
+    // 2.3: Pre-load SPAs (1 query total)
+    const allSpaIds = [
+      ...Array.from(spaIds.scouters),
+      ...Array.from(spaIds.projetos),
+      ...Array.from(spaIds.telemarketing)
+    ];
+
+    let spaMap = new Map<string, string>();
+    
+    if (allSpaIds.length > 0) {
+      const { data: spaEntities } = await supabase
+        .from('bitrix_spa_entities')
+        .select('entity_type_id, bitrix_item_id, title')
+        .in('bitrix_item_id', allSpaIds);
+
+      if (spaEntities) {
+        spaEntities.forEach((e: any) => {
+          const key = `${e.entity_type_id}_${e.bitrix_item_id}`;
+          spaMap.set(key, e.title);
+        });
+      }
+    }
+
+    // 2.4: Pre-load Telemarketing mappings (1 query)
+    const tmIds = Array.from(spaIds.telemarketing);
+    let tmMap = new Map<number, string>();
+    
+    if (tmIds.length > 0) {
+      const { data: tmMappings } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('bitrix_telemarketing_id, bitrix_telemarketing_name')
+        .in('bitrix_telemarketing_id', tmIds);
+
+      if (tmMappings) {
+        tmMappings.forEach((t: any) => {
+          tmMap.set(t.bitrix_telemarketing_id, t.bitrix_telemarketing_name);
+        });
+      }
+    }
+
+    // 2.5: Buscar mapeamentos
     let mappings;
     if (currentJob.mapping_id) {
-      console.log(`[processBatch] Buscando mapeamentos com ID: ${currentJob.mapping_id}`);
-      
-      // Primeiro tentar buscar por UUID em resync_field_mappings
       const { data: resyncMappings } = await supabase
         .from('resync_field_mappings')
         .select('*')
         .eq('id', currentJob.mapping_id)
         .eq('active', true);
       
-      // Se não encontrar por UUID, tentar por mapping_name (fallback)
       if (!resyncMappings || resyncMappings.length === 0) {
-        console.log(`[processBatch] Tentando buscar por mapping_name: ${currentJob.mapping_id}`);
         const { data: nameBasedMappings } = await supabase
           .from('resync_field_mappings')
           .select('*')
@@ -485,7 +554,6 @@ async function processBatch(supabase: any, jobId: string) {
         mappings = resyncMappings;
       }
     } else {
-      // Fallback: usar unified_field_config
       const { data: bitrixMappings } = await supabase
         .from('unified_field_config')
         .select('*')
@@ -494,455 +562,195 @@ async function processBatch(supabase: any, jobId: string) {
     }
 
     if (!mappings || mappings.length === 0) {
-      console.error(`[processBatch] ❌ No active mappings found for mapping_id: ${currentJob.mapping_id}`);
-    } else {
-      console.log(`[processBatch] ✅ Found ${mappings.length} active mappings`);
+      console.warn(`[processBatch] ⚠️ No mappings found`);
+      mappings = [];
     }
 
-    // Processar cada lead
-    for (const lead of leads) {
-      const syncStartTime = Date.now();
-      
-      try {
-        // Buscar dados do Bitrix
-        const bitrixResponse = await fetch(
-          `${BITRIX_BASE_URL}/crm.lead.get.json?ID=${lead.id}`
-        );
-        
-        if (!bitrixResponse.ok) {
-          console.warn(`[processBatch] Bitrix API error for lead ${lead.id}: ${bitrixResponse.status}`);
-          totalErrors++;
-          totalProcessed++;
-          errorDetails.push({
-            lead_id: lead.id,
-            error: `Bitrix API error: ${bitrixResponse.status}`,
-            timestamp: new Date().toISOString(),
-            type: 'api_error',
-            batch: currentBatch + 1
-          });
-          continue;
-        }
+    // 🔄 FASE 3: Processar leads em paralelo
+    const processedResults = await Promise.all(
+      leads.map(async (lead: any) => {
+        try {
+          const leadIdx = leadIds.indexOf(lead.id);
+          const bitrixLead = bitrixResults[`lead_${leadIdx}`];
 
-        const bitrixLead = await bitrixResponse.json();
+          if (!bitrixLead) {
+            return {
+              id: lead.id,
+              status: 'skipped',
+              error: 'No Bitrix data'
+            };
+          }
 
-        if (!bitrixLead.result) {
-          console.warn(`[processBatch] No result from Bitrix for lead ${lead.id}`);
-          totalSkipped++;
-          totalProcessed++;
-          continue;
-        }
+          // Resolver SPAs
+          const scouterId = bitrixLead.PARENT_ID_1096 ? Number(bitrixLead.PARENT_ID_1096) : null;
+          const projectId = bitrixLead.PARENT_ID_1120 ? Number(bitrixLead.PARENT_ID_1120) : null;
+          const tmId = bitrixLead.PARENT_ID_1144 ? Number(bitrixLead.PARENT_ID_1144) : null;
 
-        // ✅ FASE 2: Resolver campos SPA antes de aplicar mapeamentos
-        const bitrixScouterId = bitrixLead.result.PARENT_ID_1096 ? Number(bitrixLead.result.PARENT_ID_1096) : null;
-        const scouterName = await resolveSpaEntityName(supabase, 1096, bitrixScouterId);
-        
-        const projectIdFromParent = bitrixLead.result.PARENT_ID_1120 ? Number(bitrixLead.result.PARENT_ID_1120) : null;
-        const projetoComercialName = await resolveSpaEntityName(supabase, 1120, projectIdFromParent);
-        
-        const bitrixTelemarketingId = bitrixLead.result.PARENT_ID_1144 ? Number(bitrixLead.result.PARENT_ID_1144) : null;
-        const telemarketingName = await resolveSpaEntityName(supabase, 1144, bitrixTelemarketingId);
+          const scouterName = scouterId ? spaMap.get(`1096_${scouterId}`) : null;
+          const projectName = projectId ? spaMap.get(`1120_${projectId}`) : null;
+          const tmName = tmId ? spaMap.get(`1144_${tmId}`) : null;
+          const responsibleName = tmId ? tmMap.get(tmId) : null;
 
-        // Mapear campos do Bitrix para TabuladorMax
-        const mappedData: Record<string, any> = {};
-        const transformErrors: string[] = [];
-        const appliedMappings: any[] = [];
-        
-        console.log(`[processBatch] Lead ${lead.id}: Aplicando ${mappings?.length || 0} mapeamentos`);
-        
-        // ✅ Campos SPA já resolvidos - não devem ser sobrescritos por mapeamentos dinâmicos
-        const SPA_NAME_FIELDS = ['scouter', 'gestao_scouter', 'telemarketing', 'projeto_comercial'];
-        
-        for (const mapping of mappings) {
-          try {
-            // Ignorar mapeamento se o campo de destino é um nome SPA já resolvido
-            if (SPA_NAME_FIELDS.includes(mapping.leads_column)) {
-              console.log(`⏭️ Ignorando mapeamento dinâmico de ${mapping.leads_column} (SPA já resolveu o nome)`);
-              continue;
-            }
+          // Mapear campos
+          const mappedData: Record<string, any> = {};
+          const SPA_NAME_FIELDS = ['scouter', 'gestao_scouter', 'telemarketing', 'projeto_comercial'];
 
-            const bitrixValue = bitrixLead.result[mapping.bitrix_field];
-            
-            if (bitrixValue === null || bitrixValue === undefined || bitrixValue === '') {
-              continue;
-            }
+          for (const mapping of mappings) {
+            try {
+              if (SPA_NAME_FIELDS.includes(mapping.leads_column)) continue;
 
-            let transformedValue = bitrixValue;
+              const bitrixValue = bitrixLead[mapping.bitrix_field];
+              if (bitrixValue === null || bitrixValue === undefined || bitrixValue === '') continue;
 
-            // FASE 1: Resolver PARENT_ID_1144 para nome do telemarketing
-            if (mapping.bitrix_field === 'PARENT_ID_1144' && mapping.leads_column === 'responsible') {
-              const telemarketingId = Number(bitrixValue);
-              
-              const { data: tmMapping } = await supabase
-                .from('agent_telemarketing_mapping')
-                .select('bitrix_telemarketing_name')
-                .eq('bitrix_telemarketing_id', telemarketingId)
-                .maybeSingle();
-              
-              if (tmMapping?.bitrix_telemarketing_name) {
-                transformedValue = tmMapping.bitrix_telemarketing_name;
-                console.log(`✅ Resolved telemarketing ID ${telemarketingId} → "${transformedValue}"`);
-              } else {
-                console.warn(`⚠️ Telemarketing ID ${telemarketingId} não encontrado em agent_telemarketing_mapping`);
-                continue; // Pular se não encontrar
-              }
-            }
-            // Aplicar outras transformações
-            else if (mapping.transform_function) {
-              try {
+              let transformedValue = bitrixValue;
+
+              // Transformações
+              if (mapping.transform_function) {
                 if (mapping.transform_function === 'toNumber') {
                   transformedValue = parseFloat(String(bitrixValue).replace(',', '.'));
                 } else if (mapping.transform_function === 'toInteger') {
                   transformedValue = toInteger(bitrixValue);
                 } else if (mapping.transform_function === 'toDate') {
-                  // Parsear data brasileira e extrair apenas yyyy-MM-dd
                   const parsed = parseBrazilianDate(bitrixValue);
                   transformedValue = parsed ? parsed.split('T')[0] : null;
                 } else if (mapping.transform_function === 'toTimestamp') {
-                  // Parsear timestamp brasileiro
                   transformedValue = parseBrazilianDate(bitrixValue);
                 }
-              } catch (transformError) {
-                const errMsg = `Erro ao transformar ${mapping.bitrix_field}: ${transformError}`;
-                transformErrors.push(errMsg);
-                console.warn(`⚠️ ${errMsg}`);
-                continue;
+              }
+
+              if (transformedValue !== null && transformedValue !== undefined) {
+                mappedData[mapping.leads_column] = transformedValue;
+              }
+            } catch (err) {
+              console.warn(`Field mapping error for ${mapping.bitrix_field}:`, err);
+            }
+          }
+
+          // Adicionar SPAs
+          if (scouterName) {
+            mappedData['scouter'] = scouterName;
+            mappedData['gestao_scouter'] = scouterName;
+          }
+          if (projectName) {
+            mappedData['projeto_comercial'] = projectName;
+          }
+          if (tmName) {
+            mappedData['telemarketing'] = tmName;
+          }
+          if (responsibleName) {
+            mappedData['responsible'] = responsibleName;
+          }
+
+          // Conversões especiais
+          const booleanFields = ['cadastro_existe_foto', 'presenca_confirmada', 'compareceu', 'ficha_confirmada'];
+          for (const field of booleanFields) {
+            if (mappedData[field] !== undefined && mappedData[field] !== null) {
+              const bitrixField = SUPABASE_TO_BITRIX_ENUM[field];
+              if (bitrixField) {
+                const conversion = convertBitrixEnumToBoolean(bitrixField, mappedData[field]);
+                mappedData[field] = conversion.converted;
               }
             }
-
-            if (transformedValue !== null && transformedValue !== undefined) {
-              mappedData[mapping.leads_column] = transformedValue;
-              appliedMappings.push({
-                bitrix_field: mapping.bitrix_field,
-                supabase_field: mapping.leads_column || mapping.supabase_field,
-                value: transformedValue,
-                transformed: !!mapping.transform_function,
-                transform_function: mapping.transform_function,
-                priority: mapping.sync_priority || mapping.priority,
-                display_name: mapping.display_name || null,
-                bitrix_field_type: mapping.bitrix_field_type || null  // ✨ Tipo do campo
-              });
-            }
-          } catch (fieldError) {
-            const errMsg = `Erro no campo ${mapping.bitrix_field}: ${fieldError}`;
-            transformErrors.push(errMsg);
-            console.warn(`⚠️ ${errMsg}`);
           }
-        }
 
-        // ✅ CRÍTICO: Adicionar campos SPA resolvidos ao mappedData ANTES de verificar se está vazio
-        if (scouterName) {
-          mappedData['scouter'] = scouterName;
-          mappedData['gestao_scouter'] = scouterName;
-        }
-        if (projetoComercialName) {
-          mappedData['projeto_comercial'] = projetoComercialName;
-        }
-        if (telemarketingName) {
-          mappedData['telemarketing'] = telemarketingName;
-        }
-
-        // Se não há dados para atualizar, pular
-        if (Object.keys(mappedData).length === 0) {
-          console.log(`⚠️ Lead ${lead.id} ignorado (sem campos para atualizar)`);
-          totalSkipped++;
-          totalProcessed++;
-          continue;
-        }
-
-        // ✅ FASE 2: Adicionar campos SPA resolvidos ao appliedMappings
-        if (scouterName && bitrixScouterId) {
-          appliedMappings.push({
-            bitrix_field: 'PARENT_ID_1096',
-            supabase_field: 'scouter',
-            value: `${scouterName} (${bitrixScouterId})`,
-            original_id: bitrixScouterId,
-            transformed: true,
-            priority: 900,
-            display_name: 'Scouter',
-            bitrix_field_type: 'crm_entity'
-          });
-        }
-
-        if (projetoComercialName && projectIdFromParent) {
-          appliedMappings.push({
-            bitrix_field: 'PARENT_ID_1120',
-            supabase_field: 'projeto_comercial',
-            value: `${projetoComercialName} (${projectIdFromParent})`,
-            original_id: projectIdFromParent,
-            transformed: true,
-            priority: 900,
-            display_name: 'Projeto Comercial',
-            bitrix_field_type: 'crm_entity'
-          });
-        }
-
-        if (telemarketingName && bitrixTelemarketingId) {
-          appliedMappings.push({
-            bitrix_field: 'PARENT_ID_1144',
-            supabase_field: 'telemarketing',
-            value: `${telemarketingName} (${bitrixTelemarketingId})`,
-            original_id: bitrixTelemarketingId,
-            transformed: true,
-            priority: 900,
-            display_name: 'Telemarketing',
-            bitrix_field_type: 'crm_entity'
-          });
-        }
-
-        // FASE 3: Fault-tolerant - coletar erros de campos
-        const fieldErrors: Array<{field: string; error: string; value: any}> = [];
-
-        // 🔧 FASE 4: Validação e conversão de campos booleanos (com suporte a enumerações)
-        const booleanFields = ['cadastro_existe_foto', 'presenca_confirmada', 'compareceu', 'ficha_confirmada'];
-        
-        for (const supabaseField of booleanFields) {
-          if (mappedData[supabaseField] !== undefined && mappedData[supabaseField] !== null) {
-            
-            const bitrixField = SUPABASE_TO_BITRIX_ENUM[supabaseField] ||
-                               mappings.find((m: any) => m.leads_column === supabaseField)?.bitrix_field;
-            
-            if (!bitrixField) continue;
-            
-            const originalValue = mappedData[supabaseField];
-            const conversion = convertBitrixEnumToBoolean(bitrixField, originalValue);
-            
-            if (conversion.hasError) {
-              console.warn(`⚠️ Lead ${lead.id} - Campo ${supabaseField}: ${conversion.errorMsg}`);
-              fieldErrors.push({
-                field: supabaseField,
-                error: conversion.errorMsg || 'Conversão de enumeração falhou',
-                value: originalValue
-              });
-            }
-            
-            mappedData[supabaseField] = conversion.converted;
+          // Conversão de moeda
+          if (mappedData.valor_ficha !== undefined && mappedData.valor_ficha !== null) {
+            const conversion = convertBitrixMoneyToNumeric(mappedData.valor_ficha);
+            mappedData.valor_ficha = conversion.converted;
           }
-        }
 
-        // 🔧 FASE 5: Validação e conversão de campos MOEDA (money)
-        const moneyFields = Object.keys(BITRIX_MONEY_FIELDS);
-        
-        for (const supabaseField of moneyFields) {
-          if (mappedData[supabaseField] !== undefined && mappedData[supabaseField] !== null) {
-            
-            const bitrixField = BITRIX_MONEY_FIELDS[supabaseField];
-            const originalValue = mappedData[supabaseField];
-            const conversion = convertBitrixMoneyToNumeric(originalValue);
-            
-            if (conversion.hasError) {
-              console.warn(`⚠️ Lead ${lead.id} - Campo ${supabaseField}: ${conversion.errorMsg}`);
-              fieldErrors.push({
-                field: supabaseField,
-                error: conversion.errorMsg || 'Conversão de moeda falhou',
-                value: originalValue
-              });
-            }
-            
-            mappedData[supabaseField] = conversion.converted;
-          }
-        }
-
-        // FASE 4: Validar dados críticos antes de salvar
-        if (mappedData.responsible) {
-          // Se responsible for numérico, alertar e tentar corrigir
-          if (/^\d+$/.test(String(mappedData.responsible))) {
-            console.warn(`⚠️ Lead ${lead.id}: responsible="${mappedData.responsible}" é numérico! Deveria ser nome.`);
-            
-            // Tentar corrigir em tempo real
-            const telemarketingId = Number(mappedData.responsible);
-            const { data: tmMapping } = await supabase
-              .from('agent_telemarketing_mapping')
-              .select('bitrix_telemarketing_name')
-              .eq('bitrix_telemarketing_id', telemarketingId)
-              .maybeSingle();
-            
-            if (tmMapping) {
-              mappedData.responsible = tmMapping.bitrix_telemarketing_name;
-              console.log(`✅ Corrigido para: "${mappedData.responsible}"`);
-            } else {
-              delete mappedData.responsible; // Remove campo se não conseguir resolver
-              console.warn(`⚠️ Não foi possível resolver telemarketing ID ${telemarketingId}, campo removido`);
-            }
-          }
-        }
-
-        console.log(`[processBatch] Lead ${lead.id}: ${Object.keys(mappedData).length} campos serão atualizados:`, Object.keys(mappedData).join(', '));
-
-        // Skip lead if nothing to update
-        if (Object.keys(mappedData).length === 0) {
-          console.log(`⏭️ Lead ${lead.id} ignorado (sem campos para atualizar)`);
-          totalSkipped++;
-          totalProcessed++;
-          continue;
-        }
-
-        // Tentativa 1: Update completo
-        const { error: updateError } = await supabase
-          .from('leads')
-          .update({
-            ...mappedData,
-            last_sync_at: new Date().toISOString(),
-            sync_status: 'synced'
-          })
-          .eq('id', lead.id);
-
-        if (updateError) {
-          console.warn(`⚠️ Erro no update do lead ${lead.id}, tentando salvamento parcial...`);
-          
-          // Criar objeto seguro
-          const safeData: any = {
-            last_sync_at: new Date().toISOString(),
-            sync_status: 'synced'
-          };
-          
-          // Tentar adicionar cada campo individualmente
-          for (const [key, value] of Object.entries(mappedData)) {
-            try {
-              // Validações básicas
-              if (key === 'commercial_project_id' && value) {
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                if (!uuidRegex.test(String(value))) {
-                  throw new Error(`UUID inválido: "${value}"`);
-                }
-              }
-              
-              safeData[key] = value;
-              
-            } catch (fieldError: any) {
-              fieldErrors.push({
-                field: key,
-                error: fieldError.message,
-                value: value
-              });
-              console.warn(`⚠️ Campo ${key} do lead ${lead.id} ignorado: ${fieldError.message}`);
-            }
-          }
-          
-          // Adicionar informações de erro
-          if (fieldErrors.length > 0) {
-            safeData.sync_errors = {
-              timestamp: new Date().toISOString(),
-              source: 'bitrix-resync',
-              errors: fieldErrors
+          if (Object.keys(mappedData).length === 0) {
+            return {
+              id: lead.id,
+              status: 'skipped',
+              error: 'No fields to update'
             };
-            safeData.has_sync_errors = true;
           }
-          
-          // Tentativa final
-          const { error: safeUpdateError } = await supabase
-            .from('leads')
-            .update(safeData)
-            .eq('id', lead.id);
-            
-          if (safeUpdateError) {
-            totalErrors++;
-            console.error(`❌ Falha crítica no lead ${lead.id}:`, safeUpdateError);
-            
-            const errorMessage = safeUpdateError.message || JSON.stringify(safeUpdateError);
-            const isPostgresError = errorMessage.includes('invalid input syntax');
-            
-            errorDetails.push({
-              lead_id: lead.id,
-              error: errorMessage,
-              timestamp: new Date().toISOString(),
-              type: isPostgresError ? 'database_error' : 'api_error',
-              batch: currentBatch + 1,
-              field_data: mappedData ? JSON.stringify(mappedData).substring(0, 500) : null,
-              transform_errors: transformErrors.length > 0 ? transformErrors : null
-            });
-            
-            // Manter apenas os últimos 100 erros
-            if (errorDetails.length > 100) {
-              errorDetails.splice(0, errorDetails.length - 100);
-            }
-            
-            // Registrar erro mas CONTINUAR processamento
-            try {
-              await supabase.from('sync_events').insert({
-                lead_id: lead.id,
-                event_type: 'resync',
-                direction: 'bitrix_to_supabase',
-                status: 'error',
-                error_message: `Falha total: ${errorMessage}`,
-                sync_duration_ms: Date.now() - syncStartTime,
-                field_mappings: null,
-                fields_synced_count: 0
-              });
-            } catch (syncErr) {
-              console.warn(`⚠️ Falha ao registrar sync_event:`, syncErr);
-            }
-          } else {
-            totalUpdated++;
-            console.log(`⚠️ Lead ${lead.id} atualizado PARCIALMENTE (${fieldErrors.length} erros, ${Object.keys(safeData).length - 2} campos ok)`);
-            
-            try {
-              await supabase.from('sync_events').insert({
-                lead_id: lead.id,
-                event_type: 'resync',
-                direction: 'bitrix_to_supabase',
-                status: 'partial_success',
-                error_message: `${fieldErrors.length} campos com erro`,
-                sync_duration_ms: Date.now() - syncStartTime,
-                field_mappings: { errors: fieldErrors },
-                fields_synced_count: Object.keys(safeData).length - 2
-              });
-            } catch (syncErr) {
-              console.warn(`⚠️ Falha ao registrar sync_event:`, syncErr);
-            }
-          }
-        } else {
-          totalUpdated++;
-          console.log(`✅ Lead ${lead.id} atualizado completamente (${Object.keys(mappedData).length} campos)`);
-          
-          // Limpar erros anteriores se houver
-          if (lead.has_sync_errors) {
-            await supabase
-              .from('leads')
-              .update({ sync_errors: null, has_sync_errors: false })
-              .eq('id', lead.id);
-          }
-          
-          // Log de sucesso no sync_events
-          try {
-            await supabase.from('sync_events').insert({
-              lead_id: lead.id,
-              event_type: 'resync',
-              direction: 'bitrix_to_supabase',
-              status: 'success',
-              sync_duration_ms: Date.now() - syncStartTime,
-              field_mappings: {
-                bitrix_to_supabase: appliedMappings
-              },
-              fields_synced_count: appliedMappings.length
-            });
-          } catch (syncErr) {
-            console.warn(`⚠️ Falha ao registrar sync_event:`, syncErr);
-          }
-        }
 
-        totalProcessed++;
-      } catch (error) {
-        console.error(`[processBatch] Error processing lead ${lead.id}:`, error);
-        totalErrors++;
-        totalProcessed++;
-        
+          return {
+            id: lead.id,
+            status: 'success',
+            data: {
+              ...mappedData,
+              last_sync_at: new Date().toISOString(),
+              sync_status: 'synced',
+              sync_errors: null,
+              has_sync_errors: false
+            }
+          };
+
+        } catch (error) {
+          return {
+            id: lead.id,
+            status: 'error',
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+      })
+    );
+
+    // 💾 FASE 4: Batch Update no Supabase
+    const successfulUpdates = processedResults.filter(r => r.status === 'success' && r.data);
+    const skippedLeads = processedResults.filter(r => r.status === 'skipped');
+    const errorLeads = processedResults.filter(r => r.status === 'error');
+
+    if (successfulUpdates.length > 0) {
+      const updateData = successfulUpdates.map(r => ({
+        id: r.id,
+        ...r.data
+      }));
+
+      const { error: upsertError } = await supabase
+        .from('leads')
+        .upsert(updateData, { onConflict: 'id' });
+
+      if (upsertError) {
+        console.error('[processBatch] Batch upsert error:', upsertError);
+        totalErrors += successfulUpdates.length;
+      } else {
+        totalUpdated += successfulUpdates.length;
+        console.log(`✅ Updated ${successfulUpdates.length} leads`);
+      }
+    }
+
+    totalSkipped += skippedLeads.length;
+    totalErrors += errorLeads.length;
+    totalProcessed += leads.length;
+
+    // 📊 FASE 5: Batch Insert sync_events
+    const syncEvents = processedResults.map(r => ({
+      lead_id: r.id,
+      event_type: 'resync',
+      direction: 'bitrix_to_supabase',
+      status: r.status === 'success' ? 'success' : r.status === 'error' ? 'error' : 'skipped',
+      error_message: r.error || null,
+      sync_duration_ms: Date.now() - batchStartTime,
+      fields_synced_count: r.data ? Object.keys(r.data).length - 4 : 0
+    }));
+
+    await supabase.from('sync_events').insert(syncEvents).catch((err: any) => {
+      console.warn('Failed to insert sync_events:', err);
+    });
+
+    // Adicionar erros
+    errorLeads.forEach(e => {
+      if (errorDetails.length < 100) {
         errorDetails.push({
-          lead_id: lead.id,
-          error: error instanceof Error ? error.message : String(error),
+          lead_id: e.id,
+          error: e.error,
           timestamp: new Date().toISOString(),
           type: 'processing_error',
           batch: currentBatch + 1
         });
-        
-        if (errorDetails.length > 100) {
-          errorDetails.splice(0, errorDetails.length - 100);
-        }
       }
-    }
+    });
 
-    // Atualizar último lead processado e progresso
+    // Atualizar progresso
     lastProcessedId = leads[leads.length - 1].id;
     currentBatch++;
+
+    const batchTime = ((Date.now() - batchStartTime) / 1000).toFixed(1);
+    console.log(`⚡ Batch completed in ${batchTime}s - Updated: ${successfulUpdates.length}, Skipped: ${skippedLeads.length}, Errors: ${errorLeads.length}`);
 
     await supabase
       .from('lead_resync_jobs')
@@ -960,7 +768,18 @@ async function processBatch(supabase: any, jobId: string) {
   }
 
   // Completar job
-  console.log(`✅ [Job ${jobId}] COMPLETO - Total processado: ${totalProcessed}, Atualizados: ${totalUpdated}, Erros: ${totalErrors}`);
+  const totalTime = ((Date.now() - jobStartTime) / 1000).toFixed(1);
+  console.log(`
+    ╔════════════════════════════════════════════════════════════════
+    ║ ✅ JOB COMPLETO
+    ╠════════════════════════════════════════════════════════════════
+    ║ Processados: ${totalProcessed.toLocaleString()}
+    ║ Atualizados: ${totalUpdated.toLocaleString()}
+    ║ Ignorados: ${totalSkipped.toLocaleString()}
+    ║ Erros: ${totalErrors.toLocaleString()}
+    ║ Tempo total: ${totalTime}s
+    ╚════════════════════════════════════════════════════════════════
+  `);
   
   await supabase
     .from('lead_resync_jobs')
