@@ -45,7 +45,9 @@ serve(async (req) => {
 
         // Implementar paginação para buscar todos os registros
         while (hasMore) {
-          const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}&select[]=id&select[]=title&select[]=stageId&select[]=categoryId&start=${start}`;
+          // Incluir campo de foto para Scouters
+          const photoField = entityType.id === 1096 ? '&select[]=ufCrm32_1739220520381' : '';
+          const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}&select[]=id&select[]=title&select[]=stageId&select[]=categoryId${photoField}&start=${start}`;
           
           console.log(`  📄 Buscando página ${Math.floor(start / limit) + 1} (offset: ${start})...`);
           
@@ -78,18 +80,66 @@ serve(async (req) => {
 
         // Upsert em lote
         for (const item of allItems) {
-        const { error: upsertError } = await supabase
-          .from('bitrix_spa_entities')
-          .upsert({
-            entity_type_id: entityType.id,
-            bitrix_item_id: item.id,
-            title: (item.title || `Item ${item.id}`).trim(),
-            stage_id: item.stageId || null,
-            cached_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'entity_type_id,bitrix_item_id'
-          });
+          let photoUrl = null;
+          
+          // Processar foto para Scouters
+          if (entityType.id === 1096 && item.ufCrm32_1739220520381) {
+            try {
+              const fileId = item.ufCrm32_1739220520381;
+              console.log(`  📸 Processando foto para Scouter ${item.id}, fileId: ${fileId}`);
+              
+              // Obter URL via disk.file.get
+              const diskResp = await fetch(
+                `https://${bitrixDomain}/rest/${bitrixToken}/disk.file.get?id=${fileId}`
+              );
+              const diskData = await diskResp.json();
+              
+              if (diskData.result?.DOWNLOAD_URL) {
+                console.log(`  ⬇️ Download URL obtida, fazendo upload...`);
+                
+                // Baixar imagem
+                const imageResp = await fetch(diskData.result.DOWNLOAD_URL);
+                const imageBlob = await imageResp.blob();
+                
+                // Fazer upload para Supabase Storage
+                const fileName = `${item.id}-${Date.now()}.jpg`;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                  .from('scouter-photos')
+                  .upload(fileName, imageBlob, {
+                    contentType: 'image/jpeg',
+                    upsert: true
+                  });
+                
+                if (uploadError) {
+                  console.error(`  ❌ Erro ao fazer upload da foto: ${uploadError.message}`);
+                } else {
+                  // Obter URL pública
+                  const { data: { publicUrl } } = supabase.storage
+                    .from('scouter-photos')
+                    .getPublicUrl(fileName);
+                  
+                  photoUrl = publicUrl;
+                  console.log(`  ✅ Foto salva: ${photoUrl}`);
+                }
+              }
+            } catch (photoError) {
+              console.error(`  ❌ Erro ao processar foto do Scouter ${item.id}:`, photoError);
+            }
+          }
+          
+          const { error: upsertError } = await supabase
+            .from('bitrix_spa_entities')
+            .upsert({
+              entity_type_id: entityType.id,
+              bitrix_item_id: item.id,
+              title: (item.title || `Item ${item.id}`).trim(),
+              stage_id: item.stageId || null,
+              photo_url: photoUrl,
+              cached_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'entity_type_id,bitrix_item_id'
+            });
 
           if (upsertError) {
             console.error(`❌ Erro ao inserir ${entityType.name} ID ${item.id}:`, upsertError);

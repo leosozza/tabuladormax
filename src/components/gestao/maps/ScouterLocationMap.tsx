@@ -31,6 +31,7 @@ interface ScouterLocation {
   longitude: number;
   address: string;
   recordedAt: string;
+  photoUrl?: string;
 }
 
 interface LocationHistory {
@@ -63,6 +64,7 @@ export default function ScouterLocationMap({
   const [selectedScouterForTimeline, setSelectedScouterForTimeline] = useState<{
     bitrixId: number;
     name: string;
+    photoUrl?: string;
   } | null>(null);
   const [locationHistory, setLocationHistory] = useState<LocationHistory[]>([]);
   const { toast } = useToast();
@@ -84,11 +86,19 @@ export default function ScouterLocationMap({
         throw error;
       }
 
+      // Buscar fotos dos scouters
+      const { data: spaEntities } = await supabase
+        .from('bitrix_spa_entities')
+        .select('bitrix_item_id, photo_url')
+        .eq('entity_type_id', 1096);
+
       // Agrupar por scouter_bitrix_id e pegar apenas o mais recente
       const latestLocations = new Map<number, ScouterLocation>();
       
       data?.forEach((location) => {
         if (!latestLocations.has(location.scouter_bitrix_id)) {
+          const photoUrl = spaEntities?.find(e => e.bitrix_item_id === location.scouter_bitrix_id)?.photo_url;
+          
           latestLocations.set(location.scouter_bitrix_id, {
             scouterBitrixId: location.scouter_bitrix_id,
             scouterName: location.scouter_name,
@@ -96,6 +106,7 @@ export default function ScouterLocationMap({
             longitude: location.longitude,
             address: location.address,
             recordedAt: location.recorded_at,
+            photoUrl: photoUrl || undefined,
           });
         }
       });
@@ -192,9 +203,12 @@ export default function ScouterLocationMap({
       const popupContent = `
         <div class="p-3 min-w-[250px]">
           <div class="flex items-center gap-2 mb-2">
-            <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-              <span class="text-white font-bold text-sm">${location.scouterName[0].toUpperCase()}</span>
-            </div>
+            ${location.photoUrl 
+              ? `<img src="${location.photoUrl}" class="w-10 h-10 rounded-full object-cover border-2 border-green-500" alt="${location.scouterName}" />`
+              : `<div class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                  <span class="text-white font-bold">${location.scouterName[0].toUpperCase()}</span>
+                </div>`
+            }
             <div>
               <p class="font-bold text-sm">${location.scouterName}</p>
               <p class="text-xs text-gray-500">Scouter Ativo</p>
@@ -218,7 +232,7 @@ export default function ScouterLocationMap({
             </div>
             <button 
               class="w-full mt-2 px-3 py-2 bg-primary text-white rounded-md hover:bg-primary/90 text-xs font-medium flex items-center justify-center gap-2"
-              onclick="window.dispatchEvent(new CustomEvent('view-scouter-timeline', { detail: { scouterBitrixId: ${location.scouterBitrixId}, scouterName: '${location.scouterName}' } }))"
+              onclick="window.dispatchEvent(new CustomEvent('view-scouter-timeline', { detail: { scouterBitrixId: ${location.scouterBitrixId}, scouterName: '${location.scouterName}', photoUrl: '${location.photoUrl || ''}' } }))"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
@@ -245,8 +259,8 @@ export default function ScouterLocationMap({
   useEffect(() => {
     const handleViewTimeline = (event: Event) => {
       const customEvent = event as CustomEvent;
-      const { scouterBitrixId, scouterName } = customEvent.detail;
-      setSelectedScouterForTimeline({ bitrixId: scouterBitrixId, name: scouterName });
+      const { scouterBitrixId, scouterName, photoUrl } = customEvent.detail;
+      setSelectedScouterForTimeline({ bitrixId: scouterBitrixId, name: scouterName, photoUrl });
       setTimelineModalOpen(true);
     };
 
@@ -263,6 +277,7 @@ export default function ScouterLocationMap({
         open={timelineModalOpen}
         onOpenChange={setTimelineModalOpen}
         scouterName={selectedScouterForTimeline?.name || "Scouter"}
+        scouterPhotoUrl={selectedScouterForTimeline?.photoUrl}
         locations={locationHistory}
       />
 
@@ -313,10 +328,20 @@ export default function ScouterLocationMap({
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center relative">
-                        <span className="text-white font-bold text-xs">
-                          {location.scouterName[0].toUpperCase()}
-                        </span>
+                      <div className="relative">
+                        {location.photoUrl ? (
+                          <img 
+                            src={location.photoUrl} 
+                            alt={location.scouterName}
+                            className="w-8 h-8 rounded-full object-cover border-2 border-green-500"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                            <span className="text-white font-bold text-xs">
+                              {location.scouterName[0].toUpperCase()}
+                            </span>
+                          </div>
+                        )}
                         <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border border-white animate-pulse"></div>
                       </div>
                       <div>
@@ -343,6 +368,7 @@ export default function ScouterLocationMap({
                       setSelectedScouterForTimeline({
                         bitrixId: location.scouterBitrixId,
                         name: location.scouterName,
+                        photoUrl: location.photoUrl,
                       });
                       setTimelineModalOpen(true);
                     }}

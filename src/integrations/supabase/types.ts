@@ -444,6 +444,7 @@ export type Database = {
           cached_at: string | null
           entity_type_id: number
           id: string
+          photo_url: string | null
           stage_id: string | null
           title: string
           updated_at: string | null
@@ -453,6 +454,7 @@ export type Database = {
           cached_at?: string | null
           entity_type_id: number
           id?: string
+          photo_url?: string | null
           stage_id?: string | null
           title: string
           updated_at?: string | null
@@ -462,6 +464,7 @@ export type Database = {
           cached_at?: string | null
           entity_type_id?: number
           id?: string
+          photo_url?: string | null
           stage_id?: string | null
           title?: string
           updated_at?: string | null
