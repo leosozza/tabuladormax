@@ -399,6 +399,27 @@ serve(async (req) => {
     const lead = bitrixData.result;
     console.log('✅ Lead obtido do Bitrix:', lead);
 
+    // 🔧 RESOLVER SOURCE_ID PARA NOME CORRETO
+    async function resolveSourceName(sourceId: string | null): Promise<string | null> {
+      if (!sourceId) return null;
+      
+      // Tentar buscar na tabela de mapeamento
+      const { data: sourceMapping } = await supabase
+        .from('bitrix_source_mapping')
+        .select('name')
+        .eq('status_id', sourceId)
+        .maybeSingle();
+      
+      if (sourceMapping?.name) {
+        console.log(`✅ Fonte resolvida: "${sourceId}" → "${sourceMapping.name}"`);
+        return sourceMapping.name;
+      }
+      
+      // Fallback: usar função normalize_fonte para mapeamentos hardcoded
+      console.warn(`⚠️ Fonte não encontrada no mapeamento: "${sourceId}", usando função normalize_fonte`);
+      return sourceId;
+    }
+
     // 1. EXTRAIR ENTIDADES SPA PRIMEIRO (necessário para fallback de commercial_project_id)
     
     // 1.1 EXTRAIR OPERADOR DE TELEMARKETING (PARENT_ID_1144)
@@ -536,11 +557,12 @@ serve(async (req) => {
     commercial_project_id: commercialProjectId,
     responsible_user_id: responsibleUserId,
     bitrix_telemarketing_id: bitrixTelemarketingId,
-    // ✅ NOMES RESOLVIDOS DAS SPAS
+     // ✅ NOMES RESOLVIDOS DAS SPAS
     telemarketing: telemarketingName,
     scouter: scouterName,
     gestao_scouter: scouterName,
-    projeto_comercial: projetoComercialName
+    projeto_comercial: projetoComercialName,
+    fonte: await resolveSourceName(lead.SOURCE_ID)
     };
 
     // ✅ EXTRAIR DATE_CLOSED diretamente (campo crítico para comparecimentos)
@@ -570,10 +592,10 @@ serve(async (req) => {
         continue;
       }
 
-      // ✅ FASE 1.3: Blindar campos SPA de nome já resolvidos
-      const SPA_NAME_FIELDS = ['scouter', 'gestao_scouter', 'telemarketing', 'projeto_comercial'];
+      // ✅ FASE 1.3: Blindar campos SPA de nome já resolvidos + fonte
+      const SPA_NAME_FIELDS = ['scouter', 'gestao_scouter', 'telemarketing', 'projeto_comercial', 'fonte'];
       if (SPA_NAME_FIELDS.includes(supabaseField)) {
-        console.log(`⏭️ Ignorando mapeamento dinâmico de ${supabaseField} (SPA já resolveu o nome)`);
+        console.log(`⏭️ Ignorando mapeamento dinâmico de ${supabaseField} (já resolvido previamente)`);
         continue;
       }
 
