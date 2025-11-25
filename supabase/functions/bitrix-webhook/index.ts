@@ -543,6 +543,12 @@ serve(async (req) => {
     projeto_comercial: projetoComercialName
     };
 
+    // ✅ EXTRAIR DATE_CLOSED diretamente (campo crítico para comparecimentos)
+    if (lead.DATE_CLOSED && lead.DATE_CLOSED !== '') {
+      leadData.date_closed = lead.DATE_CLOSED;
+      console.log(`✅ DATE_CLOSED extraído: ${lead.DATE_CLOSED}`);
+    }
+
     // Agrupar mapeamentos por campo de destino
     const mappingsByField = (fieldMappings || []).reduce((acc: Record<string, any[]>, mapping: any) => {
       if (!acc[mapping.supabase_field]) {
