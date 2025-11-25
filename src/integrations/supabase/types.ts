@@ -2215,6 +2215,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      normalize_etapa: { Args: { raw_etapa: string }; Returns: string }
+      normalize_etapa_single_batch: {
+        Args: { p_batch_size?: number }
+        Returns: Json
+      }
       normalize_fonte: { Args: { raw_fonte: string }; Returns: string }
       recalculate_fonte_batch: { Args: never; Returns: Json }
       recalculate_fonte_single_batch: {
