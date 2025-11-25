@@ -321,18 +321,6 @@ export default function ScouterLocationMap({
             </div>
           </div>
         </Card>
-
-        <Card className="p-3 bg-white/95 backdrop-blur shadow-lg">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-              <Navigation className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Via Bitrix SPA</div>
-              <div className="text-sm font-bold text-primary">Tempo Real</div>
-            </div>
-          </div>
-        </Card>
       </div>
 
       {/* Indicador de atualização */}
