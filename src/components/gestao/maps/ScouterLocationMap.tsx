@@ -196,25 +196,32 @@ export default function ScouterLocationMap({
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current.clear();
 
-    // Criar ícone personalizado para scouter ativo
-    const scouterIcon = L.divIcon({
-      html: `
-        <div class="relative">
-          <div class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-lg border-2 border-white animate-pulse">
-            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
-            </svg>
-          </div>
-          <div class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white"></div>
-        </div>
-      `,
-      className: '',
-      iconSize: [40, 40],
-      iconAnchor: [20, 40]
-    });
-
-    // Adicionar marcadores
+    // Adicionar marcadores com ícones personalizados por scouter
     scouterLocations.forEach(location => {
+      // Criar ícone personalizado para cada scouter
+      const scouterIcon = L.divIcon({
+        html: location.photoUrl 
+          ? `
+            <div class="relative">
+              <div class="w-10 h-10 rounded-full overflow-hidden shadow-lg border-2 border-white">
+                <img src="${location.photoUrl}" class="w-full h-full object-cover" alt="${location.scouterName}" />
+              </div>
+              <div class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
+            </div>
+          `
+          : `
+            <div class="relative">
+              <div class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-lg border-2 border-white">
+                <span class="text-white font-bold text-sm">${location.scouterName[0].toUpperCase()}</span>
+              </div>
+              <div class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
+            </div>
+          `,
+        className: '',
+        iconSize: [40, 40],
+        iconAnchor: [20, 40]
+      });
+
       const marker = L.marker([location.latitude, location.longitude], {
         icon: scouterIcon
       });
