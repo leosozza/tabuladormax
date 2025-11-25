@@ -48,13 +48,24 @@ export default function GestaoScouters() {
       if (!respectLastSync || !lastSync || now - parseInt(lastSync) > 1800000) {
         try {
           console.log('🔄 Sincronizando fotos dos scouters em background...');
-          await supabase.functions.invoke('sync-bitrix-spa-entities');
-          localStorage.setItem('last-scouter-photo-sync', now.toString());
-          console.log('✅ Fotos dos scouters sincronizadas automaticamente');
+          const { data, error } = await supabase.functions.invoke('sync-bitrix-spa-entities');
           
-          // Invalidar cache para atualizar UI
-          queryClient.invalidateQueries({ queryKey: ["scouters"] });
-          queryClient.invalidateQueries({ queryKey: ["scouters-all"] });
+          if (!error) {
+            localStorage.setItem('last-scouter-photo-sync', now.toString());
+            console.log('✅ Fotos dos scouters sincronizadas automaticamente');
+            
+            // Force immediate refetch of all data
+            await queryClient.invalidateQueries({ 
+              queryKey: ["scouters"],
+              refetchType: 'all'
+            });
+            await queryClient.invalidateQueries({ 
+              queryKey: ["scouters-all"],
+              refetchType: 'all'
+            });
+          } else {
+            console.error('❌ Erro na sincronização:', error);
+          }
         } catch (error) {
           console.error('❌ Erro na sincronização automática de fotos:', error);
         }
@@ -87,6 +98,7 @@ export default function GestaoScouters() {
   // Main query with filters
   const { data: scouters = [], isLoading } = useQuery({
     queryKey: ["scouters", statusFilter, sortBy],
+    staleTime: 0, // Always fetch fresh data after sync
     queryFn: async () => {
       let query = supabase.from("scouters").select("*");
       
@@ -157,8 +169,8 @@ export default function GestaoScouters() {
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["scouters"] });
-      queryClient.invalidateQueries({ queryKey: ["scouters-all"] });
+      queryClient.invalidateQueries({ queryKey: ["scouters"], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ["scouters-all"], refetchType: 'all' });
       toast({
         title: "Status atualizado",
         description: `Scouter movido para ${variables.status}`,
@@ -188,8 +200,8 @@ export default function GestaoScouters() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["scouters"] });
-      queryClient.invalidateQueries({ queryKey: ["scouters-all"] });
+      queryClient.invalidateQueries({ queryKey: ["scouters"], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ["scouters-all"], refetchType: 'all' });
       setDialogOpen(false);
       toast({
         title: selectedScouter ? "Scouter atualizado" : "Scouter cadastrado",
