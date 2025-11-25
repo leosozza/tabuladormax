@@ -165,7 +165,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
 
       {/* Informações do Lead - Overlay com Gradiente Claro */}
       <div className="absolute bottom-0 left-0 right-0 z-10">
-        <div className="bg-gradient-to-t from-white/90 via-white/70 to-transparent px-4 py-5 pb-4 space-y-2">
+        <div className="bg-gradient-to-t from-white/95 via-white/85 to-transparent px-4 py-5 pb-4 space-y-2">
           <div>
             {/* Nome do Modelo - Grande e Negrito */}
             <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-0.5 truncate leading-tight text-gray-900">
