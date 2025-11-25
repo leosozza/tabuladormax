@@ -62,30 +62,25 @@ Deno.serve(async (req) => {
     }
 
     // Now fetch geolocation data from Bitrix for each scouter
-    const bitrixToken = Deno.env.get('BITRIX_REST_TOKEN');
-    const bitrixUrl = 'https://maxsystem.bitrix24.com.br';
-    
-    if (!bitrixToken) {
-      throw new Error('BITRIX_REST_TOKEN not configured');
-    }
 
     const locations: ScouterLocation[] = [];
     const timestamp = new Date().toISOString();
 
     // Fetch geolocation for each scouter (in batches to avoid timeout)
+    const bitrixDomain = 'maxsystem.bitrix24.com.br';
+    const bitrixToken = Deno.env.get('BITRIX_REST_TOKEN') || '9/85e3cex48z1zc0qp';
+
     for (const scouter of scouters.slice(0, 20)) { // Limit to first 20 for now
       try {
-        const geoResponse = await fetch(
-          `${bitrixUrl}/rest/7/${bitrixToken}/crm.item.get`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              entityTypeId: 1096,
-              id: scouter.bitrix_item_id
-            })
-          }
-        );
+        const geoUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.get.json`;
+        const geoResponse = await fetch(geoUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entityTypeId: 1096,
+            id: scouter.bitrix_item_id
+          })
+        });
 
         if (geoResponse.ok) {
           const geoData = await geoResponse.json();
