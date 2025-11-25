@@ -12,6 +12,7 @@ import { ptBR } from "date-fns/locale";
 import { useChartPerformance } from "@/lib/monitoring";
 import { ScouterTimelineModal } from "./ScouterTimelineModal";
 import { useToast } from "@/hooks/use-toast";
+import { SyncScouterPhotosButton } from "./SyncScouterPhotosButton";
 
 // Ícones personalizados para scouters
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -286,8 +287,9 @@ export default function ScouterLocationMap({
         </Card>
       </div>
 
-      {/* Indicador de atualização */}
-      <div className="absolute top-4 right-4 z-[1000]">
+      {/* Indicador de atualização e botão de sincronização */}
+      <div className="absolute top-4 right-4 z-[1000] flex gap-2">
+        <SyncScouterPhotosButton />
         <Badge variant="secondary" className="bg-white/95 backdrop-blur shadow-lg gap-2">
           <Clock className="w-3 h-3 animate-pulse" />
           Atualização automática
