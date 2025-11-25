@@ -10,6 +10,51 @@ interface LocationPayload {
   recorded_at?: string;
 }
 
+/**
+ * Simplifica endereços longos do geocoding, removendo partes redundantes
+ * Mantém apenas: Rua, Bairro, Subdistrito, Cidade-UF
+ */
+function simplifyAddress(fullAddress: string): string {
+  if (!fullAddress) return 'Endereço não informado';
+  
+  // Partes geográficas redundantes a remover
+  const partsToRemove = [
+    'Região Imediata de',
+    'Região Metropolitana de', 
+    'Região Geográfica Intermediária de',
+    'Região Sudeste',
+    'Região Nordeste',
+    'Região Sul',
+    'Região Norte',
+    'Região Centro-Oeste',
+    'Brasil',
+  ];
+  
+  let simplified = fullAddress;
+  
+  // Remover partes redundantes
+  partsToRemove.forEach(part => {
+    simplified = simplified.replace(new RegExp(`,?\\s*${part}[^,]*`, 'gi'), '');
+  });
+  
+  // Remover CEP (formato 00000-000)
+  simplified = simplified.replace(/,?\s*\d{5}-\d{3}/g, '');
+  
+  // Limpar vírgulas extras e espaços
+  simplified = simplified.replace(/,\s*,/g, ',').replace(/,\s*$/, '').trim();
+  
+  // Formatar cidade-estado (ex: "São Paulo, São Paulo" -> "São Paulo-SP")
+  simplified = simplified.replace(/,\s*São Paulo\s*$/i, '-SP');
+  simplified = simplified.replace(/,\s*Rio de Janeiro\s*$/i, '-RJ');
+  simplified = simplified.replace(/,\s*Minas Gerais\s*$/i, '-MG');
+  simplified = simplified.replace(/,\s*Bahia\s*$/i, '-BA');
+  simplified = simplified.replace(/,\s*Paraná\s*$/i, '-PR');
+  simplified = simplified.replace(/,\s*Santa Catarina\s*$/i, '-SC');
+  simplified = simplified.replace(/,\s*Rio Grande do Sul\s*$/i, '-RS');
+  
+  return simplified;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -57,6 +102,14 @@ Deno.serve(async (req) => {
       console.log(`✅ Nome resolvido: ${scouterName}`);
     }
 
+    // Simplificar endereço recebido
+    const simplifiedAddress = payload.address 
+      ? simplifyAddress(payload.address) 
+      : 'Endereço não informado';
+    
+    console.log('📍 Endereço original:', payload.address);
+    console.log('✨ Endereço simplificado:', simplifiedAddress);
+
     // Inserir na tabela de histórico
     const { data, error } = await supabase
       .from('scouter_location_history')
@@ -65,7 +118,7 @@ Deno.serve(async (req) => {
         scouter_name: scouterName,
         latitude: payload.latitude,
         longitude: payload.longitude,
-        address: payload.address || 'Endereço não informado',
+        address: simplifiedAddress,
         recorded_at: payload.recorded_at || new Date().toISOString()
       })
       .select()
