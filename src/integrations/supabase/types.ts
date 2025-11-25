@@ -2217,6 +2217,10 @@ export type Database = {
       }
       normalize_fonte: { Args: { raw_fonte: string }; Returns: string }
       recalculate_fonte_batch: { Args: never; Returns: Json }
+      recalculate_fonte_single_batch: {
+        Args: { p_batch_size?: number }
+        Returns: Json
+      }
       reprocess_leads_from_raw_bulk: {
         Args: {
           p_date_from?: string
