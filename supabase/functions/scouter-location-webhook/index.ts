@@ -41,12 +41,28 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Resolver nome do scouter se não vier no payload
+    let scouterName = payload.scouter_name;
+    
+    if (!scouterName && payload.scouter_bitrix_id) {
+      console.log(`🔍 Tentando resolver nome do scouter ID: ${payload.scouter_bitrix_id}`);
+      const { data: spaEntity } = await supabase
+        .from('bitrix_spa_entities')
+        .select('title')
+        .eq('entity_type_id', 1096)  // Scouters
+        .eq('bitrix_item_id', payload.scouter_bitrix_id)
+        .maybeSingle();
+      
+      scouterName = spaEntity?.title || `Scouter ${payload.scouter_bitrix_id}`;
+      console.log(`✅ Nome resolvido: ${scouterName}`);
+    }
+
     // Inserir na tabela de histórico
     const { data, error } = await supabase
       .from('scouter_location_history')
       .insert({
         scouter_bitrix_id: payload.scouter_bitrix_id,
-        scouter_name: payload.scouter_name || `Scouter ${payload.scouter_bitrix_id}`,
+        scouter_name: scouterName,
         latitude: payload.latitude,
         longitude: payload.longitude,
         address: payload.address || 'Endereço não informado',
