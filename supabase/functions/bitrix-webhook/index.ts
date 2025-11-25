@@ -533,7 +533,7 @@ serve(async (req) => {
       sync_status: 'synced',
       last_sync_at: new Date().toISOString(),
       updated_at: lead.DATE_MODIFY || new Date().toISOString(),
-    commercial_project_id: commercialProjectId,
+      commercial_project_id: commercialProjectId,
     responsible_user_id: responsibleUserId,
     bitrix_telemarketing_id: bitrixTelemarketingId,
     // ✅ NOMES RESOLVIDOS DAS SPAS
