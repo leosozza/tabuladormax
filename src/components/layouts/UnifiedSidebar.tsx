@@ -1,10 +1,11 @@
-import { Home, Target, DollarSign, Shield, Headset, Smartphone } from "lucide-react";
+import { Home, Target, DollarSign, Shield, Headset, Smartphone, Phone, ChevronDown } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -14,12 +15,24 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const mainNavItems = [
   { path: "/home-choice", label: "Dashboard Geral", icon: Home },
-  { path: "/telemarketing", label: "Telemarketing", icon: Headset },
+  { 
+    path: "/telemarketing", 
+    label: "Telemarketing", 
+    icon: Headset,
+    subItems: [
+      { path: "/telemarketing", label: "Tabulação" },
+      { path: "/discador", label: "Discador", icon: Phone },
+    ]
+  },
   { path: "/scouter", label: "Scouter", icon: Target },
   { path: "/agenciamento", label: "Agenciamento", icon: DollarSign },
   { path: "/admin", label: "Administrativo", icon: Shield },
@@ -28,6 +41,7 @@ const mainNavItems = [
 export function UnifiedSidebar() {
   const { open } = useSidebar();
   const navigate = useNavigate();
+  const [telemarketingOpen, setTelemarketingOpen] = useState(false);
 
   // Buscar a versão mais recente do APK
   const { data: latestRelease } = useQuery({
@@ -83,21 +97,62 @@ export function UnifiedSidebar() {
           
           <SidebarGroupContent className="px-3 py-4">
             <SidebarMenu>
-              {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton asChild tooltip={item.label}>
-                    <NavLink 
-                      to={item.path} 
-                      end={item.path === "/home-choice"}
-                      className="flex items-center gap-3 px-4 py-3 text-base rounded-lg mb-1 transition-all duration-200"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-md"
+              {mainNavItems.map((item) => {
+                if (item.subItems) {
+                  return (
+                    <Collapsible
+                      key={item.path}
+                      open={telemarketingOpen}
+                      onOpenChange={setTelemarketingOpen}
+                      className="group/collapsible"
                     >
-                      <item.icon className="h-5 w-5" />
-                      {open && <span>{item.label}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton tooltip={item.label}>
+                            <item.icon className="h-5 w-5" />
+                            {open && <span>{item.label}</span>}
+                            {open && <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />}
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            {item.subItems.map((subItem) => (
+                              <SidebarMenuSubItem key={subItem.path}>
+                                <SidebarMenuSubButton asChild>
+                                  <NavLink 
+                                    to={subItem.path}
+                                    className="flex items-center gap-3 px-4 py-2 text-sm rounded-lg"
+                                    activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                                  >
+                                    {subItem.icon && <subItem.icon className="h-4 w-4" />}
+                                    {open && <span>{subItem.label}</span>}
+                                  </NavLink>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  );
+                }
+
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton asChild tooltip={item.label}>
+                      <NavLink 
+                        to={item.path} 
+                        end={item.path === "/home-choice"}
+                        className="flex items-center gap-3 px-4 py-3 text-base rounded-lg mb-1 transition-all duration-200"
+                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-md"
+                      >
+                        <item.icon className="h-5 w-5" />
+                        {open && <span>{item.label}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

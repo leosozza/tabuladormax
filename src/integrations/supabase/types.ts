@@ -1159,6 +1159,65 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_call_records: {
+        Row: {
+          agent_code: string | null
+          agent_id: string | null
+          campaign_id: string | null
+          created_at: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          lead_id: number
+          recording_path: string | null
+          recording_url: string | null
+          result: string | null
+          started_at: string | null
+          syscall_call_id: string | null
+          tabulacao: string | null
+        }
+        Insert: {
+          agent_code?: string | null
+          agent_id?: string | null
+          campaign_id?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          lead_id: number
+          recording_path?: string | null
+          recording_url?: string | null
+          result?: string | null
+          started_at?: string | null
+          syscall_call_id?: string | null
+          tabulacao?: string | null
+        }
+        Update: {
+          agent_code?: string | null
+          agent_id?: string | null
+          campaign_id?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          lead_id?: number
+          recording_path?: string | null
+          recording_url?: string | null
+          result?: string | null
+          started_at?: string | null
+          syscall_call_id?: string | null
+          tabulacao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_call_records_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "syscall_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_resync_jobs: {
         Row: {
           batch_size: number | null
@@ -1815,6 +1874,164 @@ export type Database = {
           lead_id?: number
           preview_data?: Json
           result?: string | null
+        }
+        Relationships: []
+      }
+      syscall_agent_mappings: {
+        Row: {
+          active: boolean | null
+          agent_code: string
+          created_at: string | null
+          id: string
+          ramal: string | null
+          user_id: string
+        }
+        Insert: {
+          active?: boolean | null
+          agent_code: string
+          created_at?: string | null
+          id?: string
+          ramal?: string | null
+          user_id: string
+        }
+        Update: {
+          active?: boolean | null
+          agent_code?: string
+          created_at?: string | null
+          id?: string
+          ramal?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      syscall_campaign_leads: {
+        Row: {
+          atendido_em: string | null
+          campaign_id: string | null
+          created_at: string | null
+          discado_em: string | null
+          id: string
+          lead_id: number
+          status: string | null
+          syscall_id: string | null
+          tabulado_em: string | null
+          telefone: string
+        }
+        Insert: {
+          atendido_em?: string | null
+          campaign_id?: string | null
+          created_at?: string | null
+          discado_em?: string | null
+          id?: string
+          lead_id: number
+          status?: string | null
+          syscall_id?: string | null
+          tabulado_em?: string | null
+          telefone: string
+        }
+        Update: {
+          atendido_em?: string | null
+          campaign_id?: string | null
+          created_at?: string | null
+          discado_em?: string | null
+          id?: string
+          lead_id?: number
+          status?: string | null
+          syscall_id?: string | null
+          tabulado_em?: string | null
+          telefone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "syscall_campaign_leads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "syscall_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      syscall_campaigns: {
+        Row: {
+          agressividade: number | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          leads_atendidos: number | null
+          leads_discados: number | null
+          leads_enviados: number | null
+          nome: string
+          operadores: string[] | null
+          rota: string | null
+          status: string | null
+          syscall_campaign_id: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agressividade?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          leads_atendidos?: number | null
+          leads_discados?: number | null
+          leads_enviados?: number | null
+          nome: string
+          operadores?: string[] | null
+          rota?: string | null
+          status?: string | null
+          syscall_campaign_id?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agressividade?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          leads_atendidos?: number | null
+          leads_discados?: number | null
+          leads_enviados?: number | null
+          nome?: string
+          operadores?: string[] | null
+          rota?: string | null
+          status?: string | null
+          syscall_campaign_id?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      syscall_config: {
+        Row: {
+          active: boolean | null
+          api_token: string | null
+          api_url: string
+          callback_url: string | null
+          created_at: string | null
+          default_route: string | null
+          id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          api_token?: string | null
+          api_url?: string
+          callback_url?: string | null
+          created_at?: string | null
+          default_route?: string | null
+          id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          api_token?: string | null
+          api_url?: string
+          callback_url?: string | null
+          created_at?: string | null
+          default_route?: string | null
+          id?: string
+          updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: []
       }

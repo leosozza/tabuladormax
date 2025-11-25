@@ -140,3 +140,12 @@ verify_jwt = true
 
 [functions.recalculate-fonte-normalizada]
 verify_jwt = false
+
+[functions.syscall-integration]
+verify_jwt = false
+
+[functions.syscall-acionamento]
+verify_jwt = false
+
+[functions.syscall-webhook]
+verify_jwt = false
