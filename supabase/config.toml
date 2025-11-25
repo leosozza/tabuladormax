@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.gupshup-get-conversation]
 verify_jwt = false
+
+[functions.resync-date-closed]
+verify_jwt = true
