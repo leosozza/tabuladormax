@@ -1,0 +1,238 @@
+import { useEffect, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card } from "@/components/ui/card";
+import { MapPin, Clock } from "lucide-react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+interface LocationPoint {
+  latitude: number;
+  longitude: number;
+  address: string;
+  recorded_at: string;
+}
+
+interface ScouterTimelineModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  scouterName: string;
+  locations: LocationPoint[];
+}
+
+export function ScouterTimelineModal({
+  open,
+  onOpenChange,
+  scouterName,
+  locations,
+}: ScouterTimelineModalProps) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
+  const polylineRef = useRef<L.Polyline | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  const sortedLocations = [...locations].sort(
+    (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
+  );
+
+  // Initialize map
+  useEffect(() => {
+    if (!open || !mapContainerRef.current || mapRef.current) return;
+
+    const map = L.map(mapContainerRef.current).setView([-23.5505, -46.6333], 12);
+    
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    mapRef.current = map;
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [open]);
+
+  // Update markers and polyline when locations change
+  useEffect(() => {
+    if (!mapRef.current || sortedLocations.length === 0) return;
+
+    // Clear existing markers and polyline
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+    if (polylineRef.current) {
+      polylineRef.current.remove();
+    }
+
+    // Create numbered markers
+    const points: [number, number][] = [];
+    sortedLocations.forEach((location, index) => {
+      const position: [number, number] = [location.latitude, location.longitude];
+      points.push(position);
+
+      // Create custom numbered icon
+      const numberIcon = L.divIcon({
+        className: 'custom-numbered-marker',
+        html: `<div class="flex items-center justify-center w-8 h-8 bg-red-500 text-white rounded-full border-2 border-white shadow-lg font-bold text-sm">
+          ${sortedLocations.length - index}
+        </div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+
+      const marker = L.marker(position, { icon: numberIcon }).addTo(mapRef.current!);
+
+      // Popup content
+      const popupContent = `
+        <div class="p-2 min-w-[200px]">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-lg font-bold text-red-500">#${sortedLocations.length - index}</span>
+          </div>
+          <div class="space-y-1 text-sm">
+            <div class="flex items-start gap-2">
+              <Clock class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <span class="text-foreground">${new Date(location.recorded_at).toLocaleString('pt-BR')}</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <MapPin class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <span class="text-foreground">${location.address}</span>
+            </div>
+            <div class="text-xs text-muted-foreground mt-2">
+              ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
+            </div>
+          </div>
+        </div>
+      `;
+
+      marker.bindPopup(popupContent);
+      
+      marker.on('click', () => {
+        setSelectedIndex(index);
+      });
+
+      markersRef.current.push(marker);
+    });
+
+    // Draw polyline connecting all points (reverse order for chronological path)
+    if (points.length > 1) {
+      const reversedPoints = [...points].reverse();
+      const polyline = L.polyline(reversedPoints, {
+        color: '#ef4444',
+        weight: 3,
+        opacity: 0.7,
+      }).addTo(mapRef.current);
+
+      polylineRef.current = polyline;
+
+      // Fit bounds to show all markers
+      const bounds = L.latLngBounds(points);
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+    } else if (points.length === 1) {
+      mapRef.current.setView(points[0], 15);
+    }
+  }, [sortedLocations]);
+
+  // Handle timeline item click
+  const handleTimelineClick = (index: number) => {
+    setSelectedIndex(index);
+    const location = sortedLocations[index];
+    if (mapRef.current && markersRef.current[index]) {
+      mapRef.current.setView([location.latitude, location.longitude], 16);
+      markersRef.current[index].openPopup();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-6xl h-[80vh] p-0 gap-0">
+        <DialogHeader className="px-6 py-4 border-b">
+          <DialogTitle className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-primary" />
+            Histórico de Rota - {scouterName}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex h-[calc(100%-60px)]">
+          {/* Map Section */}
+          <div className="flex-1 relative">
+            <div ref={mapContainerRef} className="absolute inset-0" />
+          </div>
+
+          {/* Timeline Section */}
+          <div className="w-96 border-l bg-muted/30 overflow-y-auto">
+            {sortedLocations.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Nenhum histórico disponível
+              </div>
+            ) : (
+              <div className="p-4 space-y-3">
+                {sortedLocations.map((location, index) => {
+                  const isFirst = index === 0;
+                  const isLast = index === sortedLocations.length - 1;
+                  const isSelected = selectedIndex === index;
+
+                  return (
+                    <Card
+                      key={index}
+                      className={`p-4 cursor-pointer transition-all hover:shadow-md ${
+                        isSelected ? 'ring-2 ring-primary shadow-md' : ''
+                      }`}
+                      onClick={() => handleTimelineClick(index)}
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Number Badge */}
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                          isFirst ? 'bg-green-500' : isLast ? 'bg-red-500' : 'bg-primary'
+                        }`}>
+                          {sortedLocations.length - index}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm font-medium">
+                              {new Date(location.recorded_at).toLocaleDateString('pt-BR')} às{' '}
+                              {new Date(location.recorded_at).toLocaleTimeString('pt-BR', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
+
+                          <div className="flex items-start gap-2 mb-2">
+                            <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                            <span className="text-sm text-muted-foreground break-words">
+                              {location.address}
+                            </span>
+                          </div>
+
+                          <div className="text-xs text-muted-foreground font-mono">
+                            {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                          </div>
+
+                          {isFirst && (
+                            <div className="mt-2 inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                              Localização Atual
+                            </div>
+                          )}
+                          {isLast && (
+                            <div className="mt-2 inline-flex items-center px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium">
+                              Ponto Inicial
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
