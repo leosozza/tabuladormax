@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.resync-date-closed]
 verify_jwt = true
+
+[functions.recalculate-fonte-normalizada]
+verify_jwt = false
