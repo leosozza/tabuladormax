@@ -62,24 +62,42 @@ export default function ScouterLocationMap({
   const [locationHistory, setLocationHistory] = useState<LocationHistory[]>([]);
   const { toast } = useToast();
 
-  // Buscar localizações dos scouters em tempo real via Bitrix
+  // Buscar localizações mais recentes dos scouters diretamente do histórico
   const { data: scouterLocations, isLoading } = useQuery({
     queryKey: ["scouter-realtime-locations"],
     queryFn: async () => {
-      console.log('🔄 Fetching realtime scouter locations...');
+      console.log('🔄 Fetching latest scouter locations from history...');
       
-      const { data, error } = await supabase.functions.invoke(
-        'fetch-scouters-realtime-location',
-        { body: {} }
-      );
+      // Buscar a localização mais recente de cada scouter
+      const { data, error } = await supabase
+        .from('scouter_location_history')
+        .select('scouter_bitrix_id, scouter_name, latitude, longitude, address, recorded_at')
+        .order('recorded_at', { ascending: false });
 
       if (error) {
         console.error('❌ Error fetching locations:', error);
         throw error;
       }
 
-      console.log('✅ Received locations:', data.locations?.length || 0);
-      return data.locations as ScouterLocation[];
+      // Agrupar por scouter_bitrix_id e pegar apenas o mais recente
+      const latestLocations = new Map<number, ScouterLocation>();
+      
+      data?.forEach((location) => {
+        if (!latestLocations.has(location.scouter_bitrix_id)) {
+          latestLocations.set(location.scouter_bitrix_id, {
+            scouterBitrixId: location.scouter_bitrix_id,
+            scouterName: location.scouter_name,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            address: location.address,
+            recordedAt: location.recorded_at,
+          });
+        }
+      });
+
+      const locations = Array.from(latestLocations.values());
+      console.log('✅ Found latest locations for', locations.length, 'scouters');
+      return locations;
     },
     refetchInterval: 30000, // Atualizar a cada 30 segundos
   });
