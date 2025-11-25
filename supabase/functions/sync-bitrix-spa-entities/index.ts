@@ -47,7 +47,7 @@ serve(async (req) => {
         while (hasMore) {
           // Filtro de scouters ativos + campo de foto correto
           const stageFilter = entityType.id === 1096 ? '&filter[stageId]=DT1096_210:NEW' : '';
-          const photoField = entityType.id === 1096 ? '&select[]=UF_CRM_32_1739220520381' : '';
+          const photoField = entityType.id === 1096 ? '&select[]=ufCrm32_1739220520381' : '';
           const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}${stageFilter}&select[]=id&select[]=title&select[]=stageId&select[]=categoryId${photoField}&start=${start}`;
           
           console.log(`  📄 Buscando página ${Math.floor(start / limit) + 1} (offset: ${start})...`);
@@ -83,105 +83,65 @@ serve(async (req) => {
         for (const item of allItems) {
           let photoUrl: string | null = null;
           
-          // Processar foto para Scouters (campo correto: UF_CRM_32_1739220520381)
-          if (entityType.id === 1096 && item.UF_CRM_32_1739220520381) {
+          // Processar foto para Scouters usando urlMachine
+          if (entityType.id === 1096 && item.ufCrm32_1739220520381?.urlMachine) {
             try {
-              const rawPhotoField = item.UF_CRM_32_1739220520381;
-              let fileId: string | number | null = null;
-
-              if (Array.isArray(rawPhotoField)) {
-                const first = rawPhotoField[0];
-                if (typeof first === 'string' || typeof first === 'number') {
-                  fileId = first;
-                } else if (first && typeof first === 'object') {
-                  const anyFirst: any = first;
-                  fileId =
-                    anyFirst.FILE_ID ??
-                    anyFirst.fileId ??
-                    anyFirst.ID ??
-                    anyFirst.id ??
-                    null;
-                }
-              } else if (typeof rawPhotoField === 'object' && rawPhotoField !== null) {
-                const anyField: any = rawPhotoField;
-                fileId =
-                  anyField.FILE_ID ??
-                  anyField.fileId ??
-                  anyField.ID ??
-                  anyField.id ??
-                  null;
-              } else if (
-                typeof rawPhotoField === 'string' ||
-                typeof rawPhotoField === 'number'
-              ) {
-                fileId = rawPhotoField;
-              }
-
-              console.log(
-                `  📸 Campo bruto de foto para Scouter ${item.id}:`,
-                JSON.stringify(rawPhotoField),
-              );
-
-              if (!fileId) {
-                console.warn(`  ⚠️ Não foi possível determinar fileId para Scouter ${item.id}`);
-              } else {
-                console.log(
-                  `  📸 Processando foto para Scouter ${item.id} (${item.title}), fileId: ${fileId}`,
+              const photoData = item.ufCrm32_1739220520381;
+              console.log(`📸 Processando foto para Scouter ${item.id} (${item.title})`);
+              console.log(`  📦 Dados da foto:`, JSON.stringify(photoData));
+              
+              // Usar urlMachine diretamente (já vem autenticada)
+              const fileUrl = photoData.urlMachine;
+              console.log(`  ⬇️ Baixando foto via urlMachine`);
+              
+              const imageResp = await fetch(fileUrl);
+              if (!imageResp.ok) {
+                console.error(
+                  `  ❌ Erro HTTP ${imageResp.status} ao baixar foto do Scouter ${item.id}`,
                 );
+              } else {
+                const imageBlob = await imageResp.blob();
+                console.log(`  📦 Foto baixada: ${imageBlob.size} bytes`);
                 
-                // Usar endpoint correto: crm.controller.item.getFile
-                const fileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.controller.item.getFile?entityTypeId=1096&id=${item.id}&fieldName=UF_CRM_32_1739220520381&fileId=${fileId}`;
-                console.log(`  ⬇️ Baixando foto via: ${fileUrl}`);
+                // Fazer upload para Supabase Storage
+                const fileName = `scouter-${item.id}-${Date.now()}.jpg`;
+                const { error: uploadError } = await supabase.storage
+                  .from('scouter-photos')
+                  .upload(fileName, imageBlob, {
+                    contentType: 'image/jpeg',
+                    upsert: true,
+                  });
                 
-                const imageResp = await fetch(fileUrl);
-                if (!imageResp.ok) {
+                if (uploadError) {
                   console.error(
-                    `  ❌ Erro HTTP ${imageResp.status} ao baixar foto do Scouter ${item.id}`,
+                    `  ❌ Erro ao fazer upload da foto: ${uploadError.message}`,
                   );
                 } else {
-                  const imageBlob = await imageResp.blob();
-                  console.log(`  📦 Foto baixada: ${imageBlob.size} bytes`);
+                  // Obter URL pública
+                  const {
+                    data: { publicUrl },
+                  } = supabase.storage.from('scouter-photos').getPublicUrl(fileName);
                   
-                  // Fazer upload para Supabase Storage
-                  const fileName = `scouter-${item.id}-${Date.now()}.jpg`;
-                  const { error: uploadError } = await supabase.storage
-                    .from('scouter-photos')
-                    .upload(fileName, imageBlob, {
-                      contentType: 'image/jpeg',
-                      upsert: true,
-                    });
+                  photoUrl = publicUrl;
+                  console.log(`  ✅ Foto salva: ${photoUrl}`);
                   
-                  if (uploadError) {
+                  // Atualizar tabela scouters (pelo bitrix_id)
+                  const { error: scouterUpdateError } = await supabase
+                    .from('scouters')
+                    .update({
+                      photo_url: photoUrl,
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq('bitrix_id', item.id);
+                  
+                  if (scouterUpdateError) {
                     console.error(
-                      `  ❌ Erro ao fazer upload da foto: ${uploadError.message}`,
+                      `  ⚠️ Erro ao atualizar tabela scouters: ${scouterUpdateError.message}`,
                     );
                   } else {
-                    // Obter URL pública
-                    const {
-                      data: { publicUrl },
-                    } = supabase.storage.from('scouter-photos').getPublicUrl(fileName);
-                    
-                    photoUrl = publicUrl;
-                    console.log(`  ✅ Foto salva: ${photoUrl}`);
-                    
-                    // Atualizar tabela scouters (pelo bitrix_id)
-                    const { error: scouterUpdateError } = await supabase
-                      .from('scouters')
-                      .update({
-                        photo_url: photoUrl,
-                        updated_at: new Date().toISOString(),
-                      })
-                      .eq('bitrix_id', item.id);
-                    
-                    if (scouterUpdateError) {
-                      console.error(
-                        `  ⚠️ Erro ao atualizar tabela scouters: ${scouterUpdateError.message}`,
-                      );
-                    } else {
-                      console.log(
-                        `  ✅ Tabela scouters atualizada (bitrix_id: ${item.id})`,
-                      );
-                    }
+                    console.log(
+                      `  ✅ Tabela scouters atualizada (bitrix_id: ${item.id})`,
+                    );
                   }
                 }
               }
