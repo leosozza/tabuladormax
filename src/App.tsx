@@ -62,6 +62,13 @@ import CadastroSucesso from "./pages/cadastro/CadastroSucesso";
 import HubPanels from "./pages/HubPanels";
 import "@/styles/hub.css";
 
+// Discador Module
+import DiscadorHub from "./pages/discador/DiscadorHub";
+import DiscadorConfig from "./pages/discador/DiscadorConfig";
+import DiscadorCampanhas from "./pages/discador/DiscadorCampanhas";
+import DiscadorEnviarLeads from "./pages/discador/DiscadorEnviarLeads";
+import DiscadorMetricas from "./pages/discador/DiscadorMetricas";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -88,6 +95,13 @@ const App = () => (
           <Route path="/telemarketing" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/dashboard-manager" element={<ProtectedRoute><DashboardManager /></ProtectedRoute>} />
+          
+          {/* Discador Module */}
+          <Route path="/discador" element={<ProtectedRoute><DiscadorHub /></ProtectedRoute>} />
+          <Route path="/discador/config" element={<ProtectedRoute requireManager><DiscadorConfig /></ProtectedRoute>} />
+          <Route path="/discador/campanhas" element={<ProtectedRoute><DiscadorCampanhas /></ProtectedRoute>} />
+          <Route path="/discador/enviar" element={<ProtectedRoute><DiscadorEnviarLeads /></ProtectedRoute>} />
+          <Route path="/discador/metricas" element={<ProtectedRoute requireManager><DiscadorMetricas /></ProtectedRoute>} />
           
           {/* Rotas Administrativas - Connected to 3D solar system planet button */}
           <Route path="/admin" element={<ProtectedRoute requireManager><AdminHub /></ProtectedRoute>} />
