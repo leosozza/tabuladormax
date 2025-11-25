@@ -43,7 +43,8 @@ function GestaoHomeContent() {
         p_start_date: filters.dateFilter.preset === 'all' ? null : filters.dateFilter.startDate.toISOString(),
         p_end_date: filters.dateFilter.preset === 'all' ? null : filters.dateFilter.endDate.toISOString(),
         p_project_id: filters.projectId,
-        p_scouter: filters.scouterId
+        p_scouter: filters.scouterId,
+        p_fonte: filters.fonte
       });
 
       if (error) {

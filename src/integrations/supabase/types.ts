@@ -2035,23 +2035,42 @@ export type Database = {
           is_nullable: string
         }[]
       }
-      get_leads_stats: {
-        Args: {
-          p_end_date?: string
-          p_project_id?: string
-          p_scouter?: string
-          p_start_date?: string
-        }
-        Returns: {
-          agendados: number
-          com_foto: number
-          compareceram: number
-          confirmados: number
-          pendentes: number
-          reagendar: number
-          total: number
-        }[]
-      }
+      get_leads_stats:
+        | {
+            Args: {
+              p_end_date?: string
+              p_project_id?: string
+              p_scouter?: string
+              p_start_date?: string
+            }
+            Returns: {
+              agendados: number
+              com_foto: number
+              compareceram: number
+              confirmados: number
+              pendentes: number
+              reagendar: number
+              total: number
+            }[]
+          }
+        | {
+            Args: {
+              p_end_date?: string
+              p_fonte?: string
+              p_project_id?: string
+              p_scouter?: string
+              p_start_date?: string
+            }
+            Returns: {
+              agendados: number
+              com_foto: number
+              compareceram: number
+              confirmados: number
+              pendentes: number
+              reagendar: number
+              total: number
+            }[]
+          }
       get_leads_stats_filtered: {
         Args: {
           p_end_date?: string
