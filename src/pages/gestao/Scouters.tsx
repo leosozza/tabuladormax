@@ -40,12 +40,12 @@ export default function GestaoScouters() {
 
   // Sincronização automática em background (a cada 30 minutos)
   useEffect(() => {
-    const syncPhotos = async () => {
+    const syncPhotos = async (respectLastSync: boolean) => {
       const lastSync = localStorage.getItem('last-scouter-photo-sync');
       const now = Date.now();
       
-      // Sincronizar se passou mais de 30 minutos (1800000 ms)
-      if (!lastSync || now - parseInt(lastSync) > 1800000) {
+      // Sincronizar se for a primeira carga OU se passou mais de 30 minutos (1800000 ms)
+      if (!respectLastSync || !lastSync || now - parseInt(lastSync) > 1800000) {
         try {
           console.log('🔄 Sincronizando fotos dos scouters em background...');
           await supabase.functions.invoke('sync-bitrix-spa-entities');
@@ -61,10 +61,11 @@ export default function GestaoScouters() {
       }
     };
 
-    syncPhotos();
+    // Sempre sincroniza na primeira carga desta página (ignora lastSync)
+    syncPhotos(false);
     
-    // Repetir a cada 30 minutos
-    const interval = setInterval(syncPhotos, 1800000);
+    // Repetir a cada 30 minutos, respeitando lastSync
+    const interval = setInterval(() => syncPhotos(true), 1800000);
     return () => clearInterval(interval);
   }, [queryClient]);
 
