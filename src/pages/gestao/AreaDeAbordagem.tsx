@@ -9,11 +9,12 @@ import ScouterLocationMap from "@/components/gestao/maps/ScouterLocationMap";
 import HeatmapFichasMap from "@/components/gestao/maps/HeatmapFichasMap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Users, TrendingUp, Target, BarChart3, Radio, Flame } from "lucide-react";
+import { MapPin, Users, TrendingUp, Target, BarChart3, Radio, Flame, Settings } from "lucide-react";
 import { geocodeAddress } from "@/hooks/useGeolocation";
 import { createDateFilter } from "@/lib/dateUtils";
 import type { GestaoFilters as FilterType } from "@/types/filters";
 import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
+import { ScouterHistorySettings } from "@/components/gestao/ScouterHistorySettings";
 
 function GestaoAreaDeAbordagemContent() {
   const [filters, setFilters] = useState<FilterType>({
@@ -235,7 +236,7 @@ function GestaoAreaDeAbordagemContent() {
 
         {/* Tabs: 3 Tipos de Mapas */}
         <Tabs defaultValue="scouters" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="scouters">
               <Radio className="w-4 h-4 mr-2" />
               Scouters em Tempo Real
@@ -251,6 +252,10 @@ function GestaoAreaDeAbordagemContent() {
             <TabsTrigger value="analysis">
               <BarChart3 className="w-4 h-4 mr-2" />
               Análise Estatística
+            </TabsTrigger>
+            <TabsTrigger value="settings">
+              <Settings className="w-4 h-4 mr-2" />
+              Configurações
             </TabsTrigger>
           </TabsList>
 
@@ -408,6 +413,10 @@ function GestaoAreaDeAbordagemContent() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4">
+            <ScouterHistorySettings />
           </TabsContent>
         </Tabs>
     </GestaoPageLayout>

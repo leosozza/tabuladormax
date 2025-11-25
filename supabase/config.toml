@@ -3,6 +3,9 @@ project_id = "jstsrgyxrrlklnzgsihd"
 [functions.scouter-location-webhook]
 verify_jwt = false
 
+[functions.cleanup-scouter-history]
+verify_jwt = false
+
 [functions.bitrix-openline-messages]
 verify_jwt = false
 
