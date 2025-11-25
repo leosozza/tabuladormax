@@ -54,6 +54,44 @@ export function useLeadResyncJobs() {
     refetchInterval: 3000 // Atualizar a cada 3s
   });
 
+  // Mutation: Processar job iterativamente
+  const processJobMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      let needsMore = true;
+      let iterations = 0;
+      const MAX_ITERATIONS = 100; // Limite de segurança
+      
+      toast.info('Iniciando processamento iterativo...');
+      
+      while (needsMore && iterations < MAX_ITERATIONS) {
+        iterations++;
+        
+        const { data, error } = await supabase.functions.invoke('bitrix-resync-leads', {
+          body: { action: 'process', jobId }
+        });
+        
+        if (error) throw error;
+        
+        needsMore = data?.needs_more_calls || false;
+        
+        if (needsMore) {
+          // Aguardar um pouco entre chamadas
+          await new Promise(r => setTimeout(r, 300));
+        }
+      }
+      
+      return { success: true, iterations };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['lead-resync-jobs'] });
+      toast.success(`Processamento completo! (${data.iterations} iterações)`);
+    },
+    onError: (error: any) => {
+      toast.error('Erro ao processar job: ' + error.message);
+      queryClient.invalidateQueries({ queryKey: ['lead-resync-jobs'] });
+    }
+  });
+
   // Mutation: Criar job
   const createJobMutation = useMutation({
     mutationFn: async (config: { 
@@ -73,9 +111,14 @@ export function useLeadResyncJobs() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['lead-resync-jobs'] });
-      toast.success('Job de resincronização criado com sucesso!');
+      toast.success('Job criado! Iniciando processamento...');
+      
+      // Auto-iniciar processamento iterativo
+      if (data?.job?.id) {
+        processJobMutation.mutate(data.job.id);
+      }
     },
     onError: (error: any) => {
       toast.error('Erro ao criar job: ' + error.message);
@@ -154,11 +197,13 @@ export function useLeadResyncJobs() {
     jobs: jobs || [],
     isLoading,
     createJob: createJobMutation.mutate,
+    processJob: processJobMutation.mutate,
     pauseJob: pauseJobMutation.mutate,
     resumeJob: resumeJobMutation.mutate,
     cancelJob: cancelJobMutation.mutate,
     deleteJob: deleteJobMutation.mutate,
     isCreating: createJobMutation.isPending,
+    isProcessing: processJobMutation.isPending,
     isPausing: pauseJobMutation.isPending,
     isResuming: resumeJobMutation.isPending,
     isCancelling: cancelJobMutation.isPending,

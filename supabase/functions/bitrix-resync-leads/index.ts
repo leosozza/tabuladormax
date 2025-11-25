@@ -329,11 +329,6 @@ async function createResyncJob(supabase: any, config: JobConfig, batchSize: numb
     );
   }
 
-  // Iniciar processamento em background
-  processBatch(supabase, job.id).catch(err => {
-    console.error('[createResyncJob] Background processing error:', err);
-  });
-
   return new Response(
     JSON.stringify({ success: true, job }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -341,6 +336,8 @@ async function createResyncJob(supabase: any, config: JobConfig, batchSize: numb
 }
 
 async function processBatch(supabase: any, jobId: string) {
+  const MAX_BATCHES_PER_CALL = 5; // Processar máximo 5 batches por chamada (~250 leads)
+  
   const { data: initialJob, error: jobError } = await supabase
     .from('lead_resync_jobs')
     .select('*')
@@ -355,35 +352,38 @@ async function processBatch(supabase: any, jobId: string) {
     );
   }
 
-  // Marcar como running
-  await supabase
-    .from('lead_resync_jobs')
-    .update({ status: 'running', started_at: new Date().toISOString() })
-    .eq('id', jobId);
+  // Marcar como running (se estava pending)
+  if (initialJob.status === 'pending') {
+    await supabase
+      .from('lead_resync_jobs')
+      .update({ status: 'running', started_at: new Date().toISOString() })
+      .eq('id', jobId);
+  }
 
   // Variáveis para acumular progresso
   let totalProcessed = initialJob.processed_leads || 0;
   let totalUpdated = initialJob.updated_leads || 0;
   let totalSkipped = initialJob.skipped_leads || 0;
   let totalErrors = initialJob.error_leads || 0;
-  const errorDetails: any[] = [];
-  let lastProcessedId = Number.MAX_SAFE_INTEGER;
-  let currentBatch = 0;
-  const jobStartTime = Date.now();
+  const errorDetails: any[] = initialJob.error_details || [];
+  let lastProcessedId = initialJob.last_processed_lead_id || Number.MAX_SAFE_INTEGER;
+  let currentBatch = initialJob.current_batch || 0;
+  const callStartTime = Date.now();
+  let batchesProcessedInThisCall = 0;
 
   console.log(`
     ╔════════════════════════════════════════════════════════════════
-    ║ [Job ${jobId}] RESINCRONIZAÇÃO OTIMIZADA
+    ║ [Job ${jobId}] RESINCRONIZAÇÃO ITERATIVA
     ╠════════════════════════════════════════════════════════════════
     ║ Total de leads: ${initialJob.total_leads.toLocaleString()}
+    ║ Já processados: ${totalProcessed.toLocaleString()}
     ║ Batch size: ${initialJob.batch_size}
-    ║ Mapeamento: ${initialJob.mapping_id || 'Padrão (bitrix_field_mappings)'}
-    ║ Otimizações: ✅ Batch API, Pre-load SPA, Parallel Processing
+    ║ Max batches/call: ${MAX_BATCHES_PER_CALL}
     ╚════════════════════════════════════════════════════════════════
   `);
 
-  // Loop contínuo para processar todos os batches
-  while (true) {
+  // Loop limitado - processar apenas MAX_BATCHES_PER_CALL batches
+  while (batchesProcessedInThisCall < MAX_BATCHES_PER_CALL) {
     const batchStartTime = Date.now();
     
     // Buscar job atualizado para verificar status
@@ -441,8 +441,44 @@ async function processBatch(supabase: any, jobId: string) {
     }
 
     if (!leads || leads.length === 0) {
-      console.log('[processBatch] ✅ Nenhum lead restante');
-      break;
+      console.log('[processBatch] ✅ Nenhum lead restante - JOB COMPLETO');
+      
+      // Completar job
+      const totalTime = ((Date.now() - callStartTime) / 1000).toFixed(1);
+      console.log(`
+        ╔════════════════════════════════════════════════════════════════
+        ║ ✅ JOB COMPLETO
+        ╠════════════════════════════════════════════════════════════════
+        ║ Processados: ${totalProcessed.toLocaleString()}
+        ║ Atualizados: ${totalUpdated.toLocaleString()}
+        ║ Ignorados: ${totalSkipped.toLocaleString()}
+        ║ Erros: ${totalErrors.toLocaleString()}
+        ║ Tempo desta chamada: ${totalTime}s
+        ╚════════════════════════════════════════════════════════════════
+      `);
+      
+      await supabase
+        .from('lead_resync_jobs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          processed_leads: totalProcessed,
+          updated_leads: totalUpdated,
+          skipped_leads: totalSkipped,
+          error_leads: totalErrors,
+          error_details: errorDetails
+        })
+        .eq('id', jobId);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          needs_more_calls: false,
+          processed: totalProcessed,
+          batches_in_call: batchesProcessedInThisCall
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const batchProgress = ((totalProcessed / initialJob.total_leads) * 100).toFixed(1);
@@ -748,9 +784,10 @@ async function processBatch(supabase: any, jobId: string) {
     // Atualizar progresso
     lastProcessedId = leads[leads.length - 1].id;
     currentBatch++;
+    batchesProcessedInThisCall++;
 
     const batchTime = ((Date.now() - batchStartTime) / 1000).toFixed(1);
-    console.log(`⚡ Batch completed in ${batchTime}s - Updated: ${successfulUpdates.length}, Skipped: ${skippedLeads.length}, Errors: ${errorLeads.length}`);
+    console.log(`⚡ Batch ${batchesProcessedInThisCall}/${MAX_BATCHES_PER_CALL} completed in ${batchTime}s - Updated: ${successfulUpdates.length}, Skipped: ${skippedLeads.length}, Errors: ${errorLeads.length}`);
 
     await supabase
       .from('lead_resync_jobs')
@@ -767,35 +804,27 @@ async function processBatch(supabase: any, jobId: string) {
       .eq('id', jobId);
   }
 
-  // Completar job
-  const totalTime = ((Date.now() - jobStartTime) / 1000).toFixed(1);
+  // Chegou ao limite de batches por chamada - retornar needs_more_calls: true
+  const callTime = ((Date.now() - callStartTime) / 1000).toFixed(1);
   console.log(`
     ╔════════════════════════════════════════════════════════════════
-    ║ ✅ JOB COMPLETO
+    ║ 🔄 CHAMADA COMPLETA (mais chamadas necessárias)
     ╠════════════════════════════════════════════════════════════════
-    ║ Processados: ${totalProcessed.toLocaleString()}
-    ║ Atualizados: ${totalUpdated.toLocaleString()}
-    ║ Ignorados: ${totalSkipped.toLocaleString()}
-    ║ Erros: ${totalErrors.toLocaleString()}
-    ║ Tempo total: ${totalTime}s
+    ║ Batches processados: ${batchesProcessedInThisCall}
+    ║ Total processado: ${totalProcessed.toLocaleString()} / ${initialJob.total_leads.toLocaleString()}
+    ║ Progresso: ${((totalProcessed / initialJob.total_leads) * 100).toFixed(1)}%
+    ║ Tempo desta chamada: ${callTime}s
     ╚════════════════════════════════════════════════════════════════
   `);
-  
-  await supabase
-    .from('lead_resync_jobs')
-    .update({
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      processed_leads: totalProcessed,
-      updated_leads: totalUpdated,
-      skipped_leads: totalSkipped,
-      error_leads: totalErrors,
-      error_details: errorDetails
-    })
-    .eq('id', jobId);
 
   return new Response(
-    JSON.stringify({ success: true, processed: totalProcessed }),
+    JSON.stringify({ 
+      success: true, 
+      needs_more_calls: true,
+      processed: totalProcessed,
+      total: initialJob.total_leads,
+      batches_in_call: batchesProcessedInThisCall
+    }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }
@@ -823,11 +852,6 @@ async function resumeJob(supabase: any, jobId: string) {
       paused_at: null
     })
     .eq('id', jobId);
-
-  // Reiniciar processamento
-  processBatch(supabase, jobId).catch(err => {
-    console.error('[resumeJob] Error:', err);
-  });
 
   return new Response(
     JSON.stringify({ success: true }),
