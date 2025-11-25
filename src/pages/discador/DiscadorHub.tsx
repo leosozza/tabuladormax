@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useSyscallConfig } from "@/hooks/useSyscallConfig";
 import { useSyscallAgent } from "@/hooks/useSyscallAgent";
 import { AgentStatusWidget } from "@/components/discador/AgentStatusWidget";
+import { MainLayout } from "@/components/layouts/MainLayout";
 
 export default function DiscadorHub() {
   const navigate = useNavigate();
@@ -13,14 +14,12 @@ export default function DiscadorHub() {
   const { isConfigured: agentConfigured } = useSyscallAgent();
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Discador Syscall</h1>
-          <p className="text-muted-foreground">Gerenciamento de discagem preditiva</p>
-        </div>
-        <AgentStatusWidget />
-      </div>
+    <MainLayout
+      title="Discador Syscall"
+      subtitle="Gerenciamento de discagem preditiva"
+      actions={<AgentStatusWidget />}
+    >
+      <div className="space-y-6">
 
       {!isConfigured && (
         <Alert>
@@ -109,6 +108,7 @@ export default function DiscadorHub() {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </MainLayout>
   );
 }
