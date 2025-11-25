@@ -168,13 +168,13 @@ export default function LeadCard({ lead }: LeadCardProps) {
         <div className="bg-gradient-to-t from-white/95 via-white/85 to-transparent px-4 py-5 pb-4 space-y-2">
           <div>
             {/* Nome do Modelo - Grande e Negrito */}
-            <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-0.5 truncate leading-tight text-gray-900">
+            <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-0.5 truncate leading-tight text-white drop-shadow-lg">
               {mainValues[0]?.value || "Sem nome do modelo"}
             </h3>
             
             {/* Nome - Menor, como referência */}
             {mainValues[1]?.value && mainValues[1].value !== '-' && (
-              <p className="text-sm md:text-base text-gray-700 truncate font-medium">
+              <p className="text-sm md:text-base text-white truncate font-medium drop-shadow-md">
                 {mainValues[1].value}
               </p>
             )}
@@ -187,8 +187,8 @@ export default function LeadCard({ lead }: LeadCardProps) {
               return (
                 <div key={idx} className="flex items-start gap-2 text-xs md:text-sm">
                   {icon}
-                  <span className="font-medium whitespace-nowrap text-gray-900">{detail.label}:</span>
-                  <span className="text-gray-700 flex-1 break-words leading-tight">
+                  <span className="font-medium whitespace-nowrap text-white drop-shadow-md">{detail.label}:</span>
+                  <span className="text-white flex-1 break-words leading-tight drop-shadow-md">
                     {detail.value || '-'}
                   </span>
                 </div>
