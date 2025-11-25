@@ -4,11 +4,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 interface BitrixScouterItem {
   id: number;
   title: string;
-  ufCrm1732642248585?: {
-    address?: string;
-    latitude?: string;
-    longitude?: string;
-  };
+  UF_CRM_1732642248585?: string; // formato: "lat,lng|;|id" ex: "-23.5491671,-46.685609|;|3046"
 }
 
 interface ScouterLocation {
@@ -35,59 +31,80 @@ Deno.serve(async (req) => {
 
     console.log('🔍 Fetching active scouters from Bitrix SPA 1096...');
 
-    // Fetch active scouters from SPA 1096 with stage filter
-    const bitrixResponse = await fetch(
-      `${bitrixUrl}/rest/7/${bitrixToken}/crm.item.list`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entityTypeId: 1096, // Gestão Scouter
-          filter: {
-            stageId: 'DT1096_210:NEW' // Ativos
-          },
-          select: ['id', 'title', 'ufCrm1732642248585'] // Geolocalização field
-        })
-      }
-    );
+    // Helper function to parse geolocation field
+    const parseGeoField = (geoString: string | undefined): { lat: number; lng: number; address?: string } | null => {
+      if (!geoString || geoString.includes('undefined')) return null;
+      
+      const parts = geoString.split('|;|');
+      if (parts.length < 1) return null;
+      
+      const coords = parts[0].split(',');
+      if (coords.length !== 2) return null;
+      
+      const lat = parseFloat(coords[0]);
+      const lng = parseFloat(coords[1]);
+      
+      if (isNaN(lat) || isNaN(lng)) return null;
+      
+      return { lat, lng, address: parts[2] || undefined };
+    };
 
-    if (!bitrixResponse.ok) {
-      const errorText = await bitrixResponse.text();
-      console.error('❌ Bitrix API error:', errorText);
-      throw new Error(`Bitrix API error: ${bitrixResponse.status}`);
+    // Fetch active scouters with pagination
+    let allItems: BitrixScouterItem[] = [];
+    let start = 0;
+    
+    while (true) {
+      const bitrixResponse = await fetch(
+        `${bitrixUrl}/rest/7/${bitrixToken}/crm.item.list.json?` +
+        `entityTypeId=1096&` +
+        `filter[stageId]=DT1096_210:NEW&` +
+        `select[]=id&select[]=title&select[]=UF_CRM_1732642248585&` +
+        `start=${start}`
+      );
+
+      if (!bitrixResponse.ok) {
+        const errorText = await bitrixResponse.text();
+        console.error('❌ Bitrix API error:', errorText);
+        throw new Error(`Bitrix API error: ${bitrixResponse.status}`);
+      }
+
+      const bitrixData = await bitrixResponse.json();
+      const items = bitrixData.result?.items || [];
+      
+      if (items.length === 0) break;
+      
+      allItems.push(...items);
+      console.log(`📦 Batch ${Math.floor(start / 50) + 1}: ${items.length} scouters fetched`);
+      
+      if (items.length < 50) break;
+      start += 50;
     }
 
-    const bitrixData = await bitrixResponse.json();
-    console.log(`📍 Found ${bitrixData.result?.items?.length || 0} active scouters`);
+    console.log(`📍 Total active scouters found: ${allItems.length}`);
 
-    if (!bitrixData.result?.items || bitrixData.result.items.length === 0) {
+    if (allItems.length === 0) {
       return new Response(
         JSON.stringify({ locations: [], message: 'No active scouters found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Parse locations from Bitrix address field
+    // Parse locations from Bitrix geolocation field
     const locations: ScouterLocation[] = [];
     const timestamp = new Date().toISOString();
 
-    for (const item of bitrixData.result.items as BitrixScouterItem[]) {
-      const geoField = item.ufCrm1732642248585;
+    for (const item of allItems) {
+      const geoData = parseGeoField(item.UF_CRM_1732642248585);
       
-      if (geoField?.latitude && geoField?.longitude) {
-        const lat = parseFloat(geoField.latitude);
-        const lng = parseFloat(geoField.longitude);
-
-        if (!isNaN(lat) && !isNaN(lng)) {
-          locations.push({
-            scouterBitrixId: item.id,
-            scouterName: item.title,
-            latitude: lat,
-            longitude: lng,
-            address: geoField.address || 'Endereço não especificado',
-            recordedAt: timestamp
-          });
-        }
+      if (geoData) {
+        locations.push({
+          scouterBitrixId: item.id,
+          scouterName: item.title,
+          latitude: geoData.lat,
+          longitude: geoData.lng,
+          address: geoData.address || 'Endereço não especificado',
+          recordedAt: timestamp
+        });
       }
     }
 
