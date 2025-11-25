@@ -1,4 +1,4 @@
-project_id = "gkvvtfqfggddzotxltxf"
+project_id = "jstsrgyxrrlklnzgsihd"
 
 [functions.bitrix-openline-messages]
 verify_jwt = false
