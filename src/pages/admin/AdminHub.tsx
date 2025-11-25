@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
 import { AdminAccessModal } from '@/components/admin/AdminAccessModal';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,10 +40,13 @@ export default function AdminHub() {
   };
 
   return (
-    <>
+    <AdminPageLayout 
+      title="Administrativo" 
+      description="Painel de administração do sistema"
+    >
       <AdminAccessModal open={modalOpen} onOpenChange={setModalOpen} />
       
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="space-y-6">
         <ResyncDateClosedButton />
       </div>
       
@@ -59,6 +63,6 @@ export default function AdminHub() {
           {syncingSpa ? 'Sincronizando...' : 'Sincronizar SPAs'}
         </Button>
       </div>
-    </>
+    </AdminPageLayout>
   );
 }
