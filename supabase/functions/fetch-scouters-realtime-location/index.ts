@@ -55,11 +55,19 @@ Deno.serve(async (req) => {
     
     while (true) {
       const bitrixResponse = await fetch(
-        `${bitrixUrl}/rest/7/${bitrixToken}/crm.item.list.json?` +
-        `entityTypeId=1096&` +
-        `filter[stageId]=DT1096_210:NEW&` +
-        `select[]=id&select[]=title&select[]=UF_CRM_1732642248585&` +
-        `start=${start}`
+        `${bitrixUrl}/rest/7/${bitrixToken}/crm.item.list`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entityTypeId: 1096,
+            filter: {
+              stageId: 'DT1096_210:NEW'
+            },
+            select: ['id', 'title', 'UF_CRM_1732642248585'],
+            start: start
+          })
+        }
       );
 
       if (!bitrixResponse.ok) {
@@ -69,6 +77,8 @@ Deno.serve(async (req) => {
       }
 
       const bitrixData = await bitrixResponse.json();
+      console.log(`📦 Batch ${Math.floor(start / 50) + 1} response:`, JSON.stringify(bitrixData, null, 2));
+      
       const items = bitrixData.result?.items || [];
       
       if (items.length === 0) break;
