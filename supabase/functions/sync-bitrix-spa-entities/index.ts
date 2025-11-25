@@ -81,59 +81,108 @@ serve(async (req) => {
 
         // Upsert em lote
         for (const item of allItems) {
-          let photoUrl = null;
+          let photoUrl: string | null = null;
           
           // Processar foto para Scouters (campo correto: UF_CRM_32_1739220520381)
           if (entityType.id === 1096 && item.UF_CRM_32_1739220520381) {
             try {
-              const fileId = item.UF_CRM_32_1739220520381;
-              console.log(`  📸 Processando foto para Scouter ${item.id} (${item.title}), fileId: ${fileId}`);
-              
-              // Usar endpoint correto: crm.controller.item.getFile
-              const fileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.controller.item.getFile?entityTypeId=1096&id=${item.id}&fieldName=UF_CRM_32_1739220520381&fileId=${fileId}`;
-              console.log(`  ⬇️ Baixando foto via: ${fileUrl}`);
-              
-              const imageResp = await fetch(fileUrl);
-              if (!imageResp.ok) {
-                throw new Error(`HTTP ${imageResp.status}`);
+              const rawPhotoField = item.UF_CRM_32_1739220520381;
+              let fileId: string | number | null = null;
+
+              if (Array.isArray(rawPhotoField)) {
+                const first = rawPhotoField[0];
+                if (typeof first === 'string' || typeof first === 'number') {
+                  fileId = first;
+                } else if (first && typeof first === 'object') {
+                  const anyFirst: any = first;
+                  fileId =
+                    anyFirst.FILE_ID ??
+                    anyFirst.fileId ??
+                    anyFirst.ID ??
+                    anyFirst.id ??
+                    null;
+                }
+              } else if (typeof rawPhotoField === 'object' && rawPhotoField !== null) {
+                const anyField: any = rawPhotoField;
+                fileId =
+                  anyField.FILE_ID ??
+                  anyField.fileId ??
+                  anyField.ID ??
+                  anyField.id ??
+                  null;
+              } else if (
+                typeof rawPhotoField === 'string' ||
+                typeof rawPhotoField === 'number'
+              ) {
+                fileId = rawPhotoField;
               }
-              
-              const imageBlob = await imageResp.blob();
-              console.log(`  📦 Foto baixada: ${imageBlob.size} bytes`);
-              
-              // Fazer upload para Supabase Storage
-              const fileName = `scouter-${item.id}-${Date.now()}.jpg`;
-              const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('scouter-photos')
-                .upload(fileName, imageBlob, {
-                  contentType: 'image/jpeg',
-                  upsert: true
-                });
-              
-              if (uploadError) {
-                console.error(`  ❌ Erro ao fazer upload da foto: ${uploadError.message}`);
+
+              console.log(
+                `  📸 Campo bruto de foto para Scouter ${item.id}:`,
+                JSON.stringify(rawPhotoField),
+              );
+
+              if (!fileId) {
+                console.warn(`  ⚠️ Não foi possível determinar fileId para Scouter ${item.id}`);
               } else {
-                // Obter URL pública
-                const { data: { publicUrl } } = supabase.storage
-                  .from('scouter-photos')
-                  .getPublicUrl(fileName);
+                console.log(
+                  `  📸 Processando foto para Scouter ${item.id} (${item.title}), fileId: ${fileId}`,
+                );
                 
-                photoUrl = publicUrl;
-                console.log(`  ✅ Foto salva: ${photoUrl}`);
+                // Usar endpoint correto: crm.controller.item.getFile
+                const fileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.controller.item.getFile?entityTypeId=1096&id=${item.id}&fieldName=UF_CRM_32_1739220520381&fileId=${fileId}`;
+                console.log(`  ⬇️ Baixando foto via: ${fileUrl}`);
                 
-                // Atualizar tabela scouters (pelo bitrix_id)
-                const { error: scouterUpdateError } = await supabase
-                  .from('scouters')
-                  .update({ 
-                    photo_url: photoUrl,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('bitrix_id', item.id);
-                
-                if (scouterUpdateError) {
-                  console.error(`  ⚠️ Erro ao atualizar tabela scouters: ${scouterUpdateError.message}`);
+                const imageResp = await fetch(fileUrl);
+                if (!imageResp.ok) {
+                  console.error(
+                    `  ❌ Erro HTTP ${imageResp.status} ao baixar foto do Scouter ${item.id}`,
+                  );
                 } else {
-                  console.log(`  ✅ Tabela scouters atualizada (bitrix_id: ${item.id})`);
+                  const imageBlob = await imageResp.blob();
+                  console.log(`  📦 Foto baixada: ${imageBlob.size} bytes`);
+                  
+                  // Fazer upload para Supabase Storage
+                  const fileName = `scouter-${item.id}-${Date.now()}.jpg`;
+                  const { error: uploadError } = await supabase.storage
+                    .from('scouter-photos')
+                    .upload(fileName, imageBlob, {
+                      contentType: 'image/jpeg',
+                      upsert: true,
+                    });
+                  
+                  if (uploadError) {
+                    console.error(
+                      `  ❌ Erro ao fazer upload da foto: ${uploadError.message}`,
+                    );
+                  } else {
+                    // Obter URL pública
+                    const {
+                      data: { publicUrl },
+                    } = supabase.storage.from('scouter-photos').getPublicUrl(fileName);
+                    
+                    photoUrl = publicUrl;
+                    console.log(`  ✅ Foto salva: ${photoUrl}`);
+                    
+                    // Atualizar tabela scouters (pelo bitrix_id)
+                    const { error: scouterUpdateError } = await supabase
+                      .from('scouters')
+                      .update({
+                        photo_url: photoUrl,
+                        updated_at: new Date().toISOString(),
+                      })
+                      .eq('bitrix_id', item.id);
+                    
+                    if (scouterUpdateError) {
+                      console.error(
+                        `  ⚠️ Erro ao atualizar tabela scouters: ${scouterUpdateError.message}`,
+                      );
+                    } else {
+                      console.log(
+                        `  ✅ Tabela scouters atualizada (bitrix_id: ${item.id})`,
+                      );
+                    }
+                  }
                 }
               }
             } catch (photoError) {
@@ -143,30 +192,39 @@ serve(async (req) => {
           
           const { error: upsertError } = await supabase
             .from('bitrix_spa_entities')
-            .upsert({
-              entity_type_id: entityType.id,
-              bitrix_item_id: item.id,
-              title: (item.title || `Item ${item.id}`).trim(),
-              stage_id: item.stageId || null,
-              photo_url: photoUrl,
-              cached_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'entity_type_id,bitrix_item_id'
-            });
+            .upsert(
+              {
+                entity_type_id: entityType.id,
+                bitrix_item_id: item.id,
+                title: (item.title || `Item ${item.id}`).trim(),
+                stage_id: item.stageId || null,
+                photo_url: photoUrl,
+                cached_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+              {
+                onConflict: 'entity_type_id,bitrix_item_id',
+              },
+            );
 
           if (upsertError) {
-            console.error(`❌ Erro ao inserir ${entityType.name} ID ${item.id}:`, upsertError);
-            errors.push(`${entityType.name} ID ${item.id}: ${upsertError.message}`);
+            console.error(
+              `❌ Erro ao inserir ${entityType.name} ID ${item.id}:`,
+              upsertError,
+            );
+            errors.push(
+              `${entityType.name} ID ${item.id}: ${upsertError.message}`,
+            );
           } else {
             totalSynced++;
           }
         }
 
         console.log(`✅ ${entityType.name} sincronizados com sucesso`);
-
       } catch (error) {
-        const errorMsg = `Erro ao sincronizar ${entityType.name}: ${error instanceof Error ? error.message : String(error)}`;
+        const errorMsg = `Erro ao sincronizar ${entityType.name}: ${
+          error instanceof Error ? error.message : String(error)
+        }`;
         console.error(`❌ ${errorMsg}`);
         errors.push(errorMsg);
       }
@@ -175,28 +233,27 @@ serve(async (req) => {
     console.log(`🎉 Sincronização concluída: ${totalSynced} entidades atualizadas`);
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
         totalSynced,
         errors: errors.length > 0 ? errors : undefined,
-        message: `${totalSynced} entidades SPA sincronizadas com sucesso`
+        message: `${totalSynced} entidades SPA sincronizadas com sucesso`,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
-
   } catch (error) {
     console.error('❌ Erro na sincronização de entidades SPA:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
+
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: errorMessage,
-        details: String(error)
+        details: String(error),
       }),
-      { 
+      {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
     );
   }
 });
