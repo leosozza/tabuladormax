@@ -46,6 +46,8 @@ export function DateFilterSelector({ value, onChange }: DateFilterSelectorProps)
     }
     
     switch (value.preset) {
+      case 'all':
+        return 'Todo Período';
       case 'today':
         return 'Hoje';
       case 'week':
@@ -64,6 +66,7 @@ export function DateFilterSelector({ value, onChange }: DateFilterSelectorProps)
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="all">Todo Período</SelectItem>
           <SelectItem value="today">Hoje</SelectItem>
           <SelectItem value="week">Esta Semana</SelectItem>
           <SelectItem value="month">Este Mês</SelectItem>

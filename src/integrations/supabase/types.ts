@@ -2312,6 +2312,13 @@ export type Database = {
           is_nullable: string
         }[]
       }
+      get_normalized_etapas: {
+        Args: never
+        Returns: {
+          etapa_normalized: string
+          etapa_original: string
+        }[]
+      }
       get_normalized_fontes: {
         Args: {
           p_end_date?: string

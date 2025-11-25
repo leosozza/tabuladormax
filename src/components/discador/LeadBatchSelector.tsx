@@ -15,21 +15,42 @@ import { Send, Filter, X } from "lucide-react";
 export function LeadBatchSelector() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
   const [selectedLeads, setSelectedLeads] = useState<number[]>([]);
-  const [dateFilter, setDateFilter] = useState<DateFilter>(createDateFilter('month'));
+  const [dateFilter, setDateFilter] = useState<DateFilter>(createDateFilter('all'));
   const [projetoComercial, setProjetoComercial] = useState<string>("all");
   const [fonte, setFonte] = useState<string>("all");
   const [etapa, setEtapa] = useState<string>("all");
   const { campaigns, uploadLeads, isUploading } = useSyscallCampaigns();
 
-  // Buscar projetos comerciais da tabela commercial_projects
+  // Buscar projetos comerciais filtrados pelo período selecionado
   const { data: projetos } = useQuery({
-    queryKey: ["filter-projetos-comerciais"],
+    queryKey: ["filter-projetos-comerciais", dateFilter],
     queryFn: async () => {
+      // Buscar IDs de projetos que têm leads no período
+      let leadsQuery = supabase
+        .from("leads")
+        .select("commercial_project_id")
+        .not("commercial_project_id", "is", null)
+        .not("celular", "is", null);
+
+      // Aplicar filtro de data se não for "all"
+      if (dateFilter.preset !== 'all') {
+        leadsQuery = leadsQuery
+          .gte('criado', dateFilter.startDate.toISOString())
+          .lte('criado', dateFilter.endDate.toISOString());
+      }
+
+      const { data: leadsWithProject } = await leadsQuery;
+      const projectIds = [...new Set(leadsWithProject?.map(l => l.commercial_project_id).filter(Boolean))];
+
+      if (projectIds.length === 0) return [];
+
+      // Buscar nomes dos projetos
       const { data } = await supabase
         .from("commercial_projects")
         .select("id, name")
-        .eq("active", true)
+        .in("id", projectIds)
         .order("name");
+      
       return data || [];
     },
   });
@@ -47,16 +68,12 @@ export function LeadBatchSelector() {
     },
   });
 
-  // Buscar etapas únicas
+  // Buscar etapas normalizadas usando função do banco
   const { data: etapas } = useQuery({
-    queryKey: ["filter-etapas"],
+    queryKey: ["filter-etapas-normalizadas"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("leads")
-        .select("etapa")
-        .not("etapa", "is", null);
-      const unique = [...new Set(data?.map(d => d.etapa).filter(Boolean))];
-      return unique.sort();
+      const { data } = await supabase.rpc('get_normalized_etapas');
+      return data?.map(e => e.etapa_normalized).filter(Boolean) || [];
     },
   });
 
@@ -71,12 +88,14 @@ export function LeadBatchSelector() {
         `, { count: 'exact' })
         .not("celular", "is", null);
 
-      // Aplicar filtro de data
-      if (dateFilter.startDate) {
-        query = query.gte('criado', dateFilter.startDate.toISOString());
-      }
-      if (dateFilter.endDate) {
-        query = query.lte('criado', dateFilter.endDate.toISOString());
+      // Aplicar filtro de data apenas se não for "all"
+      if (dateFilter.preset !== 'all') {
+        if (dateFilter.startDate) {
+          query = query.gte('criado', dateFilter.startDate.toISOString());
+        }
+        if (dateFilter.endDate) {
+          query = query.lte('criado', dateFilter.endDate.toISOString());
+        }
       }
 
       // Aplicar filtros
@@ -114,7 +133,7 @@ export function LeadBatchSelector() {
   };
 
   const handleClearFilters = () => {
-    setDateFilter(createDateFilter('month'));
+    setDateFilter(createDateFilter('all'));
     setProjetoComercial("all");
     setFonte("all");
     setEtapa("all");
@@ -233,10 +252,13 @@ export function LeadBatchSelector() {
           <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg border border-primary/20">
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="text-lg px-4 py-2">
-                {isLoadingLeads ? "..." : totalLeads}
+                {isLoadingLeads ? "..." : totalLeads.toLocaleString()}
               </Badge>
               <span className="text-sm font-medium">
-                leads encontrados com telefone
+                leads encontrados
+                {totalLeads > 500 && (
+                  <span className="text-muted-foreground"> (exibindo primeiros 500)</span>
+                )}
               </span>
             </div>
             <Button
