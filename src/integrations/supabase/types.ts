@@ -1980,6 +1980,7 @@ export type Database = {
         Args: { _route_path: string; _user_id: string }
         Returns: boolean
       }
+      clean_corrupted_fonte: { Args: never; Returns: Json }
       clean_old_lead_search_cache: { Args: never; Returns: undefined }
       fix_scouter_names: {
         Args: never
@@ -2215,6 +2216,7 @@ export type Database = {
         Returns: boolean
       }
       normalize_fonte: { Args: { raw_fonte: string }; Returns: string }
+      recalculate_fonte_batch: { Args: never; Returns: Json }
       reprocess_leads_from_raw_bulk: {
         Args: {
           p_date_from?: string
