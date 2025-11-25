@@ -334,7 +334,7 @@ export default function ScouterLocationMap({
                     </div>
                   </div>
 
-                  <Button variant="outline" size="icon" className="mt-2" onClick={e => {
+                  <Button variant="outline" size="icon" onClick={e => {
               e.stopPropagation();
               setSelectedScouterForTimeline({
                 bitrixId: location.scouterBitrixId,
@@ -342,7 +342,7 @@ export default function ScouterLocationMap({
                 photoUrl: location.photoUrl
               });
               setTimelineModalOpen(true);
-            }}>
+            }} className="mt-2 my-0">
                     <Route className="w-[13px] h-[13px]" />
                   </Button>
                 </div>)}
