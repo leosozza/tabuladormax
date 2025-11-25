@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, Download, AlertTriangle, CheckCircle2, TrendingUp, Activity } from 'lucide-react';
+import { RefreshCw, Download, AlertTriangle, CheckCircle2, TrendingUp, Activity, Wrench } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { SupabaseBasedMappingTable } from '@/components/bitrix/SupabaseBasedMappingTable';
@@ -23,6 +23,8 @@ export default function BitrixIntegration() {
   const [bitrixFields, setBitrixFields] = useState<any[]>([]);
   const [supabaseFields, setSupabaseFields] = useState<any[]>([]);
   const [syncConfig, setSyncConfig] = useState<any>(null);
+  const [fixingProjects, setFixingProjects] = useState(false);
+  const [fixResult, setFixResult] = useState<any>(null);
   const [stats, setStats] = useState({
     totalMappings: 0,
     activeMappings: 0,
@@ -141,6 +143,34 @@ export default function BitrixIntegration() {
       toast.error('Erro ao sincronizar entidades SPA');
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleFixCommercialProjects = async () => {
+    setFixingProjects(true);
+    setFixResult(null);
+    
+    try {
+      toast.info('🔧 Iniciando correção de projetos comerciais...');
+      
+      const { data, error } = await supabase.functions.invoke(
+        'fix-commercial-project-ids',
+        { method: 'POST' }
+      );
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setFixResult(data);
+        toast.success(`✅ Correção concluída! ${data.fixed} leads atualizados`);
+      } else {
+        throw new Error(data?.error || 'Falha ao executar correção');
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao corrigir projetos:', error);
+      toast.error(error.message || 'Erro ao executar correção de projetos');
+    } finally {
+      setFixingProjects(false);
     }
   };
 
@@ -276,6 +306,9 @@ export default function BitrixIntegration() {
           <TabsTrigger value="analysis">
             Análise
           </TabsTrigger>
+          <TabsTrigger value="tools">
+            Ferramentas
+          </TabsTrigger>
           <TabsTrigger value="test">
             Testes
           </TabsTrigger>
@@ -384,7 +417,78 @@ export default function BitrixIntegration() {
           </div>
         </TabsContent>
 
-        {/* Aba 4: Testes */}
+        {/* Aba 4: Ferramentas */}
+        <TabsContent value="tools" className="space-y-4">
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wrench className="w-5 h-5" />
+                Correção de Projetos Comerciais
+              </CardTitle>
+              <CardDescription>
+                Sincroniza o campo commercial_project_id com base no PARENT_ID_1120 do Bitrix.
+                Use esta ferramenta se houver leads com projetos incorretos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {fixResult && (
+                <div className="mb-4 p-4 bg-background rounded-lg border space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Total de leads processados:</span>
+                    <span className="font-semibold">{fixResult.total_leads}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">✅ Corrigidos:</span>
+                    <span className="font-semibold text-green-600">{fixResult.fixed}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">⏭️ Pulados (já corretos):</span>
+                    <span className="font-semibold text-blue-600">{fixResult.skipped}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">❌ Erros:</span>
+                    <span className="font-semibold text-red-600">{fixResult.errors}</span>
+                  </div>
+                  {fixResult.error_details && fixResult.error_details.length > 0 && (
+                    <details className="mt-2">
+                      <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                        Ver detalhes dos erros ({fixResult.error_details.length})
+                      </summary>
+                      <div className="mt-2 p-2 bg-red-500/10 rounded text-xs font-mono max-h-40 overflow-y-auto">
+                        {fixResult.error_details.map((err: any, idx: number) => (
+                          <div key={idx} className="mb-1">
+                            Lead {err.lead_id}: {err.error}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              )}
+              
+              <Button
+                onClick={handleFixCommercialProjects}
+                disabled={fixingProjects}
+                size="lg"
+                className="w-full"
+              >
+                {fixingProjects ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Corrigindo projetos...
+                  </>
+                ) : (
+                  <>
+                    <Wrench className="w-4 h-4 mr-2" />
+                    Executar Correção de Projetos
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Aba 5: Testes */}
         <TabsContent value="test" className="space-y-4">
           <SyncTestPanel />
         </TabsContent>
