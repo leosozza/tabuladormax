@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { useSyscallCampaigns } from "@/hooks/useSyscallCampaigns";
 import { DateFilterSelector } from "@/components/DateFilterSelector";
 import { DateFilter } from "@/types/filters";
 import { createDateFilter } from "@/lib/dateUtils";
 import { Send, Filter, X } from "lucide-react";
+import { toast } from "sonner";
 
 export function LeadBatchSelector() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
@@ -19,6 +21,10 @@ export function LeadBatchSelector() {
   const [projetoComercial, setProjetoComercial] = useState<string>("all");
   const [fonte, setFonte] = useState<string>("all");
   const [etapa, setEtapa] = useState<string>("all");
+  const [sendAllFiltered, setSendAllFiltered] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [totalBatches, setTotalBatches] = useState(0);
   const { campaigns, uploadLeads, isUploading } = useSyscallCampaigns();
 
   // Buscar projetos comerciais filtrados pelo período selecionado
@@ -140,25 +146,91 @@ export function LeadBatchSelector() {
     setSelectedLeads([]);
   };
 
-  const handleSend = () => {
-    if (!selectedCampaignId || selectedLeads.length === 0) return;
+  const handleSend = async () => {
+    if (!selectedCampaignId) return;
+    if (!sendAllFiltered && selectedLeads.length === 0) return;
 
     const campaign = campaigns?.find((c) => c.id === selectedCampaignId);
     if (!campaign) return;
 
-    const leadsToSend = leads
-      ?.filter((l) => selectedLeads.includes(l.id))
-      .map((l) => ({
-        lead_id: l.id,
-        telefone: l.celular,
-        nome: l.name || "",
-      })) || [];
+    try {
+      if (sendAllFiltered) {
+        // Buscar TODOS os IDs dos leads filtrados (sem limite)
+        let query = supabase
+          .from("leads")
+          .select("id, celular, name")
+          .not("celular", "is", null);
 
-    uploadLeads({
-      campaign_id: campaign.id,
-      syscall_campaign_id: campaign.syscall_campaign_id,
-      leads: leadsToSend,
-    });
+        // Aplicar os mesmos filtros
+        if (dateFilter.preset !== 'all') {
+          if (dateFilter.startDate) {
+            query = query.gte('criado', dateFilter.startDate.toISOString());
+          }
+          if (dateFilter.endDate) {
+            query = query.lte('criado', dateFilter.endDate.toISOString());
+          }
+        }
+
+        if (projetoComercial !== "all") {
+          query = query.eq('commercial_project_id', projetoComercial);
+        }
+        if (fonte !== "all") {
+          query = query.eq('fonte', fonte);
+        }
+        if (etapa !== "all") {
+          query = query.eq('etapa', etapa);
+        }
+
+        const { data: allLeads, error } = await query;
+        if (error) throw error;
+
+        // Enviar em lotes de 500
+        const batchSize = 500;
+        const batches = Math.ceil((allLeads?.length || 0) / batchSize);
+        setTotalBatches(batches);
+
+        for (let i = 0; i < (allLeads?.length || 0); i += batchSize) {
+          const batch = allLeads?.slice(i, i + batchSize) || [];
+          setCurrentBatch(Math.floor(i / batchSize) + 1);
+          setUploadProgress(((i + batch.length) / (allLeads?.length || 1)) * 100);
+
+          const leadsToSend = batch.map((l) => ({
+            lead_id: l.id,
+            telefone: l.celular,
+            nome: l.name || "",
+          }));
+
+          await uploadLeads({
+            campaign_id: campaign.id,
+            syscall_campaign_id: campaign.syscall_campaign_id,
+            leads: leadsToSend,
+          });
+        }
+
+        toast.success(`${allLeads?.length.toLocaleString()} leads enviados com sucesso!`);
+        setUploadProgress(0);
+        setCurrentBatch(0);
+        setTotalBatches(0);
+      } else {
+        // Envio normal (apenas leads selecionados)
+        const leadsToSend = leads
+          ?.filter((l) => selectedLeads.includes(l.id))
+          .map((l) => ({
+            lead_id: l.id,
+            telefone: l.celular,
+            nome: l.name || "",
+          })) || [];
+
+        await uploadLeads({
+          campaign_id: campaign.id,
+          syscall_campaign_id: campaign.syscall_campaign_id,
+          leads: leadsToSend,
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao enviar leads:", error);
+      toast.error("Erro ao enviar leads");
+    }
   };
 
   return (
@@ -282,13 +354,35 @@ export function LeadBatchSelector() {
               variant="outline"
               size="sm"
               onClick={handleSelectAll}
-              disabled={leads.length === 0}
+              disabled={leads.length === 0 || sendAllFiltered}
             >
               {selectedLeads.length === leads.length ? "Desmarcar Todos" : "Selecionar Todos"}
             </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
+            <div className="flex items-start gap-3">
+              <Checkbox 
+                id="send-all"
+                checked={sendAllFiltered} 
+                onCheckedChange={(checked) => {
+                  setSendAllFiltered(checked as boolean);
+                  if (checked) {
+                    setSelectedLeads([]);
+                  }
+                }} 
+              />
+              <label htmlFor="send-all" className="text-sm cursor-pointer">
+                <span className="font-semibold">Enviar TODOS os {totalLeads.toLocaleString()} leads filtrados</span>
+                <p className="text-muted-foreground mt-1">
+                  {totalLeads > 500 
+                    ? `Enviará todos os leads em lotes de 500 (não apenas os ${leads.length} visíveis)`
+                    : "Ignora seleção manual e envia todos os leads encontrados"}
+                </p>
+              </label>
+            </div>
+          </div>
           {isLoadingLeads ? (
             <div className="text-center py-8 text-muted-foreground">
               Carregando leads...
@@ -307,6 +401,7 @@ export function LeadBatchSelector() {
                   <Checkbox
                     checked={selectedLeads.includes(lead.id)}
                     onCheckedChange={() => handleToggleLead(lead.id)}
+                    disabled={sendAllFiltered}
                   />
                   <div className="flex-1">
                     <p className="font-medium">{lead.name || "Sem nome"}</p>
@@ -338,13 +433,31 @@ export function LeadBatchSelector() {
         </CardContent>
       </Card>
 
+      {isUploading && totalBatches > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">Enviando leads...</span>
+                <span className="text-muted-foreground">
+                  Lote {currentBatch} de {totalBatches}
+                </span>
+              </div>
+              <Progress value={uploadProgress} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex justify-end">
         <Button
           onClick={handleSend}
-          disabled={!selectedCampaignId || selectedLeads.length === 0 || isUploading}
+          disabled={!selectedCampaignId || (!sendAllFiltered && selectedLeads.length === 0) || isUploading}
         >
           <Send className="mr-2 h-4 w-4" />
-          Enviar {selectedLeads.length} Leads
+          {sendAllFiltered 
+            ? `Enviar ${totalLeads.toLocaleString()} Leads` 
+            : `Enviar ${selectedLeads.length} Leads`}
         </Button>
       </div>
     </div>
