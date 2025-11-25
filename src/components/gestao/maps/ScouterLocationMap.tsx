@@ -361,8 +361,8 @@ export default function ScouterLocationMap({
 
                   <Button
                     variant="outline"
-                    size="sm"
-                    className="mt-2 w-full"
+                    size="icon"
+                    className="mt-2"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedScouterForTimeline({
@@ -373,8 +373,7 @@ export default function ScouterLocationMap({
                       setTimelineModalOpen(true);
                     }}
                   >
-                    <Route className="w-3 h-3 mr-2" />
-                    Ver Rota
+                    <Route className="w-4 h-4" />
                   </Button>
                 </div>
               ))}
