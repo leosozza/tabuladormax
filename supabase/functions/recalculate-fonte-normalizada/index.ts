@@ -29,25 +29,53 @@ Deno.serve(async (req) => {
     }
 
     console.log(`✅ ${corruptedData.cleaned} registros corrompidos limpos`);
-    console.log('🔄 Iniciando recálculo de fonte_normalizada...');
+    console.log('🔄 Iniciando recálculo de fonte_normalizada em lotes...');
     
-    // Etapa 2: Recalcular fonte_normalizada em lotes
-    const { data: recalculatedData, error: recalcError } = await supabase
-      .rpc('recalculate_fonte_batch');
-    
-    if (recalcError) {
-      console.error('❌ Erro ao recalcular fontes:', recalcError);
-      throw recalcError;
+    // Etapa 2: Recalcular fonte_normalizada em múltiplos mini-lotes
+    let totalUpdated = 0;
+    let hasMore = true;
+    let iterations = 0;
+    const MAX_ITERATIONS = 50; // ~25.000 leads por chamada da Edge Function
+    const BATCH_SIZE = 500;
+
+    while (hasMore && iterations < MAX_ITERATIONS) {
+      const { data: batchData, error: batchError } = await supabase
+        .rpc('recalculate_fonte_single_batch', { p_batch_size: BATCH_SIZE });
+      
+      if (batchError) {
+        console.error(`❌ Erro no lote ${iterations + 1}:`, batchError);
+        throw batchError;
+      }
+
+      totalUpdated += batchData.updated;
+      hasMore = batchData.has_more;
+      iterations++;
+
+      console.log(`📦 Lote ${iterations}: ${batchData.updated} leads atualizados (total: ${totalUpdated})`);
+      
+      // Se não há mais para processar, parar
+      if (!hasMore) {
+        console.log('✅ Todos os leads foram processados!');
+        break;
+      }
     }
 
-    console.log(`✅ ${recalculatedData.total_updated} leads recalculados`);
+    const needsMoreCalls = hasMore && iterations >= MAX_ITERATIONS;
+    
+    if (needsMoreCalls) {
+      console.log(`⚠️ Limite de iterações atingido. Execute novamente para continuar.`);
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
         corrupted_cleaned: corruptedData.cleaned,
-        fonte_recalculated: recalculatedData.total_updated,
-        message: `✅ Processo concluído: ${corruptedData.cleaned} corrompidos limpos, ${recalculatedData.total_updated} fontes recalculadas`
+        fonte_recalculated: totalUpdated,
+        iterations,
+        needs_more_calls: needsMoreCalls,
+        message: needsMoreCalls 
+          ? `⚠️ Processados ${totalUpdated} leads em ${iterations} lotes. Execute novamente para continuar.`
+          : `✅ Processo concluído: ${corruptedData.cleaned} corrompidos limpos, ${totalUpdated} fontes recalculadas em ${iterations} lotes`
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
