@@ -79,7 +79,8 @@ export function LeadBatchSelector() {
     queryKey: ["filter-etapas-normalizadas"],
     queryFn: async () => {
       const { data } = await supabase.rpc('get_normalized_etapas');
-      return data?.map(e => e.etapa_normalized).filter(Boolean) || [];
+      const normalized = data?.map(e => e.etapa_normalized).filter(Boolean) || [];
+      return [...new Set(normalized)].sort();
     },
   });
 
