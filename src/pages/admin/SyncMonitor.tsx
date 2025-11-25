@@ -5,13 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { RefreshCw, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Settings2, Copy, Wrench } from 'lucide-react';
+import { RefreshCw, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Settings2, Copy, Wrench, MapPin, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { FieldMappingDisplay } from '@/components/sync/FieldMappingDisplay';
 import { SyncFieldMappings } from '@/lib/fieldMappingUtils';
 import { getBitrixFieldLabel } from '@/lib/fieldLabelUtils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -28,8 +29,17 @@ interface SyncEvent {
   error_message: string | null;
   created_at: string;
   sync_duration_ms: number | null;
-  field_mappings: SyncFieldMappings | null;
+  field_mappings: (SyncFieldMappings | LocationFieldMappings) | null;
   fields_synced_count: number | null;
+}
+
+interface LocationFieldMappings {
+  scouter_bitrix_id?: number;
+  scouter_name?: string;
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  [key: string]: any;
 }
 
 export default function SyncMonitor() {
@@ -133,9 +143,22 @@ export default function SyncMonitor() {
     }
   };
 
-  const successCount = syncEvents.filter(e => e.status === 'success').length;
-  const errorCount = syncEvents.filter(e => e.status === 'error').length;
-  const pendingCount = syncEvents.filter(e => e.status === 'pending').length;
+  // Filtrar eventos por tipo
+  const locationEvents = syncEvents.filter(e => e.direction === 'scouter_location_in');
+  const syncOnlyEvents = syncEvents.filter(e => e.direction !== 'scouter_location_in');
+
+  const successCount = syncOnlyEvents.filter(e => e.status === 'success').length;
+  const errorCount = syncOnlyEvents.filter(e => e.status === 'error').length;
+  const pendingCount = syncOnlyEvents.filter(e => e.status === 'pending').length;
+
+  // Estatísticas de geolocalização
+  const locationSuccessCount = locationEvents.filter(e => e.status === 'success').length;
+  const locationErrorCount = locationEvents.filter(e => e.status === 'error').length;
+  const uniqueScoutersCount = new Set(
+    locationEvents
+      .filter(e => e.field_mappings && 'scouter_bitrix_id' in e.field_mappings)
+      .map(e => (e.field_mappings as LocationFieldMappings).scouter_bitrix_id)
+  ).size;
 
   const copyErrorDetails = () => {
     if (!selectedErrorEvent) return;
@@ -284,138 +307,270 @@ ${JSON.stringify(selectedErrorEvent, null, 2)}
         </CardContent>
       </Card>
 
-      {/* Estatísticas */}
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-green-600" />
-              Sucesso
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">{successCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Sincronizações bem-sucedidas
-            </p>
-          </CardContent>
-        </Card>
+      {/* Tabs para separar tipos de eventos */}
+      <Tabs defaultValue="sync" className="mb-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="sync">Sincronização Bitrix</TabsTrigger>
+          <TabsTrigger value="location">Geolocalização Scouters</TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <XCircle className="w-4 h-4 text-red-600" />
-              Erros
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-600">{errorCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Sincronizações com erro
-            </p>
-          </CardContent>
-        </Card>
+        {/* Tab de Sincronização */}
+        <TabsContent value="sync" className="space-y-4">
+          {/* Estatísticas de Sincronização */}
+          <div className="grid md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  Sucesso
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-green-600">{successCount}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Sincronizações bem-sucedidas
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Clock className="w-4 h-4 text-yellow-600" />
-              Pendentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-yellow-600">{pendingCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Aguardando processamento
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-red-600" />
+                  Erros
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-red-600">{errorCount}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Sincronizações com erro
+                </p>
+              </CardContent>
+            </Card>
 
-      {/* Lista de Eventos */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Eventos Recentes</CardTitle>
-          <CardDescription>
-            Últimas 50 sincronizações registradas
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Carregando eventos...
-            </div>
-          ) : syncEvents.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Nenhum evento de sincronização encontrado
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {syncEvents.map((event) => (
-                <Collapsible key={event.id}>
-                  <div className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                    <div className="mt-0.5">{getStatusIcon(event.status)}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm">
-                          {event.event_type || 'Sincronização'}
-                        </span>
-                        <Badge variant="outline" className="text-xs">
-                          {event.direction}
-                        </Badge>
-                        <Badge 
-                          className={`text-xs ${getStatusColor(event.status)} ${event.status === 'error' ? 'cursor-pointer hover:opacity-80' : ''}`}
-                          onClick={() => event.status === 'error' && setSelectedErrorEvent(event)}
-                        >
-                          {event.status}
-                        </Badge>
-                        {event.fields_synced_count !== null && event.fields_synced_count > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {event.fields_synced_count} campos
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {format(new Date(event.created_at), 'dd/MM/yyyy HH:mm:ss')}
-                        {event.sync_duration_ms && (
-                          <span className="ml-2">• {event.sync_duration_ms}ms</span>
-                        )}
-                      </p>
-                      {event.error_message && (
-                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                          {event.error_message}
-                        </p>
-                      )}
-                      
-                      {/* Field Mappings Section */}
-                      {event.field_mappings && event.status === 'success' && (
-                        <CollapsibleTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="mt-2 h-7 text-xs"
-                          >
-                            <ChevronDown className="w-3 h-3 mr-1" />
-                            Ver campos sincronizados
-                          </Button>
-                        </CollapsibleTrigger>
-                      )}
-                      
-                      <CollapsibleContent className="mt-3">
-                        {event.field_mappings && (
-                          <div className="border-t pt-3">
-                            <FieldMappingDisplay mappings={event.field_mappings} />
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-yellow-600" />
+                  Pendentes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-yellow-600">{pendingCount}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Aguardando processamento
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Lista de Eventos de Sincronização */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Eventos de Sincronização</CardTitle>
+              <CardDescription>
+                Sincronizações entre TabuladorMax e Bitrix
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Carregando eventos...
+                </div>
+              ) : syncOnlyEvents.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhum evento de sincronização encontrado
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {syncOnlyEvents.map((event) => (
+                    <Collapsible key={event.id}>
+                      <div className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                        <div className="mt-0.5">{getStatusIcon(event.status)}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm">
+                              {event.event_type || 'Sincronização'}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {event.direction}
+                            </Badge>
+                            <Badge 
+                              className={`text-xs ${getStatusColor(event.status)} ${event.status === 'error' ? 'cursor-pointer hover:opacity-80' : ''}`}
+                              onClick={() => event.status === 'error' && setSelectedErrorEvent(event)}
+                            >
+                              {event.status}
+                            </Badge>
+                            {event.fields_synced_count !== null && event.fields_synced_count > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {event.fields_synced_count} campos
+                              </Badge>
+                            )}
                           </div>
-                        )}
-                      </CollapsibleContent>
-                    </div>
-                  </div>
-                </Collapsible>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {format(new Date(event.created_at), 'dd/MM/yyyy HH:mm:ss')}
+                            {event.sync_duration_ms && (
+                              <span className="ml-2">• {event.sync_duration_ms}ms</span>
+                            )}
+                          </p>
+                          {event.error_message && (
+                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                              {event.error_message}
+                            </p>
+                          )}
+                          
+                          {event.field_mappings && event.status === 'success' && (
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mt-2 h-7 text-xs"
+                              >
+                                <ChevronDown className="w-3 h-3 mr-1" />
+                                Ver campos sincronizados
+                              </Button>
+                            </CollapsibleTrigger>
+                          )}
+                          
+                          <CollapsibleContent className="mt-3">
+                            {event.field_mappings && event.direction !== 'scouter_location_in' && (
+                              <div className="border-t pt-3">
+                                <FieldMappingDisplay mappings={event.field_mappings as SyncFieldMappings} />
+                              </div>
+                            )}
+                          </CollapsibleContent>
+                        </div>
+                      </div>
+                    </Collapsible>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab de Geolocalização */}
+        <TabsContent value="location" className="space-y-4">
+          {/* Estatísticas de Geolocalização */}
+          <div className="grid md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-blue-600" />
+                  Recebidos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-blue-600">{locationSuccessCount}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Localizações registradas
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-red-600" />
+                  Erros
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-red-600">{locationErrorCount}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Falhas ao registrar
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Users className="w-4 h-4 text-purple-600" />
+                  Scouters
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-purple-600">{uniqueScoutersCount}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Com localização ativa
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Lista de Eventos de Geolocalização */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Webhooks de Geolocalização</CardTitle>
+              <CardDescription>
+                Histórico de recebimento de coordenadas dos scouters
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Carregando eventos...
+                </div>
+              ) : locationEvents.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhum webhook de geolocalização recebido
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {locationEvents.map((event) => {
+                    const locationData = event.field_mappings as LocationFieldMappings;
+                    return (
+                      <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                        <div className="mt-0.5">{getStatusIcon(event.status)}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <MapPin className="w-4 h-4 text-blue-600" />
+                            <span className="font-medium text-sm">
+                              {locationData?.scouter_name || 'Scouter'}
+                            </span>
+                            <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-700 dark:text-blue-400">
+                              📍 Localização
+                            </Badge>
+                            <Badge className={`text-xs ${getStatusColor(event.status)}`}>
+                              {event.status}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {format(new Date(event.created_at), 'dd/MM/yyyy HH:mm:ss')}
+                            {event.sync_duration_ms && (
+                              <span className="ml-2">• {event.sync_duration_ms}ms</span>
+                            )}
+                          </p>
+                          {locationData && (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-xs">
+                                <span className="text-muted-foreground">Coordenadas:</span>{' '}
+                                <span className="font-mono">{locationData.latitude}, {locationData.longitude}</span>
+                              </p>
+                              {locationData.address && (
+                                <p className="text-xs">
+                                  <span className="text-muted-foreground">Endereço:</span>{' '}
+                                  {locationData.address}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          {event.error_message && (
+                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                              {event.error_message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Dialog de Detalhes do Erro */}
       <Dialog open={!!selectedErrorEvent} onOpenChange={(open) => !open && setSelectedErrorEvent(null)}>

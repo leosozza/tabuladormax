@@ -15,12 +15,12 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  );
 
+  try {
     const payload: LocationPayload = await req.json();
     
     console.log('📍 Recebendo localização do scouter:', {
@@ -62,6 +62,33 @@ Deno.serve(async (req) => {
 
     console.log('✅ Localização salva com sucesso:', data.id);
 
+    // Registrar evento de sincronização para monitoramento
+    const syncStartTime = Date.now();
+    try {
+      await supabase
+        .from('sync_events')
+        .insert({
+          event_type: 'location_webhook',
+          direction: 'scouter_location_in',
+          status: 'success',
+          lead_id: 0, // Não é um lead, mas campo obrigatório
+          sync_duration_ms: Date.now() - syncStartTime,
+          fields_synced_count: 4,
+          field_mappings: {
+            scouter_bitrix_id: payload.scouter_bitrix_id,
+            scouter_name: payload.scouter_name,
+            latitude: payload.latitude,
+            longitude: payload.longitude,
+            address: payload.address || 'Endereço não informado'
+          }
+        });
+      
+      console.log('📊 Evento registrado em sync_events');
+    } catch (syncError) {
+      console.warn('⚠️ Falha ao registrar evento de sync:', syncError);
+      // Não falhar o webhook se o log falhar
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -73,6 +100,22 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Erro no webhook de localização:', error);
+    
+    // Registrar erro em sync_events (sem depender do payload que pode ter falhado)
+    try {
+      await supabase
+        .from('sync_events')
+        .insert({
+          event_type: 'location_webhook',
+          direction: 'scouter_location_in',
+          status: 'error',
+          lead_id: 0,
+          error_message: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+    } catch (syncError) {
+      console.warn('⚠️ Falha ao registrar erro em sync_events:', syncError);
+    }
+    
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Erro desconhecido' 
