@@ -1,11 +1,11 @@
-import { Home, Target, DollarSign, Shield, Headset, Smartphone, Phone, ChevronDown } from "lucide-react";
+import { Home, Target, DollarSign, Shield, Headset, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -33,7 +33,21 @@ const mainNavItems = [
       { path: "/discador", label: "Discador", icon: Phone },
     ]
   },
-  { path: "/scouter", label: "Scouter", icon: Target },
+  { 
+    path: "/scouter", 
+    label: "Scouter", 
+    icon: Target,
+    subItems: [
+      { path: "/scouter", label: "Dashboard", icon: Home },
+      { path: "/scouter/leads", label: "Leads", icon: Users },
+      { path: "/whatsapp", label: "WhatsApp", icon: MessageSquare },
+      { path: "/scouter/scouters", label: "Scouters", icon: Users },
+      { path: "/scouter/projecao", label: "Projeção", icon: TrendingUp },
+      { path: "/scouter/pagamentos", label: "Pagamentos", icon: DollarSign },
+      { path: "/scouter/area", label: "Área de Abordagem", icon: MapPin },
+      { path: "/scouter/relatorios", label: "Relatórios", icon: FileText },
+    ]
+  },
   { path: "/agenciamento", label: "Agenciamento", icon: DollarSign },
   { path: "/admin", label: "Administrativo", icon: Shield },
 ];
@@ -41,7 +55,21 @@ const mainNavItems = [
 export function UnifiedSidebar() {
   const { open } = useSidebar();
   const navigate = useNavigate();
-  const [telemarketingOpen, setTelemarketingOpen] = useState(false);
+  const location = useLocation();
+  
+  // Auto-expandir submenu baseado na rota atual
+  const [telemarketingOpen, setTelemarketingOpen] = useState(
+    location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador')
+  );
+  const [scouterOpen, setScouterOpen] = useState(
+    location.pathname.startsWith('/scouter') || location.pathname === '/whatsapp'
+  );
+
+  // Atualizar estado quando a rota mudar
+  useEffect(() => {
+    setTelemarketingOpen(location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador'));
+    setScouterOpen(location.pathname.startsWith('/scouter') || location.pathname === '/whatsapp');
+  }, [location.pathname]);
 
   // Buscar a versão mais recente do APK
   const { data: latestRelease } = useQuery({
@@ -99,11 +127,14 @@ export function UnifiedSidebar() {
             <SidebarMenu>
               {mainNavItems.map((item) => {
                 if (item.subItems) {
+                  const isOpen = item.path === '/telemarketing' ? telemarketingOpen : scouterOpen;
+                  const setOpen = item.path === '/telemarketing' ? setTelemarketingOpen : setScouterOpen;
+                  
                   return (
                     <Collapsible
                       key={item.path}
-                      open={telemarketingOpen}
-                      onOpenChange={setTelemarketingOpen}
+                      open={isOpen}
+                      onOpenChange={setOpen}
                       className="group/collapsible"
                     >
                       <SidebarMenuItem>
