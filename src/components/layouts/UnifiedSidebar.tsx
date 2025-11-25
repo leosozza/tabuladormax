@@ -34,6 +34,7 @@ const mainNavItems = [
       { path: "/discador", label: "Discador", icon: Phone },
     ]
   },
+  { path: "/whatsapp", label: "WhatsApp", icon: MessageSquare },
   { 
     path: "/scouter", 
     label: "Scouter", 
@@ -41,7 +42,6 @@ const mainNavItems = [
     subItems: [
       { path: "/scouter", label: "Dashboard", icon: Home },
       { path: "/scouter/leads", label: "Leads", icon: Users },
-      { path: "/whatsapp", label: "WhatsApp", icon: MessageSquare },
       { path: "/scouter/scouters", label: "Scouters", icon: Users },
       { path: "/scouter/projecao", label: "Projeção", icon: TrendingUp },
       { path: "/scouter/pagamentos", label: "Pagamentos", icon: DollarSign },
@@ -63,13 +63,13 @@ export function UnifiedSidebar() {
     location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador')
   );
   const [scouterOpen, setScouterOpen] = useState(
-    location.pathname.startsWith('/scouter') || location.pathname === '/whatsapp'
+    location.pathname.startsWith('/scouter')
   );
 
   // Atualizar estado quando a rota mudar
   useEffect(() => {
     setTelemarketingOpen(location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador'));
-    setScouterOpen(location.pathname.startsWith('/scouter') || location.pathname === '/whatsapp');
+    setScouterOpen(location.pathname.startsWith('/scouter'));
   }, [location.pathname]);
 
   // Buscar a versão mais recente do APK

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
+import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectScouterSelector } from "@/components/gestao/payments/ProjectScouterSelector";
@@ -65,16 +66,7 @@ function GestaoPagamentosContent() {
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Pagamentos de Scouters</h1>
-          <p className="text-muted-foreground">
-            Gestão completa de pagamentos por projeto e scouter
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-6">
       <Tabs defaultValue="new-payments" className="space-y-6">
         <TabsList>
           <TabsTrigger value="new-payments" className="flex items-center gap-2">
@@ -127,7 +119,12 @@ function GestaoPagamentosContent() {
 export default function GestaoPagamentos() {
   return (
     <LeadColumnConfigProvider>
-      <GestaoPagamentosContent />
+      <GestaoPageLayout
+        title="Pagamentos de Scouters"
+        description="Gestão completa de pagamentos por projeto e scouter"
+      >
+        <GestaoPagamentosContent />
+      </GestaoPageLayout>
     </LeadColumnConfigProvider>
   );
 }
