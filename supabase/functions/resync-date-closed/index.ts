@@ -35,19 +35,23 @@ serve(async (req) => {
 
     console.log('🔍 Buscando leads convertidos sem DATE_CLOSED...');
 
-    // Buscar leads que têm etapa "Lead convertido" mas não têm DATE_CLOSED no raw
+    // Limitar a 50 leads por chamada para evitar timeout
+    const MAX_LEADS_PER_CALL = 50;
+
+    // Buscar leads que têm etapa "Lead convertido" mas não têm DATE_CLOSED
     const { data: leads, error: fetchError } = await supabase
       .from('leads')
       .select('id, raw, etapa, date_closed')
       .or('etapa.eq.Lead convertido,etapa.eq.CONVERTED')
-      .is('date_closed', null);
+      .is('date_closed', null)
+      .limit(MAX_LEADS_PER_CALL);
 
     if (fetchError) {
       console.error('❌ Erro ao buscar leads:', fetchError);
       throw fetchError;
     }
 
-    console.log(`📊 ${leads?.length || 0} leads encontrados para resync`);
+    console.log(`📊 ${leads?.length || 0} leads encontrados para resync (limite: ${MAX_LEADS_PER_CALL})`);
 
     const job: ResyncJob = {
       total_leads: leads?.length || 0,
@@ -69,8 +73,8 @@ serve(async (req) => {
       );
     }
 
-    // Processar em lotes de 10
-    const BATCH_SIZE = 10;
+    // Processar em lotes de 20 (aumentado para melhor performance)
+    const BATCH_SIZE = 20;
     for (let i = 0; i < leads.length; i += BATCH_SIZE) {
       const batch = leads.slice(i, i + BATCH_SIZE);
       
@@ -100,7 +104,7 @@ serve(async (req) => {
             return;
           }
 
-          // Atualizar raw e date_closed
+          // Atualizar raw, date_closed e presenca_confirmada
           const updatedRaw = { ...lead.raw, DATE_CLOSED: dateClosed };
           
           const { error: updateError } = await supabase
@@ -108,6 +112,7 @@ serve(async (req) => {
             .update({
               raw: updatedRaw,
               date_closed: dateClosed,
+              presenca_confirmada: true,
               updated_at: new Date().toISOString()
             })
             .eq('id', lead.id);
@@ -145,12 +150,17 @@ serve(async (req) => {
     console.log(`✅ Resync concluído em ${duration}ms`);
     console.log(`📊 Resultado:`, job);
 
+    // Verificar se há mais leads para processar
+    const needsMoreCalls = job.total_leads >= 50;
+
     return new Response(
       JSON.stringify({
         success: true,
         message: `Resync concluído: ${job.updated} leads atualizados`,
         job,
-        duration_ms: duration
+        duration_ms: duration,
+        needs_more_calls: needsMoreCalls,
+        remaining_estimate: needsMoreCalls ? 'Há mais leads para processar' : 'Todos processados'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
