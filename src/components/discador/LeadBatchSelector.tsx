@@ -21,16 +21,16 @@ export function LeadBatchSelector() {
   const [etapa, setEtapa] = useState<string>("all");
   const { campaigns, uploadLeads, isUploading } = useSyscallCampaigns();
 
-  // Buscar projetos comerciais únicos
+  // Buscar projetos comerciais da tabela commercial_projects
   const { data: projetos } = useQuery({
-    queryKey: ["filter-projetos"],
+    queryKey: ["filter-projetos-comerciais"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("leads")
-        .select("projeto_comercial")
-        .not("projeto_comercial", "is", null);
-      const unique = [...new Set(data?.map(d => d.projeto_comercial).filter(Boolean))];
-      return unique.sort();
+        .from("commercial_projects")
+        .select("id, name")
+        .eq("active", true)
+        .order("name");
+      return data || [];
     },
   });
 
@@ -65,7 +65,10 @@ export function LeadBatchSelector() {
     queryFn: async () => {
       let query = supabase
         .from("leads")
-        .select("id, name, celular, projeto_comercial, fonte, etapa, criado", { count: 'exact' })
+        .select(`
+          id, name, celular, fonte, etapa, criado, commercial_project_id,
+          commercial_projects!commercial_project_id (name)
+        `, { count: 'exact' })
         .not("celular", "is", null);
 
       // Aplicar filtro de data
@@ -78,7 +81,7 @@ export function LeadBatchSelector() {
 
       // Aplicar filtros
       if (projetoComercial !== "all") {
-        query = query.eq('projeto_comercial', projetoComercial);
+        query = query.eq('commercial_project_id', projetoComercial);
       }
       if (fonte !== "all") {
         query = query.eq('fonte', fonte);
@@ -87,7 +90,7 @@ export function LeadBatchSelector() {
         query = query.eq('etapa', etapa);
       }
 
-      const { data, error, count } = await query.limit(500);
+      const { data, error, count } = await query.order('criado', { ascending: false }).limit(500);
       if (error) throw error;
       return { leads: data || [], count: count || 0 };
     },
@@ -181,14 +184,14 @@ export function LeadBatchSelector() {
                 <SelectTrigger>
                   <SelectValue placeholder="Todos os projetos" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os projetos</SelectItem>
-                  {projetos?.map((projeto) => (
-                    <SelectItem key={projeto} value={projeto}>
-                      {projeto}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+            <SelectContent>
+              <SelectItem value="all">Todos os projetos</SelectItem>
+              {projetos?.map((projeto) => (
+                <SelectItem key={projeto.id} value={projeto.id}>
+                  {projeto.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
               </Select>
             </div>
 
@@ -286,11 +289,11 @@ export function LeadBatchSelector() {
                   <div className="flex-1">
                     <p className="font-medium">{lead.name || "Sem nome"}</p>
                     <p className="text-sm text-muted-foreground">{lead.celular}</p>
-                    {(lead.projeto_comercial || lead.fonte || lead.etapa) && (
+                    {(lead.commercial_projects?.name || lead.fonte || lead.etapa) && (
                       <div className="flex gap-2 mt-1">
-                        {lead.projeto_comercial && (
+                        {lead.commercial_projects?.name && (
                           <Badge variant="outline" className="text-xs">
-                            {lead.projeto_comercial}
+                            {lead.commercial_projects.name}
                           </Badge>
                         )}
                         {lead.fonte && (
