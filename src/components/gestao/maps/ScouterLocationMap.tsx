@@ -319,11 +319,24 @@ export default function ScouterLocationMap({
                           </div>}
                         <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full border border-white animate-pulse"></div>
                       </div>
-                      <div>
-                        <p className="text-xs font-semibold">{location.scouterName}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          ID: {location.scouterBitrixId}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <p className="text-xs font-semibold">{location.scouterName}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            ID: {location.scouterBitrixId}
+                          </p>
+                        </div>
+                        <Button variant="outline" onClick={e => {
+                            e.stopPropagation();
+                            setSelectedScouterForTimeline({
+                              bitrixId: location.scouterBitrixId,
+                              name: location.scouterName,
+                              photoUrl: location.photoUrl
+                            });
+                            setTimelineModalOpen(true);
+                          }} className="h-[13px] w-[13px] p-0 min-h-0 min-w-0">
+                          <Route className="w-[13px] h-[13px]" />
+                        </Button>
                       </div>
                     </div>
                     <div className="text-[10px] text-muted-foreground">
@@ -333,18 +346,6 @@ export default function ScouterLocationMap({
                 })}
                     </div>
                   </div>
-
-                  <Button variant="outline" size="icon" onClick={e => {
-              e.stopPropagation();
-              setSelectedScouterForTimeline({
-                bitrixId: location.scouterBitrixId,
-                name: location.scouterName,
-                photoUrl: location.photoUrl
-              });
-              setTimelineModalOpen(true);
-            }} className="mt-2 my-0">
-                    <Route className="w-[13px] h-[13px]" />
-                  </Button>
                 </div>)}
             </div>
           </Card>
