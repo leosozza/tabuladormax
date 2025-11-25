@@ -16,6 +16,7 @@ interface ScouterTimelineModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   scouterName: string;
+  scouterPhotoUrl?: string;
   locations: LocationPoint[];
 }
 
@@ -23,6 +24,7 @@ export function ScouterTimelineModal({
   open,
   onOpenChange,
   scouterName,
+  scouterPhotoUrl,
   locations,
 }: ScouterTimelineModalProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -148,9 +150,27 @@ export function ScouterTimelineModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl h-[80vh] p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-primary" />
-            Histórico de Rota - {scouterName}
+          <DialogTitle className="flex items-center gap-3">
+            {scouterPhotoUrl ? (
+              <img 
+                src={scouterPhotoUrl} 
+                alt={scouterName}
+                className="w-10 h-10 rounded-full object-cover border-2 border-primary"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-white font-bold">
+                  {scouterName[0]?.toUpperCase()}
+                </span>
+              </div>
+            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-primary" />
+                <span>Histórico de Rota</span>
+              </div>
+              <span className="text-sm text-muted-foreground block mt-0.5">{scouterName}</span>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
