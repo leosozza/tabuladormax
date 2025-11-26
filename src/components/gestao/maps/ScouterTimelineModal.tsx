@@ -37,19 +37,38 @@ export function ScouterTimelineModal({
     (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
   );
 
-  // Initialize map
+  // Initialize map with delay to wait for Dialog animation
   useEffect(() => {
-    if (!open || !mapContainerRef.current || mapRef.current) return;
-
-    const map = L.map(mapContainerRef.current).setView([-23.5505, -46.6333], 12);
+    if (!open || !mapContainerRef.current) return;
     
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map);
+    // Clear previous map if exists
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
 
-    mapRef.current = map;
+    // Wait for Dialog animation to complete
+    const timeoutId = setTimeout(() => {
+      if (!mapContainerRef.current) return;
+      
+      const map = L.map(mapContainerRef.current).setView([-23.5505, -46.6333], 12);
+      
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
+
+      mapRef.current = map;
+      
+      // Force size recalculation after initialization
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.invalidateSize();
+        }
+      }, 100);
+    }, 300); // Wait for Dialog animation
 
     return () => {
+      clearTimeout(timeoutId);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -57,84 +76,95 @@ export function ScouterTimelineModal({
     };
   }, [open]);
 
-  // Update markers and polyline when locations change
+  // Update markers and polyline when locations change OR modal opens
   useEffect(() => {
-    if (!mapRef.current || sortedLocations.length === 0) return;
-
-    // Clear existing markers and polyline
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current = [];
-    if (polylineRef.current) {
-      polylineRef.current.remove();
-    }
-
-    // Create numbered markers
-    const points: [number, number][] = [];
-    sortedLocations.forEach((location, index) => {
-      const position: [number, number] = [location.latitude, location.longitude];
-      points.push(position);
-
-      // Create custom numbered icon
-      const numberIcon = L.divIcon({
-        className: 'custom-numbered-marker',
-        html: `<div class="flex items-center justify-center w-8 h-8 bg-red-500 text-white rounded-full border-2 border-white shadow-lg font-bold text-sm">
-          ${sortedLocations.length - index}
-        </div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
-
-      const marker = L.marker(position, { icon: numberIcon }).addTo(mapRef.current!);
-
-      // Popup content
-      const popupContent = `
-        <div class="p-2 min-w-[200px]">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="text-lg font-bold text-red-500">#${sortedLocations.length - index}</span>
-          </div>
-          <div class="space-y-1 text-sm">
-            <div class="flex items-start gap-2">
-              <Clock class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-              <span class="text-foreground">${new Date(location.recorded_at).toLocaleString('pt-BR')}</span>
-            </div>
-            <div class="flex items-start gap-2">
-              <MapPin class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-              <span class="text-foreground">${location.address}</span>
-            </div>
-            <div class="text-xs text-muted-foreground mt-2">
-              ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
-            </div>
-          </div>
-        </div>
-      `;
-
-      marker.bindPopup(popupContent);
+    // Wait for map to be ready
+    if (!open || !mapRef.current || sortedLocations.length === 0) return;
+    
+    // Use timeout to ensure map is initialized
+    const timeoutId = setTimeout(() => {
+      if (!mapRef.current) return;
       
-      marker.on('click', () => {
-        setSelectedIndex(index);
+      // Clear existing markers and polyline
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+      if (polylineRef.current) {
+        polylineRef.current.remove();
+      }
+
+      // Create numbered markers
+      const points: [number, number][] = [];
+      sortedLocations.forEach((location, index) => {
+        const position: [number, number] = [location.latitude, location.longitude];
+        points.push(position);
+
+        // Create custom numbered icon
+        const numberIcon = L.divIcon({
+          className: 'custom-numbered-marker',
+          html: `<div class="flex items-center justify-center w-8 h-8 bg-red-500 text-white rounded-full border-2 border-white shadow-lg font-bold text-sm">
+            ${sortedLocations.length - index}
+          </div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+
+        const marker = L.marker(position, { icon: numberIcon }).addTo(mapRef.current!);
+
+        // Popup content
+        const popupContent = `
+          <div class="p-2 min-w-[200px]">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-lg font-bold text-red-500">#${sortedLocations.length - index}</span>
+            </div>
+            <div class="space-y-1 text-sm">
+              <div class="flex items-start gap-2">
+                <Clock class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                <span class="text-foreground">${new Date(location.recorded_at).toLocaleString('pt-BR')}</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <MapPin class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                <span class="text-foreground">${location.address}</span>
+              </div>
+              <div class="text-xs text-muted-foreground mt-2">
+                ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
+              </div>
+            </div>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent);
+        
+        marker.on('click', () => {
+          setSelectedIndex(index);
+        });
+
+        markersRef.current.push(marker);
       });
 
-      markersRef.current.push(marker);
-    });
+      // Draw polyline connecting all points (reverse order for chronological path)
+      if (points.length > 1) {
+        const reversedPoints = [...points].reverse();
+        const polyline = L.polyline(reversedPoints, {
+          color: '#ef4444',
+          weight: 3,
+          opacity: 0.7,
+        }).addTo(mapRef.current);
 
-    // Draw polyline connecting all points (reverse order for chronological path)
-    if (points.length > 1) {
-      const reversedPoints = [...points].reverse();
-      const polyline = L.polyline(reversedPoints, {
-        color: '#ef4444',
-        weight: 3,
-        opacity: 0.7,
-      }).addTo(mapRef.current);
+        polylineRef.current = polyline;
 
-      polylineRef.current = polyline;
+        // Fit bounds to show all markers
+        const bounds = L.latLngBounds(points);
+        mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+      } else if (points.length === 1) {
+        mapRef.current.setView(points[0], 15);
+      }
+      
+      // Force size update
+      mapRef.current.invalidateSize();
+    }, 400); // After map is created (300ms + margin)
 
-      // Fit bounds to show all markers
-      const bounds = L.latLngBounds(points);
-      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
-    } else if (points.length === 1) {
-      mapRef.current.setView(points[0], 15);
-    }
-  }, [sortedLocations]);
+    return () => clearTimeout(timeoutId);
+  }, [open, sortedLocations]);
 
   // Handle timeline item click
   const handleTimelineClick = (index: number) => {
@@ -177,7 +207,7 @@ export function ScouterTimelineModal({
         <div className="flex h-[calc(100%-60px)]">
           {/* Map Section */}
           <div className="flex-1 relative">
-            <div ref={mapContainerRef} className="absolute inset-0" />
+            <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" style={{ minHeight: '400px' }} />
           </div>
 
           {/* Timeline Section */}
