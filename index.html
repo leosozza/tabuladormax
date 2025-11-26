@@ -29,6 +29,27 @@
   <body>
     <div id="root"></div>
     
+    <!-- Limpeza de Service Workers e Caches do PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          registrations.forEach(registration => {
+            registration.unregister();
+            console.log('[Cleanup] Service Worker desregistrado');
+          });
+        });
+        
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            names.forEach(name => {
+              caches.delete(name);
+              console.log('[Cleanup] Cache deletado:', name);
+            });
+          });
+        }
+      }
+    </script>
+    
     <!-- Listener Global do Chatwoot (roda ANTES do React) -->
     <script>
       (function() {
