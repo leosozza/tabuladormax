@@ -98,17 +98,22 @@ export default function ScouterLocationMap({
     data: scouterLocations,
     isLoading
   } = useQuery({
-    queryKey: ["scouter-realtime-locations"],
+    queryKey: ["scouter-realtime-locations", dateRange.startDate, dateRange.endDate],
     queryFn: async () => {
-      console.log('🔄 Fetching latest scouter locations from history...');
+      console.log('🔄 Fetching scouter locations for date range:', dateRange.startDate, '-', dateRange.endDate);
 
-      // Buscar a localização mais recente de cada scouter
+      // Buscar a localização mais recente de cada scouter no período selecionado
       const {
         data,
         error
-      } = await supabase.from('scouter_location_history').select('scouter_bitrix_id, scouter_name, latitude, longitude, address, recorded_at').order('recorded_at', {
-        ascending: false
-      });
+      } = await supabase
+        .from('scouter_location_history')
+        .select('scouter_bitrix_id, scouter_name, latitude, longitude, address, recorded_at')
+        .gte('recorded_at', dateRange.startDate.toISOString())
+        .lte('recorded_at', dateRange.endDate.toISOString())
+        .order('recorded_at', {
+          ascending: false
+        });
       if (error) {
         console.error('❌ Error fetching locations:', error);
         throw error;
