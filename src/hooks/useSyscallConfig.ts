@@ -20,6 +20,7 @@ export interface ConnectionLog {
   status_code?: number;
   response?: any;
   error?: string;
+  suggestion?: string;
 }
 
 export function useSyscallConfig() {
@@ -95,15 +96,23 @@ export function useSyscallConfig() {
       return data;
     },
     onSuccess: (data) => {
-      if (data.log) {
-        setConnectionLogs(prev => [
-          {
+      const logEntry: ConnectionLog = data.log 
+        ? {
             ...data.log,
             success: data.success,
-          },
-          ...prev.slice(0, 9) // Manter últimos 10
-        ]);
-      }
+            suggestion: data.suggestion,
+          }
+        : {
+            timestamp: new Date().toISOString(),
+            success: data.success,
+            error: data.error,
+            suggestion: data.suggestion,
+          };
+
+      setConnectionLogs(prev => [
+        logEntry,
+        ...prev.slice(0, 9) // Manter últimos 10
+      ]);
       
       toast({
         title: data.success ? 'Conexão OK' : 'Erro na conexão',

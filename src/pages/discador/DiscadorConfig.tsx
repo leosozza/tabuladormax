@@ -124,7 +124,19 @@ export default function DiscadorConfig() {
                         </details>
                       </>
                     ) : (
-                      <div className="font-semibold">✗ Erro: {log.error}</div>
+                      <>
+                        <div className="font-semibold">✗ Erro: {log.error}</div>
+                        {log.suggestion && (
+                          <div className="mt-2 text-xs text-yellow-400 bg-yellow-950/20 border border-yellow-500/30 rounded p-2">
+                            💡 <span className="font-semibold">Sugestão:</span> {log.suggestion}
+                          </div>
+                        )}
+                        {log.url && (
+                          <div className="text-xs text-slate-400 mt-2">
+                            URL: {log.url}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 ))}
