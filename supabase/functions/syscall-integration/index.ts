@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
         });
 
       case 'test_connection':
+        const testStartTime = Date.now();
+        
         if (!syscallConfig.api_token || syscallConfig.api_token.trim() === '') {
           throw new Error('Token não configurado. Configure o token na página de configuração.');
         }
@@ -67,8 +69,9 @@ Deno.serve(async (req) => {
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos
 
         try {
+          const testUrl = `${syscallConfig.api_url}/revo/statuscampaign`;
           const testResponse = await fetch(
-            `${syscallConfig.api_url}/revo/statuscampaign`,
+            testUrl,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -81,6 +84,7 @@ Deno.serve(async (req) => {
           );
 
           clearTimeout(timeoutId);
+          const duration_ms = Date.now() - testStartTime;
 
           if (!testResponse.ok) {
             const errorText = await testResponse.text();
@@ -92,7 +96,18 @@ Deno.serve(async (req) => {
           console.log('Syscall test result:', testResult);
           
           return new Response(
-            JSON.stringify({ success: true, result: testResult }),
+            JSON.stringify({ 
+              success: true, 
+              result: testResult,
+              log: {
+                timestamp: new Date().toISOString(),
+                url: testUrl,
+                method: 'POST',
+                duration_ms,
+                status_code: testResponse.status,
+                response: testResult,
+              }
+            }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         } catch (error) {

@@ -4,11 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useSyscallConfig } from "@/hooks/useSyscallConfig";
-import { Loader2 } from "lucide-react";
+import { Loader2, Terminal } from "lucide-react";
 import { MainLayout } from "@/components/layouts/MainLayout";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 export default function DiscadorConfig() {
-  const { config, saveConfig, isSaving, testConnection, isTesting } = useSyscallConfig();
+  const { config, saveConfig, isSaving, testConnection, isTesting, connectionLogs } = useSyscallConfig();
   const [apiToken, setApiToken] = useState(config?.api_token || "");
   const [apiUrl, setApiUrl] = useState(config?.api_url || "http://maxfama.syscall.com.br/crm");
   const [defaultRoute, setDefaultRoute] = useState(config?.default_route || "9");
@@ -76,6 +78,63 @@ export default function DiscadorConfig() {
               Testar Conexão
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Terminal className="h-5 w-5" />
+            Log de Conexão
+          </CardTitle>
+          <CardDescription>Histórico de testes de conexão com a API</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[300px] w-full rounded-md border bg-slate-950 p-4 font-mono text-sm">
+            {connectionLogs.length > 0 ? (
+              <div className="space-y-3">
+                {connectionLogs.map((log, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "rounded p-3 border-l-4",
+                      log.success
+                        ? "bg-green-950/20 border-green-500 text-green-400"
+                        : "bg-red-950/20 border-red-500 text-red-400"
+                    )}
+                  >
+                    <div className="text-slate-400 text-xs mb-1">
+                      {new Date(log.timestamp).toLocaleString('pt-BR')}
+                    </div>
+                    {log.success ? (
+                      <>
+                        <div className="font-semibold">✓ Conexão estabelecida</div>
+                        <div className="text-xs text-slate-400 mt-2 space-y-1">
+                          <div>URL: {log.url}</div>
+                          <div>Tempo: {log.duration_ms}ms</div>
+                          <div>Status: {log.status_code}</div>
+                        </div>
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-300">
+                            Ver resposta completa
+                          </summary>
+                          <pre className="text-xs text-slate-500 mt-2 p-2 bg-slate-900 rounded overflow-x-auto">
+                            {JSON.stringify(log.response, null, 2)}
+                          </pre>
+                        </details>
+                      </>
+                    ) : (
+                      <div className="font-semibold">✗ Erro: {log.error}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-slate-500">
+                Nenhum teste realizado ainda. Clique em "Testar Conexão".
+              </div>
+            )}
+          </ScrollArea>
         </CardContent>
       </Card>
 
