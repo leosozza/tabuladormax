@@ -32,6 +32,7 @@ export function ScouterTimelineModal({
   const markersRef = useRef<L.Marker[]>([]);
   const polylineRef = useRef<L.Polyline | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const sortedLocations = [...locations].sort(
     (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
@@ -39,13 +40,17 @@ export function ScouterTimelineModal({
 
   // Initialize map with delay to wait for Dialog animation
   useEffect(() => {
-    if (!open || !mapContainerRef.current) return;
+    if (!open || !mapContainerRef.current) {
+      setMapReady(false);
+      return;
+    }
     
     // Clear previous map if exists
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
     }
+    setMapReady(false);
 
     // Wait for Dialog animation to complete
     const timeoutId = setTimeout(() => {
@@ -59,10 +64,11 @@ export function ScouterTimelineModal({
 
       mapRef.current = map;
       
-      // Force size recalculation after initialization
+      // Force size recalculation after initialization and signal ready
       setTimeout(() => {
         if (mapRef.current) {
           mapRef.current.invalidateSize();
+          setMapReady(true); // Signal that map is ready
         }
       }, 100);
     }, 300); // Wait for Dialog animation
@@ -73,98 +79,99 @@ export function ScouterTimelineModal({
         mapRef.current.remove();
         mapRef.current = null;
       }
+      setMapReady(false);
     };
   }, [open]);
 
-  // Update markers and polyline when locations change OR modal opens
+  // Update markers and polyline when map is ready
   useEffect(() => {
-    // Wait for map to be ready
-    if (!open || !mapRef.current || sortedLocations.length === 0) return;
+    // Only add markers when map is ready
+    if (!mapReady || !mapRef.current || sortedLocations.length === 0) return;
     
-    // Use timeout to ensure map is initialized
-    const timeoutId = setTimeout(() => {
-      if (!mapRef.current) return;
-      
-      // Clear existing markers and polyline
-      markersRef.current.forEach(marker => marker.remove());
-      markersRef.current = [];
-      if (polylineRef.current) {
-        polylineRef.current.remove();
-      }
+    // Clear existing markers and polyline
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+    if (polylineRef.current) {
+      polylineRef.current.remove();
+    }
 
-      // Create numbered markers
-      const points: [number, number][] = [];
-      sortedLocations.forEach((location, index) => {
-        const position: [number, number] = [location.latitude, location.longitude];
-        points.push(position);
+    // Create numbered markers
+    const points: [number, number][] = [];
+    sortedLocations.forEach((location, index) => {
+      const position: [number, number] = [location.latitude, location.longitude];
+      points.push(position);
 
-        // Create custom numbered icon
-        const numberIcon = L.divIcon({
-          className: 'custom-numbered-marker',
-          html: `<div class="flex items-center justify-center w-8 h-8 bg-red-500 text-white rounded-full border-2 border-white shadow-lg font-bold text-sm">
-            ${sortedLocations.length - index}
-          </div>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
-        });
-
-        const marker = L.marker(position, { icon: numberIcon }).addTo(mapRef.current!);
-
-        // Popup content
-        const popupContent = `
-          <div class="p-2 min-w-[200px]">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-lg font-bold text-red-500">#${sortedLocations.length - index}</span>
-            </div>
-            <div class="space-y-1 text-sm">
-              <div class="flex items-start gap-2">
-                <Clock class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                <span class="text-foreground">${new Date(location.recorded_at).toLocaleString('pt-BR')}</span>
-              </div>
-              <div class="flex items-start gap-2">
-                <MapPin class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                <span class="text-foreground">${location.address}</span>
-              </div>
-              <div class="text-xs text-muted-foreground mt-2">
-                ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
-              </div>
-            </div>
-          </div>
-        `;
-
-        marker.bindPopup(popupContent);
-        
-        marker.on('click', () => {
-          setSelectedIndex(index);
-        });
-
-        markersRef.current.push(marker);
+      // Create custom numbered icon
+      const numberIcon = L.divIcon({
+        className: 'custom-numbered-marker',
+        html: `<div class="flex items-center justify-center w-8 h-8 bg-red-500 text-white rounded-full border-2 border-white shadow-lg font-bold text-sm">
+          ${sortedLocations.length - index}
+        </div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       });
 
-      // Draw polyline connecting all points (reverse order for chronological path)
-      if (points.length > 1) {
-        const reversedPoints = [...points].reverse();
-        const polyline = L.polyline(reversedPoints, {
-          color: '#ef4444',
-          weight: 3,
-          opacity: 0.7,
-        }).addTo(mapRef.current);
+      const marker = L.marker(position, { icon: numberIcon }).addTo(mapRef.current!);
 
-        polylineRef.current = polyline;
+      // Popup content
+      const popupContent = `
+        <div class="p-2 min-w-[200px]">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-lg font-bold text-red-500">#${sortedLocations.length - index}</span>
+          </div>
+          <div class="space-y-1 text-sm">
+            <div class="flex items-start gap-2">
+              <Clock class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <span class="text-foreground">${new Date(location.recorded_at).toLocaleString('pt-BR')}</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <MapPin class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <span class="text-foreground">${location.address}</span>
+            </div>
+            <div class="text-xs text-muted-foreground mt-2">
+              ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
+            </div>
+          </div>
+        </div>
+      `;
 
-        // Fit bounds to show all markers
-        const bounds = L.latLngBounds(points);
-        mapRef.current.fitBounds(bounds, { padding: [50, 50] });
-      } else if (points.length === 1) {
-        mapRef.current.setView(points[0], 15);
-      }
+      marker.bindPopup(popupContent);
       
-      // Force size update
-      mapRef.current.invalidateSize();
-    }, 400); // After map is created (300ms + margin)
+      marker.on('click', () => {
+        setSelectedIndex(index);
+      });
 
-    return () => clearTimeout(timeoutId);
-  }, [open, sortedLocations]);
+      markersRef.current.push(marker);
+    });
+
+    // Draw polyline connecting all points (reverse order for chronological path)
+    if (points.length > 1) {
+      const reversedPoints = [...points].reverse();
+      const polyline = L.polyline(reversedPoints, {
+        color: '#ef4444',
+        weight: 3,
+        opacity: 0.7,
+      }).addTo(mapRef.current);
+
+      polylineRef.current = polyline;
+
+      // Fit bounds to show all markers
+      const bounds = L.latLngBounds(points);
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+    } else if (points.length === 1) {
+      mapRef.current.setView(points[0], 15);
+    }
+    
+    // Force size update
+    mapRef.current.invalidateSize();
+  }, [mapReady, locations]);
+
+  // Reset selectedIndex when modal closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedIndex(null);
+    }
+  }, [open]);
 
   // Handle timeline item click
   const handleTimelineClick = (index: number) => {
