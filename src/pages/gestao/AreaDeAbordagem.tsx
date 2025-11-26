@@ -160,10 +160,41 @@ function GestaoAreaDeAbordagemContent() {
     },
   });
 
+  // Contar scouters ativos no dia a partir do histórico de localização
+  const { data: activeScoutersCount } = useQuery({
+    queryKey: [
+      "scouter-active-count",
+      filters.dateFilter.startDate,
+      filters.dateFilter.endDate,
+    ],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("scouter_location_history")
+        .select("scouter_bitrix_id")
+        .gte("recorded_at", filters.dateFilter.startDate.toISOString())
+        .lte("recorded_at", filters.dateFilter.endDate.toISOString());
+
+      if (error) {
+        console.error("Erro ao buscar scouters ativos:", error);
+        throw error;
+      }
+
+      const unique = new Set<number>();
+      data?.forEach((row) => {
+        if (row.scouter_bitrix_id != null) {
+          unique.add(row.scouter_bitrix_id as number);
+        }
+      });
+
+      return unique.size;
+    },
+    refetchInterval: 30000,
+  });
+
   const totalAreas = areasData?.length || 0;
   const totalLeads = areasData?.reduce((sum, a) => sum + a.count, 0) || 0;
   const avgLeadsPerArea = totalAreas > 0 ? (totalLeads / totalAreas).toFixed(1) : "0";
-  const totalScoutersActive = areasData?.reduce((sum, a) => sum + a.uniqueScouters, 0) || 0;
+  const totalScoutersActive = activeScoutersCount ?? 0;
 
   return (
     <GestaoPageLayout
