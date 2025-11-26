@@ -311,21 +311,6 @@ export default function ScouterLocationMap({
       {/* Timeline Modal */}
       <ScouterTimelineModal open={timelineModalOpen} onOpenChange={setTimelineModalOpen} scouterName={selectedScouterForTimeline?.name || "Scouter"} scouterPhotoUrl={selectedScouterForTimeline?.photoUrl} locations={locationHistory} />
 
-      {/* Estatísticas superiores */}
-      <div className="absolute top-4 left-4 z-[1000] flex gap-2">
-        <Card className="p-3 bg-white/95 backdrop-blur shadow-lg">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-              <User className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Scouters Ativos</div>
-              <div className="text-2xl font-bold text-green-600">{activeScouters}</div>
-            </div>
-          </div>
-        </Card>
-      </div>
-
       {/* Indicador de atualização automática */}
       <div className="absolute top-4 right-4 z-[1000]">
         <Badge variant="secondary" className="bg-white/95 backdrop-blur shadow-lg gap-2">
