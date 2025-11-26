@@ -370,7 +370,7 @@ export default function ScouterLocationMap({
     mapRef.current.addLayer(clusterGroupRef.current);
     
     // Adicionar linhas de conexão para scouters agrupados no mesmo local
-    groupedLocations.forEach(group => {
+    groupedLocations.forEach((group, key) => {
       if (group.length > 1) {
         // Centro do grupo (ponto original do primeiro scouter)
         const centerLat = group[0].latitude;
