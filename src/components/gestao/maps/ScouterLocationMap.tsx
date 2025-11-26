@@ -200,8 +200,8 @@ export default function ScouterLocationMap({
 
   // Função auxiliar para detectar e posicionar scouters próximos em espiral
   const applySpiralOffset = (locations: ScouterLocation[]) => {
-    const PROXIMITY_THRESHOLD = 0.0001; // ~11 metros
-    const SPIRAL_RADIUS = 0.0001; // Raio da espiral
+    const PROXIMITY_THRESHOLD = 0.0005; // ~55 metros (aumentado)
+    const SPIRAL_RADIUS = 0.0008; // ~88 metros (aumentado para espiral visível)
     
     const grouped = new Map<string, ScouterLocation[]>();
     
@@ -219,13 +219,19 @@ export default function ScouterLocationMap({
       if (group.length === 1) {
         result.push({ ...group[0], offsetLat: group[0].latitude, offsetLng: group[0].longitude });
       } else {
-        // Posicionar em espiral
+        // Posicionar em espiral tipo caracol (crescente)
         group.forEach((loc, index) => {
-          const angle = (index / group.length) * 2 * Math.PI;
-          const spiralFactor = 1 + (index * 0.3);
-          const offsetLat = loc.latitude + (Math.cos(angle) * SPIRAL_RADIUS * spiralFactor);
-          const offsetLng = loc.longitude + (Math.sin(angle) * SPIRAL_RADIUS * spiralFactor);
-          result.push({ ...loc, offsetLat, offsetLng });
+          if (index === 0) {
+            // Primeiro marcador fica no centro
+            result.push({ ...loc, offsetLat: loc.latitude, offsetLng: loc.longitude });
+          } else {
+            // Demais formam espiral ao redor
+            const angle = (index * 0.8) * Math.PI; // Ângulo progressivo
+            const radius = SPIRAL_RADIUS * (0.5 + index * 0.5); // Raio crescente
+            const offsetLat = loc.latitude + (Math.cos(angle) * radius);
+            const offsetLng = loc.longitude + (Math.sin(angle) * radius);
+            result.push({ ...loc, offsetLat, offsetLng });
+          }
         });
       }
     });
