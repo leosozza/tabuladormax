@@ -60,16 +60,22 @@ Deno.serve(async (req) => {
         const testStartTime = Date.now();
         
         if (!syscallConfig.api_token || syscallConfig.api_token.trim() === '') {
-          throw new Error('Token não configurado. Configure o token na página de configuração.');
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Token não configurado. Configure o token na página de configuração.',
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
 
         console.log('Testando conexão com Syscall:', syscallConfig.api_url);
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos
+        const testUrl = `${syscallConfig.api_url}/revo/statuscampaign`;
 
         try {
-          const testUrl = `${syscallConfig.api_url}/revo/statuscampaign`;
           const testResponse = await fetch(
             testUrl,
             {
@@ -89,7 +95,21 @@ Deno.serve(async (req) => {
           if (!testResponse.ok) {
             const errorText = await testResponse.text();
             console.error('Syscall API error:', testResponse.status, errorText);
-            throw new Error(`Erro na API Syscall (${testResponse.status}): ${errorText}`);
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: `Erro na API Syscall (${testResponse.status}): ${errorText}`,
+                log: {
+                  timestamp: new Date().toISOString(),
+                  url: testUrl,
+                  method: 'POST',
+                  duration_ms,
+                  status_code: testResponse.status,
+                  response: errorText,
+                },
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
           }
 
           const testResult = await testResponse.json();
@@ -112,12 +132,31 @@ Deno.serve(async (req) => {
           );
         } catch (error) {
           clearTimeout(timeoutId);
-          
-          if (error instanceof Error && error.name === 'AbortError') {
-            throw new Error(`Timeout ao conectar com Syscall em ${syscallConfig.api_url}. Verifique se a URL está correta e se o servidor está acessível.`);
-          }
-          
-          throw new Error(`Erro ao conectar com Syscall: ${error instanceof Error ? error.message : 'Erro desconhecido'}. URL: ${syscallConfig.api_url}`);
+          const duration_ms = Date.now() - testStartTime;
+
+          const isTimeout = error instanceof Error && error.name === 'AbortError';
+          const message = isTimeout
+            ? `Timeout ao conectar com Syscall em ${syscallConfig.api_url}. Verifique se a URL está correta e se o servidor está acessível.`
+            : `Erro ao conectar com Syscall: ${error instanceof Error ? error.message : 'Erro desconhecido'}. URL: ${syscallConfig.api_url}`;
+
+          console.error('Erro no teste de conexão do Syscall:', message, error);
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: message,
+              log: {
+                timestamp: new Date().toISOString(),
+                url: testUrl,
+                method: 'POST',
+                duration_ms,
+                status_code: undefined,
+                response: null,
+                error: message,
+              },
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
 
       case 'login':

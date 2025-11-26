@@ -99,7 +99,7 @@ export function useSyscallConfig() {
         setConnectionLogs(prev => [
           {
             ...data.log,
-            success: true,
+            success: data.success,
           },
           ...prev.slice(0, 9) // Manter últimos 10
         ]);
@@ -109,7 +109,7 @@ export function useSyscallConfig() {
         title: data.success ? 'Conexão OK' : 'Erro na conexão',
         description: data.success
           ? 'Conexão com Syscall estabelecida com sucesso'
-          : 'Não foi possível conectar ao Syscall',
+          : (data.error || 'Não foi possível conectar ao Syscall'),
         variant: data.success ? 'default' : 'destructive',
       });
     },
