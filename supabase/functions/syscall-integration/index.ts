@@ -77,9 +77,23 @@ Deno.serve(async (req) => {
           );
         }
 
+        // Descobrir IP de origem da Edge Function
+        let originIp = 'desconhecido';
+        try {
+          const ipResponse = await fetch('https://api.ipify.org?format=json', {
+            signal: AbortSignal.timeout(5000)
+          });
+          const ipData = await ipResponse.json();
+          originIp = ipData.ip;
+          console.log('IP de origem da Edge Function:', originIp);
+        } catch (e) {
+          console.log('Não foi possível obter IP de origem:', e);
+        }
+
         console.log('Testando conexão com Syscall:', {
           url: syscallConfig.api_url,
-          hasToken: !!syscallConfig.api_token
+          hasToken: !!syscallConfig.api_token,
+          originIp
         });
         
         const controller = new AbortController();
@@ -145,6 +159,7 @@ Deno.serve(async (req) => {
                 method: 'GET',
                 duration_ms,
                 status_code: testResponse.status,
+                origin_ip: originIp,
               }
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -160,7 +175,7 @@ Deno.serve(async (req) => {
           
           if (isTimeout) {
             message = `Timeout ao conectar com Syscall em ${syscallConfig.api_url}/revo`;
-            suggestion = 'Possíveis causas: (1) URL incorreta, (2) Servidor fora do ar, (3) Firewall bloqueando conexões do Supabase. Entre em contato com o suporte do Syscall para verificar se os IPs do Supabase estão liberados no firewall.';
+            suggestion = `Possíveis causas: (1) URL incorreta, (2) Servidor fora do ar, (3) Firewall bloqueando o IP ${originIp}. Entre em contato com o suporte do Syscall para verificar se este IP está liberado no firewall.`;
           } else {
             message = `Erro ao conectar com Syscall: ${error instanceof Error ? error.message : 'Erro desconhecido'}`;
             suggestion = 'Verifique se a URL e o token estão corretos.';
@@ -184,6 +199,7 @@ Deno.serve(async (req) => {
                 method: 'GET',
                 duration_ms,
                 status_code: undefined,
+                origin_ip: originIp,
                 response: null,
                 error: message,
               },
