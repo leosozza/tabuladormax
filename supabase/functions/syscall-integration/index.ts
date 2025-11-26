@@ -57,27 +57,53 @@ Deno.serve(async (req) => {
         });
 
       case 'test_connection':
-        if (!syscallConfig.api_token) {
-          throw new Error('Token não configurado');
+        if (!syscallConfig.api_token || syscallConfig.api_token.trim() === '') {
+          throw new Error('Token não configurado. Configure o token na página de configuração.');
         }
 
-        const testResponse = await fetch(
-          `${syscallConfig.api_url}/revo/statuscampaign`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              token: syscallConfig.api_token,
-              campanha: 1,
-            }),
-          }
-        );
+        console.log('Testando conexão com Syscall:', syscallConfig.api_url);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos
 
-        const testResult = await testResponse.json();
-        return new Response(
-          JSON.stringify({ success: testResponse.ok, result: testResult }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        try {
+          const testResponse = await fetch(
+            `${syscallConfig.api_url}/revo/statuscampaign`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                token: syscallConfig.api_token,
+                campanha: 1,
+              }),
+              signal: controller.signal,
+            }
+          );
+
+          clearTimeout(timeoutId);
+
+          if (!testResponse.ok) {
+            const errorText = await testResponse.text();
+            console.error('Syscall API error:', testResponse.status, errorText);
+            throw new Error(`Erro na API Syscall (${testResponse.status}): ${errorText}`);
+          }
+
+          const testResult = await testResponse.json();
+          console.log('Syscall test result:', testResult);
+          
+          return new Response(
+            JSON.stringify({ success: true, result: testResult }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (error) {
+          clearTimeout(timeoutId);
+          
+          if (error instanceof Error && error.name === 'AbortError') {
+            throw new Error(`Timeout ao conectar com Syscall em ${syscallConfig.api_url}. Verifique se a URL está correta e se o servidor está acessível.`);
+          }
+          
+          throw new Error(`Erro ao conectar com Syscall: ${error instanceof Error ? error.message : 'Erro desconhecido'}. URL: ${syscallConfig.api_url}`);
+        }
 
       case 'login':
         const loginResponse = await fetch(
