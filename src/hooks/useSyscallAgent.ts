@@ -20,7 +20,7 @@ export function useSyscallAgent() {
         .select('*')
         .eq('user_id', user.id)
         .eq('active', true)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;

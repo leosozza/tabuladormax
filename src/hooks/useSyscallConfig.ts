@@ -41,10 +41,10 @@ export function useSyscallConfig() {
       const { data, error } = await supabase
         .from('syscall_config')
         .select('*')
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return data as SyscallConfig;
+      return data as SyscallConfig | null;
     },
   });
 
