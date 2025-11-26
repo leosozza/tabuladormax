@@ -77,30 +77,39 @@ Deno.serve(async (req) => {
           );
         }
 
-        console.log('Testando conexão com Syscall:', syscallConfig.api_url);
+        console.log('Testando conexão com Syscall:', {
+          url: syscallConfig.api_url,
+          hasToken: !!syscallConfig.api_token
+        });
         
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos
-        const testUrl = `${syscallConfig.api_url}/revo/statuscampaign`;
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos
+        
+        // Usar GET /revo/login para teste simples de conectividade
+        const testUrl = `${syscallConfig.api_url}/revo/login`;
+        const fullTestUrl = `${testUrl}?token=${syscallConfig.api_token}`;
 
         try {
-          // Usar FormData conforme documentação Postman
-          const formData = new FormData();
-          formData.append('id_campanha', '1');
-          formData.append('status', 'pause');
+          console.log('Tentando conexão com:', testUrl.replace(syscallConfig.api_token, '***'));
 
           const testResponse = await fetch(
-            testUrl,
+            fullTestUrl,
             {
-              method: 'POST',
-              headers: getSyscallHeaders(syscallConfig.api_token),
-              body: formData,
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+              },
               signal: controller.signal,
             }
           );
 
           clearTimeout(timeoutId);
           const duration_ms = Date.now() - testStartTime;
+
+          console.log('Resposta recebida:', {
+            status: testResponse.status,
+            duration_ms
+          });
 
           if (!testResponse.ok) {
             const errorText = await testResponse.text();
@@ -112,7 +121,7 @@ Deno.serve(async (req) => {
                 log: {
                   timestamp: new Date().toISOString(),
                   url: testUrl,
-                  method: 'POST',
+                  method: 'GET',
                   duration_ms,
                   status_code: testResponse.status,
                   response: errorText,
@@ -122,20 +131,20 @@ Deno.serve(async (req) => {
             );
           }
 
-          const testResult = await testResponse.json();
-          console.log('Syscall test result:', testResult);
+          const testResult = await testResponse.text();
+          console.log('Syscall test successful');
           
           return new Response(
             JSON.stringify({ 
               success: true, 
+              message: 'Conexão estabelecida com sucesso',
               result: testResult,
               log: {
                 timestamp: new Date().toISOString(),
                 url: testUrl,
-                method: 'POST',
+                method: 'GET',
                 duration_ms,
                 status_code: testResponse.status,
-                response: testResult,
               }
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -145,20 +154,34 @@ Deno.serve(async (req) => {
           const duration_ms = Date.now() - testStartTime;
 
           const isTimeout = error instanceof Error && error.name === 'AbortError';
-          const message = isTimeout
-            ? `Timeout ao conectar com Syscall em ${syscallConfig.api_url}. Verifique se a URL está correta e se o servidor está acessível.`
-            : `Erro ao conectar com Syscall: ${error instanceof Error ? error.message : 'Erro desconhecido'}. URL: ${syscallConfig.api_url}`;
+          
+          let message = '';
+          let suggestion = '';
+          
+          if (isTimeout) {
+            message = `Timeout ao conectar com Syscall em ${syscallConfig.api_url}/revo`;
+            suggestion = 'Possíveis causas: (1) URL incorreta, (2) Servidor fora do ar, (3) Firewall bloqueando conexões do Supabase. Entre em contato com o suporte do Syscall para verificar se os IPs do Supabase estão liberados no firewall.';
+          } else {
+            message = `Erro ao conectar com Syscall: ${error instanceof Error ? error.message : 'Erro desconhecido'}`;
+            suggestion = 'Verifique se a URL e o token estão corretos.';
+          }
 
-          console.error('Erro no teste de conexão do Syscall:', message, error);
+          console.error('Erro no teste de conexão do Syscall:', {
+            error: message,
+            suggestion,
+            duration_ms,
+            error_details: error
+          });
 
           return new Response(
             JSON.stringify({
               success: false,
               error: message,
+              suggestion,
               log: {
                 timestamp: new Date().toISOString(),
                 url: testUrl,
-                method: 'POST',
+                method: 'GET',
                 duration_ms,
                 status_code: undefined,
                 response: null,
