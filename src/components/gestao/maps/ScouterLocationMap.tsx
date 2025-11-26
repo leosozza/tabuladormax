@@ -102,19 +102,15 @@ export default function ScouterLocationMap({
     queryFn: async () => {
       console.log('🔄 Fetching scouter locations for date range:', dateRange.startDate, '-', dateRange.endDate);
 
-      // Para mapa em tempo real: mostrar últimas 24 horas sempre, 
-      // independente do filtro (usuário pode ter filtrado "hoje" mas queremos ver atividade recente)
-      const last24Hours = new Date();
-      last24Hours.setHours(last24Hours.getHours() - 24);
-
-      // Buscar a localização mais recente de cada scouter nas últimas 24h
+      // Buscar a localização mais recente de cada scouter no período filtrado
       const {
         data,
         error
       } = await supabase
         .from('scouter_location_history')
         .select('scouter_bitrix_id, scouter_name, latitude, longitude, address, recorded_at')
-        .gte('recorded_at', last24Hours.toISOString())
+        .gte('recorded_at', dateRange.startDate.toISOString())
+        .lte('recorded_at', dateRange.endDate.toISOString())
         .order('recorded_at', {
           ascending: false
         });
