@@ -18,7 +18,7 @@ import { ScouterHistorySettings } from "@/components/gestao/ScouterHistorySettin
 
 function GestaoAreaDeAbordagemContent() {
   const [filters, setFilters] = useState<FilterType>({
-    dateFilter: createDateFilter('all'),
+    dateFilter: createDateFilter('today'),
     projectId: null,
     scouterId: null,
     fonte: null,
