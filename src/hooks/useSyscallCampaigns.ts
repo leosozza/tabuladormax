@@ -68,7 +68,7 @@ export function useSyscallCampaigns() {
   const changeCampaignStatus = useMutation({
     mutationFn: async (params: {
       syscall_campaign_id: number;
-      acao: 'play' | 'pause' | 'stop';
+      status: 'play' | 'pause' | 'stop';
     }) => {
       const { data, error } = await supabase.functions.invoke(
         'syscall-integration',
