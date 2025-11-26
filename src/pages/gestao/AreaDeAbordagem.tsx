@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRecords } from "@/lib/supabaseUtils";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
-import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
+import { AreaAbordagemFilters, type AreaAbordagemFilters as FilterType } from "@/components/gestao/AreaAbordagemFilters";
 import AreaMap, { LeadMapLocation, DrawnArea } from "@/components/gestao/AreaMap";
 import ScouterLocationMap from "@/components/gestao/maps/ScouterLocationMap";
 import HeatmapFichasMap from "@/components/gestao/maps/HeatmapFichasMap";
@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapPin, Users, TrendingUp, Target, BarChart3, Radio, Flame, Settings } from "lucide-react";
 import { geocodeAddress } from "@/hooks/useGeolocation";
 import { createDateFilter } from "@/lib/dateUtils";
-import type { GestaoFilters as FilterType } from "@/types/filters";
 import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
 import { ScouterHistorySettings } from "@/components/gestao/ScouterHistorySettings";
 
@@ -20,9 +19,6 @@ function GestaoAreaDeAbordagemContent() {
   const [filters, setFilters] = useState<FilterType>({
     dateFilter: createDateFilter('today'),
     projectId: null,
-    scouterId: null,
-    fonte: null,
-    photoFilter: false,
   });
   const [drawnAreas, setDrawnAreas] = useState<DrawnArea[]>([]);
 
@@ -55,10 +51,8 @@ function GestaoAreaDeAbordagemContent() {
             query = query.eq("commercial_project_id", filters.projectId);
           }
           
-          // Aplicar filtro de scouter
-          if (filters.scouterId) {
-            query = query.eq("scouter", filters.scouterId);
-          }
+          // Hardcode: apenas leads de scouters (Scouter - Fichas)
+          query = query.eq("fonte_normalizada", "Scouter - Fichas");
           
           return query;
         }
@@ -128,10 +122,8 @@ function GestaoAreaDeAbordagemContent() {
             query = query.eq("commercial_project_id", filters.projectId);
           }
           
-          // Aplicar filtro de scouter
-          if (filters.scouterId) {
-            query = query.eq("scouter", filters.scouterId);
-          }
+          // Hardcode: apenas leads de scouters (Scouter - Fichas)
+          query = query.eq("fonte_normalizada", "Scouter - Fichas");
           
           return query;
         }
@@ -178,7 +170,7 @@ function GestaoAreaDeAbordagemContent() {
       title="Área de Abordagem"
       description="Análise geográfica e heatmaps de leads"
     >
-      <GestaoFiltersComponent 
+      <AreaAbordagemFilters 
         filters={filters}
         onChange={setFilters}
       />
@@ -274,7 +266,6 @@ function GestaoAreaDeAbordagemContent() {
               <CardContent>
                 <ScouterLocationMap
                   projectId={filters.projectId}
-                  scouterId={filters.scouterId}
                   dateRange={{
                     startDate: filters.dateFilter.startDate,
                     endDate: filters.dateFilter.endDate,
@@ -299,7 +290,6 @@ function GestaoAreaDeAbordagemContent() {
               <CardContent>
                 <HeatmapFichasMap
                   projectId={filters.projectId}
-                  scouterId={filters.scouterId}
                   dateRange={{
                     startDate: filters.dateFilter.startDate,
                     endDate: filters.dateFilter.endDate,
