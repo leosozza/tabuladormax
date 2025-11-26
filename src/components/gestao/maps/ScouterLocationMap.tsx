@@ -248,6 +248,9 @@ export default function ScouterLocationMap({
       zoomToBoundsOnClick: true,
       spiderfyOnMaxZoom: true,
       removeOutsideVisibleBounds: true,
+      disableClusteringAtZoom: 14,
+      maxClusterRadius: 50,
+      spiderfyDistanceMultiplier: 1.5,
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         let size = 'small';
