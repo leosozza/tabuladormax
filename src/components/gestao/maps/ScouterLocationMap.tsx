@@ -200,8 +200,8 @@ export default function ScouterLocationMap({
 
   // Função auxiliar para detectar e posicionar scouters próximos em espiral
   const applySpiralOffset = (locations: ScouterLocation[]) => {
-    const PROXIMITY_THRESHOLD = 0.0005; // ~55 metros (aumentado)
-    const SPIRAL_RADIUS = 0.0008; // ~88 metros (aumentado para espiral visível)
+    const PROXIMITY_THRESHOLD = 0.0001; // ~11 metros
+    const SPIRAL_RADIUS = 0.00015; // ~15-17 metros (visível mas próximo)
     
     const grouped = new Map<string, ScouterLocation[]>();
     
@@ -278,6 +278,16 @@ export default function ScouterLocationMap({
     
     // Aplicar offset em espiral para scouters próximos
     const locationsWithOffset = applySpiralOffset(scouterLocations);
+    
+    // Rastrear grupos para adicionar linhas de conexão
+    const groupedLocations = new Map<string, typeof locationsWithOffset>();
+    locationsWithOffset.forEach(loc => {
+      const key = `${loc.latitude.toFixed(4)}_${loc.longitude.toFixed(4)}`;
+      if (!groupedLocations.has(key)) {
+        groupedLocations.set(key, []);
+      }
+      groupedLocations.get(key)!.push(loc);
+    });
 
     // Adicionar marcadores com ícones personalizados por scouter
     locationsWithOffset.forEach(location => {
@@ -358,6 +368,31 @@ export default function ScouterLocationMap({
 
     // Adicionar cluster group ao mapa
     mapRef.current.addLayer(clusterGroupRef.current);
+    
+    // Adicionar linhas de conexão para scouters agrupados no mesmo local
+    groupedLocations.forEach(group => {
+      if (group.length > 1) {
+        // Centro do grupo (ponto original do primeiro scouter)
+        const centerLat = group[0].latitude;
+        const centerLng = group[0].longitude;
+        
+        // Desenhar linha do centro até cada scouter na espiral (exceto o primeiro que está no centro)
+        group.forEach((loc, index) => {
+          if (index > 0 && (loc.offsetLat !== centerLat || loc.offsetLng !== centerLng)) {
+            const line = L.polyline(
+              [[centerLat, centerLng], [loc.offsetLat, loc.offsetLng]],
+              { 
+                color: '#3b82f6',
+                weight: 2, 
+                opacity: 0.6,
+                dashArray: '5, 5'
+              }
+            );
+            clusterGroupRef.current!.addLayer(line);
+          }
+        });
+      }
+    });
 
     // Ajustar bounds
     if (scouterLocations.length > 0) {
