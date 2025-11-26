@@ -10,6 +10,14 @@ interface SyscallConfig {
   default_route: string;
 }
 
+// Helper para criar headers com Bearer token
+function getSyscallHeaders(token: string | null) {
+  if (!token) throw new Error('Token não configurado');
+  return {
+    'Authorization': `Bearer ${token}`,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -76,15 +84,17 @@ Deno.serve(async (req) => {
         const testUrl = `${syscallConfig.api_url}/revo/statuscampaign`;
 
         try {
+          // Usar FormData conforme documentação Postman
+          const formData = new FormData();
+          formData.append('id_campanha', '1');
+          formData.append('status', 'pause');
+
           const testResponse = await fetch(
             testUrl,
             {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                token: syscallConfig.api_token,
-                campanha: 1,
-              }),
+              headers: getSyscallHeaders(syscallConfig.api_token),
+              body: formData,
               signal: controller.signal,
             }
           );
@@ -170,15 +180,18 @@ Deno.serve(async (req) => {
         });
 
       case 'logout':
+        const logoutFormData = new URLSearchParams();
+        logoutFormData.append('agente', params.agent_code);
+
         const logoutResponse = await fetch(
           `${syscallConfig.api_url}/revo/desliga`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              token: syscallConfig.api_token,
-              agente: params.agent_code,
-            }),
+            headers: {
+              ...getSyscallHeaders(syscallConfig.api_token),
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: logoutFormData,
           }
         );
         const logoutResult = await logoutResponse.json();
@@ -187,15 +200,19 @@ Deno.serve(async (req) => {
         });
 
       case 'pause':
+        const pauseFormData = new URLSearchParams();
+        pauseFormData.append('agente', params.agent_code);
+        pauseFormData.append('id_pausa', params.id_pausa || '6');
+
         const pauseResponse = await fetch(
           `${syscallConfig.api_url}/revo/pause`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              token: syscallConfig.api_token,
-              agente: params.agent_code,
-            }),
+            headers: {
+              ...getSyscallHeaders(syscallConfig.api_token),
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: pauseFormData,
           }
         );
         const pauseResult = await pauseResponse.json();
@@ -204,15 +221,18 @@ Deno.serve(async (req) => {
         });
 
       case 'unpause':
+        const unpauseFormData = new URLSearchParams();
+        unpauseFormData.append('agente', params.agent_code);
+
         const unpauseResponse = await fetch(
           `${syscallConfig.api_url}/revo/unpause`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              token: syscallConfig.api_token,
-              agente: params.agent_code,
-            }),
+            headers: {
+              ...getSyscallHeaders(syscallConfig.api_token),
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: unpauseFormData,
           }
         );
         const unpauseResult = await unpauseResponse.json();
@@ -221,18 +241,27 @@ Deno.serve(async (req) => {
         });
 
       case 'create_campaign':
+        const createFormData = new FormData();
+        createFormData.append('nome', params.nome);
+        createFormData.append('agressividade', String(params.agressividade || 2));
+        createFormData.append('cxpostal', 'false');
+        
+        // Adicionar operadores como array
+        const operadores = params.operadores || [];
+        operadores.forEach((op: string) => {
+          createFormData.append('operadores[]', op);
+        });
+        
+        // Adicionar rota
+        const rota = params.rota || syscallConfig.default_route;
+        createFormData.append('rotas_selecionadas[]', rota);
+
         const createResponse = await fetch(
           `${syscallConfig.api_url}/revo/newcampaign`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              token: syscallConfig.api_token,
-              nome: params.nome,
-              rota: params.rota || syscallConfig.default_route,
-              agressividade: params.agressividade || 2,
-              operadores: params.operadores || [],
-            }),
+            headers: getSyscallHeaders(syscallConfig.api_token),
+            body: createFormData,
           }
         );
         const createResult = await createResponse.json();
@@ -253,23 +282,23 @@ Deno.serve(async (req) => {
         });
 
       case 'campaign_status':
+        const statusFormData = new FormData();
+        statusFormData.append('id_campanha', String(params.syscall_campaign_id));
+        statusFormData.append('status', params.status); // play, pause, stop
+
         const statusResponse = await fetch(
           `${syscallConfig.api_url}/revo/statuscampaign`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              token: syscallConfig.api_token,
-              campanha: params.syscall_campaign_id,
-              acao: params.acao, // play, pause, stop
-            }),
+            headers: getSyscallHeaders(syscallConfig.api_token),
+            body: statusFormData,
           }
         );
         const statusResult = await statusResponse.json();
 
         await supabase
           .from('syscall_campaigns')
-          .update({ status: params.acao === 'play' ? 'ativa' : params.acao === 'pause' ? 'pausada' : 'finalizada' })
+          .update({ status: params.status === 'play' ? 'ativa' : params.status === 'pause' ? 'pausada' : 'finalizada' })
           .eq('syscall_campaign_id', params.syscall_campaign_id);
 
         return new Response(JSON.stringify(statusResult), {
@@ -281,16 +310,19 @@ Deno.serve(async (req) => {
           .map((lead: any) => `${lead.telefone},${lead.nome || ''},${lead.lead_id}`)
           .join('\n');
 
+        // Criar arquivo CSV como Blob
+        const csvBlob = new Blob([csvData], { type: 'text/csv' });
+        
+        const uploadFormData = new FormData();
+        uploadFormData.append('id_campanha', String(params.syscall_campaign_id));
+        uploadFormData.append('arquivo', csvBlob, 'leads.csv');
+
         const uploadResponse = await fetch(
           `${syscallConfig.api_url}/revo/uploadcampaign`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              token: syscallConfig.api_token,
-              campanha: params.syscall_campaign_id,
-              dados: csvData,
-            }),
+            headers: getSyscallHeaders(syscallConfig.api_token),
+            body: uploadFormData,
           }
         );
         const uploadResult = await uploadResponse.json();

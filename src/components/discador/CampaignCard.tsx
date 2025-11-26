@@ -61,7 +61,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
               onClick={() =>
                 changeCampaignStatus({
                   syscall_campaign_id: campaign.syscall_campaign_id,
-                  acao: "play",
+                  status: "play",
                 })
               }
             >
@@ -77,7 +77,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
               onClick={() =>
                 changeCampaignStatus({
                   syscall_campaign_id: campaign.syscall_campaign_id,
-                  acao: "pause",
+                  status: "pause",
                 })
               }
             >
@@ -93,7 +93,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
               onClick={() =>
                 changeCampaignStatus({
                   syscall_campaign_id: campaign.syscall_campaign_id,
-                  acao: "stop",
+                  status: "stop",
                 })
               }
             >
