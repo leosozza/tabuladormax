@@ -1,0 +1,26 @@
+/* Leaflet Marker Clusters - Estilo customizado */
+.marker-cluster {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.marker-cluster-small {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.marker-cluster-medium {
+  width: 50px !important;
+  height: 50px !important;
+}
+
+.marker-cluster-large {
+  width: 60px !important;
+  height: 60px !important;
+}
+
+.marker-cluster span {
+  font-weight: 700;
+  font-size: 14px;
+}

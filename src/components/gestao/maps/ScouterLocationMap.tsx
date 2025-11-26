@@ -3,6 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import "./clusters.css";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,6 +61,7 @@ export default function ScouterLocationMap({
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
   const [timelineModalOpen, setTimelineModalOpen] = useState(false);
   const [selectedScouterForTimeline, setSelectedScouterForTimeline] = useState<{
     bitrixId: number;
@@ -193,16 +198,80 @@ export default function ScouterLocationMap({
     };
   }, []);
 
-  // Atualizar marcadores e rotas
+  // Função auxiliar para detectar e posicionar scouters próximos em espiral
+  const applySpiralOffset = (locations: ScouterLocation[]) => {
+    const PROXIMITY_THRESHOLD = 0.0001; // ~11 metros
+    const SPIRAL_RADIUS = 0.0001; // Raio da espiral
+    
+    const grouped = new Map<string, ScouterLocation[]>();
+    
+    // Agrupar localizações próximas
+    locations.forEach(loc => {
+      const key = `${Math.round(loc.latitude / PROXIMITY_THRESHOLD)}_${Math.round(loc.longitude / PROXIMITY_THRESHOLD)}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(loc);
+    });
+    
+    // Aplicar offset em espiral para grupos com mais de 1 scouter
+    const result: Array<ScouterLocation & { offsetLat: number; offsetLng: number }> = [];
+    
+    grouped.forEach(group => {
+      if (group.length === 1) {
+        result.push({ ...group[0], offsetLat: group[0].latitude, offsetLng: group[0].longitude });
+      } else {
+        // Posicionar em espiral
+        group.forEach((loc, index) => {
+          const angle = (index / group.length) * 2 * Math.PI;
+          const spiralFactor = 1 + (index * 0.3);
+          const offsetLat = loc.latitude + (Math.cos(angle) * SPIRAL_RADIUS * spiralFactor);
+          const offsetLng = loc.longitude + (Math.sin(angle) * SPIRAL_RADIUS * spiralFactor);
+          result.push({ ...loc, offsetLat, offsetLng });
+        });
+      }
+    });
+    
+    return result;
+  };
+
+  // Atualizar marcadores e rotas com clustering
   useEffect(() => {
     if (!mapRef.current || !scouterLocations) return;
 
+    // Remover cluster group antigo
+    if (clusterGroupRef.current) {
+      mapRef.current.removeLayer(clusterGroupRef.current);
+    }
+    
+    // Criar novo cluster group com configuração personalizada
+    clusterGroupRef.current = L.markerClusterGroup({
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      spiderfyOnMaxZoom: true,
+      removeOutsideVisibleBounds: true,
+      iconCreateFunction: (cluster) => {
+        const count = cluster.getChildCount();
+        let size = 'small';
+        if (count >= 10) size = 'large';
+        else if (count >= 5) size = 'medium';
+        
+        return L.divIcon({
+          html: `<div class="flex items-center justify-center w-full h-full">
+                   <span class="font-bold text-white">${count}</span>
+                 </div>`,
+          className: `marker-cluster marker-cluster-${size} bg-primary/90 rounded-full border-4 border-white shadow-lg`,
+          iconSize: L.point(40, 40)
+        });
+      }
+    });
+
     // Limpar marcadores antigos
-    markersRef.current.forEach(marker => marker.remove());
     markersRef.current.clear();
+    
+    // Aplicar offset em espiral para scouters próximos
+    const locationsWithOffset = applySpiralOffset(scouterLocations);
 
     // Adicionar marcadores com ícones personalizados por scouter
-    scouterLocations.forEach(location => {
+    locationsWithOffset.forEach(location => {
       // Criar ícone personalizado para cada scouter
       const scouterIcon = L.divIcon({
         html: location.photoUrl 
@@ -227,9 +296,11 @@ export default function ScouterLocationMap({
         iconAnchor: [20, 40]
       });
 
-      const marker = L.marker([location.latitude, location.longitude], {
+      // Usar coordenadas com offset
+      const marker = L.marker([location.offsetLat, location.offsetLng], {
         icon: scouterIcon
       });
+      
       const popupContent = `
         <div class="p-3 min-w-[250px]">
           <div class="flex items-center gap-2 mb-2">
@@ -270,9 +341,14 @@ export default function ScouterLocationMap({
         </div>
       `;
       marker.bindPopup(popupContent);
-      marker.addTo(mapRef.current!);
+      
+      // Adicionar ao cluster group ao invés de direto no mapa
+      clusterGroupRef.current!.addLayer(marker);
       markersRef.current.set(String(location.scouterBitrixId), marker);
     });
+
+    // Adicionar cluster group ao mapa
+    mapRef.current.addLayer(clusterGroupRef.current);
 
     // Ajustar bounds
     if (scouterLocations.length > 0) {
