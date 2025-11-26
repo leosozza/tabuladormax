@@ -49,8 +49,6 @@ import GestaoArea from "./pages/gestao/AreaDeAbordagem";
 import GestaoRelatorios from "./pages/gestao/Relatorios";
 import WhatsApp from "./pages/WhatsApp";
 
-import Install from "./pages/Install";
-
 // Agenciamento Module
 import Agenciamento from "./pages/Agenciamento";
 
@@ -84,7 +82,6 @@ const App = () => (
           
           {/* Auth (pública) */}
           <Route path="/auth" element={<Auth />} />
-          <Route path="/install" element={<Install />} />
           <Route path="/debug" element={<ProtectedRoute><Debug /></ProtectedRoute>} />
           
           {/* Hub Panels - Interactive sliding panels */}
