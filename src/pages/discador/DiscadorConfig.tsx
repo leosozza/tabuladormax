@@ -131,11 +131,15 @@ export default function DiscadorConfig() {
                             💡 <span className="font-semibold">Sugestão:</span> {log.suggestion}
                           </div>
                         )}
-                        {log.url && (
-                          <div className="text-xs text-slate-400 mt-2">
-                            URL: {log.url}
-                          </div>
-                        )}
+                        <div className="text-xs text-slate-400 mt-2 space-y-1">
+                          {log.url && <div>URL: {log.url}</div>}
+                          {log.origin_ip && (
+                            <div className="text-orange-400 font-semibold">
+                              IP de origem: {log.origin_ip}
+                            </div>
+                          )}
+                          {log.duration_ms && <div>Tempo: {log.duration_ms}ms</div>}
+                        </div>
                       </>
                     )}
                   </div>

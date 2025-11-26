@@ -21,6 +21,7 @@ export interface ConnectionLog {
   response?: any;
   error?: string;
   suggestion?: string;
+  origin_ip?: string;
 }
 
 export function useSyscallConfig() {
