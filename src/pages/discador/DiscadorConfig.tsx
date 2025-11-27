@@ -136,7 +136,7 @@ export default function DiscadorConfig() {
                         : "bg-red-950/20 border-red-500 text-red-400"
                     )}
                   >
-                    <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
+                    <div className="flex items-center gap-2 text-slate-400 text-xs mb-1 flex-wrap">
                       <span className={cn(
                         "px-2 py-0.5 rounded text-[10px] font-bold",
                         log.type === 'proxy' 
@@ -145,6 +145,19 @@ export default function DiscadorConfig() {
                       )}>
                         {log.type === 'proxy' ? 'PROXY' : 'SYSCALL'}
                       </span>
+                      {log.error_type && (
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[10px] font-bold",
+                          log.error_type === 'TIMEOUT' && "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
+                          log.error_type === 'DNS_ERROR' && "bg-purple-500/20 text-purple-400 border border-purple-500/30",
+                          log.error_type === 'CONNECTION_REFUSED' && "bg-red-500/20 text-red-400 border border-red-500/30",
+                          log.error_type === 'NETWORK_ERROR' && "bg-orange-500/20 text-orange-400 border border-orange-500/30",
+                          log.error_type === 'CONFIGURATION_ERROR' && "bg-pink-500/20 text-pink-400 border border-pink-500/30",
+                          !['TIMEOUT', 'DNS_ERROR', 'CONNECTION_REFUSED', 'NETWORK_ERROR', 'CONFIGURATION_ERROR'].includes(log.error_type) && "bg-gray-500/20 text-gray-400 border border-gray-500/30"
+                        )}>
+                          {log.error_type}
+                        </span>
+                      )}
                       <span>{new Date(log.timestamp).toLocaleString('pt-BR')}</span>
                     </div>
                     {log.success ? (
@@ -181,6 +194,18 @@ export default function DiscadorConfig() {
                           )}
                           {log.duration_ms && <div>Tempo: {log.duration_ms}ms</div>}
                         </div>
+                        {log.debug && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1">
+                              🔍 Debug Info
+                            </summary>
+                            <div className="mt-2 p-2 bg-slate-900/50 rounded border border-slate-700">
+                              <pre className="text-[10px] text-slate-400 overflow-x-auto">
+                                {JSON.stringify(log.debug, null, 2)}
+                              </pre>
+                            </div>
+                          </details>
+                        )}
                       </>
                     )}
                   </div>
