@@ -450,108 +450,30 @@ export default function Users() {
       // Usar senha fornecida ou gerar senha temporária
       const tempPass = newUserPassword.trim() || (Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase());
 
-      // Criar agente no Chatwoot (se for agent)
-      let chatwootAgentId = null;
-      if (newUserRole === 'agent' && newUserTelemarketing) {
-        const { data: chatwootData } = await supabase.functions.invoke('create-chatwoot-agent', {
-          body: {
-            name: newUserName,
-            email: newUserEmail,
-            password: tempPass,
-            role: 'agent'
-          }
-        });
-
-        if (chatwootData?.agent) {
-          chatwootAgentId = chatwootData.agent.id;
-        }
+      // Se supervisor está criando agent, usar seu próprio ID automaticamente
+      let supervisorId = newUserSupervisor;
+      if (currentUserRole === 'supervisor' && newUserRole === 'agent') {
+        const { data: { user } } = await supabase.auth.getUser();
+        supervisorId = user?.id || '';
       }
 
-      // Criar usuário no Supabase Auth (via função)
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: newUserEmail,
-        password: tempPass,
-        email_confirm: true,
-        user_metadata: {
-          display_name: newUserName,
-          password_reset_required: true,
+      // Chamar Edge Function para criar usuário
+      const { data, error } = await supabase.functions.invoke('create-supervisor-user', {
+        body: {
+          email: newUserEmail,
+          password: tempPass,
+          displayName: newUserName,
+          role: newUserRole,
+          department: newUserDepartment,
+          projectId: newUserProject || null,
+          supervisorId: supervisorId || null,
+          telemarketingId: newUserTelemarketing || null,
+          telemarketingName: newUserTelemarketingName || null,
         }
       });
 
-      if (authError) throw authError;
-
-      const userId = authData?.user?.id;
-
-      if (userId) {
-        // Inserir profile
-        await supabase.from('profiles').upsert({
-          id: userId,
-          email: newUserEmail,
-          display_name: newUserName,
-        });
-
-        // Inserir role
-        await supabase.from('user_roles').upsert({
-          user_id: userId,
-          role: newUserRole,
-        });
-
-        // Inserir departamento
-        await supabase.from('user_departments').upsert({
-          user_id: userId,
-          department: newUserDepartment,
-        });
-
-        // Criar mapeamento para SUPERVISOR
-        if (newUserRole === 'supervisor' && newUserProject) {
-          const { error: mappingError } = await supabase
-            .from('agent_telemarketing_mapping')
-            .insert({
-              tabuladormax_user_id: userId,
-              bitrix_telemarketing_id: 0,
-              bitrix_telemarketing_name: newUserName,
-              commercial_project_id: newUserProject,
-              supervisor_id: null, // Supervisor não tem supervisor
-            });
-
-          if (mappingError) {
-            console.error('Erro ao criar mapeamento do supervisor:', mappingError);
-            toast.error('Erro ao vincular supervisor ao projeto');
-          }
-        }
-
-        // Criar mapeamento para AGENT
-        if (newUserRole === 'agent' && newUserTelemarketing && newUserProject) {
-          // Se supervisor está criando, usar seu próprio ID automaticamente
-          let supervisorId = newUserSupervisor;
-          
-          if (currentUserRole === 'supervisor') {
-            const { data: { user } } = await supabase.auth.getUser();
-            supervisorId = user?.id || '';
-          }
-
-          if (!supervisorId) {
-            toast.error('Supervisor não definido');
-            setCreatingUser(false);
-            return;
-          }
-
-          const { error: mappingError } = await supabase
-            .from('agent_telemarketing_mapping')
-            .insert({
-              tabuladormax_user_id: userId,
-              bitrix_telemarketing_id: newUserTelemarketing,
-              commercial_project_id: newUserProject,
-              supervisor_id: supervisorId,
-              chatwoot_agent_id: chatwootAgentId,
-            });
-
-          if (mappingError) {
-            console.error('Erro ao criar mapeamento do agente:', mappingError);
-            toast.error('Erro ao vincular agente ao supervisor');
-          }
-        }
-      }
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Erro ao criar usuário');
 
       toast.success("Usuário criado com sucesso!");
       setTempPassword(tempPass);
