@@ -23,37 +23,53 @@ Deno.serve(async (req) => {
     });
 
     // Verificar autenticação do usuário que está fazendo a request
-    if (authHeader) {
-      const supabaseClient = createClient(
-        supabaseUrl,
-        Deno.env.get('SUPABASE_ANON_KEY')!,
-        { global: { headers: { Authorization: authHeader } } }
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Não autorizado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
 
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-      
-      if (authError || !user) {
-        return new Response(
-          JSON.stringify({ error: 'Não autorizado' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    let requestUserId: string | null = null;
 
-      // Verificar se é admin ou manager
-      const { data: roleData } = await supabaseAdmin
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
+    try {
+      const token = authHeader.replace('Bearer ', '').trim();
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      requestUserId = payload.sub as string | null;
+      console.log('[create-supervisor-user] Authenticated user id from JWT:', requestUserId);
+    } catch (e) {
+      console.error('[create-supervisor-user] Error parsing JWT:', e);
+      return new Response(
+        JSON.stringify({ error: 'Não autorizado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-      console.log('[create-supervisor-user] User role:', roleData?.role);
+    if (!requestUserId) {
+      return new Response(
+        JSON.stringify({ error: 'Não autorizado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-      if (!roleData || !['admin', 'manager'].includes(roleData.role)) {
-        return new Response(
-          JSON.stringify({ error: 'Apenas administradores e gerentes podem criar usuários' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    // Verificar se é admin ou manager
+    const { data: roleData, error: roleCheckError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', requestUserId)
+      .single();
+
+    console.log('[create-supervisor-user] User role:', roleData?.role, 'error:', roleCheckError);
+
+    if (roleCheckError) {
+      console.error('[create-supervisor-user] Error fetching user role:', roleCheckError);
+    }
+
+    if (!roleData || !['admin', 'manager'].includes(roleData.role)) {
+      return new Response(
+        JSON.stringify({ error: 'Apenas administradores e gerentes podem criar usuários' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { 
