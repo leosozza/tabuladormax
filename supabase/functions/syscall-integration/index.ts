@@ -10,12 +10,40 @@ interface SyscallConfig {
   default_route: string;
 }
 
-// Helper para criar headers com Bearer token
-function getSyscallHeaders(token: string | null) {
-  if (!token) throw new Error('Token não configurado');
-  return {
-    'Authorization': `Bearer ${token}`,
+// Helper para chamar Syscall via proxy
+async function callSyscallViaProxy(
+  path: string,
+  method: string = 'GET',
+  syscallToken: string,
+  body?: any,
+  isFormData: boolean = false
+): Promise<Response> {
+  const proxyUrl = Deno.env.get('SYSCALL_PROXY_URL');
+  const proxySecret = Deno.env.get('SYSCALL_PROXY_SECRET');
+  
+  if (!proxyUrl || !proxySecret) {
+    throw new Error('Proxy não configurado. Configure SYSCALL_PROXY_URL e SYSCALL_PROXY_SECRET.');
+  }
+
+  const headers: Record<string, string> = {
+    'x-proxy-secret': proxySecret,
+    'x-syscall-token': syscallToken,
+    'Accept': 'application/json',
   };
+
+  // Não adicionar Content-Type para FormData (browser adiciona automaticamente com boundary)
+  if (!isFormData && body) {
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+  }
+
+  const targetUrl = `${proxyUrl}/api/syscall/${path}`;
+  console.log(`[Proxy] ${method} ${targetUrl}`);
+
+  return fetch(targetUrl, {
+    method,
+    headers,
+    body: body || undefined,
+  });
 }
 
 Deno.serve(async (req) => {
@@ -64,8 +92,9 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
 
-      case 'test_connection':
+      case 'test_connection': {
         const testStartTime = Date.now();
+        const proxyUrl = Deno.env.get('SYSCALL_PROXY_URL');
         
         if (!syscallConfig.api_token || syscallConfig.api_token.trim() === '') {
           return new Response(
@@ -77,209 +106,172 @@ Deno.serve(async (req) => {
           );
         }
 
-        // Descobrir IP de origem da Edge Function
-        let originIp = 'desconhecido';
         try {
-          const ipResponse = await fetch('https://api.ipify.org?format=json', {
-            signal: AbortSignal.timeout(5000)
+          // 1. Testar health do proxy
+          console.log('[Test] Testando health do proxy...');
+          const healthResponse = await fetch(`${proxyUrl}/api/health`, {
+            signal: AbortSignal.timeout(10000)
           });
-          const ipData = await ipResponse.json();
-          originIp = ipData.ip;
-          console.log('IP de origem da Edge Function:', originIp);
-        } catch (e) {
-          console.log('Não foi possível obter IP de origem:', e);
-        }
+          
+          if (!healthResponse.ok) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: 'Proxy indisponível',
+              suggestion: 'Verifique se o proxy está rodando em https://syscall.ybrasil.com.br',
+              log: {
+                timestamp: new Date().toISOString(),
+                success: false,
+                url: `${proxyUrl}/api/health`,
+                method: 'GET',
+                status_code: healthResponse.status,
+                error: 'Health check falhou',
+                origin_ip: '72.61.51.225',
+              }
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
 
-        console.log('Testando conexão com Syscall:', {
-          url: syscallConfig.api_url,
-          hasToken: !!syscallConfig.api_token,
-          originIp
-        });
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos
-        
-        // Usar GET /revo/login para teste simples de conectividade
-        const testUrl = `${syscallConfig.api_url}/revo/login`;
-        const fullTestUrl = `${testUrl}?token=${syscallConfig.api_token}`;
+          const healthData = await healthResponse.json();
+          console.log('[Test] ✅ Proxy health OK:', healthData);
 
-        try {
-          console.log('Tentando conexão com:', testUrl.replace(syscallConfig.api_token, '***'));
-
-          const testResponse = await fetch(
-            fullTestUrl,
-            {
-              method: 'GET',
-              headers: {
-                'Accept': 'application/json',
-              },
-              signal: controller.signal,
-            }
+          // 2. Testar conexão com Syscall via proxy (usando IP fixo 72.61.51.225)
+          console.log('[Test] Testando conexão com Syscall via proxy (IP: 72.61.51.225)...');
+          const testResponse = await callSyscallViaProxy(
+            `revo/login?token=${syscallConfig.api_token}`,
+            'GET',
+            syscallConfig.api_token || ''
           );
 
-          clearTimeout(timeoutId);
-          const duration_ms = Date.now() - testStartTime;
+          const duration = Date.now() - testStartTime;
+          const responseText = await testResponse.text();
+          let responseData;
 
-          console.log('Resposta recebida:', {
-            status: testResponse.status,
-            duration_ms
-          });
+          try {
+            responseData = JSON.parse(responseText);
+          } catch {
+            responseData = { raw: responseText };
+          }
+
+          const log = {
+            timestamp: new Date().toISOString(),
+            success: testResponse.ok,
+            url: `${proxyUrl}/api/syscall/revo/login`,
+            method: 'GET',
+            duration_ms: duration,
+            status_code: testResponse.status,
+            response: responseData,
+            origin_ip: '72.61.51.225',
+          };
 
           if (!testResponse.ok) {
-            const errorText = await testResponse.text();
-            console.error('Syscall API error:', testResponse.status, errorText);
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: `Erro na API Syscall (${testResponse.status}): ${errorText}`,
-                log: {
-                  timestamp: new Date().toISOString(),
-                  url: testUrl,
-                  method: 'GET',
-                  duration_ms,
-                  status_code: testResponse.status,
-                  response: errorText,
-                },
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            return new Response(JSON.stringify({
+              success: false,
+              error: `Erro ${testResponse.status}: ${responseText}`,
+              suggestion: testResponse.status === 401 
+                ? 'Token inválido ou expirado. Verifique a configuração do token.'
+                : testResponse.status === 403
+                ? 'IP não autorizado. Verifique se o IP 72.61.51.225 foi liberado no Syscall.'
+                : 'Verifique a configuração da API do Syscall.',
+              log,
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
           }
 
-          const testResult = await testResponse.text();
-          console.log('Syscall test successful');
-          
-          return new Response(
-            JSON.stringify({ 
-              success: true, 
-              message: 'Conexão estabelecida com sucesso',
-              result: testResult,
-              log: {
-                timestamp: new Date().toISOString(),
-                url: testUrl,
-                method: 'GET',
-                duration_ms,
-                status_code: testResponse.status,
-                origin_ip: originIp,
-              }
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        } catch (error) {
-          clearTimeout(timeoutId);
-          const duration_ms = Date.now() - testStartTime;
+          console.log('[Test] ✅ Syscall via proxy OK (IP: 72.61.51.225)');
 
-          const isTimeout = error instanceof Error && error.name === 'AbortError';
-          
-          let message = '';
-          let suggestion = '';
-          
-          if (isTimeout) {
-            message = `Timeout ao conectar com Syscall em ${syscallConfig.api_url}/revo`;
-            suggestion = `Possíveis causas: (1) URL incorreta, (2) Servidor fora do ar, (3) Firewall bloqueando o IP ${originIp}. Entre em contato com o suporte do Syscall para verificar se este IP está liberado no firewall.`;
-          } else {
-            message = `Erro ao conectar com Syscall: ${error instanceof Error ? error.message : 'Erro desconhecido'}`;
-            suggestion = 'Verifique se a URL e o token estão corretos.';
-          }
-
-          console.error('Erro no teste de conexão do Syscall:', {
-            error: message,
-            suggestion,
-            duration_ms,
-            error_details: error
+          return new Response(JSON.stringify({
+            success: true,
+            message: '✅ Conexão estabelecida com sucesso via proxy (IP: 72.61.51.225)',
+            log,
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
 
-          return new Response(
-            JSON.stringify({
+        } catch (error) {
+          console.error('[Test] ❌ Erro:', error);
+          const duration = Date.now() - testStartTime;
+          
+          return new Response(JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : 'Erro desconhecido',
+            suggestion: 'Verifique a configuração do proxy e do Syscall',
+            log: {
+              timestamp: new Date().toISOString(),
               success: false,
-              error: message,
-              suggestion,
-              log: {
-                timestamp: new Date().toISOString(),
-                url: testUrl,
-                method: 'GET',
-                duration_ms,
-                status_code: undefined,
-                origin_ip: originIp,
-                response: null,
-                error: message,
-              },
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+              duration_ms: duration,
+              error: error instanceof Error ? error.message : 'Erro desconhecido',
+              origin_ip: '72.61.51.225',
+            }
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
         }
+      }
 
-      case 'login':
-        const loginResponse = await fetch(
-          `${syscallConfig.api_url}/revo/login?agente=${params.agent_code}&ramal=${params.ramal}&token=${syscallConfig.api_token}`,
-          { method: 'GET' }
+      case 'login': {
+        const loginResponse = await callSyscallViaProxy(
+          `revo/login?agente=${params.agent_code}&ramal=${params.ramal}&token=${syscallConfig.api_token}`,
+          'GET',
+          syscallConfig.api_token || ''
         );
         const loginResult = await loginResponse.json();
         return new Response(JSON.stringify(loginResult), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
 
-      case 'logout':
+      case 'logout': {
         const logoutFormData = new URLSearchParams();
         logoutFormData.append('agente', params.agent_code);
 
-        const logoutResponse = await fetch(
-          `${syscallConfig.api_url}/revo/desliga`,
-          {
-            method: 'POST',
-            headers: {
-              ...getSyscallHeaders(syscallConfig.api_token),
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: logoutFormData,
-          }
+        const logoutResponse = await callSyscallViaProxy(
+          'revo/desliga',
+          'POST',
+          syscallConfig.api_token || '',
+          logoutFormData.toString()
         );
         const logoutResult = await logoutResponse.json();
         return new Response(JSON.stringify(logoutResult), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
 
-      case 'pause':
+      case 'pause': {
         const pauseFormData = new URLSearchParams();
         pauseFormData.append('agente', params.agent_code);
         pauseFormData.append('id_pausa', params.id_pausa || '6');
 
-        const pauseResponse = await fetch(
-          `${syscallConfig.api_url}/revo/pause`,
-          {
-            method: 'POST',
-            headers: {
-              ...getSyscallHeaders(syscallConfig.api_token),
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: pauseFormData,
-          }
+        const pauseResponse = await callSyscallViaProxy(
+          'revo/pause',
+          'POST',
+          syscallConfig.api_token || '',
+          pauseFormData.toString()
         );
         const pauseResult = await pauseResponse.json();
         return new Response(JSON.stringify(pauseResult), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
 
-      case 'unpause':
+      case 'unpause': {
         const unpauseFormData = new URLSearchParams();
         unpauseFormData.append('agente', params.agent_code);
 
-        const unpauseResponse = await fetch(
-          `${syscallConfig.api_url}/revo/unpause`,
-          {
-            method: 'POST',
-            headers: {
-              ...getSyscallHeaders(syscallConfig.api_token),
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: unpauseFormData,
-          }
+        const unpauseResponse = await callSyscallViaProxy(
+          'revo/unpause',
+          'POST',
+          syscallConfig.api_token || '',
+          unpauseFormData.toString()
         );
         const unpauseResult = await unpauseResponse.json();
         return new Response(JSON.stringify(unpauseResult), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
 
-      case 'create_campaign':
+      case 'create_campaign': {
         const createFormData = new FormData();
         createFormData.append('nome', params.nome);
         createFormData.append('agressividade', String(params.agressividade || 2));
@@ -295,13 +287,12 @@ Deno.serve(async (req) => {
         const rota = params.rota || syscallConfig.default_route;
         createFormData.append('rotas_selecionadas[]', rota);
 
-        const createResponse = await fetch(
-          `${syscallConfig.api_url}/revo/newcampaign`,
-          {
-            method: 'POST',
-            headers: getSyscallHeaders(syscallConfig.api_token),
-            body: createFormData,
-          }
+        const createResponse = await callSyscallViaProxy(
+          'revo/newcampaign',
+          'POST',
+          syscallConfig.api_token || '',
+          createFormData,
+          true // isFormData = true
         );
         const createResult = await createResponse.json();
 
@@ -319,19 +310,19 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify(createResult), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
 
-      case 'campaign_status':
+      case 'campaign_status': {
         const statusFormData = new FormData();
         statusFormData.append('id_campanha', String(params.syscall_campaign_id));
         statusFormData.append('status', params.status); // play, pause, stop
 
-        const statusResponse = await fetch(
-          `${syscallConfig.api_url}/revo/statuscampaign`,
-          {
-            method: 'POST',
-            headers: getSyscallHeaders(syscallConfig.api_token),
-            body: statusFormData,
-          }
+        const statusResponse = await callSyscallViaProxy(
+          'revo/statuscampaign',
+          'POST',
+          syscallConfig.api_token || '',
+          statusFormData,
+          true // isFormData = true
         );
         const statusResult = await statusResponse.json();
 
@@ -343,8 +334,9 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify(statusResult), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
 
-      case 'upload_leads':
+      case 'upload_leads': {
         const csvData = params.leads
           .map((lead: any) => `${lead.telefone},${lead.nome || ''},${lead.lead_id}`)
           .join('\n');
@@ -356,13 +348,12 @@ Deno.serve(async (req) => {
         uploadFormData.append('id_campanha', String(params.syscall_campaign_id));
         uploadFormData.append('arquivo', csvBlob, 'leads.csv');
 
-        const uploadResponse = await fetch(
-          `${syscallConfig.api_url}/revo/uploadcampaign`,
-          {
-            method: 'POST',
-            headers: getSyscallHeaders(syscallConfig.api_token),
-            body: uploadFormData,
-          }
+        const uploadResponse = await callSyscallViaProxy(
+          'revo/uploadcampaign',
+          'POST',
+          syscallConfig.api_token || '',
+          uploadFormData,
+          true // isFormData = true
         );
         const uploadResult = await uploadResponse.json();
 
@@ -384,6 +375,7 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify(uploadResult), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
 
       default:
         throw new Error(`Ação não suportada: ${action}`);
