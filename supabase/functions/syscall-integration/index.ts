@@ -60,18 +60,40 @@ Deno.serve(async (req) => {
     // Test proxy only (não precisa de config)
     if (action === 'test_proxy') {
       const proxyUrl = Deno.env.get('SYSCALL_PROXY_URL');
+      const expectedUrl = 'https://syscall.ybrasil.com.br';
+      
+      console.log('[test_proxy] SYSCALL_PROXY_URL configurado:', proxyUrl);
+      console.log('[test_proxy] URL esperada:', expectedUrl);
+      console.log('[test_proxy] URLs coincidem:', proxyUrl === expectedUrl);
+      
       if (!proxyUrl) {
         return new Response(JSON.stringify({
           success: false,
           error: 'SYSCALL_PROXY_URL não configurado',
+          error_type: 'CONFIGURATION_ERROR',
+          suggestion: 'Configure o secret SYSCALL_PROXY_URL com o valor https://syscall.ybrasil.com.br',
+          debug: {
+            env_set: false,
+            expected_url: expectedUrl,
+          },
           log: {
             timestamp: new Date().toISOString(),
             success: false,
-            error: 'Variável de ambiente SYSCALL_PROXY_URL não configurada',
+            error: 'SYSCALL_PROXY_URL não configurado',
+            error_type: 'CONFIGURATION_ERROR',
+            suggestion: 'Configure o secret SYSCALL_PROXY_URL com o valor https://syscall.ybrasil.com.br',
+            debug: {
+              env_set: false,
+              expected_url: expectedUrl,
+            },
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
+      }
+
+      if (proxyUrl !== expectedUrl) {
+        console.warn('[test_proxy] ⚠️ URL não é o proxy esperado:', proxyUrl);
       }
 
       const testStartTime = Date.now();
@@ -84,10 +106,20 @@ Deno.serve(async (req) => {
         const healthData = await healthResponse.json();
         const duration = Date.now() - testStartTime;
         
+        console.log('[test_proxy] ✓ Health check OK:', {
+          status: healthResponse.status,
+          duration_ms: duration,
+        });
+        
         return new Response(JSON.stringify({
           success: healthResponse.ok,
           proxy_url: proxyUrl,
           proxy_ip: '72.61.51.225',
+          debug: {
+            proxy_url_configured: proxyUrl,
+            expected_url: expectedUrl,
+            url_matches: proxyUrl === expectedUrl,
+          },
           log: {
             timestamp: new Date().toISOString(),
             success: healthResponse.ok,
@@ -97,6 +129,11 @@ Deno.serve(async (req) => {
             status_code: healthResponse.status,
             response: healthData,
             origin_ip: '72.61.51.225',
+            debug: {
+              proxy_url_configured: proxyUrl,
+              expected_url: expectedUrl,
+              url_matches: proxyUrl === expectedUrl,
+            },
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -104,20 +141,49 @@ Deno.serve(async (req) => {
       } catch (error) {
         const duration = Date.now() - testStartTime;
         const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        const errorName = error instanceof Error ? error.name : 'Error';
+        const errorCause = error instanceof Error && error.cause instanceof Error ? error.cause.message : null;
         
-        let suggestion = '';
-        if (errorMessage.includes('timeout')) {
-          suggestion = 'Timeout ao conectar ao proxy. Verifique se o servidor está online e acessível.';
+        // Determine error type
+        let errorType = 'UNKNOWN';
+        let suggestion = 'Verifique se o proxy está online e acessível';
+        
+        if (errorName === 'TimeoutError' || errorMessage.includes('timed out') || errorMessage.includes('timeout')) {
+          errorType = 'TIMEOUT';
+          suggestion = 'O servidor não respondeu em 10 segundos. Verifique se o proxy está online e se a URL está correta.';
+        } else if (errorMessage.includes('getaddrinfo') || errorMessage.includes('ENOTFOUND') || errorMessage.includes('DNS')) {
+          errorType = 'DNS_ERROR';
+          suggestion = 'Não foi possível resolver o domínio. Verifique se a URL está correta: ' + expectedUrl;
+        } else if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('Connection refused') || errorMessage.includes('refused')) {
+          errorType = 'CONNECTION_REFUSED';
+          suggestion = 'Conexão recusada. O proxy pode estar offline ou a porta pode estar incorreta.';
         } else if (errorMessage.includes('network')) {
+          errorType = 'NETWORK_ERROR';
           suggestion = 'Erro de rede. Verifique sua conexão de internet e configurações de firewall.';
         }
+        
+        const errorDetails = {
+          message: errorMessage,
+          name: errorName,
+          cause: errorCause,
+          type: errorType,
+        };
+        
+        console.error('[test_proxy] ✗ Erro:', errorDetails);
         
         return new Response(JSON.stringify({
           success: false,
           error: errorMessage,
+          error_type: errorType,
           suggestion,
           proxy_url: proxyUrl,
           proxy_ip: '72.61.51.225',
+          debug: {
+            proxy_url_configured: proxyUrl,
+            expected_url: expectedUrl,
+            url_matches: proxyUrl === expectedUrl,
+            error_details: errorDetails,
+          },
           log: {
             timestamp: new Date().toISOString(),
             success: false,
@@ -125,8 +191,15 @@ Deno.serve(async (req) => {
             method: 'GET',
             duration_ms: duration,
             error: errorMessage,
+            error_type: errorType,
             suggestion,
             origin_ip: '72.61.51.225',
+            debug: {
+              proxy_url_configured: proxyUrl,
+              expected_url: expectedUrl,
+              url_matches: proxyUrl === expectedUrl,
+              error_details: errorDetails,
+            },
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

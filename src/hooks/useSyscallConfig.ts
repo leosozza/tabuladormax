@@ -21,8 +21,16 @@ export interface ConnectionLog {
   status_code?: number;
   response?: any;
   error?: string;
+  error_type?: 'TIMEOUT' | 'DNS_ERROR' | 'CONNECTION_REFUSED' | 'NETWORK_ERROR' | 'CONFIGURATION_ERROR' | 'UNKNOWN';
   suggestion?: string;
   origin_ip?: string;
+  debug?: {
+    proxy_url_configured?: string;
+    expected_url?: string;
+    url_matches?: boolean;
+    env_set?: boolean;
+    [key: string]: any;
+  };
 }
 
 export function useSyscallConfig() {
