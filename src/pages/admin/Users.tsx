@@ -53,6 +53,7 @@ export default function Users() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState<'admin' | 'manager' | 'supervisor' | 'agent'>('agent');
+  const [newUserDepartment, setNewUserDepartment] = useState<'administrativo' | 'analise' | 'telemarketing' | 'scouters'>('telemarketing');
   const [newUserProject, setNewUserProject] = useState("");
   const [newUserSupervisor, setNewUserSupervisor] = useState("");
   const [newUserTelemarketing, setNewUserTelemarketing] = useState<number | undefined>();
@@ -495,6 +496,12 @@ export default function Users() {
           role: newUserRole,
         });
 
+        // Inserir departamento
+        await supabase.from('user_departments').upsert({
+          user_id: userId,
+          department: newUserDepartment,
+        });
+
         // Criar mapeamento para SUPERVISOR
         if (newUserRole === 'supervisor' && newUserProject) {
           const { error: mappingError } = await supabase
@@ -567,6 +574,7 @@ export default function Users() {
     setNewUserPassword("");
     // Inicializar como 'agent' se for supervisor
     setNewUserRole(currentUserRole === 'supervisor' ? 'agent' : 'agent');
+    setNewUserDepartment('telemarketing');
     setNewUserProject("");
     setNewUserSupervisor("");
     setNewUserTelemarketing(undefined);
@@ -1386,6 +1394,24 @@ export default function Users() {
                         <SelectItem value="agent">Agent</SelectItem>
                       </>
                     )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="department">Departamento</Label>
+                <Select 
+                  value={newUserDepartment} 
+                  onValueChange={(v: any) => setNewUserDepartment(v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="administrativo">Administrativo</SelectItem>
+                    <SelectItem value="analise">Análise</SelectItem>
+                    <SelectItem value="telemarketing">Telemarketing</SelectItem>
+                    <SelectItem value="scouters">Scouters</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
