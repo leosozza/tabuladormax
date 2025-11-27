@@ -52,14 +52,6 @@ const MODULE_COLORS: Record<string, string> = {
   discador: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
 };
 
-// Mapeamento: Módulo → Departamentos permitidos
-const MODULE_DEPARTMENT_MAP: Record<string, typeof DEPARTMENTS[number][]> = {
-  tabulador: ['telemarketing'],
-  discador: ['telemarketing'],
-  gestao: ['scouters'],
-  admin: ['administrativo'],
-};
-
 export default function RoutePermissionsManager() {
   const [routes, setRoutes] = useState<AppRoute[]>([]);
   const [permissions, setPermissions] = useState<RoutePermission[]>([]);
@@ -67,6 +59,7 @@ export default function RoutePermissionsManager() {
   const [saving, setSaving] = useState(false);
   const [changes, setChanges] = useState<Map<string, boolean>>(new Map());
   const [selectedRole, setSelectedRole] = useState<AppRole>("agent");
+  const [selectedDepartment, setSelectedDepartment] = useState<typeof DEPARTMENTS[number]>("telemarketing");
   const [filterModule, setFilterModule] = useState<string>("all");
   const [schemaCacheError, setSchemaCacheError] = useState(false);
 
@@ -228,9 +221,10 @@ export default function RoutePermissionsManager() {
 
       <Card className="p-4 bg-muted/50">
         <div className="text-sm space-y-2">
-          <p className="font-semibold">Nova Interface de Permissões</p>
+          <p className="font-semibold">Permissões por Função e Departamento</p>
           <p className="text-muted-foreground">
-            Selecione uma <strong>função</strong> no menu abaixo e depois escolha quais páginas essa função pode acessar em cada departamento.
+            Selecione a <strong>função</strong> e o <strong>departamento</strong>, depois escolha quais páginas podem ser acessadas. 
+            Uma mesma função em um departamento pode ter acesso a páginas de qualquer módulo.
           </p>
         </div>
       </Card>
@@ -240,7 +234,7 @@ export default function RoutePermissionsManager() {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <span className="text-sm font-medium whitespace-nowrap">Função:</span>
             <Select value={selectedRole} onValueChange={(val) => setSelectedRole(val as AppRole)}>
-              <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -254,9 +248,25 @@ export default function RoutePermissionsManager() {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-sm font-medium whitespace-nowrap">Departamento:</span>
+            <Select value={selectedDepartment} onValueChange={(val) => setSelectedDepartment(val as typeof DEPARTMENTS[number])}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DEPARTMENTS.map(dept => (
+                  <SelectItem key={dept} value={dept}>
+                    {DEPT_LABELS[dept]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Filter className="h-4 w-4" />
             <Select value={filterModule} onValueChange={setFilterModule}>
-              <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -290,49 +300,38 @@ export default function RoutePermissionsManager() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {DEPARTMENTS
-                  .filter(dept => MODULE_DEPARTMENT_MAP[module]?.includes(dept))
-                  .map(dept => (
-                  <div key={dept} className="space-y-3">
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <h4 className="font-semibold text-sm">{DEPT_LABELS[dept]}</h4>
+              <div className="grid gap-2">
+                {groupedRoutes[module].map(route => {
+                  const isAllowed = isPermissionAllowed(route.id, selectedDepartment, selectedRole);
+                  const isAdmin = selectedRole === 'admin';
+                  
+                  return (
+                    <div 
+                      key={route.id}
+                      className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
+                    >
+                      <Checkbox
+                        id={`${route.id}-${selectedDepartment}-${selectedRole}`}
+                        checked={isAllowed}
+                        disabled={isAdmin}
+                        onCheckedChange={(checked) => 
+                          handlePermissionChange(route.id, selectedDepartment, selectedRole, checked === true)
+                        }
+                        className="mt-1"
+                      />
+                      <label 
+                        htmlFor={`${route.id}-${selectedDepartment}-${selectedRole}`}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <div className="font-medium text-sm">{route.name}</div>
+                        <div className="text-xs text-muted-foreground">{route.path}</div>
+                        {route.description && (
+                          <div className="text-xs text-muted-foreground mt-1">{route.description}</div>
+                        )}
+                      </label>
                     </div>
-                    <div className="grid gap-2">
-                      {groupedRoutes[module].map(route => {
-                        const isAllowed = isPermissionAllowed(route.id, dept, selectedRole);
-                        const isAdmin = selectedRole === 'admin';
-                        
-                        return (
-                          <div 
-                            key={route.id}
-                            className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
-                          >
-                            <Checkbox
-                              id={`${route.id}-${dept}-${selectedRole}`}
-                              checked={isAllowed}
-                              disabled={isAdmin}
-                              onCheckedChange={(checked) => 
-                                handlePermissionChange(route.id, dept, selectedRole, checked === true)
-                              }
-                              className="mt-1"
-                            />
-                            <label 
-                              htmlFor={`${route.id}-${dept}-${selectedRole}`}
-                              className="flex-1 cursor-pointer"
-                            >
-                              <div className="font-medium text-sm">{route.name}</div>
-                              <div className="text-xs text-muted-foreground">{route.path}</div>
-                              {route.description && (
-                                <div className="text-xs text-muted-foreground mt-1">{route.description}</div>
-                              )}
-                            </label>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
