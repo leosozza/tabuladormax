@@ -103,7 +103,7 @@ export default function RoutePermissionsManager() {
   };
 
   const getPermissionKey = (routeId: string, dept: string, role: string): string => {
-    return `${routeId}-${dept}-${role}`;
+    return `${routeId}|${dept}|${role}`;
   };
 
   const isPermissionAllowed = (routeId: string, dept: string, role: string): boolean => {
@@ -137,7 +137,7 @@ export default function RoutePermissionsManager() {
       setSaving(true);
 
       for (const [key, allowed] of changes.entries()) {
-        const parts = key.split('-');
+        const parts = key.split('|');
         const routeId = parts[0];
         const dept = parts[1];
         const role = parts[2];
