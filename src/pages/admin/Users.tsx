@@ -1254,180 +1254,183 @@ export default function Users() {
 
         {/* Dialog: Criar Usuário */}
         <Dialog open={createUserDialogOpen} onOpenChange={setCreateUserDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>Criar Novo Usuário</DialogTitle>
               <DialogDescription>
                 Preencha os dados do novo usuário. Se não informar uma senha, será gerada automaticamente.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleCreateUser} className="space-y-4">
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newUserEmail}
-                  onChange={(e) => setNewUserEmail(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="name">Nome</Label>
-                <Input
-                  id="name"
-                  value={newUserName}
-                  onChange={(e) => setNewUserName(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="password">Senha (opcional)</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={newUserPassword}
-                  onChange={(e) => setNewUserPassword(e.target.value)}
-                  placeholder="Deixe vazio para gerar automaticamente"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Se deixar vazio, uma senha temporária será gerada automaticamente
-                </p>
-              </div>
-
-              <div>
-                <Label htmlFor="role">Função</Label>
-                <Select 
-                  value={newUserRole} 
-                  onValueChange={(v: any) => setNewUserRole(v)}
-                  disabled={currentUserRole === 'supervisor'}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currentUserRole === 'supervisor' ? (
-                      <SelectItem value="agent">Agent</SelectItem>
-                    ) : (
-                      <>
-                        {currentUserRole === 'admin' && <SelectItem value="admin">Admin</SelectItem>}
-                        {(currentUserRole === 'admin' || currentUserRole === 'manager') && <SelectItem value="manager">Manager</SelectItem>}
-                        <SelectItem value="supervisor">Supervisor</SelectItem>
-                        <SelectItem value="agent">Agent</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="department">Departamento</Label>
-                <Select 
-                  value={newUserDepartment} 
-                  onValueChange={(v: any) => setNewUserDepartment(v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="administrativo">Administrativo</SelectItem>
-                    <SelectItem value="analise">Análise</SelectItem>
-                    <SelectItem value="telemarketing">Telemarketing</SelectItem>
-                    <SelectItem value="scouters">Scouters</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Seleção de Projeto para SUPERVISOR e AGENT */}
-              {(newUserRole === 'supervisor' || newUserRole === 'agent') && (
+            
+            <div className="flex-1 overflow-y-auto pr-2">
+              <form id="create-user-form" onSubmit={handleCreateUser} className="space-y-4">
                 <div>
-                  <Label htmlFor="project">
-                    Projeto Comercial (Bitrix)
-                  </Label>
-                  <Select value={newUserProject} onValueChange={setNewUserProject}>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="name">Nome</Label>
+                  <Input
+                    id="name"
+                    value={newUserName}
+                    onChange={(e) => setNewUserName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="password">Senha (opcional)</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    placeholder="Deixe vazio para gerar automaticamente"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Se deixar vazio, uma senha temporária será gerada automaticamente
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="role">Função</Label>
+                  <Select 
+                    value={newUserRole} 
+                    onValueChange={(v: any) => setNewUserRole(v)}
+                    disabled={currentUserRole === 'supervisor'}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione o projeto" />
+                      <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-card">
-                      {projects.map(p => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                      ))}
+                    <SelectContent>
+                      {currentUserRole === 'supervisor' ? (
+                        <SelectItem value="agent">Agent</SelectItem>
+                      ) : (
+                        <>
+                          {currentUserRole === 'admin' && <SelectItem value="admin">Admin</SelectItem>}
+                          {(currentUserRole === 'admin' || currentUserRole === 'manager') && <SelectItem value="manager">Manager</SelectItem>}
+                          <SelectItem value="supervisor">Supervisor</SelectItem>
+                          <SelectItem value="agent">Agent</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
-              )}
 
-              {/* Seleção de Supervisor e Operador apenas para AGENT */}
-              {newUserRole === 'agent' && (
-                <>
-                  {/* Seleção de Supervisor (apenas para Admin) */}
-                  {currentUserRole === 'admin' && (
-                    <div>
-                      <Label htmlFor="supervisor">
-                        Supervisor
-                      </Label>
-                      <Select 
-                        value={newUserSupervisor} 
-                        onValueChange={setNewUserSupervisor}
-                        disabled={!newUserProject || supervisors.length === 0}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={
-                            !newUserProject 
-                              ? "Selecione primeiro um projeto" 
-                              : supervisors.length === 0 
-                              ? "Nenhum supervisor neste projeto" 
-                              : "Selecione o supervisor"
-                          } />
-                        </SelectTrigger>
-                        <SelectContent className="bg-card">
-                          {supervisors.map(s => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.display_name || s.email}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  
-                  {/* Info para Supervisor criando Agent */}
-                  {currentUserRole === 'supervisor' && (
-                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded">
-                      ℹ️ O agente será automaticamente vinculado a você como supervisor
-                    </div>
-                  )}
+                <div>
+                  <Label htmlFor="department">Departamento</Label>
+                  <Select 
+                    value={newUserDepartment} 
+                    onValueChange={(v: any) => setNewUserDepartment(v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="administrativo">Administrativo</SelectItem>
+                      <SelectItem value="analise">Análise</SelectItem>
+                      <SelectItem value="telemarketing">Telemarketing</SelectItem>
+                      <SelectItem value="scouters">Scouters</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
+                {/* Seleção de Projeto para SUPERVISOR e AGENT */}
+                {(newUserRole === 'supervisor' || newUserRole === 'agent') && (
                   <div>
-                    <Label htmlFor="telemarketing">
-                      Operador Bitrix
+                    <Label htmlFor="project">
+                      Projeto Comercial (Bitrix)
                     </Label>
-                    <TelemarketingSelector
-                      value={newUserTelemarketing}
-                      onChange={handleTelemarketingChange}
-                      disabled={creatingUser}
-                    />
-                    {newUserTelemarketing && newUserTelemarketing !== -1 && newUserTelemarketingName && (
-                      <div className="mt-2 p-3 bg-green-50 border border-green-300 rounded-md">
-                        <p className="text-sm font-bold text-green-800 flex items-center gap-2">
-                          <span className="text-lg">✓</span>
-                          Operador selecionado: {newUserTelemarketingName}
-                        </p>
+                    <Select value={newUserProject} onValueChange={setNewUserProject}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o projeto" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card">
+                        {projects.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Seleção de Supervisor e Operador apenas para AGENT */}
+                {newUserRole === 'agent' && (
+                  <>
+                    {/* Seleção de Supervisor (apenas para Admin) */}
+                    {currentUserRole === 'admin' && (
+                      <div>
+                        <Label htmlFor="supervisor">
+                          Supervisor
+                        </Label>
+                        <Select 
+                          value={newUserSupervisor} 
+                          onValueChange={setNewUserSupervisor}
+                          disabled={!newUserProject || supervisors.length === 0}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={
+                              !newUserProject 
+                                ? "Selecione primeiro um projeto" 
+                                : supervisors.length === 0 
+                                ? "Nenhum supervisor neste projeto" 
+                                : "Selecione o supervisor"
+                            } />
+                          </SelectTrigger>
+                          <SelectContent className="bg-card">
+                            {supervisors.map(s => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {s.display_name || s.email}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     )}
-                  </div>
-                </>
-              )}
+                    
+                    {/* Info para Supervisor criando Agent */}
+                    {currentUserRole === 'supervisor' && (
+                      <div className="text-sm text-muted-foreground bg-muted p-3 rounded">
+                        ℹ️ O agente será automaticamente vinculado a você como supervisor
+                      </div>
+                    )}
 
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setCreateUserDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={creatingUser}>
-                  {creatingUser ? 'Criando...' : 'Criar Usuário'}
-                </Button>
-              </div>
-            </form>
+                    <div>
+                      <Label htmlFor="telemarketing">
+                        Operador Bitrix
+                      </Label>
+                      <TelemarketingSelector
+                        value={newUserTelemarketing}
+                        onChange={handleTelemarketingChange}
+                        disabled={creatingUser}
+                      />
+                      {newUserTelemarketing && newUserTelemarketing !== -1 && newUserTelemarketingName && (
+                        <div className="mt-2 p-3 bg-green-50 border border-green-300 rounded-md">
+                          <p className="text-sm font-bold text-green-800 flex items-center gap-2">
+                            <span className="text-lg">✓</span>
+                            Operador selecionado: {newUserTelemarketingName}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </form>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t mt-4">
+              <Button type="button" variant="outline" onClick={() => setCreateUserDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" form="create-user-form" disabled={creatingUser}>
+                {creatingUser ? 'Criando...' : 'Criar Usuário'}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 
