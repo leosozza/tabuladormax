@@ -39,16 +39,18 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Verificar se é admin
+      // Verificar se é admin ou manager
       const { data: roleData } = await supabaseAdmin
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
         .single();
 
-      if (!roleData || roleData.role !== 'admin') {
+      console.log('[create-supervisor-user] User role:', roleData?.role);
+
+      if (!roleData || !['admin', 'manager'].includes(roleData.role)) {
         return new Response(
-          JSON.stringify({ error: 'Apenas administradores podem criar usuários' }),
+          JSON.stringify({ error: 'Apenas administradores e gerentes podem criar usuários' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
