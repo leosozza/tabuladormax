@@ -54,9 +54,26 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { email, password, displayName, role, department } = await req.json();
+    const { 
+      email, 
+      password, 
+      displayName, 
+      role, 
+      department,
+      projectId,
+      supervisorId,
+      telemarketingId,
+      telemarketingName,
+    } = await req.json();
 
-    console.log('[create-supervisor-user] Creating user:', { email, role, department });
+    console.log('[create-supervisor-user] Creating user:', { 
+      email, 
+      role, 
+      department, 
+      projectId, 
+      supervisorId, 
+      telemarketingId 
+    });
 
     // Criar usuário usando Admin API
     const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -64,7 +81,8 @@ Deno.serve(async (req) => {
       password,
       email_confirm: true,
       user_metadata: {
-        display_name: displayName || email.split('@')[0]
+        display_name: displayName || email.split('@')[0],
+        password_reset_required: true,
       }
     });
 
@@ -76,31 +94,75 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('[create-supervisor-user] User created:', userData.user.id);
+    const userId = userData.user.id;
+    console.log('[create-supervisor-user] User created:', userId);
 
     // Aguardar um pouco para o trigger executar
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // O trigger handle_new_user já criou profile e role, vamos atualizar
+    // Inserir/atualizar profile
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .upsert({
+        id: userId,
+        email: email,
+        display_name: displayName || email.split('@')[0],
+      });
+
+    if (profileError) {
+      console.error('[create-supervisor-user] Error updating profile:', profileError);
+    }
+
+    // Inserir/atualizar role
     const { error: roleError } = await supabaseAdmin
       .from('user_roles')
-      .update({ role })
-      .eq('user_id', userData.user.id);
+      .upsert({ 
+        user_id: userId, 
+        role: role || 'agent'
+      });
 
     if (roleError) {
       console.error('[create-supervisor-user] Error updating role:', roleError);
     }
 
-    // Atualizar ou inserir departamento
+    // Inserir/atualizar departamento
     const { error: deptError } = await supabaseAdmin
       .from('user_departments')
       .upsert({ 
-        user_id: userData.user.id, 
-        department: department || 'scouter'
+        user_id: userId, 
+        department: department || 'telemarketing'
       });
 
     if (deptError) {
       console.error('[create-supervisor-user] Error updating department:', deptError);
+    }
+
+    // Criar mapeamento de telemarketing se necessário
+    if ((role === 'supervisor' || role === 'agent') && projectId) {
+      const mappingData: any = {
+        tabuladormax_user_id: userId,
+        bitrix_telemarketing_id: telemarketingId || 0,
+        bitrix_telemarketing_name: telemarketingName || displayName || email.split('@')[0],
+        commercial_project_id: projectId,
+      };
+
+      // Se for agent, incluir supervisor_id
+      if (role === 'agent' && supervisorId) {
+        mappingData.supervisor_id = supervisorId;
+      } else {
+        // Se for supervisor, não tem supervisor
+        mappingData.supervisor_id = null;
+      }
+
+      const { error: mappingError } = await supabaseAdmin
+        .from('agent_telemarketing_mapping')
+        .insert(mappingData);
+
+      if (mappingError) {
+        console.error('[create-supervisor-user] Error creating telemarketing mapping:', mappingError);
+      } else {
+        console.log('[create-supervisor-user] Telemarketing mapping created');
+      }
     }
 
     console.log('[create-supervisor-user] User fully configured');
@@ -109,10 +171,10 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         user: {
-          id: userData.user.id,
+          id: userId,
           email: userData.user.email,
-          role,
-          department: department || 'scouter'
+          role: role || 'agent',
+          department: department || 'telemarketing'
         }
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
