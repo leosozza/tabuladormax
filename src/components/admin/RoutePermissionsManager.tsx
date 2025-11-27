@@ -49,6 +49,15 @@ const MODULE_COLORS: Record<string, string> = {
   admin: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
   tabulador: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
   gestao: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  discador: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
+};
+
+// Mapeamento: Módulo → Departamentos permitidos
+const MODULE_DEPARTMENT_MAP: Record<string, typeof DEPARTMENTS[number][]> = {
+  tabulador: ['telemarketing'],
+  discador: ['telemarketing'],
+  gestao: ['scouters'],
+  admin: ['administrativo'],
 };
 
 export default function RoutePermissionsManager() {
@@ -255,6 +264,7 @@ export default function RoutePermissionsManager() {
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="tabulador">Tabulador</SelectItem>
                 <SelectItem value="gestao">Gestão Scouter</SelectItem>
+                <SelectItem value="discador">Discador</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -281,7 +291,9 @@ export default function RoutePermissionsManager() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {DEPARTMENTS.map(dept => (
+                {DEPARTMENTS
+                  .filter(dept => MODULE_DEPARTMENT_MAP[module]?.includes(dept))
+                  .map(dept => (
                   <div key={dept} className="space-y-3">
                     <div className="flex items-center gap-2 pb-2 border-b">
                       <h4 className="font-semibold text-sm">{DEPT_LABELS[dept]}</h4>
