@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 export default function DiscadorConfig() {
-  const { config, saveConfig, isSaving, testConnection, isTesting, connectionLogs } = useSyscallConfig();
+  const { config, saveConfig, isSaving, testConnection, isTesting, testProxy, isTestingProxy, connectionLogs } = useSyscallConfig();
   const [apiToken, setApiToken] = useState(config?.api_token || "");
   const [apiUrl, setApiUrl] = useState(config?.api_url || "http://maxfama.syscall.com.br/crm");
   const [defaultRoute, setDefaultRoute] = useState(config?.default_route || "9");
@@ -23,12 +23,45 @@ export default function DiscadorConfig() {
     testConnection();
   };
 
+  const handleTestProxy = () => {
+    testProxy();
+  };
+
   return (
     <MainLayout
       title="Configuração do Syscall"
       subtitle="Configure a conexão com o discador"
     >
       <div className="space-y-6">
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Terminal className="h-5 w-5" />
+            Proxy Syscall
+          </CardTitle>
+          <CardDescription>
+            Servidor intermediário com IP fixo para conexão com Syscall
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 text-sm p-4 bg-muted rounded-lg">
+            <div>
+              <span className="text-muted-foreground">URL do Proxy:</span>
+              <div className="font-mono mt-1 font-semibold">https://syscall.ybrasil.com.br</div>
+            </div>
+            <div>
+              <span className="text-muted-foreground">IP Fixo:</span>
+              <div className="font-mono mt-1 text-orange-500 font-semibold">72.61.51.225</div>
+            </div>
+          </div>
+          
+          <Button variant="outline" onClick={handleTestProxy} disabled={isTestingProxy}>
+            {isTestingProxy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            🔍 Testar Proxy
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -103,8 +136,16 @@ export default function DiscadorConfig() {
                         : "bg-red-950/20 border-red-500 text-red-400"
                     )}
                   >
-                    <div className="text-slate-400 text-xs mb-1">
-                      {new Date(log.timestamp).toLocaleString('pt-BR')}
+                    <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[10px] font-bold",
+                        log.type === 'proxy' 
+                          ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                          : "bg-green-500/20 text-green-400 border border-green-500/30"
+                      )}>
+                        {log.type === 'proxy' ? 'PROXY' : 'SYSCALL'}
+                      </span>
+                      <span>{new Date(log.timestamp).toLocaleString('pt-BR')}</span>
                     </div>
                     {log.success ? (
                       <>
