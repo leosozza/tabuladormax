@@ -14,6 +14,7 @@ interface SyscallConfig {
 export interface ConnectionLog {
   timestamp: string;
   success: boolean;
+  type?: 'proxy' | 'syscall';
   url?: string;
   method?: string;
   duration_ms?: number;
@@ -84,6 +85,54 @@ export function useSyscallConfig() {
     },
   });
 
+  const testProxy = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke(
+        'syscall-integration',
+        {
+          body: { action: 'test_proxy' },
+        }
+      );
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      const logEntry: ConnectionLog = {
+        ...data.log,
+        type: 'proxy',
+        success: data.success,
+      };
+
+      setConnectionLogs(prev => [logEntry, ...prev.slice(0, 9)]);
+      
+      toast({
+        title: data.success ? 'Proxy OK' : 'Erro no Proxy',
+        description: data.success
+          ? `Proxy disponível em ${data.proxy_url} (IP: ${data.proxy_ip})`
+          : data.error,
+        variant: data.success ? 'default' : 'destructive',
+      });
+    },
+    onError: (error) => {
+      setConnectionLogs(prev => [
+        {
+          timestamp: new Date().toISOString(),
+          success: false,
+          type: 'proxy',
+          error: error.message,
+        },
+        ...prev.slice(0, 9)
+      ]);
+      
+      toast({
+        title: 'Erro no proxy',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const testConnection = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke(
@@ -100,19 +149,21 @@ export function useSyscallConfig() {
       const logEntry: ConnectionLog = data.log 
         ? {
             ...data.log,
+            type: 'syscall',
             success: data.success,
             suggestion: data.suggestion,
           }
         : {
             timestamp: new Date().toISOString(),
             success: data.success,
+            type: 'syscall',
             error: data.error,
             suggestion: data.suggestion,
           };
 
       setConnectionLogs(prev => [
         logEntry,
-        ...prev.slice(0, 9) // Manter últimos 10
+        ...prev.slice(0, 9)
       ]);
       
       toast({
@@ -128,6 +179,7 @@ export function useSyscallConfig() {
         {
           timestamp: new Date().toISOString(),
           success: false,
+          type: 'syscall',
           error: error.message,
         },
         ...prev.slice(0, 9)
@@ -149,6 +201,8 @@ export function useSyscallConfig() {
     isSaving: saveConfig.isPending,
     testConnection: testConnection.mutate,
     isTesting: testConnection.isPending,
+    testProxy: testProxy.mutate,
+    isTestingProxy: testProxy.isPending,
     connectionLogs,
   };
 }

@@ -57,6 +57,83 @@ Deno.serve(async (req) => {
 
     console.log('syscall-integration action:', action, params);
 
+    // Test proxy only (não precisa de config)
+    if (action === 'test_proxy') {
+      const proxyUrl = Deno.env.get('SYSCALL_PROXY_URL');
+      if (!proxyUrl) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'SYSCALL_PROXY_URL não configurado',
+          log: {
+            timestamp: new Date().toISOString(),
+            success: false,
+            error: 'Variável de ambiente SYSCALL_PROXY_URL não configurada',
+          }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const testStartTime = Date.now();
+      
+      try {
+        const healthResponse = await fetch(`${proxyUrl}/api/health`, {
+          signal: AbortSignal.timeout(10000)
+        });
+        
+        const healthData = await healthResponse.json();
+        const duration = Date.now() - testStartTime;
+        
+        return new Response(JSON.stringify({
+          success: healthResponse.ok,
+          proxy_url: proxyUrl,
+          proxy_ip: '72.61.51.225',
+          log: {
+            timestamp: new Date().toISOString(),
+            success: healthResponse.ok,
+            url: `${proxyUrl}/api/health`,
+            method: 'GET',
+            duration_ms: duration,
+            status_code: healthResponse.status,
+            response: healthData,
+            origin_ip: '72.61.51.225',
+          }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        const duration = Date.now() - testStartTime;
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        
+        let suggestion = '';
+        if (errorMessage.includes('timeout')) {
+          suggestion = 'Timeout ao conectar ao proxy. Verifique se o servidor está online e acessível.';
+        } else if (errorMessage.includes('network')) {
+          suggestion = 'Erro de rede. Verifique sua conexão de internet e configurações de firewall.';
+        }
+        
+        return new Response(JSON.stringify({
+          success: false,
+          error: errorMessage,
+          suggestion,
+          proxy_url: proxyUrl,
+          proxy_ip: '72.61.51.225',
+          log: {
+            timestamp: new Date().toISOString(),
+            success: false,
+            url: `${proxyUrl}/api/health`,
+            method: 'GET',
+            duration_ms: duration,
+            error: errorMessage,
+            suggestion,
+            origin_ip: '72.61.51.225',
+          }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
     // Buscar configuração
     const { data: config } = await supabase
       .from('syscall_config')
