@@ -209,6 +209,16 @@ interface LeadData {
   habilidades: string[];
   caracteristicas: string[];
 }
+// ========================================================================
+// HELPER FUNCTIONS
+// ========================================================================
+const normalizeEnumerationValue = (value: unknown): string | string[] => {
+  if (Array.isArray(value)) {
+    return value.map(v => String(v));
+  }
+  return String(value || '');
+};
+
 const PreCadastro = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -267,7 +277,7 @@ const PreCadastro = () => {
           const rawData = lead.raw as any || {};
           setLeadData({
             nomeResponsavel: lead.nome_responsavel_legal || "",
-            estadoCivil: rawData[BITRIX_LEAD_FIELD_MAPPING.estadoCivil] || "",
+            estadoCivil: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.estadoCivil]) as string,
             telefone: lead.celular || lead.telefone_casa || "",
             cidade: rawData[BITRIX_LEAD_FIELD_MAPPING.cidade] || "",
             estado: rawData[BITRIX_LEAD_FIELD_MAPPING.estado] || "",
@@ -276,12 +286,12 @@ const PreCadastro = () => {
             sexo: rawData[BITRIX_LEAD_FIELD_MAPPING.sexo] || "",
             altura: rawData[BITRIX_LEAD_FIELD_MAPPING.altura] || "",
             peso: rawData[BITRIX_LEAD_FIELD_MAPPING.peso] || "",
-            manequim: rawData[BITRIX_LEAD_FIELD_MAPPING.manequim] || "",
-            corPele: rawData[BITRIX_LEAD_FIELD_MAPPING.corPele] || "",
-            corCabelo: rawData[BITRIX_LEAD_FIELD_MAPPING.corCabelo] || "",
-            corOlhos: rawData[BITRIX_LEAD_FIELD_MAPPING.corOlhos] || "",
-            tipoCabelo: rawData[BITRIX_LEAD_FIELD_MAPPING.tipoCabelo] || "",
-            tamanhoSapato: rawData[BITRIX_LEAD_FIELD_MAPPING.tamanhoSapato] || "",
+            manequim: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.manequim]) as string,
+            corPele: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.corPele]) as string,
+            corCabelo: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.corCabelo]) as string,
+            corOlhos: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.corOlhos]) as string,
+            tipoCabelo: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.tipoCabelo]) as string,
+            tamanhoSapato: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.tamanhoSapato]) as string,
             instagram: rawData[BITRIX_LEAD_FIELD_MAPPING.instagram] || "",
             instagramSeguidores: rawData[BITRIX_LEAD_FIELD_MAPPING.instagramSeguidores] || "",
             facebook: rawData[BITRIX_LEAD_FIELD_MAPPING.facebook] || "",
@@ -290,10 +300,10 @@ const PreCadastro = () => {
             youtubeSeguidores: rawData[BITRIX_LEAD_FIELD_MAPPING.youtubeSeguidores] || "",
             tiktok: rawData[BITRIX_LEAD_FIELD_MAPPING.tiktok] || "",
             tiktokSeguidores: rawData[BITRIX_LEAD_FIELD_MAPPING.tiktokSeguidores] || "",
-            tiposModelo: rawData[BITRIX_LEAD_FIELD_MAPPING.tipoModelo] || [],
-            cursos: rawData[BITRIX_LEAD_FIELD_MAPPING.cursos] || [],
-            habilidades: rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades] || [],
-            caracteristicas: rawData[BITRIX_LEAD_FIELD_MAPPING.caracteristicas] || []
+            tiposModelo: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.tipoModelo]) as string[],
+            cursos: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.cursos]) as string[],
+            habilidades: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades]) as string[],
+            caracteristicas: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.caracteristicas]) as string[]
           });
           const photoUrls: string[] = [];
           if (lead.photo_url) photoUrls.push(getLeadPhotoUrl(lead.photo_url));
