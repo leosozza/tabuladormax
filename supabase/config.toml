@@ -1,5 +1,8 @@
 project_id = "jstsrgyxrrlklnzgsihd"
 
+[functions.get-location]
+verify_jwt = false
+
 [functions.scouter-location-webhook]
 verify_jwt = false
 
