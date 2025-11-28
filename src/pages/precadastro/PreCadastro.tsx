@@ -221,14 +221,32 @@ const normalizeEnumerationValue = (value: unknown): string | string[] => {
   return String(value || '');
 };
 
-// Converte qualquer imagem para JPEG antes do upload
+// Converte qualquer imagem para JPEG antes do upload com otimização de resolução
 const convertImageToJpeg = async (file: File | Blob): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
+      // Definir resolução máxima para acelerar upload
+      const MAX_DIMENSION = 1920;
+      
+      let width = img.naturalWidth;
+      let height = img.naturalHeight;
+      
+      // Redimensionar proporcionalmente se necessário
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        if (width > height) {
+          height = Math.round((height * MAX_DIMENSION) / width);
+          width = MAX_DIMENSION;
+        } else {
+          width = Math.round((width * MAX_DIMENSION) / height);
+          height = MAX_DIMENSION;
+        }
+        console.log(`[convertImageToJpeg] Redimensionando de ${img.naturalWidth}x${img.naturalHeight} para ${width}x${height}`);
+      }
+      
       const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+      canvas.width = width;
+      canvas.height = height;
       
       const ctx = canvas.getContext('2d');
       if (!ctx) {
@@ -236,17 +254,21 @@ const convertImageToJpeg = async (file: File | Blob): Promise<Blob> => {
         return;
       }
       
-      // Desenhar imagem no canvas (converte qualquer formato)
-      ctx.drawImage(img, 0, 0);
+      // Desenhar imagem redimensionada no canvas
+      ctx.drawImage(img, 0, 0, width, height);
       
-      // Converter para JPEG blob
+      // Converter para JPEG blob com qualidade 85%
       canvas.toBlob(
         (blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Falha ao converter imagem'));
+          if (blob) {
+            console.log(`[convertImageToJpeg] Tamanho final: ${(blob.size / 1024).toFixed(1)}KB`);
+            resolve(blob);
+          } else {
+            reject(new Error('Falha ao converter imagem'));
+          }
         },
         'image/jpeg',
-        0.85 // Qualidade 85%
+        0.85
       );
     };
     
