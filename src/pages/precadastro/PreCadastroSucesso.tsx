@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Instagram } from "lucide-react";
 const PreCadastroSucesso = () => {
   const navigate = useNavigate();
   useEffect(() => {
@@ -36,8 +36,12 @@ const PreCadastroSucesso = () => {
             Esta página será fechada automaticamente em alguns segundos.
           </p>
 
-          <Button onClick={() => window.close()} className="w-full">
-            Fechar Página
+          <Button 
+            onClick={() => window.open('https://www.instagram.com/maxfama_oficial', '_blank', 'noopener,noreferrer')} 
+            className="w-full gap-2"
+          >
+            <Instagram className="w-5 h-5" />
+            Acesse nosso instagram
           </Button>
         </CardContent>
       </Card>
