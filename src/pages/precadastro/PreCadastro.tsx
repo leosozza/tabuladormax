@@ -499,14 +499,20 @@ const PreCadastro = () => {
     try {
       setSaving(true);
       
-      // Converter foto principal para base64 (se houver)
-      let fotoBase64Data = null;
-      if (images[0] && !images[0].includes('no-photo-placeholder')) {
-        const base64Result = await urlToBase64(images[0]);
-        if (base64Result) {
-          fotoBase64Data = { fileData: [base64Result.filename, base64Result.base64] };
+      // Converter TODAS as fotos para base64 (não apenas a primeira)
+      const fotosBase64 = [];
+      for (const imageUrl of images) {
+        if (imageUrl && !imageUrl.includes('no-photo-placeholder')) {
+          const base64Result = await urlToBase64(imageUrl);
+          if (base64Result) {
+            fotosBase64.push({ fileData: [base64Result.filename, base64Result.base64] });
+          }
         }
       }
+      
+      // Primeira foto como principal, demais como adicionais
+      const fotoBase64Data = fotosBase64[0] || null;
+      const fotosAdicionaisBase64 = fotosBase64.slice(1);
       
       const rawData = {
         [BITRIX_LEAD_FIELD_MAPPING.estadoCivil]: leadData.estadoCivil,
@@ -533,7 +539,9 @@ const PreCadastro = () => {
         [BITRIX_LEAD_FIELD_MAPPING.tiktok]: leadData.tiktok,
         [BITRIX_LEAD_FIELD_MAPPING.tiktokSeguidores]: leadData.tiktokSeguidores,
         additional_photos: images.slice(1),
-        additional_phones: additionalPhones.filter(p => p.trim() !== '')
+        additional_phones: additionalPhones.filter(p => p.trim() !== ''),
+        // Fotos adicionais em base64 para Bitrix
+        additional_photos_base64: fotosAdicionaisBase64
       };
 
       if (leadId) {
@@ -544,6 +552,7 @@ const PreCadastro = () => {
           nome_responsavel_legal: leadData.nomeResponsavel,
           celular: leadData.telefone,
           photo_url: images[0] || null,
+          additional_photos: images.slice(1),
           updated_at: new Date().toISOString(),
           raw: rawData
         };
@@ -598,6 +607,7 @@ const PreCadastro = () => {
           nome_responsavel_legal: leadData.nomeResponsavel,
           celular: leadData.telefone,
           photo_url: images[0] || null,
+          additional_photos: images.slice(1),
           criado: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           sync_source: 'manual',
