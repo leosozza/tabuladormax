@@ -42,10 +42,10 @@ serve(async (req) => {
       throw new Error('Formato de webhook inválido');
     }
 
-    const [, bitrixDomain, , bitrixToken] = webhookMatch;
+    const [, bitrixDomain, bitrixUserId, bitrixToken] = webhookMatch;
 
     // Buscar lead do Bitrix
-    const bitrixUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.lead.get?ID=${leadId}`;
+    const bitrixUrl = `https://${bitrixDomain}/rest/${bitrixUserId}/${bitrixToken}/crm.lead.get?ID=${leadId}`;
     console.log(`[bitrix-get-lead] URL: ${bitrixUrl}`);
 
     const response = await fetch(bitrixUrl);
