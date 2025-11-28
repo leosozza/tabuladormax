@@ -90,11 +90,13 @@ const PreCadastro = () => {
   });
   useEffect(() => {
     const loadLeadData = async () => {
+      // Se não tem leadId, iniciar novo cadastro vazio
       if (!leadId) {
-        toast.error("ID do lead não fornecido");
+        setImages([getLeadPhotoUrl(null)]);
         setLoading(false);
         return;
       }
+      
       try {
         const {
           data: lead,
@@ -180,7 +182,8 @@ const PreCadastro = () => {
         }
       }
     };
-    if (!loading && leadData.nomeModelo) {
+    // Detectar localização após carregar (ou para novo cadastro)
+    if (!loading) {
       detectLocation();
     }
   }, [loading, leadData.nomeModelo]);
@@ -198,7 +201,8 @@ const PreCadastro = () => {
         try {
           const fileExt = file.name.split('.').pop();
           const fileName = `${Date.now()}.${fileExt}`;
-          const filePath = `${leadId}/${fileName}`;
+          const tempId = leadId || `temp_${Date.now()}`;
+          const filePath = `${tempId}/${fileName}`;
           const {
             error
           } = await supabase.storage.from('lead-photos').upload(filePath, file);
@@ -226,7 +230,8 @@ const PreCadastro = () => {
       if (file) {
         try {
           const fileExt = file.name.split('.').pop();
-          const filePath = `${leadId}/${Date.now()}.${fileExt}`;
+          const tempId = leadId || `temp_${Date.now()}`;
+          const filePath = `${tempId}/${Date.now()}.${fileExt}`;
           const {
             error
           } = await supabase.storage.from('lead-photos').upload(filePath, file);
@@ -248,13 +253,15 @@ const PreCadastro = () => {
     input.click();
   };
   const handleRemovePhoto = (index: number) => {
-    if (images.length <= 1) {
+    // Para leads existentes, exigir pelo menos 1 foto
+    // Para novos cadastros, permitir remover todas
+    if (leadId && images.length <= 1) {
       toast.error("Você precisa ter pelo menos uma foto!");
       return;
     }
     const newImages = images.filter((_, i) => i !== index);
-    setImages(newImages);
-    if (activeImageIndex >= newImages.length) setActiveImageIndex(newImages.length - 1);
+    setImages(newImages.length > 0 ? newImages : [getLeadPhotoUrl(null)]);
+    if (activeImageIndex >= newImages.length) setActiveImageIndex(Math.max(0, newImages.length - 1));
     toast.success("Foto removida!");
   };
   const handleFieldChange = (field: keyof LeadData, value: any) => {
@@ -274,69 +281,113 @@ const PreCadastro = () => {
     }
     try {
       setSaving(true);
-      const updateData = {
-        nome_modelo: leadData.nomeModelo,
-        name: leadData.nomeModelo,
-        nome_responsavel_legal: leadData.nomeResponsavel,
-        celular: leadData.telefone,
-        photo_url: images[0] || null,
-        updated_at: new Date().toISOString(),
-        raw: {
-          UF_CRM_ESTADO_CIVIL: leadData.estadoCivil,
-          UF_CRM_CIDADE: leadData.cidade,
-          UF_CRM_ESTADO: leadData.estado,
-          UF_CRM_DATA_NASCIMENTO: leadData.dataNascimento,
-          UF_CRM_SEXO: leadData.sexo,
-          UF_CRM_ALTURA: leadData.altura,
-          UF_CRM_PESO: leadData.peso,
-          UF_CRM_BUSTO: leadData.busto,
-          UF_CRM_CINTURA: leadData.cintura,
-          UF_CRM_QUADRIL: leadData.quadril,
-          UF_CRM_COR_PELE: leadData.corPele,
-          UF_CRM_COR_CABELO: leadData.corCabelo,
-          UF_CRM_COR_OLHOS: leadData.corOlhos,
-          UF_CRM_TIPO_CABELO: leadData.tipoCabelo,
-          UF_CRM_TAMANHO_CAMISA: leadData.tamanhoCamisa,
-          UF_CRM_TAMANHO_CALCA: leadData.tamanhoCalca,
-          UF_CRM_TAMANHO_SAPATO: leadData.tamanhoSapato,
-          UF_CRM_INSTAGRAM: leadData.instagram,
-          UF_CRM_INSTAGRAM_SEGUIDORES: leadData.instagramSeguidores,
-          UF_CRM_FACEBOOK: leadData.facebook,
-          UF_CRM_FACEBOOK_SEGUIDORES: leadData.facebookSeguidores,
-          UF_CRM_YOUTUBE: leadData.youtube,
-          UF_CRM_YOUTUBE_SEGUIDORES: leadData.youtubeSeguidores,
-          UF_CRM_TIKTOK: leadData.tiktok,
-          UF_CRM_TIKTOK_SEGUIDORES: leadData.tiktokSeguidores,
-          UF_CRM_TIPOS_MODELO: leadData.tiposModelo,
-          UF_CRM_CURSOS: leadData.cursos,
-          UF_CRM_HABILIDADES: leadData.habilidades,
-          UF_CRM_CARACTERISTICAS: leadData.caracteristicas,
-          additional_photos: images.slice(1)
-        }
+      
+      const rawData = {
+        UF_CRM_ESTADO_CIVIL: leadData.estadoCivil,
+        UF_CRM_CIDADE: leadData.cidade,
+        UF_CRM_ESTADO: leadData.estado,
+        UF_CRM_DATA_NASCIMENTO: leadData.dataNascimento,
+        UF_CRM_SEXO: leadData.sexo,
+        UF_CRM_ALTURA: leadData.altura,
+        UF_CRM_PESO: leadData.peso,
+        UF_CRM_BUSTO: leadData.busto,
+        UF_CRM_CINTURA: leadData.cintura,
+        UF_CRM_QUADRIL: leadData.quadril,
+        UF_CRM_COR_PELE: leadData.corPele,
+        UF_CRM_COR_CABELO: leadData.corCabelo,
+        UF_CRM_COR_OLHOS: leadData.corOlhos,
+        UF_CRM_TIPO_CABELO: leadData.tipoCabelo,
+        UF_CRM_TAMANHO_CAMISA: leadData.tamanhoCamisa,
+        UF_CRM_TAMANHO_CALCA: leadData.tamanhoCalca,
+        UF_CRM_TAMANHO_SAPATO: leadData.tamanhoSapato,
+        UF_CRM_INSTAGRAM: leadData.instagram,
+        UF_CRM_INSTAGRAM_SEGUIDORES: leadData.instagramSeguidores,
+        UF_CRM_FACEBOOK: leadData.facebook,
+        UF_CRM_FACEBOOK_SEGUIDORES: leadData.facebookSeguidores,
+        UF_CRM_YOUTUBE: leadData.youtube,
+        UF_CRM_YOUTUBE_SEGUIDORES: leadData.youtubeSeguidores,
+        UF_CRM_TIKTOK: leadData.tiktok,
+        UF_CRM_TIKTOK_SEGUIDORES: leadData.tiktokSeguidores,
+        UF_CRM_TIPOS_MODELO: leadData.tiposModelo,
+        UF_CRM_CURSOS: leadData.cursos,
+        UF_CRM_HABILIDADES: leadData.habilidades,
+        UF_CRM_CARACTERISTICAS: leadData.caracteristicas,
+        additional_photos: images.slice(1)
       };
-      const {
-        error: supabaseError
-      } = await supabase.from('leads').update(updateData).eq('id', parseInt(leadId!));
-      if (supabaseError) throw supabaseError;
-      try {
-        await supabase.functions.invoke('bitrix-entity-update', {
-          body: {
-            entityType: 'lead',
-            entityId: leadId,
-            fields: {
-              NAME: leadData.nomeModelo,
-              PHONE: [{
-                VALUE: leadData.telefone,
-                VALUE_TYPE: "MOBILE"
-              }],
-              ...updateData.raw
+
+      if (leadId) {
+        // UPDATE: Lead existente
+        const updateData = {
+          nome_modelo: leadData.nomeModelo,
+          name: leadData.nomeModelo,
+          nome_responsavel_legal: leadData.nomeResponsavel,
+          celular: leadData.telefone,
+          photo_url: images[0] || null,
+          updated_at: new Date().toISOString(),
+          raw: rawData
+        };
+        
+        const { error: supabaseError } = await supabase
+          .from('leads')
+          .update(updateData)
+          .eq('id', parseInt(leadId));
+        
+        if (supabaseError) throw supabaseError;
+        
+        try {
+          await supabase.functions.invoke('bitrix-entity-update', {
+            body: {
+              entityType: 'lead',
+              entityId: leadId,
+              fields: {
+                NAME: leadData.nomeModelo,
+                PHONE: [{
+                  VALUE: leadData.telefone,
+                  VALUE_TYPE: "MOBILE"
+                }],
+                ...rawData
+              }
             }
-          }
-        });
-      } catch (bitrixError) {
-        console.error('Erro Bitrix:', bitrixError);
+          });
+        } catch (bitrixError) {
+          console.error('Erro Bitrix:', bitrixError);
+        }
+        
+        toast.success("Cadastro atualizado com sucesso!");
+      } else {
+        // INSERT: Novo lead
+        // Gerar novo ID
+        const { data: maxIdResult } = await supabase
+          .from('leads')
+          .select('id')
+          .order('id', { ascending: false })
+          .limit(1)
+          .single();
+        
+        const newId = (maxIdResult?.id || 0) + 1;
+        
+        const insertData = {
+          id: newId,
+          nome_modelo: leadData.nomeModelo,
+          name: leadData.nomeModelo,
+          nome_responsavel_legal: leadData.nomeResponsavel,
+          celular: leadData.telefone,
+          photo_url: images[0] || null,
+          criado: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          sync_source: 'manual',
+          raw: rawData
+        };
+        
+        const { error: insertError } = await supabase
+          .from('leads')
+          .insert(insertData);
+        
+        if (insertError) throw insertError;
+        
+        toast.success("Novo cadastro criado com sucesso!");
       }
-      toast.success("Cadastro atualizado com sucesso!");
+      
       navigate('/precadastro/sucesso');
     } catch (error: any) {
       toast.error("Erro ao salvar: " + error.message);
@@ -347,15 +398,6 @@ const PreCadastro = () => {
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>;
-  }
-  if (!leadId) {
-    return <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md">
-          <CardContent className="pt-6 text-center">
-            <p className="text-destructive">ID do lead não fornecido</p>
-          </CardContent>
-        </Card>
       </div>;
   }
   return <div className="min-h-screen bg-background">
