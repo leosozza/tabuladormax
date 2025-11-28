@@ -781,7 +781,7 @@ const PreCadastro = () => {
                     entityId: leadId,
                     fields: {
                       [BITRIX_LEAD_FIELD_MAPPING.fotoIds]: photoIds.join(','),
-                      [BITRIX_LEAD_FIELD_MAPPING.clienteAtualizaFoto]: currentCount + 1
+                      [BITRIX_LEAD_FIELD_MAPPING.clienteAtualizaFoto]: String(currentCount + 1)
                     }
                   }
                 });
