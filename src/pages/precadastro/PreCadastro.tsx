@@ -417,23 +417,39 @@ const PreCadastro = () => {
     }
   }, [loading, leadData.nomeModelo]);
   const handleAddPhoto = () => {
-    if (images.length >= 10) {
+    // Verificar quantas fotos ainda podem ser adicionadas
+    const remainingSlots = 10 - images.length;
+    if (remainingSlots <= 0) {
       toast.error("Máximo de 10 fotos");
       return;
     }
+    
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
+    input.multiple = true; // Permitir múltiplas seleções
+    
     input.onchange = async e => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        try {
-          setLoading(true);
-          
+      const files = (e.target as HTMLInputElement).files;
+      if (!files || files.length === 0) return;
+      
+      // Limitar ao número de slots disponíveis
+      const filesToProcess = Array.from(files).slice(0, remainingSlots);
+      
+      if (files.length > remainingSlots) {
+        toast.warning(`Apenas ${remainingSlots} fotos foram adicionadas (limite de 10)`);
+      }
+      
+      try {
+        setLoading(true);
+        const newImageUrls: string[] = [];
+        
+        // Processar todas as imagens selecionadas
+        for (const file of filesToProcess) {
           // Converter para JPEG antes de fazer upload
           const jpegBlob = await convertImageToJpeg(file);
           
-          const fileName = `${Date.now()}.jpg`;
+          const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
           const tempId = leadId || `temp_${Date.now()}`;
           const filePath = `${tempId}/${fileName}`;
           
@@ -443,7 +459,10 @@ const PreCadastro = () => {
             contentType: 'image/jpeg'
           });
           
-          if (error) throw error;
+          if (error) {
+            console.error('Erro no upload:', error);
+            continue; // Continuar com as próximas imagens
+          }
           
           const {
             data: {
@@ -451,16 +470,27 @@ const PreCadastro = () => {
             }
           } = supabase.storage.from('lead-photos').getPublicUrl(filePath);
           
-          setImages([...images, publicUrl]);
-          toast.success("Foto adicionada!");
-        } catch (error: any) {
-          console.error('Error uploading photo:', error);
-          toast.error("Erro ao fazer upload");
-        } finally {
-          setLoading(false);
+          newImageUrls.push(publicUrl);
         }
+        
+        if (newImageUrls.length > 0) {
+          // Adicionar todas as novas URLs ao array de imagens
+          setImages(prevImages => {
+            // Remover placeholder se existir
+            const filteredImages = prevImages.filter(img => !img.includes('no-photo-placeholder'));
+            return [...filteredImages, ...newImageUrls];
+          });
+          
+          toast.success(`${newImageUrls.length} foto(s) adicionada(s)!`);
+        }
+      } catch (error: any) {
+        console.error('Error uploading photos:', error);
+        toast.error("Erro ao fazer upload das fotos");
+      } finally {
+        setLoading(false);
       }
     };
+    
     input.click();
   };
   const handleReplacePhoto = (index: number) => {
