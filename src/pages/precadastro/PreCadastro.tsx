@@ -771,23 +771,28 @@ const PreCadastro = () => {
               // Buscar contador atual
               const currentCount = parseInt(leadDataBitrix.result.UF_CRM_CLIENTEATUALIZAFOTO || '0');
 
+              // Montar os campos a atualizar
+              const fieldsToUpdate: Record<string, string> = {
+                // SEMPRE incrementar o contador quando o cliente salvar
+                [BITRIX_LEAD_FIELD_MAPPING.clienteAtualizaFoto]: String(currentCount + 1)
+              };
+
+              // Adicionar IDs das fotos apenas se houver
               if (photoIds.length > 0) {
-                console.log(`Atualizando campo de IDs com ${photoIds.length} fotos`);
-                
-                // Atualizar campos específicos: IDs das fotos e contador
-                await supabase.functions.invoke('bitrix-entity-update', {
-                  body: {
-                    entityType: 'lead',
-                    entityId: leadId,
-                    fields: {
-                      [BITRIX_LEAD_FIELD_MAPPING.fotoIds]: photoIds.join(','),
-                      [BITRIX_LEAD_FIELD_MAPPING.clienteAtualizaFoto]: String(currentCount + 1)
-                    }
-                  }
-                });
-                
-                console.log(`IDs das fotos salvos: ${photoIds.join(',')}. Contador: ${currentCount + 1}`);
+                fieldsToUpdate[BITRIX_LEAD_FIELD_MAPPING.fotoIds] = photoIds.join(',');
+                console.log(`Atualizando campo de IDs com ${photoIds.length} fotos:`, photoIds);
               }
+
+              // Enviar atualização (sempre, para incrementar contador)
+              await supabase.functions.invoke('bitrix-entity-update', {
+                body: {
+                  entityType: 'lead',
+                  entityId: leadId,
+                  fields: fieldsToUpdate
+                }
+              });
+
+              console.log(`Contador atualizado para: ${currentCount + 1}. IDs das fotos: ${photoIds.length > 0 ? photoIds.join(',') : 'nenhum'}`);
             }
           } catch (photoUpdateError) {
             console.error('Erro ao atualizar IDs das fotos:', photoUpdateError);
