@@ -472,7 +472,7 @@ const PreCadastro = () => {
             </FormSection>
 
             <div className="flex justify-end pt-4">
-              <Button onClick={handleSave} size="lg" disabled={saving}>
+              <Button onClick={handleSave} size="lg" disabled={saving} className="bg-pink-500 hover:bg-pink-400">
                 {saving ? <><Loader2 className="h-5 w-5 animate-spin mr-2" />Salvando...</> : <><Save className="h-5 w-5 mr-2" />Salvar Alterações</>}
               </Button>
             </div>
