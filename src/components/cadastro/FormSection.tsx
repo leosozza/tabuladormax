@@ -49,10 +49,10 @@ export const FormSection: React.FC<FormSectionProps> = ({
         <CollapsibleTrigger asChild>
           <CardHeader className="pb-4 cursor-pointer hover:bg-muted/50 transition-colors">
             <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-              <span className="text-pink-500">{icon}</span>
+              <span className="text-primary">{icon}</span>
               {title}
               <ChevronDown 
-                className={`ml-auto h-5 w-5 text-pink-500 transition-transform duration-200 ${
+                className={`ml-auto h-5 w-5 text-primary transition-transform duration-200 ${
                   isOpen ? 'rotate-180' : ''
                 }`}
               />
