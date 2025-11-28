@@ -153,6 +153,36 @@ const PreCadastro = () => {
     };
     loadLeadData();
   }, [leadId]);
+
+  // Auto-detect location if empty
+  useEffect(() => {
+    const detectLocation = async () => {
+      if (!leadData.cidade && !leadData.estado) {
+        try {
+          const { data, error } = await supabase.functions.invoke('get-location');
+          
+          if (error) throw error;
+          
+          if (data?.success && data.cidade && data.estado) {
+            console.log('Location detected:', data);
+            setLeadData(prev => ({
+              ...prev,
+              cidade: data.cidade,
+              estado: data.estado
+            }));
+            toast.success(`Localização detectada: ${data.cidade}, ${data.estado}`);
+          }
+        } catch (error) {
+          console.error('Failed to detect location:', error);
+          // Silently fail - location detection is optional
+        }
+      }
+    };
+
+    if (!loading && leadData.nomeModelo) {
+      detectLocation();
+    }
+  }, [loading, leadData.nomeModelo]);
   const handleAddPhoto = () => {
     if (images.length >= 10) {
       toast.error("Máximo de 10 fotos");
@@ -369,7 +399,7 @@ Complete suas informações</p>
               </CardContent>
             </Card>
 
-            <FormSection title="Dados Cadastrais" icon={<User />}>
+            <FormSection title="Dados Cadastrais" icon={<User className="h-5 w-5" />} defaultOpen={true}>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField id="nomeResponsavel" label="Nome do Responsável" value={leadData.nomeResponsavel} onChange={v => handleFieldChange("nomeResponsavel", v)} required />
@@ -389,7 +419,7 @@ Complete suas informações</p>
               </div>
             </FormSection>
 
-            <FormSection title="Dados do Modelo" icon={<Ruler />}>
+            <FormSection title="Dados do Modelo" icon={<Ruler className="h-5 w-5" />} defaultOpen={false}>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField id="nomeModelo" label="Nome Completo" value={leadData.nomeModelo} onChange={v => handleFieldChange("nomeModelo", v)} required />
@@ -417,7 +447,7 @@ Complete suas informações</p>
               </div>
             </FormSection>
 
-            <FormSection title="Redes Sociais" icon={<InstagramIcon />}>
+            <FormSection title="Redes Sociais" icon={<InstagramIcon className="h-5 w-5" />} defaultOpen={false}>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField id="instagram" label="Instagram" value={leadData.instagram} onChange={v => handleFieldChange("instagram", v)} placeholder="@usuario" />
@@ -432,7 +462,7 @@ Complete suas informações</p>
               </div>
             </FormSection>
 
-            <FormSection title="Habilidades e Experiência" icon={<Sparkles />}>
+            <FormSection title="Habilidades e Experiência" icon={<Sparkles className="h-5 w-5" />} defaultOpen={false}>
               <div className="space-y-4">
                 <MultiSelect id="tiposModelo" label="Tipos de Modelo" value={leadData.tiposModelo} onChange={v => handleFieldChange("tiposModelo", v)} options={tipoModelo} />
                 <MultiSelect id="cursos" label="Cursos Realizados" value={leadData.cursos} onChange={v => handleFieldChange("cursos", v)} options={cursosOptions} />
