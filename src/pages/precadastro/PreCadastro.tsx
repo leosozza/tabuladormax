@@ -260,18 +260,34 @@ const urlToBase64 = async (url: string): Promise<{ filename: string; base64: str
     if (!url || url.includes('no-photo-placeholder')) {
       return null;
     }
-    
+
     const response = await fetch(url);
     if (!response.ok) return null;
-    
+
     const blob = await response.blob();
     const filename = `foto_${Date.now()}.jpg`;
-    
-    // Converter blob para base64
-    const arrayBuffer = await blob.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    const base64 = btoa(String.fromCharCode(...uint8Array));
-    
+
+    // Usar FileReader para evitar estouro de pilha com imagens grandes
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        const result = reader.result;
+        if (typeof result === 'string') {
+          const commaIndex = result.indexOf(',');
+          resolve(commaIndex >= 0 ? result.substring(commaIndex + 1) : result);
+        } else {
+          reject(new Error('Falha ao ler blob como Data URL'));
+        }
+      };
+
+      reader.onerror = () => {
+        reject(reader.error || new Error('Erro ao ler blob'));
+      };
+
+      reader.readAsDataURL(blob);
+    });
+
     return { filename, base64 };
   } catch (error) {
     console.error('Erro ao converter URL para base64:', error);
