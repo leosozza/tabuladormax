@@ -569,7 +569,6 @@ const PreCadastro = () => {
     }
   }, [pageLoading, leadData.nomeModelo]);
   const handleAddPhoto = () => {
-    // Verificar quantas fotos ainda podem ser adicionadas
     const remainingSlots = 10 - images.length;
     if (remainingSlots <= 0) {
       toast.error("Máximo de 10 fotos");
@@ -579,68 +578,83 @@ const PreCadastro = () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
-    input.multiple = true; // Permitir múltiplas seleções
+    input.multiple = true;
     
     input.onchange = async e => {
       const files = (e.target as HTMLInputElement).files;
       if (!files || files.length === 0) return;
       
-      // Limitar ao número de slots disponíveis
       const filesToProcess = Array.from(files).slice(0, remainingSlots);
       
       if (files.length > remainingSlots) {
         toast.warning(`Apenas ${remainingSlots} fotos foram adicionadas (limite de 10)`);
       }
       
-      try {
-        setIsUploadingPhotos(true);
-        const newImageUrls: string[] = [];
-        
-        // Processar todas as imagens selecionadas
-        for (const file of filesToProcess) {
-          // Converter para JPEG antes de fazer upload
-          const jpegBlob = await convertImageToJpeg(file);
-          
-          const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
-          const tempId = leadId || `temp_${Date.now()}`;
-          const filePath = `${tempId}/${fileName}`;
-          
-          const {
-            error
-          } = await supabase.storage.from('lead-photos').upload(filePath, jpegBlob, {
-            contentType: 'image/jpeg'
-          });
-          
-          if (error) {
-            console.error('Erro no upload:', error);
-            continue; // Continuar com as próximas imagens
-          }
-          
-          const {
-            data: {
-              publicUrl
-            }
-          } = supabase.storage.from('lead-photos').getPublicUrl(filePath);
-          
-          newImageUrls.push(publicUrl);
-        }
-        
-        if (newImageUrls.length > 0) {
-          // Adicionar todas as novas URLs ao array de imagens
-          setImages(prevImages => {
-            // Remover placeholder se existir
-            const filteredImages = prevImages.filter(img => !img.includes('no-photo-placeholder'));
-            return [...filteredImages, ...newImageUrls];
-          });
-          
-          toast.success(`${newImageUrls.length} foto(s) adicionada(s)!`);
-        }
-      } catch (error: any) {
-        console.error('Error uploading photos:', error);
-        toast.error("Erro ao fazer upload das fotos");
-      } finally {
-        setIsUploadingPhotos(false);
+      // Mostrar preview LOCAL imediatamente
+      const localPreviews: string[] = [];
+      for (const file of filesToProcess) {
+        const localUrl = URL.createObjectURL(file);
+        localPreviews.push(localUrl);
       }
+      
+      // Atualizar UI IMEDIATAMENTE com previews locais
+      setImages(prevImages => {
+        const filteredImages = prevImages.filter(img => !img.includes('no-photo-placeholder'));
+        return [...filteredImages, ...localPreviews];
+      });
+      
+      toast.info(`${filesToProcess.length} foto(s) sendo processada(s)...`);
+      
+      // Processar upload em background
+      setTimeout(async () => {
+        setIsUploadingPhotos(true);
+        const uploadedUrls: { localUrl: string; remoteUrl: string }[] = [];
+        
+        for (let i = 0; i < filesToProcess.length; i++) {
+          const file = filesToProcess[i];
+          const localUrl = localPreviews[i];
+          
+          try {
+            const jpegBlob = await convertImageToJpeg(file);
+            
+            const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+            const tempId = leadId || `temp_${Date.now()}`;
+            const filePath = `${tempId}/${fileName}`;
+            
+            const { error } = await supabase.storage
+              .from('lead-photos')
+              .upload(filePath, jpegBlob, { contentType: 'image/jpeg' });
+            
+            if (!error) {
+              const { data: { publicUrl } } = supabase.storage
+                .from('lead-photos')
+                .getPublicUrl(filePath);
+              
+              uploadedUrls.push({ localUrl, remoteUrl: publicUrl });
+            }
+          } catch (err) {
+            console.error('Erro no upload:', err);
+          }
+        }
+        
+        // Substituir previews locais por URLs remotas
+        if (uploadedUrls.length > 0) {
+          setImages(prevImages => {
+            let newImages = [...prevImages];
+            for (const { localUrl, remoteUrl } of uploadedUrls) {
+              const index = newImages.indexOf(localUrl);
+              if (index !== -1) {
+                newImages[index] = remoteUrl;
+                URL.revokeObjectURL(localUrl);
+              }
+            }
+            return newImages;
+          });
+          toast.success(`${uploadedUrls.length} foto(s) enviada(s)!`);
+        }
+        
+        setIsUploadingPhotos(false);
+      }, 50);
     };
     
     input.click();
@@ -649,54 +663,76 @@ const PreCadastro = () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
+    
     input.onchange = async e => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
+      if (!file) return;
+      
+      // Mostrar preview LOCAL imediatamente
+      const localUrl = URL.createObjectURL(file);
+      const oldUrl = images[index];
+      
+      setImages(prevImages => {
+        const newImages = [...prevImages];
+        newImages[index] = localUrl;
+        return newImages;
+      });
+      
+      toast.info('Processando foto...');
+      
+      // Processar upload em background
+      setTimeout(async () => {
+        setIsUploadingPhotos(true);
+        
         try {
-          setIsUploadingPhotos(true);
-          
-          // Delete old photo if it exists
-          const oldUrl = images[index];
-          if (oldUrl && !oldUrl.includes('no-photo-placeholder')) {
-            const pathMatch = oldUrl.match(/lead-photos\/(.+)$/);
-            if (pathMatch) {
-              await supabase.storage.from('lead-photos').remove([pathMatch[1]]);
-            }
-          }
-          
-          // Converter para JPEG antes de fazer upload
           const jpegBlob = await convertImageToJpeg(file);
           
-          const fileName = `${Date.now()}.jpg`;
+          const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
           const tempId = leadId || `temp_${Date.now()}`;
           const filePath = `${tempId}/${fileName}`;
           
-          const {
-            error
-          } = await supabase.storage.from('lead-photos').upload(filePath, jpegBlob, {
-            contentType: 'image/jpeg'
+          const { error } = await supabase.storage
+            .from('lead-photos')
+            .upload(filePath, jpegBlob, { contentType: 'image/jpeg' });
+          
+          if (!error) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('lead-photos')
+              .getPublicUrl(filePath);
+            
+            setImages(prevImages => {
+              const newImages = [...prevImages];
+              newImages[index] = publicUrl;
+              return newImages;
+            });
+            
+            URL.revokeObjectURL(localUrl);
+            toast.success('Foto substituída!');
+          } else {
+            // Reverter para URL antiga em caso de erro
+            setImages(prevImages => {
+              const newImages = [...prevImages];
+              newImages[index] = oldUrl;
+              return newImages;
+            });
+            URL.revokeObjectURL(localUrl);
+            toast.error(`Erro ao enviar foto: ${error.message}`);
+          }
+        } catch (err) {
+          console.error('Erro ao processar imagem:', err);
+          setImages(prevImages => {
+            const newImages = [...prevImages];
+            newImages[index] = oldUrl;
+            return newImages;
           });
-          
-          if (error) throw error;
-          
-          const {
-            data: {
-              publicUrl
-            }
-          } = supabase.storage.from('lead-photos').getPublicUrl(filePath);
-          
-          const newImages = [...images];
-          newImages[index] = publicUrl;
-          setImages(newImages);
-          toast.success("Foto substituída!");
-        } catch (error) {
-          console.error('Error replacing photo:', error);
-          toast.error("Erro ao substituir foto");
+          URL.revokeObjectURL(localUrl);
+          toast.error('Erro ao processar imagem');
         } finally {
           setIsUploadingPhotos(false);
         }
-      }
+      }, 50);
     };
+    
     input.click();
   };
   const handleRemovePhoto = (index: number) => {
