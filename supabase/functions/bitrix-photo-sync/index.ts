@@ -132,7 +132,7 @@ serve(async (req) => {
       photoIdsToProcess = fileIds;
       console.log(`📸 Processar ${fileIds.length} fotos fornecidas:`, fileIds);
     } else {
-      // Buscar fotos do campo UF_CRM_LEAD_1733231445171
+      // Buscar fotos do Bitrix
       console.log(`📡 Buscando lead completo do Bitrix: crm.lead.get?ID=${leadId}`);
       const leadUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.lead.get?ID=${leadId}`;
       const leadResponse = await fetch(leadUrl);
@@ -142,18 +142,29 @@ serve(async (req) => {
       }
       
       const leadData = await leadResponse.json();
-      const photosField = leadData.result?.UF_CRM_LEAD_1733231445171;
       
-      if (!photosField || !Array.isArray(photosField)) {
-        console.log('⏭️ Nenhuma foto encontrada no campo UF_CRM_LEAD_1733231445171');
-        return new Response(
-          JSON.stringify({ success: true, message: 'Nenhuma foto para sincronizar' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      // Tentar novo campo múltiplo primeiro (UF_CRM_1764358561)
+      const newPhotoField = leadData.result?.UF_CRM_1764358561;
+      
+      if (newPhotoField) {
+        if (typeof newPhotoField === 'string') {
+          // Campo múltiplo vem como string "1183610,1183732,1183734"
+          photoIdsToProcess = newPhotoField.split(',').map(id => parseInt(id.trim())).filter(Boolean);
+          console.log(`📸 Encontradas ${photoIdsToProcess.length} fotos no novo campo UF_CRM_1764358561`);
+        } else if (Array.isArray(newPhotoField)) {
+          photoIdsToProcess = newPhotoField.map(id => parseInt(id)).filter(Boolean);
+          console.log(`📸 Encontradas ${photoIdsToProcess.length} fotos no novo campo (array)`);
+        }
       }
       
-      photoIdsToProcess = photosField.map((p: any) => p.id).filter(Boolean);
-      console.log(`📸 Encontradas ${photoIdsToProcess.length} fotos no lead:`, photoIdsToProcess);
+      // Fallback para campo antigo se novo estiver vazio
+      if (photoIdsToProcess.length === 0) {
+        const oldPhotoField = leadData.result?.UF_CRM_LEAD_1733231445171;
+        if (Array.isArray(oldPhotoField)) {
+          photoIdsToProcess = oldPhotoField.map((p: any) => p.id).filter(Boolean);
+          console.log(`⚠️ Fallback: Encontradas ${photoIdsToProcess.length} fotos no campo antigo UF_CRM_LEAD_1733231445171`);
+        }
+      }
     }
 
     if (photoIdsToProcess.length === 0) {
