@@ -56,6 +56,10 @@ import Agenciamento from "./pages/Agenciamento";
 import CadastroFicha from "./pages/cadastro/CadastroFicha";
 import CadastroSucesso from "./pages/cadastro/CadastroSucesso";
 
+// Pré-Cadastro Module
+import PreCadastro from "./pages/precadastro/PreCadastro";
+import PreCadastroSucesso from "./pages/precadastro/PreCadastroSucesso";
+
 // Hub Panels
 import HubPanels from "./pages/HubPanels";
 import "@/styles/hub.css";
@@ -130,6 +134,10 @@ const App = () => (
           <Route path="/cadastro" element={<CadastroFicha />} />
           <Route path="/cadastro/atualizar/:entityType/:entityId" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
           <Route path="/cadastro/sucesso" element={<CadastroSucesso />} />
+
+          {/* Pré-Cadastro Module - Public lead self-registration */}
+          <Route path="/precadastro" element={<PreCadastro />} />
+          <Route path="/precadastro/sucesso" element={<PreCadastroSucesso />} />
 
           {/* Rotas do Gestão Scouter (prefixo /scouter) - Connected to 3D solar system planet button */}
           <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />
