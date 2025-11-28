@@ -321,11 +321,13 @@ const PreCadastro = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const leadId = searchParams.get('lead');
-  const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [images, setImages] = useState<string[]>([]);
   const [additionalPhones, setAdditionalPhones] = useState<string[]>([]);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
+  const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
   const [leadData, setLeadData] = useState<LeadData>({
     nomeResponsavel: "",
     estadoCivil: "",
@@ -356,12 +358,45 @@ const PreCadastro = () => {
     habilidades: [],
     caracteristicas: []
   });
+
+  const syncPhotosInBackground = async (numericLeadId: number, fileIds: number[]) => {
+    if (!fileIds.length) return;
+
+    try {
+      setIsSyncingPhotos(true);
+
+      const { data, error } = await supabase.functions.invoke('bitrix-photo-sync', {
+        body: { leadId: numericLeadId, fileIds }
+      });
+
+      if (error) {
+        console.error('❌ Erro ao sincronizar fotos:', error);
+        toast.error('Erro ao sincronizar fotos do Bitrix');
+        return;
+      }
+
+      if (data?.publicUrls && Array.isArray(data.publicUrls) && data.publicUrls.length > 0) {
+        setImages(prev => {
+          const withoutPlaceholder = prev.filter(img => !img.includes('no-photo-placeholder'));
+          console.log(`✅ Fotos sincronizadas em segundo plano: ${data.publicUrls.length}`);
+          return data.publicUrls.length > 0 ? data.publicUrls : withoutPlaceholder;
+        });
+        toast.success(`${data.publicUrls.length} fotos sincronizadas!`);
+      } else {
+        console.warn('⚠️ Sincronização de fotos retornou sem URLs');
+      }
+    } catch (error) {
+      console.error('❌ Erro inesperado ao sincronizar fotos em segundo plano:', error);
+    } finally {
+      setIsSyncingPhotos(false);
+    }
+  };
   useEffect(() => {
     const loadLeadData = async () => {
       // Se não tem leadId, iniciar novo cadastro vazio
       if (!leadId) {
         setImages([getLeadPhotoUrl(null)]);
-        setLoading(false);
+        setPageLoading(false);
         return;
       }
       
@@ -406,7 +441,7 @@ const PreCadastro = () => {
           // Carregar fotos - PRIORIDADE: verificar cache primeiro
           const photoUrls: string[] = [];
           let fileIdsToSync: number[] = [];
-          
+
           // 0. PRIMEIRO: Verificar se já temos fotos cacheadas em additional_photos
           if (lead.additional_photos && Array.isArray(lead.additional_photos) && lead.additional_photos.length > 0) {
             const cachedPhotos = lead.additional_photos.filter((url): url is string => typeof url === 'string');
@@ -415,19 +450,19 @@ const PreCadastro = () => {
               photoUrls.push(...cachedPhotos);
             }
           }
-          
+
           // Só continuar se NÃO temos fotos cacheadas
           if (photoUrls.length === 0) {
             // 1. Tentar novo campo primeiro (IDs públicos das fotos)
             const newPhotoField = rawData.UF_CRM_1764358561 || rawData[BITRIX_LEAD_FIELD_MAPPING.fotoIds];
-            
+
             if (newPhotoField) {
               console.log('🆕 Usando novo campo UF_CRM_1764358561:', newPhotoField);
-              
+
               if (Array.isArray(newPhotoField)) {
                 // Array de IDs ou strings
                 fileIdsToSync = newPhotoField
-                  .map(id => typeof id === 'string' ? parseInt(id) : id)
+                  .map(id => (typeof id === 'string' ? parseInt(id) : id))
                   .filter(id => !isNaN(id));
               } else if (typeof newPhotoField === 'string' && newPhotoField.trim()) {
                 // String separada por vírgula: "426754,426756,426758"
@@ -436,24 +471,24 @@ const PreCadastro = () => {
                   .map(id => parseInt(id.trim()))
                   .filter(id => !isNaN(id));
               }
-              
+
               console.log(`📸 ${fileIdsToSync.length} IDs extraídos do novo campo`);
             }
-            
+
             // 2. Fallback: campo antigo UF_CRM_LEAD_1733231445171
             if (fileIdsToSync.length === 0 && lead.photo_url) {
               console.log('⬅️ Fallback para campo antigo photo_url');
-              
+
               try {
                 const parsed = JSON.parse(lead.photo_url);
-                
+
                 if (Array.isArray(parsed)) {
                   // Verificar se é array de URLs do Storage ou objetos do Bitrix
                   if (parsed.length > 0 && typeof parsed[0] === 'string') {
                     // Já são URLs públicas do Storage
                     photoUrls.push(...parsed);
                     console.log(`✅ Carregadas ${parsed.length} fotos do Storage`);
-                  } else if (parsed.length > 0 && parsed[0].id) {
+                  } else if (parsed.length > 0 && (parsed[0] as any).id) {
                     // São objetos do Bitrix
                     fileIdsToSync = parsed.map((p: any) => p.id).filter(Boolean);
                     console.log(`📸 ${fileIdsToSync.length} IDs extraídos do campo antigo`);
@@ -468,43 +503,26 @@ const PreCadastro = () => {
                 }
               }
             }
-            
-            // 3. Se temos IDs do Bitrix e AINDA não temos fotos, sincronizar
-            if (fileIdsToSync.length > 0 && photoUrls.length === 0) {
-              console.log(`🔄 Sincronizando ${fileIdsToSync.length} fotos do Bitrix...`);
-              toast.loading(`Sincronizando ${fileIdsToSync.length} fotos...`);
-              
-              const { data, error } = await supabase.functions.invoke('bitrix-photo-sync', {
-                body: { leadId: parseInt(leadId), fileIds: fileIdsToSync }
-              });
-              
-              toast.dismiss();
-              
-              if (error) {
-                console.error('❌ Erro ao sincronizar fotos:', error);
-                toast.error('Erro ao sincronizar fotos do Bitrix');
-              } else if (data?.publicUrls && data.publicUrls.length > 0) {
-                photoUrls.push(...data.publicUrls);
-                toast.success(`${data.publicUrls.length} fotos sincronizadas!`);
-                console.log(`✅ ${data.publicUrls.length} fotos sincronizadas`);
-              } else {
-                console.warn('⚠️ Sincronização retornou sem URLs');
-              }
-            }
           }
-          
+
           // Fotos adicionais do rawData (legado) - se ainda não carregamos
           if (photoUrls.length === 0 && rawData.additional_photos && Array.isArray(rawData.additional_photos)) {
             photoUrls.push(...rawData.additional_photos);
           }
-          
-          // Garantir pelo menos uma imagem (placeholder)
+
+          // Garantir pelo menos uma imagem (placeholder) para exibir enquanto sincroniza
           if (photoUrls.length === 0) {
             photoUrls.push(getLeadPhotoUrl(null));
           }
-          
+
           setImages(photoUrls);
-          
+
+          // Se temos IDs do Bitrix e AINDA não temos fotos reais, sincronizar em segundo plano
+          if (fileIdsToSync.length > 0 && photoUrls.length === 1 && photoUrls[0].includes('no-photo-placeholder') && leadId) {
+            console.log(`🔄 Sincronizando ${fileIdsToSync.length} fotos do Bitrix em segundo plano...`);
+            void syncPhotosInBackground(parseInt(leadId), fileIdsToSync);
+          }
+
           // Carregar telefones adicionais
           if (rawData.additional_phones && Array.isArray(rawData.additional_phones)) {
             setAdditionalPhones(rawData.additional_phones);
@@ -514,7 +532,7 @@ const PreCadastro = () => {
         console.error('Erro:', error);
         toast.error("Erro ao carregar dados");
       } finally {
-        setLoading(false);
+        setPageLoading(false);
       }
     };
     loadLeadData();
@@ -546,10 +564,10 @@ const PreCadastro = () => {
       }
     };
     // Detectar localização após carregar (ou para novo cadastro)
-    if (!loading) {
+    if (!pageLoading) {
       detectLocation();
     }
-  }, [loading, leadData.nomeModelo]);
+  }, [pageLoading, leadData.nomeModelo]);
   const handleAddPhoto = () => {
     // Verificar quantas fotos ainda podem ser adicionadas
     const remainingSlots = 10 - images.length;
@@ -575,7 +593,7 @@ const PreCadastro = () => {
       }
       
       try {
-        setLoading(true);
+        setIsUploadingPhotos(true);
         const newImageUrls: string[] = [];
         
         // Processar todas as imagens selecionadas
@@ -621,7 +639,7 @@ const PreCadastro = () => {
         console.error('Error uploading photos:', error);
         toast.error("Erro ao fazer upload das fotos");
       } finally {
-        setLoading(false);
+        setIsUploadingPhotos(false);
       }
     };
     
@@ -635,7 +653,7 @@ const PreCadastro = () => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         try {
-          setLoading(true);
+          setIsUploadingPhotos(true);
           
           // Delete old photo if it exists
           const oldUrl = images[index];
@@ -675,7 +693,7 @@ const PreCadastro = () => {
           console.error('Error replacing photo:', error);
           toast.error("Erro ao substituir foto");
         } finally {
-          setLoading(false);
+          setIsUploadingPhotos(false);
         }
       }
     };
@@ -895,7 +913,7 @@ const PreCadastro = () => {
       setSaving(false);
     }
   };
-  if (loading) {
+  if (pageLoading) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>;
@@ -931,6 +949,12 @@ const PreCadastro = () => {
                   <Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary" />
                 </button>}
             </div>
+            {(isUploadingPhotos || isSyncingPhotos) && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span>{isUploadingPhotos ? "Enviando fotos..." : "Sincronizando fotos..."}</span>
+              </div>
+            )}
           </div>
 
           <div className="lg:col-span-2 space-y-6">
