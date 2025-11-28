@@ -8,15 +8,17 @@ const corsHeaders = {
 
 interface PhotoSyncRequest {
   leadId: number;
+  fileIds?: number[];  // Array de IDs de arquivos do Bitrix
 }
 
 // Helper para baixar e fazer upload de foto
 async function downloadAndUploadPhoto(
   leadId: number,
+  fileId: number,  // ID único do arquivo no Bitrix
   downloadUrl: string,
   supabase: any
 ): Promise<{ publicUrl: string; storagePath: string; fileSize: number }> {
-  console.log(`📥 Baixando foto do Bitrix: ${downloadUrl}`);
+  console.log(`📥 Baixando foto ${fileId} do Bitrix: ${downloadUrl}`);
 
   const bitrixResponse = await fetch(downloadUrl);
   
@@ -52,8 +54,8 @@ async function downloadAndUploadPhoto(
   else if (contentType.includes('webp')) extension = 'webp';
   else if (contentType.includes('jpeg')) extension = 'jpg';
   
-  const timestamp = Date.now();
-  const finalFileName = `lead-${leadId}-${timestamp}.${extension}`;
+  // Nome único baseado no fileId do Bitrix
+  const finalFileName = `lead-${leadId}-file-${fileId}.${extension}`;
   const storagePath = `photos/${finalFileName}`;
 
   console.log(`📤 Upload para Storage: ${storagePath}`);
@@ -78,18 +80,6 @@ async function downloadAndUploadPhoto(
   const publicUrl = urlData.publicUrl;
   
   console.log(`🔗 URL pública: ${publicUrl}`);
-  console.log(`💾 Atualizando photo_url no banco...`);
-
-  const { error: updateError } = await supabase
-    .from('leads')
-    .update({ photo_url: publicUrl })
-    .eq('id', leadId);
-
-  if (updateError) {
-    console.error('⚠️ Erro ao atualizar lead:', updateError);
-  } else {
-    console.log('✅ Sincronização concluída com sucesso!');
-  }
 
   return { publicUrl, storagePath, fileSize: uint8.byteLength };
 }
@@ -100,7 +90,7 @@ serve(async (req) => {
   }
 
   try {
-    const { leadId }: PhotoSyncRequest = await req.json();
+    const { leadId, fileIds }: PhotoSyncRequest = await req.json();
     
     if (!leadId) {
       throw new Error('leadId é obrigatório');
@@ -135,65 +125,114 @@ serve(async (req) => {
     
     console.log('🔑 Bitrix config:', { domain: bitrixDomain, tokenLength: bitrixToken.length, fileTokenLength: fileToken.length });
 
-    // ✅ PASSO 1: Buscar dados completos do lead via crm.lead.get
-    console.log(`📡 Buscando lead completo do Bitrix: crm.lead.get?ID=${leadId}`);
-    const leadUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.lead.get?ID=${leadId}`;
-    const leadResponse = await fetch(leadUrl);
-    
-    if (!leadResponse.ok) {
-      throw new Error(`Erro ao buscar lead ${leadId}: ${leadResponse.status}`);
+    let photoIdsToProcess: number[] = [];
+
+    // Se fileIds foram fornecidos, usar eles diretamente
+    if (fileIds && fileIds.length > 0) {
+      photoIdsToProcess = fileIds;
+      console.log(`📸 Processar ${fileIds.length} fotos fornecidas:`, fileIds);
+    } else {
+      // Buscar fotos do campo UF_CRM_LEAD_1733231445171
+      console.log(`📡 Buscando lead completo do Bitrix: crm.lead.get?ID=${leadId}`);
+      const leadUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.lead.get?ID=${leadId}`;
+      const leadResponse = await fetch(leadUrl);
+      
+      if (!leadResponse.ok) {
+        throw new Error(`Erro ao buscar lead ${leadId}: ${leadResponse.status}`);
+      }
+      
+      const leadData = await leadResponse.json();
+      const photosField = leadData.result?.UF_CRM_LEAD_1733231445171;
+      
+      if (!photosField || !Array.isArray(photosField)) {
+        console.log('⏭️ Nenhuma foto encontrada no campo UF_CRM_LEAD_1733231445171');
+        return new Response(
+          JSON.stringify({ success: true, message: 'Nenhuma foto para sincronizar' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      photoIdsToProcess = photosField.map((p: any) => p.id).filter(Boolean);
+      console.log(`📸 Encontradas ${photoIdsToProcess.length} fotos no lead:`, photoIdsToProcess);
     }
-    
-    const leadData = await leadResponse.json();
-    console.log('✅ Lead obtido, extraindo foto do campo UF_CRM_ID_FOTO');
-    
-    // ✅ PASSO 2: Extrair ID da foto pública
-    const photoId = String(leadData.result?.UF_CRM_ID_FOTO || '').trim();
-    
-    if (!photoId) {
-      console.log('⏭️ Nenhuma foto encontrada no campo UF_CRM_ID_FOTO');
+
+    if (photoIdsToProcess.length === 0) {
       return new Response(
         JSON.stringify({ success: true, message: 'Nenhuma foto para sincronizar' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
-    console.log('📸 Foto encontrada - ID:', photoId);
-    
-    // ✅ PASSO 3: Usar disk.file.get para obter DOWNLOAD_URL autenticada (com token dedicado)
-    console.log(`📡 Chamando disk.file.get para fileId: ${photoId}`);
-    const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}`;
-    const diskResp = await fetch(diskFileUrl);
-    
-    if (!diskResp.ok) {
-      throw new Error(`Erro ao chamar disk.file.get: ${diskResp.status}`);
-    }
-    
-    const diskJson = await diskResp.json();
-    console.log('📁 Resposta disk.file.get:', JSON.stringify(diskJson, null, 2));
-    
-    const downloadUrl = diskJson.result?.DOWNLOAD_URL;
-    
-    if (!downloadUrl) {
-      throw new Error('disk.file.get não retornou DOWNLOAD_URL. Verifique permissões do arquivo.');
-    }
-    
-    console.log('🔗 DOWNLOAD_URL obtida:', downloadUrl);
 
-    // ✅ PASSO 4-7: Baixar, fazer upload e atualizar
-    const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
-      leadId,
-      downloadUrl,
-      supabase
-    );
+    // Processar todas as fotos
+    const allPublicUrls: string[] = [];
+    const allStoragePaths: string[] = [];
+    let totalSize = 0;
+
+    for (const photoId of photoIdsToProcess) {
+      try {
+        console.log(`📡 Processando foto ${photoId}...`);
+        
+        // Usar disk.file.get para obter DOWNLOAD_URL
+        const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}`;
+        const diskResp = await fetch(diskFileUrl);
+        
+        if (!diskResp.ok) {
+          console.error(`❌ Erro ao chamar disk.file.get para foto ${photoId}: ${diskResp.status}`);
+          continue;
+        }
+        
+        const diskJson = await diskResp.json();
+        const downloadUrl = diskJson.result?.DOWNLOAD_URL;
+        
+        if (!downloadUrl) {
+          console.error(`❌ disk.file.get não retornou DOWNLOAD_URL para foto ${photoId}`);
+          continue;
+        }
+        
+        // Baixar, fazer upload e obter URL pública
+        const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
+          leadId,
+          photoId,
+          downloadUrl,
+          supabase
+        );
+        
+        allPublicUrls.push(publicUrl);
+        allStoragePaths.push(storagePath);
+        totalSize += fileSize;
+        
+        console.log(`✅ Foto ${photoId} sincronizada: ${publicUrl}`);
+      } catch (error) {
+        console.error(`❌ Erro ao processar foto ${photoId}:`, error);
+        // Continuar com as próximas fotos
+      }
+    }
+
+    if (allPublicUrls.length === 0) {
+      throw new Error('Nenhuma foto foi sincronizada com sucesso');
+    }
+
+    // Atualizar o campo photo_url com array de URLs do Storage (JSON)
+    console.log(`💾 Atualizando photo_url com ${allPublicUrls.length} URLs...`);
+    const { error: updateError } = await supabase
+      .from('leads')
+      .update({ photo_url: JSON.stringify(allPublicUrls) })
+      .eq('id', leadId);
+
+    if (updateError) {
+      console.error('⚠️ Erro ao atualizar lead:', updateError);
+    } else {
+      console.log('✅ photo_url atualizado com sucesso!');
+    }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        publicUrl,
+        publicUrls: allPublicUrls,
         leadId,
-        storagePath,
-        fileSize
+        storagePaths: allStoragePaths,
+        totalSize,
+        count: allPublicUrls.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
