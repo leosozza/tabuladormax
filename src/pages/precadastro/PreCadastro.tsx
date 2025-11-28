@@ -323,11 +323,13 @@ const PreCadastro = () => {
   const leadId = searchParams.get('lead');
   const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string>(''); // ✅ Feedback de progresso
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [images, setImages] = useState<string[]>([]);
   const [additionalPhones, setAdditionalPhones] = useState<string[]>([]);
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
   const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
+  const [photosBase64Cache, setPhotosBase64Cache] = useState<Map<string, {filename: string, base64: string}>>(new Map()); // ✅ Cache de base64
   const [leadData, setLeadData] = useState<LeadData>({
     nomeResponsavel: "",
     estadoCivil: "",
@@ -391,6 +393,32 @@ const PreCadastro = () => {
       setIsSyncingPhotos(false);
     }
   };
+
+  // ✅ PRÉ-PROCESSAR FOTOS PARA BASE64 EM BACKGROUND
+  useEffect(() => {
+    const convertInBackground = async () => {
+      for (const imageUrl of images) {
+        if (imageUrl && !imageUrl.includes('no-photo-placeholder') && !photosBase64Cache.has(imageUrl)) {
+          try {
+            const result = await urlToBase64(imageUrl);
+            if (result) {
+              setPhotosBase64Cache(prev => {
+                const newCache = new Map(prev);
+                newCache.set(imageUrl, result);
+                return newCache;
+              });
+              console.log('💾 Foto convertida em background:', imageUrl.substring(0, 50));
+            }
+          } catch (error) {
+            console.error('Erro ao converter foto em background:', error);
+          }
+        }
+      }
+    };
+    
+    convertInBackground();
+  }, [images]);
+
   useEffect(() => {
     const loadLeadData = async () => {
       // Se não tem leadId, iniciar novo cadastro vazio
@@ -778,17 +806,28 @@ const PreCadastro = () => {
     }
     try {
       setSaving(true);
+      setSaveStatus('Preparando fotos...');
       
-      // Converter TODAS as fotos para base64
+      // ✅ USAR CACHE DE BASE64 (já foi processado em background)
       const fotosBase64 = [];
       for (const imageUrl of images) {
         if (imageUrl && !imageUrl.includes('no-photo-placeholder')) {
-          const base64Result = await urlToBase64(imageUrl);
-          if (base64Result) {
-            fotosBase64.push({ fileData: [base64Result.filename, base64Result.base64] });
+          const cached = photosBase64Cache.get(imageUrl);
+          if (cached) {
+            fotosBase64.push({ fileData: [cached.filename, cached.base64] });
+            console.log('✅ Usando foto do cache:', imageUrl.substring(0, 50));
+          } else {
+            // Fallback: converter agora se não estiver em cache
+            console.warn('⚠️ Foto não estava em cache, convertendo agora:', imageUrl.substring(0, 50));
+            const base64Result = await urlToBase64(imageUrl);
+            if (base64Result) {
+              fotosBase64.push({ fileData: [base64Result.filename, base64Result.base64] });
+            }
           }
         }
       }
+      
+      setSaveStatus('Salvando dados...');
       
       const rawData = {
         [BITRIX_LEAD_FIELD_MAPPING.estadoCivil]: leadData.estadoCivil,
@@ -838,8 +877,10 @@ const PreCadastro = () => {
         
         if (supabaseError) throw supabaseError;
         
+        setSaveStatus('Sincronizando com Bitrix...');
+        
         try {
-          // Primeiro update: Enviar fotos para o Bitrix
+          // ✅ 1º UPDATE ESSENCIAL: Enviar dados + fotos para o Bitrix
           await supabase.functions.invoke('bitrix-entity-update', {
             body: {
               entityType: 'lead',
@@ -859,54 +900,68 @@ const PreCadastro = () => {
             }
           });
           
-          // Segundo update: Buscar IDs das fotos e atualizar campos específicos
-          try {
-            const { data: leadDataBitrix } = await supabase.functions.invoke('bitrix-get-lead', {
-              body: { leadId }
-            });
-
-            if (leadDataBitrix?.result) {
-              // Extrair IDs das fotos do campo de upload
-              const photoObjects = leadDataBitrix.result.UF_CRM_LEAD_1733231445171 || [];
-              const photoIds = Array.isArray(photoObjects) 
-                ? photoObjects.map((p: any) => p.id).filter(Boolean)
-                : [];
-
-              // Buscar contador atual
-              const currentCount = parseInt(leadDataBitrix.result.UF_CRM_CLIENTEATUALIZAFOTO || '0');
-
-              // Montar os campos a atualizar
-              const fieldsToUpdate: Record<string, string> = {
-                // SEMPRE incrementar o contador quando o cliente salvar
-                [BITRIX_LEAD_FIELD_MAPPING.clienteAtualizaFoto]: String(currentCount + 1)
-              };
-
-              // Adicionar IDs das fotos apenas se houver
-              if (photoIds.length > 0) {
-                fieldsToUpdate[BITRIX_LEAD_FIELD_MAPPING.fotoIds] = photoIds.join(',');
-                console.log(`Atualizando campo de IDs com ${photoIds.length} fotos:`, photoIds);
-              }
-
-              // Enviar atualização (sempre, para incrementar contador)
-              await supabase.functions.invoke('bitrix-entity-update', {
-                body: {
-                  entityType: 'lead',
-                  entityId: leadId,
-                  fields: fieldsToUpdate
-                }
+          setSaveStatus('Concluído!');
+          
+          // ✅ NAVEGAR IMEDIATAMENTE (não esperar o 2º/3º update)
+          toast.success("Cadastro atualizado com sucesso!");
+          
+          // Pequeno delay para mostrar "Concluído" antes de navegar
+          setTimeout(() => {
+            navigate('/precadastro/sucesso');
+          }, 300);
+          
+          // ✅ 2º e 3º UPDATES EM BACKGROUND (não bloqueia navegação)
+          setTimeout(async () => {
+            try {
+              console.log('🔄 Atualizando IDs das fotos em background...');
+              
+              const { data: leadDataBitrix } = await supabase.functions.invoke('bitrix-get-lead', {
+                body: { leadId }
               });
 
-              console.log(`Contador atualizado para: ${currentCount + 1}. IDs das fotos: ${photoIds.length > 0 ? photoIds.join(',') : 'nenhum'}`);
+              if (leadDataBitrix?.result) {
+                // Extrair IDs das fotos do campo de upload
+                const photoObjects = leadDataBitrix.result.UF_CRM_LEAD_1733231445171 || [];
+                const photoIds = Array.isArray(photoObjects) 
+                  ? photoObjects.map((p: any) => p.id).filter(Boolean)
+                  : [];
+
+                // Buscar contador atual
+                const currentCount = parseInt(leadDataBitrix.result.UF_CRM_CLIENTEATUALIZAFOTO || '0');
+
+                // Montar os campos a atualizar
+                const fieldsToUpdate: Record<string, string> = {
+                  // SEMPRE incrementar o contador quando o cliente salvar
+                  [BITRIX_LEAD_FIELD_MAPPING.clienteAtualizaFoto]: String(currentCount + 1)
+                };
+
+                // Adicionar IDs das fotos apenas se houver
+                if (photoIds.length > 0) {
+                  fieldsToUpdate[BITRIX_LEAD_FIELD_MAPPING.fotoIds] = photoIds.join(',');
+                  console.log(`✅ Atualizando campo de IDs com ${photoIds.length} fotos (background):`, photoIds);
+                }
+
+                // Enviar atualização (sempre, para incrementar contador)
+                await supabase.functions.invoke('bitrix-entity-update', {
+                  body: {
+                    entityType: 'lead',
+                    entityId: leadId,
+                    fields: fieldsToUpdate
+                  }
+                });
+
+                console.log(`✅ Background: Contador atualizado para ${currentCount + 1}. IDs: ${photoIds.length > 0 ? photoIds.join(',') : 'nenhum'}`);
+              }
+            } catch (photoUpdateError) {
+              console.error('❌ Erro ao atualizar IDs das fotos em background:', photoUpdateError);
+              // Não mostra toast porque usuário já navegou
             }
-          } catch (photoUpdateError) {
-            console.error('Erro ao atualizar IDs das fotos:', photoUpdateError);
-            // Não bloqueia o fluxo principal
-          }
+          }, 100);
+          
         } catch (bitrixError) {
           console.error('Erro Bitrix:', bitrixError);
+          throw bitrixError; // Re-throw para o catch principal tratar
         }
-        
-        toast.success("Cadastro atualizado com sucesso!");
       } else {
         // INSERT: Novo lead
         // Gerar novo ID
@@ -947,6 +1002,7 @@ const PreCadastro = () => {
       toast.error("Erro ao salvar: " + error.message);
     } finally {
       setSaving(false);
+      setSaveStatus('');
     }
   };
   if (pageLoading) {
@@ -1116,7 +1172,7 @@ const PreCadastro = () => {
 
             <div className="flex justify-end pt-4">
               <Button onClick={handleSave} size="lg" disabled={saving} className="bg-pink-500 hover:bg-pink-400">
-                {saving ? <><Loader2 className="h-5 w-5 animate-spin mr-2" />Salvando...</> : <><Save className="h-5 w-5 mr-2" />Salvar Alterações</>}
+                {saving ? <><Loader2 className="h-5 w-5 animate-spin mr-2" />{saveStatus || 'Salvando...'}</> : <><Save className="h-5 w-5 mr-2" />Salvar Alterações</>}
               </Button>
             </div>
           </div>
