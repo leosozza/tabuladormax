@@ -591,7 +591,7 @@ const PreCadastro = () => {
     try {
       setSaving(true);
       
-      // Converter TODAS as fotos para base64 (não apenas a primeira)
+      // Converter TODAS as fotos para base64
       const fotosBase64 = [];
       for (const imageUrl of images) {
         if (imageUrl && !imageUrl.includes('no-photo-placeholder')) {
@@ -601,10 +601,6 @@ const PreCadastro = () => {
           }
         }
       }
-      
-      // Primeira foto como principal, demais como adicionais
-      const fotoBase64Data = fotosBase64[0] || null;
-      const fotosAdicionaisBase64 = fotosBase64.slice(1);
       
       const rawData = {
         [BITRIX_LEAD_FIELD_MAPPING.estadoCivil]: leadData.estadoCivil,
@@ -620,7 +616,7 @@ const PreCadastro = () => {
         [BITRIX_LEAD_FIELD_MAPPING.cursos]: leadData.cursos,
         [BITRIX_LEAD_FIELD_MAPPING.caracteristicas]: leadData.caracteristicas,
         [BITRIX_LEAD_FIELD_MAPPING.tipoModelo]: leadData.tiposModelo,
-        [BITRIX_LEAD_FIELD_MAPPING.fotoUrl]: fotoBase64Data,
+        [BITRIX_LEAD_FIELD_MAPPING.fotoUrl]: fotosBase64,
         [BITRIX_LEAD_FIELD_MAPPING.sexo]: leadData.sexo,
         [BITRIX_LEAD_FIELD_MAPPING.instagram]: leadData.instagram,
         [BITRIX_LEAD_FIELD_MAPPING.instagramSeguidores]: leadData.instagramSeguidores,
@@ -631,9 +627,7 @@ const PreCadastro = () => {
         [BITRIX_LEAD_FIELD_MAPPING.tiktok]: leadData.tiktok,
         [BITRIX_LEAD_FIELD_MAPPING.tiktokSeguidores]: leadData.tiktokSeguidores,
         additional_photos: images.slice(1),
-        additional_phones: additionalPhones.filter(p => p.trim() !== ''),
-        // Fotos adicionais em base64 para Bitrix
-        additional_photos_base64: fotosAdicionaisBase64
+        additional_phones: additionalPhones.filter(p => p.trim() !== '')
       };
 
       if (leadId) {
