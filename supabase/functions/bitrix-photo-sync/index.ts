@@ -223,17 +223,20 @@ serve(async (req) => {
       throw new Error('Nenhuma foto foi sincronizada com sucesso');
     }
 
-    // Atualizar o campo photo_url com array de URLs do Storage (JSON)
-    console.log(`💾 Atualizando photo_url com ${allPublicUrls.length} URLs...`);
+    // Atualizar photo_url E additional_photos para cache
+    console.log(`💾 Atualizando photo_url e additional_photos com ${allPublicUrls.length} URLs...`);
     const { error: updateError } = await supabase
       .from('leads')
-      .update({ photo_url: JSON.stringify(allPublicUrls) })
+      .update({ 
+        photo_url: JSON.stringify(allPublicUrls),
+        additional_photos: allPublicUrls  // Salvar também em additional_photos para cache rápido
+      })
       .eq('id', leadId);
 
     if (updateError) {
       console.error('⚠️ Erro ao atualizar lead:', updateError);
     } else {
-      console.log('✅ photo_url atualizado com sucesso!');
+      console.log('✅ photo_url e additional_photos atualizados com sucesso!');
     }
 
     return new Response(
