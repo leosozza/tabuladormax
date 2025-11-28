@@ -4,16 +4,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useSyscallConfig } from "@/hooks/useSyscallConfig";
-import { Loader2, Terminal } from "lucide-react";
+import { Loader2, Terminal, Copy, Check } from "lucide-react";
 import { MainLayout } from "@/components/layouts/MainLayout";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 export default function DiscadorConfig() {
   const { config, saveConfig, isSaving, testConnection, isTesting, testProxy, isTestingProxy, connectionLogs } = useSyscallConfig();
   const [apiToken, setApiToken] = useState(config?.api_token || "");
   const [apiUrl, setApiUrl] = useState(config?.api_url || "http://maxfama.syscall.com.br/crm");
   const [defaultRoute, setDefaultRoute] = useState(config?.default_route || "9");
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const handleSave = () => {
     saveConfig({ api_token: apiToken, api_url: apiUrl, default_route: defaultRoute });
@@ -25,6 +28,46 @@ export default function DiscadorConfig() {
 
   const handleTestProxy = () => {
     testProxy();
+  };
+
+  const handleCopyLog = (log: any, index: number) => {
+    const targetUrl = log.response?.diagnostics?.targetUrl || 'N/A';
+    const requestId = log.response?.requestId || 'N/A';
+    const statusCode = log.status_code || log.response?.statusCode || 'N/A';
+    const method = log.response?.diagnostics?.method || 'GET';
+    
+    const report = `=== Relatório de Erro Syscall ===
+Data/Hora: ${new Date(log.timestamp).toLocaleString('pt-BR')}
+Tipo: ${log.type === 'proxy' ? 'PROXY' : 'SYSCALL'}
+Status: ${log.success ? 'SUCESSO' : 'ERRO'}
+
+URLs:
+- Proxy: ${log.url || 'N/A'}
+- Target Syscall: ${targetUrl}
+
+Método: ${method}
+Status Code: ${statusCode}
+Request ID: ${requestId}
+${log.origin_ip ? `IP de Origem: ${log.origin_ip}` : ''}
+Tempo: ${log.duration_ms || 'N/A'}ms
+
+${log.error ? `Erro: ${log.error}` : ''}
+${log.error_type ? `Tipo do Erro: ${log.error_type}` : ''}
+${log.suggestion ? `Sugestão: ${log.suggestion}` : ''}
+
+Resposta Completa:
+${JSON.stringify(log.response, null, 2)}
+
+Debug Info:
+${JSON.stringify(log.debug, null, 2)}`;
+
+    navigator.clipboard.writeText(report).then(() => {
+      setCopiedIndex(index);
+      toast.success("Log copiado para área de transferência!");
+      setTimeout(() => setCopiedIndex(null), 2000);
+    }).catch(() => {
+      toast.error("Erro ao copiar log");
+    });
   };
 
   return (
@@ -164,9 +207,22 @@ export default function DiscadorConfig() {
                       <>
                         <div className="font-semibold">✓ Conexão estabelecida</div>
                         <div className="text-xs text-slate-400 mt-2 space-y-1">
-                          <div>URL: {log.url}</div>
+                          <div>URL Proxy: {log.url}</div>
+                          {log.response?.diagnostics?.targetUrl && (
+                            <div>URL Target: {log.response.diagnostics.targetUrl}</div>
+                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-[10px]">
+                              {log.response?.diagnostics?.method || 'GET'}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px]">
+                              {log.status_code}
+                            </Badge>
+                            {log.response?.requestId && (
+                              <span className="text-blue-400">ID: {log.response.requestId}</span>
+                            )}
+                          </div>
                           <div>Tempo: {log.duration_ms}ms</div>
-                          <div>Status: {log.status_code}</div>
                         </div>
                         <details className="mt-2">
                           <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-300">
@@ -176,6 +232,24 @@ export default function DiscadorConfig() {
                             {JSON.stringify(log.response, null, 2)}
                           </pre>
                         </details>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="mt-2 h-6 text-[10px] text-slate-400 hover:text-slate-300"
+                          onClick={() => handleCopyLog(log, index)}
+                        >
+                          {copiedIndex === index ? (
+                            <>
+                              <Check className="mr-1 h-3 w-3" />
+                              Copiado!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="mr-1 h-3 w-3" />
+                              Copiar para Suporte
+                            </>
+                          )}
+                        </Button>
                       </>
                     ) : (
                       <>
@@ -186,7 +260,29 @@ export default function DiscadorConfig() {
                           </div>
                         )}
                         <div className="text-xs text-slate-400 mt-2 space-y-1">
-                          {log.url && <div>URL: {log.url}</div>}
+                          {log.url && <div>URL Proxy: {log.url}</div>}
+                          {log.response?.diagnostics?.targetUrl && (
+                            <div className="text-orange-300 font-semibold">
+                              URL Target Syscall: {log.response.diagnostics.targetUrl}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {log.response?.diagnostics?.method && (
+                              <Badge variant="destructive" className="text-[10px]">
+                                {log.response.diagnostics.method}
+                              </Badge>
+                            )}
+                            {(log.status_code || log.response?.statusCode) && (
+                              <Badge variant="destructive" className="text-[10px]">
+                                {log.status_code || log.response.statusCode}
+                              </Badge>
+                            )}
+                            {log.response?.requestId && (
+                              <span className="text-blue-400 font-semibold">
+                                ID: {log.response.requestId}
+                              </span>
+                            )}
+                          </div>
                           {log.origin_ip && (
                             <div className="text-orange-400 font-semibold">
                               IP de origem: {log.origin_ip}
@@ -194,6 +290,14 @@ export default function DiscadorConfig() {
                           )}
                           {log.duration_ms && <div>Tempo: {log.duration_ms}ms</div>}
                         </div>
+                        <details className="mt-2" open>
+                          <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-300">
+                            Resposta completa
+                          </summary>
+                          <pre className="text-xs text-slate-500 mt-2 p-2 bg-slate-900 rounded overflow-x-auto">
+                            {JSON.stringify(log.response, null, 2)}
+                          </pre>
+                        </details>
                         {log.debug && (
                           <details className="mt-2">
                             <summary className="cursor-pointer text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1">
@@ -206,6 +310,24 @@ export default function DiscadorConfig() {
                             </div>
                           </details>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="mt-2 h-6 text-[10px] text-red-400 hover:text-red-300"
+                          onClick={() => handleCopyLog(log, index)}
+                        >
+                          {copiedIndex === index ? (
+                            <>
+                              <Check className="mr-1 h-3 w-3" />
+                              Copiado!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="mr-1 h-3 w-3" />
+                              Copiar para Suporte
+                            </>
+                          )}
+                        </Button>
                       </>
                     )}
                   </div>
