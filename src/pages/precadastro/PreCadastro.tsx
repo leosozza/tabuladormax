@@ -429,9 +429,9 @@ const PreCadastro = () => {
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <FormField id="altura" label="Altura (cm)" type="number" value={leadData.altura} onChange={v => handleFieldChange("altura", v)} />
                   <FormField id="peso" label="Peso (kg)" type="number" value={leadData.peso} onChange={v => handleFieldChange("peso", v)} />
-                  <FormField id="busto" label="Busto (cm)" type="number" value={leadData.busto} onChange={v => handleFieldChange("busto", v)} />
-                  <FormField id="cintura" label="Cintura (cm)" type="number" value={leadData.cintura} onChange={v => handleFieldChange("cintura", v)} />
-                  <FormField id="quadril" label="Quadril (cm)" type="number" value={leadData.quadril} onChange={v => handleFieldChange("quadril", v)} />
+                  
+                  
+                  
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField id="corPele" label="Cor da Pele" type="select" value={leadData.corPele} onChange={v => handleFieldChange("corPele", v)} options={corPele} />
@@ -441,7 +441,7 @@ const PreCadastro = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <FormField id="tamanhoCamisa" label="Tamanho Camisa" type="select" value={leadData.tamanhoCamisa} onChange={v => handleFieldChange("tamanhoCamisa", v)} options={tamanhoCamisa} />
-                  <FormField id="tamanhoCalca" label="Tamanho Calça" type="select" value={leadData.tamanhoCalca} onChange={v => handleFieldChange("tamanhoCalca", v)} options={tamanhoCalca} />
+                  
                   <FormField id="tamanhoSapato" label="Tamanho Sapato" type="select" value={leadData.tamanhoSapato} onChange={v => handleFieldChange("tamanhoSapato", v)} options={tamanhoSapato} />
                 </div>
               </div>
