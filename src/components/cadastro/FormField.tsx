@@ -80,7 +80,7 @@ export const FormField: React.FC<FormFieldProps> = ({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
-          className="h-12 text-base"
+          className={`h-12 text-base ${disabled ? 'bg-muted cursor-not-allowed opacity-70' : ''}`}
         />
       )}
     </div>

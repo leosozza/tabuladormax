@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, Trash2, Camera, User, Ruler, Instagram as InstagramIcon, Sparkles, Save, MapPin, Loader2 } from "lucide-react";
+import { Plus, Trash2, Camera, User, Ruler, Instagram as InstagramIcon, Sparkles, Save, MapPin, Loader2, Phone } from "lucide-react";
 import { FormSection } from "@/components/cadastro/FormSection";
 import { PreCadastroFooter } from "@/components/precadastro/PreCadastroFooter";
 import { FormField } from "@/components/cadastro/FormField";
@@ -217,6 +217,7 @@ const PreCadastro = () => {
   const [saving, setSaving] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [images, setImages] = useState<string[]>([]);
+  const [additionalPhones, setAdditionalPhones] = useState<string[]>([]);
   const [leadData, setLeadData] = useState<LeadData>({
     nomeResponsavel: "",
     estadoCivil: "",
@@ -301,6 +302,11 @@ const PreCadastro = () => {
           }
           if (photoUrls.length === 0) photoUrls.push(getLeadPhotoUrl(null));
           setImages(photoUrls);
+          
+          // Carregar telefones adicionais
+          if (rawData.additional_phones && Array.isArray(rawData.additional_phones)) {
+            setAdditionalPhones(rawData.additional_phones);
+          }
         }
       } catch (error: any) {
         console.error('Erro:', error);
@@ -425,6 +431,20 @@ const PreCadastro = () => {
       [field]: value
     }));
   };
+
+  const handleAddPhone = () => {
+    setAdditionalPhones([...additionalPhones, ""]);
+  };
+
+  const handleRemovePhone = (index: number) => {
+    setAdditionalPhones(additionalPhones.filter((_, i) => i !== index));
+  };
+
+  const handlePhoneChange = (index: number, value: string) => {
+    const newPhones = [...additionalPhones];
+    newPhones[index] = value;
+    setAdditionalPhones(newPhones);
+  };
   const handleSave = async () => {
     if (!leadData.nomeModelo) {
       toast.error("Nome do modelo é obrigatório");
@@ -461,7 +481,8 @@ const PreCadastro = () => {
         [BITRIX_LEAD_FIELD_MAPPING.youtubeSeguidores]: leadData.youtubeSeguidores,
         [BITRIX_LEAD_FIELD_MAPPING.tiktok]: leadData.tiktok,
         [BITRIX_LEAD_FIELD_MAPPING.tiktokSeguidores]: leadData.tiktokSeguidores,
-        additional_photos: images.slice(1)
+        additional_photos: images.slice(1),
+        additional_phones: additionalPhones.filter(p => p.trim() !== '')
       };
 
       if (leadId) {
@@ -599,7 +620,52 @@ const PreCadastro = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField id="nomeResponsavel" label="Nome do Responsável" value={leadData.nomeResponsavel} onChange={v => handleFieldChange("nomeResponsavel", v)} required />
                   <FormField id="estadoCivil" label="Estado Civil" type="select" value={leadData.estadoCivil} onChange={v => handleFieldChange("estadoCivil", v)} options={ESTADO_CIVIL_OPTIONS} />
-                  <FormField id="telefone" label="Telefone" type="tel" value={leadData.telefone} onChange={v => handleFieldChange("telefone", v)} required />
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">Telefones</span>
+                    </div>
+                    <Button type="button" size="sm" variant="outline" onClick={handleAddPhone}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Telefone
+                    </Button>
+                  </div>
+                  
+                  <FormField 
+                    id="telefone" 
+                    label="Telefone Principal" 
+                    type="tel" 
+                    value={leadData.telefone} 
+                    onChange={v => handleFieldChange("telefone", v)} 
+                    required 
+                    disabled={!!leadId}
+                    placeholder={leadId ? "Não pode ser alterado" : "Digite o telefone"}
+                  />
+                  
+                  {additionalPhones.map((phone, index) => (
+                    <div key={index} className="flex gap-2">
+                      <FormField 
+                        id={`phone-${index}`} 
+                        label={`Telefone ${index + 2}`} 
+                        type="tel" 
+                        value={phone} 
+                        onChange={v => handlePhoneChange(index, v)} 
+                        placeholder="Digite o telefone adicional"
+                      />
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        variant="ghost" 
+                        onClick={() => handleRemovePhone(index)}
+                        className="mt-8"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
                 <div className="pt-2">
                   <div className="flex items-center gap-2 mb-3">
