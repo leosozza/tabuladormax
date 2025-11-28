@@ -219,9 +219,42 @@ const normalizeEnumerationValue = (value: unknown): string | string[] => {
   return String(value || '');
 };
 
+// Converte qualquer imagem para JPEG antes do upload
+const convertImageToJpeg = async (file: File | Blob): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Não foi possível criar contexto do canvas'));
+        return;
+      }
+      
+      // Desenhar imagem no canvas (converte qualquer formato)
+      ctx.drawImage(img, 0, 0);
+      
+      // Converter para JPEG blob
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Falha ao converter imagem'));
+        },
+        'image/jpeg',
+        0.85 // Qualidade 85%
+      );
+    };
+    
+    img.onerror = () => reject(new Error('Erro ao carregar imagem'));
+    img.src = URL.createObjectURL(file);
+  });
+};
+
 const urlToBase64 = async (url: string): Promise<{ filename: string; base64: string } | null> => {
   try {
-    // Verificar se é uma URL válida de imagem (não placeholder)
     if (!url || url.includes('no-photo-placeholder')) {
       return null;
     }
@@ -230,16 +263,9 @@ const urlToBase64 = async (url: string): Promise<{ filename: string; base64: str
     if (!response.ok) return null;
     
     const blob = await response.blob();
+    const filename = `foto_${Date.now()}.jpg`;
     
-    // Extrair extensão do content-type ou URL
-    const contentType = blob.type || 'image/jpeg';
-    let extension = 'jpg';
-    if (contentType.includes('png')) extension = 'png';
-    else if (contentType.includes('webp')) extension = 'webp';
-    
-    const filename = `foto_${Date.now()}.${extension}`;
-    
-    // Converter para base64
+    // Converter blob para base64
     const arrayBuffer = await blob.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     const base64 = btoa(String.fromCharCode(...uint8Array));
@@ -402,23 +428,36 @@ const PreCadastro = () => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         try {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${Date.now()}.${fileExt}`;
+          setLoading(true);
+          
+          // Converter para JPEG antes de fazer upload
+          const jpegBlob = await convertImageToJpeg(file);
+          
+          const fileName = `${Date.now()}.jpg`;
           const tempId = leadId || `temp_${Date.now()}`;
           const filePath = `${tempId}/${fileName}`;
+          
           const {
             error
-          } = await supabase.storage.from('lead-photos').upload(filePath, file);
+          } = await supabase.storage.from('lead-photos').upload(filePath, jpegBlob, {
+            contentType: 'image/jpeg'
+          });
+          
           if (error) throw error;
+          
           const {
             data: {
               publicUrl
             }
           } = supabase.storage.from('lead-photos').getPublicUrl(filePath);
+          
           setImages([...images, publicUrl]);
           toast.success("Foto adicionada!");
         } catch (error: any) {
+          console.error('Error uploading photo:', error);
           toast.error("Erro ao fazer upload");
+        } finally {
+          setLoading(false);
         }
       }
     };
@@ -432,24 +471,47 @@ const PreCadastro = () => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         try {
-          const fileExt = file.name.split('.').pop();
+          setLoading(true);
+          
+          // Delete old photo if it exists
+          const oldUrl = images[index];
+          if (oldUrl && !oldUrl.includes('no-photo-placeholder')) {
+            const pathMatch = oldUrl.match(/lead-photos\/(.+)$/);
+            if (pathMatch) {
+              await supabase.storage.from('lead-photos').remove([pathMatch[1]]);
+            }
+          }
+          
+          // Converter para JPEG antes de fazer upload
+          const jpegBlob = await convertImageToJpeg(file);
+          
+          const fileName = `${Date.now()}.jpg`;
           const tempId = leadId || `temp_${Date.now()}`;
-          const filePath = `${tempId}/${Date.now()}.${fileExt}`;
+          const filePath = `${tempId}/${fileName}`;
+          
           const {
             error
-          } = await supabase.storage.from('lead-photos').upload(filePath, file);
+          } = await supabase.storage.from('lead-photos').upload(filePath, jpegBlob, {
+            contentType: 'image/jpeg'
+          });
+          
           if (error) throw error;
+          
           const {
             data: {
               publicUrl
             }
           } = supabase.storage.from('lead-photos').getPublicUrl(filePath);
+          
           const newImages = [...images];
           newImages[index] = publicUrl;
           setImages(newImages);
           toast.success("Foto substituída!");
         } catch (error) {
+          console.error('Error replacing photo:', error);
           toast.error("Erro ao substituir foto");
+        } finally {
+          setLoading(false);
         }
       }
     };
