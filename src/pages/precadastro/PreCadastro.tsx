@@ -160,10 +160,11 @@ const PreCadastro = () => {
     const detectLocation = async () => {
       if (!leadData.cidade && !leadData.estado) {
         try {
-          const { data, error } = await supabase.functions.invoke('get-location');
-          
+          const {
+            data,
+            error
+          } = await supabase.functions.invoke('get-location');
           if (error) throw error;
-          
           if (data?.success && data.cidade && data.estado) {
             console.log('Location detected:', data);
             setLeadData(prev => ({
@@ -179,7 +180,6 @@ const PreCadastro = () => {
         }
       }
     };
-
     if (!loading && leadData.nomeModelo) {
       detectLocation();
     }
@@ -362,8 +362,7 @@ const PreCadastro = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold">Max Fama</h1>
-          <p className="text-muted-foreground">Pré analise de Pefil.
-Complete suas informações</p>
+          <p className="text-muted-foreground">Pré analise de pefil</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
