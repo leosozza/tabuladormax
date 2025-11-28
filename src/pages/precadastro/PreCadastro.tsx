@@ -363,12 +363,63 @@ const PreCadastro = () => {
             habilidades: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades]) as string[],
             caracteristicas: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.caracteristicas]) as string[]
           });
+          // Carregar fotos - suporta múltiplos formatos
           const photoUrls: string[] = [];
-          if (lead.photo_url) photoUrls.push(getLeadPhotoUrl(lead.photo_url));
+          
+          if (lead.photo_url) {
+            try {
+              const parsed = JSON.parse(lead.photo_url);
+              
+              if (Array.isArray(parsed)) {
+                // Verificar se é array de URLs do Storage ou objetos do Bitrix
+                if (parsed.length > 0 && typeof parsed[0] === 'string') {
+                  // Já são URLs públicas do Storage
+                  photoUrls.push(...parsed);
+                  console.log(`✅ Carregadas ${parsed.length} fotos do Storage`);
+                } else if (parsed.length > 0 && parsed[0].id) {
+                  // São objetos do Bitrix - precisa sincronizar
+                  console.log(`📸 Detectadas ${parsed.length} fotos do Bitrix, sincronizando...`);
+                  const fileIds = parsed.map((p: any) => p.id).filter(Boolean);
+                  
+                  toast.loading(`Sincronizando ${fileIds.length} fotos do Bitrix...`);
+                  
+                  const { data, error } = await supabase.functions.invoke('bitrix-photo-sync', {
+                    body: { leadId: parseInt(leadId), fileIds }
+                  });
+                  
+                  toast.dismiss();
+                  
+                  if (error) {
+                    console.error('Erro ao sincronizar fotos:', error);
+                    toast.error('Erro ao sincronizar fotos do Bitrix');
+                  } else if (data?.publicUrls && data.publicUrls.length > 0) {
+                    photoUrls.push(...data.publicUrls);
+                    toast.success(`${data.publicUrls.length} fotos sincronizadas!`);
+                    console.log(`✅ ${data.publicUrls.length} fotos sincronizadas do Bitrix`);
+                  }
+                }
+              }
+            } catch {
+              // Não é JSON - é URL simples do Storage
+              if (lead.photo_url.includes('supabase.co') || lead.photo_url.includes('storage')) {
+                photoUrls.push(lead.photo_url);
+              } else {
+                // URL legada - usar helper
+                photoUrls.push(getLeadPhotoUrl(lead.photo_url));
+              }
+            }
+          }
+          
+          // Fotos adicionais do rawData (legado)
           if (rawData.additional_photos && Array.isArray(rawData.additional_photos)) {
             photoUrls.push(...rawData.additional_photos);
           }
-          if (photoUrls.length === 0) photoUrls.push(getLeadPhotoUrl(null));
+          
+          // Garantir pelo menos uma imagem (placeholder)
+          if (photoUrls.length === 0) {
+            photoUrls.push(getLeadPhotoUrl(null));
+          }
+          
           setImages(photoUrls);
           
           // Carregar telefones adicionais
