@@ -9,9 +9,176 @@ import { PreCadastroFooter } from "@/components/precadastro/PreCadastroFooter";
 import { FormField } from "@/components/cadastro/FormField";
 import { MultiSelect } from "@/components/cadastro/MultiSelect";
 import { DateSelectField } from "@/components/cadastro/DateSelectField";
-import { estadosBrasileiros, estadoCivil, sexoOptions, corPele, corCabelo, corOlhos, tipoCabelo, tamanhoCamisa, tamanhoCalca, tamanhoSapato, tipoModelo, cursosOptions, habilidadesOptions, caracteristicasEspeciais } from "@/data/preCadastroOptions";
+import { estadosBrasileiros, tamanhoSapato } from "@/data/preCadastroOptions";
 import { supabase } from "@/integrations/supabase/client";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
+
+// ========================================================================
+// MAPEAMENTO DE CAMPOS DO BITRIX LEAD
+// ========================================================================
+const BITRIX_LEAD_FIELD_MAPPING = {
+  nomeModelo: 'UF_CRM_LEAD_1732627097745',
+  dataNascimento: 'BIRTHDATE',
+  estadoCivil: 'UF_CRM_1762283540',
+  cidade: 'ADDRESS_CITY',
+  estado: 'ADDRESS_PROVINCE',
+  altura: 'UF_CRM_1733485575',
+  peso: 'UF_CRM_1733485977896',
+  manequim: 'UF_CRM_1762283056',
+  tamanhoSapato: 'UF_CRM_1733485454702',
+  corPele: 'UF_CRM_1762283877',
+  corCabelo: 'UF_CRM_1762283650',
+  corOlhos: 'UF_CRM_1733485183850',
+  tipoCabelo: 'UF_CRM_1733485270151',
+  habilidades: 'UF_CRM_1762282315',
+  cursos: 'UF_CRM_1762282626',
+  caracteristicas: 'UF_CRM_1762282725',
+  tipoModelo: 'UF_CRM_1762282818',
+  fotoUrl: 'UF_CRM_LEAD_1733231445171',
+  sexo: 'sexo_local',
+  instagram: 'instagram_local',
+  instagramSeguidores: 'instagram_seg_local',
+  facebook: 'facebook_local',
+  facebookSeguidores: 'facebook_seg_local',
+  youtube: 'youtube_local',
+  youtubeSeguidores: 'youtube_seg_local',
+  tiktok: 'tiktok_local',
+  tiktokSeguidores: 'tiktok_seg_local',
+} as const;
+
+// ========================================================================
+// OPÇÕES COM IDs DO BITRIX
+// ========================================================================
+const ESTADO_CIVIL_OPTIONS = [
+  { value: '9418', label: 'Casado(a)' },
+  { value: '9420', label: 'Divorciado(a)' },
+  { value: '9422', label: 'Solteiro(a)' },
+  { value: '9424', label: 'Viúvo(a)' }
+];
+
+const SEXO_OPTIONS = [
+  { value: 'M', label: 'Masculino' },
+  { value: 'F', label: 'Feminino' }
+];
+
+const COR_PELE_OPTIONS = [
+  { value: '9446', label: 'Branca' },
+  { value: '9448', label: 'Negra' },
+  { value: '9450', label: 'Oriental' },
+  { value: '9452', label: 'Parda' }
+];
+
+const COR_CABELO_OPTIONS = [
+  { value: '9440', label: 'Loiro' },
+  { value: '10298', label: 'Castanho Claro' },
+  { value: '10300', label: 'Castanho Médio' },
+  { value: '10302', label: 'Castanho Escuro' },
+  { value: '9442', label: 'Preto' },
+  { value: '10304', label: 'Ruivo' }
+];
+
+const COR_OLHOS_OPTIONS = [
+  { value: '434', label: 'Azul' },
+  { value: '438', label: 'Castanho' },
+  { value: '440', label: 'Cinza' },
+  { value: '442', label: 'Preto' },
+  { value: '436', label: 'Verde' }
+];
+
+const TIPO_CABELO_OPTIONS = [
+  { value: '444', label: 'Liso' },
+  { value: '446', label: 'Ondulado' },
+  { value: '448', label: 'Cacheado' },
+  { value: '450', label: 'Crespo' },
+  { value: '2258', label: 'Natural' },
+  { value: '2260', label: 'Outros' }
+];
+
+const MANEQUIM_OPTIONS = [
+  { value: '9374', label: '6' },
+  { value: '9376', label: '8' },
+  { value: '9378', label: '10' },
+  { value: '9380', label: '12' },
+  { value: '9382', label: '14' },
+  { value: '9384', label: '16' },
+  { value: '9386', label: '18' },
+  { value: '9388', label: '20' },
+  { value: '9390', label: '22' },
+  { value: '9392', label: '24' },
+  { value: '9394', label: '26' },
+  { value: '9396', label: '28' },
+  { value: '9398', label: '30' },
+  { value: '9400', label: '32' },
+  { value: '9402', label: '34' },
+  { value: '9404', label: '36' },
+  { value: '452', label: '38' },
+  { value: '454', label: '40' },
+  { value: '3946', label: '42' },
+  { value: '9406', label: '44' },
+  { value: '9408', label: '46' },
+  { value: '9410', label: '48' },
+  { value: '9412', label: '50' },
+  { value: '9414', label: '52' },
+  { value: '9416', label: '54' }
+];
+
+const TIPO_MODELO_OPTIONS = [
+  { value: '9300', label: 'Gêmeos' },
+  { value: '9302', label: 'Fashion' },
+  { value: '9304', label: 'Publicidade' },
+  { value: '9306', label: 'Elenco' },
+  { value: '9308', label: 'Figuração' },
+  { value: '9310', label: 'Feira & Eventos' },
+  { value: '9312', label: 'Promo Girl' },
+  { value: '9314', label: 'Hostess' },
+  { value: '9316', label: 'Baby' }
+];
+
+const CURSOS_OPTIONS = [
+  { value: '9262', label: 'Canto' },
+  { value: '9264', label: 'Dança' },
+  { value: '9266', label: 'Espanhol' },
+  { value: '9268', label: 'Inglês' },
+  { value: '9270', label: 'Interpretação' },
+  { value: '9272', label: 'Locução' },
+  { value: '9274', label: 'Passarela' },
+  { value: '9276', label: 'Fotografia' },
+  { value: '9278', label: 'Teatro Musical' },
+  { value: '9280', label: 'Libras' },
+  { value: '9282', label: 'Música' },
+  { value: '9284', label: 'Artes Marciais' }
+];
+
+const HABILIDADES_OPTIONS = [
+  { value: '9228', label: 'Atua' },
+  { value: '9230', label: 'Bilíngue' },
+  { value: '9232', label: 'Canta' },
+  { value: '9234', label: 'Dança' },
+  { value: '9236', label: 'Esportes' },
+  { value: '9238', label: 'Instrumentos' },
+  { value: '9240', label: 'Malabarismo' },
+  { value: '9242', label: 'Trilíngue' },
+  { value: '9244', label: 'Violão' },
+  { value: '9246', label: 'CNH A' },
+  { value: '9248', label: 'CNH B' },
+  { value: '9250', label: 'CNH AB' },
+  { value: '9252', label: 'Moto' },
+  { value: '9254', label: 'Libras' },
+  { value: '9256', label: 'Piano' },
+  { value: '9258', label: 'Violino' },
+  { value: '9260', label: 'Artes Marciais' }
+];
+
+const CARACTERISTICAS_OPTIONS = [
+  { value: '9286', label: 'Comunicativo' },
+  { value: '9288', label: 'Desinibida' },
+  { value: '9290', label: 'Gestante' },
+  { value: '9292', label: 'Melhor Idade' },
+  { value: '9294', label: 'Plus Size' },
+  { value: '9296', label: 'Tatuado(a)' },
+  { value: '9298', label: 'Cabelo Colorido' }
+];
+
 interface LeadData {
   nomeResponsavel: string;
   estadoCivil: string;
@@ -23,15 +190,11 @@ interface LeadData {
   sexo: string;
   altura: string;
   peso: string;
-  busto: string;
-  cintura: string;
-  quadril: string;
+  manequim: string;
   corPele: string;
   corCabelo: string;
   corOlhos: string;
   tipoCabelo: string;
-  tamanhoCamisa: string;
-  tamanhoCalca: string;
   tamanhoSapato: string;
   instagram: string;
   instagramSeguidores: string;
@@ -65,15 +228,11 @@ const PreCadastro = () => {
     sexo: "",
     altura: "",
     peso: "",
-    busto: "",
-    cintura: "",
-    quadril: "",
+    manequim: "",
     corPele: "",
     corCabelo: "",
     corOlhos: "",
     tipoCabelo: "",
-    tamanhoCamisa: "",
-    tamanhoCalca: "",
     tamanhoSapato: "",
     instagram: "",
     instagramSeguidores: "",
@@ -107,37 +266,33 @@ const PreCadastro = () => {
           const rawData = lead.raw as any || {};
           setLeadData({
             nomeResponsavel: lead.nome_responsavel_legal || "",
-            estadoCivil: rawData.UF_CRM_ESTADO_CIVIL || "",
+            estadoCivil: rawData[BITRIX_LEAD_FIELD_MAPPING.estadoCivil] || "",
             telefone: lead.celular || lead.telefone_casa || "",
-            cidade: rawData.UF_CRM_CIDADE || "",
-            estado: rawData.UF_CRM_ESTADO || "",
+            cidade: rawData[BITRIX_LEAD_FIELD_MAPPING.cidade] || "",
+            estado: rawData[BITRIX_LEAD_FIELD_MAPPING.estado] || "",
             nomeModelo: lead.nome_modelo || lead.name || "",
-            dataNascimento: rawData.UF_CRM_DATA_NASCIMENTO || "",
-            sexo: rawData.UF_CRM_SEXO || "",
-            altura: rawData.UF_CRM_ALTURA || "",
-            peso: rawData.UF_CRM_PESO || "",
-            busto: rawData.UF_CRM_BUSTO || "",
-            cintura: rawData.UF_CRM_CINTURA || "",
-            quadril: rawData.UF_CRM_QUADRIL || "",
-            corPele: rawData.UF_CRM_COR_PELE || "",
-            corCabelo: rawData.UF_CRM_COR_CABELO || "",
-            corOlhos: rawData.UF_CRM_COR_OLHOS || "",
-            tipoCabelo: rawData.UF_CRM_TIPO_CABELO || "",
-            tamanhoCamisa: rawData.UF_CRM_TAMANHO_CAMISA || "",
-            tamanhoCalca: rawData.UF_CRM_TAMANHO_CALCA || "",
-            tamanhoSapato: rawData.UF_CRM_TAMANHO_SAPATO || "",
-            instagram: rawData.UF_CRM_INSTAGRAM || "",
-            instagramSeguidores: rawData.UF_CRM_INSTAGRAM_SEGUIDORES || "",
-            facebook: rawData.UF_CRM_FACEBOOK || "",
-            facebookSeguidores: rawData.UF_CRM_FACEBOOK_SEGUIDORES || "",
-            youtube: rawData.UF_CRM_YOUTUBE || "",
-            youtubeSeguidores: rawData.UF_CRM_YOUTUBE_SEGUIDORES || "",
-            tiktok: rawData.UF_CRM_TIKTOK || "",
-            tiktokSeguidores: rawData.UF_CRM_TIKTOK_SEGUIDORES || "",
-            tiposModelo: rawData.UF_CRM_TIPOS_MODELO || [],
-            cursos: rawData.UF_CRM_CURSOS || [],
-            habilidades: rawData.UF_CRM_HABILIDADES || [],
-            caracteristicas: rawData.UF_CRM_CARACTERISTICAS || []
+            dataNascimento: rawData[BITRIX_LEAD_FIELD_MAPPING.dataNascimento] || "",
+            sexo: rawData[BITRIX_LEAD_FIELD_MAPPING.sexo] || "",
+            altura: rawData[BITRIX_LEAD_FIELD_MAPPING.altura] || "",
+            peso: rawData[BITRIX_LEAD_FIELD_MAPPING.peso] || "",
+            manequim: rawData[BITRIX_LEAD_FIELD_MAPPING.manequim] || "",
+            corPele: rawData[BITRIX_LEAD_FIELD_MAPPING.corPele] || "",
+            corCabelo: rawData[BITRIX_LEAD_FIELD_MAPPING.corCabelo] || "",
+            corOlhos: rawData[BITRIX_LEAD_FIELD_MAPPING.corOlhos] || "",
+            tipoCabelo: rawData[BITRIX_LEAD_FIELD_MAPPING.tipoCabelo] || "",
+            tamanhoSapato: rawData[BITRIX_LEAD_FIELD_MAPPING.tamanhoSapato] || "",
+            instagram: rawData[BITRIX_LEAD_FIELD_MAPPING.instagram] || "",
+            instagramSeguidores: rawData[BITRIX_LEAD_FIELD_MAPPING.instagramSeguidores] || "",
+            facebook: rawData[BITRIX_LEAD_FIELD_MAPPING.facebook] || "",
+            facebookSeguidores: rawData[BITRIX_LEAD_FIELD_MAPPING.facebookSeguidores] || "",
+            youtube: rawData[BITRIX_LEAD_FIELD_MAPPING.youtube] || "",
+            youtubeSeguidores: rawData[BITRIX_LEAD_FIELD_MAPPING.youtubeSeguidores] || "",
+            tiktok: rawData[BITRIX_LEAD_FIELD_MAPPING.tiktok] || "",
+            tiktokSeguidores: rawData[BITRIX_LEAD_FIELD_MAPPING.tiktokSeguidores] || "",
+            tiposModelo: rawData[BITRIX_LEAD_FIELD_MAPPING.tipoModelo] || [],
+            cursos: rawData[BITRIX_LEAD_FIELD_MAPPING.cursos] || [],
+            habilidades: rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades] || [],
+            caracteristicas: rawData[BITRIX_LEAD_FIELD_MAPPING.caracteristicas] || []
           });
           const photoUrls: string[] = [];
           if (lead.photo_url) photoUrls.push(getLeadPhotoUrl(lead.photo_url));
@@ -283,35 +438,29 @@ const PreCadastro = () => {
       setSaving(true);
       
       const rawData = {
-        UF_CRM_ESTADO_CIVIL: leadData.estadoCivil,
-        UF_CRM_CIDADE: leadData.cidade,
-        UF_CRM_ESTADO: leadData.estado,
-        UF_CRM_DATA_NASCIMENTO: leadData.dataNascimento,
-        UF_CRM_SEXO: leadData.sexo,
-        UF_CRM_ALTURA: leadData.altura,
-        UF_CRM_PESO: leadData.peso,
-        UF_CRM_BUSTO: leadData.busto,
-        UF_CRM_CINTURA: leadData.cintura,
-        UF_CRM_QUADRIL: leadData.quadril,
-        UF_CRM_COR_PELE: leadData.corPele,
-        UF_CRM_COR_CABELO: leadData.corCabelo,
-        UF_CRM_COR_OLHOS: leadData.corOlhos,
-        UF_CRM_TIPO_CABELO: leadData.tipoCabelo,
-        UF_CRM_TAMANHO_CAMISA: leadData.tamanhoCamisa,
-        UF_CRM_TAMANHO_CALCA: leadData.tamanhoCalca,
-        UF_CRM_TAMANHO_SAPATO: leadData.tamanhoSapato,
-        UF_CRM_INSTAGRAM: leadData.instagram,
-        UF_CRM_INSTAGRAM_SEGUIDORES: leadData.instagramSeguidores,
-        UF_CRM_FACEBOOK: leadData.facebook,
-        UF_CRM_FACEBOOK_SEGUIDORES: leadData.facebookSeguidores,
-        UF_CRM_YOUTUBE: leadData.youtube,
-        UF_CRM_YOUTUBE_SEGUIDORES: leadData.youtubeSeguidores,
-        UF_CRM_TIKTOK: leadData.tiktok,
-        UF_CRM_TIKTOK_SEGUIDORES: leadData.tiktokSeguidores,
-        UF_CRM_TIPOS_MODELO: leadData.tiposModelo,
-        UF_CRM_CURSOS: leadData.cursos,
-        UF_CRM_HABILIDADES: leadData.habilidades,
-        UF_CRM_CARACTERISTICAS: leadData.caracteristicas,
+        [BITRIX_LEAD_FIELD_MAPPING.estadoCivil]: leadData.estadoCivil,
+        [BITRIX_LEAD_FIELD_MAPPING.altura]: leadData.altura,
+        [BITRIX_LEAD_FIELD_MAPPING.peso]: leadData.peso,
+        [BITRIX_LEAD_FIELD_MAPPING.manequim]: leadData.manequim,
+        [BITRIX_LEAD_FIELD_MAPPING.tamanhoSapato]: leadData.tamanhoSapato,
+        [BITRIX_LEAD_FIELD_MAPPING.corPele]: leadData.corPele,
+        [BITRIX_LEAD_FIELD_MAPPING.corCabelo]: leadData.corCabelo,
+        [BITRIX_LEAD_FIELD_MAPPING.corOlhos]: leadData.corOlhos,
+        [BITRIX_LEAD_FIELD_MAPPING.tipoCabelo]: leadData.tipoCabelo,
+        [BITRIX_LEAD_FIELD_MAPPING.habilidades]: leadData.habilidades,
+        [BITRIX_LEAD_FIELD_MAPPING.cursos]: leadData.cursos,
+        [BITRIX_LEAD_FIELD_MAPPING.caracteristicas]: leadData.caracteristicas,
+        [BITRIX_LEAD_FIELD_MAPPING.tipoModelo]: leadData.tiposModelo,
+        [BITRIX_LEAD_FIELD_MAPPING.fotoUrl]: images[0] || null,
+        [BITRIX_LEAD_FIELD_MAPPING.sexo]: leadData.sexo,
+        [BITRIX_LEAD_FIELD_MAPPING.instagram]: leadData.instagram,
+        [BITRIX_LEAD_FIELD_MAPPING.instagramSeguidores]: leadData.instagramSeguidores,
+        [BITRIX_LEAD_FIELD_MAPPING.facebook]: leadData.facebook,
+        [BITRIX_LEAD_FIELD_MAPPING.facebookSeguidores]: leadData.facebookSeguidores,
+        [BITRIX_LEAD_FIELD_MAPPING.youtube]: leadData.youtube,
+        [BITRIX_LEAD_FIELD_MAPPING.youtubeSeguidores]: leadData.youtubeSeguidores,
+        [BITRIX_LEAD_FIELD_MAPPING.tiktok]: leadData.tiktok,
+        [BITRIX_LEAD_FIELD_MAPPING.tiktokSeguidores]: leadData.tiktokSeguidores,
         additional_photos: images.slice(1)
       };
 
@@ -341,10 +490,14 @@ const PreCadastro = () => {
               entityId: leadId,
               fields: {
                 NAME: leadData.nomeModelo,
+                [BITRIX_LEAD_FIELD_MAPPING.nomeModelo]: [leadData.nomeModelo],
                 PHONE: [{
                   VALUE: leadData.telefone,
                   VALUE_TYPE: "MOBILE"
                 }],
+                [BITRIX_LEAD_FIELD_MAPPING.cidade]: leadData.cidade,
+                [BITRIX_LEAD_FIELD_MAPPING.estado]: leadData.estado,
+                [BITRIX_LEAD_FIELD_MAPPING.dataNascimento]: leadData.dataNascimento,
                 ...rawData
               }
             }
@@ -445,7 +598,7 @@ const PreCadastro = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField id="nomeResponsavel" label="Nome do Responsável" value={leadData.nomeResponsavel} onChange={v => handleFieldChange("nomeResponsavel", v)} required />
-                  <FormField id="estadoCivil" label="Estado Civil" type="select" value={leadData.estadoCivil} onChange={v => handleFieldChange("estadoCivil", v)} options={estadoCivil} />
+                  <FormField id="estadoCivil" label="Estado Civil" type="select" value={leadData.estadoCivil} onChange={v => handleFieldChange("estadoCivil", v)} options={ESTADO_CIVIL_OPTIONS} />
                   <FormField id="telefone" label="Telefone" type="tel" value={leadData.telefone} onChange={v => handleFieldChange("telefone", v)} required />
                 </div>
                 <div className="pt-2">
@@ -467,23 +620,19 @@ const PreCadastro = () => {
                   <FormField id="nomeModelo" label="Nome Completo" value={leadData.nomeModelo} onChange={v => handleFieldChange("nomeModelo", v)} required />
                   <DateSelectField id="dataNascimento" label="Data de Nascimento" value={leadData.dataNascimento} onChange={v => handleFieldChange("dataNascimento", v)} />
                 </div>
-                <FormField id="sexo" label="Sexo" type="select" value={leadData.sexo} onChange={v => handleFieldChange("sexo", v)} options={sexoOptions} />
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <FormField id="sexo" label="Sexo" type="select" value={leadData.sexo} onChange={v => handleFieldChange("sexo", v)} options={SEXO_OPTIONS} />
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <FormField id="altura" label="Altura (cm)" type="number" value={leadData.altura} onChange={v => handleFieldChange("altura", v)} />
                   <FormField id="peso" label="Peso (kg)" type="number" value={leadData.peso} onChange={v => handleFieldChange("peso", v)} />
-                  
-                  
-                  
+                  <FormField id="manequim" label="Manequim" type="select" value={leadData.manequim} onChange={v => handleFieldChange("manequim", v)} options={MANEQUIM_OPTIONS} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField id="corPele" label="Cor da Pele" type="select" value={leadData.corPele} onChange={v => handleFieldChange("corPele", v)} options={corPele} />
-                  <FormField id="corCabelo" label="Cor do Cabelo" type="select" value={leadData.corCabelo} onChange={v => handleFieldChange("corCabelo", v)} options={corCabelo} />
-                  <FormField id="corOlhos" label="Cor dos Olhos" type="select" value={leadData.corOlhos} onChange={v => handleFieldChange("corOlhos", v)} options={corOlhos} />
-                  <FormField id="tipoCabelo" label="Tipo de Cabelo" type="select" value={leadData.tipoCabelo} onChange={v => handleFieldChange("tipoCabelo", v)} options={tipoCabelo} />
+                  <FormField id="corPele" label="Cor da Pele" type="select" value={leadData.corPele} onChange={v => handleFieldChange("corPele", v)} options={COR_PELE_OPTIONS} />
+                  <FormField id="corCabelo" label="Cor do Cabelo" type="select" value={leadData.corCabelo} onChange={v => handleFieldChange("corCabelo", v)} options={COR_CABELO_OPTIONS} />
+                  <FormField id="corOlhos" label="Cor dos Olhos" type="select" value={leadData.corOlhos} onChange={v => handleFieldChange("corOlhos", v)} options={COR_OLHOS_OPTIONS} />
+                  <FormField id="tipoCabelo" label="Tipo de Cabelo" type="select" value={leadData.tipoCabelo} onChange={v => handleFieldChange("tipoCabelo", v)} options={TIPO_CABELO_OPTIONS} />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <FormField id="tamanhoCamisa" label="Tamanho Camisa" type="select" value={leadData.tamanhoCamisa} onChange={v => handleFieldChange("tamanhoCamisa", v)} options={tamanhoCamisa} />
-                  
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField id="tamanhoSapato" label="Tamanho Sapato" type="select" value={leadData.tamanhoSapato} onChange={v => handleFieldChange("tamanhoSapato", v)} options={tamanhoSapato} />
                 </div>
               </div>
@@ -506,10 +655,10 @@ const PreCadastro = () => {
 
             <FormSection title="Habilidades e Experiência" icon={<Sparkles className="h-5 w-5" />} defaultOpen={false}>
               <div className="space-y-4">
-                <MultiSelect id="tiposModelo" label="Tipos de Modelo" value={leadData.tiposModelo} onChange={v => handleFieldChange("tiposModelo", v)} options={tipoModelo} />
-                <MultiSelect id="cursos" label="Cursos Realizados" value={leadData.cursos} onChange={v => handleFieldChange("cursos", v)} options={cursosOptions} />
-                <MultiSelect id="habilidades" label="Habilidades" value={leadData.habilidades} onChange={v => handleFieldChange("habilidades", v)} options={habilidadesOptions} />
-                <MultiSelect id="caracteristicas" label="Características Especiais" value={leadData.caracteristicas} onChange={v => handleFieldChange("caracteristicas", v)} options={caracteristicasEspeciais} />
+                <MultiSelect id="tiposModelo" label="Tipos de Modelo" value={leadData.tiposModelo} onChange={v => handleFieldChange("tiposModelo", v)} options={TIPO_MODELO_OPTIONS} />
+                <MultiSelect id="cursos" label="Cursos Realizados" value={leadData.cursos} onChange={v => handleFieldChange("cursos", v)} options={CURSOS_OPTIONS} />
+                <MultiSelect id="habilidades" label="Habilidades" value={leadData.habilidades} onChange={v => handleFieldChange("habilidades", v)} options={HABILIDADES_OPTIONS} />
+                <MultiSelect id="caracteristicas" label="Características Especiais" value={leadData.caracteristicas} onChange={v => handleFieldChange("caracteristicas", v)} options={CARACTERISTICAS_OPTIONS} />
               </div>
             </FormSection>
 
