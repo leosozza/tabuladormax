@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Plus, Trash2, Camera, User, Ruler, Instagram as InstagramIcon, Sparkles, Save, MapPin, Loader2 } from "lucide-react";
 import { FormSection } from "@/components/cadastro/FormSection";
+import { PreCadastroFooter } from "@/components/precadastro/PreCadastroFooter";
 import { FormField } from "@/components/cadastro/FormField";
 import { MultiSelect } from "@/components/cadastro/MultiSelect";
 import { DateSelectField } from "@/components/cadastro/DateSelectField";
@@ -479,6 +480,8 @@ Complete suas informações</p>
           </div>
         </div>
       </div>
+      
+      <PreCadastroFooter />
     </div>;
 };
 export default PreCadastro;
