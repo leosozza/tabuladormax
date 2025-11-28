@@ -34,7 +34,9 @@ const BITRIX_LEAD_FIELD_MAPPING = {
   cursos: 'UF_CRM_1762282626',
   caracteristicas: 'UF_CRM_1762282725',
   tipoModelo: 'UF_CRM_1762282818',
-  fotoUrl: 'UF_CRM_LEAD_1733231445171',
+  fotoUrl: 'UF_CRM_LEAD_1733231445171',        // Campo de upload (array de arquivos)
+  fotoIds: 'UF_CRM_1764358561',                 // IDs públicos das fotos (múltiplo, separado por vírgula)
+  clienteAtualizaFoto: 'UF_CRM_CLIENTEATUALIZAFOTO', // Contador de atualizações de foto
   sexo: 'sexo_local',
   instagram: 'instagram_local',
   instagramSeguidores: 'instagram_seg_local',
@@ -702,6 +704,7 @@ const PreCadastro = () => {
         if (supabaseError) throw supabaseError;
         
         try {
+          // Primeiro update: Enviar fotos para o Bitrix
           await supabase.functions.invoke('bitrix-entity-update', {
             body: {
               entityType: 'lead',
@@ -720,6 +723,45 @@ const PreCadastro = () => {
               }
             }
           });
+          
+          // Segundo update: Buscar IDs das fotos e atualizar campos específicos
+          try {
+            const { data: leadDataBitrix } = await supabase.functions.invoke('bitrix-get-lead', {
+              body: { leadId }
+            });
+
+            if (leadDataBitrix?.result) {
+              // Extrair IDs das fotos do campo de upload
+              const photoObjects = leadDataBitrix.result.UF_CRM_LEAD_1733231445171 || [];
+              const photoIds = Array.isArray(photoObjects) 
+                ? photoObjects.map((p: any) => p.id).filter(Boolean)
+                : [];
+
+              // Buscar contador atual
+              const currentCount = parseInt(leadDataBitrix.result.UF_CRM_CLIENTEATUALIZAFOTO || '0');
+
+              if (photoIds.length > 0) {
+                console.log(`Atualizando campo de IDs com ${photoIds.length} fotos`);
+                
+                // Atualizar campos específicos: IDs das fotos e contador
+                await supabase.functions.invoke('bitrix-entity-update', {
+                  body: {
+                    entityType: 'lead',
+                    entityId: leadId,
+                    fields: {
+                      [BITRIX_LEAD_FIELD_MAPPING.fotoIds]: photoIds.join(','),
+                      [BITRIX_LEAD_FIELD_MAPPING.clienteAtualizaFoto]: currentCount + 1
+                    }
+                  }
+                });
+                
+                console.log(`IDs das fotos salvos: ${photoIds.join(',')}. Contador: ${currentCount + 1}`);
+              }
+            }
+          } catch (photoUpdateError) {
+            console.error('Erro ao atualizar IDs das fotos:', photoUpdateError);
+            // Não bloqueia o fluxo principal
+          }
         } catch (bitrixError) {
           console.error('Erro Bitrix:', bitrixError);
         }
