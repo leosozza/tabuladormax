@@ -403,86 +403,98 @@ const PreCadastro = () => {
             habilidades: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades]) as string[],
             caracteristicas: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.caracteristicas]) as string[]
           });
-          // Carregar fotos - PRIORIDADE: novo campo UF_CRM_1764358561
+          // Carregar fotos - PRIORIDADE: verificar cache primeiro
           const photoUrls: string[] = [];
           let fileIdsToSync: number[] = [];
           
-          // 1. Tentar novo campo primeiro (IDs públicos das fotos)
-          const newPhotoField = rawData.UF_CRM_1764358561 || rawData[BITRIX_LEAD_FIELD_MAPPING.fotoIds];
-          
-          if (newPhotoField) {
-            console.log('🆕 Usando novo campo UF_CRM_1764358561:', newPhotoField);
-            
-            if (Array.isArray(newPhotoField)) {
-              // Array de IDs ou strings
-              fileIdsToSync = newPhotoField
-                .map(id => typeof id === 'string' ? parseInt(id) : id)
-                .filter(id => !isNaN(id));
-            } else if (typeof newPhotoField === 'string' && newPhotoField.trim()) {
-              // String separada por vírgula: "426754,426756,426758"
-              fileIdsToSync = newPhotoField
-                .split(',')
-                .map(id => parseInt(id.trim()))
-                .filter(id => !isNaN(id));
+          // 0. PRIMEIRO: Verificar se já temos fotos cacheadas em additional_photos
+          if (lead.additional_photos && Array.isArray(lead.additional_photos) && lead.additional_photos.length > 0) {
+            const cachedPhotos = lead.additional_photos.filter((url): url is string => typeof url === 'string');
+            if (cachedPhotos.length > 0) {
+              console.log(`✅ Usando ${cachedPhotos.length} fotos do cache (additional_photos)`);
+              photoUrls.push(...cachedPhotos);
             }
-            
-            console.log(`📸 ${fileIdsToSync.length} IDs extraídos do novo campo`);
           }
           
-          // 2. Fallback: campo antigo UF_CRM_LEAD_1733231445171
-          if (fileIdsToSync.length === 0 && lead.photo_url) {
-            console.log('⬅️ Fallback para campo antigo photo_url');
+          // Só continuar se NÃO temos fotos cacheadas
+          if (photoUrls.length === 0) {
+            // 1. Tentar novo campo primeiro (IDs públicos das fotos)
+            const newPhotoField = rawData.UF_CRM_1764358561 || rawData[BITRIX_LEAD_FIELD_MAPPING.fotoIds];
             
-            try {
-              const parsed = JSON.parse(lead.photo_url);
+            if (newPhotoField) {
+              console.log('🆕 Usando novo campo UF_CRM_1764358561:', newPhotoField);
               
-              if (Array.isArray(parsed)) {
-                // Verificar se é array de URLs do Storage ou objetos do Bitrix
-                if (parsed.length > 0 && typeof parsed[0] === 'string') {
-                  // Já são URLs públicas do Storage
-                  photoUrls.push(...parsed);
-                  console.log(`✅ Carregadas ${parsed.length} fotos do Storage`);
-                } else if (parsed.length > 0 && parsed[0].id) {
-                  // São objetos do Bitrix
-                  fileIdsToSync = parsed.map((p: any) => p.id).filter(Boolean);
-                  console.log(`📸 ${fileIdsToSync.length} IDs extraídos do campo antigo`);
+              if (Array.isArray(newPhotoField)) {
+                // Array de IDs ou strings
+                fileIdsToSync = newPhotoField
+                  .map(id => typeof id === 'string' ? parseInt(id) : id)
+                  .filter(id => !isNaN(id));
+              } else if (typeof newPhotoField === 'string' && newPhotoField.trim()) {
+                // String separada por vírgula: "426754,426756,426758"
+                fileIdsToSync = newPhotoField
+                  .split(',')
+                  .map(id => parseInt(id.trim()))
+                  .filter(id => !isNaN(id));
+              }
+              
+              console.log(`📸 ${fileIdsToSync.length} IDs extraídos do novo campo`);
+            }
+            
+            // 2. Fallback: campo antigo UF_CRM_LEAD_1733231445171
+            if (fileIdsToSync.length === 0 && lead.photo_url) {
+              console.log('⬅️ Fallback para campo antigo photo_url');
+              
+              try {
+                const parsed = JSON.parse(lead.photo_url);
+                
+                if (Array.isArray(parsed)) {
+                  // Verificar se é array de URLs do Storage ou objetos do Bitrix
+                  if (parsed.length > 0 && typeof parsed[0] === 'string') {
+                    // Já são URLs públicas do Storage
+                    photoUrls.push(...parsed);
+                    console.log(`✅ Carregadas ${parsed.length} fotos do Storage`);
+                  } else if (parsed.length > 0 && parsed[0].id) {
+                    // São objetos do Bitrix
+                    fileIdsToSync = parsed.map((p: any) => p.id).filter(Boolean);
+                    console.log(`📸 ${fileIdsToSync.length} IDs extraídos do campo antigo`);
+                  }
+                }
+              } catch {
+                // Não é JSON - é URL simples do Storage
+                if (lead.photo_url.includes('supabase.co') || lead.photo_url.includes('storage')) {
+                  photoUrls.push(lead.photo_url);
+                } else {
+                  photoUrls.push(getLeadPhotoUrl(lead.photo_url));
                 }
               }
-            } catch {
-              // Não é JSON - é URL simples do Storage
-              if (lead.photo_url.includes('supabase.co') || lead.photo_url.includes('storage')) {
-                photoUrls.push(lead.photo_url);
+            }
+            
+            // 3. Se temos IDs do Bitrix e AINDA não temos fotos, sincronizar
+            if (fileIdsToSync.length > 0 && photoUrls.length === 0) {
+              console.log(`🔄 Sincronizando ${fileIdsToSync.length} fotos do Bitrix...`);
+              toast.loading(`Sincronizando ${fileIdsToSync.length} fotos...`);
+              
+              const { data, error } = await supabase.functions.invoke('bitrix-photo-sync', {
+                body: { leadId: parseInt(leadId), fileIds: fileIdsToSync }
+              });
+              
+              toast.dismiss();
+              
+              if (error) {
+                console.error('❌ Erro ao sincronizar fotos:', error);
+                toast.error('Erro ao sincronizar fotos do Bitrix');
+              } else if (data?.publicUrls && data.publicUrls.length > 0) {
+                photoUrls.push(...data.publicUrls);
+                toast.success(`${data.publicUrls.length} fotos sincronizadas!`);
+                console.log(`✅ ${data.publicUrls.length} fotos sincronizadas`);
               } else {
-                photoUrls.push(getLeadPhotoUrl(lead.photo_url));
+                console.warn('⚠️ Sincronização retornou sem URLs');
               }
             }
           }
           
-          // 3. Se temos IDs do Bitrix, sincronizar
-          if (fileIdsToSync.length > 0 && photoUrls.length === 0) {
-            console.log(`🔄 Sincronizando ${fileIdsToSync.length} fotos do Bitrix...`);
-            toast.loading(`Sincronizando ${fileIdsToSync.length} fotos...`);
-            
-            const { data, error } = await supabase.functions.invoke('bitrix-photo-sync', {
-              body: { leadId: parseInt(leadId), fileIds: fileIdsToSync }
-            });
-            
-            toast.dismiss();
-            
-            if (error) {
-              console.error('❌ Erro ao sincronizar fotos:', error);
-              toast.error('Erro ao sincronizar fotos do Bitrix');
-            } else if (data?.publicUrls && data.publicUrls.length > 0) {
-              photoUrls.push(...data.publicUrls);
-              toast.success(`${data.publicUrls.length} fotos sincronizadas!`);
-              console.log(`✅ ${data.publicUrls.length} fotos sincronizadas`);
-            } else {
-              console.warn('⚠️ Sincronização retornou sem URLs');
-            }
-          }
-          
-          // Fotos adicionais do rawData (legado)
-          if (rawData.additional_photos && Array.isArray(rawData.additional_photos)) {
+          // Fotos adicionais do rawData (legado) - se ainda não carregamos
+          if (photoUrls.length === 0 && rawData.additional_photos && Array.isArray(rawData.additional_photos)) {
             photoUrls.push(...rawData.additional_photos);
           }
           
