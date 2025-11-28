@@ -219,6 +219,38 @@ const normalizeEnumerationValue = (value: unknown): string | string[] => {
   return String(value || '');
 };
 
+const urlToBase64 = async (url: string): Promise<{ filename: string; base64: string } | null> => {
+  try {
+    // Verificar se é uma URL válida de imagem (não placeholder)
+    if (!url || url.includes('no-photo-placeholder')) {
+      return null;
+    }
+    
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    
+    const blob = await response.blob();
+    
+    // Extrair extensão do content-type ou URL
+    const contentType = blob.type || 'image/jpeg';
+    let extension = 'jpg';
+    if (contentType.includes('png')) extension = 'png';
+    else if (contentType.includes('webp')) extension = 'webp';
+    
+    const filename = `foto_${Date.now()}.${extension}`;
+    
+    // Converter para base64
+    const arrayBuffer = await blob.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const base64 = btoa(String.fromCharCode(...uint8Array));
+    
+    return { filename, base64 };
+  } catch (error) {
+    console.error('Erro ao converter URL para base64:', error);
+    return null;
+  }
+};
+
 const PreCadastro = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -467,6 +499,15 @@ const PreCadastro = () => {
     try {
       setSaving(true);
       
+      // Converter foto principal para base64 (se houver)
+      let fotoBase64Data = null;
+      if (images[0] && !images[0].includes('no-photo-placeholder')) {
+        const base64Result = await urlToBase64(images[0]);
+        if (base64Result) {
+          fotoBase64Data = { fileData: [base64Result.filename, base64Result.base64] };
+        }
+      }
+      
       const rawData = {
         [BITRIX_LEAD_FIELD_MAPPING.estadoCivil]: leadData.estadoCivil,
         [BITRIX_LEAD_FIELD_MAPPING.altura]: leadData.altura,
@@ -481,7 +522,7 @@ const PreCadastro = () => {
         [BITRIX_LEAD_FIELD_MAPPING.cursos]: leadData.cursos,
         [BITRIX_LEAD_FIELD_MAPPING.caracteristicas]: leadData.caracteristicas,
         [BITRIX_LEAD_FIELD_MAPPING.tipoModelo]: leadData.tiposModelo,
-        [BITRIX_LEAD_FIELD_MAPPING.fotoUrl]: images[0] || null,
+        [BITRIX_LEAD_FIELD_MAPPING.fotoUrl]: fotoBase64Data,
         [BITRIX_LEAD_FIELD_MAPPING.sexo]: leadData.sexo,
         [BITRIX_LEAD_FIELD_MAPPING.instagram]: leadData.instagram,
         [BITRIX_LEAD_FIELD_MAPPING.instagramSeguidores]: leadData.instagramSeguidores,
