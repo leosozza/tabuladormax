@@ -330,7 +330,7 @@ const PreCadastro = () => {
   return <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold">Maxfama</h1>
+          <h1 className="text-3xl font-bold">Max Fama</h1>
           <p className="text-muted-foreground">Pré analise de Pefil.
 Complete suas informações</p>
         </div>
