@@ -377,7 +377,7 @@ const PreCadastro = () => {
               </CardContent>
             </Card>
 
-            <FormSection title="Dados Cadastrais" icon={<User />} defaultOpen>
+            <FormSection title="Dados Cadastrais" icon={<User />}>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField id="nomeResponsavel" label="Nome do Responsável" value={leadData.nomeResponsavel} onChange={(v) => handleFieldChange("nomeResponsavel", v)} required />
