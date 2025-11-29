@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, CheckCircle } from 'lucide-react';
 
 interface FormSectionProps {
   title: string;
@@ -10,6 +10,7 @@ interface FormSectionProps {
   children: React.ReactNode;
   defaultOpen?: boolean;
   collapsible?: boolean;
+  isComplete?: boolean;
 }
 
 export const FormSection: React.FC<FormSectionProps> = ({
@@ -18,7 +19,8 @@ export const FormSection: React.FC<FormSectionProps> = ({
   icon,
   children,
   defaultOpen = false,
-  collapsible = true
+  collapsible = true,
+  isComplete = false
 }) => {
   const [isOpen, setIsOpen] = React.useState(defaultOpen);
 
@@ -29,6 +31,7 @@ export const FormSection: React.FC<FormSectionProps> = ({
           <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
             <span className="text-pink-500">{icon}</span>
             {title}
+            {isComplete && <CheckCircle className="ml-auto h-4 w-4 text-green-500" />}
           </CardTitle>
           {description && (
             <CardDescription className="text-sm mt-1">
@@ -51,6 +54,7 @@ export const FormSection: React.FC<FormSectionProps> = ({
             <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
               <span className="text-primary">{icon}</span>
               {title}
+              {isComplete && <CheckCircle className="ml-2 h-4 w-4 text-green-500" />}
               <ChevronDown 
                 className={`ml-auto h-5 w-5 text-primary transition-transform duration-200 ${
                   isOpen ? 'rotate-180' : ''

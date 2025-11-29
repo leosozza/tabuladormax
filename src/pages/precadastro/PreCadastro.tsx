@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, Trash2, Camera, User, Ruler, Instagram as InstagramIcon, Sparkles, Save, MapPin, Loader2, Phone } from "lucide-react";
+import { Plus, Trash2, Camera, User, Ruler, Instagram as InstagramIcon, Sparkles, Send, MapPin, Loader2, Phone } from "lucide-react";
 import { FormSection } from "@/components/cadastro/FormSection";
 import { PreCadastroFooter } from "@/components/precadastro/PreCadastroFooter";
 import { FormField } from "@/components/cadastro/FormField";
@@ -34,18 +34,12 @@ const BITRIX_LEAD_FIELD_MAPPING = {
   cursos: 'UF_CRM_1762282626',
   caracteristicas: 'UF_CRM_1762282725',
   tipoModelo: 'UF_CRM_1762282818',
-  fotoUrl: 'UF_CRM_LEAD_1733231445171',        // Campo de upload (array de arquivos)
-  fotoIds: 'UF_CRM_1764358561',                 // IDs públicos das fotos (múltiplo, separado por vírgula)
-  clienteAtualizaFoto: 'UF_CRM_CLIENTEATUALIZAFOTO', // Contador de atualizações de foto
+  fotoUrl: 'UF_CRM_LEAD_1733231445171',
+  fotoIds: 'UF_CRM_1764358561',
+  clienteAtualizaFoto: 'UF_CRM_CLIENTEATUALIZAFOTO',
   sexo: 'sexo_local',
   instagram: 'instagram_local',
-  instagramSeguidores: 'instagram_seg_local',
-  facebook: 'facebook_local',
-  facebookSeguidores: 'facebook_seg_local',
-  youtube: 'youtube_local',
-  youtubeSeguidores: 'youtube_seg_local',
   tiktok: 'tiktok_local',
-  tiktokSeguidores: 'tiktok_seg_local',
 } as const;
 
 // ========================================================================
@@ -124,61 +118,26 @@ const MANEQUIM_OPTIONS = [
   { value: '9416', label: '54' }
 ];
 
-const TIPO_MODELO_OPTIONS = [
-  { value: '9300', label: 'Gêmeos' },
-  { value: '9302', label: 'Fashion' },
-  { value: '9304', label: 'Publicidade' },
-  { value: '9306', label: 'Elenco' },
-  { value: '9308', label: 'Figuração' },
-  { value: '9310', label: 'Feira & Eventos' },
-  { value: '9312', label: 'Promo Girl' },
-  { value: '9314', label: 'Hostess' },
-  { value: '9316', label: 'Baby' }
-];
-
-const CURSOS_OPTIONS = [
-  { value: '9262', label: 'Canto' },
-  { value: '9264', label: 'Dança' },
-  { value: '9266', label: 'Espanhol' },
+const IDIOMAS_OPTIONS = [
   { value: '9268', label: 'Inglês' },
-  { value: '9270', label: 'Interpretação' },
-  { value: '9272', label: 'Locução' },
-  { value: '9274', label: 'Passarela' },
-  { value: '9276', label: 'Fotografia' },
-  { value: '9278', label: 'Teatro Musical' },
-  { value: '9280', label: 'Libras' },
-  { value: '9282', label: 'Música' },
-  { value: '9284', label: 'Artes Marciais' }
+  { value: '9266', label: 'Espanhol' },
+  { value: '9280', label: 'Libras' }
 ];
 
-const HABILIDADES_OPTIONS = [
+const TALENTOS_OPTIONS = [
   { value: '9228', label: 'Atua' },
-  { value: '9230', label: 'Bilíngue' },
   { value: '9232', label: 'Canta' },
   { value: '9234', label: 'Dança' },
   { value: '9236', label: 'Esportes' },
   { value: '9238', label: 'Instrumentos' },
-  { value: '9240', label: 'Malabarismo' },
-  { value: '9242', label: 'Trilíngue' },
-  { value: '9244', label: 'Violão' },
-  { value: '9246', label: 'CNH A' },
-  { value: '9248', label: 'CNH B' },
-  { value: '9250', label: 'CNH AB' },
-  { value: '9252', label: 'Moto' },
-  { value: '9254', label: 'Libras' },
-  { value: '9256', label: 'Piano' },
-  { value: '9258', label: 'Violino' },
-  { value: '9260', label: 'Artes Marciais' }
+  { value: '9240', label: 'Malabarismo' }
 ];
 
-const CARACTERISTICAS_OPTIONS = [
-  { value: '9286', label: 'Comunicativo' },
-  { value: '9288', label: 'Desinibida' },
-  { value: '9290', label: 'Gestante' },
-  { value: '9292', label: 'Melhor Idade' },
-  { value: '9294', label: 'Plus Size' },
-  { value: '9296', label: 'Tatuado(a)' },
-  { value: '9298', label: 'Cabelo Colorido' }
+const EXPERIENCIA_OPTIONS = [
+  { value: '9304', label: 'Publicidade' },
+  { value: '9302', label: 'Fashion' },
+  { value: '9306', label: 'Elenco' },
+  { value: '9308', label: 'Figuração' }
 ];
 
 interface LeadData {
@@ -199,21 +158,12 @@ interface LeadData {
   tipoCabelo: string;
   tamanhoSapato: string;
   instagram: string;
-  instagramSeguidores: string;
-  facebook: string;
-  facebookSeguidores: string;
-  youtube: string;
-  youtubeSeguidores: string;
   tiktok: string;
-  tiktokSeguidores: string;
-  tiposModelo: string[];
-  cursos: string[];
-  habilidades: string[];
-  caracteristicas: string[];
+  idiomas: string[];
+  talentosEspeciais: string[];
+  experienciaPublicidade: string[];
 }
-// ========================================================================
-// HELPER FUNCTIONS
-// ========================================================================
+
 const normalizeEnumerationValue = (value: unknown): string | string[] => {
   if (Array.isArray(value)) {
     return value.map(v => String(v));
@@ -221,18 +171,15 @@ const normalizeEnumerationValue = (value: unknown): string | string[] => {
   return String(value || '');
 };
 
-// Converte qualquer imagem para JPEG antes do upload com otimização de resolução
 const convertImageToJpeg = async (file: File | Blob): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      // Definir resolução máxima para acelerar upload
       const MAX_DIMENSION = 1920;
       
       let width = img.naturalWidth;
       let height = img.naturalHeight;
       
-      // Redimensionar proporcionalmente se necessário
       if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
         if (width > height) {
           height = Math.round((height * MAX_DIMENSION) / width);
@@ -241,7 +188,6 @@ const convertImageToJpeg = async (file: File | Blob): Promise<Blob> => {
           width = Math.round((width * MAX_DIMENSION) / height);
           height = MAX_DIMENSION;
         }
-        console.log(`[convertImageToJpeg] Redimensionando de ${img.naturalWidth}x${img.naturalHeight} para ${width}x${height}`);
       }
       
       const canvas = document.createElement('canvas');
@@ -254,14 +200,11 @@ const convertImageToJpeg = async (file: File | Blob): Promise<Blob> => {
         return;
       }
       
-      // Desenhar imagem redimensionada no canvas
       ctx.drawImage(img, 0, 0, width, height);
       
-      // Converter para JPEG blob com qualidade 85%
       canvas.toBlob(
         (blob) => {
           if (blob) {
-            console.log(`[convertImageToJpeg] Tamanho final: ${(blob.size / 1024).toFixed(1)}KB`);
             resolve(blob);
           } else {
             reject(new Error('Falha ao converter imagem'));
@@ -289,7 +232,6 @@ const urlToBase64 = async (url: string): Promise<{ filename: string; base64: str
     const blob = await response.blob();
     const filename = `foto_${Date.now()}.jpg`;
 
-    // Usar FileReader para evitar estouro de pilha com imagens grandes
     const base64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
 
@@ -323,13 +265,14 @@ const PreCadastro = () => {
   const leadId = searchParams.get('lead');
   const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<string>(''); // ✅ Feedback de progresso
+  const [saveStatus, setSaveStatus] = useState<string>('');
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [images, setImages] = useState<string[]>([]);
   const [additionalPhones, setAdditionalPhones] = useState<string[]>([]);
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
   const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
-  const [photosBase64Cache, setPhotosBase64Cache] = useState<Map<string, {filename: string, base64: string}>>(new Map()); // ✅ Cache de base64
+  const [photosBase64Cache, setPhotosBase64Cache] = useState<Map<string, {filename: string, base64: string}>>(new Map());
+  const [phoneEditable, setPhoneEditable] = useState(false);
   const [leadData, setLeadData] = useState<LeadData>({
     nomeResponsavel: "",
     estadoCivil: "",
@@ -348,17 +291,10 @@ const PreCadastro = () => {
     tipoCabelo: "",
     tamanhoSapato: "",
     instagram: "",
-    instagramSeguidores: "",
-    facebook: "",
-    facebookSeguidores: "",
-    youtube: "",
-    youtubeSeguidores: "",
     tiktok: "",
-    tiktokSeguidores: "",
-    tiposModelo: [],
-    cursos: [],
-    habilidades: [],
-    caracteristicas: []
+    idiomas: [],
+    talentosEspeciais: [],
+    experienciaPublicidade: []
   });
 
   const syncPhotosInBackground = async (numericLeadId: number, fileIds: number[]) => {
@@ -380,21 +316,17 @@ const PreCadastro = () => {
       if (data?.publicUrls && Array.isArray(data.publicUrls) && data.publicUrls.length > 0) {
         setImages(prev => {
           const withoutPlaceholder = prev.filter(img => !img.includes('no-photo-placeholder'));
-          console.log(`✅ Fotos sincronizadas em segundo plano: ${data.publicUrls.length}`);
           return data.publicUrls.length > 0 ? data.publicUrls : withoutPlaceholder;
         });
         toast.success(`${data.publicUrls.length} fotos sincronizadas!`);
-      } else {
-        console.warn('⚠️ Sincronização de fotos retornou sem URLs');
       }
     } catch (error) {
-      console.error('❌ Erro inesperado ao sincronizar fotos em segundo plano:', error);
+      console.error('❌ Erro inesperado ao sincronizar fotos:', error);
     } finally {
       setIsSyncingPhotos(false);
     }
   };
 
-  // ✅ PRÉ-PROCESSAR FOTOS PARA BASE64 EM BACKGROUND
   useEffect(() => {
     const convertInBackground = async () => {
       for (const imageUrl of images) {
@@ -407,7 +339,6 @@ const PreCadastro = () => {
                 newCache.set(imageUrl, result);
                 return newCache;
               });
-              console.log('💾 Foto convertida em background:', imageUrl.substring(0, 50));
             }
           } catch (error) {
             console.error('Erro ao converter foto em background:', error);
@@ -417,11 +348,32 @@ const PreCadastro = () => {
     };
     
     convertInBackground();
-  }, [images]);
+  }, [images, photosBase64Cache]);
+
+  const validatePhoto = async (file: File): Promise<boolean> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const { data, error } = await supabase.functions.invoke('face-detection', {
+        body: formData,
+      });
+      
+      if (error) {
+        console.error('Erro na validação:', error);
+        toast.warning("Não foi possível validar a foto. Ela será enviada mesmo assim.");
+        return true;
+      }
+      
+      return data?.valid === true;
+    } catch (err) {
+      console.error('Erro inesperado:', err);
+      return true;
+    }
+  };
 
   useEffect(() => {
     const loadLeadData = async () => {
-      // Se não tem leadId, iniciar novo cadastro vazio
       if (!leadId) {
         setImages([getLeadPhotoUrl(null)]);
         setPageLoading(false);
@@ -429,11 +381,14 @@ const PreCadastro = () => {
       }
       
       try {
-        const {
-          data: lead,
-          error
-        } = await supabase.from('leads').select('*').eq('id', parseInt(leadId)).single();
+        const { data: lead, error } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('id', parseInt(leadId))
+          .single();
+          
         if (error) throw error;
+        
         if (lead) {
           const rawData = lead.raw as any || {};
           setLeadData({
@@ -454,130 +409,68 @@ const PreCadastro = () => {
             tipoCabelo: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.tipoCabelo]) as string,
             tamanhoSapato: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.tamanhoSapato]) as string,
             instagram: rawData[BITRIX_LEAD_FIELD_MAPPING.instagram] || "",
-            instagramSeguidores: rawData[BITRIX_LEAD_FIELD_MAPPING.instagramSeguidores] || "",
-            facebook: rawData[BITRIX_LEAD_FIELD_MAPPING.facebook] || "",
-            facebookSeguidores: rawData[BITRIX_LEAD_FIELD_MAPPING.facebookSeguidores] || "",
-            youtube: rawData[BITRIX_LEAD_FIELD_MAPPING.youtube] || "",
-            youtubeSeguidores: rawData[BITRIX_LEAD_FIELD_MAPPING.youtubeSeguidores] || "",
             tiktok: rawData[BITRIX_LEAD_FIELD_MAPPING.tiktok] || "",
-            tiktokSeguidores: rawData[BITRIX_LEAD_FIELD_MAPPING.tiktokSeguidores] || "",
-            tiposModelo: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.tipoModelo]) as string[],
-            cursos: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.cursos]) as string[],
-            habilidades: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades]) as string[],
-            caracteristicas: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.caracteristicas]) as string[]
+            idiomas: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades]) as string[],
+            talentosEspeciais: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades]) as string[],
+            experienciaPublicidade: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.caracteristicas]) as string[]
           });
-          // Carregar fotos - PRIORIDADE: verificar cache primeiro
+
           const photoUrls: string[] = [];
           let fileIdsToSync: number[] = [];
 
-          // 0. PRIMEIRO: Verificar se já temos fotos cacheadas em additional_photos
           if (lead.additional_photos && Array.isArray(lead.additional_photos) && lead.additional_photos.length > 0) {
             const cachedPhotos = lead.additional_photos.filter((url): url is string => typeof url === 'string');
             if (cachedPhotos.length > 0) {
-              console.log(`✅ Usando ${cachedPhotos.length} fotos do cache (additional_photos)`);
               photoUrls.push(...cachedPhotos);
             }
           }
 
-          // Só continuar se NÃO temos fotos cacheadas
           if (photoUrls.length === 0) {
-            // 1. Tentar novo campo primeiro (IDs públicos das fotos)
             const newPhotoField = rawData.UF_CRM_1764358561 || rawData[BITRIX_LEAD_FIELD_MAPPING.fotoIds];
 
             if (newPhotoField) {
-              console.log('🆕 Usando novo campo UF_CRM_1764358561:', newPhotoField);
-
               if (Array.isArray(newPhotoField)) {
-                // Array de IDs ou strings
                 fileIdsToSync = newPhotoField
                   .map(id => (typeof id === 'string' ? parseInt(id) : id))
                   .filter(id => !isNaN(id));
               } else if (typeof newPhotoField === 'string' && newPhotoField.trim()) {
-                // String separada por vírgula: "426754,426756,426758"
                 fileIdsToSync = newPhotoField
                   .split(',')
                   .map(id => parseInt(id.trim()))
                   .filter(id => !isNaN(id));
               }
 
-              console.log(`📸 ${fileIdsToSync.length} IDs extraídos do novo campo`);
-            }
-
-            // 2. Fallback: campo antigo UF_CRM_LEAD_1733231445171
-            if (fileIdsToSync.length === 0 && lead.photo_url) {
-              console.log('⬅️ Fallback para campo antigo photo_url');
-
-              try {
-                const parsed = JSON.parse(lead.photo_url);
-
-                if (Array.isArray(parsed)) {
-                  // Verificar se é array de URLs do Storage ou objetos do Bitrix
-                  if (parsed.length > 0 && typeof parsed[0] === 'string') {
-                    // Já são URLs públicas do Storage
-                    photoUrls.push(...parsed);
-                    console.log(`✅ Carregadas ${parsed.length} fotos do Storage`);
-                  } else if (parsed.length > 0 && (parsed[0] as any).id) {
-                    // São objetos do Bitrix
-                    fileIdsToSync = parsed.map((p: any) => p.id).filter(Boolean);
-                    console.log(`📸 ${fileIdsToSync.length} IDs extraídos do campo antigo`);
-                  }
-                }
-              } catch {
-                // Não é JSON - é URL simples do Storage
-                if (lead.photo_url.includes('supabase.co') || lead.photo_url.includes('storage')) {
-                  photoUrls.push(lead.photo_url);
-                } else {
-                  photoUrls.push(getLeadPhotoUrl(lead.photo_url));
-                }
+              if (fileIdsToSync.length > 0) {
+                syncPhotosInBackground(parseInt(leadId), fileIdsToSync);
               }
             }
           }
 
-          // Fotos adicionais do rawData (legado) - se ainda não carregamos
-          if (photoUrls.length === 0 && rawData.additional_photos && Array.isArray(rawData.additional_photos)) {
-            photoUrls.push(...rawData.additional_photos);
-          }
-
-          // Garantir pelo menos uma imagem (placeholder) para exibir enquanto sincroniza
-          if (photoUrls.length === 0) {
-            photoUrls.push(getLeadPhotoUrl(null));
-          }
-
-          setImages(photoUrls);
-
-          // Se temos IDs do Bitrix e AINDA não temos fotos reais, sincronizar em segundo plano
-          if (fileIdsToSync.length > 0 && photoUrls.length === 1 && photoUrls[0].includes('no-photo-placeholder') && leadId) {
-            console.log(`🔄 Sincronizando ${fileIdsToSync.length} fotos do Bitrix em segundo plano...`);
-            void syncPhotosInBackground(parseInt(leadId), fileIdsToSync);
-          }
-
-          // Carregar telefones adicionais
-          if (rawData.additional_phones && Array.isArray(rawData.additional_phones)) {
-            setAdditionalPhones(rawData.additional_phones);
+          if (photoUrls.length > 0) {
+            setImages(photoUrls);
+          } else {
+            setImages([getLeadPhotoUrl(lead.photo_url)]);
           }
         }
-      } catch (error: any) {
-        console.error('Erro:', error);
+        
+        setPageLoading(false);
+      } catch (error) {
+        console.error('Erro ao carregar lead:', error);
         toast.error("Erro ao carregar dados");
-      } finally {
         setPageLoading(false);
       }
     };
+    
     loadLeadData();
   }, [leadId]);
 
-  // Auto-detect location if empty
   useEffect(() => {
     const detectLocation = async () => {
-      if (!leadData.cidade && !leadData.estado) {
+      if (!leadData.cidade || !leadData.estado) {
         try {
-          const {
-            data,
-            error
-          } = await supabase.functions.invoke('get-location');
+          const { data, error } = await supabase.functions.invoke('get-location');
           if (error) throw error;
           if (data?.success && data.cidade && data.estado) {
-            console.log('Location detected:', data);
             setLeadData(prev => ({
               ...prev,
               cidade: data.cidade,
@@ -587,15 +480,15 @@ const PreCadastro = () => {
           }
         } catch (error) {
           console.error('Failed to detect location:', error);
-          // Silently fail - location detection is optional
         }
       }
     };
-    // Detectar localização após carregar (ou para novo cadastro)
+    
     if (!pageLoading) {
       detectLocation();
     }
-  }, [pageLoading, leadData.nomeModelo]);
+  }, [pageLoading, leadData.cidade, leadData.estado]);
+
   const handleAddPhoto = () => {
     const remainingSlots = 10 - images.length;
     if (remainingSlots <= 0) {
@@ -618,75 +511,75 @@ const PreCadastro = () => {
         toast.warning(`Apenas ${remainingSlots} fotos foram adicionadas (limite de 10)`);
       }
       
-      // Mostrar preview LOCAL imediatamente
-      const localPreviews: string[] = [];
+      setIsUploadingPhotos(true);
+      const validFiles: { file: File; localUrl: string }[] = [];
+      
       for (const file of filesToProcess) {
         const localUrl = URL.createObjectURL(file);
-        localPreviews.push(localUrl);
+        setImages(prev => [...prev.filter(img => !img.includes('no-photo-placeholder')), localUrl]);
+        
+        const isValid = await validatePhoto(file);
+        
+        if (!isValid) {
+          setImages(prev => prev.filter(url => url !== localUrl));
+          URL.revokeObjectURL(localUrl);
+          toast.error("Não conseguimos identificar um rosto nessa foto. Envie uma foto em que o rosto do(a) modelo apareça com clareza.");
+          continue;
+        }
+        
+        validFiles.push({ file, localUrl });
       }
       
-      // Atualizar UI IMEDIATAMENTE com previews locais
-      setImages(prevImages => {
-        const filteredImages = prevImages.filter(img => !img.includes('no-photo-placeholder'));
-        return [...filteredImages, ...localPreviews];
-      });
-      
-      toast.info(`${filesToProcess.length} foto(s) sendo processada(s)...`);
-      
-      // Processar upload em background
-      setTimeout(async () => {
-        setIsUploadingPhotos(true);
-        const uploadedUrls: { localUrl: string; remoteUrl: string }[] = [];
-        
-        for (let i = 0; i < filesToProcess.length; i++) {
-          const file = filesToProcess[i];
-          const localUrl = localPreviews[i];
-          
-          try {
-            const jpegBlob = await convertImageToJpeg(file);
-            
-            const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
-            const tempId = leadId || `temp_${Date.now()}`;
-            const filePath = `${tempId}/${fileName}`;
-            
-            const { error } = await supabase.storage
-              .from('lead-photos')
-              .upload(filePath, jpegBlob, { contentType: 'image/jpeg' });
-            
-            if (!error) {
-              const { data: { publicUrl } } = supabase.storage
-                .from('lead-photos')
-                .getPublicUrl(filePath);
-              
-              uploadedUrls.push({ localUrl, remoteUrl: publicUrl });
-            }
-          } catch (err) {
-            console.error('Erro no upload:', err);
-          }
-        }
-        
-        // Substituir previews locais por URLs remotas
-        if (uploadedUrls.length > 0) {
-          setImages(prevImages => {
-            let newImages = [...prevImages];
-            for (const { localUrl, remoteUrl } of uploadedUrls) {
-              const index = newImages.indexOf(localUrl);
-              if (index !== -1) {
-                newImages[index] = remoteUrl;
-                URL.revokeObjectURL(localUrl);
-              }
-            }
-            return newImages;
-          });
-          toast.success(`${uploadedUrls.length} foto(s) enviada(s)!`);
-        }
-        
+      if (validFiles.length === 0) {
         setIsUploadingPhotos(false);
-      }, 50);
+        return;
+      }
+      
+      for (const { file, localUrl } of validFiles) {
+        try {
+          const jpegBlob = await convertImageToJpeg(file);
+          
+          const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+          const tempId = leadId || `temp_${Date.now()}`;
+          const filePath = `${tempId}/${fileName}`;
+          
+          const { error } = await supabase.storage
+            .from('lead-photos')
+            .upload(filePath, jpegBlob, { contentType: 'image/jpeg' });
+          
+          if (!error) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('lead-photos')
+              .getPublicUrl(filePath);
+            
+            setImages(prev => prev.map(img => img === localUrl ? publicUrl : img));
+            URL.revokeObjectURL(localUrl);
+            
+            const result = await urlToBase64(publicUrl);
+            if (result) {
+              setPhotosBase64Cache(prev => new Map(prev).set(publicUrl, result));
+            }
+          } else {
+            setImages(prev => prev.filter(url => url !== localUrl));
+            URL.revokeObjectURL(localUrl);
+            toast.error('Erro ao fazer upload da foto');
+          }
+        } catch (err) {
+          console.error('Erro ao processar foto:', err);
+          setImages(prev => prev.filter(url => url !== localUrl));
+          URL.revokeObjectURL(localUrl);
+        }
+      }
+      
+      setIsUploadingPhotos(false);
+      if (validFiles.length > 0) {
+        toast.success(`${validFiles.length} foto(s) enviada(s)!`);
+      }
     };
     
     input.click();
   };
+
   const handleReplacePhoto = (index: number) => {
     const input = document.createElement("input");
     input.type = "file";
@@ -696,7 +589,6 @@ const PreCadastro = () => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       
-      // Mostrar preview LOCAL imediatamente
       const localUrl = URL.createObjectURL(file);
       const oldUrl = images[index];
       
@@ -708,7 +600,6 @@ const PreCadastro = () => {
       
       toast.info('Processando foto...');
       
-      // Processar upload em background
       setTimeout(async () => {
         setIsUploadingPhotos(true);
         
@@ -737,7 +628,6 @@ const PreCadastro = () => {
             URL.revokeObjectURL(localUrl);
             toast.success('Foto substituída!');
           } else {
-            // Reverter para URL antiga em caso de erro
             setImages(prevImages => {
               const newImages = [...prevImages];
               newImages[index] = oldUrl;
@@ -763,9 +653,8 @@ const PreCadastro = () => {
     
     input.click();
   };
+
   const handleRemovePhoto = (index: number) => {
-    // Para leads existentes, exigir pelo menos 1 foto
-    // Para novos cadastros, permitir remover todas
     if (leadId && images.length <= 1) {
       toast.error("Você precisa ter pelo menos uma foto!");
       return;
@@ -775,6 +664,7 @@ const PreCadastro = () => {
     if (activeImageIndex >= newImages.length) setActiveImageIndex(Math.max(0, newImages.length - 1));
     toast.success("Foto removida!");
   };
+
   const handleFieldChange = (field: keyof LeadData, value: any) => {
     setLeadData(prev => ({
       ...prev,
@@ -795,7 +685,20 @@ const PreCadastro = () => {
     newPhones[index] = value;
     setAdditionalPhones(newPhones);
   };
+
   const handleSave = async () => {
+    if (!leadId) {
+      toast.error("ID do lead não encontrado");
+      return;
+    }
+
+    const validPhotos = images.filter(img => img && !img.includes('no-photo-placeholder'));
+    
+    if (validPhotos.length === 0) {
+      toast.error("Envie pelo menos uma foto em que o rosto do(a) modelo apareça.");
+      return;
+    }
+
     if (!leadData.nomeModelo) {
       toast.error("Nome do modelo é obrigatório");
       return;
@@ -804,21 +707,18 @@ const PreCadastro = () => {
       toast.error("Telefone é obrigatório");
       return;
     }
+
     try {
       setSaving(true);
       setSaveStatus('Preparando fotos...');
       
-      // ✅ USAR CACHE DE BASE64 (já foi processado em background)
       const fotosBase64 = [];
       for (const imageUrl of images) {
         if (imageUrl && !imageUrl.includes('no-photo-placeholder')) {
           const cached = photosBase64Cache.get(imageUrl);
           if (cached) {
             fotosBase64.push({ fileData: [cached.filename, cached.base64] });
-            console.log('✅ Usando foto do cache:', imageUrl.substring(0, 50));
           } else {
-            // Fallback: converter agora se não estiver em cache
-            console.warn('⚠️ Foto não estava em cache, convertendo agora:', imageUrl.substring(0, 50));
             const base64Result = await urlToBase64(imageUrl);
             if (base64Result) {
               fotosBase64.push({ fileData: [base64Result.filename, base64Result.base64] });
@@ -839,165 +739,106 @@ const PreCadastro = () => {
         [BITRIX_LEAD_FIELD_MAPPING.corCabelo]: leadData.corCabelo,
         [BITRIX_LEAD_FIELD_MAPPING.corOlhos]: leadData.corOlhos,
         [BITRIX_LEAD_FIELD_MAPPING.tipoCabelo]: leadData.tipoCabelo,
-        [BITRIX_LEAD_FIELD_MAPPING.habilidades]: leadData.habilidades,
-        [BITRIX_LEAD_FIELD_MAPPING.cursos]: leadData.cursos,
-        [BITRIX_LEAD_FIELD_MAPPING.caracteristicas]: leadData.caracteristicas,
-        [BITRIX_LEAD_FIELD_MAPPING.tipoModelo]: leadData.tiposModelo,
+        [BITRIX_LEAD_FIELD_MAPPING.habilidades]: leadData.idiomas,
+        [BITRIX_LEAD_FIELD_MAPPING.cursos]: leadData.talentosEspeciais,
+        [BITRIX_LEAD_FIELD_MAPPING.caracteristicas]: leadData.experienciaPublicidade,
         [BITRIX_LEAD_FIELD_MAPPING.fotoUrl]: fotosBase64,
         [BITRIX_LEAD_FIELD_MAPPING.sexo]: leadData.sexo,
         [BITRIX_LEAD_FIELD_MAPPING.instagram]: leadData.instagram,
-        [BITRIX_LEAD_FIELD_MAPPING.instagramSeguidores]: leadData.instagramSeguidores,
-        [BITRIX_LEAD_FIELD_MAPPING.facebook]: leadData.facebook,
-        [BITRIX_LEAD_FIELD_MAPPING.facebookSeguidores]: leadData.facebookSeguidores,
-        [BITRIX_LEAD_FIELD_MAPPING.youtube]: leadData.youtube,
-        [BITRIX_LEAD_FIELD_MAPPING.youtubeSeguidores]: leadData.youtubeSeguidores,
         [BITRIX_LEAD_FIELD_MAPPING.tiktok]: leadData.tiktok,
-        [BITRIX_LEAD_FIELD_MAPPING.tiktokSeguidores]: leadData.tiktokSeguidores,
         additional_photos: images.slice(1),
         additional_phones: additionalPhones.filter(p => p.trim() !== '')
       };
 
-      if (leadId) {
-        // UPDATE: Lead existente
-        const updateData = {
-          nome_modelo: leadData.nomeModelo,
-          name: leadData.nomeModelo,
-          nome_responsavel_legal: leadData.nomeResponsavel,
-          celular: leadData.telefone,
-          photo_url: images[0] || null,
-          additional_photos: images.slice(1),
-          updated_at: new Date().toISOString(),
-          raw: rawData
-        };
-        
-        const { error: supabaseError } = await supabase
-          .from('leads')
-          .update(updateData)
-          .eq('id', parseInt(leadId));
-        
-        if (supabaseError) throw supabaseError;
-        
-        setSaveStatus('Sincronizando com Bitrix...');
-        
-        try {
-          // ✅ 1º UPDATE ESSENCIAL: Enviar dados + fotos para o Bitrix
-          await supabase.functions.invoke('bitrix-entity-update', {
-            body: {
-              entityType: 'lead',
-              entityId: leadId,
-              fields: {
-                NAME: leadData.nomeModelo,
-                [BITRIX_LEAD_FIELD_MAPPING.nomeModelo]: [leadData.nomeModelo],
-                PHONE: [{
-                  VALUE: leadData.telefone,
-                  VALUE_TYPE: "MOBILE"
-                }],
-                [BITRIX_LEAD_FIELD_MAPPING.cidade]: leadData.cidade,
-                [BITRIX_LEAD_FIELD_MAPPING.estado]: leadData.estado,
-                [BITRIX_LEAD_FIELD_MAPPING.dataNascimento]: leadData.dataNascimento,
-                ...rawData
-              }
-            }
-          });
-          
-          setSaveStatus('Concluído!');
-          
-          // ✅ NAVEGAR IMEDIATAMENTE (não esperar o 2º/3º update)
-          toast.success("Cadastro atualizado com sucesso!");
-          
-          // Pequeno delay para mostrar "Concluído" antes de navegar
-          setTimeout(() => {
-            navigate('/precadastro/sucesso');
-          }, 300);
-          
-          // ✅ 2º e 3º UPDATES EM BACKGROUND (não bloqueia navegação)
-          setTimeout(async () => {
-            try {
-              console.log('🔄 Atualizando IDs das fotos em background...');
-              
-              const { data: leadDataBitrix } = await supabase.functions.invoke('bitrix-get-lead', {
-                body: { leadId }
-              });
-
-              if (leadDataBitrix?.result) {
-                // Extrair IDs das fotos do campo de upload
-                const photoObjects = leadDataBitrix.result.UF_CRM_LEAD_1733231445171 || [];
-                const photoIds = Array.isArray(photoObjects) 
-                  ? photoObjects.map((p: any) => p.id).filter(Boolean)
-                  : [];
-
-                // Buscar contador atual
-                const currentCount = parseInt(leadDataBitrix.result.UF_CRM_CLIENTEATUALIZAFOTO || '0');
-
-                // Montar os campos a atualizar
-                const fieldsToUpdate: Record<string, string> = {
-                  // SEMPRE incrementar o contador quando o cliente salvar
-                  [BITRIX_LEAD_FIELD_MAPPING.clienteAtualizaFoto]: String(currentCount + 1)
-                };
-
-                // Adicionar IDs das fotos apenas se houver
-                if (photoIds.length > 0) {
-                  fieldsToUpdate[BITRIX_LEAD_FIELD_MAPPING.fotoIds] = photoIds.join(',');
-                  console.log(`✅ Atualizando campo de IDs com ${photoIds.length} fotos (background):`, photoIds);
-                }
-
-                // Enviar atualização (sempre, para incrementar contador)
-                await supabase.functions.invoke('bitrix-entity-update', {
-                  body: {
-                    entityType: 'lead',
-                    entityId: leadId,
-                    fields: fieldsToUpdate
-                  }
-                });
-
-                console.log(`✅ Background: Contador atualizado para ${currentCount + 1}. IDs: ${photoIds.length > 0 ? photoIds.join(',') : 'nenhum'}`);
-              }
-            } catch (photoUpdateError) {
-              console.error('❌ Erro ao atualizar IDs das fotos em background:', photoUpdateError);
-              // Não mostra toast porque usuário já navegou
-            }
-          }, 100);
-          
-        } catch (bitrixError) {
-          console.error('Erro Bitrix:', bitrixError);
-          throw bitrixError; // Re-throw para o catch principal tratar
-        }
-      } else {
-        // INSERT: Novo lead
-        // Gerar novo ID
-        const { data: maxIdResult } = await supabase
-          .from('leads')
-          .select('id')
-          .order('id', { ascending: false })
-          .limit(1)
-          .single();
-        
-        const newId = (maxIdResult?.id || 0) + 1;
-        
-        const insertData = {
-          id: newId,
-          nome_modelo: leadData.nomeModelo,
-          name: leadData.nomeModelo,
-          nome_responsavel_legal: leadData.nomeResponsavel,
-          celular: leadData.telefone,
-          photo_url: images[0] || null,
-          additional_photos: images.slice(1),
-          criado: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          sync_source: 'manual',
-          raw: rawData
-        };
-        
-        const { error: insertError } = await supabase
-          .from('leads')
-          .insert(insertData);
-        
-        if (insertError) throw insertError;
-        
-        toast.success("Novo cadastro criado com sucesso!");
-      }
+      const updateData = {
+        nome_modelo: leadData.nomeModelo,
+        name: leadData.nomeModelo,
+        nome_responsavel_legal: leadData.nomeResponsavel,
+        celular: leadData.telefone,
+        photo_url: images[0] || null,
+        additional_photos: images.slice(1),
+        updated_at: new Date().toISOString(),
+        raw: rawData
+      };
       
-      navigate('/precadastro/sucesso');
+      const { error: supabaseError } = await supabase
+        .from('leads')
+        .update(updateData)
+        .eq('id', parseInt(leadId));
+      
+      if (supabaseError) throw supabaseError;
+      
+      setSaveStatus('Sincronizando com Bitrix...');
+      
+      try {
+        await supabase.functions.invoke('bitrix-entity-update', {
+          body: {
+            entityType: 'lead',
+            entityId: leadId,
+            fields: {
+              NAME: leadData.nomeModelo,
+              [BITRIX_LEAD_FIELD_MAPPING.nomeModelo]: [leadData.nomeModelo],
+              PHONE: [{
+                VALUE: leadData.telefone,
+                VALUE_TYPE: "MOBILE"
+              }],
+              [BITRIX_LEAD_FIELD_MAPPING.cidade]: leadData.cidade,
+              [BITRIX_LEAD_FIELD_MAPPING.estado]: leadData.estado,
+              [BITRIX_LEAD_FIELD_MAPPING.dataNascimento]: leadData.dataNascimento,
+              ...rawData
+            }
+          }
+        });
+        
+        setSaveStatus('Concluído!');
+        
+        toast.success("Mini currículo enviado!");
+        
+        setTimeout(() => {
+          navigate('/precadastro/sucesso', { 
+            state: { nomeModelo: leadData.nomeModelo || leadData.nomeModelo } 
+          });
+        }, 300);
+        
+        setTimeout(async () => {
+          try {
+            const { data: leadDataBitrix } = await supabase.functions.invoke('bitrix-get-lead', {
+              body: { leadId }
+            });
+
+            if (leadDataBitrix?.result) {
+              const photoObjects = leadDataBitrix.result.UF_CRM_LEAD_1733231445171 || [];
+              const photoIds = Array.isArray(photoObjects) 
+                ? photoObjects.map((p: any) => p.id).filter(Boolean)
+                : [];
+
+              const currentCount = parseInt(leadDataBitrix.result.UF_CRM_CLIENTEATUALIZAFOTO || '0');
+
+              const fieldsToUpdate: Record<string, string> = {
+                [BITRIX_LEAD_FIELD_MAPPING.clienteAtualizaFoto]: String(currentCount + 1)
+              };
+
+              if (photoIds.length > 0) {
+                fieldsToUpdate[BITRIX_LEAD_FIELD_MAPPING.fotoIds] = photoIds.join(',');
+              }
+
+              await supabase.functions.invoke('bitrix-entity-update', {
+                body: {
+                  entityType: 'lead',
+                  entityId: leadId,
+                  fields: fieldsToUpdate
+                }
+              });
+            }
+          } catch (photoUpdateError) {
+            console.error('❌ Erro ao atualizar IDs das fotos em background:', photoUpdateError);
+          }
+        }, 100);
+        
+      } catch (bitrixError) {
+        console.error('Erro Bitrix:', bitrixError);
+        throw bitrixError;
+      }
     } catch (error: any) {
       toast.error("Erro ao salvar: " + error.message);
     } finally {
@@ -1005,77 +846,261 @@ const PreCadastro = () => {
       setSaveStatus('');
     }
   };
+
   if (pageLoading) {
-    return <div className="min-h-screen bg-background flex items-center justify-center">
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>;
+      </div>
+    );
   }
-  return <div className="min-h-screen bg-background">
+
+  const isModelDataComplete = !!(leadData.nomeModelo && leadData.dataNascimento && leadData.sexo);
+
+  return (
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold">Max Fama</h1>
-          <p className="text-muted-foreground">Pré analise de pefil</p>
+        <div className="text-center mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-gradient mb-2">Max Fama</h1>
+          <p className="text-muted-foreground">Pré-análise de perfil</p>
+          
+          <div className="mt-4 max-w-xl mx-auto">
+            <h2 className="text-lg font-semibold">
+              Monte o mini currículo de {leadData.nomeModelo || "seu modelo"}
+            </h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              Seu cadastro já está ativo. Aqui você pode atualizar fotos e informações para que o produtor faça a análise do perfil.
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              ⏱ Leva menos de 2 minutos.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-2 mt-4 text-xs text-muted-foreground">
+            <span className="font-medium text-primary">1. Fotos</span>
+            <span>•</span>
+            <span>2. Dados do modelo</span>
+            <span>•</span>
+            <span>3. Talentos & redes</span>
+            <span>•</span>
+            <span>4. Responsável & envio</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-4">
-            <div className="relative">
-              <div className="aspect-[3/4] rounded-lg overflow-hidden shadow-elegant">
-                <img src={images[activeImageIndex]} alt="Foto" className="w-full h-full object-cover" />
-              </div>
-              <div className="absolute bottom-4 right-4 flex gap-2">
-                <Button size="sm" variant="ghost" className="bg-black/30 backdrop-blur-sm hover:bg-black/50 text-white" onClick={() => handleReplacePhoto(activeImageIndex)}>
-                  <Camera className="h-4 w-4 mr-2" />Trocar
-                </Button>
-                <Button size="sm" variant="ghost" className="bg-black/30 backdrop-blur-sm hover:bg-black/50 text-white" onClick={() => handleRemovePhoto(activeImageIndex)}>
-                  <Trash2 className="h-4 w-4 mr-2" />Remover
-                </Button>
-              </div>
-            </div>
+            <Card>
+              <CardContent className="p-6">
+                <div className="relative mb-4">
+                  <div className="aspect-[3/4] rounded-lg overflow-hidden shadow-elegant">
+                    <img src={images[activeImageIndex]} alt="Foto" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="absolute bottom-4 right-4 flex gap-2">
+                    <Button size="sm" variant="ghost" className="bg-black/30 backdrop-blur-sm hover:bg-black/50 text-white" onClick={() => handleReplacePhoto(activeImageIndex)}>
+                      <Camera className="h-4 w-4 mr-2" />Trocar
+                    </Button>
+                    <Button size="sm" variant="ghost" className="bg-black/30 backdrop-blur-sm hover:bg-black/50 text-white" onClick={() => handleRemovePhoto(activeImageIndex)}>
+                      <Trash2 className="h-4 w-4 mr-2" />Remover
+                    </Button>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-5 gap-2">
-              {images.map((image, index) => <button key={index} onClick={() => setActiveImageIndex(index)} className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${activeImageIndex === index ? "border-primary shadow-glow" : "border-transparent hover:border-border"}`}>
-                  <img src={image} alt={`Foto ${index + 1}`} className="w-full h-full object-cover" />
-                </button>)}
-              {images.length < 10 && <button onClick={handleAddPhoto} className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary transition-all flex items-center justify-center group">
-                  <Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary" />
-                </button>}
-            </div>
-            {(isUploadingPhotos || isSyncingPhotos) && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span>{isUploadingPhotos ? "Enviando fotos..." : "Sincronizando fotos..."}</span>
-              </div>
-            )}
+                <div className="grid grid-cols-5 gap-2">
+                  {images.map((image, index) => (
+                    <button 
+                      key={index} 
+                      onClick={() => setActiveImageIndex(index)} 
+                      className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                        activeImageIndex === index ? "border-primary shadow-glow" : "border-transparent hover:border-border"
+                      }`}
+                    >
+                      <img src={image} alt={`Foto ${index + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                  {images.length < 10 && (
+                    <button 
+                      onClick={handleAddPhoto} 
+                      className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary transition-all flex items-center justify-center group"
+                    >
+                      <Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary" />
+                    </button>
+                  )}
+                </div>
+                
+                <p className="text-xs text-muted-foreground mt-3 text-center">
+                  📷 Envie de 2 a 5 fotos do(a) modelo, em boa iluminação, sem filtros.<br/>
+                  Dê preferência a: rosto, meio corpo e corpo inteiro.
+                </p>
+
+                {(isUploadingPhotos || isSyncingPhotos) && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span>{isUploadingPhotos ? "Enviando fotos..." : "Sincronizando fotos..."}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardContent className="pt-6">
                 <h2 className="text-2xl font-bold">{leadData.nomeModelo || "Sem nome"}</h2>
-                <p className="text-muted-foreground">{leadData.cidade && leadData.estado ? `${leadData.cidade}, ${leadData.estado}` : "Localização não informada"}</p>
+                <p className="text-muted-foreground">
+                  {leadData.cidade && leadData.estado ? `${leadData.cidade}, ${leadData.estado}` : "Localização não informada"}
+                </p>
               </CardContent>
             </Card>
 
-            <FormSection title="Dados Cadastrais" icon={<User className="h-5 w-5" />} defaultOpen={true}>
+            <FormSection 
+              title="Dados do Modelo" 
+              icon={<User />} 
+              collapsible={true} 
+              defaultOpen={!isModelDataComplete}
+              isComplete={isModelDataComplete}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField 
+                  id="nomeModelo" 
+                  label="Nome Completo do Modelo" 
+                  value={leadData.nomeModelo} 
+                  onChange={v => handleFieldChange("nomeModelo", v)} 
+                  required 
+                />
+                <DateSelectField 
+                  id="dataNascimento" 
+                  label="Data de Nascimento" 
+                  value={leadData.dataNascimento} 
+                  onChange={v => handleFieldChange("dataNascimento", v)} 
+                  required 
+                />
+                <FormField 
+                  id="sexo" 
+                  label="Sexo" 
+                  type="select" 
+                  value={leadData.sexo} 
+                  onChange={v => handleFieldChange("sexo", v)} 
+                  options={SEXO_OPTIONS} 
+                  required 
+                />
+                <FormField 
+                  id="altura" 
+                  label="Altura (cm)" 
+                  type="number" 
+                  value={leadData.altura} 
+                  onChange={v => handleFieldChange("altura", v)} 
+                />
+                <FormField 
+                  id="peso" 
+                  label="Peso (kg)" 
+                  type="number" 
+                  value={leadData.peso} 
+                  onChange={v => handleFieldChange("peso", v)} 
+                />
+                <FormField 
+                  id="manequim" 
+                  label="Manequim" 
+                  type="select" 
+                  value={leadData.manequim} 
+                  onChange={v => handleFieldChange("manequim", v)} 
+                  options={MANEQUIM_OPTIONS} 
+                />
+                <FormField 
+                  id="corPele" 
+                  label="Cor da Pele" 
+                  type="select" 
+                  value={leadData.corPele} 
+                  onChange={v => handleFieldChange("corPele", v)} 
+                  options={COR_PELE_OPTIONS} 
+                />
+                <FormField 
+                  id="corCabelo" 
+                  label="Cor do Cabelo" 
+                  type="select" 
+                  value={leadData.corCabelo} 
+                  onChange={v => handleFieldChange("corCabelo", v)} 
+                  options={COR_CABELO_OPTIONS} 
+                />
+                <FormField 
+                  id="corOlhos" 
+                  label="Cor dos Olhos" 
+                  type="select" 
+                  value={leadData.corOlhos} 
+                  onChange={v => handleFieldChange("corOlhos", v)} 
+                  options={COR_OLHOS_OPTIONS} 
+                />
+              </div>
+            </FormSection>
+
+            <FormSection title="Talentos & Experiência" icon={<Sparkles />} collapsible={true} defaultOpen={false}>
+              <p className="text-xs text-muted-foreground mb-4">
+                Preencha apenas se o(a) modelo já tem experiência ou habilidades.<br/>
+                Isso não é obrigatório, mas ajuda a mostrar o diferencial.
+              </p>
+              
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField id="nomeResponsavel" label="Nome do Responsável" value={leadData.nomeResponsavel} onChange={v => handleFieldChange("nomeResponsavel", v)} required />
-                  <FormField id="estadoCivil" label="Estado Civil" type="select" value={leadData.estadoCivil} onChange={v => handleFieldChange("estadoCivil", v)} options={ESTADO_CIVIL_OPTIONS} />
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-medium">Telefones</span>
-                    </div>
-                    <Button type="button" size="sm" variant="outline" onClick={handleAddPhone}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Telefone
-                    </Button>
-                  </div>
-                  
+                <MultiSelect 
+                  id="idiomas" 
+                  label="Idiomas" 
+                  value={leadData.idiomas} 
+                  onChange={v => handleFieldChange("idiomas", v)} 
+                  options={IDIOMAS_OPTIONS} 
+                />
+                <MultiSelect 
+                  id="talentosEspeciais" 
+                  label="Talentos Especiais" 
+                  value={leadData.talentosEspeciais} 
+                  onChange={v => handleFieldChange("talentosEspeciais", v)} 
+                  options={TALENTOS_OPTIONS} 
+                />
+                <MultiSelect 
+                  id="experienciaPublicidade" 
+                  label="Experiência em Publicidade" 
+                  value={leadData.experienciaPublicidade} 
+                  onChange={v => handleFieldChange("experienciaPublicidade", v)} 
+                  options={EXPERIENCIA_OPTIONS} 
+                />
+              </div>
+            </FormSection>
+
+            <FormSection title="Redes Sociais" icon={<InstagramIcon />} collapsible={true} defaultOpen={false}>
+              <p className="text-xs text-muted-foreground mb-4">
+                Se o modelo tem rede social de trabalho, você pode informar aqui (opcional).
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField 
+                  id="instagram" 
+                  label="Instagram" 
+                  value={leadData.instagram} 
+                  onChange={v => handleFieldChange("instagram", v)} 
+                  placeholder="@usuario" 
+                />
+                <FormField 
+                  id="tiktok" 
+                  label="TikTok" 
+                  value={leadData.tiktok} 
+                  onChange={v => handleFieldChange("tiktok", v)} 
+                  placeholder="@usuario" 
+                />
+              </div>
+            </FormSection>
+
+            <FormSection title="Dados do Responsável" icon={<User />} collapsible={true} defaultOpen={false}>
+              <p className="text-xs text-muted-foreground mb-4">
+                Esses são seus dados de contato.<br/>
+                Atualize se algo estiver errado para receber corretamente as informações de agenda.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField 
+                  id="nomeResponsavel" 
+                  label="Nome do Responsável Legal" 
+                  value={leadData.nomeResponsavel} 
+                  onChange={v => handleFieldChange("nomeResponsavel", v)} 
+                  required 
+                />
+                <div className="flex gap-2 items-end">
                   <FormField 
                     id="telefone" 
                     label="Telefone Principal" 
@@ -1083,103 +1108,51 @@ const PreCadastro = () => {
                     value={leadData.telefone} 
                     onChange={v => handleFieldChange("telefone", v)} 
                     required 
-                    disabled={!!leadId}
-                    placeholder={leadId ? "Não pode ser alterado" : "Digite o telefone"}
+                    disabled={!!leadId && !phoneEditable}
                   />
-                  
-                  {additionalPhones.map((phone, index) => (
-                    <div key={index} className="flex gap-2">
-                      <FormField 
-                        id={`phone-${index}`} 
-                        label={`Telefone ${index + 2}`} 
-                        type="tel" 
-                        value={phone} 
-                        onChange={v => handlePhoneChange(index, v)} 
-                        placeholder="Digite o telefone adicional"
-                      />
-                      <Button 
-                        type="button" 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => handleRemovePhone(index)}
-                        className="mt-8"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  ))}
+                  {leadId && !phoneEditable && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setPhoneEditable(true)}
+                      className="mb-1"
+                    >
+                      Alterar
+                    </Button>
+                  )}
                 </div>
-                <div className="pt-2">
-                  <div className="flex items-center gap-2 mb-3">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium">Localização</span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField id="cidade" label="Cidade" value={leadData.cidade} onChange={v => handleFieldChange("cidade", v)} />
-                    <FormField id="estado" label="Estado" type="select" value={leadData.estado} onChange={v => handleFieldChange("estado", v)} options={estadosBrasileiros} />
-                  </div>
-                </div>
+                <FormField 
+                  id="cidade" 
+                  label="Cidade" 
+                  value={leadData.cidade} 
+                  onChange={v => handleFieldChange("cidade", v)} 
+                  required 
+                />
+                <FormField 
+                  id="estado" 
+                  label="Estado" 
+                  value={leadData.estado} 
+                  onChange={v => handleFieldChange("estado", v)} 
+                  required 
+                />
               </div>
             </FormSection>
 
-            <FormSection title="Dados do Modelo" icon={<Ruler className="h-5 w-5" />} defaultOpen={false}>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField id="nomeModelo" label="Nome Completo" value={leadData.nomeModelo} onChange={v => handleFieldChange("nomeModelo", v)} required />
-                  <DateSelectField id="dataNascimento" label="Data de Nascimento" value={leadData.dataNascimento} onChange={v => handleFieldChange("dataNascimento", v)} />
-                </div>
-                <FormField id="sexo" label="Sexo" type="select" value={leadData.sexo} onChange={v => handleFieldChange("sexo", v)} options={SEXO_OPTIONS} />
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <FormField id="altura" label="Altura (cm)" type="number" value={leadData.altura} onChange={v => handleFieldChange("altura", v)} />
-                  <FormField id="peso" label="Peso (kg)" type="number" value={leadData.peso} onChange={v => handleFieldChange("peso", v)} />
-                  <FormField id="manequim" label="Manequim" type="select" value={leadData.manequim} onChange={v => handleFieldChange("manequim", v)} options={MANEQUIM_OPTIONS} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField id="corPele" label="Cor da Pele" type="select" value={leadData.corPele} onChange={v => handleFieldChange("corPele", v)} options={COR_PELE_OPTIONS} />
-                  <FormField id="corCabelo" label="Cor do Cabelo" type="select" value={leadData.corCabelo} onChange={v => handleFieldChange("corCabelo", v)} options={COR_CABELO_OPTIONS} />
-                  <FormField id="corOlhos" label="Cor dos Olhos" type="select" value={leadData.corOlhos} onChange={v => handleFieldChange("corOlhos", v)} options={COR_OLHOS_OPTIONS} />
-                  <FormField id="tipoCabelo" label="Tipo de Cabelo" type="select" value={leadData.tipoCabelo} onChange={v => handleFieldChange("tipoCabelo", v)} options={TIPO_CABELO_OPTIONS} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField id="tamanhoSapato" label="Tamanho Sapato" type="select" value={leadData.tamanhoSapato} onChange={v => handleFieldChange("tamanhoSapato", v)} options={tamanhoSapato} />
-                </div>
-              </div>
-            </FormSection>
-
-            <FormSection title="Redes Sociais" icon={<InstagramIcon className="h-5 w-5" />} defaultOpen={false}>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField id="instagram" label="Instagram" value={leadData.instagram} onChange={v => handleFieldChange("instagram", v)} placeholder="@usuario" />
-                  <FormField id="instagramSeguidores" label="Seguidores" type="number" value={leadData.instagramSeguidores} onChange={v => handleFieldChange("instagramSeguidores", v)} />
-                  <FormField id="facebook" label="Facebook" value={leadData.facebook} onChange={v => handleFieldChange("facebook", v)} />
-                  <FormField id="facebookSeguidores" label="Seguidores" type="number" value={leadData.facebookSeguidores} onChange={v => handleFieldChange("facebookSeguidores", v)} />
-                  <FormField id="youtube" label="YouTube" value={leadData.youtube} onChange={v => handleFieldChange("youtube", v)} placeholder="@canal" />
-                  <FormField id="youtubeSeguidores" label="Inscritos" type="number" value={leadData.youtubeSeguidores} onChange={v => handleFieldChange("youtubeSeguidores", v)} />
-                  <FormField id="tiktok" label="TikTok" value={leadData.tiktok} onChange={v => handleFieldChange("tiktok", v)} placeholder="@usuario" />
-                  <FormField id="tiktokSeguidores" label="Seguidores" type="number" value={leadData.tiktokSeguidores} onChange={v => handleFieldChange("tiktokSeguidores", v)} />
-                </div>
-              </div>
-            </FormSection>
-
-            <FormSection title="Habilidades e Experiência" icon={<Sparkles className="h-5 w-5" />} defaultOpen={false}>
-              <div className="space-y-4">
-                <MultiSelect id="tiposModelo" label="Tipos de Modelo" value={leadData.tiposModelo} onChange={v => handleFieldChange("tiposModelo", v)} options={TIPO_MODELO_OPTIONS} />
-                <MultiSelect id="cursos" label="Cursos Realizados" value={leadData.cursos} onChange={v => handleFieldChange("cursos", v)} options={CURSOS_OPTIONS} />
-                <MultiSelect id="habilidades" label="Habilidades" value={leadData.habilidades} onChange={v => handleFieldChange("habilidades", v)} options={HABILIDADES_OPTIONS} />
-                <MultiSelect id="caracteristicas" label="Características Especiais" value={leadData.caracteristicas} onChange={v => handleFieldChange("caracteristicas", v)} options={CARACTERISTICAS_OPTIONS} />
-              </div>
-            </FormSection>
-
-            <div className="flex justify-end pt-4">
-              <Button onClick={handleSave} size="lg" disabled={saving} className="bg-pink-500 hover:bg-pink-400">
-                {saving ? <><Loader2 className="h-5 w-5 animate-spin mr-2" />{saveStatus || 'Salvando...'}</> : <><Save className="h-5 w-5 mr-2" />Salvar Alterações</>}
-              </Button>
-            </div>
+            <Button onClick={handleSave} size="lg" disabled={saving} className="w-full md:w-auto bg-pink-500 hover:bg-pink-400">
+              {saving ? (
+                <><Loader2 className="h-5 w-5 animate-spin mr-2" />{saveStatus || 'Enviando...'}</>
+              ) : (
+                <><Send className="h-5 w-5 mr-2" />Enviar mini currículo para análise</>
+              )}
+            </Button>
           </div>
         </div>
       </div>
       
       <PreCadastroFooter />
-    </div>;
+    </div>
+  );
 };
+
 export default PreCadastro;

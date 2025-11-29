@@ -158,3 +158,6 @@ verify_jwt = false
 
 [functions.syscall-webhook]
 verify_jwt = false
+
+[functions.face-detection]
+verify_jwt = false
