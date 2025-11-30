@@ -22,7 +22,7 @@ function GestaoAreaDeAbordagemContent() {
   });
   const [drawnAreas, setDrawnAreas] = useState<DrawnArea[]>([]);
 
-  // Buscar leads com coordenadas
+  // Buscar leads com coordenadas (usar latitude/longitude existentes ou geocodificar)
   const { data: leadsData, isLoading: leadsLoading } = useQuery({
     queryKey: ["gestao-area-leads", filters],
     queryFn: async () => {
@@ -32,6 +32,8 @@ function GestaoAreaDeAbordagemContent() {
         name: string | null;
         address: string | null;
         local_abordagem: string | null;
+        latitude: number | null;
+        longitude: number | null;
         scouter: string | null;
         status_fluxo: string | null;
         commercial_project_id: string | null;
@@ -39,7 +41,7 @@ function GestaoAreaDeAbordagemContent() {
       }>(
         supabase,
         "leads",
-        "id, name, address, local_abordagem, scouter, status_fluxo, commercial_project_id, criado",
+        "id, name, address, local_abordagem, latitude, longitude, scouter, status_fluxo, commercial_project_id, criado",
         (query) => {
           // Aplicar filtros de data
           query = query
@@ -58,24 +60,45 @@ function GestaoAreaDeAbordagemContent() {
         }
       );
 
-      // Geocodificar endereços (cache simples + rate limiting)
+      // Processar leads: usar coordenadas existentes ou geocodificar
       const geocodedLeads: LeadMapLocation[] = [];
       const geocodeCache = new Map<string, { lat: number; lng: number }>();
-
-      // Adicionar delay entre requests para respeitar rate limit do Nominatim
       const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
       for (const lead of data) {
-        if (!lead.address) continue;
+        // 1. Se já tem coordenadas, usar direto
+        if (lead.latitude && lead.longitude) {
+          geocodedLeads.push({
+            id: lead.id,
+            name: lead.name || "Sem nome",
+            lat: Number(lead.latitude),
+            lng: Number(lead.longitude),
+            address: lead.address || lead.local_abordagem || "Sem endereço",
+            scouter: lead.scouter || undefined,
+            status: lead.status_fluxo || undefined,
+          });
+          continue;
+        }
 
-        let coords = geocodeCache.get(lead.address);
+        // 2. Geocodificar usando address OU local_abordagem como fallback
+        const addressToGeocode = lead.address || lead.local_abordagem;
+        if (!addressToGeocode) continue;
+
+        let coords = geocodeCache.get(addressToGeocode);
         if (!coords) {
-          const result = await geocodeAddress(lead.address);
+          const result = await geocodeAddress(addressToGeocode);
           if (result) {
             coords = result;
-            geocodeCache.set(lead.address, coords);
-            // Delay de 1 segundo entre requests (politica do Nominatim)
-            await delay(1000);
+            geocodeCache.set(addressToGeocode, coords);
+            
+            // Salvar coordenadas no banco para cache futuro
+            await supabase.from('leads').update({
+              latitude: coords.lat,
+              longitude: coords.lng,
+              geocoded_at: new Date().toISOString()
+            }).eq('id', lead.id);
+            
+            await delay(1000); // Rate limit
           }
         }
 
@@ -85,13 +108,14 @@ function GestaoAreaDeAbordagemContent() {
             name: lead.name || "Sem nome",
             lat: coords.lat,
             lng: coords.lng,
-            address: lead.address,
+            address: addressToGeocode,
             scouter: lead.scouter || undefined,
             status: lead.status_fluxo || undefined,
           });
         }
       }
 
+      console.log(`✅ Processados ${geocodedLeads.length} leads com coordenadas`);
       return geocodedLeads;
     },
   });
