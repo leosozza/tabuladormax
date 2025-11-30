@@ -259,6 +259,31 @@ const urlToBase64 = async (url: string): Promise<{ filename: string; base64: str
   }
 };
 
+// Helper function to parse and format birthdate from Bitrix
+const parseBirthDate = (value: any): string => {
+  if (!value) return "";
+  
+  // If already in YYYY-MM-DD format, return as is
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+  
+  // Try to parse ISO date (e.g., "2025-07-03T03:00:00+03:00")
+  try {
+    const date = new Date(value);
+    if (!isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  } catch (e) {
+    console.error('Error parsing birth date:', e);
+  }
+  
+  return "";
+};
+
 const PreCadastro = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -398,7 +423,7 @@ const PreCadastro = () => {
             cidade: rawData[BITRIX_LEAD_FIELD_MAPPING.cidade] || "",
             estado: rawData[BITRIX_LEAD_FIELD_MAPPING.estado] || "",
             nomeModelo: lead.nome_modelo || lead.name || "",
-            dataNascimento: rawData[BITRIX_LEAD_FIELD_MAPPING.dataNascimento] || "",
+            dataNascimento: parseBirthDate(rawData[BITRIX_LEAD_FIELD_MAPPING.dataNascimento]),
             sexo: rawData[BITRIX_LEAD_FIELD_MAPPING.sexo] || "",
             altura: rawData[BITRIX_LEAD_FIELD_MAPPING.altura] || "",
             peso: rawData[BITRIX_LEAD_FIELD_MAPPING.peso] || "",
