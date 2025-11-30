@@ -62,10 +62,9 @@ export default function HeatmapFichasMap({
     queryFn: async () => {
       let query = supabase
         .from("leads")
-        .select("id, name, address, local_abordagem, latitude, longitude, scouter, ficha_confirmada, presenca_confirmada, data_confirmacao_ficha")
-        .eq("ficha_confirmada", true)
-        .gte("data_confirmacao_ficha", dateRange.startDate.toISOString())
-        .lte("data_confirmacao_ficha", dateRange.endDate.toISOString());
+        .select("id, name, address, local_abordagem, latitude, longitude, scouter, ficha_confirmada, presenca_confirmada, data_criacao_ficha")
+        .gte("data_criacao_ficha", dateRange.startDate.toISOString())
+        .lte("data_criacao_ficha", dateRange.endDate.toISOString());
 
       if (projectId) {
         query = query.eq("commercial_project_id", projectId);
@@ -387,7 +386,7 @@ export default function HeatmapFichasMap({
               <FileCheck className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Fichas Confirmadas</div>
+              <div className="text-xs text-muted-foreground">Total de Fichas</div>
               <div className="text-2xl font-bold text-blue-600">{totalFichas}</div>
             </div>
           </div>
@@ -416,7 +415,7 @@ export default function HeatmapFichasMap({
             Mapa de Calor - Densidade
           </h3>
           <p className="text-xs text-muted-foreground mb-3">
-            As cores indicam a concentração de fichas confirmadas na região
+            As cores indicam a concentração de fichas na região
           </p>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -442,10 +441,10 @@ export default function HeatmapFichasMap({
             </div>
             <div className="pt-2 mt-2 border-t">
               <p className="text-xs font-medium mb-2">Marcadores individuais:</p>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white flex-shrink-0"></div>
-                <span className="text-xs">Ficha confirmada</span>
-              </div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white flex-shrink-0"></div>
+              <span className="text-xs">Ficha criada</span>
+            </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-green-500 border-2 border-white flex-shrink-0"></div>
                 <span className="text-xs">Cliente compareceu</span>
@@ -475,9 +474,9 @@ export default function HeatmapFichasMap({
         <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-lg">
           <div className="text-center p-8">
             <FileCheck className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhuma ficha confirmada</h3>
+            <h3 className="text-lg font-semibold mb-2">Nenhuma ficha cadastrada</h3>
             <p className="text-sm text-muted-foreground">
-              Não há fichas confirmadas no período selecionado
+              Não há fichas cadastradas no período selecionado
             </p>
           </div>
         </div>
