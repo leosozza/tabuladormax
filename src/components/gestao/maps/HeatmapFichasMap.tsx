@@ -56,15 +56,14 @@ export default function HeatmapFichasMap({
     scouterId,
   });
 
-  // Buscar fichas confirmadas
+  // Buscar fichas confirmadas COM coordenadas reais
   const { data: fichasData, isLoading } = useQuery({
     queryKey: ["fichas-heatmap", projectId, scouterId, dateRange],
     queryFn: async () => {
       let query = supabase
         .from("leads")
-        .select("id, name, address, scouter, ficha_confirmada, presenca_confirmada, data_confirmacao_ficha")
+        .select("id, name, address, local_abordagem, latitude, longitude, scouter, ficha_confirmada, presenca_confirmada, data_confirmacao_ficha")
         .eq("ficha_confirmada", true)
-        .not("address", "is", null)
         .gte("data_confirmacao_ficha", dateRange.startDate.toISOString())
         .lte("data_confirmacao_ficha", dateRange.endDate.toISOString());
 
@@ -79,23 +78,73 @@ export default function HeatmapFichasMap({
       const { data, error } = await query;
       if (error) throw error;
 
-      // Simular geocodificação (em produção usar API real)
+      // Usar coordenadas reais quando disponíveis
       const locations: FichaLocation[] = [];
-      const baseCoords = { lat: -15.7801, lng: -47.9292 };
-      const offset = 0.03;
+      const leadsToGeocode: typeof data = [];
 
       data?.forEach((ficha) => {
-        locations.push({
-          lat: baseCoords.lat + (Math.random() - 0.5) * offset,
-          lng: baseCoords.lng + (Math.random() - 0.5) * offset,
-          value: ficha.presenca_confirmada ? 2 : 1, // Peso maior para quem compareceu
-          name: ficha.name || "Sem nome",
-          scouter: ficha.scouter || "Sem scouter",
-          confirmed: ficha.ficha_confirmada,
-          presenca_confirmada: ficha.presenca_confirmada || false,
-        });
+        // 1. Usar coordenadas existentes se disponíveis
+        if (ficha.latitude && ficha.longitude) {
+          locations.push({
+            lat: Number(ficha.latitude),
+            lng: Number(ficha.longitude),
+            value: ficha.presenca_confirmada ? 2 : 1,
+            name: ficha.name || "Sem nome",
+            scouter: ficha.scouter || "Sem scouter",
+            confirmed: ficha.ficha_confirmada,
+            presenca_confirmada: ficha.presenca_confirmada || false,
+          });
+        }
+        // 2. Marcar para geocodificação se tiver endereço ou local_abordagem
+        else if (ficha.address || ficha.local_abordagem) {
+          leadsToGeocode.push(ficha);
+        }
       });
 
+      // 3. Geocodificar leads faltantes (usando Nominatim com rate limiting)
+      if (leadsToGeocode.length > 0) {
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+        
+        for (const ficha of leadsToGeocode.slice(0, 20)) { // Limitar a 20 para não abusar da API
+          const addressToGeocode = ficha.address || ficha.local_abordagem;
+          if (!addressToGeocode) continue;
+
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressToGeocode)}&limit=1`
+            );
+            const geoData = await response.json();
+            
+            if (geoData && geoData.length > 0) {
+              const lat = parseFloat(geoData[0].lat);
+              const lng = parseFloat(geoData[0].lon);
+              
+              locations.push({
+                lat,
+                lng,
+                value: ficha.presenca_confirmada ? 2 : 1,
+                name: ficha.name || "Sem nome",
+                scouter: ficha.scouter || "Sem scouter",
+                confirmed: ficha.ficha_confirmada,
+                presenca_confirmada: ficha.presenca_confirmada || false,
+              });
+
+              // Salvar coordenadas no banco para cache futuro
+              await supabase.from('leads').update({
+                latitude: lat,
+                longitude: lng,
+                geocoded_at: new Date().toISOString()
+              }).eq('id', ficha.id);
+            }
+            
+            await delay(1000); // Rate limit: 1 request/segundo
+          } catch (error) {
+            console.error('Erro ao geocodificar:', error);
+          }
+        }
+      }
+
+      console.log(`✅ Carregadas ${locations.length} fichas com coordenadas reais`);
       return locations;
     },
   });
