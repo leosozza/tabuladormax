@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { User, MapPin, Calendar, Phone, AlertCircle, Building2, UserCheck } from
 import { useTinderCardConfig } from "@/hooks/useTinderCardConfig";
 import { ALL_LEAD_FIELDS } from "@/config/leadFields";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
+import { supabase } from "@/integrations/supabase/client";
 // SVG transparente para placeholder "Sem Imagem"
 const NO_PHOTO_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='none'/%3E%3Ccircle cx='100' cy='80' r='50' fill='none' stroke='%23D1D5DB' stroke-width='3'/%3E%3Cpath d='M75 65 L125 95 M125 65 L75 95' stroke='%23D1D5DB' stroke-width='3' stroke-linecap='round'/%3E%3Ctext x='100' y='155' text-anchor='middle' font-size='14' fill='%23D1D5DB' font-family='sans-serif'%3ESem Imagem%3C/text%3E%3C/svg%3E`;
 
@@ -17,12 +18,66 @@ interface LeadCardProps {
 export default function LeadCard({ lead }: LeadCardProps) {
   const { config } = useTinderCardConfig();
   const [hasPhotoError, setHasPhotoError] = useState(false);
+  const [isSyncingPhoto, setIsSyncingPhoto] = useState(false);
+  const [fallbackPhotoUrl, setFallbackPhotoUrl] = useState<string | null>(null);
   
   // DEBUG: Ver dados do lead
   console.log('[LeadCard] Config:', config);
   console.log('[LeadCard] Lead data:', lead);
   console.log('[LeadCard] mainFields:', config.mainFields);
   console.log('[LeadCard] detailFields:', config.detailFields);
+
+  // Tentar sincronizar foto do Bitrix quando photo_url estiver vazio
+  useEffect(() => {
+    const syncPhotoFromBitrix = async () => {
+      const rawPhotoUrl = String(lead[config.photoField] || '');
+      const leadId = Number(lead.id);
+      
+      // Se já tem photo_url válida, não fazer nada
+      if (rawPhotoUrl && rawPhotoUrl !== '' && rawPhotoUrl !== 'null' && rawPhotoUrl !== 'undefined') {
+        return;
+      }
+
+      // Verificar se há lead.id válido e se ainda não está sincronizando
+      if (!leadId || isNaN(leadId) || isSyncingPhoto) {
+        return;
+      }
+
+      console.log('[LeadCard] photo_url vazio, tentando buscar do Bitrix para lead:', leadId);
+      setIsSyncingPhoto(true);
+
+      try {
+        // Chamar edge function para sincronizar fotos
+        const { data, error } = await supabase.functions.invoke('bitrix-photo-sync', {
+          body: { leadId }
+        });
+
+        if (error) throw error;
+
+        if (data?.success) {
+          console.log('[LeadCard] Foto sincronizada com sucesso:', data);
+          
+          // Buscar o lead atualizado do banco para obter a nova photo_url
+          const { data: updatedLead, error: fetchError } = await supabase
+            .from('leads')
+            .select('photo_url')
+            .eq('id', leadId)
+            .single();
+
+          if (!fetchError && updatedLead?.photo_url) {
+            setFallbackPhotoUrl(updatedLead.photo_url);
+            console.log('[LeadCard] Nova photo_url obtida:', updatedLead.photo_url);
+          }
+        }
+      } catch (error) {
+        console.error('[LeadCard] Erro ao sincronizar foto do Bitrix:', error);
+      } finally {
+        setIsSyncingPhoto(false);
+      }
+    };
+
+    syncPhotoFromBitrix();
+  }, [lead.id, lead[config.photoField], config.photoField, isSyncingPhoto]);
 
   const getFieldLabel = (key: string) => {
     const field = ALL_LEAD_FIELDS.find(f => f.key === key);
@@ -63,7 +118,9 @@ export default function LeadCard({ lead }: LeadCardProps) {
   };
 
   const rawPhotoUrl = String(lead[config.photoField] || '');
-  const photoSrc = hasPhotoError ? NO_PHOTO_SVG : getLeadPhotoUrl(rawPhotoUrl);
+  // Usar fallbackPhotoUrl se disponível, senão usar rawPhotoUrl
+  const effectivePhotoUrl = fallbackPhotoUrl || rawPhotoUrl;
+  const photoSrc = hasPhotoError ? NO_PHOTO_SVG : getLeadPhotoUrl(effectivePhotoUrl);
   
   const mainValues = config.mainFields.map(key => ({ key, value: String(getFieldValue(key) || '') }));
   const detailValues = config.detailFields.map(key => ({ key, value: String(getFieldValue(key) || ''), label: getFieldLabel(key) }));

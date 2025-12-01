@@ -1,33 +1,33 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2 } from "lucide-react";
-
+import { CheckCircle2, Instagram } from "lucide-react";
 const PreCadastroSucesso = () => {
   const navigate = useNavigate();
-
+  const location = useLocation();
+  const nomeModelo = location.state?.nomeModelo || "seu modelo";
   useEffect(() => {
     // Auto-redirect após 10 segundos
     const timer = setTimeout(() => {
       window.close();
     }, 10000);
-
     return () => clearTimeout(timer);
   }, []);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-4">
+  return <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-4">
       <Card className="max-w-lg w-full shadow-elegant">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center">
             <CheckCircle2 className="h-12 w-12 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl">Cadastro Atualizado com Sucesso!</CardTitle>
+          <CardTitle className="text-2xl">Mini currículo enviado! 🎉</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 text-center">
           <p className="text-muted-foreground">
-            Suas informações foram atualizadas no sistema e sincronizadas com nosso CRM.
+            O produtor da Max Fama já pode analisar o perfil de <strong>{nomeModelo}</strong>.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Você receberá os próximos passos pelo WhatsApp.
           </p>
           
           <div className="bg-secondary/30 rounded-lg p-4 space-y-2">
@@ -44,15 +44,14 @@ const PreCadastroSucesso = () => {
           </p>
 
           <Button 
-            onClick={() => window.close()}
-            className="w-full"
+            onClick={() => window.open('https://www.instagram.com/maxfama_oficial', '_blank', 'noopener,noreferrer')} 
+            className="w-full gap-2"
           >
-            Fechar Página
+            <Instagram className="w-5 h-5" />
+            Acesse nosso instagram
           </Button>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>;
 };
-
 export default PreCadastroSucesso;
