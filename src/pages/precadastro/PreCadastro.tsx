@@ -153,6 +153,32 @@ const TIPO_MODELO_OPTIONS = [
   { value: '9260', label: 'Maduro/Senior' }
 ];
 
+const HABILIDADES_OPTIONS = [
+  { value: '9268', label: 'Inglês' },
+  { value: '9266', label: 'Espanhol' },
+  { value: '9270', label: 'Francês' },
+  { value: '9272', label: 'Dança' },
+  { value: '9274', label: 'Canto' },
+  { value: '9276', label: 'Violão' },
+  { value: '9278', label: 'Piano' }
+];
+
+const CURSOS_OPTIONS = [
+  { value: '9282', label: 'Passarela' },
+  { value: '9284', label: 'Fotografia' },
+  { value: '9286', label: 'Atuação' },
+  { value: '9288', label: 'Dança' },
+  { value: '9290', label: 'Teatro' },
+  { value: '9292', label: 'Maquiagem' },
+  { value: '9294', label: 'Etiqueta Social' }
+];
+
+const CARACTERISTICAS_OPTIONS = [
+  { value: '9296', label: 'Tatuagens' },
+  { value: '9298', label: 'Piercings' },
+  { value: '9300', label: 'Cicatrizes' }
+];
+
 interface LeadData {
   nomeResponsavel: string;
   estadoCivil: string;
@@ -173,9 +199,9 @@ interface LeadData {
   tipoModelo: string;
   instagram: string;
   tiktok: string;
-  idiomas: string[];
-  talentosEspeciais: string[];
-  experienciaPublicidade: string[];
+  habilidades: string[];
+  cursos: string[];
+  caracteristicasEspeciais: string[];
 }
 
 const normalizeEnumerationValue = (value: unknown): string | string[] => {
@@ -332,9 +358,9 @@ const PreCadastro = () => {
     tipoModelo: "",
     instagram: "",
     tiktok: "",
-    idiomas: [],
-    talentosEspeciais: [],
-    experienciaPublicidade: []
+    habilidades: [],
+    cursos: [],
+    caracteristicasEspeciais: []
   });
 
   const syncPhotosInBackground = async (numericLeadId: number, fileIds: number[]) => {
@@ -451,9 +477,9 @@ const PreCadastro = () => {
             tipoModelo: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.tipoModelo]) as string,
             instagram: rawData[BITRIX_LEAD_FIELD_MAPPING.instagram] || "",
             tiktok: rawData[BITRIX_LEAD_FIELD_MAPPING.tiktok] || "",
-            idiomas: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades]) as string[],
-            talentosEspeciais: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades]) as string[],
-            experienciaPublicidade: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.caracteristicas]) as string[]
+            habilidades: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades]) as string[],
+            cursos: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.cursos]) as string[],
+            caracteristicasEspeciais: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.caracteristicas]) as string[]
           });
 
           const photoUrls: string[] = [];
@@ -781,9 +807,9 @@ const PreCadastro = () => {
         [BITRIX_LEAD_FIELD_MAPPING.corOlhos]: leadData.corOlhos,
         [BITRIX_LEAD_FIELD_MAPPING.tipoCabelo]: leadData.tipoCabelo,
         [BITRIX_LEAD_FIELD_MAPPING.tipoModelo]: leadData.tipoModelo,
-        [BITRIX_LEAD_FIELD_MAPPING.habilidades]: leadData.idiomas,
-        [BITRIX_LEAD_FIELD_MAPPING.cursos]: leadData.talentosEspeciais,
-        [BITRIX_LEAD_FIELD_MAPPING.caracteristicas]: leadData.experienciaPublicidade,
+        [BITRIX_LEAD_FIELD_MAPPING.habilidades]: leadData.habilidades,
+        [BITRIX_LEAD_FIELD_MAPPING.cursos]: leadData.cursos,
+        [BITRIX_LEAD_FIELD_MAPPING.caracteristicas]: leadData.caracteristicasEspeciais,
         [BITRIX_LEAD_FIELD_MAPPING.fotoUrl]: fotosBase64,
         [BITRIX_LEAD_FIELD_MAPPING.sexo]: leadData.sexo,
         [BITRIX_LEAD_FIELD_MAPPING.instagram]: leadData.instagram,
@@ -1128,25 +1154,25 @@ const PreCadastro = () => {
               
               <div className="space-y-4">
                 <MultiSelect 
-                  id="idiomas" 
-                  label="Idiomas" 
-                  value={leadData.idiomas} 
-                  onChange={v => handleFieldChange("idiomas", v)} 
-                  options={IDIOMAS_OPTIONS} 
+                  id="habilidades" 
+                  label="Habilidades" 
+                  value={leadData.habilidades} 
+                  onChange={v => handleFieldChange("habilidades", v)} 
+                  options={HABILIDADES_OPTIONS} 
                 />
                 <MultiSelect 
-                  id="talentosEspeciais" 
-                  label="Talentos Especiais" 
-                  value={leadData.talentosEspeciais} 
-                  onChange={v => handleFieldChange("talentosEspeciais", v)} 
-                  options={TALENTOS_OPTIONS} 
+                  id="cursos" 
+                  label="Cursos" 
+                  value={leadData.cursos} 
+                  onChange={v => handleFieldChange("cursos", v)} 
+                  options={CURSOS_OPTIONS} 
                 />
                 <MultiSelect 
-                  id="experienciaPublicidade" 
-                  label="Experiência em Publicidade" 
-                  value={leadData.experienciaPublicidade} 
-                  onChange={v => handleFieldChange("experienciaPublicidade", v)} 
-                  options={EXPERIENCIA_OPTIONS} 
+                  id="caracteristicasEspeciais" 
+                  label="Características Especiais" 
+                  value={leadData.caracteristicasEspeciais} 
+                  onChange={v => handleFieldChange("caracteristicasEspeciais", v)} 
+                  options={CARACTERISTICAS_OPTIONS} 
                 />
               </div>
             </FormSection>
