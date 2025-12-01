@@ -1339,7 +1339,6 @@ export type Database = {
       }
       leads: {
         Row: {
-          additional_photos: Json | null
           address: string | null
           age: number | null
           analisado_por: string | null
@@ -1404,7 +1403,6 @@ export type Database = {
           valor_ficha: number | null
         }
         Insert: {
-          additional_photos?: Json | null
           address?: string | null
           age?: number | null
           analisado_por?: string | null
@@ -1469,7 +1467,6 @@ export type Database = {
           valor_ficha?: number | null
         }
         Update: {
-          additional_photos?: Json | null
           address?: string | null
           age?: number | null
           analisado_por?: string | null

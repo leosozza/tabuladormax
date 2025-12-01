@@ -360,13 +360,11 @@ export default function CadastroFicha() {
   
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<string>(''); // ✅ Feedback de progresso
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [bitrixEntityType, setBitrixEntityType] = useState<'lead' | 'deal' | null>(null);
   const [bitrixEntityId, setBitrixEntityId] = useState<string | null>(null);
   const [bitrixDealFields, setBitrixDealFields] = useState<Record<string, any> | null>(null);
-  const [cachedCategoryId, setCachedCategoryId] = useState<string | null>(null); // ✅ Cache da categoria
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
   
@@ -653,12 +651,6 @@ export default function CadastroFicha() {
       setBitrixEntityType(type);
       setBitrixEntityId(id);
       setBitrixDealFields(data.dealFields); // Armazenar dealFields para conversão no envio
-      
-      // ✅ CACHEAR CATEGORIA DO DEAL para evitar chamada extra no handleSubmit
-      if (data.dealData?.CATEGORY_ID) {
-        setCachedCategoryId(data.dealData.CATEGORY_ID);
-        console.log('💾 Categoria cacheada:', data.dealData.CATEGORY_ID);
-      }
       
       // Extrair opções dinâmicas dos campos de enumeração
       if (data.dealFields) {
@@ -1024,7 +1016,6 @@ export default function CadastroFicha() {
     }
     
     setIsSubmitting(true);
-    setSubmitStatus('Preparando dados...');
     
     try {
       // Verificar se estamos em modo de atualização sem dealFields
@@ -1035,7 +1026,6 @@ export default function CadastroFicha() {
           variant: 'destructive'
         });
         setIsSubmitting(false);
-        setSubmitStatus('');
         return;
       }
       
@@ -1046,18 +1036,33 @@ export default function CadastroFicha() {
       if (bitrixEntityType && bitrixEntityId) {
         // UPDATE MODE - Update existing lead or deal in Bitrix (PUBLIC ACCESS)
         
-        // ✅ USAR CATEGORIA CACHEADA (removida chamada duplicada bitrix-entity-get)
-        let targetStageId = 'C1:UC_O2KDK6'; // Default para categoria C1
+        console.log('🔍 Buscando categoria atual do deal...');
         
-        if (cachedCategoryId) {
-          targetStageId = `${cachedCategoryId}:UC_O2KDK6`;
-          console.log('💾 Usando categoria cacheada:', cachedCategoryId);
-          console.log('🎯 STAGE_ID a ser usado:', targetStageId);
-        } else {
-          console.warn('⚠️ Categoria não estava em cache, usando padrão C1:UC_O2KDK6');
+        // Buscar deal atual do Bitrix para descobrir a categoria
+        const { data: entityData, error: entityError } = await supabase.functions.invoke('bitrix-entity-get', {
+          body: {
+            entityType: bitrixEntityType,
+            entityId: bitrixEntityId
+          }
+        });
+        
+        if (entityError) {
+          console.error('⚠️ Erro ao buscar entidade do Bitrix:', entityError);
         }
         
-        setSubmitStatus('Enviando para o servidor...');
+        // Construir STAGE_ID dinamicamente baseado na categoria do deal
+        let targetStageId = 'C1:UC_O2KDK6'; // Default para categoria C1
+        
+        if (entityData?.entityData?.CATEGORY_ID) {
+          const dealCategory = entityData.entityData.CATEGORY_ID;
+          targetStageId = `${dealCategory}:UC_O2KDK6`;
+          
+          console.log('📁 Deal está na categoria:', dealCategory);
+          console.log('📁 STAGE_ID atual:', entityData.entityData.STAGE_ID);
+          console.log('🎯 STAGE_ID a ser usado:', targetStageId);
+        } else {
+          console.warn('⚠️ Categoria do deal não encontrada, usando padrão C1:UC_O2KDK6');
+        }
         
         const { data, error } = await supabase.functions.invoke('bitrix-entity-update', {
           body: {
@@ -1081,12 +1086,7 @@ export default function CadastroFicha() {
           throw new Error(data?.error || 'Erro desconhecido ao atualizar no Bitrix');
         }
 
-        setSubmitStatus('Concluído!');
-        
-        // Pequeno delay para mostrar "Concluído" antes de navegar
-        setTimeout(() => {
-          navigate('/cadastro/sucesso');
-        }, 300);
+        navigate('/cadastro/sucesso');
 
       } else {
         // CREATE MODE - Create new entry (public access allowed)
@@ -1134,7 +1134,6 @@ export default function CadastroFicha() {
       });
     } finally {
       setIsSubmitting(false);
-      setSubmitStatus('');
     }
   };
 
@@ -1762,7 +1761,7 @@ export default function CadastroFicha() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  {submitStatus || 'Salvando...'}
+                  Salvando...
                 </>
               ) : (
                 <>

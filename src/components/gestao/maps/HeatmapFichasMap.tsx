@@ -56,15 +56,17 @@ export default function HeatmapFichasMap({
     scouterId,
   });
 
-  // Buscar fichas confirmadas COM coordenadas reais
+  // Buscar fichas confirmadas
   const { data: fichasData, isLoading } = useQuery({
     queryKey: ["fichas-heatmap", projectId, scouterId, dateRange],
     queryFn: async () => {
       let query = supabase
         .from("leads")
-        .select("id, name, address, local_abordagem, latitude, longitude, scouter, ficha_confirmada, presenca_confirmada, data_criacao_ficha")
-        .gte("data_criacao_ficha", dateRange.startDate.toISOString())
-        .lte("data_criacao_ficha", dateRange.endDate.toISOString());
+        .select("id, name, address, scouter, ficha_confirmada, presenca_confirmada, data_confirmacao_ficha")
+        .eq("ficha_confirmada", true)
+        .not("address", "is", null)
+        .gte("data_confirmacao_ficha", dateRange.startDate.toISOString())
+        .lte("data_confirmacao_ficha", dateRange.endDate.toISOString());
 
       if (projectId) {
         query = query.eq("commercial_project_id", projectId);
@@ -77,73 +79,23 @@ export default function HeatmapFichasMap({
       const { data, error } = await query;
       if (error) throw error;
 
-      // Usar coordenadas reais quando disponíveis
+      // Simular geocodificação (em produção usar API real)
       const locations: FichaLocation[] = [];
-      const leadsToGeocode: typeof data = [];
+      const baseCoords = { lat: -15.7801, lng: -47.9292 };
+      const offset = 0.03;
 
       data?.forEach((ficha) => {
-        // 1. Usar coordenadas existentes se disponíveis
-        if (ficha.latitude && ficha.longitude) {
-          locations.push({
-            lat: Number(ficha.latitude),
-            lng: Number(ficha.longitude),
-            value: ficha.presenca_confirmada ? 2 : 1,
-            name: ficha.name || "Sem nome",
-            scouter: ficha.scouter || "Sem scouter",
-            confirmed: ficha.ficha_confirmada,
-            presenca_confirmada: ficha.presenca_confirmada || false,
-          });
-        }
-        // 2. Marcar para geocodificação se tiver endereço ou local_abordagem
-        else if (ficha.address || ficha.local_abordagem) {
-          leadsToGeocode.push(ficha);
-        }
+        locations.push({
+          lat: baseCoords.lat + (Math.random() - 0.5) * offset,
+          lng: baseCoords.lng + (Math.random() - 0.5) * offset,
+          value: ficha.presenca_confirmada ? 2 : 1, // Peso maior para quem compareceu
+          name: ficha.name || "Sem nome",
+          scouter: ficha.scouter || "Sem scouter",
+          confirmed: ficha.ficha_confirmada,
+          presenca_confirmada: ficha.presenca_confirmada || false,
+        });
       });
 
-      // 3. Geocodificar leads faltantes (usando Nominatim com rate limiting)
-      if (leadsToGeocode.length > 0) {
-        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-        
-        for (const ficha of leadsToGeocode.slice(0, 20)) { // Limitar a 20 para não abusar da API
-          const addressToGeocode = ficha.address || ficha.local_abordagem;
-          if (!addressToGeocode) continue;
-
-          try {
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressToGeocode)}&limit=1`
-            );
-            const geoData = await response.json();
-            
-            if (geoData && geoData.length > 0) {
-              const lat = parseFloat(geoData[0].lat);
-              const lng = parseFloat(geoData[0].lon);
-              
-              locations.push({
-                lat,
-                lng,
-                value: ficha.presenca_confirmada ? 2 : 1,
-                name: ficha.name || "Sem nome",
-                scouter: ficha.scouter || "Sem scouter",
-                confirmed: ficha.ficha_confirmada,
-                presenca_confirmada: ficha.presenca_confirmada || false,
-              });
-
-              // Salvar coordenadas no banco para cache futuro
-              await supabase.from('leads').update({
-                latitude: lat,
-                longitude: lng,
-                geocoded_at: new Date().toISOString()
-              }).eq('id', ficha.id);
-            }
-            
-            await delay(1000); // Rate limit: 1 request/segundo
-          } catch (error) {
-            console.error('Erro ao geocodificar:', error);
-          }
-        }
-      }
-
-      console.log(`✅ Carregadas ${locations.length} fichas com coordenadas reais`);
       return locations;
     },
   });
@@ -386,7 +338,7 @@ export default function HeatmapFichasMap({
               <FileCheck className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Total de Fichas</div>
+              <div className="text-xs text-muted-foreground">Fichas Confirmadas</div>
               <div className="text-2xl font-bold text-blue-600">{totalFichas}</div>
             </div>
           </div>
@@ -415,7 +367,7 @@ export default function HeatmapFichasMap({
             Mapa de Calor - Densidade
           </h3>
           <p className="text-xs text-muted-foreground mb-3">
-            As cores indicam a concentração de fichas na região
+            As cores indicam a concentração de fichas confirmadas na região
           </p>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -441,10 +393,10 @@ export default function HeatmapFichasMap({
             </div>
             <div className="pt-2 mt-2 border-t">
               <p className="text-xs font-medium mb-2">Marcadores individuais:</p>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white flex-shrink-0"></div>
-              <span className="text-xs">Ficha criada</span>
-            </div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white flex-shrink-0"></div>
+                <span className="text-xs">Ficha confirmada</span>
+              </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-green-500 border-2 border-white flex-shrink-0"></div>
                 <span className="text-xs">Cliente compareceu</span>
@@ -474,9 +426,9 @@ export default function HeatmapFichasMap({
         <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-lg">
           <div className="text-center p-8">
             <FileCheck className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhuma ficha cadastrada</h3>
+            <h3 className="text-lg font-semibold mb-2">Nenhuma ficha confirmada</h3>
             <p className="text-sm text-muted-foreground">
-              Não há fichas cadastradas no período selecionado
+              Não há fichas confirmadas no período selecionado
             </p>
           </div>
         </div>

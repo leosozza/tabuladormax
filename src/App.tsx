@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { ConditionalPWA } from "@/components/pwa/ConditionalPWA";
 
 // Páginas do Tabulador
 import Auth from "./pages/Auth";
@@ -80,7 +79,6 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <ConditionalPWA />
         <Routes>
           {/* Rota inicial - HomeChoice como padrão */}
           <Route path="/" element={<ProtectedRoute><HomeChoice /></ProtectedRoute>} />

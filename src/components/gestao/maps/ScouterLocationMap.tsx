@@ -152,33 +152,32 @@ export default function ScouterLocationMap({
     refetchInterval: 30000 // Atualizar a cada 30 segundos
   });
 
-  // Handler para abrir timeline - busca dados ANTES de abrir modal
-  const handleOpenTimeline = async (scouterBitrixId: number, scouterName: string, photoUrl?: string) => {
-    // 1. Buscar dados primeiro
-    const { data, error } = await supabase
-      .from('scouter_location_history')
-      .select('latitude, longitude, address, recorded_at')
-      .eq('scouter_bitrix_id', scouterBitrixId)
-      .order('recorded_at', { ascending: false })
-      .limit(20);
-    
-    if (error) {
-      console.error('Error fetching location history:', error);
-      toast({
-        title: "Erro ao carregar histórico",
-        description: "Não foi possível carregar o histórico de localizações",
-        variant: "destructive"
-      });
+  // Buscar histórico quando modal abre
+  useEffect(() => {
+    if (!selectedScouterForTimeline) {
+      setLocationHistory([]);
       return;
     }
-    
-    // 2. Setar os dados no state
-    setLocationHistory(data || []);
-    
-    // 3. DEPOIS abrir o modal
-    setSelectedScouterForTimeline({ bitrixId: scouterBitrixId, name: scouterName, photoUrl });
-    setTimelineModalOpen(true);
-  };
+    const fetchHistory = async () => {
+      const {
+        data,
+        error
+      } = await supabase.from('scouter_location_history').select('latitude, longitude, address, recorded_at').eq('scouter_bitrix_id', selectedScouterForTimeline.bitrixId).order('recorded_at', {
+        ascending: false
+      }).limit(20);
+      if (error) {
+        console.error('Error fetching location history:', error);
+        toast({
+          title: "Erro ao carregar histórico",
+          description: "Não foi possível carregar o histórico de localizações",
+          variant: "destructive"
+        });
+        return;
+      }
+      setLocationHistory(data || []);
+    };
+    fetchHistory();
+  }, [selectedScouterForTimeline]);
 
   // Monitor map performance
   const dataPoints = scouterLocations?.length || 0;
@@ -408,8 +407,17 @@ export default function ScouterLocationMap({
   useEffect(() => {
     const handleViewTimeline = (event: Event) => {
       const customEvent = event as CustomEvent;
-      const { scouterBitrixId, scouterName, photoUrl } = customEvent.detail;
-      handleOpenTimeline(scouterBitrixId, scouterName, photoUrl);
+      const {
+        scouterBitrixId,
+        scouterName,
+        photoUrl
+      } = customEvent.detail;
+      setSelectedScouterForTimeline({
+        bitrixId: scouterBitrixId,
+        name: scouterName,
+        photoUrl
+      });
+      setTimelineModalOpen(true);
     };
     window.addEventListener('view-scouter-timeline', handleViewTimeline);
     return () => window.removeEventListener('view-scouter-timeline', handleViewTimeline);
