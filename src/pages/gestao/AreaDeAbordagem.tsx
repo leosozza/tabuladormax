@@ -4,12 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRecords } from "@/lib/supabaseUtils";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 import { AreaAbordagemFilters, type AreaAbordagemFilters as FilterType } from "@/components/gestao/AreaAbordagemFilters";
-import AreaMap, { LeadMapLocation, DrawnArea } from "@/components/gestao/AreaMap";
-import ScouterLocationMap from "@/components/gestao/maps/ScouterLocationMap";
-import HeatmapFichasMap from "@/components/gestao/maps/HeatmapFichasMap";
+import { LeadMapLocation, DrawnArea } from "@/components/gestao/AreaMap";
+import UnifiedAreaMap from "@/components/gestao/maps/UnifiedAreaMap";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Users, TrendingUp, Target, BarChart3, Radio, Flame, Settings } from "lucide-react";
+import { MapPin, Users, TrendingUp, Target, BarChart3, Radio, Flame, Settings, Pencil } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { geocodeAddress } from "@/hooks/useGeolocation";
 import { createDateFilter } from "@/lib/dateUtils";
 import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
@@ -21,6 +23,12 @@ function GestaoAreaDeAbordagemContent() {
     projectId: null,
   });
   const [drawnAreas, setDrawnAreas] = useState<DrawnArea[]>([]);
+  
+  // Estado dos switches do mapa
+  const [showScouters, setShowScouters] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showLeads, setShowLeads] = useState(true);
+  const [isDrawing, setIsDrawing] = useState(false);
 
   // Buscar leads com coordenadas (usar latitude/longitude existentes ou geocodificar)
   const { data: leadsData, isLoading: leadsLoading } = useQuery({
@@ -281,21 +289,128 @@ function GestaoAreaDeAbordagemContent() {
           </Card>
         </div>
 
-        {/* Tabs: 3 Tipos de Mapas */}
-        <Tabs defaultValue="scouters" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
-            <TabsTrigger value="scouters">
-              <Radio className="w-4 h-4 mr-2" />
-              Scouters em Tempo Real
-            </TabsTrigger>
-            <TabsTrigger value="heatmap">
-              <Flame className="w-4 h-4 mr-2" />
-              Mapa de Calor - Fichas
-            </TabsTrigger>
-            <TabsTrigger value="areas">
-              <MapPin className="w-4 h-4 mr-2" />
-              Desenho de Áreas
-            </TabsTrigger>
+        {/* Mapa Unificado */}
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-blue-600" />
+                  Mapa de Área
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Controle as camadas do mapa e desenhe áreas para análise
+                </p>
+              </div>
+              
+              {/* Controles de Layer */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    checked={showScouters} 
+                    onCheckedChange={setShowScouters}
+                    id="show-scouters"
+                  />
+                  <Label htmlFor="show-scouters" className="flex items-center gap-1 cursor-pointer">
+                    <Radio className="w-4 h-4 text-green-600" />
+                    Scouters
+                  </Label>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    checked={showHeatmap} 
+                    onCheckedChange={setShowHeatmap}
+                    id="show-heatmap"
+                  />
+                  <Label htmlFor="show-heatmap" className="flex items-center gap-1 cursor-pointer">
+                    <Flame className="w-4 h-4 text-orange-500" />
+                    Temperatura
+                  </Label>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    checked={showLeads} 
+                    onCheckedChange={setShowLeads}
+                    id="show-leads"
+                  />
+                  <Label htmlFor="show-leads" className="flex items-center gap-1 cursor-pointer">
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                    Leads
+                  </Label>
+                </div>
+                
+                {/* Botão Lápis - sempre visível */}
+                <Button 
+                  variant={isDrawing ? "default" : "outline"} 
+                  size="icon"
+                  onClick={() => setIsDrawing(!isDrawing)}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {leadsLoading ? (
+              <div className="h-[600px] flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Carregando mapa...</p>
+                </div>
+              </div>
+            ) : (
+              <UnifiedAreaMap
+                projectId={filters.projectId}
+                dateRange={{
+                  startDate: filters.dateFilter.startDate,
+                  endDate: filters.dateFilter.endDate,
+                }}
+                showScouters={showScouters}
+                showHeatmap={showHeatmap}
+                showLeads={showLeads}
+                isDrawing={isDrawing}
+                onDrawingChange={setIsDrawing}
+                onAreaCreated={(area) => setDrawnAreas(prev => [...prev, area])}
+                onAreaDeleted={(areaId) => setDrawnAreas(prev => prev.filter(a => a.id !== areaId))}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Áreas desenhadas - análise detalhada */}
+        {drawnAreas.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Análise de Áreas Desenhadas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {drawnAreas.map(area => (
+                  <div key={area.id} className="p-4 border rounded-lg bg-accent/20">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="font-semibold">{area.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {area.leadCount} leads identificados nesta área
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-primary">{area.leadCount}</div>
+                        <div className="text-xs text-muted-foreground">leads</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Tabs apenas para Análise e Config */}
+        <Tabs defaultValue="analysis" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="analysis">
               <BarChart3 className="w-4 h-4 mr-2" />
               Análise Estatística
@@ -305,114 +420,6 @@ function GestaoAreaDeAbordagemContent() {
               Configurações
             </TabsTrigger>
           </TabsList>
-
-          {/* Mapa 1: Localização em Tempo Real de Scouters */}
-          <TabsContent value="scouters" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Radio className="w-5 h-5 text-green-600" />
-                  Localização em Tempo Real dos Scouters
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Veja onde seus scouters estão atuando no momento e quantos leads cada um captou
-                </p>
-              </CardHeader>
-              <CardContent>
-                <ScouterLocationMap
-                  projectId={filters.projectId}
-                  dateRange={{
-                    startDate: filters.dateFilter.startDate,
-                    endDate: filters.dateFilter.endDate,
-                  }}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Mapa 2: Mapa de Calor de Fichas */}
-          <TabsContent value="heatmap" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-orange-600" />
-                  Mapa de Calor - Fichas Confirmadas
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Visualize as áreas com maior concentração de fichas confirmadas e comparecimentos
-                </p>
-              </CardHeader>
-              <CardContent>
-                <HeatmapFichasMap
-                  projectId={filters.projectId}
-                  dateRange={{
-                    startDate: filters.dateFilter.startDate,
-                    endDate: filters.dateFilter.endDate,
-                  }}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Mapa 3: Desenho de Áreas */}
-          <TabsContent value="areas" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-blue-600" />
-                  Análise com Desenho de Áreas
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Clique em "Desenhar Área" para delimitar regiões e analisar leads dentro delas
-                </p>
-              </CardHeader>
-              <CardContent>
-                {leadsLoading ? (
-                  <div className="h-[600px] flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                      <p className="text-muted-foreground">Carregando mapa...</p>
-                    </div>
-                  </div>
-                ) : (
-                  <AreaMap
-                    leads={leadsData || []}
-                    onAreaCreated={(area) => setDrawnAreas(prev => [...prev, area])}
-                    onAreaDeleted={(areaId) => setDrawnAreas(prev => prev.filter(a => a.id !== areaId))}
-                  />
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Áreas desenhadas - análise detalhada */}
-            {drawnAreas.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Análise de Áreas Desenhadas</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {drawnAreas.map(area => (
-                      <div key={area.id} className="p-4 border rounded-lg bg-accent/20">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h4 className="font-semibold">{area.name}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {area.leadCount} leads identificados nesta área
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-primary">{area.leadCount}</div>
-                            <div className="text-xs text-muted-foreground">leads</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
 
           <TabsContent value="analysis" className="space-y-4">
             {areasLoading ? (
