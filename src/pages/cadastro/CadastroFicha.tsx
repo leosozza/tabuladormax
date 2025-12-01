@@ -846,6 +846,15 @@ export default function CadastroFicha() {
       } else {
         setFieldErrors(prev => ({ ...prev, cpf: undefined }));
       }
+    } else if (field === 'cep' && typeof value === 'string') {
+      // Atualizar o campo CEP
+      setFormData(prev => ({ ...prev, [field]: value }));
+      
+      // Busca automática quando tiver 8 dígitos
+      const cleanCep = value.replace(/\D/g, '');
+      if (cleanCep.length === 8) {
+        fetchCEP(cleanCep);
+      }
     } else {
       setFormData(prev => ({ ...prev, [field]: value }));
     }
@@ -1384,6 +1393,7 @@ export default function CadastroFicha() {
             title="Dados Cadastrais"
             description="Informações do responsável pelo modelo"
             icon={<User className="w-5 h-5" />}
+            defaultOpen={true}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
@@ -1431,6 +1441,7 @@ export default function CadastroFicha() {
             title="Endereço"
             description="Endereço completo do responsável"
             icon={<MapPin className="w-5 h-5" />}
+            defaultOpen={true}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-1">
@@ -1511,6 +1522,7 @@ export default function CadastroFicha() {
             title="Dados do Modelo"
             description="Informações pessoais e características físicas"
             icon={<User className="w-5 h-5" />}
+            defaultOpen={true}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="md:col-span-2 lg:col-span-3">
@@ -1613,6 +1625,7 @@ export default function CadastroFicha() {
             title="Redes Sociais"
             description="Perfis em redes sociais do modelo"
             icon={<Share2 className="w-5 h-5" />}
+            defaultOpen={true}
           >
             <div className="space-y-4">
               {/* Instagram */}
@@ -1698,6 +1711,7 @@ export default function CadastroFicha() {
             title="Habilidades e Experiência"
             description="Tipo de trabalho, cursos e habilidades do modelo"
             icon={<Sparkles className="w-5 h-5" />}
+            defaultOpen={true}
           >
             <div className="space-y-4">
               <MultiSelect
