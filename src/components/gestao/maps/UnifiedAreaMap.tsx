@@ -288,17 +288,69 @@ export default function UnifiedAreaMap({
       maxClusterRadius: 80,
     });
 
-    // Event handlers para desenho
-    mapRef.current.on('click', handleMapClick);
-
     return () => {
-      mapRef.current?.off('click', handleMapClick);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
     };
   }, []);
+
+  // Funções de desenho
+  const handleMapClick = (e: L.LeafletMouseEvent) => {
+    if (!isDrawing || !mapRef.current) return;
+
+    const newPoint = e.latlng;
+
+    if (drawMode === 'rectangle') {
+      if (!rectangleStartRef.current) {
+        rectangleStartRef.current = newPoint;
+        setDrawingPoints([newPoint]);
+      } else {
+        const bounds = L.latLngBounds(rectangleStartRef.current, newPoint);
+        const rectanglePoints = [
+          bounds.getSouthWest(),
+          bounds.getNorthWest(),
+          bounds.getNorthEast(),
+          bounds.getSouthEast(),
+        ];
+        setDrawingPoints(rectanglePoints);
+        finishDrawingRectangle(rectanglePoints);
+        rectangleStartRef.current = null;
+      }
+    } else {
+      setDrawingPoints(prev => [...prev, newPoint]);
+
+      if (currentPolygonRef.current) {
+        mapRef.current.removeLayer(currentPolygonRef.current);
+      }
+
+      const allPoints = [...drawingPoints, newPoint];
+      currentPolygonRef.current = L.polyline(allPoints, {
+        color: '#3b82f6',
+        weight: 3,
+        opacity: 0.7,
+        dashArray: '10, 5'
+      }).addTo(mapRef.current);
+    }
+  };
+
+  // Adicionar/remover event listener do mapa baseado no estado de desenho
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    if (isDrawing) {
+      mapRef.current.on('click', handleMapClick);
+    } else {
+      mapRef.current.off('click', handleMapClick);
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.off('click', handleMapClick);
+      }
+    };
+  }, [isDrawing, drawMode, drawingPoints]);
 
   // Atualizar layer de scouters
   useEffect(() => {
@@ -479,45 +531,6 @@ export default function UnifiedAreaMap({
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [showLeads, leadsData, filteredLeads, selectedAreaIds]);
-
-  // Funções de desenho
-  const handleMapClick = (e: L.LeafletMouseEvent) => {
-    if (!isDrawing || !mapRef.current) return;
-
-    const newPoint = e.latlng;
-
-    if (drawMode === 'rectangle') {
-      if (!rectangleStartRef.current) {
-        rectangleStartRef.current = newPoint;
-        setDrawingPoints([newPoint]);
-      } else {
-        const bounds = L.latLngBounds(rectangleStartRef.current, newPoint);
-        const rectanglePoints = [
-          bounds.getSouthWest(),
-          bounds.getNorthWest(),
-          bounds.getNorthEast(),
-          bounds.getSouthEast(),
-        ];
-        setDrawingPoints(rectanglePoints);
-        finishDrawingRectangle(rectanglePoints);
-        rectangleStartRef.current = null;
-      }
-    } else {
-      setDrawingPoints(prev => [...prev, newPoint]);
-
-      if (currentPolygonRef.current) {
-        mapRef.current.removeLayer(currentPolygonRef.current);
-      }
-
-      const allPoints = [...drawingPoints, newPoint];
-      currentPolygonRef.current = L.polyline(allPoints, {
-        color: '#3b82f6',
-        weight: 3,
-        opacity: 0.7,
-        dashArray: '10, 5'
-      }).addTo(mapRef.current);
-    }
-  };
 
   const finishDrawingRectangle = (rectanglePoints: L.LatLng[]) => {
     if (!mapRef.current || !areasLayerRef.current || !leadsData) return;
