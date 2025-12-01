@@ -140,6 +140,19 @@ const EXPERIENCIA_OPTIONS = [
   { value: '9308', label: 'Figuração' }
 ];
 
+const TIPO_MODELO_OPTIONS = [
+  { value: '9242', label: 'Moda' },
+  { value: '9244', label: 'Publicidade' },
+  { value: '9246', label: 'Catálogo' },
+  { value: '9248', label: 'Editorial' },
+  { value: '9250', label: 'Fitness' },
+  { value: '9252', label: 'Plus Size' },
+  { value: '9254', label: 'Lingerie' },
+  { value: '9256', label: 'Partes (Mãos, Pés, etc)' },
+  { value: '9258', label: 'Criança' },
+  { value: '9260', label: 'Maduro/Senior' }
+];
+
 interface LeadData {
   nomeResponsavel: string;
   estadoCivil: string;
@@ -157,6 +170,7 @@ interface LeadData {
   corOlhos: string;
   tipoCabelo: string;
   tamanhoSapato: string;
+  tipoModelo: string;
   instagram: string;
   tiktok: string;
   idiomas: string[];
@@ -315,6 +329,7 @@ const PreCadastro = () => {
     corOlhos: "",
     tipoCabelo: "",
     tamanhoSapato: "",
+    tipoModelo: "",
     instagram: "",
     tiktok: "",
     idiomas: [],
@@ -433,6 +448,7 @@ const PreCadastro = () => {
             corOlhos: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.corOlhos]) as string,
             tipoCabelo: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.tipoCabelo]) as string,
             tamanhoSapato: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.tamanhoSapato]) as string,
+            tipoModelo: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.tipoModelo]) as string,
             instagram: rawData[BITRIX_LEAD_FIELD_MAPPING.instagram] || "",
             tiktok: rawData[BITRIX_LEAD_FIELD_MAPPING.tiktok] || "",
             idiomas: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.habilidades]) as string[],
@@ -764,6 +780,7 @@ const PreCadastro = () => {
         [BITRIX_LEAD_FIELD_MAPPING.corCabelo]: leadData.corCabelo,
         [BITRIX_LEAD_FIELD_MAPPING.corOlhos]: leadData.corOlhos,
         [BITRIX_LEAD_FIELD_MAPPING.tipoCabelo]: leadData.tipoCabelo,
+        [BITRIX_LEAD_FIELD_MAPPING.tipoModelo]: leadData.tipoModelo,
         [BITRIX_LEAD_FIELD_MAPPING.habilidades]: leadData.idiomas,
         [BITRIX_LEAD_FIELD_MAPPING.cursos]: leadData.talentosEspeciais,
         [BITRIX_LEAD_FIELD_MAPPING.caracteristicas]: leadData.experienciaPublicidade,
@@ -1053,6 +1070,52 @@ const PreCadastro = () => {
                   value={leadData.corOlhos} 
                   onChange={v => handleFieldChange("corOlhos", v)} 
                   options={COR_OLHOS_OPTIONS} 
+                />
+                <FormField 
+                  id="tipoCabelo" 
+                  label="Tipo de Cabelo" 
+                  type="select" 
+                  value={leadData.tipoCabelo} 
+                  onChange={v => handleFieldChange("tipoCabelo", v)} 
+                  options={TIPO_CABELO_OPTIONS} 
+                />
+                <FormField 
+                  id="tamanhoSapato" 
+                  label="Tamanho de Sapato" 
+                  type="select" 
+                  value={leadData.tamanhoSapato} 
+                  onChange={v => handleFieldChange("tamanhoSapato", v)} 
+                  options={tamanhoSapato} 
+                />
+                <FormField 
+                  id="estadoCivil" 
+                  label="Estado Civil" 
+                  type="select" 
+                  value={leadData.estadoCivil} 
+                  onChange={v => handleFieldChange("estadoCivil", v)} 
+                  options={ESTADO_CIVIL_OPTIONS} 
+                />
+                <FormField 
+                  id="cidade" 
+                  label="Cidade" 
+                  value={leadData.cidade} 
+                  onChange={v => handleFieldChange("cidade", v)} 
+                />
+                <FormField 
+                  id="estado" 
+                  label="Estado" 
+                  type="select" 
+                  value={leadData.estado} 
+                  onChange={v => handleFieldChange("estado", v)} 
+                  options={estadosBrasileiros} 
+                />
+                <FormField 
+                  id="tipoModelo" 
+                  label="Tipo de Modelo" 
+                  type="select" 
+                  value={leadData.tipoModelo} 
+                  onChange={v => handleFieldChange("tipoModelo", v)} 
+                  options={TIPO_MODELO_OPTIONS} 
                 />
               </div>
             </FormSection>
