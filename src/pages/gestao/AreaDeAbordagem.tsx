@@ -56,7 +56,7 @@ function GestaoAreaDeAbordagemContent() {
       // Buscar apenas leads que JÁ TEM coordenadas para carregamento instantâneo
       const { data, error } = await supabase
         .from("leads")
-        .select("id, name, address, local_abordagem, latitude, longitude, scouter, status_fluxo, commercial_project_id, projeto_comercial, criado")
+        .select("id, name, address, local_abordagem, latitude, longitude, scouter, status_fluxo, commercial_project_id, projeto_comercial, criado, photo_url, ficha_confirmada, data_criacao_ficha")
         .gte("criado", filters.dateFilter.startDate.toISOString())
         .lte("criado", filters.dateFilter.endDate.toISOString())
         .eq("fonte_normalizada", "Scouter - Fichas")
@@ -83,6 +83,9 @@ function GestaoAreaDeAbordagemContent() {
         scouter: lead.scouter || undefined,
         status: lead.status_fluxo || undefined,
         projectName: lead.projeto_comercial || undefined,
+        hasPhoto: !!lead.photo_url && lead.photo_url !== '[]' && lead.photo_url !== '',
+        fichaConfirmada: lead.ficha_confirmada === true,
+        dataFicha: lead.data_criacao_ficha || lead.criado || undefined,
       }));
 
       console.log(`✅ Carregados ${leads.length} leads com coordenadas`);
