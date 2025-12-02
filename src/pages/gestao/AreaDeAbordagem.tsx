@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X } from "lucide-react";
+import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createDateFilter } from "@/lib/dateUtils";
@@ -33,6 +33,7 @@ function GestaoAreaDeAbordagemContent() {
   const [drawMode, setDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
   const [drawingPointsCount, setDrawingPointsCount] = useState(0);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Handlers para controle externo do desenho
   const handleFinishDrawing = () => {
@@ -217,13 +218,18 @@ function GestaoAreaDeAbordagemContent() {
         </div>
 
         {/* Mapa Unificado */}
-        <Card className="mb-6">
-          <CardHeader className="p-3 sm:p-6">
+        <Card className={isFullscreen ? "fixed inset-0 z-[9999] rounded-none mb-0 flex flex-col" : "mb-6"}>
+          <CardHeader className="p-3 sm:p-6 flex-shrink-0">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div>
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                   Mapa de Área
+                  {isFullscreen && (
+                    <Badge variant="secondary" className="ml-2">
+                      Tempo Real
+                    </Badge>
+                  )}
                 </CardTitle>
                 <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                   Controle as camadas do mapa e desenhe áreas para análise
@@ -347,10 +353,25 @@ function GestaoAreaDeAbordagemContent() {
                     </>
                   )}
                 </div>
+                
+                {/* Botão Tela Cheia */}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7 sm:h-9 sm:w-9"
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+                >
+                  {isFullscreen ? (
+                    <Minimize2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                  ) : (
+                    <Maximize2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                  )}
+                </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="relative">
+          <CardContent className={isFullscreen ? "relative flex-1 overflow-hidden" : "relative"}>
             {/* Indicador de loading sobreposto */}
             {(leadsLoading || isFetching) && (
               <div className="absolute top-2 right-2 z-10 bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm">
@@ -359,24 +380,27 @@ function GestaoAreaDeAbordagemContent() {
               </div>
             )}
             {/* Mapa sempre visível - dados carregam em paralelo */}
-            <UnifiedAreaMap
-                projectId={filters.projectId}
-                dateRange={{
-                  startDate: filters.dateFilter.startDate,
-                  endDate: filters.dateFilter.endDate,
-                }}
-                showScouters={showScouters}
-                showHeatmap={showHeatmap}
-                showLeads={showLeads}
-                isDrawing={isDrawing}
-                onDrawingChange={setIsDrawing}
-                onAreaCreated={(area) => setDrawnAreas(prev => [...prev, area])}
-                onAreaDeleted={(areaId) => setDrawnAreas(prev => prev.filter(a => a.id !== areaId))}
-                onAreasSelectionChanged={(_, filteredLeads) => setFilteredAreaLeads(filteredLeads)}
-                drawMode={drawMode}
-                onDrawModeChange={setDrawMode}
-                onDrawingPointsCountChange={setDrawingPointsCount}
-              />
+            <div className={isFullscreen ? "h-full" : ""}>
+              <UnifiedAreaMap
+                  projectId={filters.projectId}
+                  dateRange={{
+                    startDate: filters.dateFilter.startDate,
+                    endDate: filters.dateFilter.endDate,
+                  }}
+                  showScouters={showScouters}
+                  showHeatmap={showHeatmap}
+                  showLeads={showLeads}
+                  isDrawing={isDrawing}
+                  onDrawingChange={setIsDrawing}
+                  onAreaCreated={(area) => setDrawnAreas(prev => [...prev, area])}
+                  onAreaDeleted={(areaId) => setDrawnAreas(prev => prev.filter(a => a.id !== areaId))}
+                  onAreasSelectionChanged={(_, filteredLeads) => setFilteredAreaLeads(filteredLeads)}
+                  drawMode={drawMode}
+                  onDrawModeChange={setDrawMode}
+                  onDrawingPointsCountChange={setDrawingPointsCount}
+                  isFullscreen={isFullscreen}
+                />
+            </div>
           </CardContent>
         </Card>
 
