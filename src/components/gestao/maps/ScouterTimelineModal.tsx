@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
-import { MapPin, Clock, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MapPin, Clock, Loader2, FileDown } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -182,6 +187,59 @@ export function ScouterTimelineModal({
     }
   };
 
+  // Export to PDF
+  const handleExportPDF = () => {
+    if (sortedLocations.length === 0) return;
+
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Histórico de Rota - Scouter', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Scouter: ${scouterName}`, 20, 35);
+    doc.text(`Data de Exportação: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 20, 42);
+    doc.text(`Total de Registros: ${sortedLocations.length}`, 20, 49);
+
+    // Table data
+    const tableData = sortedLocations.map((location, index) => [
+      (sortedLocations.length - index).toString(),
+      format(new Date(location.recorded_at), "dd/MM/yyyy", { locale: ptBR }),
+      format(new Date(location.recorded_at), "HH:mm", { locale: ptBR }),
+      location.address || 'Endereço não disponível',
+      `${location.latitude?.toFixed(6) ?? 'N/A'}, ${location.longitude?.toFixed(6) ?? 'N/A'}`
+    ]);
+
+    autoTable(doc, {
+      startY: 58,
+      head: [['#', 'Data', 'Hora', 'Endereço', 'Coordenadas']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [66, 139, 202],
+        fontSize: 9,
+        fontStyle: 'bold'
+      },
+      styles: {
+        fontSize: 8,
+        cellPadding: 2
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 15 },
+        3: { cellWidth: 90 },
+        4: { cellWidth: 40, fontSize: 7 }
+      }
+    });
+
+    const fileName = `Historico_Rota_${scouterName.replace(/\s+/g, '_')}_${format(new Date(), 'ddMMyyyy_HHmm')}.pdf`;
+    doc.save(fileName);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
@@ -192,28 +250,41 @@ export function ScouterTimelineModal({
         }}
       >
         <DialogHeader className="px-3 sm:px-6 py-3 sm:py-4 border-b">
-          <DialogTitle className="flex items-center gap-2 sm:gap-3">
-            {scouterPhotoUrl ? (
-              <img 
-                src={scouterPhotoUrl} 
-                alt={scouterName}
-                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-primary"
-              />
-            ) : (
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-white font-bold text-sm sm:text-base">
-                  {scouterName[0]?.toUpperCase()}
-                </span>
+          <div className="flex items-center justify-between w-full">
+            <DialogTitle className="flex items-center gap-2 sm:gap-3">
+              {scouterPhotoUrl ? (
+                <img 
+                  src={scouterPhotoUrl} 
+                  alt={scouterName}
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-primary"
+                />
+              ) : (
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary flex items-center justify-center">
+                  <span className="text-white font-bold text-sm sm:text-base">
+                    {scouterName[0]?.toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <div>
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
+                  <span className="text-sm sm:text-base">Histórico de Rota</span>
+                </div>
+                <span className="text-xs sm:text-sm text-muted-foreground block mt-0.5">{scouterName}</span>
               </div>
-            )}
-            <div>
-              <div className="flex items-center gap-1 sm:gap-2">
-                <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
-                <span className="text-sm sm:text-base">Histórico de Rota</span>
-              </div>
-              <span className="text-xs sm:text-sm text-muted-foreground block mt-0.5">{scouterName}</span>
-            </div>
-          </DialogTitle>
+            </DialogTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPDF}
+              disabled={sortedLocations.length === 0}
+              className="mr-8"
+            >
+              <FileDown className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">Exportar PDF</span>
+              <span className="sm:hidden">PDF</span>
+            </Button>
+          </div>
         </DialogHeader>
 
         {/* Layout responsivo: vertical no mobile, horizontal no desktop */}
