@@ -168,8 +168,8 @@ export default function UnifiedAreaMap({
       if (error) throw error;
 
       const formattedHistory = (history || []).map(loc => ({
-        lat: loc.latitude,
-        lng: loc.longitude,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
         address: loc.address || 'Endereço não disponível',
         recorded_at: loc.recorded_at,
       }));
