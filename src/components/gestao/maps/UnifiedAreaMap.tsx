@@ -445,6 +445,11 @@ export default function UnifiedAreaMap({
 
       const marker = L.marker([location.latitude, location.longitude], { icon: scouterIcon });
       
+      // Contar fichas do scouter baseado nos dados carregados
+      const scouterLeadCount = fichasData?.filter(f => 
+        f.scouter?.toLowerCase() === location.scouterName.toLowerCase()
+      ).length || 0;
+      
       const popupContent = `
         <div class="p-3 min-w-[250px]">
           <div class="flex items-center gap-2 mb-2">
@@ -457,6 +462,7 @@ export default function UnifiedAreaMap({
           <div class="text-xs text-gray-600 mt-2">
             <p>📍 ${location.address}</p>
             <p>🕐 ${formatDistanceToNow(new Date(location.recordedAt), { locale: ptBR, addSuffix: true })}</p>
+            ${scouterLeadCount > 0 ? `<p class="mt-2 font-semibold text-green-600">📋 ${scouterLeadCount} ficha${scouterLeadCount !== 1 ? 's' : ''} no período</p>` : ''}
           </div>
         </div>
       `;
