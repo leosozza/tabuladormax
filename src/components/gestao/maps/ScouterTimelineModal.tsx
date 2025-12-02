@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { MapPin, Clock } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "@/styles/leaflet-fixes.css";
 
 interface LocationPoint {
   latitude: number;
@@ -56,7 +57,9 @@ export function ScouterTimelineModal({
     const timeoutId = setTimeout(() => {
       if (!mapContainerRef.current) return;
       
-      const map = L.map(mapContainerRef.current).setView([-23.5505, -46.6333], 12);
+      const map = L.map(mapContainerRef.current, {
+        zoomControl: true,
+      }).setView([-23.5505, -46.6333], 12);
       
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -70,8 +73,8 @@ export function ScouterTimelineModal({
           mapRef.current.invalidateSize();
           setMapReady(true); // Signal that map is ready
         }
-      }, 100);
-    }, 300); // Wait for Dialog animation
+      }, 200);
+    }, 500); // Wait for Dialog animation
 
     return () => {
       clearTimeout(timeoutId);
@@ -185,7 +188,7 @@ export function ScouterTimelineModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[80vh] p-0 gap-0 z-[1100]">
+      <DialogContent className="max-w-6xl h-[80vh] p-0 gap-0 z-[1100] overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="flex items-center gap-3">
             {scouterPhotoUrl ? (
@@ -211,10 +214,14 @@ export function ScouterTimelineModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex h-[calc(100%-60px)]">
+        <div className="flex h-[calc(100%-60px)] overflow-hidden">
           {/* Map Section */}
-          <div className="flex-1 relative">
-            <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" style={{ minHeight: '400px' }} />
+          <div className="flex-1 relative min-h-0">
+            <div 
+              ref={mapContainerRef} 
+              className="absolute inset-0" 
+              style={{ width: '100%', height: '100%', zIndex: 1 }} 
+            />
           </div>
 
           {/* Timeline Section */}
