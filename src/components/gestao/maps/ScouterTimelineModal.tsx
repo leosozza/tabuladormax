@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
-import { MapPin, Clock } from "lucide-react";
+import { MapPin, Clock, Loader2 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -30,7 +30,6 @@ export function ScouterTimelineModal({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
-  const polylineRef = useRef<L.Polyline | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
@@ -38,7 +37,7 @@ export function ScouterTimelineModal({
     (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
   );
 
-  // Initialize map with delay to wait for Dialog animation
+  // Initialize map using ResizeObserver for reliable rendering
   useEffect(() => {
     if (!open || !mapContainerRef.current) {
       setMapReady(false);
@@ -52,11 +51,18 @@ export function ScouterTimelineModal({
     }
     setMapReady(false);
 
-    // Wait for Dialog animation to complete
-    const timeoutId = setTimeout(() => {
-      if (!mapContainerRef.current) return;
+    const container = mapContainerRef.current;
+    let mapInitialized = false;
+
+    const initMap = () => {
+      if (mapInitialized || !container) return;
       
-      const map = L.map(mapContainerRef.current, {
+      // Only init if container has valid dimensions
+      if (container.clientWidth === 0 || container.clientHeight === 0) return;
+      
+      mapInitialized = true;
+      
+      const map = L.map(container, {
         zoomControl: true,
       }).setView([-23.5505, -46.6333], 12);
       
@@ -66,35 +72,52 @@ export function ScouterTimelineModal({
 
       mapRef.current = map;
       
-      // Force size recalculation after initialization and signal ready
+      // Multiple invalidateSize calls to ensure proper rendering
+      setTimeout(() => map.invalidateSize(), 100);
+      setTimeout(() => map.invalidateSize(), 300);
       setTimeout(() => {
-        if (mapRef.current) {
-          mapRef.current.invalidateSize();
-          setMapReady(true);
+        map.invalidateSize();
+        setMapReady(true);
+      }, 500);
+      setTimeout(() => map.invalidateSize(), 1000);
+    };
+
+    // Use ResizeObserver to detect when container has size
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          if (!mapRef.current) {
+            initMap();
+          } else {
+            mapRef.current.invalidateSize();
+          }
         }
-      }, 200);
-    }, 500);
+      }
+    });
+
+    resizeObserver.observe(container);
+    
+    // Also try to init after a delay (fallback)
+    const fallbackTimeout = setTimeout(initMap, 600);
 
     return () => {
-      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+      clearTimeout(fallbackTimeout);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
       setMapReady(false);
     };
-  }, [open]);
+  }, [open, scouterName]);
 
-  // Update markers and polyline when map is ready
+  // Update markers when map is ready
   useEffect(() => {
     if (!mapReady || !mapRef.current || sortedLocations.length === 0) return;
     
-    // Clear existing markers and polyline
+    // Clear existing markers
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
-    if (polylineRef.current) {
-      polylineRef.current.remove();
-    }
 
     // Create numbered markers
     const points: [number, number][] = [];
@@ -139,18 +162,8 @@ export function ScouterTimelineModal({
       markersRef.current.push(marker);
     });
 
-    // Draw polyline connecting all points (reverse order for chronological path)
+    // Fit bounds to show all markers (no polyline)
     if (points.length > 1) {
-      const reversedPoints = [...points].reverse();
-      const polyline = L.polyline(reversedPoints, {
-        color: '#ef4444',
-        weight: 3,
-        opacity: 0.7,
-      }).addTo(mapRef.current);
-
-      polylineRef.current = polyline;
-
-      // Fit bounds to show all markers
       const bounds = L.latLngBounds(points);
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     } else if (points.length === 1) {
@@ -209,7 +222,14 @@ export function ScouterTimelineModal({
         <div className="flex h-[calc(100%-80px)] overflow-hidden">
           {/* Map Section */}
           <div className="flex-1 relative bg-gray-100">
+            {/* Loading indicator */}
+            {!mapReady && (
+              <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
             <div 
+              key={`${scouterName}-${locations.length}`}
               ref={mapContainerRef} 
               className="absolute inset-0"
               style={{ width: '100%', height: '100%' }} 
