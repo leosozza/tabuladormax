@@ -860,16 +860,16 @@ export default function UnifiedAreaMap({
 
       {/* Lista de Scouters em Campo */}
       {showScouters && scouterLocations && scouterLocations.length > 0 && (
-        <Card className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-[450] p-2 sm:p-4 bg-white/95 backdrop-blur shadow-lg w-44 sm:w-72 max-h-40 sm:max-h-96 overflow-hidden">
+        <Card className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-[450] p-2 sm:p-4 bg-white/95 backdrop-blur shadow-lg w-44 sm:w-72 max-h-40 sm:max-h-96 overflow-hidden flex flex-col-reverse">
           <h3 
-            className="font-bold text-xs sm:text-sm mb-2 sm:mb-3 flex items-center justify-between cursor-pointer"
+            className="font-bold text-xs sm:text-sm mt-2 sm:mt-3 flex items-center justify-between cursor-pointer"
             onClick={() => setIsScouterListExpanded(!isScouterListExpanded)}
           >
             <span className="flex items-center gap-1 sm:gap-2">
               <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
               <span className="truncate">Scouters ({scouterLocations.length})</span>
             </span>
-            {isScouterListExpanded ? <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" /> : <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4" />}
+            {isScouterListExpanded ? <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4" /> : <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />}
           </h3>
           
           {isScouterListExpanded && (
