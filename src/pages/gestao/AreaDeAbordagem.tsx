@@ -10,13 +10,14 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil } from "lucide-react";
+import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { geocodeAddress } from "@/hooks/useGeolocation";
 import { createDateFilter } from "@/lib/dateUtils";
 import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
 import { ScouterHistorySettings } from "@/components/gestao/ScouterHistorySettings";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 function GestaoAreaDeAbordagemContent() {
   const [filters, setFilters] = useState<FilterType>({
@@ -31,6 +32,24 @@ function GestaoAreaDeAbordagemContent() {
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showLeads, setShowLeads] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [drawMode, setDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
+  const [drawingPointsCount, setDrawingPointsCount] = useState(0);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
+  // Handlers para controle externo do desenho
+  const handleFinishDrawing = () => {
+    (window as any).__mapFinishDrawing?.();
+  };
+
+  const handleCancelDrawing = () => {
+    (window as any).__mapCancelDrawing?.();
+  };
+
+  const startDrawing = (mode: 'polygon' | 'rectangle') => {
+    setDrawMode(mode);
+    setIsDrawing(true);
+    setIsPopoverOpen(false);
+  };
 
   // Buscar leads com coordenadas (usar latitude/longitude existentes ou geocodificar)
   const { data: leadsData, isLoading: leadsLoading } = useQuery({
@@ -309,15 +328,82 @@ function GestaoAreaDeAbordagemContent() {
                   </Label>
                 </div>
                 
-                {/* Botão Lápis - sempre visível */}
-                <Button 
-                  variant={isDrawing ? "default" : "outline"} 
-                  size="icon"
-                  className="h-7 w-7 sm:h-9 sm:w-9"
-                  onClick={() => setIsDrawing(!isDrawing)}
-                >
-                  <Pencil className="w-3 h-3 sm:w-4 sm:h-4" />
-                </Button>
+                {/* Controles de Desenho */}
+                <div className="flex items-center gap-1 sm:gap-2">
+                  {!isDrawing ? (
+                    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          className="h-7 w-7 sm:h-9 sm:w-9"
+                        >
+                          <Pencil className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-2" align="end">
+                        <div className="flex flex-col gap-1">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="justify-start gap-2 h-8"
+                            onClick={() => startDrawing('polygon')}
+                          >
+                            <Pencil className="w-4 h-4" />
+                            Polígono
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="justify-start gap-2 h-8"
+                            onClick={() => startDrawing('rectangle')}
+                          >
+                            <Square className="w-4 h-4" />
+                            Retângulo
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <>
+                      <Button 
+                        variant="default" 
+                        size="icon"
+                        className="h-7 w-7 sm:h-9 sm:w-9"
+                        disabled
+                      >
+                        <Pencil className="w-3 h-3 sm:w-4 sm:h-4" />
+                      </Button>
+                      
+                      {drawMode === 'polygon' && drawingPointsCount > 0 && (
+                        <Badge variant="secondary" className="h-7 sm:h-9 px-2 text-xs">
+                          {drawingPointsCount} pts
+                        </Badge>
+                      )}
+                      
+                      <Button
+                        size="icon"
+                        variant="default"
+                        className="h-7 w-7 sm:h-9 sm:w-9 bg-green-600 hover:bg-green-700"
+                        onClick={handleFinishDrawing}
+                        disabled={drawMode === 'polygon' && drawingPointsCount < 3}
+                        title="Finalizar"
+                      >
+                        <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                      </Button>
+                      
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-7 w-7 sm:h-9 sm:w-9"
+                        onClick={handleCancelDrawing}
+                        title="Cancelar"
+                      >
+                        <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -344,6 +430,9 @@ function GestaoAreaDeAbordagemContent() {
                 onAreaCreated={(area) => setDrawnAreas(prev => [...prev, area])}
                 onAreaDeleted={(areaId) => setDrawnAreas(prev => prev.filter(a => a.id !== areaId))}
                 onAreasSelectionChanged={(_, filteredLeads) => setFilteredAreaLeads(filteredLeads)}
+                drawMode={drawMode}
+                onDrawModeChange={setDrawMode}
+                onDrawingPointsCountChange={setDrawingPointsCount}
               />
             )}
           </CardContent>
