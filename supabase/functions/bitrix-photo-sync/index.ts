@@ -126,6 +126,7 @@ serve(async (req) => {
     console.log('🔑 Bitrix config:', { domain: bitrixDomain, tokenLength: bitrixToken.length, fileTokenLength: fileToken.length });
 
     let photoIdsToProcess: number[] = [];
+    let oldFieldPhotos: Array<{ id: number; downloadUrl?: string | null }> = [];
 
     // Se fileIds foram fornecidos, usar eles diretamente
     if (fileIds && fileIds.length > 0) {
@@ -158,16 +159,32 @@ serve(async (req) => {
       }
       
       // Fallback para campo antigo se novo estiver vazio
+      // O campo antigo pode ter estrutura: { id, showUrl, downloadUrl } ou apenas IDs
       if (photoIdsToProcess.length === 0) {
         const oldPhotoField = leadData.result?.UF_CRM_LEAD_1733231445171;
-        if (Array.isArray(oldPhotoField)) {
-          photoIdsToProcess = oldPhotoField.map((p: any) => p.id).filter(Boolean);
-          console.log(`⚠️ Fallback: Encontradas ${photoIdsToProcess.length} fotos no campo antigo UF_CRM_LEAD_1733231445171`);
+        if (Array.isArray(oldPhotoField) && oldPhotoField.length > 0) {
+          console.log(`⚠️ Fallback: Campo antigo UF_CRM_LEAD_1733231445171:`, JSON.stringify(oldPhotoField).slice(0, 500));
+          
+          // Verificar estrutura do campo antigo
+          oldFieldPhotos = oldPhotoField.map((p: any) => {
+            if (typeof p === 'object' && p !== null) {
+              return {
+                id: p.id || p.fileId || 0,
+                downloadUrl: p.downloadUrl || p.urlDownload || p.DOWNLOAD_URL || null
+              };
+            } else if (typeof p === 'number' || typeof p === 'string') {
+              return { id: parseInt(String(p)), downloadUrl: null };
+            }
+            return { id: 0, downloadUrl: null };
+          }).filter((p: any) => p.id > 0);
+          
+          console.log(`⚠️ Fallback: Encontradas ${oldFieldPhotos.length} fotos no campo antigo`);
         }
       }
     }
 
-    if (photoIdsToProcess.length === 0) {
+    // Se não há fotos do novo campo nem do antigo
+    if (photoIdsToProcess.length === 0 && (!oldFieldPhotos || oldFieldPhotos.length === 0)) {
       return new Response(
         JSON.stringify({ success: true, message: 'Nenhuma foto para sincronizar' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -179,9 +196,10 @@ serve(async (req) => {
     const allStoragePaths: string[] = [];
     let totalSize = 0;
 
+    // Processar fotos do novo campo (usando disk.file.get)
     for (const photoId of photoIdsToProcess) {
       try {
-        console.log(`📡 Processando foto ${photoId}...`);
+        console.log(`📡 Processando foto ${photoId} via disk.file.get...`);
         
         // Usar disk.file.get para obter DOWNLOAD_URL
         const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}`;
@@ -215,7 +233,61 @@ serve(async (req) => {
         console.log(`✅ Foto ${photoId} sincronizada: ${publicUrl}`);
       } catch (error) {
         console.error(`❌ Erro ao processar foto ${photoId}:`, error);
-        // Continuar com as próximas fotos
+      }
+    }
+
+    // Processar fotos do campo antigo (podem ter downloadUrl direto ou precisar de crm.lead.productrow.list)
+    for (const photo of oldFieldPhotos || []) {
+      try {
+        console.log(`📡 Processando foto antiga ${photo.id}...`);
+        
+        let downloadUrl = photo.downloadUrl;
+        
+        // Se não tem downloadUrl direto, tentar buscar via disk.file.get (último recurso)
+        if (!downloadUrl) {
+          // Tentar crm.file.get que funciona para anexos CRM
+          const crmFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.file.get?id=${photo.id}`;
+          console.log(`📡 Tentando crm.file.get: ${crmFileUrl}`);
+          const crmResp = await fetch(crmFileUrl);
+          
+          if (crmResp.ok) {
+            const crmJson = await crmResp.json();
+            downloadUrl = crmJson.result?.downloadUrl || crmJson.result?.DOWNLOAD_URL;
+            console.log(`✅ crm.file.get retornou:`, JSON.stringify(crmJson.result || {}).slice(0, 200));
+          }
+          
+          // Se crm.file.get não funcionou, tentar disk.file.get
+          if (!downloadUrl) {
+            const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photo.id}`;
+            const diskResp = await fetch(diskFileUrl);
+            
+            if (diskResp.ok) {
+              const diskJson = await diskResp.json();
+              downloadUrl = diskJson.result?.DOWNLOAD_URL;
+            }
+          }
+        }
+        
+        if (!downloadUrl) {
+          console.error(`❌ Não foi possível obter URL de download para foto antiga ${photo.id}`);
+          continue;
+        }
+        
+        // Baixar, fazer upload e obter URL pública
+        const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
+          leadId,
+          photo.id,
+          downloadUrl,
+          supabase
+        );
+        
+        allPublicUrls.push(publicUrl);
+        allStoragePaths.push(storagePath);
+        totalSize += fileSize;
+        
+        console.log(`✅ Foto antiga ${photo.id} sincronizada: ${publicUrl}`);
+      } catch (error) {
+        console.error(`❌ Erro ao processar foto antiga ${photo.id}:`, error);
       }
     }
 
