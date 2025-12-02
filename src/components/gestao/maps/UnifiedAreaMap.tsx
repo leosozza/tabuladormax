@@ -470,7 +470,7 @@ export default function UnifiedAreaMap({
       marker.bindPopup(popupContent);
       scoutersLayerRef.current!.addLayer(marker);
     });
-  }, [showScouters, scouterLocations]);
+  }, [showScouters, scouterLocations, fichasData]);
 
   // Atualizar layer de heatmap com gradientes reais (estilo trânsito)
   useEffect(() => {
