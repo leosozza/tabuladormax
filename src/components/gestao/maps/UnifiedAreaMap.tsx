@@ -186,6 +186,17 @@ export default function UnifiedAreaMap({
     }
   };
 
+  // Escutar evento de abrir timeline do popup
+  useEffect(() => {
+    const handleViewTimeline = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { scouterBitrixId, scouterName, photoUrl } = customEvent.detail;
+      handleOpenTimeline(scouterBitrixId, scouterName, photoUrl);
+    };
+    window.addEventListener('view-scouter-timeline', handleViewTimeline);
+    return () => window.removeEventListener('view-scouter-timeline', handleViewTimeline);
+  }, []);
+
   // Buscar leads para marcadores
   const { data: leadsData } = useQuery({
     queryKey: ["unified-map-leads", projectId, scouterId, dateRange],
@@ -461,9 +472,18 @@ export default function UnifiedAreaMap({
           </div>
           <div class="text-xs text-gray-600 mt-2">
             <p>📍 ${location.address}</p>
-            <p>🕐 ${formatDistanceToNow(new Date(location.recordedAt), { locale: ptBR, addSuffix: true })}</p>
+            <p>🕐 Última atualização: ${formatDistanceToNow(new Date(location.recordedAt), { locale: ptBR, addSuffix: true })}</p>
             ${scouterLeadCount > 0 ? `<p class="mt-2 font-semibold text-green-600">📋 ${scouterLeadCount} ficha${scouterLeadCount !== 1 ? 's' : ''} no período</p>` : ''}
           </div>
+          <button 
+            class="w-full mt-3 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium flex items-center justify-center gap-2"
+            onclick="window.dispatchEvent(new CustomEvent('view-scouter-timeline', { detail: { scouterBitrixId: ${location.scouterBitrixId}, scouterName: '${location.scouterName.replace(/'/g, "\\'")}', photoUrl: '${location.photoUrl || ''}' } }))"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Histórico
+          </button>
         </div>
       `;
       
