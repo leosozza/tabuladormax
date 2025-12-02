@@ -35,6 +35,7 @@ L.Icon.Default.mergeOptions({
 export interface LeadMapLocation {
   id: number;
   name: string;
+  nomeModelo?: string;
   lat: number;
   lng: number;
   status?: string;
@@ -44,6 +45,7 @@ export interface LeadMapLocation {
   hasPhoto?: boolean;
   projectName?: string;
   fichaConfirmada?: boolean;
+  dataFicha?: string;
 }
 
 export interface DrawnArea {
@@ -190,7 +192,7 @@ export default function UnifiedAreaMap({
     queryFn: async () => {
       let query = supabase
         .from("leads")
-        .select("id, name, address, latitude, longitude, scouter, etapa, responsible, photo_url, cadastro_existe_foto, projeto_comercial, ficha_confirmada")
+        .select("id, name, nome_modelo, address, latitude, longitude, scouter, etapa, responsible, photo_url, cadastro_existe_foto, projeto_comercial, ficha_confirmada, criado")
         .gte("criado", dateRange.startDate.toISOString())
         .lte("criado", dateRange.endDate.toISOString())
         .not("latitude", "is", null)
@@ -205,6 +207,7 @@ export default function UnifiedAreaMap({
       return (data || []).map(lead => ({
         id: lead.id,
         name: lead.name || "Sem nome",
+        nomeModelo: lead.nome_modelo,
         lat: Number(lead.latitude),
         lng: Number(lead.longitude),
         status: lead.etapa,
@@ -214,6 +217,7 @@ export default function UnifiedAreaMap({
         hasPhoto: lead.cadastro_existe_foto || !!lead.photo_url,
         projectName: lead.projeto_comercial,
         fichaConfirmada: lead.ficha_confirmada,
+        dataFicha: lead.criado,
       }));
     },
     enabled: showLeads,
@@ -551,13 +555,29 @@ export default function UnifiedAreaMap({
         ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e" title="Ficha confirmada"></span>'
         : '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d1d5db" title="Ficha não confirmada"></span>';
       
+      // Formatar data/hora
+      const dataFormatada = lead.dataFicha 
+        ? new Date(lead.dataFicha).toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        : null;
+
       const popupContent = `
         <div style="padding:12px;min-width:250px;font-family:system-ui,-apple-system,sans-serif">
           <p style="font-size:11px;color:#6b7280;margin:0 0 4px">ID: ${lead.id}</p>
-          <p style="font-weight:600;font-size:14px;margin:0 0 8px;color:#111827">${lead.name}</p>
-          ${lead.responsible ? `<p style="font-size:13px;color:#374151;margin:0 0 4px"><span style="font-weight:500">Responsável:</span> ${lead.responsible}</p>` : ''}
-          ${lead.projectName ? `<p style="font-size:13px;color:#374151;margin:0 0 4px"><span style="font-weight:500">Projeto:</span> ${lead.projectName}</p>` : ''}
-          ${lead.scouter ? `<p style="font-size:13px;color:#6b7280;margin:0 0 8px"><span style="font-weight:500">Scouter:</span> ${lead.scouter}</p>` : ''}
+          <p style="font-weight:700;font-size:18px;margin:0 0 2px;color:#111827">${lead.nomeModelo || lead.name}</p>
+          ${(lead.nomeModelo && lead.name) || lead.responsible 
+            ? `<p style="font-size:13px;color:#6b7280;margin:0 0 8px">${lead.responsible || lead.name}</p>` 
+            : ''}
+          ${dataFormatada 
+            ? `<p style="font-size:12px;color:#374151;margin:0 0 4px"><span style="font-weight:500">📅 Data:</span> ${dataFormatada}</p>` 
+            : ''}
+          ${lead.projectName ? `<p style="font-size:12px;color:#374151;margin:0 0 4px"><span style="font-weight:500">Projeto:</span> ${lead.projectName}</p>` : ''}
+          ${lead.scouter ? `<p style="font-size:12px;color:#6b7280;margin:0 0 8px"><span style="font-weight:500">Scouter:</span> ${lead.scouter}</p>` : ''}
           <div style="display:flex;align-items:center;gap:16px;padding-top:8px;border-top:1px solid #e5e7eb">
             <div style="display:flex;align-items:center;gap:4px">
               ${photoIndicator}
