@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Loader2, FileDown } from "lucide-react";
+import { MapPin, Clock, Loader2, FileDown, User, Hash } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
@@ -10,11 +10,15 @@ import autoTable from "jspdf-autotable";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-interface LocationPoint {
+export interface LocationPoint {
   latitude: number;
   longitude: number;
   address: string;
   recorded_at: string;
+  // Lead info (optional)
+  lead_id?: number;
+  lead_name?: string;
+  nome_modelo?: string;
 }
 
 interface ScouterTimelineModalProps {
@@ -134,11 +138,18 @@ export function ScouterTimelineModal({
       const marker = L.marker(position, { icon: numberIcon }).addTo(mapRef.current!);
 
       // Popup content
+      const leadInfo = location.lead_id 
+        ? `<div class="font-medium text-blue-600 mb-1">Lead #${location.lead_id}</div>
+           ${location.lead_name ? `<div class="font-medium">${location.lead_name}</div>` : ''}
+           ${location.nome_modelo ? `<div class="text-xs text-gray-600">Modelo: ${location.nome_modelo}</div>` : ''}`
+        : '';
+      
       const popupContent = `
         <div class="p-2 min-w-[200px]">
           <div class="flex items-center gap-2 mb-2">
             <span class="text-lg font-bold text-red-500">#${sortedLocations.length - index}</span>
           </div>
+          ${leadInfo}
           <div class="space-y-1 text-sm">
             <div>${new Date(location.recorded_at).toLocaleString('pt-BR')}</div>
             <div>${location.address}</div>
@@ -207,15 +218,16 @@ export function ScouterTimelineModal({
     // Table data
     const tableData = sortedLocations.map((location, index) => [
       (sortedLocations.length - index).toString(),
-      format(new Date(location.recorded_at), "dd/MM/yyyy", { locale: ptBR }),
-      format(new Date(location.recorded_at), "HH:mm", { locale: ptBR }),
-      location.address || 'Endereço não disponível',
-      `${location.latitude?.toFixed(6) ?? 'N/A'}, ${location.longitude?.toFixed(6) ?? 'N/A'}`
+      location.lead_id?.toString() || '-',
+      location.lead_name || '-',
+      location.nome_modelo || '-',
+      format(new Date(location.recorded_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+      location.address || 'Endereço não disponível'
     ]);
 
     autoTable(doc, {
       startY: 58,
-      head: [['#', 'Data', 'Hora', 'Endereço', 'Coordenadas']],
+      head: [['#', 'ID Lead', 'Nome', 'Modelo', 'Data/Hora', 'Endereço']],
       body: tableData,
       theme: 'grid',
       headStyles: {
@@ -229,10 +241,11 @@ export function ScouterTimelineModal({
       },
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 15 },
-        3: { cellWidth: 90 },
-        4: { cellWidth: 40, fontSize: 7 }
+        1: { cellWidth: 18, halign: 'center' },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 35 },
+        4: { cellWidth: 30 },
+        5: { cellWidth: 55 }
       }
     });
 
@@ -335,6 +348,27 @@ export function ScouterTimelineModal({
 
                         {/* Content */}
                         <div className="flex-1 min-w-0">
+                          {/* Lead Info */}
+                          {location.lead_id && (
+                            <div className="mb-1 sm:mb-2 p-1.5 sm:p-2 bg-blue-50 dark:bg-blue-950/30 rounded border border-blue-200 dark:border-blue-800">
+                              <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 mb-0.5">
+                                <Hash className="w-3 h-3" />
+                                <span className="text-xs font-bold">Lead #{location.lead_id}</span>
+                              </div>
+                              {location.lead_name && (
+                                <div className="flex items-center gap-1">
+                                  <User className="w-3 h-3 text-muted-foreground" />
+                                  <span className="text-xs font-medium truncate">{location.lead_name}</span>
+                                </div>
+                              )}
+                              {location.nome_modelo && (
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  Modelo: {location.nome_modelo}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
                             <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
                             <span className="text-xs sm:text-sm font-medium">
