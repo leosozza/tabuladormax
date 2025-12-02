@@ -816,7 +816,12 @@ export default function UnifiedAreaMap({
               {scouterLocations.map(location => (
                 <div 
                   key={location.scouterBitrixId} 
-                  className="flex items-center gap-2 p-2 rounded hover:bg-accent transition-colors"
+                  className="flex items-center gap-2 p-2 rounded hover:bg-accent transition-colors cursor-pointer"
+                  onClick={() => {
+                    if (mapRef.current) {
+                      mapRef.current.setView([location.latitude, location.longitude], 16, { animate: true });
+                    }
+                  }}
                 >
                   {/* Avatar */}
                   {location.photoUrl ? (
