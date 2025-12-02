@@ -103,6 +103,7 @@ interface UnifiedAreaMapProps {
   onCancelDrawing?: () => void;
   drawingPointsCount?: number;
   onDrawingPointsCountChange?: (count: number) => void;
+  isFullscreen?: boolean;
 }
 
 export default function UnifiedAreaMap({
@@ -124,6 +125,7 @@ export default function UnifiedAreaMap({
   onFinishDrawing,
   onCancelDrawing,
   onDrawingPointsCountChange,
+  isFullscreen = false,
 }: UnifiedAreaMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -384,6 +386,15 @@ export default function UnifiedAreaMap({
       }
     };
   }, []);
+
+  // Atualizar tamanho do mapa quando fullscreen muda
+  useEffect(() => {
+    if (mapRef.current) {
+      setTimeout(() => {
+        mapRef.current?.invalidateSize();
+      }, 100);
+    }
+  }, [isFullscreen]);
 
   // Funções de desenho
   const handleMapClick = (e: L.LeafletMouseEvent) => {
@@ -968,7 +979,7 @@ export default function UnifiedAreaMap({
       <div
         ref={containerRef}
         className="w-full h-full rounded-lg"
-        style={{ minHeight: "600px" }}
+        style={{ minHeight: isFullscreen ? "100%" : "600px", height: isFullscreen ? "100%" : undefined }}
       />
     </div>
   );
