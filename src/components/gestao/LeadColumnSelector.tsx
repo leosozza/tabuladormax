@@ -119,9 +119,8 @@ export function LeadColumnSelector() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Settings2 className="w-4 h-4 mr-2" />
-          Colunas ({activeFields.length})
+        <Button variant="outline" size="icon" className="h-8 w-8">
+          <Settings2 className="w-4 h-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72 max-h-[500px] overflow-y-auto">

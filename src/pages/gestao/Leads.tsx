@@ -661,9 +661,8 @@ function GestaoLeadsContent({
               <span className="hidden sm:inline">Análise </span>({selectedLeadIds.size})
             </Button>}
           
-          <Button onClick={handleExport} variant="outline" size="sm">
+          <Button onClick={handleExport} variant="outline" size="icon" className="h-8 w-8">
             <Download className="h-4 w-4" />
-            <span className="hidden lg:inline ml-2">Exportar</span>
           </Button>
         </div>}>
       <div className="flex flex-col gap-4">
