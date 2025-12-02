@@ -838,7 +838,7 @@ export default function UnifiedAreaMap({
   };
 
   return (
-    <div className="relative">
+    <div className={`relative ${isFullscreen ? 'h-full' : ''}`}>
       {/* Timeline Modal */}
       <ScouterTimelineModal
         open={timelineModalOpen}
