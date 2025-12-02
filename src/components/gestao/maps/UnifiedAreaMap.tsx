@@ -860,24 +860,24 @@ export default function UnifiedAreaMap({
 
       {/* Lista de Scouters em Campo */}
       {showScouters && scouterLocations && scouterLocations.length > 0 && (
-        <Card className="absolute bottom-4 right-4 z-[450] p-4 bg-white/95 backdrop-blur shadow-lg max-w-xs max-h-96 overflow-hidden">
+        <Card className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-[450] p-2 sm:p-4 bg-white/95 backdrop-blur shadow-lg w-[calc(100vw-1rem)] sm:w-auto sm:max-w-xs max-h-48 sm:max-h-96 overflow-hidden">
           <h3 
-            className="font-bold text-sm mb-3 flex items-center justify-between cursor-pointer"
+            className="font-bold text-xs sm:text-sm mb-2 sm:mb-3 flex items-center justify-between cursor-pointer"
             onClick={() => setIsScouterListExpanded(!isScouterListExpanded)}
           >
-            <span className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-green-600" />
-              Scouters em Campo ({scouterLocations.length})
+            <span className="flex items-center gap-1 sm:gap-2">
+              <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+              <span className="truncate">Scouters ({scouterLocations.length})</span>
             </span>
-            {isScouterListExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            {isScouterListExpanded ? <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" /> : <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4" />}
           </h3>
           
           {isScouterListExpanded && (
-            <div className="space-y-2 max-h-72 overflow-y-auto">
+            <div className="space-y-1 sm:space-y-2 max-h-32 sm:max-h-72 overflow-y-auto">
               {scouterLocations.map(location => (
                 <div 
                   key={location.scouterBitrixId} 
-                  className="flex items-center gap-2 p-2 rounded hover:bg-accent transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded hover:bg-accent transition-colors cursor-pointer"
                   onClick={() => {
                     if (mapRef.current) {
                       mapRef.current.setView([location.latitude, location.longitude], 16, { animate: true });
@@ -888,19 +888,19 @@ export default function UnifiedAreaMap({
                   {location.photoUrl ? (
                     <img 
                       src={location.photoUrl} 
-                      className="w-8 h-8 rounded-full object-cover border-2 border-green-500" 
+                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover border-2 border-green-500" 
                       alt={location.scouterName}
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center border-2 border-green-600">
-                      <span className="text-white text-xs font-bold">{location.scouterName[0]?.toUpperCase()}</span>
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-green-500 flex items-center justify-center border-2 border-green-600">
+                      <span className="text-white text-[10px] sm:text-xs font-bold">{location.scouterName[0]?.toUpperCase()}</span>
                     </div>
                   )}
                   
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">{location.scouterName}</p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-[10px] sm:text-xs font-medium truncate">{location.scouterName}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                       {formatDistanceToNow(new Date(location.recordedAt), { locale: ptBR, addSuffix: true })}
                     </p>
                   </div>
@@ -909,11 +909,14 @@ export default function UnifiedAreaMap({
                   <Button 
                     size="sm" 
                     variant="ghost"
-                    className="h-8 w-8 p-0"
-                    onClick={() => handleOpenTimeline(location.scouterBitrixId, location.scouterName, location.photoUrl)}
+                    className="h-6 w-6 sm:h-8 sm:w-8 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenTimeline(location.scouterBitrixId, location.scouterName, location.photoUrl);
+                    }}
                     title="Ver Rota"
                   >
-                    <Route className="w-4 h-4 text-primary" />
+                    <Route className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
                   </Button>
                 </div>
               ))}
