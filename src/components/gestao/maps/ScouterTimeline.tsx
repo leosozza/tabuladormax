@@ -113,7 +113,7 @@ export default function ScouterTimeline({
                       </div>
 
                       <div className="mt-2 pt-2 border-t text-[10px] text-muted-foreground font-mono">
-                        {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                        {location.latitude?.toFixed(6) ?? 'N/A'}, {location.longitude?.toFixed(6) ?? 'N/A'}
                       </div>
                     </Card>
                   </div>

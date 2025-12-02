@@ -129,7 +129,7 @@ export function ScouterTimelineModal({
               <span class="text-foreground">${location.address}</span>
             </div>
             <div class="text-xs text-muted-foreground mt-2">
-              ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
+              ${location.latitude?.toFixed(6) ?? 'N/A'}, ${location.longitude?.toFixed(6) ?? 'N/A'}
             </div>
           </div>
         </div>
@@ -267,7 +267,7 @@ export function ScouterTimelineModal({
                           </div>
 
                           <div className="text-xs text-muted-foreground font-mono">
-                            {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                            {location.latitude?.toFixed(6) ?? 'N/A'}, {location.longitude?.toFixed(6) ?? 'N/A'}
                           </div>
 
                           {isFirst && (
