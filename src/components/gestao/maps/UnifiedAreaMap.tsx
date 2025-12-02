@@ -7,6 +7,7 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import "leaflet.heat";
+import "@/styles/leaflet-zindex.css";
 import * as turf from "@turf/turf";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -799,7 +800,7 @@ export default function UnifiedAreaMap({
       />
 
       {/* Indicadores superiores */}
-      <div className="absolute top-4 right-4 z-[1000] flex gap-2">
+      <div className="absolute top-4 right-4 z-[400] flex gap-2">
         {showScouters && scouterLocations && (
           <Badge variant="secondary" className="bg-white/95 backdrop-blur shadow-lg gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
@@ -816,7 +817,7 @@ export default function UnifiedAreaMap({
 
       {/* Áreas desenhadas */}
       {drawnAreas.length > 0 && (
-        <Card className="absolute bottom-4 left-4 z-[1000] p-4 bg-white/95 backdrop-blur shadow-lg max-w-xs max-h-96 overflow-y-auto">
+        <Card className="absolute bottom-4 left-4 z-[400] p-4 bg-white/95 backdrop-blur shadow-lg max-w-xs max-h-96 overflow-y-auto">
           <h3 className="font-bold text-sm mb-3">Áreas Desenhadas ({drawnAreas.length})</h3>
           <div className="space-y-2">
             {drawnAreas.map((area) => (
@@ -859,7 +860,7 @@ export default function UnifiedAreaMap({
 
       {/* Lista de Scouters em Campo */}
       {showScouters && scouterLocations && scouterLocations.length > 0 && (
-        <Card className="absolute bottom-4 right-4 z-[1000] p-4 bg-white/95 backdrop-blur shadow-lg max-w-xs max-h-96 overflow-hidden">
+        <Card className="absolute bottom-4 right-4 z-[400] p-4 bg-white/95 backdrop-blur shadow-lg max-w-xs max-h-96 overflow-hidden">
           <h3 
             className="font-bold text-sm mb-3 flex items-center justify-between cursor-pointer"
             onClick={() => setIsScouterListExpanded(!isScouterListExpanded)}
@@ -923,7 +924,7 @@ export default function UnifiedAreaMap({
 
       {/* Controles de desenho quando ativo */}
       {isDrawing && (
-        <Card className="absolute top-20 right-4 z-[1000] p-4 bg-white/95 backdrop-blur shadow-lg">
+        <Card className="absolute top-20 right-4 z-[400] p-4 bg-white/95 backdrop-blur shadow-lg">
           <p className="text-sm font-medium mb-3">Modo de Desenho Ativo</p>
           <div className="flex gap-2 mb-3">
             <Button

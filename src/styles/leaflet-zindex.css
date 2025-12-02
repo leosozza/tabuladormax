@@ -1,0 +1,24 @@
+/* Limitar z-index dos controles do Leaflet para não sobrepor o header */
+.leaflet-control-container {
+  z-index: 400 !important;
+}
+
+.leaflet-control-zoom {
+  z-index: 400 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 400 !important;
+}
+
+/* Garantir que popups e tooltips fiquem abaixo do header */
+.leaflet-popup-pane,
+.leaflet-tooltip-pane {
+  z-index: 400 !important;
+}
+
+/* Markers com z-index controlado */
+.leaflet-marker-pane {
+  z-index: 300 !important;
+}
