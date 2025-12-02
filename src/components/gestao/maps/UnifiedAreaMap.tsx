@@ -573,11 +573,11 @@ export default function UnifiedAreaMap({
           ${(lead.nomeModelo && lead.name) || lead.responsible 
             ? `<p style="font-size:13px;color:#6b7280;margin:0 0 8px">${lead.responsible || lead.name}</p>` 
             : ''}
-          ${dataFormatada 
-            ? `<p style="font-size:12px;color:#374151;margin:0 0 4px"><span style="font-weight:500">📅 Data:</span> ${dataFormatada}</p>` 
-            : ''}
           ${lead.projectName ? `<p style="font-size:12px;color:#374151;margin:0 0 4px"><span style="font-weight:500">Projeto:</span> ${lead.projectName}</p>` : ''}
           ${lead.scouter ? `<p style="font-size:12px;color:#6b7280;margin:0 0 8px"><span style="font-weight:500">Scouter:</span> ${lead.scouter}</p>` : ''}
+          ${dataFormatada 
+            ? `<p style="font-size:12px;color:#374151;margin:0 0 8px"><span style="font-weight:500">📅 Data:</span> ${dataFormatada}</p>` 
+            : ''}
           <div style="display:flex;align-items:center;gap:16px;padding-top:8px;border-top:1px solid #e5e7eb">
             <div style="display:flex;align-items:center;gap:4px">
               ${photoIndicator}
