@@ -6,6 +6,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
+import "leaflet.heat";
 import * as turf from "@turf/turf";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -114,7 +115,8 @@ export default function UnifiedAreaMap({
   
   // Layer groups para cada tipo
   const scoutersLayerRef = useRef<L.MarkerClusterGroup | null>(null);
-  const heatmapLayerRef = useRef<L.LayerGroup | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const heatmapLayerRef = useRef<any>(null);
   const leadsLayerRef = useRef<L.MarkerClusterGroup | null>(null);
   const areasLayerRef = useRef<L.LayerGroup | null>(null);
   
@@ -460,80 +462,45 @@ export default function UnifiedAreaMap({
     });
   }, [showScouters, scouterLocations]);
 
-  // Atualizar layer de heatmap
+  // Atualizar layer de heatmap com gradientes reais (estilo trânsito)
   useEffect(() => {
-    if (!mapRef.current || !heatmapLayerRef.current) return;
+    if (!mapRef.current) return;
 
-    if (!showHeatmap) {
+    // Remover heatmap anterior se existir
+    if (heatmapLayerRef.current) {
       mapRef.current.removeLayer(heatmapLayerRef.current);
+      heatmapLayerRef.current = null;
+    }
+
+    if (!showHeatmap || !fichasData || fichasData.length === 0) {
       return;
     }
 
-    if (!mapRef.current.hasLayer(heatmapLayerRef.current)) {
-      mapRef.current.addLayer(heatmapLayerRef.current);
-    }
+    // Preparar dados para heatmap real
+    // Formato: [lat, lng, intensidade]
+    const heatPoints: [number, number, number][] = fichasData.map(ficha => [
+      ficha.lat,
+      ficha.lng,
+      ficha.value || 1
+    ]);
 
-    heatmapLayerRef.current.clearLayers();
-
-    if (!fichasData) return;
-
-    // Criar grid de calor
-    const gridSize = 0.005;
-    const heatGrid = new Map<string, { count: number; lat: number; lng: number; fichas: FichaLocation[] }>();
-
-    fichasData.forEach((ficha) => {
-      const gridX = Math.floor(ficha.lat / gridSize);
-      const gridY = Math.floor(ficha.lng / gridSize);
-      const key = `${gridX},${gridY}`;
-
-      if (!heatGrid.has(key)) {
-        heatGrid.set(key, {
-          count: 0,
-          lat: gridX * gridSize + gridSize / 2,
-          lng: gridY * gridSize + gridSize / 2,
-          fichas: [],
-        });
+    // Criar heatmap real com gradientes contínuos
+    // @ts-ignore - leaflet.heat extends L
+    heatmapLayerRef.current = L.heatLayer(heatPoints, {
+      radius: 25,
+      blur: 15,
+      maxZoom: 17,
+      max: 1.0,
+      minOpacity: 0.4,
+      gradient: {
+        0.0: '#3b82f6',  // Azul
+        0.25: '#06b6d4', // Ciano
+        0.5: '#84cc16',  // Lima
+        0.75: '#eab308', // Amarelo
+        1.0: '#ef4444'   // Vermelho
       }
+    }).addTo(mapRef.current);
 
-      const cell = heatGrid.get(key)!;
-      cell.count += ficha.value;
-      cell.fichas.push(ficha);
-    });
-
-    const maxCount = Math.max(...Array.from(heatGrid.values()).map((c) => c.count));
-
-    heatGrid.forEach((cell) => {
-      const intensity = cell.count / maxCount;
-      const radius = 200 + intensity * 300;
-      
-      let color;
-      if (intensity < 0.33) {
-        color = `rgba(59, 130, 246, ${0.3 + intensity * 0.4})`;
-      } else if (intensity < 0.66) {
-        color = `rgba(251, 191, 36, ${0.4 + intensity * 0.4})`;
-      } else {
-        color = `rgba(239, 68, 68, ${0.5 + intensity * 0.4})`;
-      }
-
-      const circle = L.circle([cell.lat, cell.lng], {
-        radius,
-        fillColor: color,
-        color: 'transparent',
-        fillOpacity: 0.6,
-        weight: 0,
-      });
-
-      const popupContent = `
-        <div class="p-2">
-          <p class="font-bold text-sm">Zona de Alta Densidade</p>
-          <p class="text-xs">Intensidade: ${(intensity * 100).toFixed(0)}%</p>
-          <p class="text-xs">Fichas: ${cell.fichas.length}</p>
-        </div>
-      `;
-
-      circle.bindPopup(popupContent);
-      circle.addTo(heatmapLayerRef.current!);
-    });
   }, [showHeatmap, fichasData]);
 
   // Atualizar layer de leads
@@ -554,7 +521,26 @@ export default function UnifiedAreaMap({
     const leadsToShow = selectedAreaIds.size > 0 ? filteredLeads : (leadsData || []);
     
     leadsToShow.forEach(lead => {
-      const marker = L.marker([lead.lat, lead.lng]);
+      // Cor do marcador baseado em ficha confirmada (verde=confirmada, cinza=não)
+      const markerColor = lead.fichaConfirmada ? '#22c55e' : '#9ca3af';
+      
+      const leadIcon = L.divIcon({
+        html: `
+          <div style="
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background-color: ${markerColor};
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          "></div>
+        `,
+        className: '',
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+      });
+      
+      const marker = L.marker([lead.lat, lead.lng], { icon: leadIcon });
       
       // Indicadores visuais
       const photoIndicator = lead.hasPhoto 
