@@ -860,7 +860,7 @@ export default function UnifiedAreaMap({
 
       {/* Lista de Scouters em Campo */}
       {showScouters && scouterLocations && scouterLocations.length > 0 && (
-        <Card className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-[450] p-2 sm:p-4 bg-white/95 backdrop-blur shadow-lg w-44 sm:w-72 max-h-40 sm:max-h-96 overflow-hidden flex flex-col-reverse">
+        <Card className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-[450] p-2 sm:p-4 bg-white/95 backdrop-blur shadow-lg w-44 sm:w-72 max-h-[50vh] overflow-hidden flex flex-col-reverse">
           <h3 
             className="font-bold text-xs sm:text-sm mt-2 sm:mt-3 flex items-center justify-between cursor-pointer"
             onClick={() => setIsScouterListExpanded(!isScouterListExpanded)}
@@ -873,7 +873,7 @@ export default function UnifiedAreaMap({
           </h3>
           
           {isScouterListExpanded && (
-            <div className="space-y-1 sm:space-y-2 max-h-32 sm:max-h-72 overflow-y-auto">
+            <div className="space-y-1 sm:space-y-2 max-h-[calc(50vh-4rem)] overflow-y-auto">
               {scouterLocations.map(location => (
                 <div 
                   key={location.scouterBitrixId} 
