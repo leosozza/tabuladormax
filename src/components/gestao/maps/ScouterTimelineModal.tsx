@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -42,6 +43,7 @@ export function ScouterTimelineModal({
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [dialogFullyOpen, setDialogFullyOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   
   // Capture locations only when modal opens - static snapshot
   const staticLocationsRef = useRef<LocationPoint[]>([]);
@@ -198,59 +200,86 @@ export function ScouterTimelineModal({
     }
   };
 
-  // Export to PDF
-  const handleExportPDF = () => {
-    if (sortedLocations.length === 0) return;
+  // Export to PDF with map image
+  const handleExportPDF = async () => {
+    if (sortedLocations.length === 0 || !mapContainerRef.current) return;
 
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Histórico de Rota - Scouter', 105, 20, { align: 'center' });
-    
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Scouter: ${scouterName}`, 20, 35);
-    doc.text(`Data de Exportação: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 20, 42);
-    doc.text(`Total de Registros: ${sortedLocations.length}`, 20, 49);
+    setExporting(true);
 
-    // Table data
-    const tableData = sortedLocations.map((location, index) => [
-      (sortedLocations.length - index).toString(),
-      location.lead_id?.toString() || '-',
-      location.lead_name || '-',
-      location.nome_modelo || '-',
-      format(new Date(location.recorded_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
-      location.address || 'Endereço não disponível'
-    ]);
+    try {
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Histórico de Rota - Scouter', 105, 20, { align: 'center' });
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Scouter: ${scouterName}`, 20, 35);
+      doc.text(`Data de Exportação: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 20, 42);
+      doc.text(`Total de Registros: ${sortedLocations.length}`, 20, 49);
 
-    autoTable(doc, {
-      startY: 58,
-      head: [['#', 'ID Lead', 'Nome', 'Modelo', 'Data/Hora', 'Endereço']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [66, 139, 202],
-        fontSize: 9,
-        fontStyle: 'bold'
-      },
-      styles: {
-        fontSize: 8,
-        cellPadding: 2
-      },
-      columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 18, halign: 'center' },
-        2: { cellWidth: 40 },
-        3: { cellWidth: 35 },
-        4: { cellWidth: 30 },
-        5: { cellWidth: 55 }
+      // Capture map image
+      let tableStartY = 58;
+      try {
+        const mapCanvas = await html2canvas(mapContainerRef.current, {
+          useCORS: true,
+          allowTaint: true,
+          scale: 2,
+          logging: false,
+        });
+        
+        const mapImage = mapCanvas.toDataURL('image/png');
+        const imgWidth = 170;
+        const imgHeight = (mapCanvas.height * imgWidth) / mapCanvas.width;
+        
+        // Add map image to PDF
+        doc.addImage(mapImage, 'PNG', 20, 58, imgWidth, Math.min(imgHeight, 100));
+        tableStartY = 58 + Math.min(imgHeight, 100) + 10;
+      } catch (e) {
+        console.warn('Não foi possível capturar o mapa:', e);
       }
-    });
 
-    const fileName = `Historico_Rota_${scouterName.replace(/\s+/g, '_')}_${format(new Date(), 'ddMMyyyy_HHmm')}.pdf`;
-    doc.save(fileName);
+      // Table data
+      const tableData = sortedLocations.map((location, index) => [
+        (sortedLocations.length - index).toString(),
+        location.lead_id?.toString() || '-',
+        location.lead_name || '-',
+        location.nome_modelo || '-',
+        format(new Date(location.recorded_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+        location.address || 'Endereço não disponível'
+      ]);
+
+      autoTable(doc, {
+        startY: tableStartY,
+        head: [['#', 'ID Lead', 'Nome', 'Modelo', 'Data/Hora', 'Endereço']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [66, 139, 202],
+          fontSize: 9,
+          fontStyle: 'bold'
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 2
+        },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 18, halign: 'center' },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 35 },
+          4: { cellWidth: 30 },
+          5: { cellWidth: 55 }
+        }
+      });
+
+      const fileName = `Historico_Rota_${scouterName.replace(/\s+/g, '_')}_${format(new Date(), 'ddMMyyyy_HHmm')}.pdf`;
+      doc.save(fileName);
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -290,12 +319,16 @@ export function ScouterTimelineModal({
               variant="outline"
               size="sm"
               onClick={handleExportPDF}
-              disabled={sortedLocations.length === 0}
+              disabled={sortedLocations.length === 0 || exporting}
               className="mr-8"
             >
-              <FileDown className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Exportar PDF</span>
-              <span className="sm:hidden">PDF</span>
+              {exporting ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4 mr-1" />
+              )}
+              <span className="hidden sm:inline">{exporting ? 'Gerando...' : 'Exportar PDF'}</span>
+              <span className="sm:hidden">{exporting ? '...' : 'PDF'}</span>
             </Button>
           </div>
         </DialogHeader>
