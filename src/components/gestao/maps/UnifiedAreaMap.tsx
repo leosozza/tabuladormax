@@ -96,6 +96,13 @@ interface UnifiedAreaMapProps {
   onAreaCreated?: (area: DrawnArea) => void;
   onAreaDeleted?: (areaId: string) => void;
   onAreasSelectionChanged?: (selectedAreas: DrawnArea[], filteredLeads: LeadMapLocation[]) => void;
+  // Props expostas para controle externo do desenho
+  drawMode?: 'polygon' | 'rectangle';
+  onDrawModeChange?: (mode: 'polygon' | 'rectangle') => void;
+  onFinishDrawing?: () => void;
+  onCancelDrawing?: () => void;
+  drawingPointsCount?: number;
+  onDrawingPointsCountChange?: (count: number) => void;
 }
 
 export default function UnifiedAreaMap({
@@ -112,6 +119,11 @@ export default function UnifiedAreaMap({
   onAreaCreated,
   onAreaDeleted,
   onAreasSelectionChanged,
+  drawMode: externalDrawMode,
+  onDrawModeChange,
+  onFinishDrawing,
+  onCancelDrawing,
+  onDrawingPointsCountChange,
 }: UnifiedAreaMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -123,14 +135,30 @@ export default function UnifiedAreaMap({
   const leadsLayerRef = useRef<L.MarkerClusterGroup | null>(null);
   const areasLayerRef = useRef<L.LayerGroup | null>(null);
   
-  // Estado de desenho
-  const [drawMode, setDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
-  const [drawingPoints, setDrawingPoints] = useState<L.LatLng[]>([]);
+  // Estado de desenho - usa props externas se disponíveis
+  const [internalDrawMode, setInternalDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
+  const drawMode = externalDrawMode ?? internalDrawMode;
+  const setDrawMode = (mode: 'polygon' | 'rectangle') => {
+    setInternalDrawMode(mode);
+    onDrawModeChange?.(mode);
+  };
+  const [drawingPoints, setDrawingPointsInternal] = useState<L.LatLng[]>([]);
+  const setDrawingPoints = (points: L.LatLng[] | ((prev: L.LatLng[]) => L.LatLng[])) => {
+    setDrawingPointsInternal(prev => {
+      const newPoints = typeof points === 'function' ? points(prev) : points;
+      onDrawingPointsCountChange?.(newPoints.length);
+      return newPoints;
+    });
+  };
   const [drawnAreas, setDrawnAreas] = useState<DrawnArea[]>([]);
   const [selectedAreaIds, setSelectedAreaIds] = useState<Set<string>>(new Set());
   const currentPolygonRef = useRef<L.Polyline | L.Rectangle | null>(null);
   const polygonRefsRef = useRef<Map<string, L.Polygon>>(new Map());
   const rectangleStartRef = useRef<L.LatLng | null>(null);
+  
+  // Refs para expor funções
+  const finishDrawingRef = useRef<() => void>(() => {});
+  const cancelDrawingRef = useRef<() => void>(() => {});
   
   // Timeline modal state
   const [timelineModalOpen, setTimelineModalOpen] = useState(false);
@@ -749,6 +777,16 @@ export default function UnifiedAreaMap({
     }
   };
 
+  // Registrar funções via window para controle externo
+  useEffect(() => {
+    (window as any).__mapFinishDrawing = finishDrawing;
+    (window as any).__mapCancelDrawing = cancelDrawing;
+    return () => {
+      delete (window as any).__mapFinishDrawing;
+      delete (window as any).__mapCancelDrawing;
+    };
+  });
+
   const toggleAreaSelection = (areaId: string) => {
     setSelectedAreaIds(prev => {
       const newSet = new Set(prev);
@@ -925,46 +963,6 @@ export default function UnifiedAreaMap({
         </Card>
       )}
 
-      {/* Controles de desenho quando ativo */}
-      {isDrawing && (
-        <Card className="absolute top-2 left-2 right-2 sm:top-20 sm:right-4 sm:left-auto z-[450] p-2 sm:p-4 bg-white/95 backdrop-blur shadow-lg">
-          <p className="text-xs sm:text-sm font-medium mb-2 sm:mb-3">Modo de Desenho</p>
-          <div className="flex gap-1 sm:gap-2 mb-2 sm:mb-3">
-            <Button
-              size="sm"
-              variant={drawMode === 'polygon' ? 'default' : 'outline'}
-              onClick={() => setDrawMode('polygon')}
-              className="h-7 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm"
-            >
-              <Pencil className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-              Polígono
-            </Button>
-            <Button
-              size="sm"
-              variant={drawMode === 'rectangle' ? 'default' : 'outline'}
-              onClick={() => setDrawMode('rectangle')}
-              className="h-7 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm"
-            >
-              <Square className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-              Retângulo
-            </Button>
-          </div>
-          {drawMode === 'polygon' && drawingPoints.length > 0 && (
-            <div className="space-y-1 sm:space-y-2">
-              <p className="text-[10px] sm:text-xs text-muted-foreground">{drawingPoints.length} pontos</p>
-              <div className="flex gap-1 sm:gap-2">
-                <Button size="sm" onClick={finishDrawing} disabled={drawingPoints.length < 3} className="h-7 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm">
-                  <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                  Finalizar
-                </Button>
-                <Button size="sm" variant="outline" onClick={cancelDrawing} className="h-7 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm">
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          )}
-        </Card>
-      )}
 
       {/* Mapa */}
       <div
