@@ -32,8 +32,23 @@ export function ScouterTimelineModal({
   const markersRef = useRef<L.Marker[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  
+  // Capture locations only when modal opens - static snapshot
+  const [staticLocations, setStaticLocations] = useState<LocationPoint[]>([]);
+  
+  // Capture locations when modal opens
+  useEffect(() => {
+    if (open && locations.length > 0) {
+      // Only set locations when modal first opens (staticLocations is empty)
+      setStaticLocations(prev => prev.length === 0 ? [...locations] : prev);
+    }
+    if (!open) {
+      // Reset when modal closes so next open gets fresh data
+      setStaticLocations([]);
+    }
+  }, [open, locations]);
 
-  const sortedLocations = [...locations].sort(
+  const sortedLocations = [...staticLocations].sort(
     (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
   );
 
@@ -172,7 +187,7 @@ export function ScouterTimelineModal({
     
     // Force size update
     mapRef.current.invalidateSize();
-  }, [mapReady, locations]);
+  }, [mapReady, staticLocations]);
 
   // Reset selectedIndex when modal closes
   useEffect(() => {
@@ -229,7 +244,7 @@ export function ScouterTimelineModal({
               </div>
             )}
             <div 
-              key={`${scouterName}-${locations.length}`}
+              key={`${scouterName}-${staticLocations.length}`}
               ref={mapContainerRef} 
               className="absolute inset-0"
               style={{ width: '100%', height: '100%' }} 
