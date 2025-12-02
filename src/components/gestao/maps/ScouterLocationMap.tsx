@@ -14,7 +14,7 @@ import { User, MapPin, Clock, Navigation, Route, ChevronUp, ChevronDown } from "
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useChartPerformance } from "@/lib/monitoring";
-import { ScouterTimelineModal } from "./ScouterTimelineModal";
+import { ScouterTimelineModal, LocationPoint } from "./ScouterTimelineModal";
 import { useToast } from "@/hooks/use-toast";
 
 // Ícones personalizados para scouters
@@ -34,12 +34,6 @@ interface ScouterLocation {
   address: string;
   recordedAt: string;
   photoUrl?: string;
-}
-interface LocationHistory {
-  latitude: number;
-  longitude: number;
-  address: string;
-  recorded_at: string;
 }
 interface ScouterLocationMapProps {
   center?: [number, number];
@@ -68,7 +62,7 @@ export default function ScouterLocationMap({
     name: string;
     photoUrl?: string;
   } | null>(null);
-  const [locationHistory, setLocationHistory] = useState<LocationHistory[]>([]);
+  const [locationHistory, setLocationHistory] = useState<LocationPoint[]>([]);
   const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   const { toast } = useToast();
 
@@ -154,16 +148,16 @@ export default function ScouterLocationMap({
 
   // Handler para abrir timeline - busca dados ANTES de abrir modal
   const handleOpenTimeline = async (scouterBitrixId: number, scouterName: string, photoUrl?: string) => {
-    // 1. Buscar dados primeiro
-    const { data, error } = await supabase
+    // 1. Buscar histórico de localizações
+    const { data: locations, error: locError } = await supabase
       .from('scouter_location_history')
       .select('latitude, longitude, address, recorded_at')
       .eq('scouter_bitrix_id', scouterBitrixId)
       .order('recorded_at', { ascending: false })
       .limit(20);
     
-    if (error) {
-      console.error('Error fetching location history:', error);
+    if (locError) {
+      console.error('Error fetching location history:', locError);
       toast({
         title: "Erro ao carregar histórico",
         description: "Não foi possível carregar o histórico de localizações",
@@ -171,11 +165,37 @@ export default function ScouterLocationMap({
       });
       return;
     }
+
+    // 2. Buscar leads do scouter no período (para associar)
+    const { data: leads } = await supabase
+      .from('leads')
+      .select('id, name, nome_modelo, criado')
+      .eq('scouter', scouterName)
+      .order('criado', { ascending: false })
+      .limit(100);
+
+    // 3. Associar leads aos pontos de localização por proximidade de tempo (±2 minutos)
+    const enrichedLocations = (locations || []).map(loc => {
+      const locTime = new Date(loc.recorded_at).getTime();
+      const matchingLead = leads?.find(lead => {
+        if (!lead.criado) return false;
+        const leadTime = new Date(lead.criado).getTime();
+        const timeDiff = Math.abs(locTime - leadTime);
+        return timeDiff <= 2 * 60 * 1000; // 2 minutos
+      });
+      
+      return {
+        ...loc,
+        lead_id: matchingLead?.id,
+        lead_name: matchingLead?.name || undefined,
+        nome_modelo: matchingLead?.nome_modelo || undefined
+      };
+    });
     
-    // 2. Setar os dados no state
-    setLocationHistory(data || []);
+    // 4. Setar os dados no state
+    setLocationHistory(enrichedLocations);
     
-    // 3. DEPOIS abrir o modal
+    // 5. DEPOIS abrir o modal
     setSelectedScouterForTimeline({ bitrixId: scouterBitrixId, name: scouterName, photoUrl });
     setTimelineModalOpen(true);
   };

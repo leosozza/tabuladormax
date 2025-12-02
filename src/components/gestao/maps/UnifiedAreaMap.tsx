@@ -19,7 +19,7 @@ import { filterItemsInPolygons, leafletToTurfPolygon } from "@/utils/polygonUtil
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useRealtimeLeads } from "@/hooks/useRealtimeLeads";
-import { ScouterTimelineModal } from "./ScouterTimelineModal";
+import { ScouterTimelineModal, LocationPoint } from "./ScouterTimelineModal";
 import { useToast } from "@/hooks/use-toast";
 
 // Ícones padrão do Leaflet
@@ -169,7 +169,7 @@ export default function UnifiedAreaMap({
     name: string;
     photoUrl?: string;
   } | null>(null);
-  const [locationHistory, setLocationHistory] = useState<any[]>([]);
+  const [locationHistory, setLocationHistory] = useState<LocationPoint[]>([]);
   const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   
   const { toast } = useToast();
@@ -188,6 +188,7 @@ export default function UnifiedAreaMap({
     setSelectedScouterForTimeline({ bitrixId, name, photoUrl });
     
     try {
+      // 1. Buscar histórico de localizações
       const { data: history, error } = await supabase
         .from('scouter_location_history')
         .select('latitude, longitude, address, recorded_at')
@@ -198,12 +199,36 @@ export default function UnifiedAreaMap({
 
       if (error) throw error;
 
-      const formattedHistory = (history || []).map(loc => ({
-        latitude: loc.latitude,
-        longitude: loc.longitude,
-        address: loc.address || 'Endereço não disponível',
-        recorded_at: loc.recorded_at,
-      }));
+      // 2. Buscar leads do scouter no período
+      const { data: leads } = await supabase
+        .from('leads')
+        .select('id, name, nome_modelo, criado')
+        .eq('scouter', name)
+        .gte('criado', dateRange.startDate.toISOString())
+        .lte('criado', dateRange.endDate.toISOString())
+        .order('criado', { ascending: false })
+        .limit(100);
+
+      // 3. Associar leads aos pontos por proximidade de tempo (±2 minutos)
+      const formattedHistory = (history || []).map(loc => {
+        const locTime = new Date(loc.recorded_at).getTime();
+        const matchingLead = leads?.find(lead => {
+          if (!lead.criado) return false;
+          const leadTime = new Date(lead.criado).getTime();
+          const timeDiff = Math.abs(locTime - leadTime);
+          return timeDiff <= 2 * 60 * 1000; // 2 minutos
+        });
+        
+        return {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          address: loc.address || 'Endereço não disponível',
+          recorded_at: loc.recorded_at,
+          lead_id: matchingLead?.id,
+          lead_name: matchingLead?.name || undefined,
+          nome_modelo: matchingLead?.nome_modelo || undefined
+        };
+      });
 
       setLocationHistory(formattedHistory);
       setTimelineModalOpen(true);
