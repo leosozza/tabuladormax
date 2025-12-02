@@ -1183,7 +1183,18 @@ const PreCadastro = () => {
               </div>
             </FormSection>
 
-            <Button onClick={handleSave} size="lg" disabled={saving} className="w-full md:w-auto bg-pink-500 hover:bg-pink-400">Enviar perfilvpara análise{saving ? <><Loader2 className="h-5 w-5 animate-spin mr-2" />{saveStatus || 'Enviando...'}</> : <><Send className="h-5 w-5 mr-2" />Enviar mini currículo para análise</>}
+            <Button onClick={handleSave} size="lg" disabled={saving} className="w-full md:w-auto bg-pink-500 hover:bg-pink-400">
+              {saving ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  {saveStatus || 'Enviando...'}
+                </>
+              ) : (
+                <>
+                  <Send className="h-5 w-5 mr-2" />
+                  Enviar perfil para análise
+                </>
+              )}
             </Button>
           </div>
         </div>
