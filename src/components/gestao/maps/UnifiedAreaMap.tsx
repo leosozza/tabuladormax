@@ -860,7 +860,7 @@ export default function UnifiedAreaMap({
 
       {/* Lista de Scouters em Campo */}
       {showScouters && scouterLocations && scouterLocations.length > 0 && (
-        <Card className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-[450] p-2 sm:p-4 bg-white/95 backdrop-blur shadow-lg w-[calc(100vw-1rem)] sm:w-auto sm:max-w-xs max-h-48 sm:max-h-96 overflow-hidden">
+        <Card className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-[450] p-2 sm:p-4 bg-white/95 backdrop-blur shadow-lg w-44 sm:w-72 max-h-40 sm:max-h-96 overflow-hidden">
           <h3 
             className="font-bold text-xs sm:text-sm mb-2 sm:mb-3 flex items-center justify-between cursor-pointer"
             onClick={() => setIsScouterListExpanded(!isScouterListExpanded)}
