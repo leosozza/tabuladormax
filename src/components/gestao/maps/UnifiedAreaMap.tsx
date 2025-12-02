@@ -39,6 +39,10 @@ export interface LeadMapLocation {
   status?: string;
   scouter?: string;
   address?: string;
+  responsible?: string;
+  hasPhoto?: boolean;
+  projectName?: string;
+  fichaConfirmada?: boolean;
 }
 
 export interface DrawnArea {
@@ -184,7 +188,7 @@ export default function UnifiedAreaMap({
     queryFn: async () => {
       let query = supabase
         .from("leads")
-        .select("id, name, address, latitude, longitude, scouter, etapa")
+        .select("id, name, address, latitude, longitude, scouter, etapa, responsible, photo_url, cadastro_existe_foto, projeto_comercial, ficha_confirmada")
         .gte("criado", dateRange.startDate.toISOString())
         .lte("criado", dateRange.endDate.toISOString())
         .not("latitude", "is", null)
@@ -204,6 +208,10 @@ export default function UnifiedAreaMap({
         status: lead.etapa,
         scouter: lead.scouter,
         address: lead.address,
+        responsible: lead.responsible,
+        hasPhoto: lead.cadastro_existe_foto || !!lead.photo_url,
+        projectName: lead.projeto_comercial,
+        fichaConfirmada: lead.ficha_confirmada,
       }));
     },
     enabled: showLeads,
@@ -548,12 +556,32 @@ export default function UnifiedAreaMap({
     leadsToShow.forEach(lead => {
       const marker = L.marker([lead.lat, lead.lng]);
       
+      // Indicadores visuais
+      const photoIndicator = lead.hasPhoto 
+        ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3b82f6" title="Com foto"></span>'
+        : '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d1d5db" title="Sem foto"></span>';
+        
+      const fichaIndicator = lead.fichaConfirmada
+        ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e" title="Ficha confirmada"></span>'
+        : '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d1d5db" title="Ficha não confirmada"></span>';
+      
       const popupContent = `
-        <div class="p-2 min-w-[200px]">
-          <p class="font-bold mb-1">${lead.name}</p>
-          ${lead.scouter ? `<p class="text-sm text-gray-600 mb-1">Scouter: ${lead.scouter}</p>` : ''}
-          ${lead.address ? `<p class="text-xs text-gray-500 mb-1">${lead.address}</p>` : ''}
-          ${lead.status ? `<span class="inline-block px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">${lead.status}</span>` : ''}
+        <div style="padding:12px;min-width:250px;font-family:system-ui,-apple-system,sans-serif">
+          <p style="font-size:11px;color:#6b7280;margin:0 0 4px">ID: ${lead.id}</p>
+          <p style="font-weight:600;font-size:14px;margin:0 0 8px;color:#111827">${lead.name}</p>
+          ${lead.responsible ? `<p style="font-size:13px;color:#374151;margin:0 0 4px"><span style="font-weight:500">Responsável:</span> ${lead.responsible}</p>` : ''}
+          ${lead.projectName ? `<p style="font-size:13px;color:#374151;margin:0 0 4px"><span style="font-weight:500">Projeto:</span> ${lead.projectName}</p>` : ''}
+          ${lead.scouter ? `<p style="font-size:13px;color:#6b7280;margin:0 0 8px"><span style="font-weight:500">Scouter:</span> ${lead.scouter}</p>` : ''}
+          <div style="display:flex;align-items:center;gap:16px;padding-top:8px;border-top:1px solid #e5e7eb">
+            <div style="display:flex;align-items:center;gap:4px">
+              ${photoIndicator}
+              <span style="font-size:11px;color:#6b7280">Foto</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              ${fichaIndicator}
+              <span style="font-size:11px;color:#6b7280">Ficha Confirmada</span>
+            </div>
+          </div>
         </div>
       `;
       
