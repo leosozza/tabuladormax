@@ -31,6 +31,7 @@ export interface LeadMapLocation {
   status?: string;
   scouter?: string;
   address?: string;
+  projectName?: string;
 }
 
 export interface DrawnArea {
