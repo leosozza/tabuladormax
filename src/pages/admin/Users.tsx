@@ -105,7 +105,7 @@ export default function Users() {
   // Batch edit
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false);
-  const [batchEditField, setBatchEditField] = useState<'project' | 'supervisor'>('project');
+  const [batchEditField, setBatchEditField] = useState<'project' | 'supervisor' | 'role' | 'department'>('project');
   const [batchEditValue, setBatchEditValue] = useState("");
   const [batchEditLoading, setBatchEditLoading] = useState(false);
   const [batchEditSupervisors, setBatchEditSupervisors] = useState<UserWithRole[]>([]);
@@ -445,6 +445,16 @@ export default function Users() {
 
     // Nenhum campo é obrigatório - todos os campos são opcionais
 
+    // Debug: verificar valores antes de enviar
+    console.log('🔍 [handleCreateUser] Valores do formulário:', {
+      email: newUserEmail,
+      name: newUserName,
+      role: newUserRole,
+      department: newUserDepartment,
+      project: newUserProject,
+      supervisor: newUserSupervisor,
+    });
+
     setCreatingUser(true);
     try {
       // Usar senha fornecida ou gerar senha temporária
@@ -457,20 +467,26 @@ export default function Users() {
         supervisorId = user?.id || '';
       }
 
+      const payload = {
+        email: newUserEmail,
+        password: tempPass,
+        displayName: newUserName,
+        role: newUserRole,
+        department: newUserDepartment,
+        projectId: newUserProject || null,
+        supervisorId: supervisorId || null,
+        telemarketingId: newUserTelemarketing || null,
+        telemarketingName: newUserTelemarketingName || null,
+      };
+
+      console.log('📤 [handleCreateUser] Payload enviado para edge function:', payload);
+
       // Chamar Edge Function para criar usuário
       const { data, error } = await supabase.functions.invoke('create-supervisor-user', {
-        body: {
-          email: newUserEmail,
-          password: tempPass,
-          displayName: newUserName,
-          role: newUserRole,
-          department: newUserDepartment,
-          projectId: newUserProject || null,
-          supervisorId: supervisorId || null,
-          telemarketingId: newUserTelemarketing || null,
-          telemarketingName: newUserTelemarketingName || null,
-        }
+        body: payload
       });
+
+      console.log('📥 [handleCreateUser] Resposta da edge function:', data);
 
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Erro ao criar usuário');
@@ -925,7 +941,7 @@ export default function Users() {
     setBatchEditDialogOpen(true);
   };
 
-  const handleBatchEditFieldChange = async (field: 'project' | 'supervisor') => {
+  const handleBatchEditFieldChange = async (field: 'project' | 'supervisor' | 'role' | 'department') => {
     setBatchEditField(field);
     setBatchEditValue("");
     
@@ -937,12 +953,14 @@ export default function Users() {
       
       if (!allAgents) {
         toast.error('Apenas agentes podem ter supervisor alterado');
+        setBatchEditField('project');
         return;
       }
 
       const projects = new Set(selectedUsers.map(u => u.project_id).filter(Boolean));
       if (projects.size !== 1) {
         toast.error('Todos os usuários selecionados devem estar no mesmo projeto');
+        setBatchEditField('project');
         return;
       }
 
@@ -1032,6 +1050,16 @@ export default function Users() {
       }
     }
 
+    if (batchEditField === 'role' && currentUserRole !== 'admin') {
+      toast.error('Apenas administradores podem alterar funções em lote');
+      return;
+    }
+
+    if (batchEditField === 'department' && currentUserRole !== 'admin') {
+      toast.error('Apenas administradores podem alterar departamentos em lote');
+      return;
+    }
+
     setBatchEditLoading(true);
     try {
       const userIds = Array.from(selectedUserIds);
@@ -1054,6 +1082,28 @@ export default function Users() {
         if (error) throw error;
         
         toast.success(`✅ Supervisor atualizado para ${userIds.length} usuário(s)`);
+      } else if (batchEditField === 'role') {
+        // Atualizar role para cada usuário (upsert)
+        for (const userId of userIds) {
+          const { error } = await supabase
+            .from('user_roles')
+            .upsert({ user_id: userId, role: batchEditValue as any }, { onConflict: 'user_id' });
+          
+          if (error) throw error;
+        }
+        
+        toast.success(`✅ Função atualizada para ${userIds.length} usuário(s)`);
+      } else if (batchEditField === 'department') {
+        // Atualizar department para cada usuário (upsert)
+        for (const userId of userIds) {
+          const { error } = await supabase
+            .from('user_departments')
+            .upsert({ user_id: userId, department: batchEditValue as any }, { onConflict: 'user_id' });
+          
+          if (error) throw error;
+        }
+        
+        toast.success(`✅ Departamento atualizado para ${userIds.length} usuário(s)`);
       }
 
       setBatchEditDialogOpen(false);
@@ -1695,7 +1745,7 @@ export default function Users() {
                 <Label>Campo a editar</Label>
                 <Select 
                   value={batchEditField} 
-                  onValueChange={(v: 'project' | 'supervisor') => handleBatchEditFieldChange(v)}
+                  onValueChange={(v: 'project' | 'supervisor' | 'role' | 'department') => handleBatchEditFieldChange(v)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -1703,13 +1753,19 @@ export default function Users() {
                   <SelectContent>
                     <SelectItem value="project">Projeto Comercial</SelectItem>
                     <SelectItem value="supervisor">Supervisor</SelectItem>
+                    {currentUserRole === 'admin' && (
+                      <>
+                        <SelectItem value="role">Função</SelectItem>
+                        <SelectItem value="department">Departamento</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label>Novo valor</Label>
-                {batchEditField === 'project' ? (
+                {batchEditField === 'project' && (
                   <Select value={batchEditValue} onValueChange={setBatchEditValue}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o projeto" />
@@ -1720,7 +1776,9 @@ export default function Users() {
                       ))}
                     </SelectContent>
                   </Select>
-                ) : (
+                )}
+                
+                {batchEditField === 'supervisor' && (
                   <Select 
                     value={batchEditValue} 
                     onValueChange={setBatchEditValue}
@@ -1739,6 +1797,34 @@ export default function Users() {
                           {s.display_name || s.email}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {batchEditField === 'role' && (
+                  <Select value={batchEditValue} onValueChange={setBatchEditValue}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a função" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="supervisor">Supervisor</SelectItem>
+                      <SelectItem value="agent">Agent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {batchEditField === 'department' && (
+                  <Select value={batchEditValue} onValueChange={setBatchEditValue}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o departamento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="administrativo">Administrativo</SelectItem>
+                      <SelectItem value="analise">Análise</SelectItem>
+                      <SelectItem value="telemarketing">Telemarketing</SelectItem>
+                      <SelectItem value="scouters">Scouters</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
