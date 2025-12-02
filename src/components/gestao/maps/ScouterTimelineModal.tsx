@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { MapPin, Clock } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import "@/styles/leaflet-fixes.css";
 
 interface LocationPoint {
   latitude: number;
@@ -71,10 +70,10 @@ export function ScouterTimelineModal({
       setTimeout(() => {
         if (mapRef.current) {
           mapRef.current.invalidateSize();
-          setMapReady(true); // Signal that map is ready
+          setMapReady(true);
         }
       }, 200);
-    }, 500); // Wait for Dialog animation
+    }, 500);
 
     return () => {
       clearTimeout(timeoutId);
@@ -88,7 +87,6 @@ export function ScouterTimelineModal({
 
   // Update markers and polyline when map is ready
   useEffect(() => {
-    // Only add markers when map is ready
     if (!mapReady || !mapRef.current || sortedLocations.length === 0) return;
     
     // Clear existing markers and polyline
@@ -123,15 +121,9 @@ export function ScouterTimelineModal({
             <span class="text-lg font-bold text-red-500">#${sortedLocations.length - index}</span>
           </div>
           <div class="space-y-1 text-sm">
-            <div class="flex items-start gap-2">
-              <Clock class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-              <span class="text-foreground">${new Date(location.recorded_at).toLocaleString('pt-BR')}</span>
-            </div>
-            <div class="flex items-start gap-2">
-              <MapPin class="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-              <span class="text-foreground">${location.address}</span>
-            </div>
-            <div class="text-xs text-muted-foreground mt-2">
+            <div>${new Date(location.recorded_at).toLocaleString('pt-BR')}</div>
+            <div>${location.address}</div>
+            <div class="text-xs text-gray-500 mt-2">
               ${location.latitude?.toFixed(6) ?? 'N/A'}, ${location.longitude?.toFixed(6) ?? 'N/A'}
             </div>
           </div>
@@ -188,7 +180,7 @@ export function ScouterTimelineModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[80vh] p-0 gap-0 z-[1100] overflow-hidden">
+      <DialogContent className="max-w-6xl h-[80vh] p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="flex items-center gap-3">
             {scouterPhotoUrl ? (
@@ -214,13 +206,13 @@ export function ScouterTimelineModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex h-[calc(100%-60px)] overflow-hidden">
+        <div className="flex h-[calc(100%-80px)] overflow-hidden">
           {/* Map Section */}
-          <div className="flex-1 relative min-h-0">
+          <div className="flex-1 relative bg-gray-100">
             <div 
               ref={mapContainerRef} 
-              className="absolute inset-0" 
-              style={{ width: '100%', height: '100%', zIndex: 1 }} 
+              className="absolute inset-0"
+              style={{ width: '100%', height: '100%' }} 
             />
           </div>
 
