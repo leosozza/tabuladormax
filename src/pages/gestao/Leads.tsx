@@ -385,8 +385,7 @@ function GestaoLeadsContent({ filters, setFilters }: GestaoLeadsContentProps) {
   const moveToNextLead = () => {
     if (currentAnalysisIndex < analysisLeads.length - 1) {
       setCurrentAnalysisIndex(prev => prev + 1);
-      // Limpar undo após avançar (com delay para permitir janela de 5s completa)
-      setTimeout(() => clearUndo(), 100);
+      // O hook useUndoAction já gerencia o timeout de 5s automaticamente
     } else {
       clearUndo();
       setIsAnalysisMode(false);
