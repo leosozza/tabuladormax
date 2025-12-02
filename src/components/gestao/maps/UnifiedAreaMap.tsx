@@ -12,7 +12,7 @@ import autoTable from "jspdf-autotable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Pencil, Trash2, Save, Square, FileDown, FileSpreadsheet, Eye, EyeOff, Radio, Clock } from "lucide-react";
+import { Pencil, Trash2, Save, Square, FileDown, FileSpreadsheet, Eye, EyeOff, Radio, Clock, Route, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import { filterItemsInPolygons, leafletToTurfPolygon } from "@/utils/polygonUtils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -131,6 +131,7 @@ export default function UnifiedAreaMap({
     photoUrl?: string;
   } | null>(null);
   const [locationHistory, setLocationHistory] = useState<any[]>([]);
+  const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   
   const { toast } = useToast();
   
@@ -142,6 +143,40 @@ export default function UnifiedAreaMap({
   });
 
   const polygonColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+
+  // Handler para abrir timeline de um scouter
+  const handleOpenTimeline = async (bitrixId: number, name: string, photoUrl?: string) => {
+    setSelectedScouterForTimeline({ bitrixId, name, photoUrl });
+    
+    try {
+      const { data: history, error } = await supabase
+        .from('scouter_location_history')
+        .select('latitude, longitude, address, recorded_at')
+        .eq('scouter_bitrix_id', bitrixId)
+        .gte('recorded_at', dateRange.startDate.toISOString())
+        .lte('recorded_at', dateRange.endDate.toISOString())
+        .order('recorded_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedHistory = (history || []).map(loc => ({
+        lat: loc.latitude,
+        lng: loc.longitude,
+        address: loc.address || 'Endereço não disponível',
+        recorded_at: loc.recorded_at,
+      }));
+
+      setLocationHistory(formattedHistory);
+      setTimelineModalOpen(true);
+    } catch (error) {
+      console.error('Erro ao buscar histórico:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar o histórico de localizações",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Buscar leads para marcadores
   const { data: leadsData } = useQuery({
@@ -705,16 +740,16 @@ export default function UnifiedAreaMap({
 
       {/* Indicadores superiores */}
       <div className="absolute top-4 right-4 z-[1000] flex gap-2">
-        {showScouters && (
+        {showScouters && scouterLocations && (
           <Badge variant="secondary" className="bg-white/95 backdrop-blur shadow-lg gap-2">
-            <Clock className="w-3 h-3 animate-pulse" />
-            Scouters em tempo real
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            {scouterLocations.length} Scouters em campo
           </Badge>
         )}
-        {showHeatmap && isConnected && (
+        {showHeatmap && fichasData && (
           <Badge variant="default" className="bg-green-600 shadow-lg gap-2">
             <Radio className="w-3 h-3 animate-pulse" />
-            Heatmap ativo
+            {fichasData.length} Fichas
           </Badge>
         )}
       </div>
@@ -759,6 +794,65 @@ export default function UnifiedAreaMap({
               </div>
             ))}
           </div>
+        </Card>
+      )}
+
+      {/* Lista de Scouters em Campo */}
+      {showScouters && scouterLocations && scouterLocations.length > 0 && (
+        <Card className="absolute bottom-4 right-4 z-[1000] p-4 bg-white/95 backdrop-blur shadow-lg max-w-xs max-h-96 overflow-hidden">
+          <h3 
+            className="font-bold text-sm mb-3 flex items-center justify-between cursor-pointer"
+            onClick={() => setIsScouterListExpanded(!isScouterListExpanded)}
+          >
+            <span className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-green-600" />
+              Scouters em Campo ({scouterLocations.length})
+            </span>
+            {isScouterListExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+          </h3>
+          
+          {isScouterListExpanded && (
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {scouterLocations.map(location => (
+                <div 
+                  key={location.scouterBitrixId} 
+                  className="flex items-center gap-2 p-2 rounded hover:bg-accent transition-colors"
+                >
+                  {/* Avatar */}
+                  {location.photoUrl ? (
+                    <img 
+                      src={location.photoUrl} 
+                      className="w-8 h-8 rounded-full object-cover border-2 border-green-500" 
+                      alt={location.scouterName}
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center border-2 border-green-600">
+                      <span className="text-white text-xs font-bold">{location.scouterName[0]?.toUpperCase()}</span>
+                    </div>
+                  )}
+                  
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{location.scouterName}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {formatDistanceToNow(new Date(location.recordedAt), { locale: ptBR, addSuffix: true })}
+                    </p>
+                  </div>
+                  
+                  {/* Botão Ver Rota */}
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={() => handleOpenTimeline(location.scouterBitrixId, location.scouterName, location.photoUrl)}
+                    title="Ver Rota"
+                  >
+                    <Route className="w-4 h-4 text-primary" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
