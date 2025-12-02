@@ -203,106 +203,109 @@ function GestaoAreaDeAbordagemContent() {
         onChange={setFilters}
       />
 
-      {/* Métricas principais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+      {/* Métricas principais - Grid 2x2 no mobile */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
+          <Card className="p-2 sm:p-0">
+            <CardHeader className="flex flex-row items-center justify-between p-2 sm:p-6 pb-1 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                 Leads no Mapa
               </CardTitle>
-              <MapPin className="w-5 h-5 text-primary" />
+              <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{totalLeadsOnMap}</div>
+            <CardContent className="p-2 sm:p-6 pt-0">
+              <div className="text-xl sm:text-3xl font-bold">{totalLeadsOnMap}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card className="p-2 sm:p-0">
+            <CardHeader className="flex flex-row items-center justify-between p-2 sm:p-6 pb-1 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                 Áreas Desenhadas
               </CardTitle>
-              <Pencil className="w-5 h-5 text-purple-600" />
+              <Pencil className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{totalAreasDrawn}</div>
+            <CardContent className="p-2 sm:p-6 pt-0">
+              <div className="text-xl sm:text-3xl font-bold">{totalAreasDrawn}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card className="p-2 sm:p-0">
+            <CardHeader className="flex flex-row items-center justify-between p-2 sm:p-6 pb-1 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                 Leads nas Áreas
               </CardTitle>
-              <Users className="w-5 h-5 text-green-600" />
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{totalLeadsInAreas}</div>
+            <CardContent className="p-2 sm:p-6 pt-0">
+              <div className="text-xl sm:text-3xl font-bold">{totalLeadsInAreas}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card className="p-2 sm:p-0">
+            <CardHeader className="flex flex-row items-center justify-between p-2 sm:p-6 pb-1 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                 Scouters Ativos
               </CardTitle>
-              <Target className="w-5 h-5 text-orange-600" />
+              <Target className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{totalScoutersActive}</div>
+            <CardContent className="p-2 sm:p-6 pt-0">
+              <div className="text-xl sm:text-3xl font-bold">{totalScoutersActive}</div>
             </CardContent>
           </Card>
         </div>
 
         {/* Mapa Unificado */}
         <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
+          <CardHeader className="p-3 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-blue-600" />
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                   Mapa de Área
                 </CardTitle>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                   Controle as camadas do mapa e desenhe áreas para análise
                 </p>
               </div>
               
-              {/* Controles de Layer */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
+              {/* Controles de Layer - Responsivos */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                <div className="flex items-center gap-1 sm:gap-2">
                   <Switch 
                     checked={showScouters} 
                     onCheckedChange={setShowScouters}
                     id="show-scouters"
+                    className="scale-75 sm:scale-100"
                   />
-                  <Label htmlFor="show-scouters" className="flex items-center gap-1 cursor-pointer">
-                    <Radio className="w-4 h-4 text-green-600" />
-                    Scouters
+                  <Label htmlFor="show-scouters" className="flex items-center gap-1 cursor-pointer text-xs sm:text-sm">
+                    <Radio className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                    <span className="hidden xs:inline">Scouters</span>
                   </Label>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                   <Switch 
                     checked={showHeatmap} 
                     onCheckedChange={setShowHeatmap}
                     id="show-heatmap"
+                    className="scale-75 sm:scale-100"
                   />
-                  <Label htmlFor="show-heatmap" className="flex items-center gap-1 cursor-pointer">
-                    <Flame className="w-4 h-4 text-orange-500" />
-                    Temperatura
+                  <Label htmlFor="show-heatmap" className="flex items-center gap-1 cursor-pointer text-xs sm:text-sm">
+                    <Flame className="w-3 h-3 sm:w-4 sm:h-4 text-orange-500" />
+                    <span className="hidden xs:inline">Temp.</span>
                   </Label>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                   <Switch 
                     checked={showLeads} 
                     onCheckedChange={setShowLeads}
                     id="show-leads"
+                    className="scale-75 sm:scale-100"
                   />
-                  <Label htmlFor="show-leads" className="flex items-center gap-1 cursor-pointer">
-                    <MapPin className="w-4 h-4 text-blue-600" />
-                    Leads
+                  <Label htmlFor="show-leads" className="flex items-center gap-1 cursor-pointer text-xs sm:text-sm">
+                    <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+                    <span className="hidden xs:inline">Leads</span>
                   </Label>
                 </div>
                 
@@ -310,9 +313,10 @@ function GestaoAreaDeAbordagemContent() {
                 <Button 
                   variant={isDrawing ? "default" : "outline"} 
                   size="icon"
+                  className="h-7 w-7 sm:h-9 sm:w-9"
                   onClick={() => setIsDrawing(!isDrawing)}
                 >
-                  <Pencil className="w-4 h-4" />
+                  <Pencil className="w-3 h-3 sm:w-4 sm:h-4" />
                 </Button>
               </div>
             </div>

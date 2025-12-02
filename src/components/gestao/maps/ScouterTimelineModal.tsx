@@ -185,44 +185,45 @@ export function ScouterTimelineModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="max-w-6xl h-[80vh] p-0 gap-0 overflow-hidden z-[9999]"
+        className="w-[95vw] max-w-6xl h-[90vh] sm:h-[80vh] p-0 gap-0 overflow-hidden z-[9999]"
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           setDialogFullyOpen(true);
         }}
       >
-        <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle className="flex items-center gap-3">
+        <DialogHeader className="px-3 sm:px-6 py-3 sm:py-4 border-b">
+          <DialogTitle className="flex items-center gap-2 sm:gap-3">
             {scouterPhotoUrl ? (
               <img 
                 src={scouterPhotoUrl} 
                 alt={scouterName}
-                className="w-10 h-10 rounded-full object-cover border-2 border-primary"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-primary"
               />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-white font-bold">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-white font-bold text-sm sm:text-base">
                   {scouterName[0]?.toUpperCase()}
                 </span>
               </div>
             )}
             <div>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-primary" />
-                <span>Histórico de Rota</span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
+                <span className="text-sm sm:text-base">Histórico de Rota</span>
               </div>
-              <span className="text-sm text-muted-foreground block mt-0.5">{scouterName}</span>
+              <span className="text-xs sm:text-sm text-muted-foreground block mt-0.5">{scouterName}</span>
             </div>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex h-[calc(100%-80px)] overflow-hidden">
-          {/* Map Section */}
-          <div className="flex-1 relative bg-gray-100">
+        {/* Layout responsivo: vertical no mobile, horizontal no desktop */}
+        <div className="flex flex-col sm:flex-row h-[calc(100%-60px)] sm:h-[calc(100%-80px)] overflow-hidden">
+          {/* Map Section - metade da altura no mobile */}
+          <div className="h-1/2 sm:h-full sm:flex-1 relative bg-gray-100">
             {/* Loading indicator */}
             {!mapReady && (
               <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-primary" />
               </div>
             )}
             <div 
@@ -232,14 +233,14 @@ export function ScouterTimelineModal({
             />
           </div>
 
-          {/* Timeline Section */}
-          <div className="w-96 border-l bg-muted/30 overflow-y-auto">
+          {/* Timeline Section - metade da altura no mobile, scroll interno */}
+          <div className="h-1/2 sm:h-full w-full sm:w-72 lg:w-96 border-t sm:border-t-0 sm:border-l bg-muted/30 overflow-y-auto">
             {sortedLocations.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 Nenhum histórico disponível
               </div>
             ) : (
-              <div className="p-4 space-y-3">
+              <div className="p-2 sm:p-4 space-y-2 sm:space-y-3">
                 {sortedLocations.map((location, index) => {
                   const isFirst = index === 0;
                   const isLast = index === sortedLocations.length - 1;
@@ -248,14 +249,14 @@ export function ScouterTimelineModal({
                   return (
                     <Card
                       key={index}
-                      className={`p-4 cursor-pointer transition-all hover:shadow-md ${
+                      className={`p-2 sm:p-4 cursor-pointer transition-all hover:shadow-md ${
                         isSelected ? 'ring-2 ring-primary shadow-md' : ''
                       }`}
                       onClick={() => handleTimelineClick(index)}
                     >
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-2 sm:gap-3">
                         {/* Number Badge */}
-                        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                        <div className={`flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm ${
                           isFirst ? 'bg-green-500' : isLast ? 'bg-red-500' : 'bg-primary'
                         }`}>
                           {sortedLocations.length - index}
@@ -263,9 +264,9 @@ export function ScouterTimelineModal({
 
                         {/* Content */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                            <span className="text-sm font-medium">
+                          <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
+                            <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-xs sm:text-sm font-medium">
                               {new Date(location.recorded_at).toLocaleDateString('pt-BR')} às{' '}
                               {new Date(location.recorded_at).toLocaleTimeString('pt-BR', {
                                 hour: '2-digit',
@@ -274,25 +275,25 @@ export function ScouterTimelineModal({
                             </span>
                           </div>
 
-                          <div className="flex items-start gap-2 mb-2">
-                            <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                            <span className="text-sm text-muted-foreground break-words">
+                          <div className="flex items-start gap-1 sm:gap-2 mb-1 sm:mb-2">
+                            <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                            <span className="text-xs sm:text-sm text-muted-foreground break-words line-clamp-2">
                               {location.address}
                             </span>
                           </div>
 
-                          <div className="text-xs text-muted-foreground font-mono">
+                          <div className="text-[10px] sm:text-xs text-muted-foreground font-mono hidden sm:block">
                             {location.latitude?.toFixed(6) ?? 'N/A'}, {location.longitude?.toFixed(6) ?? 'N/A'}
                           </div>
 
                           {isFirst && (
-                            <div className="mt-2 inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                              Localização Atual
+                            <div className="mt-1 sm:mt-2 inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-green-100 text-green-700 text-[10px] sm:text-xs font-medium">
+                              Atual
                             </div>
                           )}
                           {isLast && (
-                            <div className="mt-2 inline-flex items-center px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium">
-                              Ponto Inicial
+                            <div className="mt-1 sm:mt-2 inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-red-100 text-red-700 text-[10px] sm:text-xs font-medium">
+                              Início
                             </div>
                           )}
                         </div>
