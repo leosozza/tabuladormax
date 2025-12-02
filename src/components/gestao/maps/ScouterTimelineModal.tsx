@@ -48,7 +48,7 @@ export function ScouterTimelineModal({
     (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
   );
 
-  // Initialize map - simple and direct
+  // Initialize map with retry mechanism
   useEffect(() => {
     if (!open || !mapContainerRef.current) {
       setMapReady(false);
@@ -63,10 +63,25 @@ export function ScouterTimelineModal({
     setMapReady(false);
 
     const container = mapContainerRef.current;
+    let attempts = 0;
+    const maxAttempts = 15; // 15 x 100ms = 1.5 seconds max
+    let initInterval: NodeJS.Timeout | null = null;
 
-    // Wait for dialog animation then init
-    const initTimeout = setTimeout(() => {
-      if (!container || container.clientWidth === 0) return;
+    const tryInitMap = () => {
+      attempts++;
+      
+      // Check if container has dimensions
+      if (!container || container.clientWidth === 0 || container.clientHeight === 0) {
+        if (attempts < maxAttempts) return; // Keep trying
+        console.warn('Map container still has no dimensions after max attempts');
+        return;
+      }
+      
+      // Container ready - clear interval and init map
+      if (initInterval) {
+        clearInterval(initInterval);
+        initInterval = null;
+      }
       
       try {
         const map = L.map(container, {
@@ -90,10 +105,15 @@ export function ScouterTimelineModal({
       } catch (e) {
         console.error('Error initializing map:', e);
       }
-    }, 300);
+    };
+
+    // Try every 100ms
+    initInterval = setInterval(tryInitMap, 100);
 
     return () => {
-      clearTimeout(initTimeout);
+      if (initInterval) {
+        clearInterval(initInterval);
+      }
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
