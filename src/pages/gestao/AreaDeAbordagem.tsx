@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Users, TrendingUp, Target, BarChart3, Radio, Flame, Settings, Pencil } from "lucide-react";
+import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { geocodeAddress } from "@/hooks/useGeolocation";
@@ -133,70 +133,6 @@ function GestaoAreaDeAbordagemContent() {
     },
   });
 
-  // Estatísticas por área
-  const { data: areasData, isLoading: areasLoading } = useQuery({
-    queryKey: ["gestao-areas", filters],
-    queryFn: async () => {
-      // Usar fetchAllRecords para buscar TODOS os leads sem limite de 1000
-      const data = await fetchAllRecords<{
-        local_abordagem: string | null;
-        address: string | null;
-        scouter: string | null;
-      }>(
-        supabase,
-        "leads",
-        "local_abordagem, address, scouter",
-        (query) => {
-          query = query.not("local_abordagem", "is", null);
-          
-          // Aplicar filtros de data
-          query = query
-            .gte("criado", filters.dateFilter.startDate.toISOString())
-            .lte("criado", filters.dateFilter.endDate.toISOString());
-          
-          // Aplicar filtro de projeto
-          if (filters.projectId) {
-            query = query.eq("commercial_project_id", filters.projectId);
-          }
-          
-          // Hardcode: apenas leads de scouters (Scouter - Fichas)
-          query = query.eq("fonte_normalizada", "Scouter - Fichas");
-          
-          return query;
-        }
-      );
-
-      // Agrupar por local de abordagem
-      const areaCounts = data.reduce((acc: any, lead) => {
-        const area = lead.local_abordagem || "Sem localização";
-        if (!acc[area]) {
-          acc[area] = { 
-            count: 0, 
-            addresses: new Set(),
-            scouters: new Set()
-          };
-        }
-        acc[area].count++;
-        if (lead.address) {
-          acc[area].addresses.add(lead.address);
-        }
-        if (lead.scouter) {
-          acc[area].scouters.add(lead.scouter);
-        }
-        return acc;
-      }, {});
-
-      return Object.entries(areaCounts)
-        .map(([area, data]: [string, any]) => ({
-          area,
-          count: data.count,
-          uniqueAddresses: data.addresses.size,
-          uniqueScouters: data.scouters.size
-        }))
-        .sort((a, b) => b.count - a.count);
-    },
-  });
-
   // Contar scouters ativos no dia a partir do histórico de localização
   const { data: activeScoutersCount } = useQuery({
     queryKey: [
@@ -228,10 +164,10 @@ function GestaoAreaDeAbordagemContent() {
     refetchInterval: 30000,
   });
 
-  const totalAreas = areasData?.length || 0;
-  const totalLeads = areasData?.reduce((sum, a) => sum + a.count, 0) || 0;
-  const avgLeadsPerArea = totalAreas > 0 ? (totalLeads / totalAreas).toFixed(1) : "0";
+  const totalLeadsOnMap = leadsData?.length || 0;
   const totalScoutersActive = activeScoutersCount ?? 0;
+  const totalAreasDrawn = drawnAreas.length;
+  const totalLeadsInAreas = filteredAreaLeads.length;
 
   // Agrupar leads filtrados por projeto e scouter
   const groupedByProjectScouter = useMemo(() => {
@@ -272,36 +208,36 @@ function GestaoAreaDeAbordagemContent() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Áreas Identificadas
+                Leads no Mapa
               </CardTitle>
               <MapPin className="w-5 h-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{totalAreas}</div>
+              <div className="text-3xl font-bold">{totalLeadsOnMap}</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total de Leads
+                Áreas Desenhadas
+              </CardTitle>
+              <Pencil className="w-5 h-5 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{totalAreasDrawn}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Leads nas Áreas
               </CardTitle>
               <Users className="w-5 h-5 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{totalLeads}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Média por Área
-              </CardTitle>
-              <TrendingUp className="w-5 h-5 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{avgLeadsPerArea}</div>
+              <div className="text-3xl font-bold">{totalLeadsInAreas}</div>
             </CardContent>
           </Card>
 
@@ -409,84 +345,6 @@ function GestaoAreaDeAbordagemContent() {
           </CardContent>
         </Card>
 
-        {/* Áreas desenhadas - análise detalhada */}
-        {drawnAreas.length > 0 && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Análise de Áreas Desenhadas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {drawnAreas.map(area => (
-                  <div key={area.id} className="p-4 border rounded-lg bg-accent/20">
-                    <div className="flex justify-between items-center mb-4">
-                      <div>
-                        <h4 className="font-semibold">{area.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {area.leadCount} leads identificados nesta área
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-primary">{area.leadCount}</div>
-                        <div className="text-xs text-muted-foreground">leads</div>
-                      </div>
-                    </div>
-                    
-                    {/* Hierarquia: Projeto → Scouter → Fichas */}
-                    {Object.keys(groupedByProjectScouter).length > 0 && (
-                      <div className="border-t pt-4">
-                        <h5 className="text-sm font-medium mb-3 text-muted-foreground">
-                          Distribuição por Projeto e Scouter
-                        </h5>
-                        <div className="space-y-4">
-                          {Object.entries(groupedByProjectScouter)
-                            .sort(([, a], [, b]) => {
-                              const totalA = Object.values(a).reduce((sum, v) => sum + v, 0);
-                              const totalB = Object.values(b).reduce((sum, v) => sum + v, 0);
-                              return totalB - totalA;
-                            })
-                            .map(([project, scouters]) => (
-                              <div key={project} className="bg-background/50 rounded-lg p-3">
-                                {/* Projeto */}
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Target className="w-4 h-4 text-primary" />
-                                  <span className="font-semibold text-sm">{project}</span>
-                                  <Badge variant="secondary" className="ml-auto">
-                                    {Object.values(scouters).reduce((a, b) => a + b, 0)} fichas
-                                  </Badge>
-                                </div>
-                                
-                                {/* Scouters do projeto */}
-                                <div className="ml-6 space-y-1">
-                                  {Object.entries(scouters)
-                                    .sort(([, a], [, b]) => b - a)
-                                    .map(([scouter, count]) => (
-                                      <div 
-                                        key={scouter}
-                                        className="flex items-center justify-between text-sm py-1 px-2 rounded hover:bg-accent/30"
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <Users className="w-3 h-3 text-muted-foreground" />
-                                          <span>{scouter}</span>
-                                        </div>
-                                        <span className="font-medium text-primary">
-                                          {count} {count === 1 ? 'ficha' : 'fichas'}
-                                        </span>
-                                      </div>
-                                    ))}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Tabs apenas para Análise e Config */}
         <Tabs defaultValue="analysis" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
@@ -501,49 +359,93 @@ function GestaoAreaDeAbordagemContent() {
           </TabsList>
 
           <TabsContent value="analysis" className="space-y-4">
-            {areasLoading ? (
-              <div className="text-center py-12">Carregando análise...</div>
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Distribuição por Local de Abordagem</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Ranking de áreas com mais captação de leads
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {areasData?.map((area, index) => (
-                      <div
-                        key={area.area}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary font-bold">
-                            {index + 1}
-                          </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Análise de Áreas Desenhadas</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Desenhe áreas no mapa para ver a distribuição de leads por projeto e scouter
+                </p>
+              </CardHeader>
+              <CardContent>
+                {drawnAreas.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Pencil className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhuma área desenhada</p>
+                    <p className="text-sm mt-2">
+                      Clique no botão <Pencil className="w-4 h-4 inline" /> no mapa para desenhar uma área de análise
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {drawnAreas.map(area => (
+                      <div key={area.id} className="p-4 border rounded-lg bg-accent/20">
+                        <div className="flex justify-between items-center mb-4">
                           <div>
-                            <div className="font-semibold">{area.area}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {area.uniqueAddresses} endereço(s) • {area.uniqueScouters} scouter(s)
+                            <h4 className="font-semibold">{area.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {area.leadCount} leads identificados nesta área
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-primary">{area.leadCount}</div>
+                            <div className="text-xs text-muted-foreground">leads</div>
+                          </div>
+                        </div>
+                        
+                        {/* Hierarquia: Projeto → Scouter → Fichas */}
+                        {Object.keys(groupedByProjectScouter).length > 0 && (
+                          <div className="border-t pt-4">
+                            <h5 className="text-sm font-medium mb-3 text-muted-foreground">
+                              Distribuição por Projeto e Scouter
+                            </h5>
+                            <div className="space-y-4">
+                              {Object.entries(groupedByProjectScouter)
+                                .sort(([, a], [, b]) => {
+                                  const totalA = Object.values(a).reduce((sum, v) => sum + v, 0);
+                                  const totalB = Object.values(b).reduce((sum, v) => sum + v, 0);
+                                  return totalB - totalA;
+                                })
+                                .map(([project, scouters]) => (
+                                  <div key={project} className="bg-background/50 rounded-lg p-3">
+                                    {/* Projeto */}
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Target className="w-4 h-4 text-primary" />
+                                      <span className="font-semibold text-sm">{project}</span>
+                                      <Badge variant="secondary" className="ml-auto">
+                                        {Object.values(scouters).reduce((a, b) => a + b, 0)} fichas
+                                      </Badge>
+                                    </div>
+                                    
+                                    {/* Scouters do projeto */}
+                                    <div className="ml-6 space-y-1">
+                                      {Object.entries(scouters)
+                                        .sort(([, a], [, b]) => b - a)
+                                        .map(([scouter, count]) => (
+                                          <div 
+                                            key={scouter}
+                                            className="flex items-center justify-between text-sm py-1 px-2 rounded hover:bg-accent/30"
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <Users className="w-3 h-3 text-muted-foreground" />
+                                              <span>{scouter}</span>
+                                            </div>
+                                            <span className="font-medium text-primary">
+                                              {count} {count === 1 ? 'ficha' : 'fichas'}
+                                            </span>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  </div>
+                                ))}
                             </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold">{area.count}</div>
-                          <div className="text-sm text-muted-foreground">leads</div>
-                        </div>
+                        )}
                       </div>
                     ))}
-                    {areasData?.length === 0 && (
-                      <div className="text-center py-12 text-muted-foreground">
-                        Nenhuma área registrada com os filtros aplicados
-                      </div>
-                    )}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4">
