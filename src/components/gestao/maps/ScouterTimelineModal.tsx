@@ -32,6 +32,7 @@ export function ScouterTimelineModal({
   const markersRef = useRef<L.Marker[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [dialogFullyOpen, setDialogFullyOpen] = useState(false);
   
   // Capture locations only when modal opens - static snapshot
   const staticLocationsRef = useRef<LocationPoint[]>([]);
@@ -48,39 +49,36 @@ export function ScouterTimelineModal({
     (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
   );
 
-  // Initialize map with retry mechanism
+  // Reset state when modal closes
   useEffect(() => {
-    if (!open || !mapContainerRef.current) {
+    if (!open) {
+      setDialogFullyOpen(false);
       setMapReady(false);
-      return;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
     }
+  }, [open]);
+
+  // Initialize map when dialog is fully open (after animation)
+  useEffect(() => {
+    if (!dialogFullyOpen || !mapContainerRef.current) return;
     
     // Clear previous map if exists
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
     }
-    setMapReady(false);
 
     const container = mapContainerRef.current;
-    let attempts = 0;
-    const maxAttempts = 15; // 15 x 100ms = 1.5 seconds max
-    let initInterval: NodeJS.Timeout | null = null;
-
-    const tryInitMap = () => {
-      attempts++;
-      
-      // Check if container has dimensions
-      if (!container || container.clientWidth === 0 || container.clientHeight === 0) {
-        if (attempts < maxAttempts) return; // Keep trying
-        console.warn('Map container still has no dimensions after max attempts');
+    
+    // Small safety delay after animation
+    const timeout = setTimeout(() => {
+      if (!container || container.clientWidth === 0) {
+        console.warn('Map container has no dimensions');
+        setMapReady(true); // Exit loading state
         return;
-      }
-      
-      // Container ready - clear interval and init map
-      if (initInterval) {
-        clearInterval(initInterval);
-        initInterval = null;
       }
       
       try {
@@ -93,34 +91,16 @@ export function ScouterTimelineModal({
         }).addTo(map);
 
         mapRef.current = map;
-        
-        // Force size and set ready
         map.invalidateSize();
-        setTimeout(() => {
-          if (mapRef.current) {
-            mapRef.current.invalidateSize();
-            setMapReady(true);
-          }
-        }, 100);
+        setMapReady(true);
       } catch (e) {
         console.error('Error initializing map:', e);
+        setMapReady(true); // Exit loading state even on error
       }
-    };
+    }, 100);
 
-    // Try every 100ms
-    initInterval = setInterval(tryInitMap, 100);
-
-    return () => {
-      if (initInterval) {
-        clearInterval(initInterval);
-      }
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-      setMapReady(false);
-    };
-  }, [open]);
+    return () => clearTimeout(timeout);
+  }, [dialogFullyOpen]);
 
   // Update markers when map is ready
   useEffect(() => {
@@ -204,7 +184,13 @@ export function ScouterTimelineModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[80vh] p-0 gap-0 overflow-hidden z-[9999]">
+      <DialogContent 
+        className="max-w-6xl h-[80vh] p-0 gap-0 overflow-hidden z-[9999]"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          setDialogFullyOpen(true);
+        }}
+      >
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="flex items-center gap-3">
             {scouterPhotoUrl ? (
