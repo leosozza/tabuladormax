@@ -34,7 +34,7 @@ export function MainLayout({
         <div className="flex-1 flex flex-col w-full min-w-0">
           {/* Header responsivo */}
           {(title || actions || showBackButton) && (
-            <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <header className="sticky top-0 z-[500] border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
               <div className="flex items-center gap-2 p-3 md:p-4">
                 <SidebarTrigger />
 
