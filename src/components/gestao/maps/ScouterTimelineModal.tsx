@@ -34,25 +34,21 @@ export function ScouterTimelineModal({
   const [mapReady, setMapReady] = useState(false);
   
   // Capture locations only when modal opens - static snapshot
-  const [staticLocations, setStaticLocations] = useState<LocationPoint[]>([]);
+  const staticLocationsRef = useRef<LocationPoint[]>([]);
   
-  // Capture locations when modal opens
-  useEffect(() => {
-    if (open && locations.length > 0) {
-      // Only set locations when modal first opens (staticLocations is empty)
-      setStaticLocations(prev => prev.length === 0 ? [...locations] : prev);
-    }
-    if (!open) {
-      // Reset when modal closes so next open gets fresh data
-      setStaticLocations([]);
-    }
-  }, [open, locations]);
+  // Capture locations immediately when modal opens
+  if (open && staticLocationsRef.current.length === 0 && locations.length > 0) {
+    staticLocationsRef.current = [...locations];
+  }
+  if (!open && staticLocationsRef.current.length > 0) {
+    staticLocationsRef.current = [];
+  }
 
-  const sortedLocations = [...staticLocations].sort(
+  const sortedLocations = [...staticLocationsRef.current].sort(
     (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
   );
 
-  // Initialize map using ResizeObserver for reliable rendering
+  // Initialize map - simple and direct
   useEffect(() => {
     if (!open || !mapContainerRef.current) {
       setMapReady(false);
@@ -67,64 +63,44 @@ export function ScouterTimelineModal({
     setMapReady(false);
 
     const container = mapContainerRef.current;
-    let mapInitialized = false;
 
-    const initMap = () => {
-      if (mapInitialized || !container) return;
+    // Wait for dialog animation then init
+    const initTimeout = setTimeout(() => {
+      if (!container || container.clientWidth === 0) return;
       
-      // Only init if container has valid dimensions
-      if (container.clientWidth === 0 || container.clientHeight === 0) return;
-      
-      mapInitialized = true;
-      
-      const map = L.map(container, {
-        zoomControl: true,
-      }).setView([-23.5505, -46.6333], 12);
-      
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(map);
+      try {
+        const map = L.map(container, {
+          zoomControl: true,
+        }).setView([-23.5505, -46.6333], 12);
+        
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '&copy; OpenStreetMap',
+        }).addTo(map);
 
-      mapRef.current = map;
-      
-      // Multiple invalidateSize calls to ensure proper rendering
-      setTimeout(() => map.invalidateSize(), 100);
-      setTimeout(() => map.invalidateSize(), 300);
-      setTimeout(() => {
+        mapRef.current = map;
+        
+        // Force size and set ready
         map.invalidateSize();
-        setMapReady(true);
-      }, 500);
-      setTimeout(() => map.invalidateSize(), 1000);
-    };
-
-    // Use ResizeObserver to detect when container has size
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
-          if (!mapRef.current) {
-            initMap();
-          } else {
+        setTimeout(() => {
+          if (mapRef.current) {
             mapRef.current.invalidateSize();
+            setMapReady(true);
           }
-        }
+        }, 100);
+      } catch (e) {
+        console.error('Error initializing map:', e);
       }
-    });
-
-    resizeObserver.observe(container);
-    
-    // Also try to init after a delay (fallback)
-    const fallbackTimeout = setTimeout(initMap, 600);
+    }, 300);
 
     return () => {
-      resizeObserver.disconnect();
-      clearTimeout(fallbackTimeout);
+      clearTimeout(initTimeout);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
       setMapReady(false);
     };
-  }, [open, scouterName]);
+  }, [open]);
 
   // Update markers when map is ready
   useEffect(() => {
@@ -187,7 +163,7 @@ export function ScouterTimelineModal({
     
     // Force size update
     mapRef.current.invalidateSize();
-  }, [mapReady, staticLocations]);
+  }, [mapReady, sortedLocations]);
 
   // Reset selectedIndex when modal closes
   useEffect(() => {
@@ -244,7 +220,6 @@ export function ScouterTimelineModal({
               </div>
             )}
             <div 
-              key={`${scouterName}-${staticLocations.length}`}
               ref={mapContainerRef} 
               className="absolute inset-0"
               style={{ width: '100%', height: '100%' }} 
