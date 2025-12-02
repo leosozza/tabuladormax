@@ -463,24 +463,24 @@ export default function UnifiedAreaMap({
       ).length || 0;
       
       const popupContent = `
-        <div class="p-3 min-w-[250px]">
+        <div class="p-2 w-[180px] max-w-[calc(100vw-60px)]">
           <div class="flex items-center gap-2 mb-2">
-            ${location.photoUrl ? `<img src="${location.photoUrl}" class="w-10 h-10 rounded-full object-cover" />` : ''}
-            <div>
-              <p class="font-bold text-sm">${location.scouterName}</p>
-              <p class="text-xs text-gray-500">Scouter Ativo</p>
+            ${location.photoUrl ? `<img src="${location.photoUrl}" class="w-8 h-8 rounded-full object-cover" />` : ''}
+            <div class="min-w-0">
+              <p class="font-bold text-xs truncate">${location.scouterName}</p>
+              <p class="text-[10px] text-gray-500">Scouter Ativo</p>
             </div>
           </div>
-          <div class="text-xs text-gray-600 mt-2">
-            <p>📍 ${location.address}</p>
-            <p>🕐 Última atualização: ${formatDistanceToNow(new Date(location.recordedAt), { locale: ptBR, addSuffix: true })}</p>
-            ${scouterLeadCount > 0 ? `<p class="mt-2 font-semibold text-green-600">📋 ${scouterLeadCount} ficha${scouterLeadCount !== 1 ? 's' : ''} no período</p>` : ''}
+          <div class="text-[10px] text-gray-600 mt-1 space-y-0.5">
+            <p class="truncate">📍 ${location.address}</p>
+            <p>🕐 ${formatDistanceToNow(new Date(location.recordedAt), { locale: ptBR, addSuffix: true })}</p>
+            ${scouterLeadCount > 0 ? `<p class="font-semibold text-green-600">📋 ${scouterLeadCount} ficha${scouterLeadCount !== 1 ? 's' : ''}</p>` : ''}
           </div>
           <button 
-            class="w-full mt-3 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium flex items-center justify-center gap-2"
+            class="w-full mt-2 px-2 py-1.5 bg-blue-600 text-white rounded text-xs font-medium flex items-center justify-center gap-1"
             onclick="window.dispatchEvent(new CustomEvent('view-scouter-timeline', { detail: { scouterBitrixId: ${location.scouterBitrixId}, scouterName: '${location.scouterName.replace(/'/g, "\\'")}', photoUrl: '${location.photoUrl || ''}' } }))"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             Histórico
