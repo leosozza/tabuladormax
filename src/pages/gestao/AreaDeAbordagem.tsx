@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRecords } from "@/lib/supabaseUtils";
@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapPin, Users, TrendingUp, Target, BarChart3, Radio, Flame, Settings, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { geocodeAddress } from "@/hooks/useGeolocation";
 import { createDateFilter } from "@/lib/dateUtils";
 import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
@@ -23,6 +24,7 @@ function GestaoAreaDeAbordagemContent() {
     projectId: null,
   });
   const [drawnAreas, setDrawnAreas] = useState<DrawnArea[]>([]);
+  const [filteredAreaLeads, setFilteredAreaLeads] = useState<LeadMapLocation[]>([]);
   
   // Estado dos switches do mapa
   const [showScouters, setShowScouters] = useState(false);
@@ -45,11 +47,12 @@ function GestaoAreaDeAbordagemContent() {
         scouter: string | null;
         status_fluxo: string | null;
         commercial_project_id: string | null;
+        projeto_comercial: string | null;
         criado: string | null;
       }>(
         supabase,
         "leads",
-        "id, name, address, local_abordagem, latitude, longitude, scouter, status_fluxo, commercial_project_id, criado",
+        "id, name, address, local_abordagem, latitude, longitude, scouter, status_fluxo, commercial_project_id, projeto_comercial, criado",
         (query) => {
           // Aplicar filtros de data
           query = query
@@ -84,6 +87,7 @@ function GestaoAreaDeAbordagemContent() {
             address: lead.address || lead.local_abordagem || "Sem endereço",
             scouter: lead.scouter || undefined,
             status: lead.status_fluxo || undefined,
+            projectName: lead.projeto_comercial || undefined,
           });
           continue;
         }
@@ -119,6 +123,7 @@ function GestaoAreaDeAbordagemContent() {
             address: addressToGeocode,
             scouter: lead.scouter || undefined,
             status: lead.status_fluxo || undefined,
+            projectName: lead.projeto_comercial || undefined,
           });
         }
       }
@@ -227,6 +232,30 @@ function GestaoAreaDeAbordagemContent() {
   const totalLeads = areasData?.reduce((sum, a) => sum + a.count, 0) || 0;
   const avgLeadsPerArea = totalAreas > 0 ? (totalLeads / totalAreas).toFixed(1) : "0";
   const totalScoutersActive = activeScoutersCount ?? 0;
+
+  // Agrupar leads filtrados por projeto e scouter
+  const groupedByProjectScouter = useMemo(() => {
+    if (!filteredAreaLeads || filteredAreaLeads.length === 0) return {};
+    
+    const grouped: Record<string, Record<string, number>> = {};
+    
+    filteredAreaLeads.forEach(lead => {
+      const project = lead.projectName || "Sem Projeto";
+      const scouter = lead.scouter || "Sem Scouter";
+      
+      if (!grouped[project]) {
+        grouped[project] = {};
+      }
+      
+      if (!grouped[project][scouter]) {
+        grouped[project][scouter] = 0;
+      }
+      
+      grouped[project][scouter]++;
+    });
+    
+    return grouped;
+  }, [filteredAreaLeads]);
 
   return (
     <GestaoPageLayout
@@ -374,6 +403,7 @@ function GestaoAreaDeAbordagemContent() {
                 onDrawingChange={setIsDrawing}
                 onAreaCreated={(area) => setDrawnAreas(prev => [...prev, area])}
                 onAreaDeleted={(areaId) => setDrawnAreas(prev => prev.filter(a => a.id !== areaId))}
+                onAreasSelectionChanged={(_, filteredLeads) => setFilteredAreaLeads(filteredLeads)}
               />
             )}
           </CardContent>
@@ -389,7 +419,7 @@ function GestaoAreaDeAbordagemContent() {
               <div className="space-y-3">
                 {drawnAreas.map(area => (
                   <div key={area.id} className="p-4 border rounded-lg bg-accent/20">
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center mb-4">
                       <div>
                         <h4 className="font-semibold">{area.name}</h4>
                         <p className="text-sm text-muted-foreground">
@@ -401,6 +431,55 @@ function GestaoAreaDeAbordagemContent() {
                         <div className="text-xs text-muted-foreground">leads</div>
                       </div>
                     </div>
+                    
+                    {/* Hierarquia: Projeto → Scouter → Fichas */}
+                    {Object.keys(groupedByProjectScouter).length > 0 && (
+                      <div className="border-t pt-4">
+                        <h5 className="text-sm font-medium mb-3 text-muted-foreground">
+                          Distribuição por Projeto e Scouter
+                        </h5>
+                        <div className="space-y-4">
+                          {Object.entries(groupedByProjectScouter)
+                            .sort(([, a], [, b]) => {
+                              const totalA = Object.values(a).reduce((sum, v) => sum + v, 0);
+                              const totalB = Object.values(b).reduce((sum, v) => sum + v, 0);
+                              return totalB - totalA;
+                            })
+                            .map(([project, scouters]) => (
+                              <div key={project} className="bg-background/50 rounded-lg p-3">
+                                {/* Projeto */}
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Target className="w-4 h-4 text-primary" />
+                                  <span className="font-semibold text-sm">{project}</span>
+                                  <Badge variant="secondary" className="ml-auto">
+                                    {Object.values(scouters).reduce((a, b) => a + b, 0)} fichas
+                                  </Badge>
+                                </div>
+                                
+                                {/* Scouters do projeto */}
+                                <div className="ml-6 space-y-1">
+                                  {Object.entries(scouters)
+                                    .sort(([, a], [, b]) => b - a)
+                                    .map(([scouter, count]) => (
+                                      <div 
+                                        key={scouter}
+                                        className="flex items-center justify-between text-sm py-1 px-2 rounded hover:bg-accent/30"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <Users className="w-3 h-3 text-muted-foreground" />
+                                          <span>{scouter}</span>
+                                        </div>
+                                        <span className="font-medium text-primary">
+                                          {count} {count === 1 ? 'ficha' : 'fichas'}
+                                        </span>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
