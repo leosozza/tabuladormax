@@ -282,58 +282,94 @@ const TIPO_MODELO_OPTIONS = [{
   label: 'Maduro/Senior'
 }];
 const HABILIDADES_OPTIONS = [{
-  value: '9268',
-  label: 'Inglês'
+  value: '9228',
+  label: 'Atua'
+}, {
+  value: '9230',
+  label: 'Bilingue'
+}, {
+  value: '9232',
+  label: 'Canta'
+}, {
+  value: '9234',
+  label: 'Dança'
+}, {
+  value: '9236',
+  label: 'Desfila'
+}, {
+  value: '9238',
+  label: 'DRT'
+}, {
+  value: '9240',
+  label: 'Figurantes'
+}, {
+  value: '9242',
+  label: 'Joga Futebol'
+}, {
+  value: '9244',
+  label: 'Outros, colocar em informações'
+}, {
+  value: '9246',
+  label: 'Segura texto'
+}];
+const CURSOS_OPTIONS = [{
+  value: '9262',
+  label: 'Canto'
+}, {
+  value: '9264',
+  label: 'Dança'
 }, {
   value: '9266',
   label: 'Espanhol'
 }, {
+  value: '9268',
+  label: 'Exclusivo'
+}, {
   value: '9270',
-  label: 'Francês'
+  label: 'Formatura CWB'
 }, {
   value: '9272',
-  label: 'Dança'
+  label: 'Ginástica Artística'
 }, {
   value: '9274',
-  label: 'Canto'
+  label: 'Inglês'
 }, {
   value: '9276',
-  label: 'Violão'
+  label: 'Outros, colocar em informações'
 }, {
   value: '9278',
-  label: 'Piano'
-}];
-const CURSOS_OPTIONS = [{
-  value: '9282',
   label: 'Passarela'
 }, {
-  value: '9284',
-  label: 'Fotografia'
-}, {
-  value: '9286',
-  label: 'Atuação'
-}, {
-  value: '9288',
-  label: 'Dança'
-}, {
-  value: '9290',
+  value: '9280',
   label: 'Teatro'
 }, {
-  value: '9292',
-  label: 'Maquiagem'
+  value: '9282',
+  label: 'Toca Instrumento Musical'
 }, {
-  value: '9294',
-  label: 'Etiqueta Social'
+  value: '9284',
+  label: 'Workshop Gui'
 }];
 const CARACTERISTICAS_OPTIONS = [{
+  value: '9286',
+  label: 'Comunicativo'
+}, {
+  value: '9288',
+  label: 'Desinibida'
+}, {
+  value: '9290',
+  label: 'Dinâmica'
+}, {
+  value: '9292',
+  label: 'Esperto'
+}, {
+  value: '9294',
+  label: 'Espontâneo'
+}, {
   value: '9296',
-  label: 'Tatuagens'
+  label: 'Interativa'
 }, {
   value: '9298',
-  label: 'Piercings'
-}, {
-  value: '9300',
-  label: 'Cicatrizes'
+  label: 'Risonho'
 }];
 interface LeadData {
   nomeResponsavel: string;
