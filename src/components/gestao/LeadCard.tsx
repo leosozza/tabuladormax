@@ -11,6 +11,28 @@ import { supabase } from "@/integrations/supabase/client";
 // SVG transparente para placeholder "Sem Imagem"
 const NO_PHOTO_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='none'/%3E%3Ccircle cx='100' cy='80' r='50' fill='none' stroke='%23D1D5DB' stroke-width='3'/%3E%3Cpath d='M75 65 L125 95 M125 65 L75 95' stroke='%23D1D5DB' stroke-width='3' stroke-linecap='round'/%3E%3Ctext x='100' y='155' text-anchor='middle' font-size='14' fill='%23D1D5DB' font-family='sans-serif'%3ESem Imagem%3C/text%3E%3C/svg%3E`;
 
+// Função auxiliar para extrair URL de array JSON
+const extractPhotoUrl = (url: string | null | undefined): string => {
+  if (!url || url === '' || url === 'null' || url === 'undefined' || url === '[]') {
+    return '';
+  }
+  
+  // Se é um array JSON, extrair primeira URL
+  if (url.startsWith('[') && url.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(url);
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+        return parsed[0];
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  }
+  
+  return url;
+};
+
 interface LeadCardProps {
   lead: Record<string, unknown>; // Dynamic lead object
 }
@@ -30,11 +52,11 @@ export default function LeadCard({ lead }: LeadCardProps) {
   // Tentar sincronizar foto do Bitrix quando photo_url estiver vazio
   useEffect(() => {
     const syncPhotoFromBitrix = async () => {
-      const rawPhotoUrl = String(lead[config.photoField] || '');
+      const rawPhotoUrl = extractPhotoUrl(String(lead[config.photoField] || ''));
       const leadId = Number(lead.id);
       
       // Se já tem photo_url válida, não fazer nada
-      if (rawPhotoUrl && rawPhotoUrl !== '' && rawPhotoUrl !== 'null' && rawPhotoUrl !== 'undefined') {
+      if (rawPhotoUrl && rawPhotoUrl !== '') {
         return;
       }
 
@@ -117,7 +139,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
     return null;
   };
 
-  const rawPhotoUrl = String(lead[config.photoField] || '');
+  const rawPhotoUrl = extractPhotoUrl(String(lead[config.photoField] || ''));
   // Usar fallbackPhotoUrl se disponível, senão usar rawPhotoUrl
   const effectivePhotoUrl = fallbackPhotoUrl || rawPhotoUrl;
   const photoSrc = hasPhotoError ? NO_PHOTO_SVG : getLeadPhotoUrl(effectivePhotoUrl);
