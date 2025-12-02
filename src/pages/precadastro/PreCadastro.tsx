@@ -1051,7 +1051,7 @@ const PreCadastro = () => {
           
           <div className="mt-4 max-w-xl mx-auto">
             <h2 className="text-lg font-semibold">
-              Monte o mini currículo de {leadData.nomeModelo || "seu modelo"}
+              Para melhorar a análise preencha o perfil {leadData.nomeModelo ? `de ${leadData.nomeModelo}` : "do modelo"}
             </h2>
             <p className="text-muted-foreground text-sm mt-1"> Aqui você pode atualizar fotos e informações para que o produtor faça a análise do perfil.</p>
             <p className="text-xs text-muted-foreground mt-2">
