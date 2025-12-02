@@ -927,35 +927,37 @@ export default function UnifiedAreaMap({
 
       {/* Controles de desenho quando ativo */}
       {isDrawing && (
-        <Card className="absolute top-20 right-4 z-[450] p-4 bg-white/95 backdrop-blur shadow-lg">
-          <p className="text-sm font-medium mb-3">Modo de Desenho Ativo</p>
-          <div className="flex gap-2 mb-3">
+        <Card className="absolute top-2 left-2 right-2 sm:top-20 sm:right-4 sm:left-auto z-[450] p-2 sm:p-4 bg-white/95 backdrop-blur shadow-lg">
+          <p className="text-xs sm:text-sm font-medium mb-2 sm:mb-3">Modo de Desenho</p>
+          <div className="flex gap-1 sm:gap-2 mb-2 sm:mb-3">
             <Button
               size="sm"
               variant={drawMode === 'polygon' ? 'default' : 'outline'}
               onClick={() => setDrawMode('polygon')}
+              className="h-7 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm"
             >
-              <Pencil className="w-4 h-4" />
+              <Pencil className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
               Polígono
             </Button>
             <Button
               size="sm"
               variant={drawMode === 'rectangle' ? 'default' : 'outline'}
               onClick={() => setDrawMode('rectangle')}
+              className="h-7 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm"
             >
-              <Square className="w-4 h-4" />
+              <Square className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
               Retângulo
             </Button>
           </div>
           {drawMode === 'polygon' && drawingPoints.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">{drawingPoints.length} pontos</p>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={finishDrawing} disabled={drawingPoints.length < 3}>
-                  <Save className="w-4 h-4 mr-1" />
+            <div className="space-y-1 sm:space-y-2">
+              <p className="text-[10px] sm:text-xs text-muted-foreground">{drawingPoints.length} pontos</p>
+              <div className="flex gap-1 sm:gap-2">
+                <Button size="sm" onClick={finishDrawing} disabled={drawingPoints.length < 3} className="h-7 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm">
+                  <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                   Finalizar
                 </Button>
-                <Button size="sm" variant="outline" onClick={cancelDrawing}>
+                <Button size="sm" variant="outline" onClick={cancelDrawing} className="h-7 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm">
                   Cancelar
                 </Button>
               </div>
