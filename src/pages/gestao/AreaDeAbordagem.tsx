@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllRecords } from "@/lib/supabaseUtils";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 import { AreaAbordagemFilters, type AreaAbordagemFilters as FilterType } from "@/components/gestao/AreaAbordagemFilters";
 import { LeadMapLocation, DrawnArea } from "@/components/gestao/AreaMap";
@@ -13,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { geocodeAddress } from "@/hooks/useGeolocation";
 import { createDateFilter } from "@/lib/dateUtils";
 import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
 import { ScouterHistorySettings } from "@/components/gestao/ScouterHistorySettings";
@@ -51,105 +49,47 @@ function GestaoAreaDeAbordagemContent() {
     setIsPopoverOpen(false);
   };
 
-  // Buscar leads com coordenadas (usar latitude/longitude existentes ou geocodificar)
-  const { data: leadsData, isLoading: leadsLoading } = useQuery({
+  // Buscar leads com coordenadas (OTIMIZADO: apenas leads que já tem coordenadas)
+  const { data: leadsData, isLoading: leadsLoading, isFetching } = useQuery({
     queryKey: ["gestao-area-leads", filters],
     queryFn: async () => {
-      // Usar fetchAllRecords para buscar TODOS os leads sem limite de 1000
-      const data = await fetchAllRecords<{
-        id: number;
-        name: string | null;
-        address: string | null;
-        local_abordagem: string | null;
-        latitude: number | null;
-        longitude: number | null;
-        scouter: string | null;
-        status_fluxo: string | null;
-        commercial_project_id: string | null;
-        projeto_comercial: string | null;
-        criado: string | null;
-      }>(
-        supabase,
-        "leads",
-        "id, name, address, local_abordagem, latitude, longitude, scouter, status_fluxo, commercial_project_id, projeto_comercial, criado",
-        (query) => {
-          // Aplicar filtros de data
-          query = query
-            .gte("criado", filters.dateFilter.startDate.toISOString())
-            .lte("criado", filters.dateFilter.endDate.toISOString());
-          
-          // Aplicar filtro de projeto
-          if (filters.projectId) {
-            query = query.eq("commercial_project_id", filters.projectId);
-          }
-          
-          // Hardcode: apenas leads de scouters (Scouter - Fichas)
-          query = query.eq("fonte_normalizada", "Scouter - Fichas");
-          
-          return query;
-        }
-      );
-
-      // Processar leads: usar coordenadas existentes ou geocodificar
-      const geocodedLeads: LeadMapLocation[] = [];
-      const geocodeCache = new Map<string, { lat: number; lng: number }>();
-      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-      for (const lead of data) {
-        // 1. Se já tem coordenadas, usar direto
-        if (lead.latitude && lead.longitude) {
-          geocodedLeads.push({
-            id: lead.id,
-            name: lead.name || "Sem nome",
-            lat: Number(lead.latitude),
-            lng: Number(lead.longitude),
-            address: lead.address || lead.local_abordagem || "Sem endereço",
-            scouter: lead.scouter || undefined,
-            status: lead.status_fluxo || undefined,
-            projectName: lead.projeto_comercial || undefined,
-          });
-          continue;
-        }
-
-        // 2. Geocodificar usando address OU local_abordagem como fallback
-        const addressToGeocode = lead.address || lead.local_abordagem;
-        if (!addressToGeocode) continue;
-
-        let coords = geocodeCache.get(addressToGeocode);
-        if (!coords) {
-          const result = await geocodeAddress(addressToGeocode);
-          if (result) {
-            coords = result;
-            geocodeCache.set(addressToGeocode, coords);
-            
-            // Salvar coordenadas no banco para cache futuro
-            await supabase.from('leads').update({
-              latitude: coords.lat,
-              longitude: coords.lng,
-              geocoded_at: new Date().toISOString()
-            }).eq('id', lead.id);
-            
-            await delay(1000); // Rate limit
-          }
-        }
-
-        if (coords) {
-          geocodedLeads.push({
-            id: lead.id,
-            name: lead.name || "Sem nome",
-            lat: coords.lat,
-            lng: coords.lng,
-            address: addressToGeocode,
-            scouter: lead.scouter || undefined,
-            status: lead.status_fluxo || undefined,
-            projectName: lead.projeto_comercial || undefined,
-          });
-        }
+      // Buscar apenas leads que JÁ TEM coordenadas para carregamento instantâneo
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, name, address, local_abordagem, latitude, longitude, scouter, status_fluxo, commercial_project_id, projeto_comercial, criado")
+        .gte("criado", filters.dateFilter.startDate.toISOString())
+        .lte("criado", filters.dateFilter.endDate.toISOString())
+        .eq("fonte_normalizada", "Scouter - Fichas")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null)
+        .order("criado", { ascending: false })
+        .limit(2000);
+      
+      if (error) throw error;
+      
+      // Aplicar filtro de projeto se necessário
+      let filteredData = data || [];
+      if (filters.projectId) {
+        filteredData = filteredData.filter(lead => lead.commercial_project_id === filters.projectId);
       }
 
-      console.log(`✅ Processados ${geocodedLeads.length} leads com coordenadas`);
-      return geocodedLeads;
+      // Mapear para formato esperado (sem geocodificação - instantâneo)
+      const leads: LeadMapLocation[] = filteredData.map(lead => ({
+        id: lead.id,
+        name: lead.name || "Sem nome",
+        lat: Number(lead.latitude),
+        lng: Number(lead.longitude),
+        address: lead.address || lead.local_abordagem || "Sem endereço",
+        scouter: lead.scouter || undefined,
+        status: lead.status_fluxo || undefined,
+        projectName: lead.projeto_comercial || undefined,
+      }));
+
+      console.log(`✅ Carregados ${leads.length} leads com coordenadas`);
+      return leads;
     },
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+    gcTime: 10 * 60 * 1000, // Manter em cache por 10 minutos
   });
 
   // Contar scouters ativos no dia a partir do histórico de localização
@@ -407,16 +347,16 @@ function GestaoAreaDeAbordagemContent() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            {leadsLoading ? (
-              <div className="h-[600px] flex items-center justify-center">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Carregando mapa...</p>
-                </div>
+          <CardContent className="relative">
+            {/* Indicador de loading sobreposto */}
+            {(leadsLoading || isFetching) && (
+              <div className="absolute top-2 right-2 z-10 bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
+                <span className="text-xs text-muted-foreground">Carregando leads...</span>
               </div>
-            ) : (
-              <UnifiedAreaMap
+            )}
+            {/* Mapa sempre visível - dados carregam em paralelo */}
+            <UnifiedAreaMap
                 projectId={filters.projectId}
                 dateRange={{
                   startDate: filters.dateFilter.startDate,
@@ -434,7 +374,6 @@ function GestaoAreaDeAbordagemContent() {
                 onDrawModeChange={setDrawMode}
                 onDrawingPointsCountChange={setDrawingPointsCount}
               />
-            )}
           </CardContent>
         </Card>
 
