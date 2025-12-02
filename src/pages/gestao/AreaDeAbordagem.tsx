@@ -341,7 +341,7 @@ function GestaoAreaDeAbordagemContent() {
                           <Pencil className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-2" align="end">
+                      <PopoverContent className="w-auto p-2 z-[500]" align="end">
                         <div className="flex flex-col gap-1">
                           <Button 
                             size="sm" 
