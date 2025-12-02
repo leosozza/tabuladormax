@@ -651,58 +651,45 @@ function GestaoLeadsContent({
     }
     return formattedValue;
   };
-  return <GestaoPageLayout title="Gestão de Leads" actions={<div className={cn("flex gap-2 flex-wrap", searchExpanded && "hidden md:flex")}>
-          <LeadColumnSelector />
-          
-          
-          
-          {selectedLeadIds.size > 0 && <Button onClick={handleStartAnalysis} variant="default" size="sm">
+  return <GestaoPageLayout title="Gestão de Leads" actions={selectedLeadIds.size > 0 ? <Button onClick={handleStartAnalysis} variant="default" size="sm">
               <PlayCircle className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Análise </span>({selectedLeadIds.size})
-            </Button>}
-          
-          <Button onClick={handleExport} variant="outline" size="icon" className="h-8 w-8">
-            <Download className="h-4 w-4" />
-          </Button>
-        </div>}>
+            </Button> : null}>
       <div className="flex flex-col gap-4">
         {/* Busca e Filtros */}
-        <div className="flex gap-2 items-end w-full">
-          {/* Desktop: Barra sempre visível */}
-          <div className="hidden md:flex flex-1 max-w-md">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por nome, ID ou modelo..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
+        <div className="flex gap-2 items-center w-full">
+          {searchExpanded ? (
+            // Barra de busca expandida
+            <div className="flex gap-2 flex-1 animate-in slide-in-from-right-5">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Nome, ID ou modelo..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 pr-9 h-8" autoFocus />
+                {searchTerm && <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="h-4 w-4" />
+                  </button>}
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                setSearchExpanded(false);
+                setSearchTerm("");
+              }}>
+                <X className="h-4 w-4" />
+              </Button>
             </div>
-          </div>
-
-          {/* Mobile: Ícone de lupa que expande */}
-          <div className="flex md:hidden gap-2 items-center flex-1">
-            {!searchExpanded ?
-          // Botão de lupa colapsado
-          <Button variant="outline" size="icon" onClick={() => setSearchExpanded(true)} className="shrink-0">
+          ) : (
+            // Ícones compactos
+            <div className="flex gap-2 items-center">
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSearchExpanded(true)}>
                 <Search className="h-4 w-4" />
-              </Button> :
-          // Barra de busca expandida em mobile
-          <div className="flex gap-2 w-full animate-in slide-in-from-right-5">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Nome, ID ou modelo..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 pr-9" autoFocus />
-                  {searchTerm && <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                      <X className="h-4 w-4" />
-                    </button>}
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => {
-              setSearchExpanded(false);
-              setSearchTerm("");
-            }}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>}
-          </div>
+              </Button>
+              <LeadColumnSelector />
+              <Button onClick={handleExport} variant="outline" size="icon" className="h-8 w-8">
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
 
           {/* Filtros */}
-      <GestaoFiltersComponent filters={filters} onChange={setFilters} searchTerm={searchTerm} />
+          {!searchExpanded && <GestaoFiltersComponent filters={filters} onChange={setFilters} searchTerm={searchTerm} />}
         </div>
 
         {/* Banner do Modo de Seleção */}
