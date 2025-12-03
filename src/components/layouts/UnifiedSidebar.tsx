@@ -1,4 +1,4 @@
-import { Home, Target, DollarSign, Shield, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText } from "lucide-react";
+import { Home, Target, DollarSign, Shield, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText, Headset } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,7 @@ const mainNavItems = [
   { path: "/home-choice", label: "Dashboard Geral", icon: Home },
   { path: "/discador", label: "Discador", icon: Phone },
   { path: "/whatsapp", label: "WhatsApp", icon: MessageSquare },
+  { path: "/telemarketing", label: "Telemarketing", icon: Headset },
   { 
     path: "/scouter", 
     label: "Scouter", 
