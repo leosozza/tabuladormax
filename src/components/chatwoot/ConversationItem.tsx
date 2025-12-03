@@ -16,6 +16,29 @@ interface ConversationItemProps {
   labels?: LabelAssignment[];
 }
 
+// Helper para extrair URL da foto do lead
+function getLeadPhotoUrl(photoUrl: string | null): string | null {
+  if (!photoUrl) return null;
+  
+  try {
+    // Se é um JSON array, extrair primeira foto
+    if (photoUrl.startsWith('[')) {
+      const photos = JSON.parse(photoUrl);
+      if (photos.length > 0 && photos[0].showUrl) {
+        // Adicionar domínio do Bitrix
+        return `https://maxsystem.bitrix24.com.br${photos[0].showUrl}`;
+      }
+    }
+    // Se já é uma URL direta
+    if (photoUrl.startsWith('http')) {
+      return photoUrl;
+    }
+  } catch {
+    // Se falhar o parse, retornar null
+  }
+  return null;
+}
+
 export function ConversationItem({
   conversation,
   selected,
@@ -24,12 +47,15 @@ export function ConversationItem({
   isActive,
   labels = [],
 }: ConversationItemProps) {
-  const initials = conversation.name
+  const initials = conversation.nome_modelo
     .split(' ')
     .map(n => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
+  
+  // Priorizar foto do lead, depois thumbnail do chatwoot
+  const avatarUrl = getLeadPhotoUrl(conversation.photo_url) || conversation.thumbnail;
 
   const timeAgo = conversation.last_message_at
     ? formatDistanceToNow(new Date(conversation.last_message_at), {
@@ -54,7 +80,7 @@ export function ConversationItem({
       />
       
       <Avatar className="h-10 w-10 flex-shrink-0">
-        <AvatarImage src={conversation.thumbnail || undefined} alt={conversation.name} />
+        <AvatarImage src={avatarUrl || undefined} alt={conversation.nome_modelo} />
         <AvatarFallback className="bg-primary/10 text-primary">
           {initials}
         </AvatarFallback>
