@@ -105,9 +105,9 @@ export function useAgentConversations() {
 
   // Filtrar conversas por busca
   const filteredConversations = conversations.filter(conv =>
-    conv.lead_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.responsible.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.phone_number.includes(searchQuery)
+    (conv.lead_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (conv.responsible || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (conv.phone_number || '').includes(searchQuery)
   );
 
   const toggleSelection = (conversationId: number) => {
