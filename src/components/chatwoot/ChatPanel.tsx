@@ -187,18 +187,18 @@ export function ChatPanel({ conversationId, contactName, onBack }: ChatPanelProp
                   <div
                     key={msg.id}
                     className={`flex ${
-                      msg.message_type === 'outgoing' ? 'justify-end' : 'justify-start'
+                      msg.message_type === 1 ? 'justify-end' : 'justify-start'
                     }`}
                   >
                     <div
                       className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                        msg.message_type === 'outgoing'
+                        msg.message_type === 1
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted'
                       }`}
                     >
                       <div className="text-sm font-medium mb-1">
-                        {msg.sender?.name || (msg.message_type === 'outgoing' ? 'Você' : 'Cliente')}
+                        {msg.sender?.name || (msg.message_type === 1 ? 'Você' : 'Cliente')}
                       </div>
                       <div className="whitespace-pre-wrap">{msg.content}</div>
                       {msg.attachments && msg.attachments.length > 0 && (
