@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { useUserCommercialProject } from "@/hooks/useUserCommercialProject";
 
 interface CommercialProject {
   id: string;
@@ -17,26 +18,29 @@ interface CommercialProjectSelectorProps {
 export function CommercialProjectSelector({ value, onChange }: CommercialProjectSelectorProps) {
   const [projects, setProjects] = useState<CommercialProject[]>([]);
   const [loading, setLoading] = useState(true);
+  const { projectId: userProjectId, projectName: userProjectName, isRestricted, loading: loadingUserProject } = useUserCommercialProject();
 
   useEffect(() => {
     loadProjects();
   }, []);
 
+  // Auto-set project for restricted users
+  useEffect(() => {
+    if (!loadingUserProject && isRestricted && userProjectId && value !== userProjectId) {
+      onChange(userProjectId);
+    }
+  }, [loadingUserProject, isRestricted, userProjectId, value, onChange]);
+
   const loadProjects = async () => {
     try {
-      // @ts-ignore - Table exists but types not updated yet
       const { data, error } = await supabase
-        // @ts-ignore
         .from('commercial_projects')
-        // @ts-ignore
         .select('id, name, code')
-        // @ts-ignore
         .eq('active', true)
-        // @ts-ignore
         .order('name');
 
       if (error) throw error;
-      setProjects((data as any) || []);
+      setProjects(data || []);
     } catch (error) {
       console.error('Erro ao carregar projetos:', error);
     } finally {
@@ -44,12 +48,28 @@ export function CommercialProjectSelector({ value, onChange }: CommercialProject
     }
   };
 
-  if (loading) {
+  if (loading || loadingUserProject) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
         Carregando projetos...
       </div>
+    );
+  }
+
+  // If user is restricted, show only their project (locked)
+  if (isRestricted && userProjectId) {
+    return (
+      <Select value={userProjectId} disabled>
+        <SelectTrigger className="w-[300px]">
+          <SelectValue>{userProjectName || 'Meu Projeto'}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={userProjectId}>
+            {userProjectName || 'Meu Projeto'}
+          </SelectItem>
+        </SelectContent>
+      </Select>
     );
   }
 

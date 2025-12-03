@@ -17,6 +17,7 @@ import { AdditionalFilters } from "./AdditionalFilters";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtils";
 import { useGestaoFieldMappings } from "@/hooks/useGestaoFieldMappings";
+import { useUserCommercialProject } from "@/hooks/useUserCommercialProject";
 
 interface GestaoFiltersProps {
   filters: GestaoFilters;
@@ -33,11 +34,31 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   const { data: allFields } = useGestaoFieldMappings();
+  const { projectId: userProjectId, projectName: userProjectName, isRestricted, loading: loadingUserProject } = useUserCommercialProject();
+
+  // Auto-set project for restricted users
+  useEffect(() => {
+    if (!loadingUserProject && isRestricted && userProjectId && filters.projectId !== userProjectId) {
+      onChange({ ...filters, projectId: userProjectId });
+    }
+  }, [loadingUserProject, isRestricted, userProjectId]);
 
   // Buscar projetos comerciais que têm leads no período selecionado usando RPC otimizada
   const { data: projects } = useQuery({
-    queryKey: ["commercial-projects-filtered", filters.dateFilter, filters.scouterId, filters.fonte],
+    queryKey: ["commercial-projects-filtered", filters.dateFilter, filters.scouterId, filters.fonte, isRestricted, userProjectId],
     queryFn: async () => {
+      // If restricted, only show user's project
+      if (isRestricted && userProjectId) {
+        const { data, error } = await supabase
+          .from("commercial_projects")
+          .select("id, name, code")
+          .eq("id", userProjectId)
+          .single();
+        
+        if (error) throw error;
+        return data ? [data] : [];
+      }
+
       // Usar RPC para buscar IDs únicos de projetos de forma eficiente
       const rpcParams: Record<string, string | null> = {
         p_start_date: filters.dateFilter.preset !== 'all' ? filters.dateFilter.startDate.toISOString() : null,
@@ -65,6 +86,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
       if (error) throw error;
       return data;
     },
+    enabled: !loadingUserProject,
   });
 
   // Buscar scouters únicos que têm leads no período selecionado e no projeto selecionado
@@ -363,12 +385,13 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
                   onValueChange={(value) => 
                     onChange({ ...filters, projectId: value === "all" ? null : value })
                   }
+                  disabled={isRestricted}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Todos os projetos" />
+                    <SelectValue placeholder={isRestricted ? userProjectName || "Meu Projeto" : "Todos os projetos"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos os projetos</SelectItem>
+                    {!isRestricted && <SelectItem value="all">Todos os projetos</SelectItem>}
                     {projects?.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
@@ -567,12 +590,13 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
           onValueChange={(value) => 
             onChange({ ...filters, projectId: value === "all" ? null : value })
           }
+          disabled={isRestricted}
         >
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Todos os projetos" />
+            <SelectValue placeholder={isRestricted ? userProjectName || "Meu Projeto" : "Todos os projetos"} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os projetos</SelectItem>
+            {!isRestricted && <SelectItem value="all">Todos os projetos</SelectItem>}
             {projects?.map((project) => (
               <SelectItem key={project.id} value={project.id}>
                 {project.name}
