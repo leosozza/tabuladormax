@@ -7,7 +7,8 @@ export interface AgentConversation {
   conversation_id: number;
   contact_id: number;
   lead_id: number;
-  name: string;
+  responsible: string;
+  lead_name: string;
   nome_modelo: string;
   phone_number: string;
   thumbnail: string | null;
@@ -81,8 +82,9 @@ export function useAgentConversations() {
               conversation_id: lead.conversation_id,
               contact_id: contact.contact_id || 0,
               lead_id: lead.id,
-              name: lead.responsible || lead.name || 'Sem responsável',
-              nome_modelo: lead.nome_modelo || lead.name || 'Sem modelo',
+              responsible: lead.responsible || 'Sem responsável',
+              lead_name: lead.name || 'Sem nome',
+              nome_modelo: lead.nome_modelo || '',
               phone_number: phoneNumber,
               thumbnail: contact.thumbnail,
               photo_url: lead.photo_url || null,
@@ -103,7 +105,8 @@ export function useAgentConversations() {
 
   // Filtrar conversas por busca
   const filteredConversations = conversations.filter(conv =>
-    conv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conv.lead_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conv.responsible.toLowerCase().includes(searchQuery.toLowerCase()) ||
     conv.phone_number.includes(searchQuery)
   );
 

@@ -48,7 +48,7 @@ export function ConversationItem({
   isActive,
   labels = [],
 }: ConversationItemProps) {
-  const initials = conversation.nome_modelo
+  const initials = conversation.lead_name
     .split(' ')
     .map(n => n[0])
     .join('')
@@ -93,11 +93,11 @@ export function ConversationItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <h4 className="font-medium text-sm truncate">
-            <span className="text-muted-foreground">Resp:</span>{' '}
-            <span className="font-bold">{conversation.name}</span>
+            <span className="text-muted-foreground">Nome:</span>{' '}
+            <span className="font-bold">{conversation.lead_name}</span>
             {' - '}
-            <span className="text-muted-foreground">Modelo:</span>{' '}
-            <span>{conversation.nome_modelo}</span>
+            <span className="text-muted-foreground">Resp:</span>{' '}
+            <span>{conversation.responsible}</span>
           </h4>
           <span className="text-xs text-muted-foreground whitespace-nowrap">
             {timeAgo}
