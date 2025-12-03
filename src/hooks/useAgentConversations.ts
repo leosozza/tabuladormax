@@ -11,6 +11,7 @@ export interface AgentConversation {
   nome_modelo: string;
   phone_number: string;
   thumbnail: string | null;
+  photo_url: string | null;
   last_message_at: string | null;
   bitrix_id: string;
   commercial_project_id: string | null;
@@ -33,6 +34,8 @@ export function useAgentConversations() {
           id,
           name,
           nome_modelo,
+          responsible,
+          photo_url,
           conversation_id,
           contact_id,
           commercial_project_id,
@@ -73,10 +76,11 @@ export function useAgentConversations() {
               conversation_id: lead.conversation_id,
               contact_id: contact.contact_id || 0,
               lead_id: lead.id,
-              name: lead.name || 'Sem responsável',
-              nome_modelo: lead.nome_modelo || 'Sem modelo',
+              name: lead.responsible || lead.name || 'Sem responsável',
+              nome_modelo: lead.nome_modelo || lead.name || 'Sem modelo',
               phone_number: phoneNumber,
               thumbnail: contact.thumbnail,
+              photo_url: lead.photo_url || null,
               last_message_at: contact.last_message_at || null,
               bitrix_id: contact.bitrix_id,
               commercial_project_id: lead.commercial_project_id,
