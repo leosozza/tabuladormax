@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -22,7 +22,9 @@ import {
   Database,
   MessageSquare,
   Smartphone,
+  Loader2,
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AdminAccessModalProps {
   open: boolean;
@@ -121,6 +123,47 @@ export const AdminAccessModal: React.FC<AdminAccessModalProps> = ({
   onOpenChange,
 }) => {
   const navigate = useNavigate();
+  const [filteredOptions, setFilteredOptions] = useState<typeof adminOptions>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkPermissions = async () => {
+      if (!open) return;
+      
+      setLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setFilteredOptions([]);
+          return;
+        }
+
+        // Verificar permissão para cada rota em paralelo
+        const permissionChecks = await Promise.all(
+          adminOptions.map(async (option) => {
+            const { data: canAccess } = await supabase.rpc('can_access_route' as any, {
+              _user_id: user.id,
+              _route_path: option.path,
+            });
+            return { option, canAccess: canAccess === true };
+          })
+        );
+
+        const allowed = permissionChecks
+          .filter(({ canAccess }) => canAccess)
+          .map(({ option }) => option);
+
+        setFilteredOptions(allowed);
+      } catch (error) {
+        console.error('Erro ao verificar permissões:', error);
+        setFilteredOptions([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkPermissions();
+  }, [open]);
 
   const handleNavigate = (path: string) => {
     navigate(path);
@@ -139,34 +182,44 @@ export const AdminAccessModal: React.FC<AdminAccessModalProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-          {adminOptions.map((option) => {
-            const Icon = option.icon;
-            return (
-              <Card
-                key={option.path}
-                className="cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-primary/50 group"
-                onClick={() => handleNavigate(option.path)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-lg ${option.color} group-hover:scale-110 transition-transform`}>
-                      <Icon className="w-5 h-5" />
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : filteredOptions.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            Nenhuma opção administrativa disponível para seu perfil.
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            {filteredOptions.map((option) => {
+              const Icon = option.icon;
+              return (
+                <Card
+                  key={option.path}
+                  className="cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-primary/50 group"
+                  onClick={() => handleNavigate(option.path)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2.5 rounded-lg ${option.color} group-hover:scale-110 transition-transform`}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base">{option.title}</CardTitle>
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle className="text-base">{option.title}</CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <CardDescription className="text-xs">
-                    {option.description}
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <CardDescription className="text-xs">
+                      {option.description}
+                    </CardDescription>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
