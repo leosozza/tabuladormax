@@ -1176,10 +1176,8 @@ const PreCadastro = () => {
                 <FormField id="corOlhos" label="Cor dos Olhos" type="select" value={leadData.corOlhos} onChange={v => handleFieldChange("corOlhos", v)} options={COR_OLHOS_OPTIONS} />
                 <FormField id="tipoCabelo" label="Tipo de Cabelo" type="select" value={leadData.tipoCabelo} onChange={v => handleFieldChange("tipoCabelo", v)} options={TIPO_CABELO_OPTIONS} />
                 <FormField id="tamanhoSapato" label="Tamanho de Sapato" type="select" value={leadData.tamanhoSapato} onChange={v => handleFieldChange("tamanhoSapato", v)} options={tamanhoSapato} />
-                <FormField id="estadoCivil" label="Estado Civil" type="select" value={leadData.estadoCivil} onChange={v => handleFieldChange("estadoCivil", v)} options={ESTADO_CIVIL_OPTIONS} />
                 <FormField id="cidade" label="Cidade" value={leadData.cidade} onChange={v => handleFieldChange("cidade", v)} />
                 <FormField id="estado" label="Estado" type="select" value={leadData.estado} onChange={v => handleFieldChange("estado", v)} options={estadosBrasileiros} />
-                <FormField id="tipoModelo" label="Tipo de Modelo" type="select" value={leadData.tipoModelo} onChange={v => handleFieldChange("tipoModelo", v)} options={TIPO_MODELO_OPTIONS} />
               </div>
             </FormSection>
 
@@ -1190,6 +1188,7 @@ const PreCadastro = () => {
               </p>
               
               <div className="space-y-4">
+                <FormField id="tipoModelo" label="Tipo de Modelo" type="select" value={leadData.tipoModelo} onChange={v => handleFieldChange("tipoModelo", v)} options={TIPO_MODELO_OPTIONS} />
                 <MultiSelect id="habilidades" label="Habilidades" value={leadData.habilidades} onChange={v => handleFieldChange("habilidades", v)} options={HABILIDADES_OPTIONS} />
                 <MultiSelect id="cursos" label="Cursos" value={leadData.cursos} onChange={v => handleFieldChange("cursos", v)} options={CURSOS_OPTIONS} />
                 <MultiSelect id="caracteristicasEspeciais" label="Características Especiais" value={leadData.caracteristicasEspeciais} onChange={v => handleFieldChange("caracteristicasEspeciais", v)} options={CARACTERISTICAS_OPTIONS} />
@@ -1215,6 +1214,7 @@ const PreCadastro = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField id="nomeResponsavel" label="Nome do Responsável Legal" value={leadData.nomeResponsavel} onChange={v => handleFieldChange("nomeResponsavel", v)} required />
+                <FormField id="estadoCivil" label="Estado Civil" type="select" value={leadData.estadoCivil} onChange={v => handleFieldChange("estadoCivil", v)} options={ESTADO_CIVIL_OPTIONS} />
                 <div className="flex gap-2 items-end">
                   <FormField id="telefone" label="Telefone Principal" type="tel" value={leadData.telefone} onChange={v => handleFieldChange("telefone", v)} required disabled={!!leadId && !phoneEditable} />
                   {leadId && !phoneEditable && <Button type="button" variant="outline" size="sm" onClick={() => setPhoneEditable(true)} className="mb-1">
