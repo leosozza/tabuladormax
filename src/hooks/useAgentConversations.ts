@@ -8,6 +8,7 @@ export interface AgentConversation {
   contact_id: number;
   lead_id: number;
   name: string;
+  nome_modelo: string;
   phone_number: string;
   thumbnail: string | null;
   last_message_at: string | null;
@@ -31,6 +32,7 @@ export function useAgentConversations() {
         .select(`
           id,
           name,
+          nome_modelo,
           conversation_id,
           contact_id,
           commercial_project_id,
@@ -71,7 +73,8 @@ export function useAgentConversations() {
               conversation_id: lead.conversation_id,
               contact_id: contact.contact_id || 0,
               lead_id: lead.id,
-              name: contact.name || lead.name || 'Sem nome',
+              name: lead.name || 'Sem responsável',
+              nome_modelo: lead.nome_modelo || 'Sem modelo',
               phone_number: phoneNumber,
               thumbnail: contact.thumbnail,
               last_message_at: contact.last_message_at || null,
