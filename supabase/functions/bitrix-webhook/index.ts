@@ -194,6 +194,28 @@ const parseBrazilianDate = (dateStr: string | null | undefined): string | null =
   }
 };
 
+/**
+ * Parseia coordenadas de geolocalização do Bitrix
+ * Formato: "lat,lng|;|timestamp" (ex: "-25.4319729,-49.2736954|;|38688")
+ */
+function parseGeoLocation(geoString: string | undefined | null): { lat: number; lng: number } | null {
+  if (!geoString || geoString.includes('undefined')) return null;
+  
+  const parts = String(geoString).split('|;|');
+  if (parts.length < 1) return null;
+  
+  const coords = parts[0].split(',');
+  if (coords.length !== 2) return null;
+  
+  const lat = parseFloat(coords[0]);
+  const lng = parseFloat(coords[1]);
+  
+  if (isNaN(lat) || isNaN(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  
+  return { lat, lng };
+}
+
 // ✅ FASE 2: Função melhorada com logs diagnósticos detalhados
 async function resolveSpaEntityName(
   supabase: any,
@@ -571,6 +593,19 @@ serve(async (req) => {
       console.log(`✅ DATE_CLOSED extraído: ${lead.DATE_CLOSED}`);
     }
 
+    // ✅ EXTRAIR COORDENADAS DO CAMPO DE GEOLOCALIZAÇÃO (UF_CRM_1732642248585)
+    const geoField = lead['UF_CRM_1732642248585'];
+    const coordinates = parseGeoLocation(geoField);
+
+    if (coordinates) {
+      leadData.latitude = coordinates.lat;
+      leadData.longitude = coordinates.lng;
+      leadData.geocoded_at = new Date().toISOString();
+      console.log(`📍 Coordenadas extraídas: ${coordinates.lat}, ${coordinates.lng}`);
+    } else if (geoField) {
+      console.warn(`⚠️ Geolocalização presente mas inválida: "${geoField}"`);
+    }
+
     // Agrupar mapeamentos por campo de destino
     const mappingsByField = (fieldMappings || []).reduce((acc: Record<string, any[]>, mapping: any) => {
       if (!acc[mapping.supabase_field]) {
@@ -704,6 +739,28 @@ serve(async (req) => {
         priority: 900,
         display_name: 'Telemarketing',
         bitrix_field_type: 'crm_entity'
+      });
+    }
+
+    // ✅ Registrar coordenadas no appliedMappings (se foram extraídas)
+    if (coordinates) {
+      appliedMappings.push({
+        bitrix_field: 'UF_CRM_1732642248585',
+        supabase_field: 'latitude',
+        value: coordinates.lat,
+        transformed: true,
+        transform_function: 'parseGeoLocation',
+        priority: 850,
+        display_name: 'Latitude (Geolocalização)'
+      });
+      appliedMappings.push({
+        bitrix_field: 'UF_CRM_1732642248585',
+        supabase_field: 'longitude',
+        value: coordinates.lng,
+        transformed: true,
+        transform_function: 'parseGeoLocation',
+        priority: 850,
+        display_name: 'Longitude (Geolocalização)'
       });
     }
 
