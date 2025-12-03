@@ -62,14 +62,14 @@ export default function ReportFilters({ onApplyFilters, onClearFilters }: Report
     try {
       const { data, error } = await supabase
         .from('leads')
-        .select('fonte')
-        .not('fonte', 'is', null)
-        .order('fonte');
+        .select('fonte_normalizada')
+        .not('fonte_normalizada', 'is', null)
+        .order('fonte_normalizada');
 
       if (error) throw error;
       
       // Extrair valores únicos
-      const uniqueFontes = [...new Set(data?.map(d => d.fonte).filter(Boolean) as string[])];
+      const uniqueFontes = [...new Set(data?.map(d => d.fonte_normalizada).filter(Boolean) as string[])];
       setFontes(uniqueFontes);
     } catch (error) {
       console.error('Erro ao carregar fontes:', error);
