@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Plus, Trash2, Camera, User, Ruler, Instagram as InstagramIcon, Sparkles, Send, MapPin, Loader2, Phone } from "lucide-react";
 import { FormSection } from "@/components/cadastro/FormSection";
@@ -1096,14 +1097,14 @@ const PreCadastro = () => {
             </p>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-2 mt-4 text-xs text-muted-foreground">
-            <span className="font-medium text-primary">1. Fotos</span>
-            <span>•</span>
-            <span>2. Dados do modelo</span>
-            <span>•</span>
-            <span>3. Talentos & redes</span>
-            <span>•</span>
-            <span>4. Responsável & envio</span>
+          <div className="mt-6 max-w-md mx-auto">
+            <Progress value={50} className="h-2 mb-3" />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span className="text-primary font-medium">✓ Fotos</span>
+              <span className="text-primary font-medium">2. Dados</span>
+              <span>3. Talentos</span>
+              <span>4. Envio</span>
+            </div>
           </div>
         </div>
 
