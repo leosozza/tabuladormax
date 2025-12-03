@@ -211,6 +211,8 @@ Deno.serve(async (req) => {
       console.log('📝 Enviando template via Gupshup:', template.element_name);
       console.log('📱 Destinatário:', phoneNumber);
       console.log('📋 Variáveis:', variables);
+      console.log('🔧 Source (número):', gupshupSourceNumber);
+      console.log('🔧 App Name:', gupshupAppName);
 
       // Enviar diretamente para Gupshup API
       const gupshupUrl = 'https://api.gupshup.io/wa/api/v1/template/msg';
