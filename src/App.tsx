@@ -94,9 +94,9 @@ const App = () => (
           <Route path="/hub" element={<ProtectedRoute><HubPanels /></ProtectedRoute>} />
           
           {/* Telemarketing - Connected to 3D solar system planet button */}
-          <Route path="/lead" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />
-          <Route path="/telemarketing" element={<ProtectedRoute><LeadTab /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/lead" element={<ProtectedRoute checkRoutePermission><LeadTab /></ProtectedRoute>} />
+          <Route path="/telemarketing" element={<ProtectedRoute checkRoutePermission><LeadTab /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute checkRoutePermission><Dashboard /></ProtectedRoute>} />
           <Route path="/dashboard-manager" element={<ProtectedRoute><DashboardManager /></ProtectedRoute>} />
           
           {/* Discador Module */}
@@ -145,7 +145,7 @@ const App = () => (
           <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />
           
           <Route path="/scouter/leads" element={<ProtectedRoute><GestaoLeads /></ProtectedRoute>} />
-          <Route path="/whatsapp" element={<ProtectedRoute><WhatsApp /></ProtectedRoute>} />
+          <Route path="/whatsapp" element={<ProtectedRoute checkRoutePermission><WhatsApp /></ProtectedRoute>} />
           <Route path="/scouter/scouters" element={<ProtectedRoute><GestaoScouters /></ProtectedRoute>} />
           <Route path="/scouter/projecao" element={<ProtectedRoute><GestaoProjecao /></ProtectedRoute>} />
           <Route path="/scouter/pagamentos" element={<ProtectedRoute><GestaoPagamentos /></ProtectedRoute>} />
