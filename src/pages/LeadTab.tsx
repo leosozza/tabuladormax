@@ -34,7 +34,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useLeadAnalysis } from "@/hooks/useLeadAnalysis";
 import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
 import { useBitrixEnums } from '@/hooks/useBitrixEnums';
-
 import { LeadSearchProgress } from "@/components/telemarketing/LeadSearchProgress";
 
 // Profile é agora dinâmico, baseado nos field mappings
@@ -260,103 +259,111 @@ const LeadTab = () => {
   const [debugHistory, setDebugHistory] = useState<any[]>([]);
 
   // Query para field mappings
-  const { data: fieldMappings = [], refetch: refetchFieldMappings } = useQuery({
+  const {
+    data: fieldMappings = [],
+    refetch: refetchFieldMappings
+  } = useQuery({
     queryKey: ['profile-field-mappings'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profile_field_mapping')
-        .select('*')
-        .order('sort_order');
-      
+      const {
+        data,
+        error
+      } = await supabase.from('profile_field_mapping').select('*').order('sort_order');
       if (error) throw error;
       return data || [];
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000
   });
 
   // Buscar metadados dos campos Bitrix para identificar enums
-  const { data: bitrixFieldsMetadata } = useQuery({
+  const {
+    data: bitrixFieldsMetadata
+  } = useQuery({
     queryKey: ['bitrix-fields-metadata'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('bitrix_fields_cache')
-        .select('field_id, field_type, field_title, display_name, list_items')
-        .not('field_type', 'is', null);
-      
+      const {
+        data,
+        error
+      } = await supabase.from('bitrix_fields_cache').select('field_id, field_type, field_title, display_name, list_items').not('field_type', 'is', null);
       if (error) throw error;
       return data || [];
     },
-    staleTime: 10 * 60 * 1000,
+    staleTime: 10 * 60 * 1000
   });
 
   // Buscar mapeamentos supabase → bitrix da unified_field_config
-  const { data: unifiedFieldMappings } = useQuery({
+  const {
+    data: unifiedFieldMappings
+  } = useQuery({
     queryKey: ['unified-field-mappings'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('unified_field_config')
-        .select('supabase_field, bitrix_field, bitrix_field_type')
-        .not('bitrix_field', 'is', null)
-        .not('bitrix_field_type', 'is', null);
-      
+      const {
+        data,
+        error
+      } = await supabase.from('unified_field_config').select('supabase_field, bitrix_field, bitrix_field_type').not('bitrix_field', 'is', null).not('bitrix_field_type', 'is', null);
       if (error) throw error;
       return data || [];
     },
-    staleTime: 10 * 60 * 1000,
+    staleTime: 10 * 60 * 1000
   });
 
   // Preparar requests de enum para resolver
   const enumRequests = useMemo(() => {
     if (!fieldMappings || !profile || !bitrixFieldsMetadata || !unifiedFieldMappings) return [];
-    
-    const requests: Array<{ bitrixField: string; value: unknown; bitrixFieldType?: string }> = [];
-    
+    const requests: Array<{
+      bitrixField: string;
+      value: unknown;
+      bitrixFieldType?: string;
+    }> = [];
+
     // Mapeamento profile_field → supabase_field (baseado em mapSupabaseLeadToProfile)
     const profileToSupabaseMap: Record<string, string> = {
-      'custom_1760116868521': 'etapa',           // Última tabulação
-      'custom_1760018636938': 'id',              // ID Bitrix
-      'responsible': 'nome_responsavel_legal',   // Responsável
-      'name': 'nome_modelo',                     // Nome
-      'age': 'age',                              // Idade
-      'scouter': 'scouter',                      // Scouter
-      'custom_1759958661434': 'celular',         // Telefone
-      'address': 'local_abordagem',              // Endereço
-      'custom_1760109345668': 'date_modify',     // Data da última tabulação
-      'custom_1760376794807': 'telemarketing'    // Agente
+      'custom_1760116868521': 'etapa',
+      // Última tabulação
+      'custom_1760018636938': 'id',
+      // ID Bitrix
+      'responsible': 'nome_responsavel_legal',
+      // Responsável
+      'name': 'nome_modelo',
+      // Nome
+      'age': 'age',
+      // Idade
+      'scouter': 'scouter',
+      // Scouter
+      'custom_1759958661434': 'celular',
+      // Telefone
+      'address': 'local_abordagem',
+      // Endereço
+      'custom_1760109345668': 'date_modify',
+      // Data da última tabulação
+      'custom_1760376794807': 'telemarketing' // Agente
     };
-    
     fieldMappings.forEach(mapping => {
       const value = (profile as any)[mapping.profile_field];
       if (!value || value === '—') return;
-      
+
       // Ponte: profile_field → supabase_field → bitrix_field
       const supabaseField = profileToSupabaseMap[mapping.profile_field];
       if (!supabaseField) return;
-      
-      const unifiedMapping = unifiedFieldMappings.find(
-        um => um.supabase_field === supabaseField
-      );
-      
+      const unifiedMapping = unifiedFieldMappings.find(um => um.supabase_field === supabaseField);
       if (!unifiedMapping) return;
-      
+
       // Verificar se é enum/crm_status
-      if (unifiedMapping.bitrix_field_type === 'crm_status' || 
-          unifiedMapping.bitrix_field_type === 'enumeration') {
-        
+      if (unifiedMapping.bitrix_field_type === 'crm_status' || unifiedMapping.bitrix_field_type === 'enumeration') {
         requests.push({
           bitrixField: unifiedMapping.bitrix_field,
           value: value,
-          bitrixFieldType: unifiedMapping.bitrix_field_type,
+          bitrixFieldType: unifiedMapping.bitrix_field_type
         });
       }
     });
-    
     return requests;
   }, [fieldMappings, profile, bitrixFieldsMetadata, unifiedFieldMappings]);
 
   // Resolver valores de enum
-  const { getResolution } = useBitrixEnums(enumRequests);
-
+  const {
+    getResolution
+  } = useBitrixEnums(enumRequests);
   const checkUserRole = async () => {
     try {
       const {
@@ -476,26 +483,35 @@ const LeadTab = () => {
       if (!silent) toast.error("Digite um ID válido");
       return;
     }
-
     const startTime = Date.now();
-    const steps: typeof searchSteps = [
-      { name: 'Cache', status: 'pending', message: 'Verificando cache de buscas...' },
-      { name: 'Supabase', status: 'pending', message: 'Buscando no banco de dados...' },
-      { name: 'Bitrix', status: 'pending', message: 'Buscando na API externa...' },
-    ];
-
+    const steps: typeof searchSteps = [{
+      name: 'Cache',
+      status: 'pending',
+      message: 'Verificando cache de buscas...'
+    }, {
+      name: 'Supabase',
+      status: 'pending',
+      message: 'Buscando no banco de dados...'
+    }, {
+      name: 'Bitrix',
+      status: 'pending',
+      message: 'Buscando na API externa...'
+    }];
     setSearchSteps(steps);
     setShowSearchProgress(true);
     setSearchLoading(true);
-
     const updateStep = (index: number, status: typeof steps[0]['status'], message?: string, duration?: number) => {
       setSearchSteps(prev => {
         const updated = [...prev];
-        updated[index] = { ...updated[index], status, message: message || updated[index].message, duration };
+        updated[index] = {
+          ...updated[index],
+          status,
+          message: message || updated[index].message,
+          duration
+        };
         return updated;
       });
     };
-
     const logSearch = async (source: string, found: boolean, errorMsg?: string) => {
       try {
         await supabase.from('actions_log').insert({
@@ -515,31 +531,23 @@ const LeadTab = () => {
         console.error('Erro ao registrar log:', err);
       }
     };
-
     try {
       // 🔍 PASSO 1: Verificar cache de buscas (evitar buscas repetidas)
       if (!forceBitrix) {
         updateStep(0, 'loading');
         const cacheStart = Date.now();
-
-        const { data: cached } = await supabase
-          .from('lead_search_cache')
-          .select('*')
-          .eq('lead_id', Number(bitrixId))
-          .gte('last_search', new Date(Date.now() - 3600000).toISOString()) // 1 hora
-          .maybeSingle();
-
+        const {
+          data: cached
+        } = await supabase.from('lead_search_cache').select('*').eq('lead_id', Number(bitrixId)).gte('last_search', new Date(Date.now() - 3600000).toISOString()) // 1 hora
+        .maybeSingle();
         const cacheDuration = Date.now() - cacheStart;
-
         if (cached) {
           if (!cached.found) {
             updateStep(0, 'success', `Cache negativo encontrado (${(cacheDuration / 1000).toFixed(2)}s)`, cacheDuration);
             updateStep(1, 'error', 'Pulado devido ao cache');
             updateStep(2, 'error', 'Lead não existe');
-            
             toast.error(`Lead ${bitrixId} não encontrado (cache)`);
             await logSearch('cache', false, cached.error_message || 'Lead não existe');
-            
             setTimeout(() => setShowSearchProgress(false), 3000);
             setSearchModal(false);
             setSearchId("");
@@ -558,27 +566,21 @@ const LeadTab = () => {
       if (!forceBitrix) {
         updateStep(1, 'loading');
         const supabaseStart = Date.now();
-
-        const { data: supabaseLead, error: supabaseError } = await supabase
-          .from('leads')
-          .select('*')
-          .eq('id', Number(bitrixId))
-          .maybeSingle();
-
+        const {
+          data: supabaseLead,
+          error: supabaseError
+        } = await supabase.from('leads').select('*').eq('id', Number(bitrixId)).maybeSingle();
         const supabaseDuration = Date.now() - supabaseStart;
-
         if (supabaseError) {
           console.error("Erro ao buscar no Supabase:", supabaseError);
           updateStep(1, 'error', `Erro: ${supabaseError.message}`, supabaseDuration);
         } else if (supabaseLead) {
           updateStep(1, 'success', `Lead encontrado (${(supabaseDuration / 1000).toFixed(2)}s)`, supabaseDuration);
           updateStep(2, 'success', 'Não necessário', 0);
-
           const newProfile = mapSupabaseLeadToProfile(supabaseLead);
-          
+
           // Verificar telefone
           const hasPhone = supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa;
-          
           if (!hasPhone) {
             try {
               const bitrixLead = await getLead(bitrixId);
@@ -586,26 +588,28 @@ const LeadTab = () => {
               if (Array.isArray(phones) && phones.length > 0) {
                 const phoneNumber = phones[0].VALUE || '';
                 newProfile['custom_1759958661434'] = phoneNumber;
-                await supabase.from('leads').update({ celular: phoneNumber }).eq('id', Number(bitrixId));
+                await supabase.from('leads').update({
+                  celular: phoneNumber
+                }).eq('id', Number(bitrixId));
               }
             } catch (bitrixError) {
               console.error("Erro ao buscar telefone no Bitrix:", bitrixError);
             }
           }
-          
           setProfile(newProfile);
-
           let contactData = {
             bitrix_id: bitrixId,
             name: supabaseLead.name || '',
             phone_number: supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa || '',
             thumbnail: supabaseLead.photo_url || '',
-            custom_attributes: { idbitrix: bitrixId },
+            custom_attributes: {
+              idbitrix: bitrixId
+            },
             additional_attributes: {},
             conversation_id: supabaseLead.conversation_id || null,
             contact_id: supabaseLead.contact_id || null
           };
-          
+
           // === BUSCA INTELIGENTE MULTI-FONTE ===
           const chatwootStepIndex = 3;
           let conversationId = supabaseLead.conversation_id;
@@ -618,7 +622,7 @@ const LeadTab = () => {
               setBitrixOpenLineData(bitrixData);
               updateStep(chatwootStepIndex, 'success', `✅ Sessão Bitrix OpenLine encontrada (#${bitrixData.sessionId})`, 0);
               console.log('✅ Conversa Bitrix OpenLine encontrada:', bitrixData);
-              
+
               // ✅ Continuar buscando Chatwoot mesmo com Bitrix OpenLine
             }
           }
@@ -633,13 +637,10 @@ const LeadTab = () => {
               return 'not_found';
             }
             // Fallback para códigos de status antigos
-            if (error?.message?.includes('404') || 
-                error?.message?.includes('não encontrada') ||
-                data?.error?.includes('não encontrad')) {
+            if (error?.message?.includes('404') || error?.message?.includes('não encontrada') || data?.error?.includes('não encontrad')) {
               return 'not_found';
             }
-            if (error?.message?.includes('501') || 
-                data?.error?.includes('desabilitada')) {
+            if (error?.message?.includes('501') || data?.error?.includes('desabilitada')) {
               return 'disabled';
             }
             return 'error';
@@ -653,28 +654,30 @@ const LeadTab = () => {
             source = 'supabase (cached)';
             updateStep(chatwootStepIndex, 'loading', `Carregando conversa #${conversationId}...`);
             const start = Date.now();
-            
             try {
-              const { data, error } = await supabase.functions.invoke(
-                'chatwoot-get-conversation',
-                { body: { conversation_id: conversationId } }
-              );
-              
+              const {
+                data,
+                error
+              } = await supabase.functions.invoke('chatwoot-get-conversation', {
+                body: {
+                  conversation_id: conversationId
+                }
+              });
               const result = classifyResponse(error, data);
               const duration = Date.now() - start;
-              
               switch (result) {
                 case 'success':
-                  contactData = { ...contactData, ...data };
+                  contactData = {
+                    ...contactData,
+                    ...data
+                  };
                   updateStep(chatwootStepIndex, 'success', `✅ Conversa #${conversationId}`, duration);
                   console.log(`✅ [Estratégia 2] Conversa carregada`);
                   break;
-                  
                 case 'not_found':
                   conversationId = null;
                   console.info(`ℹ️ [Estratégia 2] Conversa #${conversationId} não existe mais, tentando outras fontes`);
                   break;
-                  
                 case 'error':
                   conversationId = null;
                   console.warn(`⚠️ [Estratégia 2] Erro técnico:`, error);
@@ -688,26 +691,28 @@ const LeadTab = () => {
           // === ESTRATÉGIA 3: IDs do Chatwoot armazenados no Bitrix ===
           else if (supabaseLead.raw) {
             const chatwootIds = extractChatwootIdsFromBitrix(supabaseLead.raw);
-            
             if (chatwootIds?.conversation_id) {
               updateStep(chatwootStepIndex, 'loading', `Buscando conversa #${chatwootIds.conversation_id} (extraída do Bitrix)...`);
               const start = Date.now();
-              
               try {
-                const { data, error } = await supabase.functions.invoke(
-                  'chatwoot-get-conversation',
-                  { body: { conversation_id: chatwootIds.conversation_id } }
-                );
-                
+                const {
+                  data,
+                  error
+                } = await supabase.functions.invoke('chatwoot-get-conversation', {
+                  body: {
+                    conversation_id: chatwootIds.conversation_id
+                  }
+                });
                 if (data && !error) {
                   // Salvar no Supabase
                   await supabase.from('leads').update({
                     conversation_id: data.conversation_id,
                     contact_id: data.contact_id
                   }).eq('id', Number(bitrixId));
-                  
-                  contactData = { ...contactData, ...data };
-                  
+                  contactData = {
+                    ...contactData,
+                    ...data
+                  };
                   updateStep(chatwootStepIndex, 'success', `✅ Conversa #${data.conversation_id} encontrada (Bitrix → Chatwoot)`, Date.now() - start);
                   conversationId = data.conversation_id;
                   source = 'bitrix custom fields';
@@ -720,22 +725,25 @@ const LeadTab = () => {
             } else if (chatwootIds?.contact_id) {
               updateStep(chatwootStepIndex, 'loading', `Buscando por contact_id #${chatwootIds.contact_id}...`);
               const start = Date.now();
-              
               try {
-                const { data, error } = await supabase.functions.invoke(
-                  'chatwoot-get-conversation',
-                  { body: { contact_id: chatwootIds.contact_id } }
-                );
-                
+                const {
+                  data,
+                  error
+                } = await supabase.functions.invoke('chatwoot-get-conversation', {
+                  body: {
+                    contact_id: chatwootIds.contact_id
+                  }
+                });
                 if (data && !error) {
                   // Salvar no Supabase
                   await supabase.from('leads').update({
                     conversation_id: data.conversation_id,
                     contact_id: data.contact_id
                   }).eq('id', Number(bitrixId));
-                  
-                  contactData = { ...contactData, ...data };
-                  
+                  contactData = {
+                    ...contactData,
+                    ...data
+                  };
                   updateStep(chatwootStepIndex, 'success', `✅ Conversa encontrada por contact_id (Bitrix)`, Date.now() - start);
                   conversationId = data.conversation_id;
                   source = 'bitrix contact_id';
@@ -747,31 +755,33 @@ const LeadTab = () => {
               }
             }
           }
-          
+
           // === ESTRATÉGIA 4: Buscar por telefone no Chatwoot ===
           if (!conversationId) {
             const telefone = supabaseLead.celular || supabaseLead.telefone_trabalho;
-            
             if (telefone) {
               updateStep(chatwootStepIndex, 'loading', `Buscando por telefone ${telefone}...`);
               const start = Date.now();
-              
               try {
-                const { data, error } = await supabase.functions.invoke(
-                  'chatwoot-get-conversation',
-                  { body: { phone_number: telefone } }
-                );
-                
+                const {
+                  data,
+                  error
+                } = await supabase.functions.invoke('chatwoot-get-conversation', {
+                  body: {
+                    phone_number: telefone
+                  }
+                });
                 const result = classifyResponse(error, data);
                 const duration = Date.now() - start;
-                
                 if (result === 'success') {
                   await supabase.from('leads').update({
                     conversation_id: data.conversation_id,
                     contact_id: data.contact_id
                   }).eq('id', Number(bitrixId));
-                  
-                  contactData = { ...contactData, ...data };
+                  contactData = {
+                    ...contactData,
+                    ...data
+                  };
                   conversationId = data.conversation_id;
                   updateStep(chatwootStepIndex, 'success', `✅ Encontrado por telefone`, duration);
                   console.log(`✅ [Estratégia 4] Conversa encontrada`);
@@ -784,26 +794,26 @@ const LeadTab = () => {
               }
             }
           }
-          
+
           // === ESTRATÉGIA 5 (antiga): Buscar no OpenLine (Bitrix IM) ===
           if (!conversationId && supabaseLead.raw) {
             updateStep(chatwootStepIndex, 'loading', 'Buscando no OpenLine (Bitrix IM)...');
             const chatwootStart = Date.now();
-            
             conversationId = extractConversationFromOpenLine(supabaseLead.raw);
-            
             if (conversationId) {
               source = 'bitrix openline';
               updateStep(chatwootStepIndex, 'loading', `ID encontrado no OpenLine (${conversationId}), buscando detalhes...`);
-              
               try {
-                const { data: chatwootData, error: chatwootError } = await supabase.functions.invoke(
-                  'chatwoot-get-conversation',
-                  { body: { conversation_id: conversationId } }
-                );
-                
+                const {
+                  data: chatwootData,
+                  error: chatwootError
+                } = await supabase.functions.invoke('chatwoot-get-conversation', {
+                  body: {
+                    conversation_id: conversationId
+                  }
+                });
                 const duration = Date.now() - chatwootStart;
-                
+
                 // Sucesso
                 if (chatwootData && !chatwootError) {
                   // Salvar conversation_id no Supabase
@@ -811,7 +821,7 @@ const LeadTab = () => {
                     conversation_id: chatwootData.conversation_id,
                     contact_id: chatwootData.contact_id
                   }).eq('id', Number(bitrixId));
-                  
+
                   // Atualizar contactData
                   contactData = {
                     ...contactData,
@@ -820,16 +830,18 @@ const LeadTab = () => {
                     name: chatwootData.name || contactData.name,
                     phone_number: chatwootData.phone_number || contactData.phone_number,
                     thumbnail: chatwootData.thumbnail || contactData.thumbnail,
-                    custom_attributes: { ...contactData.custom_attributes, ...chatwootData.custom_attributes },
+                    custom_attributes: {
+                      ...contactData.custom_attributes,
+                      ...chatwootData.custom_attributes
+                    },
                     additional_attributes: chatwootData.additional_attributes || {}
                   };
-                  
+
                   // Salvar em chatwoot_contacts
                   await saveChatwootContact(contactData);
-                  
                   updateStep(chatwootStepIndex, 'success', `✅ Conversa encontrada (OpenLine)`, duration);
                   console.log(`✅ Conversa carregada via ${source}: ${conversationId}`);
-                } 
+                }
                 // Erro 404 - Conversa não existe (normal, não bloqueia)
                 else if (chatwootError?.message?.includes('404') || chatwootData?.error?.includes('não encontrada')) {
                   updateStep(chatwootStepIndex, 'error', `Conversa ${conversationId} não existe no Chatwoot`, duration);
@@ -855,20 +867,24 @@ const LeadTab = () => {
           if (!conversationId && contactData.phone_number && gupshupAvailable) {
             updateStep(chatwootStepIndex, 'loading', 'Buscando no Gupshup por telefone...');
             const start = Date.now();
-            
             try {
-              const { data, error } = await supabase.functions.invoke(
-                'gupshup-get-conversation',
-                { body: { phone_number: contactData.phone_number } }
-              );
-              
+              const {
+                data,
+                error
+              } = await supabase.functions.invoke('gupshup-get-conversation', {
+                body: {
+                  phone_number: contactData.phone_number
+                }
+              });
               const result = classifyResponse(error, data);
               const duration = Date.now() - start;
-              
               switch (result) {
                 case 'success':
                   conversationId = data.conversation_id;
-                  contactData = { ...contactData, ...data };
+                  contactData = {
+                    ...contactData,
+                    ...data
+                  };
                   await supabase.from('leads').update({
                     conversation_id: data.conversation_id,
                     contact_id: data.contact_id
@@ -878,16 +894,13 @@ const LeadTab = () => {
                   console.log(`✅ Conversa encontrada no Gupshup`);
                   source = 'gupshup';
                   break;
-                  
                 case 'disabled':
                   gupshupAvailable = false;
                   console.info(`ℹ️ Gupshup desabilitado (não tentará novamente)`);
                   break;
-                  
                 case 'not_found':
                   console.info(`ℹ️ Telefone sem conversa no Gupshup`);
                   break;
-                  
                 case 'error':
                   console.warn(`⚠️ Erro ao buscar no Gupshup:`, error);
                   break;
@@ -909,10 +922,9 @@ const LeadTab = () => {
           } else {
             console.log(`✅ Conversa: ${conversationId} (fonte: ${source})`);
           }
-          
           setChatwootData(contactData);
           await logSearch('supabase', true);
-          
+
           // Atualizar cache positivo
           await supabase.from('lead_search_cache').upsert({
             lead_id: Number(bitrixId),
@@ -920,8 +932,9 @@ const LeadTab = () => {
             last_search: new Date().toISOString(),
             source: 'supabase',
             error_message: null
-          }, { onConflict: 'lead_id' });
-
+          }, {
+            onConflict: 'lead_id'
+          });
           toast.success("Lead carregado (Supabase)");
           setTimeout(() => setShowSearchProgress(false), 2000);
           setSearchModal(false);
@@ -938,36 +951,29 @@ const LeadTab = () => {
       // 🔍 PASSO 3: Buscar no Bitrix
       updateStep(2, 'loading');
       const bitrixStart = Date.now();
-
       try {
         const bitrixLead = await getLead(bitrixId);
         const bitrixDuration = Date.now() - bitrixStart;
-        
         updateStep(2, 'success', `Lead encontrado (${(bitrixDuration / 1000).toFixed(2)}s)`, bitrixDuration);
-
         const newProfile = mapBitrixToProfile(bitrixLead, fieldMappings);
         setProfile(newProfile);
-
-        const customAttributes: Record<string, unknown> = { idbitrix: bitrixId };
+        const customAttributes: Record<string, unknown> = {
+          idbitrix: bitrixId
+        };
         fieldMappings.forEach(mapping => {
           const chatwootField = mapping.chatwoot_field;
           const cleanPath = chatwootField.replace('data.contact.', '').replace('contact.', '');
           if (cleanPath.startsWith('custom_attributes.')) {
             const attrKey = cleanPath.replace('custom_attributes.', '');
-            const value = bitrixLead[`UF_CRM_${attrKey.toUpperCase()}`] || 
-                         bitrixLead[`UF_${attrKey.toUpperCase()}`] || 
-                         bitrixLead[attrKey.toUpperCase()] || 
-                         (bitrixLead as any)[attrKey] || '';
+            const value = bitrixLead[`UF_CRM_${attrKey.toUpperCase()}`] || bitrixLead[`UF_${attrKey.toUpperCase()}`] || bitrixLead[attrKey.toUpperCase()] || (bitrixLead as any)[attrKey] || '';
             customAttributes[attrKey] = value;
           }
         });
-
         let phoneNumber = '';
         const phones = bitrixLead.PHONE;
         if (Array.isArray(phones) && phones.length > 0) {
           phoneNumber = phones[0].VALUE || '';
         }
-
         const contactData = {
           bitrix_id: bitrixId,
           name: bitrixLead.NAME || bitrixLead.TITLE || '',
@@ -979,7 +985,6 @@ const LeadTab = () => {
           conversation_id: null,
           contact_id: null
         };
-        
         setChatwootData(contactData);
         await saveChatwootContact(contactData);
 
@@ -998,7 +1003,9 @@ const LeadTab = () => {
           celular: phoneNumber,
           etapa: bitrixLead.STATUS_ID || '',
           telemarketing: bitrixLead.UF_RESPONSAVEL || bitrixLead.ASSIGNED_BY_NAME || ''
-        }], { onConflict: 'id' });
+        }], {
+          onConflict: 'id'
+        });
 
         // Atualizar cache positivo
         await supabase.from('lead_search_cache').upsert({
@@ -1007,22 +1014,18 @@ const LeadTab = () => {
           last_search: new Date().toISOString(),
           source: 'bitrix',
           error_message: null
-        }, { onConflict: 'lead_id' });
-
+        }, {
+          onConflict: 'lead_id'
+        });
         await logSearch('bitrix', true);
         toast.success(forceBitrix ? "Lead atualizado do Bitrix!" : "Lead carregado do Bitrix!");
-        
         setTimeout(() => setShowSearchProgress(false), 2000);
         setSearchModal(false);
         setSearchId("");
       } catch (bitrixError: any) {
         const bitrixDuration = Date.now() - bitrixStart;
         const isNotFound = bitrixError?.status === 404 || bitrixError?.message?.includes('não encontrado');
-        
-        updateStep(2, 'error', 
-          isNotFound ? `Lead não existe (${(bitrixDuration / 1000).toFixed(2)}s)` : `Erro: ${bitrixError.message}`,
-          bitrixDuration
-        );
+        updateStep(2, 'error', isNotFound ? `Lead não existe (${(bitrixDuration / 1000).toFixed(2)}s)` : `Erro: ${bitrixError.message}`, bitrixDuration);
 
         // Salvar cache negativo se for 404
         if (isNotFound) {
@@ -1032,12 +1035,12 @@ const LeadTab = () => {
             last_search: new Date().toISOString(),
             source: 'bitrix',
             error_message: 'Lead não encontrado no Bitrix'
-          }, { onConflict: 'lead_id' });
+          }, {
+            onConflict: 'lead_id'
+          });
         }
-
         await logSearch('bitrix', false, bitrixError.message);
         toast.error(isNotFound ? `Lead ${bitrixId} não encontrado` : "Erro ao buscar lead no Bitrix");
-        
         setTimeout(() => setShowSearchProgress(false), 3000);
       }
     } catch (error: any) {
@@ -2114,13 +2117,10 @@ const LeadTab = () => {
     executeAction(selectedButton, undefined, scheduleDate, scheduleTime);
     setScheduleModal(false);
   };
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-background border-b px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/home-choice')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          
           <div>
             <h1 className="text-lg font-semibold">Telemarketing</h1>
             <p className="text-sm text-muted-foreground">Tabulação de Leads</p>
@@ -2139,36 +2139,22 @@ const LeadTab = () => {
                 <Edit className="w-3 h-3 md:w-4 md:h-4" />
               </Button>}
             {profile['ID Bitrix'] && profile['ID Bitrix'] !== '—' && <Button variant="outline" size="icon" onClick={() => {
-            const bitrixId = profile['ID Bitrix'];
-            loadLeadById(String(bitrixId), false, true);
-          }} disabled={searchLoading} title="Atualizar do Bitrix" className="h-8 w-8 md:h-10 md:w-10">
+              const bitrixId = profile['ID Bitrix'];
+              loadLeadById(String(bitrixId), false, true);
+            }} disabled={searchLoading} title="Atualizar do Bitrix" className="h-8 w-8 md:h-10 md:w-10">
                 <RefreshCw className={`w-3 h-3 md:w-4 md:h-4 ${searchLoading ? 'animate-spin' : ''}`} />
               </Button>}
-            {(chatwootData?.conversation_id || bitrixOpenLineData) && (
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={() => {
-                  console.log('🔘 [BOTÃO] Click detectado!');
-                  console.log('🔘 [BOTÃO] chatwootData:', chatwootData);
-                  console.log('🔘 [BOTÃO] bitrixOpenLineData:', bitrixOpenLineData);
-                  console.log('🔘 [BOTÃO] Abrindo modal...');
-                  setUnifiedChatOpen(true);
-                }}
-                title={bitrixOpenLineData && chatwootData?.conversation_id ? "Conversas (Bitrix + Chatwoot)" : bitrixOpenLineData ? "Chat Bitrix" : "Chat Chatwoot"}
-                className={`h-8 w-8 md:h-10 md:w-10 ${
-                  bitrixOpenLineData && chatwootData?.conversation_id 
-                    ? 'bg-gradient-to-r from-blue-500 to-green-500 text-white hover:from-blue-600 hover:to-green-600' 
-                    : bitrixOpenLineData 
-                    ? 'bg-blue-500 text-white hover:bg-blue-600'
-                    : 'bg-green-500 text-white hover:bg-green-600'
-                }`}
-              >
+            {(chatwootData?.conversation_id || bitrixOpenLineData) && <Button variant="outline" size="icon" onClick={() => {
+              console.log('🔘 [BOTÃO] Click detectado!');
+              console.log('🔘 [BOTÃO] chatwootData:', chatwootData);
+              console.log('🔘 [BOTÃO] bitrixOpenLineData:', bitrixOpenLineData);
+              console.log('🔘 [BOTÃO] Abrindo modal...');
+              setUnifiedChatOpen(true);
+            }} title={bitrixOpenLineData && chatwootData?.conversation_id ? "Conversas (Bitrix + Chatwoot)" : bitrixOpenLineData ? "Chat Bitrix" : "Chat Chatwoot"} className={`h-8 w-8 md:h-10 md:w-10 ${bitrixOpenLineData && chatwootData?.conversation_id ? 'bg-gradient-to-r from-blue-500 to-green-500 text-white hover:from-blue-600 hover:to-green-600' : bitrixOpenLineData ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-green-500 text-white hover:bg-green-600'}`}>
                 <svg className="w-3 h-3 md:w-4 md:h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
                 </svg>
-              </Button>
-            )}
+              </Button>}
           </div>
             
           {/* Foto do perfil */}
@@ -2176,17 +2162,12 @@ const LeadTab = () => {
             {loadingProfile && <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg z-10 pointer-events-auto">
                 <Loader2 className="w-8 h-8 animate-spin" />
               </div>}
-            <img 
-              src={getProfilePhotoUrl()} 
-              alt={chatwootData?.name || 'Lead'} 
-              className="rounded-lg w-32 h-32 md:w-40 md:h-40 border-4 border-green-500 shadow-lg object-cover pointer-events-auto"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                if (target.src !== noPhotoPlaceholder) {
-                  target.src = noPhotoPlaceholder;
-                }
-              }}
-            />
+            <img src={getProfilePhotoUrl()} alt={chatwootData?.name || 'Lead'} className="rounded-lg w-32 h-32 md:w-40 md:h-40 border-4 border-green-500 shadow-lg object-cover pointer-events-auto" onError={e => {
+              const target = e.target as HTMLImageElement;
+              if (target.src !== noPhotoPlaceholder) {
+                target.src = noPhotoPlaceholder;
+              }
+            }} />
           </div>
 
           {!editMode ? <>
@@ -2195,46 +2176,36 @@ const LeadTab = () => {
               .map(mapping => <p key={mapping.profile_field}>
                       <strong>{mapping.display_name || mapping.profile_field}:</strong>{' '}
                       {(() => {
-                        const rawValue = (profile as any)[mapping.profile_field];
-                        if (!rawValue || rawValue === '—') return '—';
-                        
-                        // Mapeamento profile_field → supabase_field
-                        const profileToSupabaseMap: Record<string, string> = {
-                          'custom_1760116868521': 'etapa',
-                          'custom_1760018636938': 'id',
-                          'responsible': 'nome_responsavel_legal',
-                          'name': 'nome_modelo',
-                          'age': 'age',
-                          'scouter': 'scouter',
-                          'custom_1759958661434': 'celular',
-                          'address': 'local_abordagem',
-                          'custom_1760109345668': 'date_modify',
-                          'custom_1760376794807': 'telemarketing'
-                        };
-                        
-                        const supabaseField = profileToSupabaseMap[mapping.profile_field];
-                        
-                        if (supabaseField && unifiedFieldMappings) {
-                          const unifiedMapping = unifiedFieldMappings.find(
-                            um => um.supabase_field === supabaseField
-                          );
-                          
-                          if (unifiedMapping && 
-                              (unifiedMapping.bitrix_field_type === 'crm_status' || 
-                               unifiedMapping.bitrix_field_type === 'enumeration')) {
-                            const resolution = getResolution(unifiedMapping.bitrix_field, rawValue);
-                            if (resolution) {
-                              return (
-                                <span title={`${resolution.id} (${unifiedMapping.bitrix_field})`}>
+                  const rawValue = (profile as any)[mapping.profile_field];
+                  if (!rawValue || rawValue === '—') return '—';
+
+                  // Mapeamento profile_field → supabase_field
+                  const profileToSupabaseMap: Record<string, string> = {
+                    'custom_1760116868521': 'etapa',
+                    'custom_1760018636938': 'id',
+                    'responsible': 'nome_responsavel_legal',
+                    'name': 'nome_modelo',
+                    'age': 'age',
+                    'scouter': 'scouter',
+                    'custom_1759958661434': 'celular',
+                    'address': 'local_abordagem',
+                    'custom_1760109345668': 'date_modify',
+                    'custom_1760376794807': 'telemarketing'
+                  };
+                  const supabaseField = profileToSupabaseMap[mapping.profile_field];
+                  if (supabaseField && unifiedFieldMappings) {
+                    const unifiedMapping = unifiedFieldMappings.find(um => um.supabase_field === supabaseField);
+                    if (unifiedMapping && (unifiedMapping.bitrix_field_type === 'crm_status' || unifiedMapping.bitrix_field_type === 'enumeration')) {
+                      const resolution = getResolution(unifiedMapping.bitrix_field, rawValue);
+                      if (resolution) {
+                        return <span title={`${resolution.id} (${unifiedMapping.bitrix_field})`}>
                                   {resolution.label}
-                                </span>
-                              );
-                            }
-                          }
-                        }
-                        
-                        return String(rawValue);
-                      })()}
+                                </span>;
+                      }
+                    }
+                  }
+                  return String(rawValue);
+                })()}
                       </p>)}
               </div>
 
@@ -2244,7 +2215,11 @@ const LeadTab = () => {
                       <BarChart3 className="w-3 h-3 md:w-4 md:h-4" />
                       Dashboard
                     </Button>
-                    <Button variant="secondary" onClick={() => navigate('/whatsapp', { state: { from: 'telemarketing' } })} className="flex-1 gap-2 text-xs md:text-sm">
+                    <Button variant="secondary" onClick={() => navigate('/whatsapp', {
+                  state: {
+                    from: 'telemarketing'
+                  }
+                })} className="flex-1 gap-2 text-xs md:text-sm">
                       <MessageSquare className="w-3 h-3 md:w-4 md:h-4" />
                       WhatsApp
                     </Button>
@@ -2263,68 +2238,54 @@ const LeadTab = () => {
                         <Settings className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                         Ver Logs
                       </Button>
-                      {chatwootData?.bitrix_id && (
-                        <Button 
-                          variant="outline" 
-                          onClick={async () => {
-                            // Carregar histórico de buscas
-                            const { data } = await supabase
-                              .from('actions_log')
-                              .select('*')
-                              .eq('lead_id', Number(chatwootData.bitrix_id))
-                              .ilike('action_label', '%Lead Search%')
-                              .order('created_at', { ascending: false })
-                              .limit(10);
-                            
-                            setDebugHistory(data || []);
-                            setShowDebugModal(true);
-                          }}
-                          className="w-full text-xs md:text-sm"
-                        >
+                      {chatwootData?.bitrix_id && <Button variant="outline" onClick={async () => {
+                  // Carregar histórico de buscas
+                  const {
+                    data
+                  } = await supabase.from('actions_log').select('*').eq('lead_id', Number(chatwootData.bitrix_id)).ilike('action_label', '%Lead Search%').order('created_at', {
+                    ascending: false
+                  }).limit(10);
+                  setDebugHistory(data || []);
+                  setShowDebugModal(true);
+                }} className="w-full text-xs md:text-sm">
                           <Search className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                           Debug Busca
-                        </Button>
-                      )}
+                        </Button>}
                     </div>}
               </div>
             </> : <div className="w-full space-y-2 md:space-y-3">
               <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={fieldMappings.filter(mapping => !mapping.is_profile_photo).map(m => m.id || m.profile_field)} strategy={verticalListSortingStrategy}>
                   {fieldMappings.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).filter(mapping => !mapping.is_profile_photo).map(mapping => {
-                const SortableFieldInput = () => {
-                  const {
-                    attributes,
-                    listeners,
-                    setNodeRef,
-                    transform,
-                    transition
-                  } = useSortable({
-                    id: mapping.id || mapping.profile_field
-                  });
-                  const style = {
-                    transform: CSS.Transform.toString(transform),
-                    transition
-                  };
-                  return <div ref={setNodeRef} style={style} key={mapping.profile_field} className="flex gap-2 items-end">
+                  const SortableFieldInput = () => {
+                    const {
+                      attributes,
+                      listeners,
+                      setNodeRef,
+                      transform,
+                      transition
+                    } = useSortable({
+                      id: mapping.id || mapping.profile_field
+                    });
+                    const style = {
+                      transform: CSS.Transform.toString(transform),
+                      transition
+                    };
+                    return <div ref={setNodeRef} style={style} key={mapping.profile_field} className="flex gap-2 items-end">
                             <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing pb-2">
                               <GripVertical className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                             </div>
                             <div className="flex-1">
                               <Label className="text-xs md:text-sm">{mapping.display_name || mapping.profile_field}</Label>
-                              <Input 
-                                value={String((profile as any)[mapping.profile_field] || '')} 
-                                onChange={e => setProfile({
-                        ...profile,
-                        [mapping.profile_field]: e.target.value
-                      })} 
-                                placeholder={`Digite ${mapping.display_name || mapping.profile_field}`}
-                                className="text-xs md:text-sm"
-                              />
+                              <Input value={String((profile as any)[mapping.profile_field] || '')} onChange={e => setProfile({
+                          ...profile,
+                          [mapping.profile_field]: e.target.value
+                        })} placeholder={`Digite ${mapping.display_name || mapping.profile_field}`} className="text-xs md:text-sm" />
                             </div>
                           </div>;
-                };
-                return <SortableFieldInput key={mapping.profile_field} />;
-              })}
+                  };
+                  return <SortableFieldInput key={mapping.profile_field} />;
+                })}
                 </SortableContext>
               </DndContext>
 
@@ -2384,8 +2345,8 @@ const LeadTab = () => {
           {buttons.length === 0 && !loadingButtons ? <p className="text-xs md:text-sm text-muted-foreground">
               Nenhum botão configurado. Clique em "Configurar Botões" para começar.
             </p> : <div className="space-y-4 md:space-y-6">{BUTTON_CATEGORIES.map(category => {
-            const categoryButtons = buttons.filter(button => button.category === category.id);
-            return <div key={category.id}>
+              const categoryButtons = buttons.filter(button => button.category === category.id);
+              return <div key={category.id}>
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-xs md:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                         {category.label}
@@ -2397,26 +2358,15 @@ const LeadTab = () => {
 
                     {categoryButtons.length === 0 ? <Card className="border-dashed bg-muted/20 p-4 md:p-6 text-xs text-muted-foreground">
                         Nenhuma ação configurada para esta categoria.
-                      </Card> : <div 
-                        className={cn(
-                          "grid gap-2 md:gap-3",
-                          isMobile 
-                            ? "grid-cols-2" 
-                            : buttonColumns === 3 
-                              ? "grid-cols-2 sm:grid-cols-3" 
-                              : buttonColumns === 4 
-                                ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
-                                : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
-                        )}
-                      >{categoryButtons.map(btn => {
-                  const ButtonContent = <Button variant="ghost" key={btn.id} data-btn-id={btn.id} onClick={() => handleButtonClick(btn)} className="flex items-center justify-center gap-1 rounded-lg px-2 md:px-3 py-2 text-center text-xs md:text-sm font-semibold text-white shadow-lg transition-transform duration-150 hover:scale-[1.02] focus-visible:scale-[1.02] hover:bg-white/20 hover:text-white min-h-[48px] md:min-h-[56px] w-full" style={{
-                    backgroundColor: btn.color
-                  }}>
+                      </Card> : <div className={cn("grid gap-2 md:gap-3", isMobile ? "grid-cols-2" : buttonColumns === 3 ? "grid-cols-2 sm:grid-cols-3" : buttonColumns === 4 ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5")}>{categoryButtons.map(btn => {
+                    const ButtonContent = <Button variant="ghost" key={btn.id} data-btn-id={btn.id} onClick={() => handleButtonClick(btn)} className="flex items-center justify-center gap-1 rounded-lg px-2 md:px-3 py-2 text-center text-xs md:text-sm font-semibold text-white shadow-lg transition-transform duration-150 hover:scale-[1.02] focus-visible:scale-[1.02] hover:bg-white/20 hover:text-white min-h-[48px] md:min-h-[56px] w-full" style={{
+                      backgroundColor: btn.color
+                    }}>
                               {btn.description && <Info className="w-3 h-3 flex-shrink-0" />}
                               <span className="break-words whitespace-normal leading-tight flex-1">{btn.label}</span>
                             </Button>;
-                  if (btn.description) {
-                    return <TooltipProvider key={btn.id}>
+                    if (btn.description) {
+                      return <TooltipProvider key={btn.id}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     {ButtonContent}
@@ -2426,12 +2376,12 @@ const LeadTab = () => {
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>;
-                  }
-                  return ButtonContent;
-                })}
+                    }
+                    return ButtonContent;
+                  })}
                       </div>}
                   </div>;
-          })}
+            })}
           </div>}
         </Card>
       </div>
@@ -2505,55 +2455,55 @@ const LeadTab = () => {
                   <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Contato</p>
                   <div className="ml-4 space-y-1">
                     <Button variant="ghost" size="sm" draggable onDragStart={e => {
-                      e.dataTransfer.setData('chatwoot-field', 'contact.name');
-                    }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
-                      const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
-                      if (input) {
-                        input.value = 'contact.name';
-                        input.dispatchEvent(new Event('input', {
-                          bubbles: true
-                        }));
-                      }
-                    }}>
+                        e.dataTransfer.setData('chatwoot-field', 'contact.name');
+                      }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'contact.name';
+                          input.dispatchEvent(new Event('input', {
+                            bubbles: true
+                          }));
+                        }
+                      }}>
                       contact.name
                     </Button>
                     <Button variant="ghost" size="sm" draggable onDragStart={e => {
-                      e.dataTransfer.setData('chatwoot-field', 'contact.email');
-                    }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
-                      const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
-                      if (input) {
-                        input.value = 'contact.email';
-                        input.dispatchEvent(new Event('input', {
-                          bubbles: true
-                        }));
-                      }
-                    }}>
+                        e.dataTransfer.setData('chatwoot-field', 'contact.email');
+                      }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'contact.email';
+                          input.dispatchEvent(new Event('input', {
+                            bubbles: true
+                          }));
+                        }
+                      }}>
                       contact.email
                     </Button>
                     <Button variant="ghost" size="sm" draggable onDragStart={e => {
-                      e.dataTransfer.setData('chatwoot-field', 'contact.phone_number');
-                    }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
-                      const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
-                      if (input) {
-                        input.value = 'contact.phone_number';
-                        input.dispatchEvent(new Event('input', {
-                          bubbles: true
-                        }));
-                      }
-                    }}>
+                        e.dataTransfer.setData('chatwoot-field', 'contact.phone_number');
+                      }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'contact.phone_number';
+                          input.dispatchEvent(new Event('input', {
+                            bubbles: true
+                          }));
+                        }
+                      }}>
                       contact.phone_number
                     </Button>
                     <Button variant="ghost" size="sm" draggable onDragStart={e => {
-                      e.dataTransfer.setData('chatwoot-field', 'contact.thumbnail');
-                    }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
-                      const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
-                      if (input) {
-                        input.value = 'contact.thumbnail';
-                        input.dispatchEvent(new Event('input', {
-                          bubbles: true
-                        }));
-                      }
-                    }}>
+                        e.dataTransfer.setData('chatwoot-field', 'contact.thumbnail');
+                      }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'contact.thumbnail';
+                          input.dispatchEvent(new Event('input', {
+                            bubbles: true
+                          }));
+                        }
+                      }}>
                       contact.thumbnail
                     </Button>
                   </div>
@@ -2563,16 +2513,16 @@ const LeadTab = () => {
                   <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Atributos Customizados</p>
                   <div className="ml-4 space-y-1">
                     {chatwootData?.custom_attributes && Object.keys(chatwootData.custom_attributes).length > 0 ? Object.keys(chatwootData.custom_attributes).map(key => <Button key={key} variant="ghost" size="sm" draggable onDragStart={e => {
-                      e.dataTransfer.setData('chatwoot-field', `contact.custom_attributes.${key}`);
-                    }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
-                      const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
-                      if (input) {
-                        input.value = `contact.custom_attributes.${key}`;
-                        input.dispatchEvent(new Event('input', {
-                          bubbles: true
-                        }));
-                      }
-                    }}>
+                        e.dataTransfer.setData('chatwoot-field', `contact.custom_attributes.${key}`);
+                      }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = `contact.custom_attributes.${key}`;
+                          input.dispatchEvent(new Event('input', {
+                            bubbles: true
+                          }));
+                        }
+                      }}>
                           contact.custom_attributes.{key}
                         </Button>) : <p className="text-xs text-muted-foreground italic">
                         {chatwootData ? 'Nenhum atributo customizado encontrado' : 'Aguardando dados do Chatwoot...'}
@@ -2584,29 +2534,29 @@ const LeadTab = () => {
                   <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Conversa</p>
                   <div className="ml-4 space-y-1">
                     <Button variant="ghost" size="sm" draggable onDragStart={e => {
-                      e.dataTransfer.setData('chatwoot-field', 'conversation.id');
-                    }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
-                      const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
-                      if (input) {
-                        input.value = 'conversation.id';
-                        input.dispatchEvent(new Event('input', {
-                          bubbles: true
-                        }));
-                      }
-                    }}>
+                        e.dataTransfer.setData('chatwoot-field', 'conversation.id');
+                      }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'conversation.id';
+                          input.dispatchEvent(new Event('input', {
+                            bubbles: true
+                          }));
+                        }
+                      }}>
                       conversation.id
                     </Button>
                     <Button variant="ghost" size="sm" draggable onDragStart={e => {
-                      e.dataTransfer.setData('chatwoot-field', 'conversation.status');
-                    }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
-                      const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
-                      if (input) {
-                        input.value = 'conversation.status';
-                        input.dispatchEvent(new Event('input', {
-                          bubbles: true
-                        }));
-                      }
-                    }}>
+                        e.dataTransfer.setData('chatwoot-field', 'conversation.status');
+                      }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'conversation.status';
+                          input.dispatchEvent(new Event('input', {
+                            bubbles: true
+                          }));
+                        }
+                      }}>
                       conversation.status
                     </Button>
                   </div>
@@ -2616,42 +2566,42 @@ const LeadTab = () => {
                   <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Agente Atual</p>
                   <div className="ml-4 space-y-1">
                     <Button variant="ghost" size="sm" draggable onDragStart={e => {
-                      e.dataTransfer.setData('chatwoot-field', 'currentAgent.id');
-                    }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
-                      const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
-                      if (input) {
-                        input.value = 'currentAgent.id';
-                        input.dispatchEvent(new Event('input', {
-                          bubbles: true
-                        }));
-                      }
-                    }}>
+                        e.dataTransfer.setData('chatwoot-field', 'currentAgent.id');
+                      }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'currentAgent.id';
+                          input.dispatchEvent(new Event('input', {
+                            bubbles: true
+                          }));
+                        }
+                      }}>
                       currentAgent.id
                     </Button>
                     <Button variant="ghost" size="sm" draggable onDragStart={e => {
-                      e.dataTransfer.setData('chatwoot-field', 'currentAgent.name');
-                    }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
-                      const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
-                      if (input) {
-                        input.value = 'currentAgent.name';
-                        input.dispatchEvent(new Event('input', {
-                          bubbles: true
-                        }));
-                      }
-                    }}>
+                        e.dataTransfer.setData('chatwoot-field', 'currentAgent.name');
+                      }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'currentAgent.name';
+                          input.dispatchEvent(new Event('input', {
+                            bubbles: true
+                          }));
+                        }
+                      }}>
                       currentAgent.name
                     </Button>
                     <Button variant="ghost" size="sm" draggable onDragStart={e => {
-                      e.dataTransfer.setData('chatwoot-field', 'currentAgent.email');
-                    }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
-                      const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
-                      if (input) {
-                        input.value = 'currentAgent.email';
-                        input.dispatchEvent(new Event('input', {
-                          bubbles: true
-                        }));
-                      }
-                    }}>
+                        e.dataTransfer.setData('chatwoot-field', 'currentAgent.email');
+                      }} className="w-full justify-start h-8 text-xs font-mono hover:bg-primary/10 cursor-move" onClick={() => {
+                        const input = document.querySelector(`[data-chatwoot-field-input][data-active="true"]`) as HTMLInputElement;
+                        if (input) {
+                          input.value = 'currentAgent.email';
+                          input.dispatchEvent(new Event('input', {
+                            bubbles: true
+                          }));
+                        }
+                      }}>
                       currentAgent.email
                     </Button>
                   </div>
@@ -2666,21 +2616,21 @@ const LeadTab = () => {
               <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={fieldMappings.map(m => m.id || m.profile_field)} strategy={verticalListSortingStrategy}>
                   {fieldMappings.map((mapping, index) => {
-                    const SortableFieldCard = () => {
-                      const {
-                        attributes,
-                        listeners,
-                        setNodeRef,
-                        transform,
-                        transition
-                      } = useSortable({
-                        id: mapping.id || mapping.profile_field
-                      });
-                      const style = {
-                        transform: CSS.Transform.toString(transform),
-                        transition
-                      };
-                      return <Card ref={setNodeRef} style={style} key={mapping.profile_field} className="p-4">
+                      const SortableFieldCard = () => {
+                        const {
+                          attributes,
+                          listeners,
+                          setNodeRef,
+                          transform,
+                          transition
+                        } = useSortable({
+                          id: mapping.id || mapping.profile_field
+                        });
+                        const style = {
+                          transform: CSS.Transform.toString(transform),
+                          transition
+                        };
+                        return <Card ref={setNodeRef} style={style} key={mapping.profile_field} className="p-4">
                           <div className="space-y-3">
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
@@ -2705,10 +2655,10 @@ const LeadTab = () => {
                             <div>
                               <Label className="text-xs text-muted-foreground">Nome de Exibição</Label>
                               <Input placeholder="Ex: Nome, Idade, Endereço..." defaultValue={mapping.display_name || ''} onBlur={e => {
-                              if (e.target.value) {
-                                saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, e.target.value, mapping.is_profile_photo);
-                              }
-                            }} />
+                                if (e.target.value) {
+                                  saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, e.target.value, mapping.is_profile_photo);
+                                }
+                              }} />
                             </div>
 
                             <div>
@@ -2717,42 +2667,42 @@ const LeadTab = () => {
                                 <span className="ml-2 text-xs opacity-60">(clique nos campos à esquerda)</span>
                               </Label>
                               <Input data-chatwoot-field-input placeholder="Arraste um campo aqui ou clique nos campos à esquerda" defaultValue={mapping.chatwoot_field || ''} onBlur={e => {
-                              saveFieldMapping(mapping.profile_field, e.target.value, mapping.display_name, mapping.is_profile_photo);
-                            }} onFocus={e => {
-                              // Marcar este input como ativo
-                              document.querySelectorAll('[data-chatwoot-field-input]').forEach(input => {
-                                input.removeAttribute('data-active');
-                              });
-                              e.target.setAttribute('data-active', 'true');
-                            }} onDragOver={e => {
-                              e.preventDefault();
-                              e.currentTarget.classList.add('ring-2', 'ring-primary');
-                            }} onDragLeave={e => {
-                              e.currentTarget.classList.remove('ring-2', 'ring-primary');
-                            }} onDrop={async e => {
-                              e.preventDefault();
-                              e.currentTarget.classList.remove('ring-2', 'ring-primary');
-                              const fieldValue = e.dataTransfer.getData('chatwoot-field');
-                              if (fieldValue) {
-                                e.currentTarget.value = fieldValue;
-                                await saveFieldMapping(mapping.profile_field, fieldValue, mapping.display_name, mapping.is_profile_photo);
-                              }
-                            }} />
+                                saveFieldMapping(mapping.profile_field, e.target.value, mapping.display_name, mapping.is_profile_photo);
+                              }} onFocus={e => {
+                                // Marcar este input como ativo
+                                document.querySelectorAll('[data-chatwoot-field-input]').forEach(input => {
+                                  input.removeAttribute('data-active');
+                                });
+                                e.target.setAttribute('data-active', 'true');
+                              }} onDragOver={e => {
+                                e.preventDefault();
+                                e.currentTarget.classList.add('ring-2', 'ring-primary');
+                              }} onDragLeave={e => {
+                                e.currentTarget.classList.remove('ring-2', 'ring-primary');
+                              }} onDrop={async e => {
+                                e.preventDefault();
+                                e.currentTarget.classList.remove('ring-2', 'ring-primary');
+                                const fieldValue = e.dataTransfer.getData('chatwoot-field');
+                                if (fieldValue) {
+                                  e.currentTarget.value = fieldValue;
+                                  await saveFieldMapping(mapping.profile_field, fieldValue, mapping.display_name, mapping.is_profile_photo);
+                                }
+                              }} />
                             </div>
 
                             <div className="flex items-center space-x-2 pt-2 border-t">
                               <input type="checkbox" id={`photo-${mapping.profile_field}`} className="h-4 w-4 rounded border-gray-300" defaultChecked={mapping.is_profile_photo || false} onChange={e => {
-                              saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, mapping.display_name, e.target.checked);
-                            }} />
+                                saveFieldMapping(mapping.profile_field, mapping.chatwoot_field, mapping.display_name, e.target.checked);
+                              }} />
                               <Label htmlFor={`photo-${mapping.profile_field}`} className="text-sm cursor-pointer">
                                 Este campo contém a foto de perfil
                               </Label>
                             </div>
                           </div>
                         </Card>;
-                    };
-                    return <SortableFieldCard key={mapping.id || mapping.profile_field} />;
-                  })}
+                      };
+                      return <SortableFieldCard key={mapping.id || mapping.profile_field} />;
+                    })}
                 </SortableContext>
               </DndContext>
               </div>
@@ -2782,17 +2732,17 @@ const LeadTab = () => {
             <div className="flex flex-col gap-2">
               <Label htmlFor="bitrix-id">ID do Bitrix</Label>
               <Input id="bitrix-id" type="text" placeholder="Ex: 12345" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={e => {
-              if (e.key === 'Enter' && !searchLoading) {
-                loadLeadById(searchId);
-              }
-            }} disabled={searchLoading} />
+                if (e.key === 'Enter' && !searchLoading) {
+                  loadLeadById(searchId);
+                }
+              }} disabled={searchLoading} />
             </div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => {
-            setSearchModal(false);
-            setSearchId("");
-          }} disabled={searchLoading} className="w-full sm:w-auto">
+              setSearchModal(false);
+              setSearchId("");
+            }} disabled={searchLoading} className="w-full sm:w-auto">
               Cancelar
             </Button>
             <Button onClick={() => loadLeadById(searchId)} disabled={searchLoading || !searchId.trim()} className="w-full sm:w-auto">
@@ -2827,26 +2777,13 @@ const LeadTab = () => {
 
       <ChatModal open={chatModalOpen} onOpenChange={setChatModalOpen} conversationId={chatwootData?.conversation_id || null} contactName={chatwootData?.name || profile['Nome'] || 'Lead'} />
       
-      <BitrixChatModal
-        open={bitrixChatModal}
-        onOpenChange={setBitrixChatModal}
-        sessionId={bitrixOpenLineData?.sessionId || null}
-        chatId={bitrixOpenLineData?.chatId || null}
-        leadId={chatwootData?.bitrix_id || ''}
-        contactName={chatwootData?.name || profile['Nome'] || 'Lead'}
-      />
+      <BitrixChatModal open={bitrixChatModal} onOpenChange={setBitrixChatModal} sessionId={bitrixOpenLineData?.sessionId || null} chatId={bitrixOpenLineData?.chatId || null} leadId={chatwootData?.bitrix_id || ''} contactName={chatwootData?.name || profile['Nome'] || 'Lead'} />
       
       {/* Progresso de Busca */}
-      {showSearchProgress && (
-        <LeadSearchProgress 
-          steps={searchSteps} 
-          onClose={() => setShowSearchProgress(false)}
-        />
-      )}
+      {showSearchProgress && <LeadSearchProgress steps={searchSteps} onClose={() => setShowSearchProgress(false)} />}
 
       {/* Modal de Debug (apenas para managers) */}
-      {isManager && (
-        <Dialog open={showDebugModal} onOpenChange={setShowDebugModal}>
+      {isManager && <Dialog open={showDebugModal} onOpenChange={setShowDebugModal}>
           <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>🔍 Debug - Histórico de Buscas</DialogTitle>
@@ -2857,18 +2794,13 @@ const LeadTab = () => {
             
             <ScrollArea className="flex-1 max-h-[60vh]">
               <div className="space-y-4 p-4">
-                {chatwootData?.bitrix_id && (
-                  <div className="space-y-2">
+                {chatwootData?.bitrix_id && <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold">Lead Atual: {chatwootData.bitrix_id}</h4>
-                      <Button 
-                        onClick={() => {
-                          setShowDebugModal(false);
-                          loadLeadById(chatwootData.bitrix_id, false, true);
-                        }}
-                        variant="outline"
-                        size="sm"
-                      >
+                      <Button onClick={() => {
+                    setShowDebugModal(false);
+                    loadLeadById(chatwootData.bitrix_id, false, true);
+                  }} variant="outline" size="sm">
                         <RefreshCw className="w-4 h-4 mr-2" />
                         Forçar Busca no Bitrix
                       </Button>
@@ -2878,38 +2810,29 @@ const LeadTab = () => {
                       Use o botão acima para forçar uma nova busca deste lead diretamente no Bitrix,
                       ignorando o cache do Supabase.
                     </div>
-                  </div>
-                )}
+                  </div>}
 
-                {debugHistory.length > 0 ? (
-                  <div className="space-y-2">
+                {debugHistory.length > 0 ? <div className="space-y-2">
                     <h4 className="font-semibold text-sm">Histórico de Buscas</h4>
-                    {debugHistory.map((log, idx) => (
-                      <Card key={idx} className="p-3">
+                    {debugHistory.map((log, idx) => <Card key={idx} className="p-3">
                         <div className="flex items-start justify-between">
                           <div className="space-y-1">
                             <p className="text-sm font-medium">{log.action_label}</p>
                             <p className="text-xs text-muted-foreground">
                               {new Date(log.created_at).toLocaleString('pt-BR')}
                             </p>
-                            {log.payload && (
-                              <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-x-auto">
+                            {log.payload && <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-x-auto">
                                 {JSON.stringify(log.payload, null, 2)}
-                              </pre>
-                            )}
+                              </pre>}
                           </div>
                           <Badge variant={log.status === 'OK' ? 'default' : 'destructive'}>
                             {log.status}
                           </Badge>
                         </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-8">
+                      </Card>)}
+                  </div> : <p className="text-sm text-muted-foreground text-center py-8">
                     Nenhum histórico de busca disponível
-                  </p>
-                )}
+                  </p>}
               </div>
             </ScrollArea>
             
@@ -2919,34 +2842,17 @@ const LeadTab = () => {
               </Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
-      )}
-      <BitrixChatModal
-        open={bitrixChatModal}
-        onOpenChange={setBitrixChatModal}
-        sessionId={bitrixOpenLineData?.sessionId || null}
-        chatId={bitrixOpenLineData?.chatId || null}
-        leadId={(() => {
-          const searchParams = new URLSearchParams(location.search);
-          return searchParams.get('id') || searchParams.get('lead') || '';
-        })()}
-        contactName={chatwootData?.name || 'Lead'}
-      />
+        </Dialog>}
+      <BitrixChatModal open={bitrixChatModal} onOpenChange={setBitrixChatModal} sessionId={bitrixOpenLineData?.sessionId || null} chatId={bitrixOpenLineData?.chatId || null} leadId={(() => {
+        const searchParams = new URLSearchParams(location.search);
+        return searchParams.get('id') || searchParams.get('lead') || '';
+      })()} contactName={chatwootData?.name || 'Lead'} />
 
-      <UnifiedChatModal
-        open={unifiedChatOpen}
-        onOpenChange={setUnifiedChatOpen}
-        bitrixSessionId={bitrixOpenLineData?.sessionId || null}
-        bitrixChatId={bitrixOpenLineData?.chatId || null}
-        bitrixLeadId={(() => {
-          const searchParams = new URLSearchParams(location.search);
-          return searchParams.get('id') || searchParams.get('lead') || '';
-        })()}
-        chatwootConversationId={chatwootData?.conversation_id || null}
-        contactName={chatwootData?.name || 'Lead'}
-      />
+      <UnifiedChatModal open={unifiedChatOpen} onOpenChange={setUnifiedChatOpen} bitrixSessionId={bitrixOpenLineData?.sessionId || null} bitrixChatId={bitrixOpenLineData?.chatId || null} bitrixLeadId={(() => {
+        const searchParams = new URLSearchParams(location.search);
+        return searchParams.get('id') || searchParams.get('lead') || '';
+      })()} chatwootConversationId={chatwootData?.conversation_id || null} contactName={chatwootData?.name || 'Lead'} />
       </main>
-    </div>
-  );
+    </div>;
 };
 export default LeadTab;
