@@ -661,16 +661,36 @@ const PreCadastro = () => {
             }
           }
           if (photoUrls.length === 0) {
+            // 1. Tentar extrair IDs do photo_url (formato objeto Bitrix)
+            const { extractPhotoFileIds } = await import('@/lib/leadPhotoUtils');
+            const photoUrlIds = extractPhotoFileIds(lead.photo_url);
+            
+            // 2. Verificar campo fotoUrl no raw (UF_CRM_LEAD_1733231445171) que pode ter objetos
+            const fotoUrlField = rawData[BITRIX_LEAD_FIELD_MAPPING.fotoUrl];
+            let fotoUrlIds: number[] = [];
+            if (Array.isArray(fotoUrlField)) {
+              fotoUrlIds = fotoUrlField
+                .filter(item => item?.id)
+                .map(item => typeof item.id === 'number' ? item.id : parseInt(item.id))
+                .filter(id => !isNaN(id));
+            }
+            
+            // 3. Verificar campo fotoIds tradicional
             const newPhotoField = rawData.UF_CRM_1764358561 || rawData[BITRIX_LEAD_FIELD_MAPPING.fotoIds];
+            let traditionalIds: number[] = [];
             if (newPhotoField) {
               if (Array.isArray(newPhotoField)) {
-                fileIdsToSync = newPhotoField.map(id => typeof id === 'string' ? parseInt(id) : id).filter(id => !isNaN(id));
+                traditionalIds = newPhotoField.map(id => typeof id === 'string' ? parseInt(id) : id).filter(id => !isNaN(id));
               } else if (typeof newPhotoField === 'string' && newPhotoField.trim()) {
-                fileIdsToSync = newPhotoField.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+                traditionalIds = newPhotoField.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
               }
-              if (fileIdsToSync.length > 0) {
-                syncPhotosInBackground(parseInt(leadId), fileIdsToSync);
-              }
+            }
+            
+            // Combinar todos os IDs únicos
+            fileIdsToSync = [...new Set([...photoUrlIds, ...fotoUrlIds, ...traditionalIds])];
+            
+            if (fileIdsToSync.length > 0) {
+              syncPhotosInBackground(parseInt(leadId), fileIdsToSync);
             }
           }
           if (photoUrls.length > 0) {
