@@ -88,6 +88,37 @@ Deno.serve(async (req) => {
         console.log('✅ Messages fetched:', messages?.payload?.length || 0, 'messages');
         console.log('📬 Conversation inbox_id:', messages?.meta?.inbox_id || 'N/A');
 
+        // Atualizar last_customer_message_at baseado nas mensagens recebidas
+        if (messages?.payload?.length > 0) {
+          // Filtrar mensagens incoming (message_type: 0 = incoming do cliente)
+          const incomingMessages = messages.payload.filter((msg: any) => msg.message_type === 0);
+          
+          if (incomingMessages.length > 0) {
+            // Encontrar a mensagem mais recente do cliente
+            const latestCustomerMessage = incomingMessages.reduce((latest: any, msg: any) => {
+              return msg.created_at > latest.created_at ? msg : latest;
+            }, incomingMessages[0]);
+            
+            const lastCustomerMessageAt = new Date(latestCustomerMessage.created_at * 1000).toISOString();
+            
+            console.log('📨 Última mensagem do cliente:', lastCustomerMessageAt);
+            
+            // Atualizar no Supabase
+            const { error: updateError } = await supabase
+              .from('chatwoot_contacts')
+              .update({ last_customer_message_at: lastCustomerMessageAt })
+              .eq('conversation_id', conversation_id);
+            
+            if (updateError) {
+              console.error('⚠️ Erro ao atualizar last_customer_message_at:', updateError);
+            } else {
+              console.log('✅ last_customer_message_at atualizado para conversa', conversation_id);
+            }
+          } else {
+            console.log('ℹ️ Nenhuma mensagem do cliente encontrada na conversa');
+          }
+        }
+
         return new Response(
           JSON.stringify({ found: true, messages }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

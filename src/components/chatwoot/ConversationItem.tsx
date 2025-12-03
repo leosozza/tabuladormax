@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { AgentConversation } from '@/hooks/useAgentConversations';
 import { LabelBadge } from './LabelBadge';
 import { LabelAssignment } from '@/hooks/useConversationLabels';
+import { WindowIndicator } from './WindowIndicator';
 
 interface ConversationItemProps {
   conversation: AgentConversation;
@@ -78,6 +79,9 @@ export function ConversationItem({
         onClick={(e) => e.stopPropagation()}
         className="flex-shrink-0"
       />
+      
+      {/* Indicador de janela 24h */}
+      <WindowIndicator status={conversation.windowStatus} variant="dot" />
       
       <Avatar className="h-10 w-10 flex-shrink-0">
         <AvatarImage src={avatarUrl || undefined} alt={conversation.nome_modelo} />

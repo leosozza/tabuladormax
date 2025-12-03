@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { calculateWindowStatus, WindowStatus } from '@/lib/whatsappWindow';
 
 export interface AgentConversation {
   conversation_id: number;
@@ -13,8 +13,10 @@ export interface AgentConversation {
   thumbnail: string | null;
   photo_url: string | null;
   last_message_at: string | null;
+  last_customer_message_at: string | null;
   bitrix_id: string;
   commercial_project_id: string | null;
+  windowStatus: WindowStatus;
 }
 
 export function useAgentConversations() {
@@ -72,6 +74,9 @@ export function useAgentConversations() {
             // Usar phone do contact, ou fallback para celular/telefones do lead
             const phoneNumber = contact.phone_number || lead.celular || lead.telefone_casa || lead.telefone_trabalho || '';
             
+            // Calcular status da janela de 24h
+            const windowStatus = calculateWindowStatus(contact.last_customer_message_at);
+            
             conversationsMap[lead.conversation_id] = {
               conversation_id: lead.conversation_id,
               contact_id: contact.contact_id || 0,
@@ -82,8 +87,10 @@ export function useAgentConversations() {
               thumbnail: contact.thumbnail,
               photo_url: lead.photo_url || null,
               last_message_at: contact.last_message_at || null,
+              last_customer_message_at: contact.last_customer_message_at || null,
               bitrix_id: contact.bitrix_id,
               commercial_project_id: lead.commercial_project_id,
+              windowStatus,
             };
           }
         }
