@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal";
 import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtils";
 import { useUndoAction } from "@/hooks/useUndoAction";
+import { useUserCommercialProject } from "@/hooks/useUserCommercialProject";
 let longPressTimer: number | null = null;
 type GestaoLeadsContentProps = {
   filters: GestaoFilters;
@@ -763,6 +764,8 @@ function GestaoLeadsContent({
     </GestaoPageLayout>;
 }
 export default function GestaoLeads() {
+  const { projectId: userProjectId, isRestricted, loading: loadingUserProject } = useUserCommercialProject();
+  
   const [filters, setFilters] = useState<GestaoFilters>({
     dateFilter: createDateFilter('all'),
     projectId: null,
@@ -771,6 +774,14 @@ export default function GestaoLeads() {
     photoFilter: false,
     additionalFilters: []
   });
+
+  // Auto-set project filter for restricted users
+  useEffect(() => {
+    if (!loadingUserProject && isRestricted && userProjectId && filters.projectId !== userProjectId) {
+      setFilters(prev => ({ ...prev, projectId: userProjectId }));
+    }
+  }, [loadingUserProject, isRestricted, userProjectId]);
+
   const filtersKey = useMemo(() => JSON.stringify(filters.additionalFilters || []), [filters.additionalFilters]);
   return <LeadColumnConfigProvider>
       <GestaoLeadsContent key={filtersKey} filters={filters} setFilters={setFilters} />
