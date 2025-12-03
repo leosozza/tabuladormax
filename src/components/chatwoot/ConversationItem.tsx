@@ -48,7 +48,7 @@ export function ConversationItem({
   isActive,
   labels = [],
 }: ConversationItemProps) {
-  const initials = conversation.lead_name
+  const initials = (conversation.lead_name || 'NN')
     .split(' ')
     .map(n => n[0])
     .join('')
