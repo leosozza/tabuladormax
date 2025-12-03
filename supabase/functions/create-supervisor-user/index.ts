@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verificar se é admin ou manager
+    // Verificar se é admin, manager ou supervisor
     const { data: roleData, error: roleCheckError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
@@ -65,14 +65,17 @@ Deno.serve(async (req) => {
       console.error('[create-supervisor-user] Error fetching user role:', roleCheckError);
     }
 
-    if (!roleData || !['admin', 'manager'].includes(roleData.role)) {
+    // Permitir admin, manager E supervisor
+    if (!roleData || !['admin', 'manager', 'supervisor'].includes(roleData.role)) {
       return new Response(
-        JSON.stringify({ error: 'Apenas administradores e gerentes podem criar usuários' }),
+        JSON.stringify({ error: 'Apenas administradores, gerentes e supervisores podem criar usuários' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { 
+    const creatorRole = roleData.role;
+
+    let { 
       email, 
       password, 
       displayName, 
@@ -84,13 +87,47 @@ Deno.serve(async (req) => {
       telemarketingName,
     } = await req.json();
 
+    // Se é supervisor criando, aplicar restrições
+    if (creatorRole === 'supervisor') {
+      // Supervisores só podem criar supervisores ou agents
+      if (!['supervisor', 'agent'].includes(role)) {
+        return new Response(
+          JSON.stringify({ error: 'Supervisores só podem criar supervisores ou agentes' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Forçar departamento telemarketing
+      department = 'telemarketing';
+
+      // Buscar o projeto do supervisor que está criando
+      const { data: creatorMapping } = await supabaseAdmin
+        .from('agent_telemarketing_mapping')
+        .select('commercial_project_id')
+        .eq('tabuladormax_user_id', requestUserId)
+        .single();
+
+      if (creatorMapping?.commercial_project_id) {
+        // Forçar o mesmo projeto do supervisor criador
+        projectId = creatorMapping.commercial_project_id;
+        console.log('[create-supervisor-user] Supervisor forcing project:', projectId);
+      }
+
+      // Se está criando agent, forçar o supervisor criador como supervisor do novo agent
+      if (role === 'agent') {
+        supervisorId = requestUserId;
+        console.log('[create-supervisor-user] Supervisor creating agent, setting supervisorId:', supervisorId);
+      }
+    }
+
     console.log('[create-supervisor-user] Creating user:', { 
       email, 
       role, 
       department, 
       projectId, 
       supervisorId, 
-      telemarketingId 
+      telemarketingId,
+      creatorRole
     });
 
     // Criar usuário usando Admin API
