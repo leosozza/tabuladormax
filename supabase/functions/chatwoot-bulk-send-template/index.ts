@@ -32,10 +32,11 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const gupshupApiKey = Deno.env.get('GUPSHUP_API_KEY')!;
-    const gupshupAppId = Deno.env.get('GUPSHUP_APP_ID')!;
+    const gupshupSourceNumber = Deno.env.get('GUPSHUP_SOURCE_NUMBER')!;
+    const gupshupAppName = Deno.env.get('GUPSHUP_APP_NAME')!;
 
-    if (!gupshupApiKey || !gupshupAppId) {
-      throw new Error('Gupshup credentials not configured');
+    if (!gupshupApiKey || !gupshupSourceNumber || !gupshupAppName) {
+      throw new Error('Gupshup credentials not configured (API_KEY, SOURCE_NUMBER ou APP_NAME)');
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
@@ -117,13 +118,13 @@ Deno.serve(async (req) => {
         
         const formData = new URLSearchParams();
         formData.append('channel', 'whatsapp');
-        formData.append('source', gupshupAppId);
+        formData.append('source', gupshupSourceNumber);
         formData.append('destination', phoneNumber);
         formData.append('template', JSON.stringify({
           id: template.template_id,
           params: variables
         }));
-        formData.append('src.name', gupshupAppId);
+        formData.append('src.name', gupshupAppName);
 
         const gupshupResponse = await fetch(gupshupUrl, {
           method: 'POST',

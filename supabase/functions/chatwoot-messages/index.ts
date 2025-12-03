@@ -164,12 +164,13 @@ Deno.serve(async (req) => {
     if (template_params) {
       const { templateId, variables } = template_params;
       const gupshupApiKey = Deno.env.get('GUPSHUP_API_KEY');
-      const gupshupAppId = Deno.env.get('GUPSHUP_APP_ID');
+      const gupshupSourceNumber = Deno.env.get('GUPSHUP_SOURCE_NUMBER');
+      const gupshupAppName = Deno.env.get('GUPSHUP_APP_NAME');
 
-      if (!gupshupApiKey || !gupshupAppId) {
+      if (!gupshupApiKey || !gupshupSourceNumber || !gupshupAppName) {
         console.error('❌ Credenciais Gupshup não configuradas');
         return new Response(
-          JSON.stringify({ error: 'Credenciais Gupshup não configuradas' }),
+          JSON.stringify({ error: 'Credenciais Gupshup não configuradas (API_KEY, SOURCE_NUMBER ou APP_NAME)' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -216,13 +217,13 @@ Deno.serve(async (req) => {
       
       const formData = new URLSearchParams();
       formData.append('channel', 'whatsapp');
-      formData.append('source', gupshupAppId);
+      formData.append('source', gupshupSourceNumber);
       formData.append('destination', phoneNumber);
       formData.append('template', JSON.stringify({
         id: template.template_id,
         params: variables || []
       }));
-      formData.append('src.name', gupshupAppId);
+      formData.append('src.name', gupshupAppName);
 
       try {
         const gupshupResponse = await fetch(gupshupUrl, {
