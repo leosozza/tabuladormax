@@ -435,7 +435,7 @@ const Index = () => {
           <div className="flex flex-wrap gap-2 items-center">
             <Button
               variant="outline"
-              onClick={() => navigate('/lead')}
+              onClick={() => navigate('/telemarketing')}
               className="gap-2"
             >
               <Phone className="w-4 h-4" />
