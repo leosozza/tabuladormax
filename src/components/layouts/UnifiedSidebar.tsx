@@ -9,6 +9,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import { useAllowedRoutes } from "@/hooks/useAllowedRoutes";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UserInfo } from "@/components/layouts/UserInfo";
 import {
   Sidebar,
   SidebarContent,
@@ -231,9 +232,13 @@ export function UnifiedSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Botão discreto para baixar o app Android */}
-        {latestRelease && (
-          <div className="mt-auto p-4">
+        {/* User info and app download */}
+        <div className="mt-auto p-4 space-y-3">
+          {/* User info */}
+          <UserInfo open={open} />
+          
+          {/* App download button */}
+          {latestRelease && (
             <Button
               variant="ghost"
               size={open ? "default" : "icon"}
@@ -247,8 +252,8 @@ export function UnifiedSidebar() {
               <Smartphone className="h-4 w-4" />
               {open && <span className="ml-2 text-xs">App Android v{latestRelease.version}</span>}
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </SidebarContent>
     </Sidebar>
   );
