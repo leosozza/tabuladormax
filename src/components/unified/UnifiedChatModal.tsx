@@ -246,7 +246,7 @@ export function UnifiedChatModal({
                 {chatwootMessages.map((msg) => (
                   <AgentChatMessage
                     key={msg.id}
-                    role={msg.message_type === 'incoming' ? 'user' : 'assistant'}
+                    role={msg.message_type === 0 ? 'user' : 'assistant'}
                     content={msg.content || ''}
                     timestamp={new Date(msg.created_at * 1000)}
                   />

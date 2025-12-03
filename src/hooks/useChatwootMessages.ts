@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 export interface ChatwootMessage {
   id: number;
   content: string;
-  message_type: 'incoming' | 'outgoing';
+  message_type: number; // 0 = incoming, 1 = outgoing
   created_at: number;
   sender?: {
     id: number;
@@ -121,7 +121,7 @@ export const useChatwootMessages = (conversationId: number | null) => {
       const newMessage: ChatwootMessage = {
         id: Date.now(),
         content: content.trim(),
-        message_type: 'outgoing',
+        message_type: 1, // 1 = outgoing
         created_at: Date.now() / 1000,
         sender: {
           id: 0,
