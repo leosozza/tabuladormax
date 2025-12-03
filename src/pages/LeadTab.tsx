@@ -34,7 +34,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useLeadAnalysis } from "@/hooks/useLeadAnalysis";
 import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
 import { useBitrixEnums } from '@/hooks/useBitrixEnums';
-import { MainLayout } from "@/components/layouts/MainLayout";
+
 import { LeadSearchProgress } from "@/components/telemarketing/LeadSearchProgress";
 
 // Profile é agora dinâmico, baseado nos field mappings
@@ -2115,15 +2115,20 @@ const LeadTab = () => {
     setScheduleModal(false);
   };
   return (
-    <MainLayout
-      title="Telemarketing"
-      subtitle="Tabulação de Leads"
-      showBackButton
-      backTo="/home-choice"
-      actions={
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-50 bg-background border-b px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/home-choice')}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-semibold">Telemarketing</h1>
+            <p className="text-sm text-muted-foreground">Tabulação de Leads</p>
+          </div>
+        </div>
         <UserMenu />
-      }
-    >
+      </header>
+      <main className="p-4 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <Card className="p-4 md:p-6 flex flex-col items-start gap-3 md:gap-4 h-fit relative">
           <div className="absolute top-2 right-2 md:top-4 md:right-4 gap-2 flex flex-col">
@@ -2940,7 +2945,8 @@ const LeadTab = () => {
         chatwootConversationId={chatwootData?.conversation_id || null}
         contactName={chatwootData?.name || 'Lead'}
       />
-    </MainLayout>
+      </main>
+    </div>
   );
 };
 export default LeadTab;

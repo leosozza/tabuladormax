@@ -1,4 +1,4 @@
-import { Home, Target, DollarSign, Shield, Headset, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText } from "lucide-react";
+import { Home, Target, DollarSign, Shield, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,15 +25,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const mainNavItems = [
   { path: "/home-choice", label: "Dashboard Geral", icon: Home },
-  { 
-    path: "/telemarketing", 
-    label: "Telemarketing", 
-    icon: Headset,
-    subItems: [
-      { path: "/telemarketing", label: "Tabulação" },
-      { path: "/discador", label: "Discador", icon: Phone },
-    ]
-  },
+  { path: "/discador", label: "Discador", icon: Phone },
   { path: "/whatsapp", label: "WhatsApp", icon: MessageSquare },
   { 
     path: "/scouter", 
@@ -59,16 +51,12 @@ export function UnifiedSidebar() {
   const location = useLocation();
   
   // Auto-expandir submenu baseado na rota atual
-  const [telemarketingOpen, setTelemarketingOpen] = useState(
-    location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador')
-  );
   const [scouterOpen, setScouterOpen] = useState(
     location.pathname.startsWith('/scouter')
   );
 
   // Atualizar estado quando a rota mudar
   useEffect(() => {
-    setTelemarketingOpen(location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador'));
     setScouterOpen(location.pathname.startsWith('/scouter'));
   }, [location.pathname]);
 
@@ -128,14 +116,11 @@ export function UnifiedSidebar() {
             <SidebarMenu>
               {mainNavItems.map((item) => {
                 if (item.subItems) {
-                  const isOpen = item.path === '/telemarketing' ? telemarketingOpen : scouterOpen;
-                  const setOpen = item.path === '/telemarketing' ? setTelemarketingOpen : setScouterOpen;
-                  
                   return (
                     <Collapsible
                       key={item.path}
-                      open={isOpen}
-                      onOpenChange={setOpen}
+                      open={scouterOpen}
+                      onOpenChange={setScouterOpen}
                       className="group/collapsible"
                     >
                       <SidebarMenuItem>
