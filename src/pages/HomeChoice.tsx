@@ -56,19 +56,19 @@ export default function HomeChoice() {
         <div className="flex gap-2">
           <Button
             variant={view === 'dashboard' ? 'default' : 'outline'}
-            size="sm"
+            size="icon"
             onClick={() => setView('dashboard')}
+            title="Dashboard"
           >
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            Dashboard
+            <LayoutDashboard className="h-4 w-4" />
           </Button>
           <Button
             variant={view === 'agent' ? 'default' : 'outline'}
-            size="sm"
+            size="icon"
             onClick={() => setView('agent')}
+            title="Agente IA"
           >
-            <Bot className="mr-2 h-4 w-4" />
-            Agente IA
+            <Bot className="h-4 w-4" />
           </Button>
         </div>
       </header>
