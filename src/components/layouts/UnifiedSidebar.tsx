@@ -25,9 +25,16 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const mainNavItems = [
   { path: "/home-choice", label: "Dashboard Geral", icon: Home },
-  { path: "/discador", label: "Discador", icon: Phone },
   { path: "/whatsapp", label: "WhatsApp", icon: MessageSquare },
-  { path: "/telemarketing", label: "Telemarketing", icon: Headset },
+  { 
+    path: "/telemarketing", 
+    label: "Telemarketing", 
+    icon: Headset,
+    subItems: [
+      { path: "/telemarketing", label: "Tabulador", icon: Headset },
+      { path: "/discador", label: "Discador", icon: Phone },
+    ]
+  },
   { 
     path: "/scouter", 
     label: "Scouter", 
@@ -55,10 +62,14 @@ export function UnifiedSidebar() {
   const [scouterOpen, setScouterOpen] = useState(
     location.pathname.startsWith('/scouter')
   );
+  const [telemarketingOpen, setTelemarketingOpen] = useState(
+    location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador')
+  );
 
   // Atualizar estado quando a rota mudar
   useEffect(() => {
     setScouterOpen(location.pathname.startsWith('/scouter'));
+    setTelemarketingOpen(location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador'));
   }, [location.pathname]);
 
   // Buscar a versão mais recente do APK
@@ -117,11 +128,16 @@ export function UnifiedSidebar() {
             <SidebarMenu>
               {mainNavItems.map((item) => {
                 if (item.subItems) {
+                  const isScouterMenu = item.path === '/scouter';
+                  const isTelemarketingMenu = item.path === '/telemarketing';
+                  const menuOpen = isScouterMenu ? scouterOpen : isTelemarketingMenu ? telemarketingOpen : false;
+                  const setMenuOpen = isScouterMenu ? setScouterOpen : isTelemarketingMenu ? setTelemarketingOpen : () => {};
+                  
                   return (
                     <Collapsible
                       key={item.path}
-                      open={scouterOpen}
-                      onOpenChange={setScouterOpen}
+                      open={menuOpen}
+                      onOpenChange={setMenuOpen}
                       className="group/collapsible"
                     >
                       <SidebarMenuItem>
