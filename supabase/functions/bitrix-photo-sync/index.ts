@@ -196,25 +196,50 @@ serve(async (req) => {
     const allStoragePaths: string[] = [];
     let totalSize = 0;
 
-    // Processar fotos do novo campo (usando disk.file.get)
+    // Processar fotos (tentar crm.file.get primeiro, depois disk.file.get)
     for (const photoId of photoIdsToProcess) {
       try {
-        console.log(`📡 Processando foto ${photoId} via disk.file.get...`);
+        console.log(`📡 Processando foto ${photoId}...`);
         
-        // Usar disk.file.get para obter DOWNLOAD_URL
-        const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}`;
-        const diskResp = await fetch(diskFileUrl);
+        let downloadUrl: string | null = null;
         
-        if (!diskResp.ok) {
-          console.error(`❌ Erro ao chamar disk.file.get para foto ${photoId}: ${diskResp.status}`);
-          continue;
+        // 1. Tentar crm.file.get primeiro (para arquivos de campos CRM)
+        const crmFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.file.get?id=${photoId}`;
+        console.log(`📡 Tentando crm.file.get: ${crmFileUrl}`);
+        const crmResp = await fetch(crmFileUrl);
+        
+        if (crmResp.ok) {
+          const crmJson = await crmResp.json();
+          downloadUrl = crmJson.result?.downloadUrl || crmJson.result?.DOWNLOAD_URL;
+          if (downloadUrl) {
+            console.log(`✅ crm.file.get retornou URL para foto ${photoId}`);
+          }
         }
         
-        const diskJson = await diskResp.json();
-        const downloadUrl = diskJson.result?.DOWNLOAD_URL;
+        // 2. Se crm.file.get não funcionou, tentar disk.file.get
+        if (!downloadUrl) {
+          const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}`;
+          console.log(`📡 Fallback para disk.file.get: ${diskFileUrl}`);
+          const diskResp = await fetch(diskFileUrl);
+          
+          if (diskResp.ok) {
+            const diskJson = await diskResp.json();
+            downloadUrl = diskJson.result?.DOWNLOAD_URL;
+            if (downloadUrl) {
+              console.log(`✅ disk.file.get retornou URL para foto ${photoId}`);
+            }
+          }
+        }
+        
+        // 3. Se ainda não tem URL, tentar URL direta do CRM show_file.php
+        if (!downloadUrl) {
+          // URL padrão para arquivos CRM quando temos apenas o fileId
+          downloadUrl = `https://${bitrixDomain}/bitrix/components/bitrix/crm.lead.show/show_file.php?auth=${bitrixToken}&ownerId=${leadId}&fieldName=UF_CRM_LEAD_1733231445171&dynamic=Y&fileId=${photoId}`;
+          console.log(`📡 Fallback para URL direta CRM: ${downloadUrl}`);
+        }
         
         if (!downloadUrl) {
-          console.error(`❌ disk.file.get não retornou DOWNLOAD_URL para foto ${photoId}`);
+          console.error(`❌ Não foi possível obter URL de download para foto ${photoId}`);
           continue;
         }
         
