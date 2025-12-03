@@ -160,9 +160,19 @@ Deno.serve(async (req) => {
       message_type: 'outgoing',
     };
 
-    // Send WhatsApp template (Gupshup BBCode format)
+    // Send WhatsApp template directly via Gupshup API
     if (template_params) {
       const { templateId, variables } = template_params;
+      const gupshupApiKey = Deno.env.get('GUPSHUP_API_KEY');
+      const gupshupAppId = Deno.env.get('GUPSHUP_APP_ID');
+
+      if (!gupshupApiKey || !gupshupAppId) {
+        console.error('❌ Credenciais Gupshup não configuradas');
+        return new Response(
+          JSON.stringify({ error: 'Credenciais Gupshup não configuradas' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       
       // Buscar template do banco para validação
       const { data: template, error: templateError } = await supabase
@@ -178,24 +188,86 @@ Deno.serve(async (req) => {
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
-      console.log('📝 Construindo template BBCode:', template.element_name);
-      
-      // Construir conteúdo no formato BBCode do Gupshup
-      let templateContent = '[template]\n';
-      templateContent += '[type]text[/type]\n';
-      
-      // Adicionar variáveis
-      for (const variable of variables) {
-        templateContent += `[var]${variable}[/var]\n`;
+
+      // Buscar contato para obter número de telefone
+      const { data: contact, error: contactError } = await supabase
+        .from('chatwoot_contacts')
+        .select('phone_number, name')
+        .eq('conversation_id', conversation_id)
+        .single();
+
+      if (contactError || !contact?.phone_number) {
+        console.error('❌ Contato não encontrado para conversation_id:', conversation_id);
+        return new Response(
+          JSON.stringify({ error: 'Número de telefone não encontrado para esta conversa' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+
+      // Formatar número (remover + e espaços)
+      const phoneNumber = contact.phone_number.replace(/[+\s\-()]/g, '');
       
-      templateContent += `[id]${templateId}[/id]\n`;
-      templateContent += '[/template]';
+      console.log('📝 Enviando template via Gupshup:', template.element_name);
+      console.log('📱 Destinatário:', phoneNumber);
+      console.log('📋 Variáveis:', variables);
+
+      // Enviar diretamente para Gupshup API
+      const gupshupUrl = 'https://api.gupshup.io/wa/api/v1/template/msg';
       
-      body.content = templateContent;
-      
-      console.log('📤 Template BBCode construído:', templateContent);
+      const formData = new URLSearchParams();
+      formData.append('channel', 'whatsapp');
+      formData.append('source', gupshupAppId);
+      formData.append('destination', phoneNumber);
+      formData.append('template', JSON.stringify({
+        id: template.template_id,
+        params: variables || []
+      }));
+      formData.append('src.name', gupshupAppId);
+
+      try {
+        const gupshupResponse = await fetch(gupshupUrl, {
+          method: 'POST',
+          headers: {
+            'apikey': gupshupApiKey,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formData.toString(),
+        });
+
+        const gupshupData = await gupshupResponse.json();
+        console.log('📨 Resposta Gupshup:', JSON.stringify(gupshupData));
+
+        if (gupshupData.status === 'submitted' || gupshupResponse.ok) {
+          console.log('✅ Template enviado com sucesso via Gupshup');
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              gupshup_response: gupshupData,
+              template_name: template.element_name,
+              destination: phoneNumber
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } else {
+          console.error('❌ Erro Gupshup:', gupshupData);
+          return new Response(
+            JSON.stringify({ 
+              error: gupshupData.message || 'Erro ao enviar template via Gupshup',
+              details: gupshupData
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (gupshupError: any) {
+        console.error('❌ Erro de conexão com Gupshup:', gupshupError.message);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Erro ao conectar com API Gupshup',
+            details: gupshupError.message
+          }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     } else if (content) {
       // Send regular text message
       body.content = content;
