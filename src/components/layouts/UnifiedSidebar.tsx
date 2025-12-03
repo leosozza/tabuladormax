@@ -39,17 +39,17 @@ const mainNavItems = [
     ]
   },
   { 
-    path: "/scouter", 
+    path: "/gestao", 
     label: "Scouter", 
     icon: Target,
     subItems: [
-      { path: "/scouter", label: "Dashboard", icon: Home },
-      { path: "/scouter/leads", label: "Leads", icon: Users },
-      { path: "/scouter/scouters", label: "Scouters", icon: Users },
-      { path: "/scouter/projecao", label: "Projeção", icon: TrendingUp },
-      { path: "/scouter/pagamentos", label: "Pagamentos", icon: DollarSign },
-      { path: "/scouter/area", label: "Área de Abordagem", icon: MapPin },
-      { path: "/scouter/relatorios", label: "Relatórios", icon: FileText },
+      { path: "/gestao/dashboard", label: "Dashboard", icon: Home },
+      { path: "/gestao/leads", label: "Leads", icon: Users },
+      { path: "/gestao/scouters", label: "Scouters", icon: Users },
+      { path: "/gestao/projecao", label: "Projeção", icon: TrendingUp },
+      { path: "/gestao/pagamentos", label: "Pagamentos", icon: DollarSign },
+      { path: "/gestao/area", label: "Área de Abordagem", icon: MapPin },
+      { path: "/gestao/relatorios", label: "Relatórios", icon: FileText },
     ]
   },
   { path: "/agenciamento", label: "Agenciamento", icon: DollarSign },
@@ -64,7 +64,7 @@ export function UnifiedSidebar() {
   
   // Auto-expandir submenu baseado na rota atual
   const [scouterOpen, setScouterOpen] = useState(
-    location.pathname.startsWith('/scouter')
+    location.pathname.startsWith('/gestao') || location.pathname.startsWith('/scouter')
   );
   const [telemarketingOpen, setTelemarketingOpen] = useState(
     location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador')
@@ -72,7 +72,7 @@ export function UnifiedSidebar() {
 
   // Atualizar estado quando a rota mudar
   useEffect(() => {
-    setScouterOpen(location.pathname.startsWith('/scouter'));
+    setScouterOpen(location.pathname.startsWith('/gestao') || location.pathname.startsWith('/scouter'));
     setTelemarketingOpen(location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador'));
   }, [location.pathname]);
 
@@ -170,7 +170,7 @@ export function UnifiedSidebar() {
               <SidebarMenu>
                 {filteredNavItems.map((item) => {
                   if (item.subItems) {
-                    const isScouterMenu = item.path === '/scouter';
+                    const isScouterMenu = item.path === '/gestao';
                     const isTelemarketingMenu = item.path === '/telemarketing';
                     const menuOpen = isScouterMenu ? scouterOpen : isTelemarketingMenu ? telemarketingOpen : false;
                     const setMenuOpen = isScouterMenu ? setScouterOpen : isTelemarketingMenu ? setTelemarketingOpen : () => {};
