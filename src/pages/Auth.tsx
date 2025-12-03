@@ -186,7 +186,7 @@ const Auth = () => {
           if (isAdmin) {
             navigate('/home-choice');
           } else if (department === 'telemarketing') {
-            navigate('/lead');
+            navigate('/dashboard');
           } else if (department === 'scouters') {
             navigate('/scouter');
           } else if (department === 'administrativo') {
