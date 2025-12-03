@@ -64,7 +64,7 @@ export default function WhatsApp() {
                 {!isMobile && <span className="ml-2">Menu</span>}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-background">
+            <DropdownMenuContent align="end" className="bg-background z-[600]">
               <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                 <LayoutDashboard className="h-4 w-4 mr-2" />
                 Tabulador
