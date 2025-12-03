@@ -124,6 +124,31 @@ export default function Users() {
     }
   }, [newUserProject, newUserRole]);
 
+  // Auto-carregar projeto do supervisor quando abrir o dialog de criar usuário
+  useEffect(() => {
+    const loadSupervisorProject = async () => {
+      if (createUserDialogOpen && currentUserRole === 'supervisor') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: mapping } = await supabase
+            .from('agent_telemarketing_mapping')
+            .select('commercial_project_id')
+            .eq('tabuladormax_user_id', user.id)
+            .single();
+          
+          if (mapping?.commercial_project_id) {
+            setNewUserProject(mapping.commercial_project_id);
+            console.log('[Users] Supervisor project auto-loaded:', mapping.commercial_project_id);
+          }
+        }
+        // Forçar departamento telemarketing para supervisor
+        setNewUserDepartment('telemarketing');
+      }
+    };
+    
+    loadSupervisorProject();
+  }, [createUserDialogOpen, currentUserRole]);
+
   const checkUserRole = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
@@ -1352,14 +1377,16 @@ export default function Users() {
                   <Select 
                     value={newUserRole} 
                     onValueChange={(v: any) => setNewUserRole(v)}
-                    disabled={currentUserRole === 'supervisor'}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {currentUserRole === 'supervisor' ? (
-                        <SelectItem value="agent">Agent</SelectItem>
+                        <>
+                          <SelectItem value="supervisor">Supervisor</SelectItem>
+                          <SelectItem value="agent">Agent</SelectItem>
+                        </>
                       ) : (
                         <>
                           {currentUserRole === 'admin' && <SelectItem value="admin">Admin</SelectItem>}
@@ -1370,6 +1397,11 @@ export default function Users() {
                       )}
                     </SelectContent>
                   </Select>
+                  {currentUserRole === 'supervisor' && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Supervisores só podem criar supervisores ou agentes
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1377,17 +1409,29 @@ export default function Users() {
                   <Select 
                     value={newUserDepartment} 
                     onValueChange={(v: any) => setNewUserDepartment(v)}
+                    disabled={currentUserRole === 'supervisor'}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="administrativo">Administrativo</SelectItem>
-                      <SelectItem value="analise">Análise</SelectItem>
-                      <SelectItem value="telemarketing">Telemarketing</SelectItem>
-                      <SelectItem value="scouters">Scouters</SelectItem>
+                      {currentUserRole === 'supervisor' ? (
+                        <SelectItem value="telemarketing">Telemarketing</SelectItem>
+                      ) : (
+                        <>
+                          <SelectItem value="administrativo">Administrativo</SelectItem>
+                          <SelectItem value="analise">Análise</SelectItem>
+                          <SelectItem value="telemarketing">Telemarketing</SelectItem>
+                          <SelectItem value="scouters">Scouters</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
+                  {currentUserRole === 'supervisor' && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Supervisores só podem criar usuários para Telemarketing
+                    </p>
+                  )}
                 </div>
 
                 {/* Seleção de Projeto para SUPERVISOR e AGENT */}
@@ -1396,7 +1440,11 @@ export default function Users() {
                     <Label htmlFor="project">
                       Projeto Comercial (Bitrix)
                     </Label>
-                    <Select value={newUserProject} onValueChange={setNewUserProject}>
+                    <Select 
+                      value={newUserProject} 
+                      onValueChange={setNewUserProject}
+                      disabled={currentUserRole === 'supervisor'}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o projeto" />
                       </SelectTrigger>
@@ -1406,6 +1454,11 @@ export default function Users() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {currentUserRole === 'supervisor' && newUserProject && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Usuários serão criados no seu projeto
+                      </p>
+                    )}
                   </div>
                 )}
 
