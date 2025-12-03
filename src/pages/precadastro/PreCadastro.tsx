@@ -1097,15 +1097,6 @@ const PreCadastro = () => {
             </p>
           </div>
 
-          <div className="mt-6 max-w-md mx-auto">
-            <Progress value={50} className="h-2 mb-3" />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span className="text-primary font-medium">✓ Fotos</span>
-              <span className="text-primary font-medium">2. Dados</span>
-              <span>3. Talentos</span>
-              <span>4. Envio</span>
-            </div>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1155,6 +1146,18 @@ const PreCadastro = () => {
                 <p className="text-muted-foreground">
                   {leadData.cidade && leadData.estado ? `${leadData.cidade}, ${leadData.estado}` : "Localização não informada"}
                 </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="py-4">
+                <Progress value={50} className="h-2 mb-3" />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span className="text-primary font-medium">✓ Fotos</span>
+                  <span className="text-primary font-medium">2. Dados</span>
+                  <span>3. Talentos</span>
+                  <span>4. Envio</span>
+                </div>
               </CardContent>
             </Card>
 
