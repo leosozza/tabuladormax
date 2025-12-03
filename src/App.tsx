@@ -114,13 +114,13 @@ const App = () => (
             <Route path="/discador/metricas" element={<ProtectedRoute requireManager><DiscadorMetricas /></ProtectedRoute>} />
             
             {/* Rotas Administrativas */}
-            <Route path="/admin" element={<ProtectedRoute requireManager><AdminHub /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute requireSupervisor><AdminHub /></ProtectedRoute>} />
             <Route path="/admin/dashboard" element={<ProtectedRoute requireManager><UnifiedDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireSupervisor><Users /></ProtectedRoute>} />
             <Route path="/admin/permissions" element={<ProtectedRoute requireAdmin><Permissions /></ProtectedRoute>} />
             <Route path="/admin/config" element={<ProtectedRoute requireManager><Config /></ProtectedRoute>} />
             <Route path="/admin/logs" element={<ProtectedRoute requireManager><Logs /></ProtectedRoute>} />
-            <Route path="/admin/agent-mapping" element={<ProtectedRoute requireManager><AgentMapping /></ProtectedRoute>} />
+            <Route path="/admin/agent-mapping" element={<ProtectedRoute requireSupervisor><AgentMapping /></ProtectedRoute>} />
             <Route path="/admin/diagnostic" element={<ProtectedRoute requireAdmin><Diagnostic /></ProtectedRoute>} />
             <Route path="/admin/diagnostics" element={<ProtectedRoute requireAdmin><Diagnostics /></ProtectedRoute>} />
             <Route path="/admin/monitoring" element={<ProtectedRoute requireManager><PerformanceMonitoring /></ProtectedRoute>} />
