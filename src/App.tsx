@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ConditionalPWA } from "@/components/pwa/ConditionalPWA";
 
@@ -151,6 +151,9 @@ const App = () => (
           <Route path="/scouter/pagamentos" element={<ProtectedRoute><GestaoPagamentos /></ProtectedRoute>} />
           <Route path="/scouter/area" element={<ProtectedRoute><GestaoArea /></ProtectedRoute>} />
           <Route path="/scouter/relatorios" element={<ProtectedRoute><GestaoRelatorios /></ProtectedRoute>} />
+
+          {/* Redirects para compatibilidade */}
+          <Route path="/users" element={<Navigate to="/admin/users" replace />} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
