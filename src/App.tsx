@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ConditionalPWA } from "@/components/pwa/ConditionalPWA";
+import { AppLayout } from "@/components/layouts/AppLayout";
 
 // Páginas do Tabulador
 import Auth from "./pages/Auth";
@@ -82,78 +83,78 @@ const App = () => (
       <BrowserRouter>
         <ConditionalPWA />
         <Routes>
-          {/* Rota inicial - HomeChoice como padrão */}
-          <Route path="/" element={<ProtectedRoute><HomeChoice /></ProtectedRoute>} />
-          <Route path="/home-choice" element={<ProtectedRoute><HomeChoice /></ProtectedRoute>} />
-          
-          {/* Auth (pública) */}
+          {/* Rotas PÚBLICAS - sem sidebar */}
           <Route path="/auth" element={<Auth />} />
-          <Route path="/debug" element={<ProtectedRoute><Debug /></ProtectedRoute>} />
-          
-          {/* Hub Panels - Interactive sliding panels */}
-          <Route path="/hub" element={<ProtectedRoute><HubPanels /></ProtectedRoute>} />
-          
-          {/* Telemarketing - Connected to 3D solar system planet button */}
-          <Route path="/lead" element={<ProtectedRoute checkRoutePermission><LeadTab /></ProtectedRoute>} />
-          <Route path="/telemarketing" element={<ProtectedRoute checkRoutePermission><LeadTab /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute checkRoutePermission><Dashboard /></ProtectedRoute>} />
-          <Route path="/dashboard-manager" element={<ProtectedRoute><DashboardManager /></ProtectedRoute>} />
-          
-          {/* Discador Module */}
-          <Route path="/discador" element={<ProtectedRoute><DiscadorHub /></ProtectedRoute>} />
-          <Route path="/discador/config" element={<ProtectedRoute requireManager><DiscadorConfig /></ProtectedRoute>} />
-          <Route path="/discador/campanhas" element={<ProtectedRoute><DiscadorCampanhas /></ProtectedRoute>} />
-          <Route path="/discador/enviar" element={<ProtectedRoute><DiscadorEnviarLeads /></ProtectedRoute>} />
-          <Route path="/discador/metricas" element={<ProtectedRoute requireManager><DiscadorMetricas /></ProtectedRoute>} />
-          
-          {/* Rotas Administrativas - Connected to 3D solar system planet button */}
-          <Route path="/admin" element={<ProtectedRoute requireManager><AdminHub /></ProtectedRoute>} />
-          <Route path="/admin/dashboard" element={<ProtectedRoute requireManager><UnifiedDashboard /></ProtectedRoute>} />
-          <Route path="/admin/users" element={<ProtectedRoute requireSupervisor><Users /></ProtectedRoute>} />
-          <Route path="/admin/permissions" element={<ProtectedRoute requireAdmin><Permissions /></ProtectedRoute>} />
-          <Route path="/admin/config" element={<ProtectedRoute requireManager><Config /></ProtectedRoute>} />
-          <Route path="/admin/logs" element={<ProtectedRoute requireManager><Logs /></ProtectedRoute>} />
-          <Route path="/admin/agent-mapping" element={<ProtectedRoute requireManager><AgentMapping /></ProtectedRoute>} />
-          <Route path="/admin/diagnostic" element={<ProtectedRoute requireAdmin><Diagnostic /></ProtectedRoute>} />
-          <Route path="/admin/diagnostics" element={<ProtectedRoute requireAdmin><Diagnostics /></ProtectedRoute>} />
-          <Route path="/admin/monitoring" element={<ProtectedRoute requireManager><PerformanceMonitoring /></ProtectedRoute>} />
-          <Route path="/admin/sync-monitor" element={<ProtectedRoute requireManager><SyncMonitor /></ProtectedRoute>} />
-          <Route path="/admin/bitrix-integration" element={<ProtectedRoute requireManager><BitrixIntegration /></ProtectedRoute>} />
-          <Route path="/admin/lead-resync" element={<ProtectedRoute requireManager><LeadResync /></ProtectedRoute>} />
-          <Route path="/admin/csv-import" element={<ProtectedRoute requireAdmin><CsvImport /></ProtectedRoute>} />
-          <Route path="/admin/leads-reprocess" element={<ProtectedRoute requireManager><LeadsReprocess /></ProtectedRoute>} />
-          <Route path="/admin/sync-errors" element={<ProtectedRoute requireManager><SyncErrors /></ProtectedRoute>} />
-          <Route path="/admin/field-management" element={<ProtectedRoute requireManager><FieldManagement /></ProtectedRoute>} />
-          <Route path="/admin/template-management" element={<ProtectedRoute requireManager><TemplateManagement /></ProtectedRoute>} />
-          <Route path="/admin/ai-training" element={<ProtectedRoute requireAdmin><AITraining /></ProtectedRoute>} />
-          <Route path="/admin/stage-mappings" element={<ProtectedRoute requireManager><StageMappings /></ProtectedRoute>} />
-          <Route path="/admin/app-releases" element={<ProtectedRoute requireAdmin><AppReleases /></ProtectedRoute>} />
-
-          {/* Agenciamento (Negotiations) - Connected to 3D solar system planet button */}
-          <Route path="/agenciamento" element={<ProtectedRoute><Agenciamento /></ProtectedRoute>} />
-
-          {/* Cadastro Module - Independent registration form (public access) */}
           <Route path="/cadastro" element={<CadastroFicha />} />
-          <Route path="/cadastro/atualizar/:entityType/:entityId" element={<ProtectedRoute><CadastroFicha /></ProtectedRoute>} />
           <Route path="/cadastro/sucesso" element={<CadastroSucesso />} />
-
-          {/* Pré-Cadastro Module - Public lead self-registration */}
           <Route path="/precadastro" element={<PreCadastro />} />
           <Route path="/precadastro/sucesso" element={<PreCadastroSucesso />} />
 
-          {/* Rotas do Gestão Scouter (prefixo /scouter) - Connected to 3D solar system planet button */}
-          <Route path="/scouter" element={<ProtectedRoute><GestaoHome /></ProtectedRoute>} />
-          
-          <Route path="/scouter/leads" element={<ProtectedRoute><GestaoLeads /></ProtectedRoute>} />
-          <Route path="/whatsapp" element={<ProtectedRoute checkRoutePermission><WhatsApp /></ProtectedRoute>} />
-          <Route path="/scouter/scouters" element={<ProtectedRoute><GestaoScouters /></ProtectedRoute>} />
-          <Route path="/scouter/projecao" element={<ProtectedRoute><GestaoProjecao /></ProtectedRoute>} />
-          <Route path="/scouter/pagamentos" element={<ProtectedRoute><GestaoPagamentos /></ProtectedRoute>} />
-          <Route path="/scouter/area" element={<ProtectedRoute><GestaoArea /></ProtectedRoute>} />
-          <Route path="/scouter/relatorios" element={<ProtectedRoute><GestaoRelatorios /></ProtectedRoute>} />
+          {/* Rotas PROTEGIDAS - com sidebar persistente */}
+          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+            {/* Home */}
+            <Route path="/" element={<HomeChoice />} />
+            <Route path="/home-choice" element={<HomeChoice />} />
+            <Route path="/debug" element={<Debug />} />
+            
+            {/* Hub Panels */}
+            <Route path="/hub" element={<HubPanels />} />
+            
+            {/* Telemarketing */}
+            <Route path="/lead" element={<ProtectedRoute checkRoutePermission><LeadTab /></ProtectedRoute>} />
+            <Route path="/telemarketing" element={<ProtectedRoute checkRoutePermission><LeadTab /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute checkRoutePermission><Dashboard /></ProtectedRoute>} />
+            <Route path="/dashboard-manager" element={<DashboardManager />} />
+            
+            {/* Discador Module */}
+            <Route path="/discador" element={<DiscadorHub />} />
+            <Route path="/discador/config" element={<ProtectedRoute requireManager><DiscadorConfig /></ProtectedRoute>} />
+            <Route path="/discador/campanhas" element={<DiscadorCampanhas />} />
+            <Route path="/discador/enviar" element={<DiscadorEnviarLeads />} />
+            <Route path="/discador/metricas" element={<ProtectedRoute requireManager><DiscadorMetricas /></ProtectedRoute>} />
+            
+            {/* Rotas Administrativas */}
+            <Route path="/admin" element={<ProtectedRoute requireManager><AdminHub /></ProtectedRoute>} />
+            <Route path="/admin/dashboard" element={<ProtectedRoute requireManager><UnifiedDashboard /></ProtectedRoute>} />
+            <Route path="/admin/users" element={<ProtectedRoute requireSupervisor><Users /></ProtectedRoute>} />
+            <Route path="/admin/permissions" element={<ProtectedRoute requireAdmin><Permissions /></ProtectedRoute>} />
+            <Route path="/admin/config" element={<ProtectedRoute requireManager><Config /></ProtectedRoute>} />
+            <Route path="/admin/logs" element={<ProtectedRoute requireManager><Logs /></ProtectedRoute>} />
+            <Route path="/admin/agent-mapping" element={<ProtectedRoute requireManager><AgentMapping /></ProtectedRoute>} />
+            <Route path="/admin/diagnostic" element={<ProtectedRoute requireAdmin><Diagnostic /></ProtectedRoute>} />
+            <Route path="/admin/diagnostics" element={<ProtectedRoute requireAdmin><Diagnostics /></ProtectedRoute>} />
+            <Route path="/admin/monitoring" element={<ProtectedRoute requireManager><PerformanceMonitoring /></ProtectedRoute>} />
+            <Route path="/admin/sync-monitor" element={<ProtectedRoute requireManager><SyncMonitor /></ProtectedRoute>} />
+            <Route path="/admin/bitrix-integration" element={<ProtectedRoute requireManager><BitrixIntegration /></ProtectedRoute>} />
+            <Route path="/admin/lead-resync" element={<ProtectedRoute requireManager><LeadResync /></ProtectedRoute>} />
+            <Route path="/admin/csv-import" element={<ProtectedRoute requireAdmin><CsvImport /></ProtectedRoute>} />
+            <Route path="/admin/leads-reprocess" element={<ProtectedRoute requireManager><LeadsReprocess /></ProtectedRoute>} />
+            <Route path="/admin/sync-errors" element={<ProtectedRoute requireManager><SyncErrors /></ProtectedRoute>} />
+            <Route path="/admin/field-management" element={<ProtectedRoute requireManager><FieldManagement /></ProtectedRoute>} />
+            <Route path="/admin/template-management" element={<ProtectedRoute requireManager><TemplateManagement /></ProtectedRoute>} />
+            <Route path="/admin/ai-training" element={<ProtectedRoute requireAdmin><AITraining /></ProtectedRoute>} />
+            <Route path="/admin/stage-mappings" element={<ProtectedRoute requireManager><StageMappings /></ProtectedRoute>} />
+            <Route path="/admin/app-releases" element={<ProtectedRoute requireAdmin><AppReleases /></ProtectedRoute>} />
 
-          {/* Redirects para compatibilidade */}
-          <Route path="/users" element={<Navigate to="/admin/users" replace />} />
+            {/* Agenciamento */}
+            <Route path="/agenciamento" element={<Agenciamento />} />
+
+            {/* Cadastro protegido */}
+            <Route path="/cadastro/atualizar/:entityType/:entityId" element={<CadastroFicha />} />
+
+            {/* Gestão Scouter */}
+            <Route path="/scouter" element={<GestaoHome />} />
+            <Route path="/scouter/leads" element={<GestaoLeads />} />
+            <Route path="/whatsapp" element={<ProtectedRoute checkRoutePermission><WhatsApp /></ProtectedRoute>} />
+            <Route path="/scouter/scouters" element={<GestaoScouters />} />
+            <Route path="/scouter/projecao" element={<GestaoProjecao />} />
+            <Route path="/scouter/pagamentos" element={<GestaoPagamentos />} />
+            <Route path="/scouter/area" element={<GestaoArea />} />
+            <Route path="/scouter/relatorios" element={<GestaoRelatorios />} />
+
+            {/* Redirects */}
+            <Route path="/users" element={<Navigate to="/admin/users" replace />} />
+          </Route>
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
