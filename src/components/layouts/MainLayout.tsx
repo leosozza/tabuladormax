@@ -13,6 +13,7 @@ interface MainLayoutProps {
   actions?: ReactNode;
   showBackButton?: boolean;
   backTo?: string;
+  hideSidebar?: boolean;
 }
 
 export function MainLayout({
@@ -22,6 +23,7 @@ export function MainLayout({
   actions,
   showBackButton = false,
   backTo = "/home-choice",
+  hideSidebar = false,
 }: MainLayoutProps) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -29,14 +31,14 @@ export function MainLayout({
   return (
     <SidebarProvider defaultOpen={!isMobile}>
       <div className="flex min-h-screen w-full bg-background">
-        <UnifiedSidebar />
+        {!hideSidebar && <UnifiedSidebar />}
 
         <div className="flex-1 flex flex-col w-full min-w-0">
           {/* Header responsivo */}
           {(title || actions || showBackButton) && (
             <header className="sticky top-0 z-[500] border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
               <div className="flex items-center gap-2 p-3 md:p-4">
-                <SidebarTrigger />
+                {!hideSidebar && <SidebarTrigger />}
 
                 {/* Botão de voltar */}
                 {showBackButton && (
