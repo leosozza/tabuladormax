@@ -33,7 +33,10 @@ export function useAgentConversations() {
           name,
           conversation_id,
           contact_id,
-          commercial_project_id
+          commercial_project_id,
+          celular,
+          telefone_casa,
+          telefone_trabalho
         `)
         .eq('responsible_user_id', user.id)
         .not('conversation_id', 'is', null)
@@ -61,12 +64,15 @@ export function useAgentConversations() {
         if (lead.conversation_id) {
           const contact = contacts?.find(c => c.conversation_id === lead.conversation_id);
           if (contact) {
+            // Usar phone do contact, ou fallback para celular/telefones do lead
+            const phoneNumber = contact.phone_number || lead.celular || lead.telefone_casa || lead.telefone_trabalho || '';
+            
             conversationsMap[lead.conversation_id] = {
               conversation_id: lead.conversation_id,
               contact_id: contact.contact_id || 0,
               lead_id: lead.id,
               name: contact.name || lead.name || 'Sem nome',
-              phone_number: contact.phone_number || '',
+              phone_number: phoneNumber,
               thumbnail: contact.thumbnail,
               last_message_at: contact.last_message_at || null,
               bitrix_id: contact.bitrix_id,
