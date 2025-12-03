@@ -9,7 +9,6 @@ const corsHeaders = {
 interface PhotoSyncRequest {
   leadId: number;
   fileIds?: number[];  // Array de IDs de arquivos do Bitrix
-  fileObjects?: Array<{ id: number; showUrl?: string; downloadUrl?: string }>;  // Objetos com URLs do Bitrix
 }
 
 // Helper para baixar e fazer upload de foto
@@ -91,7 +90,7 @@ serve(async (req) => {
   }
 
   try {
-    const { leadId, fileIds, fileObjects }: PhotoSyncRequest = await req.json();
+    const { leadId, fileIds }: PhotoSyncRequest = await req.json();
     
     if (!leadId) {
       throw new Error('leadId é obrigatório');
@@ -128,17 +127,11 @@ serve(async (req) => {
 
     let photoIdsToProcess: number[] = [];
     let oldFieldPhotos: Array<{ id: number; downloadUrl?: string | null }> = [];
-    let fileObjectsToProcess: Array<{ id: number; showUrl?: string; downloadUrl?: string }> = [];
 
-    // Se fileObjects foram fornecidos (com URLs do Bitrix), usar diretamente
-    if (fileObjects && fileObjects.length > 0) {
-      fileObjectsToProcess = fileObjects;
-      console.log(`📸 Processar ${fileObjects.length} fotos com URLs diretas`);
-    }
     // Se fileIds foram fornecidos, usar eles diretamente
-    else if (fileIds && fileIds.length > 0) {
+    if (fileIds && fileIds.length > 0) {
       photoIdsToProcess = fileIds;
-      console.log(`📸 Processar ${fileIds.length} fotos por ID:`, fileIds);
+      console.log(`📸 Processar ${fileIds.length} fotos fornecidas:`, fileIds);
     } else {
       // Buscar fotos do Bitrix
       console.log(`📡 Buscando lead completo do Bitrix: crm.lead.get?ID=${leadId}`);
@@ -190,8 +183,8 @@ serve(async (req) => {
       }
     }
 
-    // Se não há fotos de nenhuma fonte
-    if (photoIdsToProcess.length === 0 && fileObjectsToProcess.length === 0 && (!oldFieldPhotos || oldFieldPhotos.length === 0)) {
+    // Se não há fotos do novo campo nem do antigo
+    if (photoIdsToProcess.length === 0 && (!oldFieldPhotos || oldFieldPhotos.length === 0)) {
       return new Response(
         JSON.stringify({ success: true, message: 'Nenhuma foto para sincronizar' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -203,88 +196,25 @@ serve(async (req) => {
     const allStoragePaths: string[] = [];
     let totalSize = 0;
 
-    // 1. Processar fileObjects (já têm URLs do Bitrix)
-    for (const fileObj of fileObjectsToProcess) {
+    // Processar fotos do novo campo (usando disk.file.get)
+    for (const photoId of photoIdsToProcess) {
       try {
-        console.log(`📡 Processando arquivo ${fileObj.id} com URL direta...`);
+        console.log(`📡 Processando foto ${photoId} via disk.file.get...`);
         
-        // Construir URL completa a partir do showUrl ou downloadUrl
-        let downloadUrl = fileObj.downloadUrl || fileObj.showUrl;
+        // Usar disk.file.get para obter DOWNLOAD_URL
+        const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}`;
+        const diskResp = await fetch(diskFileUrl);
         
-        if (!downloadUrl) {
-          console.error(`❌ Objeto de arquivo ${fileObj.id} sem URL`);
+        if (!diskResp.ok) {
+          console.error(`❌ Erro ao chamar disk.file.get para foto ${photoId}: ${diskResp.status}`);
           continue;
         }
         
-        // Se for URL relativa, adicionar domínio
-        if (downloadUrl.startsWith('/')) {
-          downloadUrl = `https://${bitrixDomain}${downloadUrl}`;
-        }
-        
-        console.log(`📥 URL para download: ${downloadUrl}`);
-        
-        // Baixar, fazer upload e obter URL pública
-        const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
-          leadId,
-          fileObj.id,
-          downloadUrl,
-          supabase
-        );
-        
-        allPublicUrls.push(publicUrl);
-        allStoragePaths.push(storagePath);
-        totalSize += fileSize;
-        
-        console.log(`✅ Arquivo ${fileObj.id} sincronizado: ${publicUrl}`);
-      } catch (error) {
-        console.error(`❌ Erro ao processar arquivo ${fileObj.id}:`, error);
-      }
-    }
-
-    // 2. Processar fotos por ID (tentar crm.file.get primeiro, depois disk.file.get)
-    for (const photoId of photoIdsToProcess) {
-      try {
-        console.log(`📡 Processando foto ${photoId}...`);
-        
-        let downloadUrl: string | null = null;
-        
-        // 1. Tentar crm.file.get primeiro (para arquivos de campos CRM)
-        const crmFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.file.get?id=${photoId}`;
-        console.log(`📡 Tentando crm.file.get: ${crmFileUrl}`);
-        const crmResp = await fetch(crmFileUrl);
-        
-        if (crmResp.ok) {
-          const crmJson = await crmResp.json();
-          downloadUrl = crmJson.result?.downloadUrl || crmJson.result?.DOWNLOAD_URL;
-          if (downloadUrl) {
-            console.log(`✅ crm.file.get retornou URL para foto ${photoId}`);
-          }
-        }
-        
-        // 2. Se crm.file.get não funcionou, tentar disk.file.get
-        if (!downloadUrl) {
-          const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}`;
-          console.log(`📡 Fallback para disk.file.get: ${diskFileUrl}`);
-          const diskResp = await fetch(diskFileUrl);
-          
-          if (diskResp.ok) {
-            const diskJson = await diskResp.json();
-            downloadUrl = diskJson.result?.DOWNLOAD_URL;
-            if (downloadUrl) {
-              console.log(`✅ disk.file.get retornou URL para foto ${photoId}`);
-            }
-          }
-        }
-        
-        // 3. Se ainda não tem URL, tentar URL direta do CRM show_file.php
-        if (!downloadUrl) {
-          // URL padrão para arquivos CRM quando temos apenas o fileId
-          downloadUrl = `https://${bitrixDomain}/bitrix/components/bitrix/crm.lead.show/show_file.php?auth=${bitrixToken}&ownerId=${leadId}&fieldName=UF_CRM_LEAD_1733231445171&dynamic=Y&fileId=${photoId}`;
-          console.log(`📡 Fallback para URL direta CRM: ${downloadUrl}`);
-        }
+        const diskJson = await diskResp.json();
+        const downloadUrl = diskJson.result?.DOWNLOAD_URL;
         
         if (!downloadUrl) {
-          console.error(`❌ Não foi possível obter URL de download para foto ${photoId}`);
+          console.error(`❌ disk.file.get não retornou DOWNLOAD_URL para foto ${photoId}`);
           continue;
         }
         

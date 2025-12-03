@@ -170,34 +170,16 @@ export default function LeadCard({ lead }: LeadCardProps) {
       "w-full h-full relative overflow-hidden border-2 shadow-lg",
       cardSizeClasses[config.photoSize]
     )}>
-      {/* Foto do Lead - Fullscreen com otimização para baixa resolução */}
+      {/* Foto do Lead - Fullscreen */}
       <div className="absolute inset-0 bg-muted overflow-hidden flex items-center justify-center">
-        {/* Background blur para imagens de baixa resolução */}
-        {!hasPhotoError && effectivePhotoUrl && (
-          <div 
-            className="absolute inset-0 scale-110 blur-2xl opacity-60"
-            style={{
-              backgroundImage: `url(${photoSrc})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          />
-        )}
         <img
           src={photoSrc}
           alt={String(lead.name || "Lead")}
           className={cn(
-            "relative z-[1]",
             hasPhotoError || !rawPhotoUrl || rawPhotoUrl === '' 
               ? "w-2/3 h-2/3 object-contain" 
               : "w-full h-full object-cover"
           )}
-          style={{
-            // Suavização de imagem para baixa resolução
-            imageRendering: 'auto',
-            // Leve realce de contraste e saturação
-            filter: 'contrast(1.03) saturate(1.08)',
-          }}
           onError={() => {
             if (!hasPhotoError) {
               setHasPhotoError(true);
