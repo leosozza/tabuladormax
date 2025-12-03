@@ -85,7 +85,8 @@ Deno.serve(async (req) => {
         }
 
         const messages = await response.json();
-        console.log('✅ Messages fetched:', messages.length);
+        console.log('✅ Messages fetched:', messages?.payload?.length || 0, 'messages');
+        console.log('📬 Conversation inbox_id:', messages?.meta?.inbox_id || 'N/A');
 
         return new Response(
           JSON.stringify({ found: true, messages }),
