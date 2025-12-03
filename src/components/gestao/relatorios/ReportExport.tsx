@@ -41,7 +41,7 @@ export default function ReportExport({ filters }: ReportExportProps) {
             query = query.eq("commercial_project_id", filters.projectId);
           }
           if (filters.fonte) {
-            query = query.eq("fonte", filters.fonte);
+            query = query.eq("fonte_normalizada", filters.fonte);
           }
           return query.order("criado", { ascending: false });
         }
