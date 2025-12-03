@@ -6,7 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useAllowedRoutes } from "@/hooks/useAllowedRoutes";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +26,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const mainNavItems = [
-  { path: "/home-choice", label: "Dashboard Geral", icon: Home },
+  { path: "/", label: "Dashboard Geral", icon: Home },
   { path: "/whatsapp", label: "WhatsApp", icon: MessageSquare },
   { 
     path: "/telemarketing", 
@@ -57,6 +59,7 @@ export function UnifiedSidebar() {
   const { open } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
+  const { allowedRoutes, loading: loadingRoutes, isAdmin } = useAllowedRoutes();
   
   // Auto-expandir submenu baseado na rota atual
   const [scouterOpen, setScouterOpen] = useState(
@@ -71,6 +74,37 @@ export function UnifiedSidebar() {
     setScouterOpen(location.pathname.startsWith('/scouter'));
     setTelemarketingOpen(location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador'));
   }, [location.pathname]);
+
+  // Função para verificar se tem acesso a uma rota
+  const canAccessRoute = (path: string): boolean => {
+    if (isAdmin) return true;
+    
+    // Normalizar path "/" para "/home-choice" se necessário (compatibilidade)
+    const normalizedPath = path === '/home-choice' ? '/' : path;
+    return allowedRoutes.includes(normalizedPath) || allowedRoutes.includes(path);
+  };
+
+  // Filtrar itens do menu baseado nas permissões
+  const filteredNavItems = useMemo(() => {
+    if (loadingRoutes) return [];
+    
+    return mainNavItems
+      .map(item => {
+        if (item.subItems) {
+          // Filtrar subItems permitidos
+          const allowedSubItems = item.subItems.filter(sub => canAccessRoute(sub.path));
+          
+          // Se não tem nenhum subItem permitido, ocultar o item pai
+          if (allowedSubItems.length === 0) return null;
+          
+          return { ...item, subItems: allowedSubItems };
+        }
+        
+        // Item sem subItems - verificar acesso direto
+        return canAccessRoute(item.path) ? item : null;
+      })
+      .filter(Boolean) as typeof mainNavItems;
+  }, [allowedRoutes, loadingRoutes, isAdmin]);
 
   // Buscar a versão mais recente do APK
   const { data: latestRelease } = useQuery({
@@ -125,67 +159,75 @@ export function UnifiedSidebar() {
           </SidebarGroupLabel>
           
           <SidebarGroupContent>
-            <SidebarMenu>
-              {mainNavItems.map((item) => {
-                if (item.subItems) {
-                  const isScouterMenu = item.path === '/scouter';
-                  const isTelemarketingMenu = item.path === '/telemarketing';
-                  const menuOpen = isScouterMenu ? scouterOpen : isTelemarketingMenu ? telemarketingOpen : false;
-                  const setMenuOpen = isScouterMenu ? setScouterOpen : isTelemarketingMenu ? setTelemarketingOpen : () => {};
-                  
-                  return (
-                    <Collapsible
-                      key={item.path}
-                      open={menuOpen}
-                      onOpenChange={setMenuOpen}
-                      className="group/collapsible"
-                    >
-                      <SidebarMenuItem>
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton tooltip={item.label}>
-                            <item.icon className="h-4 w-4" />
-                            {open && <span>{item.label}</span>}
-                            {open && <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />}
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
-                            {item.subItems.map((subItem) => (
-                              <SidebarMenuSubItem key={subItem.path}>
-                                <SidebarMenuSubButton asChild>
-                                  <NavLink 
-                                    to={subItem.path}
-                                    activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                                  >
-                                    {subItem.icon && <subItem.icon className="h-4 w-4" />}
-                                    {open && <span>{subItem.label}</span>}
-                                  </NavLink>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </SidebarMenuItem>
-                    </Collapsible>
-                  );
-                }
-
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton asChild tooltip={item.label}>
-                      <NavLink 
-                        to={item.path} 
-                        end={item.path === "/home-choice"}
-                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+            {loadingRoutes ? (
+              <div className="space-y-2 px-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-8 w-full" />
+                ))}
+              </div>
+            ) : (
+              <SidebarMenu>
+                {filteredNavItems.map((item) => {
+                  if (item.subItems) {
+                    const isScouterMenu = item.path === '/scouter';
+                    const isTelemarketingMenu = item.path === '/telemarketing';
+                    const menuOpen = isScouterMenu ? scouterOpen : isTelemarketingMenu ? telemarketingOpen : false;
+                    const setMenuOpen = isScouterMenu ? setScouterOpen : isTelemarketingMenu ? setTelemarketingOpen : () => {};
+                    
+                    return (
+                      <Collapsible
+                        key={item.path}
+                        open={menuOpen}
+                        onOpenChange={setMenuOpen}
+                        className="group/collapsible"
                       >
-                        <item.icon className="h-4 w-4" />
-                        {open && <span>{item.label}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
+                        <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton tooltip={item.label}>
+                              <item.icon className="h-4 w-4" />
+                              {open && <span>{item.label}</span>}
+                              {open && <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />}
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {item.subItems.map((subItem) => (
+                                <SidebarMenuSubItem key={subItem.path}>
+                                  <SidebarMenuSubButton asChild>
+                                    <NavLink 
+                                      to={subItem.path}
+                                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                                    >
+                                      {subItem.icon && <subItem.icon className="h-4 w-4" />}
+                                      {open && <span>{subItem.label}</span>}
+                                    </NavLink>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        </SidebarMenuItem>
+                      </Collapsible>
+                    );
+                  }
+
+                  return (
+                    <SidebarMenuItem key={item.path}>
+                      <SidebarMenuButton asChild tooltip={item.label}>
+                        <NavLink 
+                          to={item.path} 
+                          end={item.path === "/"}
+                          activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                        >
+                          <item.icon className="h-4 w-4" />
+                          {open && <span>{item.label}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
 
