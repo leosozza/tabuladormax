@@ -2277,6 +2277,17 @@ export type Database = {
           valor_total: number
         }[]
       }
+      get_general_stats_filtered: {
+        Args: { p_end_date?: string; p_start_date?: string }
+        Returns: {
+          compareceram: number
+          confirmados: number
+          leads_periodo: number
+          taxa_conversao: number
+          total_leads: number
+          valor_total: number
+        }[]
+      }
       get_leads_chart_data: {
         Args: {
           p_end_date: string

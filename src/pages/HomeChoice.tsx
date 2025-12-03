@@ -9,13 +9,19 @@ import { SystemHealthPanel } from "@/components/unified/SystemHealthPanel";
 import { MaxconnectAgent } from "@/components/unified/MaxconnectAgent";
 import { Button } from "@/components/ui/button";
 import { Bot, LayoutDashboard } from "lucide-react";
+import { MinimalDateFilter, DateFilterValue, getDefaultMonthFilter } from "@/components/MinimalDateFilter";
 
 export default function HomeChoice() {
   const [view, setView] = useState<'dashboard' | 'agent'>('dashboard');
+  const [dateFilter, setDateFilter] = useState<DateFilterValue>(getDefaultMonthFilter);
+  
   const { data: stats, isLoading } = useQuery({
-    queryKey: ['general-stats'],
+    queryKey: ['general-stats-filtered', dateFilter.startDate, dateFilter.endDate],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_general_stats').single();
+      const { data, error } = await supabase.rpc('get_general_stats_filtered', {
+        p_start_date: dateFilter.startDate.toISOString(),
+        p_end_date: dateFilter.endDate.toISOString(),
+      }).single();
       
       if (error) throw error;
       return data;
@@ -26,16 +32,26 @@ export default function HomeChoice() {
     <>
       <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
         <SidebarTrigger />
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">
-            {view === 'dashboard' ? 'Dashboard Geral' : 'Agente MAXconnect'}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {view === 'dashboard' 
-              ? 'Visão consolidada do sistema' 
-              : 'Análise de dados por IA conversacional'
-            }
-          </p>
+        <div className="flex items-center gap-2 flex-1">
+          <div>
+            <h1 className="text-2xl font-bold">
+              {view === 'dashboard' ? 'Dashboard Geral' : 'Agente MAXconnect'}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {view === 'dashboard' 
+                ? 'Visão consolidada do sistema' 
+                : 'Análise de dados por IA conversacional'
+              }
+            </p>
+          </div>
+          {view === 'dashboard' && (
+            <div className="flex items-center gap-1 ml-2">
+              <MinimalDateFilter value={dateFilter} onChange={setDateFilter} />
+              <span className="text-xs text-muted-foreground capitalize">
+                {dateFilter.label}
+              </span>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <Button
@@ -61,7 +77,7 @@ export default function HomeChoice() {
         {view === 'dashboard' ? (
           <>
             {/* Statistics Cards */}
-            <GeneralStatsCards stats={stats} isLoading={isLoading} />
+            <GeneralStatsCards stats={stats} isLoading={isLoading} periodLabel={dateFilter.label} />
 
             {/* Charts and Health */}
             <div className="grid gap-6 lg:grid-cols-3">

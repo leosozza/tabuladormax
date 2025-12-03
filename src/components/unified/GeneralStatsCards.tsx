@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CheckCircle, UserCheck, DollarSign, TrendingUp, Calendar } from "lucide-react";
+import { Users, CheckCircle, UserCheck, DollarSign, TrendingUp, Percent } from "lucide-react";
 
 interface GeneralStatsCardsProps {
   stats: {
@@ -7,13 +7,14 @@ interface GeneralStatsCardsProps {
     confirmados: number;
     compareceram: number;
     valor_total: number;
-    leads_hoje: number;
-    leads_semana: number;
+    leads_periodo: number;
+    taxa_conversao: number;
   } | null;
   isLoading: boolean;
+  periodLabel?: string;
 }
 
-export function GeneralStatsCards({ stats, isLoading }: GeneralStatsCardsProps) {
+export function GeneralStatsCards({ stats, isLoading, periodLabel }: GeneralStatsCardsProps) {
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -59,15 +60,15 @@ export function GeneralStatsCards({ stats, isLoading }: GeneralStatsCardsProps) 
       color: "text-emerald-600",
     },
     {
-      title: "Leads Hoje",
-      value: stats.leads_hoje.toLocaleString('pt-BR'),
-      icon: Calendar,
+      title: "Leads no Período",
+      value: stats.leads_periodo.toLocaleString('pt-BR'),
+      icon: TrendingUp,
       color: "text-orange-600",
     },
     {
-      title: "Leads Esta Semana",
-      value: stats.leads_semana.toLocaleString('pt-BR'),
-      icon: TrendingUp,
+      title: "Taxa de Conversão",
+      value: `${stats.taxa_conversao}%`,
+      icon: Percent,
       color: "text-cyan-600",
     },
   ];
