@@ -4,23 +4,27 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Send, RefreshCw, MessageSquare, ArrowLeft, Phone } from 'lucide-react';
+import { Send, RefreshCw, MessageSquare, ArrowLeft, Phone, Lock } from 'lucide-react';
 import { useChatwootMessages } from '@/hooks/useChatwootMessages';
 import { TemplateSelector } from './TemplateSelector';
 import { LabelManager } from './LabelManager';
+import { WindowIndicator } from './WindowIndicator';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { calculateWindowStatus, WindowStatus } from '@/lib/whatsappWindow';
 
 interface ChatPanelProps {
   conversationId: number | null;
   contactName: string;
   onBack?: () => void;
+  windowStatus?: WindowStatus;
 }
 
-export function ChatPanel({ conversationId, contactName, onBack }: ChatPanelProps) {
+export function ChatPanel({ conversationId, contactName, onBack, windowStatus: propWindowStatus }: ChatPanelProps) {
   const [messageInput, setMessageInput] = useState('');
+  const [activeTab, setActiveTab] = useState('messages');
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   
@@ -33,26 +37,31 @@ export function ChatPanel({ conversationId, contactName, onBack }: ChatPanelProp
     sendTemplate,
   } = useChatwootMessages(conversationId);
 
-  // Buscar lead_id associado à conversa
-  const { data: leadId } = useQuery({
-    queryKey: ['conversation-lead', conversationId],
+  // Buscar lead_id e status da janela
+  const { data: conversationData } = useQuery({
+    queryKey: ['conversation-data', conversationId],
     queryFn: async () => {
       if (!conversationId) return null;
       
-      // Buscar o bitrix_id do contato pela conversation_id
+      // Buscar o contato pela conversation_id
       const { data: contact } = await supabase
         .from('chatwoot_contacts')
-        .select('bitrix_id')
+        .select('bitrix_id, last_customer_message_at')
         .eq('conversation_id', conversationId)
         .maybeSingle();
       
-      if (contact?.bitrix_id) {
-        return parseInt(contact.bitrix_id);
-      }
-      return null;
+      const leadId = contact?.bitrix_id ? parseInt(contact.bitrix_id) : null;
+      const windowStatus = calculateWindowStatus(contact?.last_customer_message_at || null);
+      
+      return { leadId, windowStatus };
     },
     enabled: !!conversationId,
   });
+
+  const leadId = conversationData?.leadId;
+  // Usar windowStatus passado por props ou calculado
+  const windowStatus = propWindowStatus || conversationData?.windowStatus || calculateWindowStatus(null);
+  const isWindowOpen = windowStatus.isOpen;
 
   const handleOpenInTelemarketing = () => {
     if (leadId) {
@@ -81,8 +90,15 @@ export function ChatPanel({ conversationId, contactName, onBack }: ChatPanelProp
     }
   }, [messages]);
 
+  // Se janela fechada, ir automaticamente para templates
+  useEffect(() => {
+    if (!isWindowOpen && activeTab === 'messages') {
+      setActiveTab('templates');
+    }
+  }, [isWindowOpen, activeTab]);
+
   const handleSendMessage = async () => {
-    if (!messageInput.trim()) return;
+    if (!messageInput.trim() || !isWindowOpen) return;
     
     const success = await sendMessage(messageInput);
     if (success) {
@@ -161,12 +177,18 @@ export function ChatPanel({ conversationId, contactName, onBack }: ChatPanelProp
         </div>
       </div>
 
+      {/* Banner de status da janela */}
+      <WindowIndicator status={windowStatus} variant="banner" />
+
       {/* Content */}
-      <Tabs defaultValue="messages" className="flex-1 flex flex-col min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <div className="border-b px-4">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="messages">Mensagens</TabsTrigger>
-            <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="templates" className={!isWindowOpen ? 'animate-pulse bg-primary/10' : ''}>
+              Templates
+              {!isWindowOpen && <Lock className="w-3 h-3 ml-1" />}
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -228,29 +250,51 @@ export function ChatPanel({ conversationId, contactName, onBack }: ChatPanelProp
             </div>
           </ScrollArea>
 
+          {/* Área de input - desabilitada se janela fechada */}
           <div className="border-t p-4 bg-card">
-            <div className="flex gap-2 items-end">
-              <Textarea
-                placeholder="Digite sua mensagem... (Ctrl+Enter para enviar)"
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                onKeyDown={handleKeyPress}
-                disabled={sending}
-                className="min-h-[80px] max-h-[160px] resize-none"
-                rows={3}
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={sending || !messageInput.trim()}
-                size="icon"
-                className="flex-shrink-0"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Pressione <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> para enviar
-            </p>
+            {isWindowOpen ? (
+              <>
+                <div className="flex gap-2 items-end">
+                  <Textarea
+                    placeholder="Digite sua mensagem... (Ctrl+Enter para enviar)"
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    disabled={sending}
+                    className="min-h-[80px] max-h-[160px] resize-none"
+                    rows={3}
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={sending || !messageInput.trim()}
+                    size="icon"
+                    className="flex-shrink-0"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Pressione <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> para enviar
+                </p>
+              </>
+            ) : (
+              <div className="text-center py-4 bg-red-500/5 rounded-lg border border-red-500/20">
+                <Lock className="w-8 h-8 mx-auto mb-2 text-red-500" />
+                <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">
+                  Janela de 24h expirada
+                </p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Para iniciar uma conversa, você precisa enviar um template aprovado
+                </p>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setActiveTab('templates')}
+                >
+                  Ir para Templates
+                </Button>
+              </div>
+            )}
           </div>
         </TabsContent>
 
