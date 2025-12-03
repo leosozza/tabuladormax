@@ -418,7 +418,8 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b">
         <div className="container mx-auto px-4 py-6 flex flex-col gap-4">
-          <div className="flex flex-col gap-4">
+          {/* Primeira linha: Título à esquerda, UserMenu à direita */}
+          <div className="flex items-start justify-between">
             <div>
               <h1 className="text-3xl font-bold text-foreground">
                 Tabulador Telemarketing
@@ -427,29 +428,31 @@ const Index = () => {
                 Gerencie seus leads com eficiência
               </p>
             </div>
-            <div className="flex flex-wrap gap-2 items-center">
-              <Button
-                variant="outline"
-                onClick={() => navigate('/lead')}
-                className="gap-2"
-              >
-                <Phone className="w-4 h-4" />
-                Gestão de Leads
-              </Button>
-              {isAdmin && (
-                <label className="flex items-center gap-2 text-sm min-h-[44px]">
-                  <input 
-                    type="checkbox" 
-                    checked={showAllUsers}
-                    onChange={(e) => setShowAllUsers(e.target.checked)}
-                    className="rounded w-5 h-5"
-                  />
-                  <span className="hidden sm:inline">Ver todos os usuários</span>
-                  <span className="sm:hidden">Todos</span>
-                </label>
-              )}
-              <UserMenu />
-            </div>
+            <UserMenu />
+          </div>
+          
+          {/* Segunda linha: Botões de ação */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/lead')}
+              className="gap-2"
+            >
+              <Phone className="w-4 h-4" />
+              Gestão de Leads
+            </Button>
+            {isAdmin && (
+              <label className="flex items-center gap-2 text-sm min-h-[44px]">
+                <input 
+                  type="checkbox" 
+                  checked={showAllUsers}
+                  onChange={(e) => setShowAllUsers(e.target.checked)}
+                  className="rounded w-5 h-5"
+                />
+                <span className="hidden sm:inline">Ver todos os usuários</span>
+                <span className="sm:hidden">Todos</span>
+              </label>
+            )}
           </div>
 
           {/* Filter Bar */}
