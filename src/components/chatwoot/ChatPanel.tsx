@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Send, RefreshCw, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Send, RefreshCw, MessageSquare, ArrowLeft, Phone } from 'lucide-react';
 import { useChatwootMessages } from '@/hooks/useChatwootMessages';
 import { TemplateSelector } from './TemplateSelector';
 import { LabelManager } from './LabelManager';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 interface ChatPanelProps {
   conversationId: number | null;
@@ -19,6 +22,7 @@ interface ChatPanelProps {
 export function ChatPanel({ conversationId, contactName, onBack }: ChatPanelProps) {
   const [messageInput, setMessageInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   
   const {
     messages,
@@ -28,6 +32,33 @@ export function ChatPanel({ conversationId, contactName, onBack }: ChatPanelProp
     sendMessage,
     sendTemplate,
   } = useChatwootMessages(conversationId);
+
+  // Buscar lead_id associado à conversa
+  const { data: leadId } = useQuery({
+    queryKey: ['conversation-lead', conversationId],
+    queryFn: async () => {
+      if (!conversationId) return null;
+      
+      // Buscar o bitrix_id do contato pela conversation_id
+      const { data: contact } = await supabase
+        .from('chatwoot_contacts')
+        .select('bitrix_id')
+        .eq('conversation_id', conversationId)
+        .maybeSingle();
+      
+      if (contact?.bitrix_id) {
+        return parseInt(contact.bitrix_id);
+      }
+      return null;
+    },
+    enabled: !!conversationId,
+  });
+
+  const handleOpenInTelemarketing = () => {
+    if (leadId) {
+      navigate(`/telemarketing?lead=${leadId}`);
+    }
+  };
 
   // Limpar data-scroll-locked ao montar/desmontar
   useEffect(() => {
@@ -105,6 +136,17 @@ export function ChatPanel({ conversationId, contactName, onBack }: ChatPanelProp
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {leadId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenInTelemarketing}
+                title="Abrir no Telemarketing"
+              >
+                <Phone className="w-4 h-4" />
+                <span className="hidden sm:inline ml-2">Telemarketing</span>
+              </Button>
+            )}
             <LabelManager conversationId={conversationId} />
             <Button
               variant="outline"
