@@ -540,8 +540,12 @@ const PreCadastro = () => {
     cursos: [],
     caracteristicasEspeciais: []
   });
-  const syncPhotosInBackground = async (numericLeadId: number, fileIds: number[]) => {
-    if (!fileIds.length) return;
+  const syncPhotosInBackground = async (
+    numericLeadId: number, 
+    fileIds?: number[], 
+    fileObjects?: Array<{ id: number; showUrl?: string; downloadUrl?: string }>
+  ) => {
+    if (!fileIds?.length && !fileObjects?.length) return;
     try {
       setIsSyncingPhotos(true);
       const {
@@ -550,7 +554,8 @@ const PreCadastro = () => {
       } = await supabase.functions.invoke('bitrix-photo-sync', {
         body: {
           leadId: numericLeadId,
-          fileIds
+          fileIds: fileIds || [],
+          fileObjects: fileObjects || []
         }
       });
       if (error) {
@@ -661,24 +666,42 @@ const PreCadastro = () => {
             }
           }
           if (photoUrls.length === 0) {
-            // 1. Tentar extrair IDs do photo_url (formato objeto Bitrix)
-            const { extractPhotoFileIds } = await import('@/lib/leadPhotoUtils');
-            const photoUrlIds = extractPhotoFileIds(lead.photo_url);
+            // 1. Tentar extrair objetos completos do photo_url (formato objeto Bitrix com URLs)
+            let fileObjectsToSync: Array<{ id: number; showUrl?: string; downloadUrl?: string }> = [];
+            
+            if (lead.photo_url && lead.photo_url.startsWith('[')) {
+              try {
+                const parsed = JSON.parse(lead.photo_url);
+                if (Array.isArray(parsed)) {
+                  fileObjectsToSync = parsed
+                    .filter(item => typeof item === 'object' && item !== null && item.id)
+                    .map(item => ({
+                      id: typeof item.id === 'number' ? item.id : parseInt(item.id),
+                      showUrl: item.showUrl || item.SHOW_URL,
+                      downloadUrl: item.downloadUrl || item.DOWNLOAD_URL
+                    }))
+                    .filter(item => !isNaN(item.id));
+                }
+              } catch { /* ignore */ }
+            }
             
             // 2. Verificar campo fotoUrl no raw (UF_CRM_LEAD_1733231445171) que pode ter objetos
             const fotoUrlField = rawData[BITRIX_LEAD_FIELD_MAPPING.fotoUrl];
-            let fotoUrlIds: number[] = [];
-            if (Array.isArray(fotoUrlField)) {
-              fotoUrlIds = fotoUrlField
+            if (Array.isArray(fotoUrlField) && fileObjectsToSync.length === 0) {
+              fileObjectsToSync = fotoUrlField
                 .filter(item => item?.id)
-                .map(item => typeof item.id === 'number' ? item.id : parseInt(item.id))
-                .filter(id => !isNaN(id));
+                .map(item => ({
+                  id: typeof item.id === 'number' ? item.id : parseInt(item.id),
+                  showUrl: item.showUrl || item.SHOW_URL,
+                  downloadUrl: item.downloadUrl || item.DOWNLOAD_URL
+                }))
+                .filter(item => !isNaN(item.id));
             }
             
-            // 3. Verificar campo fotoIds tradicional
+            // 3. Verificar campo fotoIds tradicional (apenas IDs, sem URLs)
             const newPhotoField = rawData.UF_CRM_1764358561 || rawData[BITRIX_LEAD_FIELD_MAPPING.fotoIds];
             let traditionalIds: number[] = [];
-            if (newPhotoField) {
+            if (newPhotoField && fileObjectsToSync.length === 0) {
               if (Array.isArray(newPhotoField)) {
                 traditionalIds = newPhotoField.map(id => typeof id === 'string' ? parseInt(id) : id).filter(id => !isNaN(id));
               } else if (typeof newPhotoField === 'string' && newPhotoField.trim()) {
@@ -686,11 +709,11 @@ const PreCadastro = () => {
               }
             }
             
-            // Combinar todos os IDs únicos
-            fileIdsToSync = [...new Set([...photoUrlIds, ...fotoUrlIds, ...traditionalIds])];
-            
-            if (fileIdsToSync.length > 0) {
-              syncPhotosInBackground(parseInt(leadId), fileIdsToSync);
+            // Sincronizar: preferir objetos com URLs, senão usar IDs
+            if (fileObjectsToSync.length > 0) {
+              syncPhotosInBackground(parseInt(leadId), undefined, fileObjectsToSync);
+            } else if (traditionalIds.length > 0) {
+              syncPhotosInBackground(parseInt(leadId), traditionalIds);
             }
           }
           if (photoUrls.length > 0) {
