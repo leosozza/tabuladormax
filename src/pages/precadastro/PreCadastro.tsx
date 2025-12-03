@@ -515,7 +515,6 @@ const PreCadastro = () => {
     filename: string;
     base64: string;
   }>>(new Map());
-  
   const [leadData, setLeadData] = useState<LeadData>({
     nomeResponsavel: "",
     estadoCivil: "",
@@ -540,11 +539,11 @@ const PreCadastro = () => {
     cursos: [],
     caracteristicasEspeciais: []
   });
-  const syncPhotosInBackground = async (
-    numericLeadId: number, 
-    fileIds?: number[], 
-    fileObjects?: Array<{ id: number; showUrl?: string; downloadUrl?: string }>
-  ) => {
+  const syncPhotosInBackground = async (numericLeadId: number, fileIds?: number[], fileObjects?: Array<{
+    id: number;
+    showUrl?: string;
+    downloadUrl?: string;
+  }>) => {
     if (!fileIds?.length && !fileObjects?.length) return;
     try {
       setIsSyncingPhotos(true);
@@ -667,37 +666,34 @@ const PreCadastro = () => {
           }
           if (photoUrls.length === 0) {
             // 1. Tentar extrair objetos completos do photo_url (formato objeto Bitrix com URLs)
-            let fileObjectsToSync: Array<{ id: number; showUrl?: string; downloadUrl?: string }> = [];
-            
+            let fileObjectsToSync: Array<{
+              id: number;
+              showUrl?: string;
+              downloadUrl?: string;
+            }> = [];
             if (lead.photo_url && lead.photo_url.startsWith('[')) {
               try {
                 const parsed = JSON.parse(lead.photo_url);
                 if (Array.isArray(parsed)) {
-                  fileObjectsToSync = parsed
-                    .filter(item => typeof item === 'object' && item !== null && item.id)
-                    .map(item => ({
-                      id: typeof item.id === 'number' ? item.id : parseInt(item.id),
-                      showUrl: item.showUrl || item.SHOW_URL,
-                      downloadUrl: item.downloadUrl || item.DOWNLOAD_URL
-                    }))
-                    .filter(item => !isNaN(item.id));
+                  fileObjectsToSync = parsed.filter(item => typeof item === 'object' && item !== null && item.id).map(item => ({
+                    id: typeof item.id === 'number' ? item.id : parseInt(item.id),
+                    showUrl: item.showUrl || item.SHOW_URL,
+                    downloadUrl: item.downloadUrl || item.DOWNLOAD_URL
+                  })).filter(item => !isNaN(item.id));
                 }
-              } catch { /* ignore */ }
+              } catch {/* ignore */}
             }
-            
+
             // 2. Verificar campo fotoUrl no raw (UF_CRM_LEAD_1733231445171) que pode ter objetos
             const fotoUrlField = rawData[BITRIX_LEAD_FIELD_MAPPING.fotoUrl];
             if (Array.isArray(fotoUrlField) && fileObjectsToSync.length === 0) {
-              fileObjectsToSync = fotoUrlField
-                .filter(item => item?.id)
-                .map(item => ({
-                  id: typeof item.id === 'number' ? item.id : parseInt(item.id),
-                  showUrl: item.showUrl || item.SHOW_URL,
-                  downloadUrl: item.downloadUrl || item.DOWNLOAD_URL
-                }))
-                .filter(item => !isNaN(item.id));
+              fileObjectsToSync = fotoUrlField.filter(item => item?.id).map(item => ({
+                id: typeof item.id === 'number' ? item.id : parseInt(item.id),
+                showUrl: item.showUrl || item.SHOW_URL,
+                downloadUrl: item.downloadUrl || item.DOWNLOAD_URL
+              })).filter(item => !isNaN(item.id));
             }
-            
+
             // 3. Verificar campo fotoIds tradicional (apenas IDs, sem URLs)
             const newPhotoField = rawData.UF_CRM_1764358561 || rawData[BITRIX_LEAD_FIELD_MAPPING.fotoIds];
             let traditionalIds: number[] = [];
@@ -708,7 +704,7 @@ const PreCadastro = () => {
                 traditionalIds = newPhotoField.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
               }
             }
-            
+
             // Sincronizar: preferir objetos com URLs, senão usar IDs
             if (fileObjectsToSync.length > 0) {
               syncPhotosInBackground(parseInt(leadId), undefined, fileObjectsToSync);
@@ -1093,9 +1089,7 @@ const PreCadastro = () => {
           <p className="text-muted-foreground">Pré-análise de perfil</p>
           
           <div className="mt-4 max-w-xl mx-auto">
-            <h2 className="text-lg font-semibold">
-              Para melhorar a análise preencha o perfil {leadData.nomeModelo ? `de ${leadData.nomeModelo}` : "do modelo"}
-            </h2>
+            
             <p className="text-muted-foreground text-sm mt-1"> Aqui você pode atualizar fotos e informações para que o produtor faça a análise do perfil.</p>
             <p className="text-xs text-muted-foreground mt-2">
               ⏱ Leva menos de 2 minutos.
@@ -1222,17 +1216,13 @@ const PreCadastro = () => {
             </FormSection>
 
             <Button onClick={handleSave} size="lg" disabled={saving} className="w-full md:w-auto bg-pink-500 hover:bg-pink-400">
-              {saving ? (
-                <>
+              {saving ? <>
                   <Loader2 className="h-5 w-5 animate-spin mr-2" />
                   {saveStatus || 'Enviando...'}
-                </>
-              ) : (
-                <>
+                </> : <>
                   <Send className="h-5 w-5 mr-2" />
                   Enviar perfil para análise
-                </>
-              )}
+                </>}
             </Button>
           </div>
         </div>
