@@ -9,6 +9,7 @@ const corsHeaders = {
 interface PhotoSyncRequest {
   leadId: number;
   fileIds?: number[];  // Array de IDs de arquivos do Bitrix
+  fileObjects?: Array<{ id: number; showUrl?: string; downloadUrl?: string }>;  // Objetos com URLs do Bitrix
 }
 
 // Helper para baixar e fazer upload de foto
@@ -90,7 +91,7 @@ serve(async (req) => {
   }
 
   try {
-    const { leadId, fileIds }: PhotoSyncRequest = await req.json();
+    const { leadId, fileIds, fileObjects }: PhotoSyncRequest = await req.json();
     
     if (!leadId) {
       throw new Error('leadId é obrigatório');
@@ -127,11 +128,17 @@ serve(async (req) => {
 
     let photoIdsToProcess: number[] = [];
     let oldFieldPhotos: Array<{ id: number; downloadUrl?: string | null }> = [];
+    let fileObjectsToProcess: Array<{ id: number; showUrl?: string; downloadUrl?: string }> = [];
 
+    // Se fileObjects foram fornecidos (com URLs do Bitrix), usar diretamente
+    if (fileObjects && fileObjects.length > 0) {
+      fileObjectsToProcess = fileObjects;
+      console.log(`📸 Processar ${fileObjects.length} fotos com URLs diretas`);
+    }
     // Se fileIds foram fornecidos, usar eles diretamente
-    if (fileIds && fileIds.length > 0) {
+    else if (fileIds && fileIds.length > 0) {
       photoIdsToProcess = fileIds;
-      console.log(`📸 Processar ${fileIds.length} fotos fornecidas:`, fileIds);
+      console.log(`📸 Processar ${fileIds.length} fotos por ID:`, fileIds);
     } else {
       // Buscar fotos do Bitrix
       console.log(`📡 Buscando lead completo do Bitrix: crm.lead.get?ID=${leadId}`);
@@ -183,8 +190,8 @@ serve(async (req) => {
       }
     }
 
-    // Se não há fotos do novo campo nem do antigo
-    if (photoIdsToProcess.length === 0 && (!oldFieldPhotos || oldFieldPhotos.length === 0)) {
+    // Se não há fotos de nenhuma fonte
+    if (photoIdsToProcess.length === 0 && fileObjectsToProcess.length === 0 && (!oldFieldPhotos || oldFieldPhotos.length === 0)) {
       return new Response(
         JSON.stringify({ success: true, message: 'Nenhuma foto para sincronizar' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -196,7 +203,45 @@ serve(async (req) => {
     const allStoragePaths: string[] = [];
     let totalSize = 0;
 
-    // Processar fotos (tentar crm.file.get primeiro, depois disk.file.get)
+    // 1. Processar fileObjects (já têm URLs do Bitrix)
+    for (const fileObj of fileObjectsToProcess) {
+      try {
+        console.log(`📡 Processando arquivo ${fileObj.id} com URL direta...`);
+        
+        // Construir URL completa a partir do showUrl ou downloadUrl
+        let downloadUrl = fileObj.downloadUrl || fileObj.showUrl;
+        
+        if (!downloadUrl) {
+          console.error(`❌ Objeto de arquivo ${fileObj.id} sem URL`);
+          continue;
+        }
+        
+        // Se for URL relativa, adicionar domínio
+        if (downloadUrl.startsWith('/')) {
+          downloadUrl = `https://${bitrixDomain}${downloadUrl}`;
+        }
+        
+        console.log(`📥 URL para download: ${downloadUrl}`);
+        
+        // Baixar, fazer upload e obter URL pública
+        const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
+          leadId,
+          fileObj.id,
+          downloadUrl,
+          supabase
+        );
+        
+        allPublicUrls.push(publicUrl);
+        allStoragePaths.push(storagePath);
+        totalSize += fileSize;
+        
+        console.log(`✅ Arquivo ${fileObj.id} sincronizado: ${publicUrl}`);
+      } catch (error) {
+        console.error(`❌ Erro ao processar arquivo ${fileObj.id}:`, error);
+      }
+    }
+
+    // 2. Processar fotos por ID (tentar crm.file.get primeiro, depois disk.file.get)
     for (const photoId of photoIdsToProcess) {
       try {
         console.log(`📡 Processando foto ${photoId}...`);
