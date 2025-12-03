@@ -58,68 +58,73 @@ const UserMenu = () => {
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px]">
-          <User className="h-5 w-5" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium">{userMetadata?.display_name || userEmail}</p>
-            {userRole && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Shield className="h-3 w-3" />
-                {userRole.toUpperCase()}
-              </p>
-            )}
-          </div>
-        </DropdownMenuLabel>
-        {userMetadata?.chatwoot_role && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-xs text-muted-foreground">Chatwoot</p>
-                <p className="text-xs">Role: {userMetadata.chatwoot_role}</p>
-              </div>
-            </DropdownMenuLabel>
-          </>
+    <div className="flex items-center gap-3">
+      <div className="flex flex-col items-end text-right">
+        <span className="text-sm font-medium truncate max-w-[150px]">
+          {userMetadata?.display_name || userEmail}
+        </span>
+        {userRole && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <Shield className="h-3 w-3" />
+            {userRole.toUpperCase()}
+          </span>
         )}
-        <DropdownMenuSeparator />
-        {(userRole === 'admin' || userRole === 'supervisor') && (
-          <DropdownMenuItem onClick={() => navigate("/users")}>
-            <Users className="mr-2 h-4 w-4" />
-            <span>Gerenciar Usuários</span>
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px]">
+            <User className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {userMetadata?.chatwoot_role && (
+            <>
+              <DropdownMenuLabel className="text-xs font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-xs text-muted-foreground">Chatwoot</p>
+                  <p className="text-xs">Role: {userMetadata.chatwoot_role}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          {(userRole === 'admin' || userRole === 'supervisor') && (
+            <DropdownMenuItem onClick={() => navigate("/users")}>
+              <Users className="mr-2 h-4 w-4" />
+              <span>Gerenciar Usuários</span>
+            </DropdownMenuItem>
+          )}
+          {userRole === 'admin' && (
+            <DropdownMenuItem onClick={() => navigate("/diagnostic")}>
+              <Activity className="mr-2 h-4 w-4" />
+              <span>Diagnóstico do Sistema</span>
+            </DropdownMenuItem>
+          )}
+          {userRole !== 'agent' && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate("/scouter")}>
+                <FileText className="mr-2 h-4 w-4" />
+                <span>Gestão Scouter</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/debug")}>
+                <Bug className="mr-2 h-4 w-4" />
+                <span>Modo Debug</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/agent-mapping")}>
+                <Network className="mr-2 h-4 w-4" />
+                <span>Mapeamento de Agentes</span>
+              </DropdownMenuItem>
+            </>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Sair</span>
           </DropdownMenuItem>
-        )}
-        {userRole === 'admin' && (
-          <DropdownMenuItem onClick={() => navigate("/diagnostic")}>
-            <Activity className="mr-2 h-4 w-4" />
-            <span>Diagnóstico do Sistema</span>
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate("/scouter")}>
-          <FileText className="mr-2 h-4 w-4" />
-          <span>Gestão Scouter</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate("/debug")}>
-          <Bug className="mr-2 h-4 w-4" />
-          <span>Modo Debug</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate("/agent-mapping")}>
-          <Network className="mr-2 h-4 w-4" />
-          <span>Mapeamento de Agentes</span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Sair</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 };
 
