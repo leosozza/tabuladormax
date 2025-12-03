@@ -62,7 +62,13 @@ export function ConversationItem({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <h4 className="font-medium text-sm truncate">{conversation.name}</h4>
+          <h4 className="font-medium text-sm truncate">
+            <span className="text-muted-foreground">Resp:</span>{' '}
+            <span className="font-bold">{conversation.name}</span>
+            {' - '}
+            <span className="text-muted-foreground">Modelo:</span>{' '}
+            <span>{conversation.nome_modelo}</span>
+          </h4>
           <span className="text-xs text-muted-foreground whitespace-nowrap">
             {timeAgo}
           </span>
