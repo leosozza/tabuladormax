@@ -34,86 +34,31 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
   
   const { data: allFields } = useGestaoFieldMappings();
 
-  // Buscar projetos comerciais que têm leads no período selecionado
+  // Buscar projetos comerciais que têm leads no período selecionado usando RPC otimizada
   const { data: projects } = useQuery({
-    queryKey: ["commercial-projects-filtered", filters.dateFilter, filters.scouterId, filters.fonte, filters.additionalFilters, searchTerm],
+    queryKey: ["commercial-projects-filtered", filters.dateFilter, filters.scouterId, filters.fonte],
     queryFn: async () => {
-      let query = supabase
-        .from("leads")
-        .select("commercial_project_id")
-        .not("commercial_project_id", "is", null);
+      // Usar RPC para buscar IDs únicos de projetos de forma eficiente
+      const rpcParams: Record<string, string | null> = {
+        p_start_date: filters.dateFilter.preset !== 'all' ? filters.dateFilter.startDate.toISOString() : null,
+        p_end_date: filters.dateFilter.preset !== 'all' ? filters.dateFilter.endDate.toISOString() : null,
+        p_scouter: filters.scouterId || null,
+        p_fonte: filters.fonte || null,
+      };
 
-      if (filters.dateFilter.preset !== 'all') {
-        query = query
-          .gte("criado", filters.dateFilter.startDate.toISOString())
-          .lte("criado", filters.dateFilter.endDate.toISOString());
-      }
+      const { data: projectIds, error: rpcError } = await supabase
+        .rpc('get_unique_project_ids', rpcParams);
 
-      if (filters.scouterId) {
-        query = query.eq("scouter", filters.scouterId);
-      }
-
-      if (filters.fonte) {
-        query = query.eq("fonte_normalizada", filters.fonte);
-      }
-
-      if (searchTerm) {
-        const isNumeric = /^\d+$/.test(searchTerm);
-        if (isNumeric) {
-          query = query.or(`name.ilike.%${searchTerm}%,id.eq.${searchTerm},nome_modelo.ilike.%${searchTerm}%`);
-        } else {
-          query = query.or(`name.ilike.%${searchTerm}%,nome_modelo.ilike.%${searchTerm}%`);
-        }
-      }
-
-      if (filters.additionalFilters && filters.additionalFilters.length > 0) {
-        for (const additionalFilter of filters.additionalFilters) {
-          const { field, value, operator = 'eq' } = additionalFilter;
-          const actualField = getFilterableField(field);
-          if (!actualField || !value) continue;
-          
-          const fieldMapping = allFields?.find(f => f.key === field);
-          const qb = query as any;
-          
-          if (fieldMapping?.type === 'boolean') {
-            const normalized = String(value).toLowerCase();
-            const boolValue = normalized === 'true' || normalized === 'sim' || normalized === '1';
-            qb.eq(actualField, boolValue);
-            continue;
-          }
-          
-          if (actualField === 'commercial_project_id' && field.startsWith('commercial_projects.')) {
-            const resolvedValue = await resolveJoinFieldValue(field, value);
-            if (resolvedValue) {
-              qb.eq('commercial_project_id', resolvedValue);
-            }
-            continue;
-          }
-          
-          switch (operator) {
-            case 'eq': qb.eq(actualField, value); break;
-            case 'contains': qb.ilike(actualField, `%${value}%`); break;
-            case 'gt': qb.gt(actualField, value); break;
-            case 'lt': qb.lt(actualField, value); break;
-            case 'gte': qb.gte(actualField, value); break;
-            case 'lte': qb.lte(actualField, value); break;
-          }
-        }
-      }
-
-      const { data: leadProjects, error: leadsError } = await query;
-      if (leadsError) throw leadsError;
-
-      // Extrair IDs únicos
-      const projectIds = [...new Set(leadProjects.map(l => l.commercial_project_id).filter(Boolean))];
-
-      if (projectIds.length === 0) return [];
+      if (rpcError) throw rpcError;
+      if (!projectIds || projectIds.length === 0) return [];
 
       // Buscar dados dos projetos
+      const ids = projectIds.map((p: { commercial_project_id: string }) => p.commercial_project_id);
+      
       const { data, error } = await supabase
         .from("commercial_projects")
         .select("id, name, code")
-        .in("id", projectIds)
+        .in("id", ids)
         .eq("active", true)
         .order("name");
       

@@ -2473,6 +2473,17 @@ export type Database = {
           is_nullable: string
         }[]
       }
+      get_unique_project_ids: {
+        Args: {
+          p_end_date?: string
+          p_fonte?: string
+          p_scouter?: string
+          p_start_date?: string
+        }
+        Returns: {
+          commercial_project_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
