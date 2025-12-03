@@ -46,6 +46,7 @@ export default function WhatsApp() {
     <MainLayout
       title="WhatsApp"
       subtitle="Gerencie suas conversas e envie mensagens aos leads"
+      hideSidebar
       actions={
         <Button
           onClick={() => setBulkModalOpen(true)}
