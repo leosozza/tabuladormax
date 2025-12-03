@@ -54,7 +54,6 @@ export default function WhatsApp() {
     <MainLayout
       title="WhatsApp"
       subtitle="Gerencie suas conversas e envie mensagens aos leads"
-      hideSidebar
       actions={
         <div className="flex items-center gap-2">
           <DropdownMenu>
