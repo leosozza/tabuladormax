@@ -127,7 +127,7 @@ export function BulkTemplateModal({
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">
-                            {conv?.name || 'Desconhecido'}
+                            {conv?.lead_name || 'Desconhecido'}
                           </p>
                           {result.error && (
                             <p className="text-xs text-destructive">{result.error}</p>
@@ -158,7 +158,7 @@ export function BulkTemplateModal({
               <ScrollArea className="h-24 rounded-md border p-2">
                 <div className="flex flex-wrap gap-2">
                   {selectedConversations.map((conv) => {
-                    const initials = conv.name
+                    const initials = conv.lead_name
                       .split(' ')
                       .map(n => n[0])
                       .join('')
@@ -176,7 +176,7 @@ export function BulkTemplateModal({
                             {initials}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-xs">{conv.name}</span>
+                        <span className="text-xs">{conv.lead_name}</span>
                       </div>
                     );
                   })}

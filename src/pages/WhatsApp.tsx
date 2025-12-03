@@ -101,7 +101,7 @@ export default function WhatsApp() {
           <div className={`border rounded-lg overflow-hidden flex flex-col ${isMobile ? 'w-full' : 'flex-1'}`}>
             <ChatPanel
               conversationId={activeConversationId}
-              contactName={activeConversation?.name || 'Selecione uma conversa'}
+              contactName={activeConversation?.lead_name || 'Selecione uma conversa'}
               onBack={isMobile ? handleBackToList : undefined}
             />
           </div>
