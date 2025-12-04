@@ -35,7 +35,18 @@ export default function WhatsApp() {
     return (saved as ViewMode) || 'list';
   });
   
-  const { conversations, selectedConversations, clearSelection } = useAgentConversations();
+  const {
+    conversations,
+    isLoading,
+    refetch,
+    searchQuery,
+    setSearchQuery,
+    selectedConversations,
+    toggleSelection,
+    toggleSelectAll,
+    allSelected,
+    clearSelection,
+  } = useAgentConversations();
 
   useEffect(() => {
     localStorage.setItem('whatsapp-view-mode', viewMode);
@@ -66,6 +77,19 @@ export default function WhatsApp() {
 
   const showList = !isMobile || !showChatInMobile;
   const showChat = !isMobile || showChatInMobile;
+
+  // Props compartilhadas para ConversationList e ConversationsKanban
+  const sharedConversationProps = {
+    conversations,
+    isLoading,
+    refetch,
+    searchQuery,
+    setSearchQuery,
+    selectedConversations,
+    toggleSelection,
+    toggleSelectAll,
+    allSelected,
+  };
 
   return (
     <TooltipProvider>
@@ -147,11 +171,13 @@ export default function WhatsApp() {
                 <ConversationList
                   onSelectConversation={handleSelectConversation}
                   activeConversationId={activeConversationId}
+                  {...sharedConversationProps}
                 />
               ) : (
                 <ConversationsKanban
                   onSelectConversation={handleSelectConversation}
                   activeConversationId={activeConversationId}
+                  {...sharedConversationProps}
                 />
               )}
             </div>

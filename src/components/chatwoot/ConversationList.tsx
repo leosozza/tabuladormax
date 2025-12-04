@@ -6,7 +6,7 @@ import { Search, RefreshCw, CheckSquare, Square, Filter } from 'lucide-react';
 import { ConversationItem } from './ConversationItem';
 import { ConversationStats } from './ConversationStats';
 import { LabelFilter } from './LabelFilter';
-import { useAgentConversations } from '@/hooks/useAgentConversations';
+import { AgentConversation } from '@/hooks/useAgentConversations';
 import { useConversationLabels, LabelAssignment } from '@/hooks/useConversationLabels';
 import {
   Tooltip,
@@ -23,24 +23,30 @@ import {
 interface ConversationListProps {
   onSelectConversation: (conversationId: number) => void;
   activeConversationId: number | null;
+  conversations: AgentConversation[];
+  isLoading: boolean;
+  refetch: () => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  selectedConversations: number[];
+  toggleSelection: (id: number) => void;
+  toggleSelectAll: () => void;
+  allSelected: boolean;
 }
 
 export function ConversationList({
   onSelectConversation,
   activeConversationId,
+  conversations,
+  isLoading,
+  refetch,
+  searchQuery,
+  setSearchQuery,
+  selectedConversations,
+  toggleSelection,
+  toggleSelectAll,
+  allSelected,
 }: ConversationListProps) {
-  const {
-    conversations,
-    isLoading,
-    refetch,
-    searchQuery,
-    setSearchQuery,
-    selectedConversations,
-    toggleSelection,
-    toggleSelectAll,
-    allSelected,
-  } = useAgentConversations();
-
   const { fetchLabelsForConversations } = useConversationLabels();
   
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
