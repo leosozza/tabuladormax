@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import { Send, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { useGupshupTemplates } from '@/hooks/useGupshupTemplates';
 import { useBulkTemplateSend } from '@/hooks/useBulkTemplateSend';
 import { AgentConversation } from '@/hooks/useAgentConversations';
+import { supabase } from '@/integrations/supabase/client';
 
 interface BulkTemplateModalProps {
   open: boolean;
@@ -33,8 +34,15 @@ export function BulkTemplateModal({
 }: BulkTemplateModalProps) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [variables, setVariables] = useState<string[]>([]);
+  const [userId, setUserId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserId(data.user?.id);
+    });
+  }, []);
   
-  const { data: templates = [] } = useGupshupTemplates({ enabled: true });
+  const { data: templates = [] } = useGupshupTemplates({ userId, enabled: !!userId });
   const { sending, progress, results, sendBulkTemplate, reset } = useBulkTemplateSend();
 
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
