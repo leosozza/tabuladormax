@@ -106,6 +106,18 @@ export default function WhatsApp() {
               </div>
             )}
 
+            {/* Botão de Enviar Template - aparece apenas quando há seleção */}
+            {selectedConversations.length > 0 && (
+              <Button
+                onClick={() => setBulkModalOpen(true)}
+                size={isMobile ? "sm" : "default"}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {isMobile ? selectedConversations.length : `Enviar Template (${selectedConversations.length})`}
+              </Button>
+            )}
+
+            {/* Menu - sempre à direita */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size={isMobile ? "sm" : "default"}>
@@ -124,14 +136,6 @@ export default function WhatsApp() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
-              onClick={() => setBulkModalOpen(true)}
-              disabled={selectedConversations.length === 0}
-              size={isMobile ? "sm" : "default"}
-            >
-              <Send className="h-4 w-4 mr-2" />
-              {isMobile ? selectedConversations.length : `Enviar Template (${selectedConversations.length})`}
-            </Button>
           </div>
         }
       >
