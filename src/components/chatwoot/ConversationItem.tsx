@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -7,7 +8,8 @@ import { AgentConversation } from '@/hooks/useAgentConversations';
 import { LabelBadge } from './LabelBadge';
 import { LabelAssignment } from '@/hooks/useConversationLabels';
 import { WindowIndicator } from './WindowIndicator';
-
+import { useNavigate } from 'react-router-dom';
+import { ExternalLink } from 'lucide-react';
 interface ConversationItemProps {
   conversation: AgentConversation;
   selected: boolean;
@@ -48,6 +50,8 @@ export function ConversationItem({
   isActive,
   labels = [],
 }: ConversationItemProps) {
+  const navigate = useNavigate();
+  
   const initials = (conversation.lead_name || 'NN')
     .split(' ')
     .map(n => n[0])
@@ -64,6 +68,13 @@ export function ConversationItem({
         locale: ptBR,
       })
     : 'Sem atividade';
+
+  const handleOpenInTabulador = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (conversation.lead_id) {
+      navigate(`/telemarketing?lead=${conversation.lead_id}`);
+    }
+  };
 
   return (
     <div
@@ -121,6 +132,19 @@ export function ConversationItem({
           </span>
         </div>
       </div>
+
+      {/* Botão para abrir no Tabulador */}
+      {conversation.lead_id && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="flex-shrink-0 h-8 w-8"
+          onClick={handleOpenInTabulador}
+          title="Abrir no Tabulador"
+        >
+          <ExternalLink className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 }
