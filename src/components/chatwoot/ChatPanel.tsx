@@ -298,7 +298,7 @@ export function ChatPanel({ conversationId, contactName, onBack, windowStatus: p
           </div>
         </TabsContent>
 
-        <TabsContent value="templates" className="flex-1 overflow-auto !mt-0 h-full">
+        <TabsContent value="templates" className="flex-1 flex flex-col overflow-hidden mt-0 p-0">
           <TemplateSelector
             onSendTemplate={sendTemplate}
             disabled={sending}
