@@ -30,7 +30,7 @@ export function useAgentConversations() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      // Buscar leads do agente
+      // Buscar leads do agente com nome do responsável do perfil
       const { data: leads, error: leadsError } = await supabase
         .from('leads')
         .select(`
@@ -38,6 +38,7 @@ export function useAgentConversations() {
           name,
           nome_modelo,
           responsible,
+          responsible_user_id,
           photo_url,
           conversation_id,
           contact_id,
@@ -49,6 +50,27 @@ export function useAgentConversations() {
         .eq('responsible_user_id', user.id)
         .not('conversation_id', 'is', null)
         .order('updated_at', { ascending: false });
+
+      if (leadsError) throw leadsError;
+      if (!leads || leads.length === 0) return [];
+
+      // Buscar nomes dos responsáveis (profiles)
+      const responsibleUserIds = [...new Set(leads
+        .map(l => l.responsible_user_id)
+        .filter((id): id is string => id !== null)
+      )];
+
+      let profilesMap: Record<string, string> = {};
+      if (responsibleUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, display_name')
+          .in('id', responsibleUserIds);
+        
+        profiles?.forEach(p => {
+          profilesMap[p.id] = p.display_name || 'Sem nome';
+        });
+      }
 
       if (leadsError) throw leadsError;
       if (!leads || leads.length === 0) return [];
@@ -78,11 +100,16 @@ export function useAgentConversations() {
             // Calcular status da janela de 24h
             const windowStatus = calculateWindowStatus(contact.last_customer_message_at);
             
+            // Buscar nome do responsável do perfil, fallback para campo responsible do lead
+            const responsibleName = lead.responsible_user_id 
+              ? (profilesMap[lead.responsible_user_id] || lead.responsible || 'Sem responsável')
+              : (lead.responsible || 'Sem responsável');
+            
             conversationsMap[lead.conversation_id] = {
               conversation_id: lead.conversation_id,
               contact_id: contact.contact_id || 0,
               lead_id: lead.id,
-              responsible: lead.responsible || 'Sem responsável',
+              responsible: responsibleName,
               lead_name: lead.name || 'Sem nome',
               nome_modelo: lead.nome_modelo || '',
               phone_number: phoneNumber,
