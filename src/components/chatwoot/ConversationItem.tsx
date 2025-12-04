@@ -98,16 +98,11 @@ export function ConversationItem({
           <span className="text-muted-foreground">Resp:</span>{' '}
           <span>{conversation.responsible}</span>
         </h4>
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground truncate">
-            {conversation.phone_number}
-          </p>
-          <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
-            {timeAgo}
-          </span>
-        </div>
-        {labels.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2 overflow-hidden">
+        <p className="text-xs text-muted-foreground truncate">
+          {conversation.phone_number}
+        </p>
+        <div className="flex items-center justify-between gap-2 mt-1">
+          <div className="flex flex-wrap gap-1 overflow-hidden flex-1 min-w-0">
             {labels.map((assignment) => {
               const label = assignment.label;
               if (!label) return null;
@@ -121,7 +116,10 @@ export function ConversationItem({
               );
             })}
           </div>
-        )}
+          <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+            {timeAgo}
+          </span>
+        </div>
       </div>
     </div>
   );
