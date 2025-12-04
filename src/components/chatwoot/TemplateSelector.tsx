@@ -124,7 +124,7 @@ export const TemplateSelector = ({ onSendTemplate, disabled }: TemplateSelectorP
   };
 
   return (
-    <div className="flex flex-col h-full p-4 border rounded-lg bg-muted/20">
+    <div className="flex flex-col h-full p-4">
       {/* Header */}
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-sm">📱 Templates WhatsApp</h3>
