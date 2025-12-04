@@ -152,11 +152,11 @@ export default function WhatsApp() {
               <DropdownMenuContent align="end" className="bg-background z-[600]">
                 <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                   <LayoutDashboard className="h-4 w-4 mr-2" />
-                  Tabulador
+                  Dashboard
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/telemarketing')}>
                   <Phone className="h-4 w-4 mr-2" />
-                  Telemarketing
+                  Tabulador
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
