@@ -33,11 +33,10 @@ export function LabelManager({ conversationId }: LabelManagerProps) {
     <>
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button variant="ghost" size="icon" title="Etiquetas" className="relative">
           <Tag className="w-4 h-4" />
-          Etiquetas
           {assignedLabels.length > 0 && (
-            <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs">
+            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full w-4 h-4 text-[10px] flex items-center justify-center">
               {assignedLabels.length}
             </span>
           )}
