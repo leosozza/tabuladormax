@@ -91,21 +91,21 @@ export function ConversationItem({
       </Avatar>
 
       <div className="flex-1 min-w-0 overflow-hidden">
-        <div className="flex items-start justify-between gap-2">
-          <h4 className="font-medium text-sm truncate flex-1 min-w-0">
-            <span className="text-muted-foreground">Nome:</span>{' '}
-            <span className="font-bold">{conversation.lead_name}</span>
-            {' - '}
-            <span className="text-muted-foreground">Resp:</span>{' '}
-            <span>{conversation.responsible}</span>
-          </h4>
+        <h4 className="font-medium text-sm truncate">
+          <span className="text-muted-foreground">Nome:</span>{' '}
+          <span className="font-bold">{conversation.lead_name}</span>
+          {' - '}
+          <span className="text-muted-foreground">Resp:</span>{' '}
+          <span>{conversation.responsible}</span>
+        </h4>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground truncate">
+            {conversation.phone_number}
+          </p>
           <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
             {timeAgo}
           </span>
         </div>
-        <p className="text-xs text-muted-foreground truncate">
-          {conversation.phone_number}
-        </p>
         {labels.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2 overflow-hidden">
             {labels.map((assignment) => {
