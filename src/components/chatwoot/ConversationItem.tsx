@@ -68,7 +68,7 @@ export function ConversationItem({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b transition-colors',
+        'flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b transition-colors w-full max-w-full overflow-hidden',
         isActive && 'bg-muted'
       )}
       onClick={onClick}

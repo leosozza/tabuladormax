@@ -81,7 +81,7 @@ export function ConversationList({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full border rounded-lg bg-card">
+      <div className="flex flex-col h-full border rounded-lg bg-card overflow-hidden">
         {/* Compact Header: Stats + Actions */}
         <div className="p-2 border-b space-y-2">
           <div className="flex items-center justify-between">
@@ -167,7 +167,7 @@ export function ConversationList({
         </div>
 
         {/* Conversations List */}
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 w-full">
           {isLoading ? (
             <div className="flex items-center justify-center p-8">
               <p className="text-sm text-muted-foreground">Carregando...</p>
