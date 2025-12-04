@@ -6,7 +6,7 @@ import { Search, RefreshCw, CheckSquare, Square, Filter } from 'lucide-react';
 import { ConversationKanbanCard } from './ConversationKanbanCard';
 import { ConversationStats } from './ConversationStats';
 import { LabelFilter } from './LabelFilter';
-import { useAgentConversations, AgentConversation } from '@/hooks/useAgentConversations';
+import { AgentConversation } from '@/hooks/useAgentConversations';
 import { useConversationLabels, LabelAssignment } from '@/hooks/useConversationLabels';
 import {
   Tooltip,
@@ -24,6 +24,15 @@ import { cn } from '@/lib/utils';
 interface ConversationsKanbanProps {
   onSelectConversation: (conversationId: number) => void;
   activeConversationId: number | null;
+  conversations: AgentConversation[];
+  isLoading: boolean;
+  refetch: () => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  selectedConversations: number[];
+  toggleSelection: (id: number) => void;
+  toggleSelectAll: () => void;
+  allSelected: boolean;
 }
 
 type KanbanCategory = 'open' | 'expiring' | 'closed';
@@ -58,19 +67,16 @@ function hasRecentMessage(conversation: AgentConversation): boolean {
 export function ConversationsKanban({
   onSelectConversation,
   activeConversationId,
+  conversations,
+  isLoading,
+  refetch,
+  searchQuery,
+  setSearchQuery,
+  selectedConversations,
+  toggleSelection,
+  toggleSelectAll,
+  allSelected,
 }: ConversationsKanbanProps) {
-  const {
-    conversations,
-    isLoading,
-    refetch,
-    searchQuery,
-    setSearchQuery,
-    selectedConversations,
-    toggleSelection,
-    toggleSelectAll,
-    allSelected,
-  } = useAgentConversations();
-
   const { fetchLabelsForConversations } = useConversationLabels();
   
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
