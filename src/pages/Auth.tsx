@@ -392,9 +392,9 @@ const Auth = () => {
         const userRole = roleData?.role;
         const department = deptData?.department;
 
-        // Agentes sempre vão para /lead
+        // Agentes sempre vão para /dashboard
         if (userRole === 'agent') {
-          navigate('/lead');
+          navigate('/dashboard');
         } else if (userRole === 'admin') {
           navigate('/home-choice');
         } else if (department === 'telemarketing') {
