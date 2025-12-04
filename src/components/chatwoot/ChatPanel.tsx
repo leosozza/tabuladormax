@@ -192,7 +192,7 @@ export function ChatPanel({ conversationId, contactName, onBack, windowStatus: p
           </TabsList>
         </div>
 
-        <TabsContent value="messages" className="flex-1 flex flex-col min-h-0 mt-0">
+        <TabsContent value="messages" className="flex-1 flex-col min-h-0 mt-0 data-[state=active]:flex">
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-4" ref={scrollRef}>
               {loading && messages.length === 0 ? (
@@ -298,7 +298,7 @@ export function ChatPanel({ conversationId, contactName, onBack, windowStatus: p
           </div>
         </TabsContent>
 
-        <TabsContent value="templates" className="flex-1 flex flex-col overflow-hidden mt-0 p-0">
+        <TabsContent value="templates" className="flex-1 flex-col min-h-0 mt-0 data-[state=active]:flex">
           <TemplateSelector
             onSendTemplate={sendTemplate}
             disabled={sending}
