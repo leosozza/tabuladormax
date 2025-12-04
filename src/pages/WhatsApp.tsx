@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Phone, BarChart3, List, LayoutGrid } from 'lucide-react';
+import { Send, BarChart3, Headset, List, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MainLayout } from '@/components/layouts/MainLayout';
 import { ConversationList } from '@/components/chatwoot/ConversationList';
@@ -147,7 +147,7 @@ export default function WhatsApp() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" onClick={() => navigate('/telemarketing')}>
-                  <Phone className="h-4 w-4" />
+                  <Headset className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Tabulador</TooltipContent>
