@@ -1,13 +1,28 @@
+import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { UnifiedSidebar } from './UnifiedSidebar';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
 export function AppLayout() {
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
+
+  // Listener para invalidar cache quando autenticação mudar
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event) => {
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+          queryClient.invalidateQueries({ queryKey: ['user-role-for-sidebar'] });
+        }
+      }
+    );
+    
+    return () => subscription.unsubscribe();
+  }, [queryClient]);
 
   // Verificar o role do usuário
   const { data: userRole, isLoading } = useQuery({
@@ -23,7 +38,9 @@ export function AppLayout() {
         .single();
       
       return data?.role;
-    }
+    },
+    staleTime: 0,
+    gcTime: 0,
   });
 
   // Mostrar loading enquanto verifica o role (sem sidebar)
