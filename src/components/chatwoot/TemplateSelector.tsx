@@ -32,9 +32,10 @@ interface TemplateSelectorProps {
     variables: string[];
   }) => Promise<boolean>;
   disabled?: boolean;
+  className?: string;
 }
 
-export const TemplateSelector = ({ onSendTemplate, disabled }: TemplateSelectorProps) => {
+export const TemplateSelector = ({ onSendTemplate, disabled, className }: TemplateSelectorProps) => {
   const [selectedTemplate, setSelectedTemplate] = useState<GupshupTemplate | null>(null);
   const [variables, setVariables] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -124,7 +125,7 @@ export const TemplateSelector = ({ onSendTemplate, disabled }: TemplateSelectorP
   };
 
   return (
-    <div className="flex flex-col h-full space-y-4 p-4 border rounded-lg bg-muted/20">
+    <div className={cn("flex flex-col h-full space-y-4 p-4 border rounded-lg bg-muted/20", className)}>
       {/* Header */}
       <div className="flex justify-between items-center flex-shrink-0">
         <h3 className="font-semibold text-sm">📱 Templates WhatsApp</h3>
