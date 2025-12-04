@@ -98,6 +98,17 @@ export default function WhatsApp() {
         subtitle="Gerencie suas conversas"
         actions={
           <div className="flex items-center gap-2">
+            {/* Botão de Enviar Template - aparece apenas quando há seleção */}
+            {selectedConversations.length > 0 && (
+              <Button
+                onClick={() => setBulkModalOpen(true)}
+                size={isMobile ? "sm" : "default"}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {isMobile ? selectedConversations.length : `Enviar Template (${selectedConversations.length})`}
+              </Button>
+            )}
+
             {/* View Mode Toggle */}
             {!isMobile && (
               <div className="flex items-center border rounded-md">
@@ -128,17 +139,6 @@ export default function WhatsApp() {
                   <TooltipContent>Kanban</TooltipContent>
                 </Tooltip>
               </div>
-            )}
-
-            {/* Botão de Enviar Template - aparece apenas quando há seleção */}
-            {selectedConversations.length > 0 && (
-              <Button
-                onClick={() => setBulkModalOpen(true)}
-                size={isMobile ? "sm" : "default"}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                {isMobile ? selectedConversations.length : `Enviar Template (${selectedConversations.length})`}
-              </Button>
             )}
 
             {/* Menu - sempre à direita */}
