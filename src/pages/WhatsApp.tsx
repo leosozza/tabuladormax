@@ -136,22 +136,24 @@ export default function WhatsApp() {
             )}
 
             {/* Botões de navegação */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-                  <BarChart3 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Dashboard</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => navigate('/telemarketing')}>
-                  <Headset className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Tabulador</TooltipContent>
-            </Tooltip>
+            <div className="flex items-center border rounded-md">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-r-none" onClick={() => navigate('/dashboard')}>
+                    <BarChart3 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Dashboard</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-l-none" onClick={() => navigate('/telemarketing')}>
+                    <Headset className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Tabulador</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
         }
       >
