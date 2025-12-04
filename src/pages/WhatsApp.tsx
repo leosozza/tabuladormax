@@ -15,6 +15,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog';
 
 type ViewMode = 'list' | 'kanban';
 
@@ -23,6 +27,7 @@ export default function WhatsApp() {
   const navigate = useNavigate();
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [showChatInMobile, setShowChatInMobile] = useState(false);
+  const [chatModalOpen, setChatModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('whatsapp-view-mode');
@@ -62,7 +67,13 @@ export default function WhatsApp() {
     setActiveConversationId(id);
     if (isMobile) {
       setShowChatInMobile(true);
+    } else if (viewMode === 'kanban') {
+      setChatModalOpen(true);
     }
+  };
+
+  const handleCloseChatModal = () => {
+    setChatModalOpen(false);
   };
 
   const handleBackToList = () => {
@@ -160,7 +171,7 @@ export default function WhatsApp() {
         <div className={`flex gap-2 ${isMobile ? 'h-[calc(100vh-10rem)]' : 'h-[calc(100vh-9rem)]'}`}>
           {/* Lista ou Kanban de Conversas */}
           {showList && (
-            <div className={isMobile ? "w-full" : viewMode === 'kanban' && !activeConversationId ? "flex-1" : viewMode === 'kanban' ? "w-1/2" : "w-96 flex-shrink-0"}>
+            <div className={isMobile ? "w-full" : viewMode === 'kanban' ? "flex-1" : "w-96 flex-shrink-0"}>
               {viewMode === 'list' ? (
                 <ConversationList
                   onSelectConversation={handleSelectConversation}
@@ -177,9 +188,9 @@ export default function WhatsApp() {
             </div>
           )}
 
-          {/* Painel de Chat */}
-          {showChat && (
-            <div className={`border rounded-lg overflow-hidden flex flex-col ${isMobile ? 'w-full' : viewMode === 'kanban' ? 'w-1/2' : 'flex-1'}`}>
+          {/* Painel de Chat - apenas no modo lista */}
+          {showChat && viewMode === 'list' && (
+            <div className={`border rounded-lg overflow-hidden flex flex-col ${isMobile ? 'w-full' : 'flex-1'}`}>
               <ChatPanel
                 conversationId={activeConversationId}
                 contactName={activeConversation?.lead_name || 'Selecione uma conversa'}
@@ -188,6 +199,17 @@ export default function WhatsApp() {
             </div>
           )}
         </div>
+
+        {/* Modal de Chat - modo Kanban */}
+        <Dialog open={chatModalOpen} onOpenChange={setChatModalOpen}>
+          <DialogContent className="max-w-3xl h-[80vh] p-0 gap-0">
+            <ChatPanel
+              conversationId={activeConversationId}
+              contactName={activeConversation?.lead_name || 'Conversa'}
+              onBack={handleCloseChatModal}
+            />
+          </DialogContent>
+        </Dialog>
 
         {/* Modal de Envio em Lote */}
         <BulkTemplateModal
