@@ -1,4 +1,4 @@
-import { Home, Target, DollarSign, Shield, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText, Headset } from "lucide-react";
+import { Home, Target, DollarSign, Shield, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText, Headset, BarChart3 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,7 @@ const mainNavItems = [
     icon: Headset,
     subItems: [
       { path: "/telemarketing", label: "Tabulador", icon: Headset },
+      { path: "/dashboard", label: "Dashboard", icon: BarChart3 },
       { path: "/discador", label: "Discador", icon: Phone },
     ]
   },
@@ -67,13 +68,13 @@ export function UnifiedSidebar() {
     location.pathname.startsWith('/scouter')
   );
   const [telemarketingOpen, setTelemarketingOpen] = useState(
-    location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador')
+    location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador') || location.pathname === '/dashboard'
   );
 
   // Atualizar estado quando a rota mudar
   useEffect(() => {
     setScouterOpen(location.pathname.startsWith('/scouter'));
-    setTelemarketingOpen(location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador'));
+    setTelemarketingOpen(location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador') || location.pathname === '/dashboard');
   }, [location.pathname]);
 
   // Função para verificar se tem acesso a uma rota
