@@ -3,10 +3,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, RefreshCw, CheckSquare, Square, Filter } from 'lucide-react';
-import { ConversationItem } from './ConversationItem';
+import { ConversationKanbanCard } from './ConversationKanbanCard';
 import { ConversationStats } from './ConversationStats';
 import { LabelFilter } from './LabelFilter';
-import { useAgentConversations } from '@/hooks/useAgentConversations';
+import { useAgentConversations, AgentConversation } from '@/hooks/useAgentConversations';
 import { useConversationLabels, LabelAssignment } from '@/hooks/useConversationLabels';
 import {
   Tooltip,
@@ -19,16 +19,46 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
-interface ConversationListProps {
+interface ConversationsKanbanProps {
   onSelectConversation: (conversationId: number) => void;
   activeConversationId: number | null;
 }
 
-export function ConversationList({
+type KanbanCategory = 'open' | 'expiring' | 'closed';
+
+interface KanbanColumn {
+  id: KanbanCategory;
+  title: string;
+  color: string;
+  bgColor: string;
+}
+
+const columns: KanbanColumn[] = [
+  { id: 'open', title: 'Janela Aberta', color: 'text-green-600', bgColor: 'bg-green-500/10' },
+  { id: 'expiring', title: 'Expirando', color: 'text-orange-600', bgColor: 'bg-orange-500/10' },
+  { id: 'closed', title: 'Janela Fechada', color: 'text-red-600', bgColor: 'bg-red-500/10' },
+];
+
+function getKanbanCategory(conversation: AgentConversation): KanbanCategory {
+  const { windowStatus } = conversation;
+  if (!windowStatus.isOpen) return 'closed';
+  if (windowStatus.hoursRemaining !== null && windowStatus.hoursRemaining < 1) return 'expiring';
+  return 'open';
+}
+
+function hasRecentMessage(conversation: AgentConversation): boolean {
+  if (!conversation.last_customer_message_at) return false;
+  const lastMsg = new Date(conversation.last_customer_message_at);
+  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+  return lastMsg > twoMinutesAgo;
+}
+
+export function ConversationsKanban({
   onSelectConversation,
   activeConversationId,
-}: ConversationListProps) {
+}: ConversationsKanbanProps) {
   const {
     conversations,
     isLoading,
@@ -46,7 +76,6 @@ export function ConversationList({
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
   const [conversationLabels, setConversationLabels] = useState<Record<number, LabelAssignment[]>>({});
 
-  // Buscar labels para as conversas visíveis
   useEffect(() => {
     if (conversations.length > 0) {
       const conversationIds = conversations.map(c => c.conversation_id);
@@ -63,7 +92,6 @@ export function ConversationList({
     }
   }, [conversations]);
 
-  // Filtrar conversas por labels selecionadas
   const filteredConversations = selectedLabelIds.length > 0
     ? conversations.filter((conv) => {
         const convLabels = conversationLabels[conv.conversation_id] || [];
@@ -73,10 +101,21 @@ export function ConversationList({
       })
     : conversations;
 
+  const groupedConversations: Record<KanbanCategory, AgentConversation[]> = {
+    open: [],
+    expiring: [],
+    closed: [],
+  };
+
+  filteredConversations.forEach(conv => {
+    const category = getKanbanCategory(conv);
+    groupedConversations[category].push(conv);
+  });
+
   return (
     <TooltipProvider>
       <div className="flex flex-col h-full border rounded-lg bg-card">
-        {/* Compact Header: Stats + Actions */}
+        {/* Compact Header */}
         <div className="p-2 border-b space-y-2">
           <div className="flex items-center justify-between">
             <ConversationStats conversations={conversations} />
@@ -142,7 +181,6 @@ export function ConversationList({
             </div>
           </div>
 
-          {/* Search */}
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -160,34 +198,51 @@ export function ConversationList({
           )}
         </div>
 
-        {/* Conversations List */}
-        <ScrollArea className="flex-1">
+        {/* Kanban Columns */}
+        <div className="flex-1 overflow-hidden">
           {isLoading ? (
-            <div className="flex items-center justify-center p-8">
+            <div className="flex items-center justify-center h-full">
               <p className="text-sm text-muted-foreground">Carregando...</p>
             </div>
-          ) : filteredConversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                {selectedLabelIds.length > 0 
-                  ? 'Nenhuma conversa com estas etiquetas'
-                  : 'Nenhuma conversa encontrada'}
-              </p>
-            </div>
           ) : (
-            filteredConversations.map((conversation) => (
-              <ConversationItem
-                key={conversation.conversation_id}
-                conversation={conversation}
-                selected={selectedConversations.includes(conversation.conversation_id)}
-                onSelect={() => toggleSelection(conversation.conversation_id)}
-                onClick={() => onSelectConversation(conversation.conversation_id)}
-                isActive={activeConversationId === conversation.conversation_id}
-                labels={conversationLabels[conversation.conversation_id] || []}
-              />
-            ))
+            <div className="grid grid-cols-3 gap-2 h-full p-2">
+              {columns.map((column) => (
+                <div key={column.id} className={cn('flex flex-col rounded-lg', column.bgColor)}>
+                  <div className="p-2 border-b">
+                    <h3 className={cn('text-sm font-semibold', column.color)}>
+                      {column.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {groupedConversations[column.id].length} conversas
+                    </p>
+                  </div>
+                  
+                  <ScrollArea className="flex-1 p-2">
+                    <div className="space-y-2">
+                      {groupedConversations[column.id].map((conversation) => (
+                        <ConversationKanbanCard
+                          key={conversation.conversation_id}
+                          conversation={conversation}
+                          selected={selectedConversations.includes(conversation.conversation_id)}
+                          onSelect={() => toggleSelection(conversation.conversation_id)}
+                          onClick={() => onSelectConversation(conversation.conversation_id)}
+                          isActive={activeConversationId === conversation.conversation_id}
+                          labels={conversationLabels[conversation.conversation_id] || []}
+                          hasNewMessage={hasRecentMessage(conversation)}
+                        />
+                      ))}
+                      {groupedConversations[column.id].length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          Nenhuma conversa
+                        </p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              ))}
+            </div>
           )}
-        </ScrollArea>
+        </div>
       </div>
     </TooltipProvider>
   );
