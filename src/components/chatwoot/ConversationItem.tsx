@@ -90,16 +90,16 @@ export function ConversationItem({
         </AvatarFallback>
       </Avatar>
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 overflow-hidden">
         <div className="flex items-start justify-between gap-2">
-          <h4 className="font-medium text-sm truncate">
+          <h4 className="font-medium text-sm truncate flex-1 min-w-0">
             <span className="text-muted-foreground">Nome:</span>{' '}
             <span className="font-bold">{conversation.lead_name}</span>
             {' - '}
             <span className="text-muted-foreground">Resp:</span>{' '}
             <span>{conversation.responsible}</span>
           </h4>
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
+          <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
             {timeAgo}
           </span>
         </div>
@@ -107,7 +107,7 @@ export function ConversationItem({
           {conversation.phone_number}
         </p>
         {labels.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
+          <div className="flex flex-wrap gap-1 mt-2 overflow-hidden">
             {labels.map((assignment) => {
               const label = assignment.label;
               if (!label) return null;
