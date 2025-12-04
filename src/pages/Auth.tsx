@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { TelemarketingSelector } from "@/components/TelemarketingSelector";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -368,7 +370,10 @@ const Auth = () => {
 
       toast.success("Login realizado com sucesso!");
       
-      // Redirecionar baseado no departamento
+      // Invalidar cache do sidebar role antes de redirecionar
+      queryClient.invalidateQueries({ queryKey: ['user-role-for-sidebar'] });
+      
+      // Redirecionar baseado no departamento e role
       const { data: { user: loggedUser } } = await supabase.auth.getUser();
       
       if (loggedUser) {
@@ -384,10 +389,13 @@ const Auth = () => {
           .eq('user_id', loggedUser.id)
           .maybeSingle();
 
-        const isAdmin = roleData?.role === 'admin';
+        const userRole = roleData?.role;
         const department = deptData?.department;
 
-        if (isAdmin) {
+        // Agentes sempre vão para /lead
+        if (userRole === 'agent') {
+          navigate('/lead');
+        } else if (userRole === 'admin') {
           navigate('/home-choice');
         } else if (department === 'telemarketing') {
           navigate('/lead');
