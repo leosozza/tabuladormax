@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { ConditionalPWA } from "@/components/pwa/ConditionalPWA";
 import { AppLayout } from "@/components/layouts/AppLayout";
 
 // Páginas do Tabulador
@@ -81,7 +80,6 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <ConditionalPWA />
         <Routes>
           {/* Rotas PÚBLICAS - sem sidebar */}
           <Route path="/auth" element={<Auth />} />

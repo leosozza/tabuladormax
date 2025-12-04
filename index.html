@@ -42,7 +42,27 @@
   <body>
     <div id="root"></div>
     
-    <!-- PWA service worker gerenciado automaticamente pelo vite-plugin-pwa -->
+    <!-- Forçar remoção de Service Workers e caches antigos -->
+    <script>
+      (function() {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            registrations.forEach(function(registration) {
+              registration.unregister();
+              console.log('[SW] Service Worker removido');
+            });
+          });
+        }
+        if ('caches' in window) {
+          caches.keys().then(function(names) {
+            names.forEach(function(name) {
+              caches.delete(name);
+              console.log('[Cache] Cache removido:', name);
+            });
+          });
+        }
+      })();
+    </script>
 
     
     <!-- Listener Global do Chatwoot (roda ANTES do React) -->
