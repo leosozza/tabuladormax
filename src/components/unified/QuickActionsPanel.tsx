@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Users, Target, DollarSign, FileText, Settings, BarChart3 } from "lucide-react";
+import { Users, Target, DollarSign, FileText, Settings } from "lucide-react";
 
 export function QuickActionsPanel() {
   const navigate = useNavigate();
@@ -34,13 +34,6 @@ export function QuickActionsPanel() {
       icon: FileText,
       path: "/scouter/relatorios",
       color: "text-purple-600",
-    },
-    {
-      label: "Dashboard Avançado",
-      description: "Análises detalhadas",
-      icon: BarChart3,
-      path: "/scouter/dashboard-avancado",
-      color: "text-cyan-600",
     },
     {
       label: "Administração",
