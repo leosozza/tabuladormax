@@ -151,27 +151,26 @@ export function ChatPanel({ conversationId, contactName, onBack, windowStatus: p
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {leadId && (
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon"
                 onClick={handleOpenInTelemarketing}
                 title="Abrir no Telemarketing"
               >
                 <Phone className="w-4 h-4" />
-                <span className="hidden sm:inline ml-2">Telemarketing</span>
               </Button>
             )}
             <LabelManager conversationId={conversationId} />
             <Button
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon"
               onClick={fetchMessages}
               disabled={loading}
+              title="Atualizar"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline ml-2">Atualizar</span>
             </Button>
           </div>
         </div>
