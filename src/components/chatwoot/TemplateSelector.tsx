@@ -32,10 +32,9 @@ interface TemplateSelectorProps {
     variables: string[];
   }) => Promise<boolean>;
   disabled?: boolean;
-  className?: string;
 }
 
-export const TemplateSelector = ({ onSendTemplate, disabled, className }: TemplateSelectorProps) => {
+export const TemplateSelector = ({ onSendTemplate, disabled }: TemplateSelectorProps) => {
   const [selectedTemplate, setSelectedTemplate] = useState<GupshupTemplate | null>(null);
   const [variables, setVariables] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -125,9 +124,9 @@ export const TemplateSelector = ({ onSendTemplate, disabled, className }: Templa
   };
 
   return (
-    <div className={cn("flex flex-col h-full space-y-4 p-4 border rounded-lg bg-muted/20", className)}>
+    <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
       {/* Header */}
-      <div className="flex justify-between items-center flex-shrink-0">
+      <div className="flex justify-between items-center">
         <h3 className="font-semibold text-sm">📱 Templates WhatsApp</h3>
         <Button
           onClick={() => refetch()}
@@ -141,7 +140,7 @@ export const TemplateSelector = ({ onSendTemplate, disabled, className }: Templa
 
       {/* Lista de templates */}
       {!selectedTemplate && (
-        <ScrollArea className="flex-1 min-h-0 pr-4">
+        <ScrollArea className="h-[400px] pr-4">
           {isLoading ? (
             <div className="text-center text-sm text-muted-foreground py-8">
               Carregando templates...
