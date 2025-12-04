@@ -298,13 +298,11 @@ export function ChatPanel({ conversationId, contactName, onBack, windowStatus: p
           </div>
         </TabsContent>
 
-        <TabsContent value="templates" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=active]:flex">
-          <ScrollArea className="flex-1 p-4">
-            <TemplateSelector
-              onSendTemplate={sendTemplate}
-              disabled={sending}
-            />
-          </ScrollArea>
+        <TabsContent value="templates" className="flex-1 flex flex-col min-h-0 mt-0 p-4 overflow-auto">
+          <TemplateSelector
+            onSendTemplate={sendTemplate}
+            disabled={sending}
+          />
         </TabsContent>
       </Tabs>
     </div>

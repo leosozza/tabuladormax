@@ -124,9 +124,9 @@ export const TemplateSelector = ({ onSendTemplate, disabled }: TemplateSelectorP
   };
 
   return (
-    <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+    <div className="flex flex-col h-full space-y-4 p-4 border rounded-lg bg-muted/20">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-shrink-0">
         <h3 className="font-semibold text-sm">📱 Templates WhatsApp</h3>
         <Button
           onClick={() => refetch()}
@@ -140,7 +140,7 @@ export const TemplateSelector = ({ onSendTemplate, disabled }: TemplateSelectorP
 
       {/* Lista de templates */}
       {!selectedTemplate && (
-        <ScrollArea className="h-[400px] pr-4">
+        <ScrollArea className="flex-1 min-h-0 pr-4">
           {isLoading ? (
             <div className="text-center text-sm text-muted-foreground py-8">
               Carregando templates...
