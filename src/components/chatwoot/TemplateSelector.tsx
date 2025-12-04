@@ -140,7 +140,7 @@ export const TemplateSelector = ({ onSendTemplate, disabled }: TemplateSelectorP
 
       {/* Lista de templates */}
       {!selectedTemplate && (
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="flex-1 pr-4 mt-4">
           {isLoading ? (
             <div className="text-center text-sm text-muted-foreground py-8">
               Carregando templates...
