@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { UnifiedSidebar } from './UnifiedSidebar';
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -10,12 +10,29 @@ import { Loader2 } from 'lucide-react';
 export function AppLayout() {
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  // Listener para invalidar cache quando autenticação mudar
+  // Listener para detectar mudanças de autenticação
   useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+      setAuthLoading(false);
+    };
+    
+    checkUser();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event) => {
+      async (event, session) => {
+        console.log('Auth event:', event, session?.user?.id);
+        
+        // Atualizar userId imediatamente
+        setCurrentUserId(session?.user?.id || null);
+        
         if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+          // Limpar TODOS os caches de role
+          queryClient.removeQueries({ queryKey: ['user-role-for-sidebar'] });
           queryClient.invalidateQueries({ queryKey: ['user-role-for-sidebar'] });
         }
       }
@@ -24,27 +41,30 @@ export function AppLayout() {
     return () => subscription.unsubscribe();
   }, [queryClient]);
 
-  // Verificar o role do usuário
-  const { data: userRole, isLoading } = useQuery({
-    queryKey: ['user-role-for-sidebar'],
+  // Query com user ID na key para evitar cache incorreto
+  const { data: userRole, isLoading: roleLoading } = useQuery({
+    queryKey: ['user-role-for-sidebar', currentUserId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!currentUserId) return null;
+      
+      console.log('Fetching role for user:', currentUserId);
       
       const { data } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUserId)
         .single();
       
+      console.log('User role fetched:', data?.role);
       return data?.role;
     },
+    enabled: !!currentUserId,
     staleTime: 0,
     gcTime: 0,
   });
 
-  // Mostrar loading enquanto verifica o role (sem sidebar)
-  if (isLoading) {
+  // Mostrar loading enquanto verifica autenticação OU role
+  if (authLoading || roleLoading) {
     return (
       <div className="flex min-h-screen w-full bg-background items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -52,10 +72,12 @@ export function AppLayout() {
     );
   }
 
-  // Se for agent OU não conseguiu identificar o role, não mostrar sidebar
-  const showSidebar = userRole && userRole !== 'agent';
+  // Se não tem userId OU é agent → não mostrar sidebar
+  const showSidebar = currentUserId && userRole && userRole !== 'agent';
+  
+  console.log('Sidebar decision:', { currentUserId, userRole, showSidebar });
 
-  // Layout sem sidebar para agentes
+  // Layout sem sidebar para agentes ou não-autenticados
   if (!showSidebar) {
     return (
       <div className="flex min-h-screen w-full bg-background">
@@ -66,7 +88,7 @@ export function AppLayout() {
     );
   }
 
-  // Layout com sidebar para outros roles (supervisor, manager, admin)
+  // Layout com sidebar para outros roles
   return (
     <SidebarProvider defaultOpen={!isMobile}>
       <div className="flex min-h-screen w-full bg-background">

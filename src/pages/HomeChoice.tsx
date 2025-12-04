@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { SafeSidebarTrigger } from "@/components/SafeSidebarTrigger";
 import { GeneralStatsCards } from "@/components/unified/GeneralStatsCards";
 import { ModuleActivityChart } from "@/components/unified/ModuleActivityChart";
 import { QuickActionsPanel } from "@/components/unified/QuickActionsPanel";
@@ -31,7 +31,7 @@ export default function HomeChoice() {
   return (
     <>
       <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
-        <SidebarTrigger />
+        <SafeSidebarTrigger />
         <div className="flex items-center gap-2 flex-1">
           <div>
             <h1 className="text-2xl font-bold">
