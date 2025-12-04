@@ -1,14 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Menu, Phone, LayoutDashboard, List, LayoutGrid } from 'lucide-react';
+import { Send, Phone, LayoutDashboard, List, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MainLayout } from '@/components/layouts/MainLayout';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { ConversationList } from '@/components/chatwoot/ConversationList';
 import { ConversationsKanban } from '@/components/chatwoot/ConversationsKanban';
 import { ChatPanel } from '@/components/chatwoot/ChatPanel';
@@ -141,25 +135,23 @@ export default function WhatsApp() {
               </div>
             )}
 
-            {/* Menu - sempre à direita */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size={isMobile ? "sm" : "default"}>
-                  <Menu className="h-4 w-4" />
-                  {!isMobile && <span className="ml-2">Menu</span>}
+            {/* Botões de navegação */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+                  <LayoutDashboard className="h-4 w-4" />
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-background z-[600]">
-                <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-                  <LayoutDashboard className="h-4 w-4 mr-2" />
-                  Dashboard
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/telemarketing')}>
-                  <Phone className="h-4 w-4 mr-2" />
-                  Tabulador
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </TooltipTrigger>
+              <TooltipContent>Dashboard</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => navigate('/telemarketing')}>
+                  <Phone className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Tabulador</TooltipContent>
+            </Tooltip>
           </div>
         }
       >
