@@ -186,73 +186,75 @@ export const TemplateSelector = ({ onSendTemplate, disabled }: TemplateSelectorP
 
       {/* Preview e formulário de variáveis */}
       {selectedTemplate && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium text-sm">{selectedTemplate.display_name}</h4>
+        <ScrollArea className="flex-1 mt-4">
+          <div className="space-y-4 pr-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium text-sm">{selectedTemplate.display_name}</h4>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedTemplate(null);
+                  setVariables([]);
+                }}
+              >
+                Voltar
+              </Button>
+            </div>
+
+            <Separator />
+
+            {/* Preview */}
+            <div className="bg-muted p-4 rounded-lg">
+              <Label className="text-xs text-muted-foreground mb-2 block">
+                Preview:
+              </Label>
+              <p className="text-sm font-mono whitespace-pre-wrap">
+                {renderTemplatePreview(selectedTemplate.template_body, variables)}
+              </p>
+            </div>
+
+            {/* Campos de variáveis */}
+            {selectedTemplate.variables.length > 0 && (
+              <div className="space-y-3">
+                <Label className="text-sm">Preencha as variáveis:</Label>
+                {selectedTemplate.variables.map((variable, index) => (
+                  <div key={index} className="space-y-2">
+                    <Label htmlFor={`var-${index}`} className="text-xs">
+                      {variable.name || `Variável ${index + 1}`}
+                      {variable.example && (
+                        <span className="text-muted-foreground ml-1">
+                          (ex: {variable.example})
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      id={`var-${index}`}
+                      placeholder={variable.example || `Digite ${variable.name || `variável ${index + 1}`}`}
+                      value={variables[index] || ''}
+                      onChange={(e) => {
+                        const newVars = [...variables];
+                        newVars[index] = e.target.value;
+                        setVariables(newVars);
+                      }}
+                      disabled={disabled}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Botão enviar */}
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedTemplate(null);
-                setVariables([]);
-              }}
+              onClick={handleSend}
+              disabled={disabled || !allVariablesFilled()}
+              className="w-full"
             >
-              Voltar
+              <Send className="w-4 h-4 mr-2" />
+              Enviar Template
             </Button>
           </div>
-
-          <Separator />
-
-          {/* Preview */}
-          <div className="bg-muted p-4 rounded-lg">
-            <Label className="text-xs text-muted-foreground mb-2 block">
-              Preview:
-            </Label>
-            <p className="text-sm font-mono whitespace-pre-wrap">
-              {renderTemplatePreview(selectedTemplate.template_body, variables)}
-            </p>
-          </div>
-
-          {/* Campos de variáveis */}
-          {selectedTemplate.variables.length > 0 && (
-            <div className="space-y-3">
-              <Label className="text-sm">Preencha as variáveis:</Label>
-              {selectedTemplate.variables.map((variable, index) => (
-                <div key={index} className="space-y-2">
-                  <Label htmlFor={`var-${index}`} className="text-xs">
-                    {variable.name || `Variável ${index + 1}`}
-                    {variable.example && (
-                      <span className="text-muted-foreground ml-1">
-                        (ex: {variable.example})
-                      </span>
-                    )}
-                  </Label>
-                  <Input
-                    id={`var-${index}`}
-                    placeholder={variable.example || `Digite ${variable.name || `variável ${index + 1}`}`}
-                    value={variables[index] || ''}
-                    onChange={(e) => {
-                      const newVars = [...variables];
-                      newVars[index] = e.target.value;
-                      setVariables(newVars);
-                    }}
-                    disabled={disabled}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Botão enviar */}
-          <Button
-            onClick={handleSend}
-            disabled={disabled || !allVariablesFilled()}
-            className="w-full"
-          >
-            <Send className="w-4 h-4 mr-2" />
-            Enviar Template
-          </Button>
-        </div>
+        </ScrollArea>
       )}
     </div>
   );
