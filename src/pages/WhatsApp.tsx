@@ -160,7 +160,7 @@ export default function WhatsApp() {
         <div className={`flex gap-2 ${isMobile ? 'h-[calc(100vh-10rem)]' : 'h-[calc(100vh-9rem)]'}`}>
           {/* Lista ou Kanban de Conversas */}
           {showList && (
-            <div className={isMobile ? "w-full" : viewMode === 'kanban' ? "flex-1" : "w-96 flex-shrink-0"}>
+            <div className={isMobile ? "w-full" : viewMode === 'kanban' && !activeConversationId ? "flex-1" : viewMode === 'kanban' ? "w-1/2" : "w-96 flex-shrink-0"}>
               {viewMode === 'list' ? (
                 <ConversationList
                   onSelectConversation={handleSelectConversation}
@@ -178,8 +178,8 @@ export default function WhatsApp() {
           )}
 
           {/* Painel de Chat */}
-          {showChat && viewMode === 'list' && (
-            <div className={`border rounded-lg overflow-hidden flex flex-col ${isMobile ? 'w-full' : 'flex-1'}`}>
+          {showChat && (
+            <div className={`border rounded-lg overflow-hidden flex flex-col ${isMobile ? 'w-full' : viewMode === 'kanban' ? 'w-1/2' : 'flex-1'}`}>
               <ChatPanel
                 conversationId={activeConversationId}
                 contactName={activeConversation?.lead_name || 'Selecione uma conversa'}
