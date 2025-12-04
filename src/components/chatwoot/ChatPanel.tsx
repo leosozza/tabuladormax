@@ -192,7 +192,7 @@ export function ChatPanel({ conversationId, contactName, onBack, windowStatus: p
           </TabsList>
         </div>
 
-        <TabsContent value="messages" className="flex-1 overflow-auto mt-0">
+        <TabsContent value="messages" className="flex-1 flex flex-col min-h-0 mt-0">
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-4" ref={scrollRef}>
               {loading && messages.length === 0 ? (
