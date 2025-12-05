@@ -45,10 +45,11 @@ serve(async (req) => {
 
         // Implementar paginação para buscar todos os registros
         while (hasMore) {
-          // Filtro de scouters ativos + campo de foto correto
+          // Filtro de scouters ativos + campos de foto e chave de acesso
           const stageFilter = entityType.id === 1096 ? '&filter[stageId]=DT1096_210:NEW' : '';
-          const photoField = entityType.id === 1096 ? '&select[]=ufCrm32_1739220520381' : '';
-          const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}${stageFilter}&select[]=id&select[]=title&select[]=stageId&select[]=categoryId${photoField}&start=${start}`;
+          // ufCrm32_1739220520381 = foto, ufCrm32_1739219729812 = chave de acesso
+          const scouterFields = entityType.id === 1096 ? '&select[]=ufCrm32_1739220520381&select[]=ufCrm32_1739219729812' : '';
+          const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}${stageFilter}&select[]=id&select[]=title&select[]=stageId&select[]=categoryId${scouterFields}&start=${start}`;
           
           console.log(`  📄 Buscando página ${Math.floor(start / limit) + 1} (offset: ${start})...`);
           
@@ -147,6 +148,26 @@ serve(async (req) => {
               }
             } catch (photoError) {
               console.error(`  ❌ Erro ao processar foto do Scouter ${item.id}:`, photoError);
+            }
+          }
+          
+          // Processar chave de acesso para Scouters
+          if (entityType.id === 1096 && item.ufCrm32_1739219729812) {
+            const accessKey = String(item.ufCrm32_1739219729812);
+            console.log(`🔑 Chave de acesso do Scouter ${item.id} (${item.title}): ${accessKey}`);
+            
+            const { error: accessKeyError } = await supabase
+              .from('scouters')
+              .update({
+                access_key: accessKey,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('bitrix_id', item.id);
+            
+            if (accessKeyError) {
+              console.error(`  ⚠️ Erro ao atualizar access_key: ${accessKeyError.message}`);
+            } else {
+              console.log(`  ✅ Chave de acesso salva para scouter ${item.title}`);
             }
           }
           
