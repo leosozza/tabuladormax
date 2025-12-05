@@ -670,6 +670,15 @@ serve(async (req) => {
           }
         }
         
+        // Converter enumeração para boolean automaticamente se o campo estiver mapeado
+        if (mapping.bitrix_field_type === 'enumeration' && BITRIX_ENUM_TO_BOOLEAN[mapping.bitrix_field]) {
+          const conversion = convertBitrixEnumToBoolean(mapping.bitrix_field, value);
+          if (conversion.hasError) {
+            console.warn(`⚠️ Erro ao converter enum ${mapping.bitrix_field}: ${conversion.errorMsg}`);
+          }
+          value = conversion.converted;
+        }
+        
         // Se encontrou valor, usar e parar (fallback automático)
         if (value !== null && value !== undefined && value !== '') {
           leadData[supabaseField] = value;
