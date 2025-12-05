@@ -39,19 +39,30 @@ export function SystemActivityBar() {
         head: true
       }).eq('sync_status', 'pending').gte('criado', sevenDaysAgo);
 
-      // Calculate success rate and count (last 24h)
+      // Calculate success rate and count (last 24h) using count queries
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const {
-        data: syncEvents
-      } = await supabase.from('sync_events').select('status').gte('created_at', oneDayAgo);
-      const totalEvents = syncEvents?.length || 0;
-      const successEvents = syncEvents?.filter(e => e.status === 'success').length || 0;
-      const successRate = totalEvents > 0 ? successEvents / totalEvents * 100 : 100;
+      
+      // Total sync events in 24h
+      const { count: totalEvents } = await supabase
+        .from('sync_events')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', oneDayAgo);
+      
+      // Successful sync events in 24h
+      const { count: successEvents } = await supabase
+        .from('sync_events')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', oneDayAgo)
+        .eq('status', 'success');
+      
+      const total = totalEvents || 0;
+      const success = successEvents || 0;
+      const successRate = total > 0 ? (success / total) * 100 : 100;
       return {
         lastSyncTime: lastSync?.created_at ? new Date(lastSync.created_at) : null,
         pendingSync: pendingSync || 0,
         successRate24h: successRate,
-        syncs24h: totalEvents
+        syncs24h: total
       };
     },
     refetchInterval: 30000 // Refresh every 30 seconds
