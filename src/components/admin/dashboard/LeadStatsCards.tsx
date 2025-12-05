@@ -29,6 +29,22 @@ export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
         .gte('criado', startDate)
         .lte('criado', endDate);
 
+      // Scouter-Fichas
+      const { count: scouter } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('fonte_normalizada', 'Scouter - Fichas')
+        .gte('criado', startDate)
+        .lte('criado', endDate);
+
+      // Meta
+      const { count: meta } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('fonte_normalizada', 'Meta')
+        .gte('criado', startDate)
+        .lte('criado', endDate);
+
       // Confirmadas: ficha_confirmada = true
       const { count: confirmadas } = await supabase
         .from('leads')
@@ -53,8 +69,14 @@ export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
         .gte('criado', startDate)
         .lte('criado', endDate);
 
+      // Outros = total - scouter - meta
+      const outros = (total || 0) - (scouter || 0) - (meta || 0);
+
       return {
         total: total || 0,
+        scouter: scouter || 0,
+        meta: meta || 0,
+        outros: outros,
         confirmadas: confirmadas || 0,
         aguardando: aguardando || 0,
         naoConfirmadas: naoConfirmadas || 0,
@@ -93,6 +115,11 @@ export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
       title: 'Total de Leads',
       value: stats?.total || 0,
       rate: null,
+      breakdown: {
+        scouter: stats?.scouter || 0,
+        meta: stats?.meta || 0,
+        outros: stats?.outros || 0,
+      },
       icon: TrendingUp,
       iconColor: 'text-primary',
       bgColor: 'bg-primary/10',
@@ -101,6 +128,7 @@ export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
       title: 'Fichas Confirmadas',
       value: stats?.confirmadas || 0,
       rate: calcRate(stats?.confirmadas || 0, stats?.total || 0),
+      breakdown: null,
       icon: CheckCircle2,
       iconColor: 'text-green-500',
       bgColor: 'bg-green-500/10',
@@ -109,6 +137,7 @@ export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
       title: 'Fichas Aguardando',
       value: stats?.aguardando || 0,
       rate: calcRate(stats?.aguardando || 0, stats?.total || 0),
+      breakdown: null,
       icon: Clock,
       iconColor: 'text-yellow-500',
       bgColor: 'bg-yellow-500/10',
@@ -117,6 +146,7 @@ export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
       title: 'Fichas Não Confirmadas',
       value: stats?.naoConfirmadas || 0,
       rate: calcRate(stats?.naoConfirmadas || 0, stats?.total || 0),
+      breakdown: null,
       icon: XCircle,
       iconColor: 'text-destructive',
       bgColor: 'bg-destructive/10',
@@ -138,6 +168,11 @@ export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatNumber(card.value)}</div>
+            {card.breakdown && (
+              <p className="text-xs text-muted-foreground mt-1">
+                <span className="font-medium">{formatNumber(card.breakdown.scouter)}</span> Scouter · <span className="font-medium">{formatNumber(card.breakdown.meta)}</span> Meta · <span className="font-medium">{formatNumber(card.breakdown.outros)}</span> Outros
+              </p>
+            )}
             {card.rate && (
               <p className="text-xs text-muted-foreground mt-1">
                 Taxa de conversão: <span className="font-medium">{card.rate}</span>
