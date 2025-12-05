@@ -116,9 +116,11 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['leadrometro', dateFilter.startDate, dateFilter.endDate],
+    queryKey: ['leadrometro', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString()],
     queryFn: async () => {
-      const { startDate, endDate } = dateFilter;
+      // CRITICAL: Convert Date objects to ISO strings for Supabase queries
+      const startDate = dateFilter.startDate.toISOString();
+      const endDate = dateFilter.endDate.toISOString();
 
       // Total leads no período
       const { count: total } = await supabase
