@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 interface Stats {
-  total: number;
+  total_leads: number;
   com_foto: number;
   confirmados: number;
   agendados: number;
@@ -54,7 +54,7 @@ export const ScouterStatsCards = ({ stats, isLoading }: ScouterStatsCardsProps) 
   const cards = [
     { 
       title: 'Total de Leads', 
-      value: stats.total, 
+      value: stats.total_leads, 
       icon: Users, 
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10'
