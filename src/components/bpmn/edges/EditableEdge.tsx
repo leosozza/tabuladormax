@@ -78,42 +78,70 @@ export function EditableEdge({
     };
   }, [getViewport]);
 
+  // Add waypoint on double-click
+  const handleDoubleClick = useCallback((event: React.MouseEvent) => {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    const pos = screenToFlowPosition(event.clientX, event.clientY);
+    const newWaypoint = { x: pos.x, y: pos.y };
+    
+    setEdges((eds) =>
+      eds.map((edge) =>
+        edge.id === id
+          ? { ...edge, data: { ...edge.data, waypoints: [...waypoints, newWaypoint] } }
+          : edge
+      )
+    );
+  }, [id, waypoints, setEdges, screenToFlowPosition]);
+
   // Handle dragging the entire edge - adds a waypoint and drags it
   const handleEdgeDrag = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
     event.preventDefault();
     
-    setIsDragging(true);
-    
     const startPos = screenToFlowPosition(event.clientX, event.clientY);
-    
-    // Add a new waypoint at the drag start position
-    const newWaypoint = { x: startPos.x, y: startPos.y };
-    const newWaypoints = [...waypoints, newWaypoint];
-    const newIndex = newWaypoints.length - 1;
-    
-    // Update edges with new waypoint
-    setEdges((eds) =>
-      eds.map((edge) =>
-        edge.id === id
-          ? { ...edge, data: { ...edge.data, waypoints: newWaypoints } }
-          : edge
-      )
-    );
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let hasMoved = false;
+    let newIndex = -1;
     
     const onMouseMove = (e: MouseEvent) => {
-      const currentPos = screenToFlowPosition(e.clientX, e.clientY);
+      const dx = Math.abs(e.clientX - startX);
+      const dy = Math.abs(e.clientY - startY);
       
-      setEdges((eds) =>
-        eds.map((edge) => {
-          if (edge.id !== id) return edge;
-          const currentWaypoints = [...(edge.data?.waypoints || [])];
-          if (currentWaypoints[newIndex]) {
-            currentWaypoints[newIndex] = { x: currentPos.x, y: currentPos.y };
-          }
-          return { ...edge, data: { ...edge.data, waypoints: currentWaypoints } };
-        })
-      );
+      // Only create waypoint if actually dragging (moved more than 5px)
+      if (!hasMoved && (dx > 5 || dy > 5)) {
+        hasMoved = true;
+        setIsDragging(true);
+        
+        // Add a new waypoint at the drag start position
+        const newWaypoint = { x: startPos.x, y: startPos.y };
+        newIndex = waypoints.length;
+        
+        setEdges((eds) =>
+          eds.map((edge) =>
+            edge.id === id
+              ? { ...edge, data: { ...edge.data, waypoints: [...(edge.data?.waypoints || []), newWaypoint] } }
+              : edge
+          )
+        );
+      }
+      
+      if (hasMoved && newIndex >= 0) {
+        const currentPos = screenToFlowPosition(e.clientX, e.clientY);
+        
+        setEdges((eds) =>
+          eds.map((edge) => {
+            if (edge.id !== id) return edge;
+            const currentWaypoints = [...(edge.data?.waypoints || [])];
+            if (currentWaypoints[newIndex]) {
+              currentWaypoints[newIndex] = { x: currentPos.x, y: currentPos.y };
+            }
+            return { ...edge, data: { ...edge.data, waypoints: currentWaypoints } };
+          })
+        );
+      }
     };
     
     const onMouseUp = () => {
@@ -189,6 +217,7 @@ export function EditableEdge({
         stroke="transparent"
         className="cursor-grab active:cursor-grabbing"
         onMouseDown={handleEdgeDrag}
+        onDoubleClick={handleDoubleClick}
       />
       
       {/* Visible edge path */}
