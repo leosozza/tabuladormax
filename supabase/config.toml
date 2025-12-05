@@ -1,4 +1,7 @@
-project_id = "jstsrgyxrrlklnzgsihd"
+project_id = "gkvvtfqfggddzotxltxf"
+
+[functions.generate-bpmn-flow]
+verify_jwt = false
 
 [functions.get-location]
 verify_jwt = false
