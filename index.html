@@ -46,83 +46,40 @@
   <body>
     <div id="root"></div>
     
-    <!-- Forçar remoção AGRESSIVA de Service Workers e caches antigos -->
+    <!-- REMOÇÃO TOTAL de Service Workers e caches - v2 -->
     <script>
       (function() {
-        var CACHE_VERSION = 'v20251205-force-clean'; // Incrementar para forçar limpeza
-        var lastClean = localStorage.getItem('cache_cleaned_version');
-        
-        // Sempre limpar caches e SWs
-        function cleanAll() {
-          console.log('[PWA-Clean] Iniciando limpeza agressiva...');
-          
-          // 1. Remover TODOS os Service Workers
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-              registrations.forEach(function(registration) {
-                registration.unregister().then(function(success) {
-                  console.log('[SW] Service Worker removido:', success);
-                });
-              });
-            }).catch(function(e) {
-              console.error('[SW] Erro ao remover SW:', e);
-            });
-            
-            // Também tentar via ready
-            navigator.serviceWorker.ready.then(function(registration) {
-              registration.unregister();
-            }).catch(function() {});
-          }
-          
-          // 2. Limpar TODOS os caches
-          if ('caches' in window) {
-            caches.keys().then(function(names) {
-              return Promise.all(names.map(function(name) {
-                console.log('[Cache] Removendo cache:', name);
-                return caches.delete(name);
-              }));
-            }).then(function() {
-              console.log('[Cache] Todos os caches removidos');
-            }).catch(function(e) {
-              console.error('[Cache] Erro ao remover caches:', e);
-            });
-          }
-          
-          // 3. Limpar IndexedDB relacionados a PWA/Workbox
-          if ('indexedDB' in window) {
-            var dbNames = ['workbox-expiration', 'workbox-background-sync', 'workbox-precache'];
-            dbNames.forEach(function(dbName) {
-              try {
-                indexedDB.deleteDatabase(dbName);
-                console.log('[IDB] Database removido:', dbName);
-              } catch(e) {}
-            });
-          }
-          
-          // 4. Limpar sessionStorage
-          try {
-            sessionStorage.clear();
-            console.log('[Storage] sessionStorage limpo');
-          } catch(e) {}
-          
-          // Marcar como limpo
-          localStorage.setItem('cache_cleaned_version', CACHE_VERSION);
-          console.log('[PWA-Clean] Limpeza concluída, versão:', CACHE_VERSION);
-        }
-        
-        // Executar limpeza se versão mudou ou primeira vez
-        if (lastClean !== CACHE_VERSION) {
-          cleanAll();
-        }
-        
-        // Sempre tentar desregistrar SWs (mesmo se já limpou antes)
+        // 1. Remover TODOS os Service Workers IMEDIATAMENTE
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            if (registrations.length > 0) {
-              console.log('[SW] Encontrados', registrations.length, 'SWs - removendo...');
-              registrations.forEach(function(r) { r.unregister(); });
+            for (var i = 0; i < registrations.length; i++) {
+              registrations[i].unregister();
+              console.log('[CLEANUP] SW removido');
             }
           });
+        }
+        
+        // 2. Limpar TODOS os caches
+        if ('caches' in window) {
+          caches.keys().then(function(names) {
+            for (var i = 0; i < names.length; i++) {
+              caches.delete(names[i]);
+              console.log('[CLEANUP] Cache removido:', names[i]);
+            }
+          });
+        }
+        
+        // 3. Limpar storage
+        try { localStorage.clear(); } catch(e) {}
+        try { sessionStorage.clear(); } catch(e) {}
+        
+        // 4. Limpar IndexedDB
+        if ('indexedDB' in window) {
+          indexedDB.databases().then(function(dbs) {
+            for (var i = 0; i < dbs.length; i++) {
+              indexedDB.deleteDatabase(dbs[i].name);
+            }
+          }).catch(function() {});
         }
       })();
     </script>
