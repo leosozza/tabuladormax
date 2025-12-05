@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Search, Filter, GitBranch, Boxes, Users, Link } from 'lucide-react';
+import { Plus, Search, Filter, GitBranch, Boxes, Users, Link, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -18,7 +17,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Node, Edge } from 'reactflow';
 
 export default function Processos() {
-  const navigate = useNavigate();
   const { diagrams, isLoading, createDiagram, updateDiagram, deleteDiagram } = useProcessDiagrams();
   const { isAdmin, isManager } = useUserRole();
   const canManage = isAdmin || isManager;
@@ -143,11 +141,10 @@ export default function Processos() {
       <div className="container mx-auto py-6 px-4 max-w-7xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/roadmap')}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Roadmap
-            </Button>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <GitBranch className="w-6 h-6 text-primary" />
+            </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Documentação de Processos</h1>
               <p className="text-muted-foreground">Diagramas BPMN do sistema</p>

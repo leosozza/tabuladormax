@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { UnifiedSidebar } from './UnifiedSidebar';
-import { SidebarProvider } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Menu } from 'lucide-react';
 
 export function AppLayout() {
   const isMobile = useIsMobile();
@@ -94,6 +94,11 @@ export function AppLayout() {
       <div className="flex min-h-screen w-full bg-background">
         <UnifiedSidebar />
         <div className="flex-1 flex flex-col w-full min-w-0">
+          {/* Header com trigger para colapsar sidebar */}
+          <div className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b px-4 py-2 flex items-center gap-2">
+            <SidebarTrigger className="h-8 w-8" />
+            <span className="text-sm text-muted-foreground">Menu</span>
+          </div>
           <Outlet />
         </div>
       </div>
