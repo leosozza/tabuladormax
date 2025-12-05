@@ -50,39 +50,69 @@
   <body>
     <div id="root"></div>
     
-    <!-- REMOÇÃO TOTAL de Service Workers e caches - v2 -->
+    <!-- REMOÇÃO TOTAL de Service Workers e caches - v3 FORÇA ATUALIZAÇÃO -->
     <script>
       (function() {
+        var VERSION = 'v3-' + Date.now();
+        console.log('[CLEANUP ' + VERSION + '] Iniciando limpeza total...');
+        
         // 1. Remover TODOS os Service Workers IMEDIATAMENTE
         if ('serviceWorker' in navigator) {
+          // Método 1: getRegistrations
           navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for (var i = 0; i < registrations.length; i++) {
-              registrations[i].unregister();
-              console.log('[CLEANUP] SW removido');
+              registrations[i].unregister().then(function() {
+                console.log('[CLEANUP] SW removido com sucesso');
+              });
             }
           });
+          
+          // Método 2: ready
+          navigator.serviceWorker.ready.then(function(registration) {
+            registration.unregister().then(function() {
+              console.log('[CLEANUP] SW ready removido');
+            });
+          }).catch(function() {});
+          
+          // Método 3: controller
+          if (navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+          }
         }
         
         // 2. Limpar TODOS os caches
         if ('caches' in window) {
           caches.keys().then(function(names) {
-            for (var i = 0; i < names.length; i++) {
-              caches.delete(names[i]);
-              console.log('[CLEANUP] Cache removido:', names[i]);
-            }
+            return Promise.all(names.map(function(name) {
+              console.log('[CLEANUP] Removendo cache:', name);
+              return caches.delete(name);
+            }));
+          }).then(function() {
+            console.log('[CLEANUP] Todos os caches removidos');
           });
         }
         
-        // 3. Storage preservado para manter autenticação
-        
-        // 4. Limpar IndexedDB
-        if ('indexedDB' in window) {
+        // 3. Limpar IndexedDB (exceto Supabase para manter auth)
+        if ('indexedDB' in window && indexedDB.databases) {
           indexedDB.databases().then(function(dbs) {
-            for (var i = 0; i < dbs.length; i++) {
-              indexedDB.deleteDatabase(dbs[i].name);
-            }
+            dbs.forEach(function(db) {
+              if (db.name && !db.name.includes('supabase')) {
+                indexedDB.deleteDatabase(db.name);
+                console.log('[CLEANUP] IndexedDB removido:', db.name);
+              }
+            });
           }).catch(function() {});
         }
+        
+        // 4. Forçar reload se SW ainda ativo após 2 segundos
+        setTimeout(function() {
+          if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            console.log('[CLEANUP] SW ainda ativo, forçando reload...');
+            window.location.reload(true);
+          }
+        }, 2000);
+        
+        console.log('[CLEANUP ' + VERSION + '] Limpeza concluída');
       })();
     </script>
 
