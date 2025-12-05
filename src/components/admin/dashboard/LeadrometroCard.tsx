@@ -120,59 +120,58 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
     queryFn: async () => {
       const { startDate, endDate } = dateFilter;
 
-      // Total leads
+      // Total leads no período
       const { count: total } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
         .gte('criado', startDate)
         .lte('criado', endDate);
 
-      // Verificados (confirmed)
-      const { count: verificados } = await supabase
+      // Leads aprovados (qualidade_lead = 'aprovado' ou 'super_aprovado')
+      const { count: aprovados } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
         .gte('criado', startDate)
         .lte('criado', endDate)
-        .eq('qualidade_lead', 'Reconhecido');
+        .in('qualidade_lead', ['aprovado', 'super_aprovado']);
 
-      // Em verificação (awaiting)
-      const { count: emVerificacao } = await supabase
+      // Leads reprovados
+      const { count: reprovados } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
         .gte('criado', startDate)
         .lte('criado', endDate)
-        .eq('qualidade_lead', 'Em verificação');
+        .eq('qualidade_lead', 'reprovado');
 
-      // Não reconhecidos
-      const { count: naoReconhecidos } = await supabase
+      // Leads com foto (indicador de qualidade)
+      const { count: comFoto } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
         .gte('criado', startDate)
         .lte('criado', endDate)
-        .eq('qualidade_lead', 'Não reconhecido');
+        .eq('cadastro_existe_foto', true);
 
-      // Agendados
+      // Agendados (várias etapas indicam agendamento)
       const { count: agendados } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
         .gte('criado', startDate)
         .lte('criado', endDate)
-        .or('etapa.eq.Agendados,etapa.eq.UC_QWPO2W');
+        .in('etapa', ['Agendados', 'UC_QWPO2W', 'Em agendamento']);
 
-      // Comparecidos
+      // Convertidos/Comparecidos
       const { count: comparecidos } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
         .gte('criado', startDate)
         .lte('criado', endDate)
-        .not('date_closed', 'is', null)
-        .or('etapa.eq.CONVERTED,etapa.eq.Lead convertido');
+        .or('etapa.eq.Lead convertido,etapa.eq.UC_GPH3PL');
 
       return {
         total: total || 0,
-        verificados: verificados || 0,
-        emVerificacao: emVerificacao || 0,
-        naoReconhecidos: naoReconhecidos || 0,
+        aprovados: aprovados || 0,
+        reprovados: reprovados || 0,
+        comFoto: comFoto || 0,
         agendados: agendados || 0,
         comparecidos: comparecidos || 0,
       };
@@ -183,23 +182,24 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
   const calculateScore = (metrics: typeof data, w: Weights): number => {
     if (!metrics || metrics.total === 0) return 0;
 
-    const { total, verificados, emVerificacao, naoReconhecidos, agendados, comparecidos } = metrics;
+    const { total, aprovados, reprovados, comFoto, agendados, comparecidos } = metrics;
 
-    // Calculate rates (0-100)
-    const taxaVerificados = (verificados / total) * 100;
-    const taxaEmVerificacao = (emVerificacao / total) * 100;
-    const taxaNaoReconhecidos = (naoReconhecidos / total) * 100;
+    // Calcular taxas (0-100)
+    const taxaAprovados = (aprovados / total) * 100;
+    const taxaComFoto = (comFoto / total) * 100;
+    const taxaReprovados = (reprovados / total) * 100;
     const taxaAgendados = (agendados / total) * 100;
-    const taxaComparecidos = agendados > 0 ? (comparecidos / agendados) * 100 : 0;
+    const taxaComparecidos = agendados > 0 ? (comparecidos / agendados) * 100 : (comparecidos / total) * 100;
 
-    // Normalize weights
+    // Normalizar pesos
     const totalWeight = w.verificados + w.emVerificacao + w.naoReconhecidos + w.agendados + w.comparecidos;
     
-    // Calculate weighted score
+    // Calcular score ponderado
+    // verificados = aprovados, emVerificacao = comFoto (qualidade), naoReconhecidos = reprovados (penaliza)
     const score = 
-      (taxaVerificados * (w.verificados / totalWeight)) +
-      (taxaEmVerificacao * (w.emVerificacao / totalWeight) * 0.5) + // Neutral impact
-      ((100 - taxaNaoReconhecidos) * (w.naoReconhecidos / totalWeight)) + // Inverse - penalize
+      (taxaAprovados * (w.verificados / totalWeight)) +
+      (taxaComFoto * (w.emVerificacao / totalWeight)) +
+      ((100 - taxaReprovados) * (w.naoReconhecidos / totalWeight) * 0.2) + // Penaliza reprovados
       (taxaAgendados * (w.agendados / totalWeight)) +
       (taxaComparecidos * (w.comparecidos / totalWeight));
 
@@ -252,11 +252,11 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
             </DialogHeader>
             <div className="space-y-6 py-4">
               {[
-                { key: 'verificados', label: 'Verificados', desc: 'Leads reconhecidos' },
-                { key: 'emVerificacao', label: 'Em Verificação', desc: 'Leads aguardando análise' },
-                { key: 'naoReconhecidos', label: 'Não Reconhecidos', desc: 'Penaliza leads inválidos' },
-                { key: 'agendados', label: 'Agendados', desc: 'Taxa de agendamento' },
-                { key: 'comparecidos', label: 'Comparecidos', desc: 'Taxa de comparecimento' },
+                { key: 'verificados', label: 'Aprovados', desc: 'Leads com qualidade aprovada/super aprovada' },
+                { key: 'emVerificacao', label: 'Com Foto', desc: 'Leads que possuem foto cadastrada' },
+                { key: 'naoReconhecidos', label: 'Reprovados', desc: 'Penaliza leads reprovados' },
+                { key: 'agendados', label: 'Agendados', desc: 'Taxa de leads agendados' },
+                { key: 'comparecidos', label: 'Convertidos', desc: 'Taxa de leads convertidos' },
               ].map(({ key, label, desc }) => (
                 <div key={key} className="space-y-2">
                   <div className="flex justify-between">
