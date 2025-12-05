@@ -1,7 +1,6 @@
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import ReactFlow, {
   Background,
-  Controls,
   MiniMap,
   Node,
   Edge,
@@ -11,6 +10,7 @@ import ReactFlow, {
   useEdgesState,
   ReactFlowInstance,
   BackgroundVariant,
+  EdgeTypes,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -21,11 +21,11 @@ import GatewayNode from './nodes/GatewayNode';
 import DataStoreNode from './nodes/DataStoreNode';
 import SubprocessNode from './nodes/SubprocessNode';
 import AnnotationNode from './nodes/AnnotationNode';
+import { EditableEdge } from './edges/EditableEdge';
 import { BpmnNodePalette } from './BpmnNodePalette';
 import { BpmnNodeType } from '@/types/bpmn';
 import { Button } from '@/components/ui/button';
 import { Save, Download, Trash2, Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, MousePointer2, Hand, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const nodeTypes = {
@@ -38,6 +38,10 @@ const nodeTypes = {
   dataStore: DataStoreNode,
   subprocess: SubprocessNode,
   annotation: AnnotationNode,
+};
+
+const edgeTypes: EdgeTypes = {
+  editable: EditableEdge,
 };
 
 interface BpmnEditorProps {
@@ -55,16 +59,51 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
-  const [showPalette, setShowPalette] = useState(true);
+  const [paletteCollapsed, setPaletteCollapsed] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [tool, setTool] = useState<'select' | 'pan'>('select');
+  const [isMiddleClickPanning, setIsMiddleClickPanning] = useState(false);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'v' || e.key === 'V') setTool('select');
+      if (e.key === 'h' || e.key === 'H') setTool('pan');
+      if (e.key === ' ') setIsMiddleClickPanning(true);
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === ' ') setIsMiddleClickPanning(false);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  // Middle click pan handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 1) { // Middle click
+      e.preventDefault();
+      setIsMiddleClickPanning(true);
+    }
+  }, []);
+
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    if (e.button === 1) {
+      setIsMiddleClickPanning(false);
+    }
+  }, []);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge({ 
       ...params, 
       animated: false, 
       style: { stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 },
-      type: 'smoothstep',
+      type: 'editable',
     }, eds)),
     [setEdges]
   );
@@ -141,13 +180,27 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
   const handleZoomOut = () => reactFlowInstance?.zoomOut();
   const handleFitView = () => reactFlowInstance?.fitView();
 
+  const togglePalette = () => setPaletteCollapsed(!paletteCollapsed);
+
+  // Determine if we should pan
+  const shouldPan = tool === 'pan' || isMiddleClickPanning;
+
   return (
     <TooltipProvider>
-      <div className="flex h-full bg-[#f8f9fa] dark:bg-[#1a1a1a] relative overflow-hidden">
+      <div 
+        className="flex h-full bg-[#f8f9fa] dark:bg-[#1a1a1a] relative overflow-hidden"
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        style={{ cursor: isMiddleClickPanning ? 'grabbing' : undefined }}
+      >
         {/* Palette - Miro style floating left */}
-        {!readOnly && showPalette && (
+        {!readOnly && (
           <div className="absolute left-4 top-4 z-10">
-            <BpmnNodePalette onAddNode={onAddNode} onClose={() => setShowPalette(false)} />
+            <BpmnNodePalette 
+              onAddNode={onAddNode} 
+              collapsed={paletteCollapsed}
+              onToggleCollapse={togglePalette}
+            />
           </div>
         )}
         
@@ -165,16 +218,20 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             fitView
             snapToGrid
             snapGrid={[20, 20]}
             nodesDraggable={!readOnly}
             nodesConnectable={!readOnly}
             elementsSelectable={!readOnly}
-            panOnDrag={tool === 'pan'}
-            selectionOnDrag={tool === 'select'}
+            edgesUpdatable={!readOnly}
+            edgesFocusable={!readOnly}
+            panOnDrag={shouldPan}
+            panOnScroll={true}
+            selectionOnDrag={tool === 'select' && !isMiddleClickPanning}
             defaultEdgeOptions={{
-              type: 'smoothstep',
+              type: 'editable',
               style: { strokeWidth: 2 },
             }}
           >
@@ -222,7 +279,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
                       <Hand className="w-4 h-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Mover (H)</TooltipContent>
+                  <TooltipContent>Mover (H) • Scroll ou Middle-click</TooltipContent>
                 </Tooltip>
               </div>
 
@@ -234,7 +291,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
                       variant="ghost"
                       size="sm"
                       className="h-9 w-9 rounded-xl"
-                      onClick={() => setShowPalette(!showPalette)}
+                      onClick={togglePalette}
                     >
                       <Plus className="w-4 h-4" />
                     </Button>
