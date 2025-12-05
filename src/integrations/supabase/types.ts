@@ -2673,6 +2673,21 @@ export type Database = {
           is_nullable: string
         }[]
       }
+      get_top_scouters: {
+        Args: { p_end_date?: string; p_start_date: string }
+        Returns: {
+          confirmadas: number
+          name: string
+          total: number
+        }[]
+      }
+      get_top_telemarketing: {
+        Args: { p_end_date?: string; p_start_date: string }
+        Returns: {
+          count: number
+          name: string
+        }[]
+      }
       get_unique_project_ids: {
         Args: {
           p_end_date?: string

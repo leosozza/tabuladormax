@@ -2,25 +2,94 @@
  * Team Status Panel - Shows online users, scouters in field, telemarketing online + rankings
  */
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, MapPin, Phone, Loader2, Trophy } from 'lucide-react';
+import { Users, MapPin, Phone, Loader2, Trophy, ChevronDown } from 'lucide-react';
 import { useOnlinePresence } from '@/hooks/useOnlinePresence';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+type PeriodKey = 'today' | 'yesterday' | 'week' | 'month';
+
+interface PeriodOption {
+  key: PeriodKey;
+  label: string;
+  getRange: () => { start: Date; end: Date };
+}
+
+const periodOptions: PeriodOption[] = [
+  {
+    key: 'today',
+    label: 'Hoje',
+    getRange: () => {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const end = new Date();
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    },
+  },
+  {
+    key: 'yesterday',
+    label: 'Ontem',
+    getRange: () => {
+      const start = new Date();
+      start.setDate(start.getDate() - 1);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date();
+      end.setDate(end.getDate() - 1);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    },
+  },
+  {
+    key: 'week',
+    label: 'Esta semana',
+    getRange: () => {
+      const start = new Date();
+      const dayOfWeek = start.getDay();
+      const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday as first day
+      start.setDate(start.getDate() - diff);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date();
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    },
+  },
+  {
+    key: 'month',
+    label: 'Mês atual',
+    getRange: () => {
+      const start = new Date();
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date();
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    },
+  },
+];
 
 export function TeamStatusPanel() {
   const { totalOnline, telemarketingOnline } = useOnlinePresence();
+  const [scouterPeriod, setScouterPeriod] = useState<PeriodKey>('today');
+  const [telemarketingPeriod, setTelemarketingPeriod] = useState<PeriodKey>('today');
 
-  // Get today's date range
+  // Get today's date range for scouters in field
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStart = today.toISOString();
 
-  // Get 30 days ago for telemarketing ranking
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const thirtyDaysAgoStr = thirtyDaysAgo.toISOString();
+  // Get date ranges based on selected periods
+  const scouterRange = periodOptions.find(p => p.key === scouterPeriod)?.getRange() || periodOptions[0].getRange();
+  const telemarketingRange = periodOptions.find(p => p.key === telemarketingPeriod)?.getRange() || periodOptions[0].getRange();
 
   // Fetch scouters working today (with location records today)
   const { data: scoutersInField, isLoading: loadingScoutersField } = useQuery({
@@ -39,67 +108,70 @@ export function TeamStatusPanel() {
     refetchInterval: 60000,
   });
 
-  // Fetch Top 5 Scouters today
+  // Fetch Top 5 Scouters using RPC
   const { data: topScouters, isLoading: loadingTopScouters } = useQuery({
-    queryKey: ['top-scouters-today', todayStart],
+    queryKey: ['top-scouters-rpc', scouterPeriod],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('leads')
-        .select('scouter, ficha_confirmada')
-        .not('scouter', 'is', null)
-        .gte('criado', todayStart);
-
-      if (error) throw error;
-
-      // Group and count leads + confirmed
-      const scouterStats: Record<string, { total: number; confirmadas: number }> = {};
-      data?.forEach(lead => {
-        if (!lead.scouter) return;
-        if (!scouterStats[lead.scouter]) {
-          scouterStats[lead.scouter] = { total: 0, confirmadas: 0 };
-        }
-        scouterStats[lead.scouter].total++;
-        if (lead.ficha_confirmada) scouterStats[lead.scouter].confirmadas++;
+      const { data, error } = await supabase.rpc('get_top_scouters', {
+        p_start_date: scouterRange.start.toISOString(),
+        p_end_date: scouterRange.end.toISOString(),
       });
 
-      return Object.entries(scouterStats)
-        .map(([name, stats]) => ({ name, ...stats }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5);
+      if (error) throw error;
+      return data as { name: string; total: number; confirmadas: number }[];
     },
     refetchInterval: 60000,
   });
 
-  // Fetch Top 5 Telemarketing (last 30 days - agendamentos)
+  // Fetch Top 5 Telemarketing using RPC
   const { data: topTelemarketing, isLoading: loadingTopTelemarketing } = useQuery({
-    queryKey: ['top-telemarketing-agendamentos', thirtyDaysAgoStr],
+    queryKey: ['top-telemarketing-rpc', telemarketingPeriod],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('leads')
-        .select('responsible')
-        .eq('etapa', 'Agendados')
-        .not('responsible', 'is', null)
-        .gte('data_criacao_agendamento', thirtyDaysAgoStr);
-
-      if (error) throw error;
-
-      // Group and count by telemarketing
-      const telemarketingStats: Record<string, number> = {};
-      data?.forEach(lead => {
-        if (!lead.responsible) return;
-        if (!telemarketingStats[lead.responsible]) {
-          telemarketingStats[lead.responsible] = 0;
-        }
-        telemarketingStats[lead.responsible]++;
+      const { data, error } = await supabase.rpc('get_top_telemarketing', {
+        p_start_date: telemarketingRange.start.toISOString(),
+        p_end_date: telemarketingRange.end.toISOString(),
       });
 
-      return Object.entries(telemarketingStats)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
+      if (error) throw error;
+      return data as { name: string; count: number }[];
     },
     refetchInterval: 60000,
   });
+
+  const PeriodSelector = ({ 
+    value, 
+    onChange 
+  }: { 
+    value: PeriodKey; 
+    onChange: (key: PeriodKey) => void;
+  }) => {
+    const currentLabel = periodOptions.find(p => p.key === value)?.label || 'Hoje';
+    
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Badge 
+            variant="outline" 
+            className="cursor-pointer hover:bg-accent transition-colors flex items-center gap-1"
+          >
+            {currentLabel}
+            <ChevronDown className="h-3 w-3" />
+          </Badge>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-32">
+          {periodOptions.map((option) => (
+            <DropdownMenuItem
+              key={option.key}
+              onClick={() => onChange(option.key)}
+              className={value === option.key ? 'bg-accent' : ''}
+            >
+              {option.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -177,7 +249,7 @@ export function TeamStatusPanel() {
                 <Trophy className="h-4 w-4 text-amber-500" />
                 Top 5 Scouters
               </div>
-              <Badge variant="outline">hoje</Badge>
+              <PeriodSelector value={scouterPeriod} onChange={setScouterPeriod} />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -222,7 +294,7 @@ export function TeamStatusPanel() {
                 <Trophy className="h-4 w-4 text-amber-500" />
                 Top 5 Telemarketing
               </div>
-              <Badge variant="outline">últimos 30 dias</Badge>
+              <PeriodSelector value={telemarketingPeriod} onChange={setTelemarketingPeriod} />
             </CardTitle>
           </CardHeader>
           <CardContent>
