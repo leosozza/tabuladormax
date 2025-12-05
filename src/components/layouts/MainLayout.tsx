@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { SafeSidebarTrigger } from "@/components/SafeSidebarTrigger";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -29,7 +29,7 @@ export function MainLayout({
       {(title || actions || showBackButton) && (
         <header className="sticky top-0 z-[500] border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex items-center gap-2 p-3 md:p-4">
-            <SidebarTrigger />
+            <SafeSidebarTrigger />
 
             {/* Botão de voltar */}
             {showBackButton && (

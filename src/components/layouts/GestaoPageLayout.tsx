@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { SidebarTrigger } from '@/components/ui/sidebar';
+import { SafeSidebarTrigger } from '@/components/SafeSidebarTrigger';
 
 interface GestaoPageLayoutProps {
   children: ReactNode;
@@ -21,7 +21,7 @@ export function GestaoPageLayout({
         <div className="px-4 md:px-6 lg:px-8 py-3 md:py-4">
           <div className="flex items-start md:items-center justify-between gap-3 flex-col md:flex-row">
             <div className="flex items-center gap-3">
-              <SidebarTrigger />
+              <SafeSidebarTrigger />
               <div>
                 <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground">{title}</h1>
                 {description && (
