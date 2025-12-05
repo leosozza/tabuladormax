@@ -18,6 +18,7 @@ import { SystemActivityBar } from '@/components/admin/dashboard/SystemActivityBa
 import { SystemStatusPanel } from '@/components/admin/dashboard/SystemStatusPanel';
 import { OnlineUsersPanel } from '@/components/admin/dashboard/OnlineUsersPanel';
 import { AlertsOverview } from '@/components/admin/dashboard/AlertsOverview';
+import { getDefaultMonthFilter, DateFilterValue } from '@/components/MinimalDateFilter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -35,6 +36,7 @@ interface LeadStats {
 
 export default function UnifiedDashboard() {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [dateFilter] = useState<DateFilterValue>(getDefaultMonthFilter);
 
   // Fetch lead statistics
   const { data: leadStats, isLoading, error } = useQuery<LeadStats>({
@@ -118,11 +120,11 @@ export default function UnifiedDashboard() {
         )}
 
         {/* Lead Stats Cards - Row 1 */}
-        <LeadStatsCards />
+        <LeadStatsCards dateFilter={dateFilter} />
 
         {/* Photo Stats + Online Users - Row 2 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <PhotoStatsCard />
+          <PhotoStatsCard dateFilter={dateFilter} />
           <div className="lg:col-span-2">
             <OnlineUsersPanel />
           </div>

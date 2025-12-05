@@ -1,6 +1,7 @@
 /**
  * Photo Statistics Card
  * Shows leads with photos count and percentage with progress bar
+ * Uses dateFilter prop to filter by criado date
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,28 +10,40 @@ import { Camera } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { DateFilterValue } from '@/components/MinimalDateFilter';
 
-export function PhotoStatsCard() {
+interface PhotoStatsCardProps {
+  dateFilter: DateFilterValue;
+}
+
+export function PhotoStatsCard({ dateFilter }: PhotoStatsCardProps) {
   const { data, isLoading } = useQuery({
-    queryKey: ['photo-stats-dashboard'],
+    queryKey: ['photo-stats-dashboard', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString()],
     queryFn: async () => {
-      // Get total leads
+      const startDate = dateFilter.startDate.toISOString();
+      const endDate = dateFilter.endDate.toISOString();
+
+      // Get total leads no período
       const { count: total } = await supabase
         .from('leads')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .gte('criado', startDate)
+        .lte('criado', endDate);
 
-      // Get leads with photo
+      // Get leads with photo no período
       const { count: comFoto } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .not('photo_url', 'is', null);
+        .not('photo_url', 'is', null)
+        .gte('criado', startDate)
+        .lte('criado', endDate);
 
       return {
         total: total || 0,
         comFoto: comFoto || 0,
       };
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 60000,
   });
 
   const total = data?.total || 0;
