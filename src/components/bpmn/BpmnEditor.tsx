@@ -28,14 +28,15 @@ import { SmartEdge } from './edges/SmartEdge';
 import { BpmnNodePalette } from './BpmnNodePalette';
 import { QuickActionsMenu } from './ui/QuickActionsMenu';
 import { NodeContextToolbar } from './ui/NodeContextToolbar';
+import { EdgeContextMenu } from './ui/EdgeContextMenu';
 import { AiFlowGenerator } from './ai/AiFlowGenerator';
 import { BpmnNodeType } from '@/types/bpmn';
 import { EdgeRoutingMode, SmartEdgeData, NodeColor } from './edges/types';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { Button } from '@/components/ui/button';
 import { 
-  Save, Download, Trash2, Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, 
-  MousePointer2, Hand, Plus, Minus, ArrowRight, CornerDownRight, Spline, PenTool
+  Save, Download, Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, 
+  MousePointer2, Hand, Plus
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -89,6 +90,10 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
   const [tool, setTool] = useState<'select' | 'pan'>('select');
   const [isMiddleClickPanning, setIsMiddleClickPanning] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
+  const [edgeContextMenu, setEdgeContextMenu] = useState<{
+    edge: Edge;
+    position: { x: number; y: number };
+  } | null>(null);
   
   // Undo/Redo system
   const { canUndo, canRedo, undo, redo, takeSnapshot } = useUndoRedo();
@@ -395,12 +400,25 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
     setSelectedEdge(edge);
     setSelectedNode(null);
     setShowQuickActions(false);
+    setEdgeContextMenu(null);
   };
+
+  const onEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.preventDefault();
+    setSelectedEdge(edge);
+    setSelectedNode(null);
+    setShowQuickActions(false);
+    setEdgeContextMenu({
+      edge,
+      position: { x: event.clientX, y: event.clientY },
+    });
+  }, []);
 
   const onPaneClick = () => {
     setSelectedNode(null);
     setSelectedEdge(null);
     setShowQuickActions(false);
+    setEdgeContextMenu(null);
   };
 
   const handleZoomIn = () => reactFlowInstance?.zoomIn();
@@ -477,16 +495,6 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
 
   // Determine if we should pan
   const shouldPan = tool === 'pan' || isMiddleClickPanning;
-  
-  // Get routing mode icon
-  const getRoutingIcon = (mode: EdgeRoutingMode) => {
-    switch (mode) {
-      case 'straight': return <ArrowRight className="w-4 h-4" />;
-      case 'orthogonal': return <CornerDownRight className="w-4 h-4" />;
-      case 'smooth': return <Spline className="w-4 h-4" />;
-      case 'freeform': return <PenTool className="w-4 h-4" />;
-    }
-  };
 
   // Get selected node position for quick actions
   const selectedNodePosition = selectedNode 
@@ -525,6 +533,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
             onDragOver={readOnly ? undefined : onDragOver}
             onNodeClick={onNodeClick}
             onEdgeClick={onEdgeClick}
+            onEdgeContextMenu={readOnly ? undefined : onEdgeContextMenu}
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -733,110 +742,20 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
           </div>
         )}
 
-        {/* Selected Edge Actions - Enhanced panel */}
-        {selectedEdge && !readOnly && (
-          <div className="absolute top-4 right-4 z-10">
-            <div className="flex flex-col gap-3 bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-lg p-4 min-w-[280px]">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Conexão selecionada
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDeleteSelected}
-                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-              
-              {/* Label input */}
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Rótulo</label>
-                <input
-                  type="text"
-                  value={selectedEdge.data?.label || ''}
-                  onChange={(e) => updateEdgeLabel(selectedEdge.id, e.target.value)}
-                  placeholder="Adicionar texto..."
-                  className="h-9 px-3 text-sm border border-border rounded-lg bg-background text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-              
-              {/* Quick label buttons */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 h-8"
-                  onClick={() => updateEdgeLabel(selectedEdge.id, 'Sim')}
-                >
-                  Sim
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 h-8"
-                  onClick={() => updateEdgeLabel(selectedEdge.id, 'Não')}
-                >
-                  Não
-                </Button>
-              </div>
-              
-              {/* Routing mode selector - now with 4 options */}
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Tipo de linha</label>
-                <div className="grid grid-cols-4 gap-1">
-                  {(['straight', 'orthogonal', 'smooth', 'freeform'] as EdgeRoutingMode[]).map((mode) => (
-                    <Tooltip key={mode}>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant={(selectedEdge.data as SmartEdgeData)?.routingMode === mode ? 'secondary' : 'outline'}
-                          size="sm"
-                          className="h-9"
-                          onClick={() => updateEdgeRoutingMode(selectedEdge.id, mode)}
-                        >
-                          {getRoutingIcon(mode)}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {mode === 'straight' && 'Linha reta'}
-                        {mode === 'orthogonal' && 'Linha ortogonal'}
-                        {mode === 'smooth' && 'Linha curva'}
-                        {mode === 'freeform' && 'Linha livre (Bezier)'}
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Waypoints info */}
-              {((selectedEdge.data as SmartEdgeData)?.waypoints?.length || 0) > 0 && (
-                <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                  <span className="text-xs text-muted-foreground">
-                    {(selectedEdge.data as SmartEdgeData)?.waypoints?.length} ponto(s) de controle
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => clearEdgeWaypoints(selectedEdge.id)}
-                  >
-                    <Minus className="w-3 h-3 mr-1" />
-                    Limpar
-                  </Button>
-                </div>
-              )}
-              
-              {/* Help text */}
-              <p className="text-[10px] text-muted-foreground leading-relaxed pt-2 border-t border-border/50">
-                💡 <strong>Duplo clique</strong> na linha para adicionar pontos.
-                {(selectedEdge.data as SmartEdgeData)?.routingMode === 'freeform' && (
-                  <> Arraste os <strong>handles</strong> para ajustar a curvatura.</>
-                )}
-              </p>
-            </div>
-          </div>
+        {/* Edge Context Menu - Right click menu */}
+        {edgeContextMenu && !readOnly && (
+          <EdgeContextMenu
+            edge={edgeContextMenu.edge}
+            position={edgeContextMenu.position}
+            onClose={() => setEdgeContextMenu(null)}
+            onUpdateLabel={(label) => updateEdgeLabel(edgeContextMenu.edge.id, label)}
+            onUpdateRoutingMode={(mode) => updateEdgeRoutingMode(edgeContextMenu.edge.id, mode)}
+            onDelete={() => {
+              handleDeleteSelected();
+              setEdgeContextMenu(null);
+            }}
+            onClearWaypoints={() => clearEdgeWaypoints(edgeContextMenu.edge.id)}
+          />
         )}
 
         {/* Controls - Hide default, we have custom */}
