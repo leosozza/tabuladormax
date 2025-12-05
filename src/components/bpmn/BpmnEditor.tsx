@@ -424,10 +424,14 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
           </div>
         )}
 
-        {/* Selected Edge Actions - Floating with label input */}
+        {/* Selected Edge Actions - Improved panel with quick buttons */}
         {selectedEdge && !readOnly && (
           <div className="absolute top-4 right-4 z-10">
-            <div className="flex items-center gap-2 bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-lg px-3 py-2">
+            <div className="flex flex-col gap-3 bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-lg p-4 min-w-[240px]">
+              <div className="text-xs font-medium text-muted-foreground">
+                Conexão selecionada
+              </div>
+              
               <input
                 type="text"
                 value={selectedEdge.data?.label || ''}
@@ -444,17 +448,58 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
                     prev ? { ...prev, data: { ...prev.data, label: newLabel } } : null
                   );
                 }}
-                placeholder="Texto da conexão (ex: Sim, Não)"
-                className="h-8 px-3 text-sm border border-border rounded-lg bg-background text-foreground w-48 focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Adicionar texto..."
+                className="h-9 px-3 text-sm border border-border rounded-lg bg-background text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary"
               />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDeleteSelected}
-                className="h-8 w-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 h-8"
+                  onClick={() => {
+                    setEdges((eds) =>
+                      eds.map((edge) =>
+                        edge.id === selectedEdge.id
+                          ? { ...edge, data: { ...edge.data, label: 'Sim' } }
+                          : edge
+                      )
+                    );
+                    setSelectedEdge((prev) => 
+                      prev ? { ...prev, data: { ...prev.data, label: 'Sim' } } : null
+                    );
+                  }}
+                >
+                  Sim
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 h-8"
+                  onClick={() => {
+                    setEdges((eds) =>
+                      eds.map((edge) =>
+                        edge.id === selectedEdge.id
+                          ? { ...edge, data: { ...edge.data, label: 'Não' } }
+                          : edge
+                      )
+                    );
+                    setSelectedEdge((prev) => 
+                      prev ? { ...prev, data: { ...prev.data, label: 'Não' } } : null
+                    );
+                  }}
+                >
+                  Não
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteSelected}
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
         )}
