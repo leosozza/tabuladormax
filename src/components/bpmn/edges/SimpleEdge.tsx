@@ -52,15 +52,15 @@ export const SimpleEdge = memo(function SimpleEdge({
     edgePath = `M ${sourceX} ${sourceY} Q ${controlPoint.x} ${controlPoint.y} ${targetX} ${targetY}`;
   }
   
-  // Handle drag start on path
+  // Handle drag start on path - works for ANY line type
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
-    if (isStraight) return; // Can't drag straight lines
+    if (!selected) return; // Must be selected first
     
     e.stopPropagation();
     e.preventDefault();
     setIsDragging(true);
-  }, [isStraight]);
+  }, [selected]);
   
   // Handle label drag
   const handleLabelMouseDown = useCallback((e: React.MouseEvent) => {
@@ -133,7 +133,7 @@ export const SimpleEdge = memo(function SimpleEdge({
     ? 'hsl(var(--primary))' 
     : 'hsl(var(--muted-foreground))';
   
-  const canDrag = selected && !isStraight;
+  const canDrag = selected; // Any selected line can be dragged to curve
   
   return (
     <>
@@ -237,7 +237,7 @@ export const SimpleEdge = memo(function SimpleEdge({
       )}
       
       {/* Hint when selected */}
-      {selected && !data?.label && !isStraight && (
+      {selected && !data?.label && !controlPoint && (
         <EdgeLabelRenderer>
           <div
             style={{
