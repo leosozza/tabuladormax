@@ -10,7 +10,7 @@ import { LeadStatsCards } from "@/components/admin/dashboard/LeadStatsCards";
 import { PhotoStatsCard } from "@/components/admin/dashboard/PhotoStatsCard";
 import { SystemActivityBar } from "@/components/admin/dashboard/SystemActivityBar";
 import { SystemStatusPanel } from "@/components/admin/dashboard/SystemStatusPanel";
-import { OnlineUsersPanel } from "@/components/admin/dashboard/OnlineUsersPanel";
+import { TeamStatusPanel } from "@/components/admin/dashboard/TeamStatusPanel";
 import { AlertsOverview } from "@/components/admin/dashboard/AlertsOverview";
 import { AgendadosStatsCard } from "@/components/admin/dashboard/AgendadosStatsCard";
 import { ComparecidosStatsCard } from "@/components/admin/dashboard/ComparecidosStatsCard";
@@ -76,20 +76,18 @@ export default function HomeChoice() {
             {/* Row 3: Gráfico de Atividade - Full Width */}
             <ModuleActivityChart dateFilter={dateFilter} />
 
-            {/* Row 5: Status + Online + Alerts */}
+            {/* Row 4: Equipe - Status + Rankings */}
+            <TeamStatusPanel />
+
+            {/* Row 5: Sistema - Status + Alerts + Activity */}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <SystemStatusPanel />
-              <OnlineUsersPanel />
               <AlertsOverview />
+              <SystemActivityBar />
             </div>
 
-            {/* Row 6: Quick Actions + System Activity */}
-            <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
-              <QuickActionsPanel />
-              <div className="lg:col-span-2">
-                <SystemActivityBar />
-              </div>
-            </div>
+            {/* Row 6: Ações Rápidas */}
+            <QuickActionsPanel />
           </>
         ) : (
           <MaxconnectAgent />
