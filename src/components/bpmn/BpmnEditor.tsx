@@ -257,10 +257,11 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
             elementsSelectable={!readOnly}
             edgesUpdatable={!readOnly}
             edgesFocusable={!readOnly}
-          panOnDrag={shouldPan}
-          panOnScroll={false}
-          zoomOnScroll={true}
-            selectionOnDrag={tool === 'select' && !isMiddleClickPanning}
+            panOnDrag={shouldPan ? [0, 1, 2] : false}
+            panOnScroll={false}
+            zoomOnScroll={true}
+            selectionOnDrag={false}
+            selectNodesOnDrag={false}
             defaultEdgeOptions={{
               type: 'editable',
               style: { strokeWidth: 2 },
@@ -423,13 +424,29 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
           </div>
         )}
 
-        {/* Selected Edge Actions - Floating */}
+        {/* Selected Edge Actions - Floating with label input */}
         {selectedEdge && !readOnly && (
           <div className="absolute top-4 right-4 z-10">
             <div className="flex items-center gap-2 bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-lg px-3 py-2">
-              <span className="text-sm font-medium text-foreground">
-                Conexão
-              </span>
+              <input
+                type="text"
+                value={selectedEdge.data?.label || ''}
+                onChange={(e) => {
+                  const newLabel = e.target.value;
+                  setEdges((eds) =>
+                    eds.map((edge) =>
+                      edge.id === selectedEdge.id
+                        ? { ...edge, data: { ...edge.data, label: newLabel } }
+                        : edge
+                    )
+                  );
+                  setSelectedEdge((prev) => 
+                    prev ? { ...prev, data: { ...prev.data, label: newLabel } } : null
+                  );
+                }}
+                placeholder="Texto da conexão (ex: Sim, Não)"
+                className="h-8 px-3 text-sm border border-border rounded-lg bg-background text-foreground w-48 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
               <Button
                 variant="ghost"
                 size="sm"
