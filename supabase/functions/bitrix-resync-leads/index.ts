@@ -764,9 +764,10 @@ async function processBatch(supabase: any, jobId: string) {
       fields_synced_count: r.data ? Object.keys(r.data).length - 4 : 0
     }));
 
-    await supabase.from('sync_events').insert(syncEvents).catch((err: any) => {
-      console.warn('Failed to insert sync_events:', err);
-    });
+    const { error: syncEventsError } = await supabase.from('sync_events').insert(syncEvents);
+    if (syncEventsError) {
+      console.warn('Failed to insert sync_events:', syncEventsError);
+    }
 
     // Adicionar erros
     errorLeads.forEach(e => {
