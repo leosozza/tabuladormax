@@ -60,11 +60,11 @@ export default function HomeChoice() {
         {view === 'dashboard' ? (
           <>
             {/* Row 1: Lead Stats - 4 cards */}
-            <LeadStatsCards />
+            <LeadStatsCards dateFilter={dateFilter} />
 
             {/* Row 2: Photo + Activity Bar */}
             <div className="grid gap-4 grid-cols-1 lg:grid-cols-4">
-              <PhotoStatsCard />
+              <PhotoStatsCard dateFilter={dateFilter} />
               <div className="lg:col-span-3">
                 <SystemActivityBar />
               </div>

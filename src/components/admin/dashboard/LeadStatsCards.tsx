@@ -1,6 +1,7 @@
 /**
  * Lead Statistics Cards
  * Shows Total, Confirmed, Awaiting, Not Confirmed with conversion rates
+ * Uses dateFilter prop to filter by criado date
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,40 +9,58 @@ import { TrendingUp, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { DateFilterValue } from '@/components/MinimalDateFilter';
 
-export function LeadStatsCards() {
+interface LeadStatsCardsProps {
+  dateFilter: DateFilterValue;
+}
+
+export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
   const { data: stats, isLoading } = useQuery({
-    queryKey: ['lead-stats-dashboard'],
+    queryKey: ['lead-stats-dashboard', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString()],
     queryFn: async () => {
-      // Get total leads
+      const startDate = dateFilter.startDate.toISOString();
+      const endDate = dateFilter.endDate.toISOString();
+
+      // Total de leads no período
       const { count: total } = await supabase
         .from('leads')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .gte('criado', startDate)
+        .lte('criado', endDate);
 
-      // Get confirmed leads (ficha_confirmada = true)
+      // Confirmadas: ficha_confirmada = true
       const { count: confirmadas } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .eq('ficha_confirmada', true);
+        .eq('ficha_confirmada', true)
+        .gte('criado', startDate)
+        .lte('criado', endDate);
 
-      // Get awaiting leads (ficha_confirmada is null/false AND not rejected)
+      // Não Confirmadas: ficha_confirmada = false
+      const { count: naoConfirmadas } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('ficha_confirmada', false)
+        .gte('criado', startDate)
+        .lte('criado', endDate);
+
+      // Aguardando: ficha_confirmada IS NULL
       const { count: aguardando } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
         .is('ficha_confirmada', null)
-        .not('etapa_funil', 'ilike', '%recusa%');
-
-      // Not confirmed = total - confirmadas - aguardando
-      const naoConfirmadas = (total || 0) - (confirmadas || 0) - (aguardando || 0);
+        .gte('criado', startDate)
+        .lte('criado', endDate);
 
       return {
         total: total || 0,
         confirmadas: confirmadas || 0,
         aguardando: aguardando || 0,
-        naoConfirmadas: Math.max(0, naoConfirmadas),
+        naoConfirmadas: naoConfirmadas || 0,
       };
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 60000,
   });
 
   const formatNumber = (num: number) => num.toLocaleString('pt-BR');
