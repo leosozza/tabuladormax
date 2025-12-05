@@ -2683,6 +2683,20 @@ export type Database = {
           project_name: string
         }[]
       }
+      get_scouter_ranking_position: {
+        Args: {
+          p_end_date?: string
+          p_scouter_name: string
+          p_start_date?: string
+        }
+        Returns: {
+          first_place_fichas: number
+          first_place_name: string
+          rank_position: number
+          scouter_fichas: number
+          total_scouters: number
+        }[]
+      }
       get_scouter_timesheet: {
         Args: {
           p_end_date?: string
