@@ -151,9 +151,8 @@ export default function Processos() {
             </div>
           </div>
           {canManage && (
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Diagrama
+            <Button size="icon" onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="w-4 h-4" />
             </Button>
           )}
         </div>
