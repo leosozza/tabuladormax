@@ -1681,6 +1681,57 @@ export type Database = {
         }
         Relationships: []
       }
+      roadmap_features: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string
+          icon: string
+          id: string
+          launch_date: string | null
+          module: string
+          name: string
+          progress: number | null
+          sort_order: number | null
+          status: string
+          tags: string[] | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          icon?: string
+          id?: string
+          launch_date?: string | null
+          module: string
+          name: string
+          progress?: number | null
+          sort_order?: number | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          icon?: string
+          id?: string
+          launch_date?: string | null
+          module?: string
+          name?: string
+          progress?: number | null
+          sort_order?: number | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       role_permissions: {
         Row: {
           created_at: string

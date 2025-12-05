@@ -1,9 +1,14 @@
-import { RoadmapFeature } from '@/types/roadmap';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle2, Clock, Lightbulb, TrendingUp } from 'lucide-react';
 
+interface StatsFeature {
+  id: string;
+  status: string;
+  progress?: number;
+}
+
 interface RoadmapStatsProps {
-  features: RoadmapFeature[];
+  features: StatsFeature[];
 }
 
 export function RoadmapStats({ features }: RoadmapStatsProps) {
