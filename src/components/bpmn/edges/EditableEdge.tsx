@@ -78,57 +78,45 @@ export function EditableEdge({
     };
   }, [getViewport]);
 
-  // Add waypoint on double-click
-  const handleDoubleClick = useCallback((event: React.MouseEvent) => {
+  // Handle dragging the edge - creates a waypoint immediately and drags it (like bpmn.io)
+  const handleEdgeDrag = useCallback((event: React.PointerEvent) => {
     event.stopPropagation();
     event.preventDefault();
     
-    const pos = screenToFlowPosition(event.clientX, event.clientY);
-    const newWaypoint = { x: pos.x, y: pos.y };
-    
-    setEdges((eds) =>
-      eds.map((edge) =>
-        edge.id === id
-          ? { ...edge, data: { ...edge.data, waypoints: [...waypoints, newWaypoint] } }
-          : edge
-      )
-    );
-  }, [id, waypoints, setEdges, screenToFlowPosition]);
-
-  // Handle dragging the entire edge - adds a waypoint and drags it
-  const handleEdgeDrag = useCallback((event: React.MouseEvent) => {
-    event.stopPropagation();
-    event.preventDefault();
+    // Capture pointer for reliable tracking
+    const target = event.currentTarget as SVGPathElement;
+    target.setPointerCapture(event.pointerId);
     
     const startPos = screenToFlowPosition(event.clientX, event.clientY);
     const startX = event.clientX;
     const startY = event.clientY;
-    let hasMoved = false;
+    let waypointCreated = false;
     let newIndex = -1;
     
-    const onMouseMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent) => {
       const dx = Math.abs(e.clientX - startX);
       const dy = Math.abs(e.clientY - startY);
       
-      // Only create waypoint if actually dragging (moved more than 5px)
-      if (!hasMoved && (dx > 5 || dy > 5)) {
-        hasMoved = true;
+      // Create waypoint after minimal movement (2px threshold)
+      if (!waypointCreated && (dx > 2 || dy > 2)) {
+        waypointCreated = true;
         setIsDragging(true);
         
-        // Add a new waypoint at the drag start position
-        const newWaypoint = { x: startPos.x, y: startPos.y };
+        // Add a new waypoint at the current position
+        const currentPos = screenToFlowPosition(e.clientX, e.clientY);
         newIndex = waypoints.length;
         
         setEdges((eds) =>
           eds.map((edge) =>
             edge.id === id
-              ? { ...edge, data: { ...edge.data, waypoints: [...(edge.data?.waypoints || []), newWaypoint] } }
+              ? { ...edge, data: { ...edge.data, waypoints: [...(edge.data?.waypoints || []), { x: currentPos.x, y: currentPos.y }] } }
               : edge
           )
         );
       }
       
-      if (hasMoved && newIndex >= 0) {
+      // Update waypoint position while dragging
+      if (waypointCreated && newIndex >= 0) {
         const currentPos = screenToFlowPosition(e.clientX, e.clientY);
         
         setEdges((eds) =>
@@ -144,27 +132,33 @@ export function EditableEdge({
       }
     };
     
-    const onMouseUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
+      target.releasePointerCapture(e.pointerId);
       setIsDragging(false);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      target.removeEventListener('pointermove', onPointerMove);
+      target.removeEventListener('pointerup', onPointerUp);
     };
     
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    target.addEventListener('pointermove', onPointerMove);
+    target.addEventListener('pointerup', onPointerUp);
   }, [id, waypoints, setEdges, screenToFlowPosition]);
 
   const handleWaypointDrag = useCallback((
     index: number,
-    event: React.MouseEvent
+    event: React.PointerEvent
   ) => {
     event.stopPropagation();
+    event.preventDefault();
+    
+    const target = event.currentTarget as HTMLDivElement;
+    target.setPointerCapture(event.pointerId);
+    
     setIsDragging(true);
     
     const startWaypoint = { ...waypoints[index] };
     const startPos = screenToFlowPosition(event.clientX, event.clientY);
     
-    const onMouseMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent) => {
       const currentPos = screenToFlowPosition(e.clientX, e.clientY);
       const dx = currentPos.x - startPos.x;
       const dy = currentPos.y - startPos.y;
@@ -182,28 +176,29 @@ export function EditableEdge({
       );
     };
     
-    const onMouseUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
+      target.releasePointerCapture(e.pointerId);
       setIsDragging(false);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      target.removeEventListener('pointermove', onPointerMove);
+      target.removeEventListener('pointerup', onPointerUp);
     };
     
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    target.addEventListener('pointermove', onPointerMove);
+    target.addEventListener('pointerup', onPointerUp);
   }, [id, waypoints, setEdges, screenToFlowPosition]);
 
+  // Remove waypoint on double click
   const removeWaypoint = useCallback((index: number, event: React.MouseEvent) => {
-    if (event.detail === 2) { // Double click to remove
-      event.stopPropagation();
-      const newWaypoints = waypoints.filter((_, i) => i !== index);
-      setEdges((eds) =>
-        eds.map((edge) =>
-          edge.id === id
-            ? { ...edge, data: { ...edge.data, waypoints: newWaypoints } }
-            : edge
-        )
-      );
-    }
+    event.stopPropagation();
+    event.preventDefault();
+    const newWaypoints = waypoints.filter((_, i) => i !== index);
+    setEdges((eds) =>
+      eds.map((edge) =>
+        edge.id === id
+          ? { ...edge, data: { ...edge.data, waypoints: newWaypoints } }
+          : edge
+      )
+    );
   }, [id, waypoints, setEdges]);
 
   return (
@@ -215,9 +210,8 @@ export function EditableEdge({
         fill="none"
         strokeWidth={20}
         stroke="transparent"
-        className="cursor-grab active:cursor-grabbing"
-        onMouseDown={handleEdgeDrag}
-        onDoubleClick={handleDoubleClick}
+        style={{ touchAction: 'none', cursor: isDragging ? 'grabbing' : 'grab' }}
+        onPointerDown={handleEdgeDrag}
       />
       
       {/* Visible edge path */}
@@ -245,12 +239,13 @@ export function EditableEdge({
                 position: 'absolute',
                 transform: `translate(-50%, -50%) translate(${waypoint.x}px, ${waypoint.y}px)`,
                 pointerEvents: 'all',
+                touchAction: 'none',
               }}
               className="nodrag nopan"
             >
               <div
                 className="w-3 h-3 bg-primary border-2 border-background rounded-full cursor-move shadow-md hover:scale-125 transition-transform"
-                onMouseDown={(e) => handleWaypointDrag(index, e)}
+                onPointerDown={(e) => handleWaypointDrag(index, e)}
                 onDoubleClick={(e) => removeWaypoint(index, e)}
                 title="Arraste para mover • Duplo clique para remover"
               />
