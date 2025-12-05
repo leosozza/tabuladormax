@@ -65,6 +65,9 @@ import PreCadastroSucesso from "./pages/precadastro/PreCadastroSucesso";
 import HubPanels from "./pages/HubPanels";
 import "@/styles/hub.css";
 
+// Roadmap
+import Roadmap from "./pages/Roadmap";
+
 // Discador Module
 import DiscadorHub from "./pages/discador/DiscadorHub";
 import DiscadorConfig from "./pages/discador/DiscadorConfig";
@@ -149,6 +152,9 @@ const App = () => (
             <Route path="/scouter/pagamentos" element={<GestaoPagamentos />} />
             <Route path="/scouter/area" element={<GestaoArea />} />
             <Route path="/scouter/relatorios" element={<GestaoRelatorios />} />
+
+            {/* Roadmap */}
+            <Route path="/roadmap" element={<Roadmap />} />
 
             {/* Redirects */}
             <Route path="/users" element={<Navigate to="/admin/users" replace />} />
