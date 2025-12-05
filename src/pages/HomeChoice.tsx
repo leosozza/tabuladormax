@@ -65,18 +65,16 @@ export default function HomeChoice() {
             {/* Row 1: Lead Stats - 4 cards */}
             <LeadStatsCards dateFilter={dateFilter} />
 
-            {/* Row 2: Leads com Foto */}
-            <PhotoStatsCard dateFilter={dateFilter} />
-
-            {/* Row 3: Gráfico de Atividade - Full Width */}
-            <ModuleActivityChart dateFilter={dateFilter} />
-
-            {/* Row 4: Agendados + Comparecidos + Placeholder */}
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Row 2: Foto + Agendados + Comparecidos + A Definir */}
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              <PhotoStatsCard dateFilter={dateFilter} />
               <AgendadosStatsCard dateFilter={dateFilter} />
               <ComparecidosStatsCard dateFilter={dateFilter} />
               <PlaceholderStatsCard />
             </div>
+
+            {/* Row 3: Gráfico de Atividade - Full Width */}
+            <ModuleActivityChart dateFilter={dateFilter} />
 
             {/* Row 5: Status + Online + Alerts */}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
