@@ -51,99 +51,54 @@ function getStoredWeights(): Weights {
   return DEFAULT_WEIGHTS;
 }
 
-function GaugeChart({ value }: { value: number }) {
+function HorizontalGauge({ value }: { value: number }) {
   const clampedValue = Math.max(0, Math.min(100, value));
-  
-  // SVG parameters
-  const width = 200;
-  const height = 120;
-  const cx = width / 2;
-  const cy = height - 10;
-  const radius = 80;
-  const strokeWidth = 16;
-  
-  // Arc calculations (180 degrees = π radians)
-  const startAngle = Math.PI;
-  const endAngle = 0;
-  const totalAngle = Math.PI;
-  
-  // Zones (each 20% of the arc)
-  const zones = [
-    { color: '#ef4444', start: 0, end: 0.2 },    // Péssimo - Red
-    { color: '#f97316', start: 0.2, end: 0.4 },  // Ruim - Orange
-    { color: '#eab308', start: 0.4, end: 0.6 },  // Regular - Yellow
-    { color: '#84cc16', start: 0.6, end: 0.8 },  // Bom - Light Green
-    { color: '#22c55e', start: 0.8, end: 1 },    // Ótimo - Green
+  const position = clampedValue;
+
+  const faces = [
+    { emoji: '😞', label: 'Péssimo' },
+    { emoji: '😟', label: 'Ruim' },
+    { emoji: '😐', label: 'Regular' },
+    { emoji: '😊', label: 'Bom' },
+    { emoji: '😄', label: 'Ótimo' },
   ];
-  
-  // Create arc path
-  const createArc = (startPercent: number, endPercent: number) => {
-    const startA = startAngle - (startPercent * totalAngle);
-    const endA = startAngle - (endPercent * totalAngle);
-    
-    const x1 = cx + radius * Math.cos(startA);
-    const y1 = cy - radius * Math.sin(startA);
-    const x2 = cx + radius * Math.cos(endA);
-    const y2 = cy - radius * Math.sin(endA);
-    
-    const largeArc = (endPercent - startPercent) > 0.5 ? 1 : 0;
-    
-    return `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`;
-  };
-  
-  // Needle position
-  const needleAngle = startAngle - (clampedValue / 100) * totalAngle;
-  const needleLength = radius - 10;
-  const needleX = cx + needleLength * Math.cos(needleAngle);
-  const needleY = cy - needleLength * Math.sin(needleAngle);
-  
+
   return (
-    <svg width={width} height={height} className="mx-auto">
-      {/* Background arcs for each zone */}
-      {zones.map((zone, i) => (
-        <path
-          key={i}
-          d={createArc(zone.start, zone.end)}
-          fill="none"
-          stroke={zone.color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="butt"
-          opacity={0.3}
-        />
-      ))}
+    <div className="w-full px-2">
+      {/* Emojis */}
+      <div className="flex justify-between mb-2 px-1">
+        {faces.map((face, i) => (
+          <span key={i} className="text-xl" title={face.label}>
+            {face.emoji}
+          </span>
+        ))}
+      </div>
       
-      {/* Filled arc up to current value */}
-      {zones.map((zone, i) => {
-        const valuePercent = clampedValue / 100;
-        if (valuePercent <= zone.start) return null;
-        const fillEnd = Math.min(valuePercent, zone.end);
-        return (
-          <path
-            key={`fill-${i}`}
-            d={createArc(zone.start, fillEnd)}
-            fill="none"
-            stroke={zone.color}
-            strokeWidth={strokeWidth}
-            strokeLinecap="butt"
-          />
-        );
-      })}
-      
-      {/* Needle */}
-      <line
-        x1={cx}
-        y1={cy}
-        x2={needleX}
-        y2={needleY}
-        stroke="hsl(var(--foreground))"
-        strokeWidth={3}
-        strokeLinecap="round"
+      {/* Horizontal colored bar */}
+      <div 
+        className="relative h-3 rounded-full overflow-hidden"
+        style={{ 
+          background: 'linear-gradient(to right, #ef4444 0%, #f97316 25%, #eab308 50%, #84cc16 75%, #22c55e 100%)' 
+        }}
       />
       
-      {/* Center circle */}
-      <circle cx={cx} cy={cy} r={8} fill="hsl(var(--foreground))" />
-      <circle cx={cx} cy={cy} r={4} fill="hsl(var(--background))" />
-    </svg>
+      {/* Indicator triangle */}
+      <div className="relative h-5 mt-1">
+        <div 
+          className="absolute transform -translate-x-1/2 transition-all duration-500 ease-out"
+          style={{ left: `${position}%` }}
+        >
+          <div 
+            className="w-0 h-0 mx-auto"
+            style={{
+              borderLeft: '8px solid transparent',
+              borderRight: '8px solid transparent',
+              borderBottom: '10px solid hsl(var(--foreground))',
+            }}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -330,7 +285,7 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
         </Dialog>
       </CardHeader>
       <CardContent className="flex flex-col items-center pt-0">
-        <GaugeChart value={score} />
+        <HorizontalGauge value={score} />
         <div className="text-center mt-1">
           <span className={`text-3xl font-bold ${classification.color}`}>
             {score.toFixed(0)}
