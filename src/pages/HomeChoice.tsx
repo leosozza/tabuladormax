@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Bot, LayoutDashboard } from "lucide-react";
 import { MinimalDateFilter, DateFilterValue, getDefaultMonthFilter } from "@/components/MinimalDateFilter";
 
-// New Dashboard Components
+// Dashboard Components
 import { LeadStatsCards } from "@/components/admin/dashboard/LeadStatsCards";
 import { PhotoStatsCard } from "@/components/admin/dashboard/PhotoStatsCard";
 import { SystemActivityBar } from "@/components/admin/dashboard/SystemActivityBar";
@@ -56,13 +56,13 @@ export default function HomeChoice() {
         </div>
       </header>
 
-      <main className="flex-1 p-4 md:p-6 space-y-4">
+      <main className="flex-1 p-4 md:p-6 space-y-4 overflow-auto">
         {view === 'dashboard' ? (
-          <div className="space-y-4">
-            {/* Row 1: Lead Statistics - 4 cards */}
+          <>
+            {/* Row 1: Lead Stats - 4 cards */}
             <LeadStatsCards />
 
-            {/* Row 2: Photo Stats + System Activity */}
+            {/* Row 2: Photo + Activity Bar */}
             <div className="grid gap-4 grid-cols-1 lg:grid-cols-4">
               <PhotoStatsCard />
               <div className="lg:col-span-3">
@@ -70,8 +70,8 @@ export default function HomeChoice() {
               </div>
             </div>
 
-            {/* Row 3: System Status + Online Users + Alerts */}
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {/* Row 3: Status + Online + Alerts */}
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <SystemStatusPanel />
               <OnlineUsersPanel />
               <AlertsOverview />
@@ -84,7 +84,7 @@ export default function HomeChoice() {
               </div>
               <QuickActionsPanel />
             </div>
-          </div>
+          </>
         ) : (
           <MaxconnectAgent />
         )}
