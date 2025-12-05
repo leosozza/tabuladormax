@@ -13,6 +13,7 @@ import { DateSelectField } from "@/components/cadastro/DateSelectField";
 import { estadosBrasileiros, tamanhoSapato } from "@/data/preCadastroOptions";
 import { supabase } from "@/integrations/supabase/client";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
+import { extractLeadIdFromToken } from '@/lib/leadTokenUtils';
 
 // ========================================================================
 // MAPEAMENTO DE CAMPOS DO BITRIX LEAD
@@ -500,8 +501,6 @@ const parseBirthDate = (value: any): string => {
   }
   return "";
 };
-import { extractLeadIdFromToken } from '@/lib/leadTokenUtils';
-
 const PreCadastro = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
