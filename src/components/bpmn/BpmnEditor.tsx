@@ -227,8 +227,9 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
             elementsSelectable={!readOnly}
             edgesUpdatable={!readOnly}
             edgesFocusable={!readOnly}
-            panOnDrag={shouldPan}
-            panOnScroll={true}
+          panOnDrag={shouldPan}
+          panOnScroll={false}
+          zoomOnScroll={true}
             selectionOnDrag={tool === 'select' && !isMiddleClickPanning}
             defaultEdgeOptions={{
               type: 'editable',
