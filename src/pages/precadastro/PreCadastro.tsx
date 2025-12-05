@@ -500,10 +500,13 @@ const parseBirthDate = (value: any): string => {
   }
   return "";
 };
+import { extractLeadIdFromToken } from '@/lib/leadTokenUtils';
+
 const PreCadastro = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const leadId = searchParams.get('lead');
+  const tokenParam = searchParams.get('lead');
+  const leadId = tokenParam ? extractLeadIdFromToken(tokenParam) : null;
   const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string>('');
