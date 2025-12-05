@@ -7,14 +7,34 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Camera } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
-interface PhotoStatsCardProps {
-  comFoto: number;
-  total: number;
-  isLoading: boolean;
-}
+export function PhotoStatsCard() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['photo-stats-dashboard'],
+    queryFn: async () => {
+      // Get total leads
+      const { count: total } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true });
 
-export function PhotoStatsCard({ comFoto, total, isLoading }: PhotoStatsCardProps) {
+      // Get leads with photo
+      const { count: comFoto } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .not('photo_url', 'is', null);
+
+      return {
+        total: total || 0,
+        comFoto: comFoto || 0,
+      };
+    },
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  const total = data?.total || 0;
+  const comFoto = data?.comFoto || 0;
   const percentage = total > 0 ? (comFoto / total) * 100 : 0;
   const formatNumber = (num: number) => num.toLocaleString('pt-BR');
 

@@ -118,23 +118,11 @@ export default function UnifiedDashboard() {
         )}
 
         {/* Lead Stats Cards - Row 1 */}
-        <LeadStatsCards
-          stats={leadStats ? {
-            total: leadStats.total,
-            confirmadas: leadStats.confirmadas,
-            aguardando: leadStats.aguardando,
-            naoConfirmadas: leadStats.naoConfirmadas,
-          } : null}
-          isLoading={isLoading}
-        />
+        <LeadStatsCards />
 
         {/* Photo Stats + Online Users - Row 2 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <PhotoStatsCard
-            comFoto={leadStats?.comFoto || 0}
-            total={leadStats?.total || 0}
-            isLoading={isLoading}
-          />
+          <PhotoStatsCard />
           <div className="lg:col-span-2">
             <OnlineUsersPanel />
           </div>

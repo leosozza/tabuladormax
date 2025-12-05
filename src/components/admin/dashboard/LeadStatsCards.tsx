@@ -6,20 +6,44 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
-interface LeadStats {
-  total: number;
-  confirmadas: number;
-  aguardando: number;
-  naoConfirmadas: number;
-}
+export function LeadStatsCards() {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['lead-stats-dashboard'],
+    queryFn: async () => {
+      // Get total leads
+      const { count: total } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true });
 
-interface LeadStatsCardsProps {
-  stats: LeadStats | null;
-  isLoading: boolean;
-}
+      // Get confirmed leads (ficha_confirmada = true)
+      const { count: confirmadas } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('ficha_confirmada', true);
 
-export function LeadStatsCards({ stats, isLoading }: LeadStatsCardsProps) {
+      // Get awaiting leads (ficha_confirmada is null/false AND not rejected)
+      const { count: aguardando } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .is('ficha_confirmada', null)
+        .not('etapa_funil', 'ilike', '%recusa%');
+
+      // Not confirmed = total - confirmadas - aguardando
+      const naoConfirmadas = (total || 0) - (confirmadas || 0) - (aguardando || 0);
+
+      return {
+        total: total || 0,
+        confirmadas: confirmadas || 0,
+        aguardando: aguardando || 0,
+        naoConfirmadas: Math.max(0, naoConfirmadas),
+      };
+    },
+    refetchInterval: 60000, // Refresh every minute
+  });
+
   const formatNumber = (num: number) => num.toLocaleString('pt-BR');
   
   const calcRate = (value: number, total: number) => {
@@ -59,16 +83,16 @@ export function LeadStatsCards({ stats, isLoading }: LeadStatsCardsProps) {
       value: stats?.confirmadas || 0,
       rate: calcRate(stats?.confirmadas || 0, stats?.total || 0),
       icon: CheckCircle2,
-      iconColor: 'text-success',
-      bgColor: 'bg-success/10',
+      iconColor: 'text-green-500',
+      bgColor: 'bg-green-500/10',
     },
     {
       title: 'Fichas Aguardando',
       value: stats?.aguardando || 0,
       rate: calcRate(stats?.aguardando || 0, stats?.total || 0),
       icon: Clock,
-      iconColor: 'text-warning',
-      bgColor: 'bg-warning/10',
+      iconColor: 'text-yellow-500',
+      bgColor: 'bg-yellow-500/10',
     },
     {
       title: 'Fichas Não Confirmadas',
