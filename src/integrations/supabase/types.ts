@@ -2429,6 +2429,19 @@ export type Database = {
           leads_not_found: number
         }[]
       }
+      get_activity_chart_data: {
+        Args: {
+          p_end_date: string
+          p_granularity?: string
+          p_start_date: string
+        }
+        Returns: {
+          meta: number
+          period: string
+          scouter: number
+          total: number
+        }[]
+      }
       get_conversion_funnel_data: {
         Args: {
           p_end_date?: string

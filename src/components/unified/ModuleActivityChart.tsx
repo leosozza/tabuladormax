@@ -10,9 +10,11 @@ interface ModuleActivityChartProps {
   dateFilter: DateFilterValue;
 }
 
-interface LeadRow {
-  criado: string;
-  fonte_normalizada: string | null;
+interface ChartDataRow {
+  period: string;
+  total: number;
+  scouter: number;
+  meta: number;
 }
 
 export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
@@ -39,21 +41,20 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
   const { data: chartData, isLoading } = useQuery({
     queryKey: ['activity-chart', dateFilter.startDate.toISOString(), dateFilter.endDate.toISOString(), isToday],
     queryFn: async () => {
-      // Fetch all leads in the period with a single query
-      const { data: leads, error } = await supabase
-        .from('leads')
-        .select('criado, fonte_normalizada')
-        .gte('criado', dateFilter.startDate.toISOString())
-        .lte('criado', dateFilter.endDate.toISOString())
-        .not('criado', 'is', null)
-        .limit(50000);
+      const granularity = isToday ? 'hour' : 'day';
+      
+      const { data, error } = await supabase.rpc('get_activity_chart_data', {
+        p_start_date: dateFilter.startDate.toISOString(),
+        p_end_date: dateFilter.endDate.toISOString(),
+        p_granularity: granularity
+      });
 
       if (error) {
-        console.error('Error fetching leads:', error);
+        console.error('Error fetching activity data:', error);
         return [];
       }
 
-      if (!leads || leads.length === 0) {
+      if (!data || data.length === 0) {
         // Return empty data structure
         if (isToday) {
           const hours = eachHourOfInterval({
@@ -85,46 +86,19 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
         }
       }
 
-      // Process data based on granularity
+      // Map RPC data to chart format
       if (isToday) {
-        // Group by hour
-        const hours = eachHourOfInterval({
-          start: startOfDay(dateFilter.startDate),
-          end: endOfDay(dateFilter.startDate)
-        });
-
-        return hours.map(hour => {
-          const hourStart = hour.getTime();
-          const hourEnd = hourStart + 60 * 60 * 1000;
-
-          const hourLeads = (leads as LeadRow[]).filter(lead => {
-            const leadTime = new Date(lead.criado).getTime();
-            return leadTime >= hourStart && leadTime < hourEnd;
-          });
-
-          return {
-            date: format(hour, 'HH\'h\'', { locale: ptBR }),
-            total: hourLeads.length,
-            scouter: hourLeads.filter(l => l.fonte_normalizada === 'Scouter - Fichas').length,
-            meta: hourLeads.filter(l => l.fonte_normalizada === 'Meta').length,
-          };
-        });
+        return (data as ChartDataRow[]).map(row => ({
+          date: `${row.period}h`,
+          total: Number(row.total),
+          scouter: Number(row.scouter),
+          meta: Number(row.meta),
+        }));
       } else {
-        // Group by day
-        const days = eachDayOfInterval({
-          start: dateFilter.startDate,
-          end: dateFilter.endDate
-        });
-
-        return days.map(date => {
-          const dayStr = format(date, 'yyyy-MM-dd');
-
-          const dayLeads = (leads as LeadRow[]).filter(lead => {
-            const leadDate = lead.criado?.substring(0, 10);
-            return leadDate === dayStr;
-          });
-
+        return (data as ChartDataRow[]).map(row => {
+          const date = new Date(row.period);
           let label: string;
+          
           if (dateFilter.preset === 'week') {
             label = format(date, 'EEE', { locale: ptBR });
           } else if (dateFilter.preset === 'month') {
@@ -132,12 +106,12 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
           } else {
             label = format(date, 'dd/MMM', { locale: ptBR });
           }
-
+          
           return {
             date: label,
-            total: dayLeads.length,
-            scouter: dayLeads.filter(l => l.fonte_normalizada === 'Scouter - Fichas').length,
-            meta: dayLeads.filter(l => l.fonte_normalizada === 'Meta').length,
+            total: Number(row.total),
+            scouter: Number(row.scouter),
+            meta: Number(row.meta),
           };
         });
       }
