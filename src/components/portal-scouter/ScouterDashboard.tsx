@@ -20,7 +20,7 @@ interface ScouterDashboardProps {
 export type DateRangePreset = 'today' | 'week' | 'month' | '30days' | 'all' | 'custom';
 
 export const ScouterDashboard = ({ scouterData, onLogout }: ScouterDashboardProps) => {
-  const [datePreset, setDatePreset] = useState<DateRangePreset>('month');
+  const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
 
