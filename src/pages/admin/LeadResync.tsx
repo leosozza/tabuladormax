@@ -24,7 +24,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 export default function LeadResync() {
-  const { jobs, isLoading, createJob, pauseJob, resumeJob, cancelJob, deleteJob, isCreating, isCancelling, isDeleting } = useLeadResyncJobs();
+  const { jobs, isLoading, createJob, processJob, pauseJob, resumeJob, cancelJob, deleteJob, isCreating, isProcessing, isCancelling, isDeleting } = useLeadResyncJobs();
   const { mappingNames } = useResyncFieldMappings();
   
   const [filters, setFilters] = useState<JobFilters>({
@@ -45,6 +45,10 @@ export default function LeadResync() {
 
   const activeJob = jobs.find(j => j.status === 'running' || j.status === 'paused');
   const completedJobs = jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status));
+  
+  // Detectar job travado (não atualizado há mais de 2 minutos)
+  const isJobStuck = activeJob && activeJob.status === 'running' && 
+    new Date().getTime() - new Date(activeJob.updated_at).getTime() > 2 * 60 * 1000;
 
   const handleStartResync = () => {
     if (!selectedMappingId) return;
@@ -172,10 +176,30 @@ export default function LeadResync() {
                   </AlertDescription>
                 </Alert>
               )}
+              {isJobStuck && !isProcessing && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Processamento Parado</AlertTitle>
+                  <AlertDescription>
+                    O job não está avançando. Última atualização: {formatDistanceToNow(new Date(activeJob.updated_at), { addSuffix: true, locale: ptBR })}.
+                    Clique em "Continuar" para retomar o processamento.
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="flex gap-2">
-                {activeJob.status === 'running' && <Button onClick={() => pauseJob(activeJob.id)} variant="outline"><Pause className="w-4 h-4 mr-2" />Pausar</Button>}
+                {activeJob.status === 'running' && !isProcessing && (
+                  <Button onClick={() => processJob(activeJob.id)} variant="default">
+                    <Play className="w-4 h-4 mr-2" />Continuar Processamento
+                  </Button>
+                )}
+                {isProcessing && (
+                  <Button disabled variant="outline">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />Processando...
+                  </Button>
+                )}
+                {activeJob.status === 'running' && !isProcessing && <Button onClick={() => pauseJob(activeJob.id)} variant="outline"><Pause className="w-4 h-4 mr-2" />Pausar</Button>}
                 {activeJob.status === 'paused' && <Button onClick={() => resumeJob(activeJob.id)}><Play className="w-4 h-4 mr-2" />Retomar</Button>}
-                <Button onClick={() => cancelJob(activeJob.id)} variant="destructive" disabled={isCancelling}>
+                <Button onClick={() => cancelJob(activeJob.id)} variant="destructive" disabled={isCancelling || isProcessing}>
                   {isCancelling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Ban className="w-4 h-4 mr-2" />}Cancelar
                 </Button>
               </div>
