@@ -12,6 +12,9 @@ import { SystemActivityBar } from "@/components/admin/dashboard/SystemActivityBa
 import { SystemStatusPanel } from "@/components/admin/dashboard/SystemStatusPanel";
 import { OnlineUsersPanel } from "@/components/admin/dashboard/OnlineUsersPanel";
 import { AlertsOverview } from "@/components/admin/dashboard/AlertsOverview";
+import { AgendadosStatsCard } from "@/components/admin/dashboard/AgendadosStatsCard";
+import { ComparecidosStatsCard } from "@/components/admin/dashboard/ComparecidosStatsCard";
+import { PlaceholderStatsCard } from "@/components/admin/dashboard/PlaceholderStatsCard";
 import { ModuleActivityChart } from "@/components/unified/ModuleActivityChart";
 import { QuickActionsPanel } from "@/components/unified/QuickActionsPanel";
 
@@ -62,8 +65,13 @@ export default function HomeChoice() {
             {/* Row 1: Lead Stats - 4 cards */}
             <LeadStatsCards dateFilter={dateFilter} />
 
-            {/* Row 2: Photo Stats */}
-            <PhotoStatsCard dateFilter={dateFilter} />
+            {/* Row 2: Photo + Agendados + Comparecidos + Placeholder */}
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              <PhotoStatsCard dateFilter={dateFilter} />
+              <AgendadosStatsCard dateFilter={dateFilter} />
+              <ComparecidosStatsCard dateFilter={dateFilter} />
+              <PlaceholderStatsCard />
+            </div>
 
             {/* Row 3: Status + Online + Alerts */}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
