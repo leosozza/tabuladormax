@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { RoadmapFeature, RoadmapFeatureInsert } from '@/hooks/useRoadmapFeatures';
-import { moduleConfig, statusConfig } from '@/types/roadmap';
+import { moduleConfig, statusConfig, priorityConfig, FeaturePriority } from '@/types/roadmap';
 import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 
@@ -29,6 +29,7 @@ const defaultFeature: RoadmapFeatureInsert = {
   launch_date: null,
   tags: [],
   sort_order: 0,
+  priority: 'medium',
 };
 
 export function RoadmapFeatureDialog({ open, onOpenChange, feature, onSave, isLoading }: RoadmapFeatureDialogProps) {
@@ -47,6 +48,7 @@ export function RoadmapFeatureDialog({ open, onOpenChange, feature, onSave, isLo
         launch_date: feature.launch_date,
         tags: feature.tags || [],
         sort_order: feature.sort_order,
+        priority: feature.priority || 'medium',
       });
     } else {
       setFormData(defaultFeature);
@@ -140,6 +142,28 @@ export function RoadmapFeatureDialog({ open, onOpenChange, feature, onSave, isLo
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="priority">Prioridade</Label>
+            <Select
+              value={formData.priority}
+              onValueChange={(value) => setFormData({ ...formData, priority: value as FeaturePriority })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(priorityConfig).map(([key, config]) => (
+                  <SelectItem key={key} value={key}>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${config.bgColor}`} />
+                      {config.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

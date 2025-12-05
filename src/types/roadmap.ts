@@ -1,4 +1,5 @@
 export type FeatureStatus = 'active' | 'beta' | 'in-progress' | 'planned' | 'archived';
+export type FeaturePriority = 'critical' | 'high' | 'medium' | 'low';
 
 export type FeatureModule = 
   | 'telemarketing' 
@@ -16,9 +17,10 @@ export interface RoadmapFeature {
   status: FeatureStatus;
   module: FeatureModule;
   icon: string;
-  progress?: number; // 0-100 for in-progress items
+  progress?: number;
   launchDate?: string;
   tags?: string[];
+  priority?: FeaturePriority;
 }
 
 export const statusConfig: Record<FeatureStatus, { label: string; color: string; bgColor: string }> = {
@@ -37,4 +39,11 @@ export const moduleConfig: Record<FeatureModule, { label: string; color: string 
   discador: { label: 'Discador', color: 'bg-cyan-500' },
   integracoes: { label: 'Integrações', color: 'bg-pink-500' },
   geral: { label: 'Geral', color: 'bg-gray-500' },
+};
+
+export const priorityConfig: Record<FeaturePriority, { label: string; color: string; bgColor: string; icon: string }> = {
+  critical: { label: 'Crítico', color: 'text-red-700 dark:text-red-400', bgColor: 'bg-red-100 dark:bg-red-900/30', icon: 'AlertTriangle' },
+  high: { label: 'Alta', color: 'text-orange-700 dark:text-orange-400', bgColor: 'bg-orange-100 dark:bg-orange-900/30', icon: 'ArrowUp' },
+  medium: { label: 'Média', color: 'text-yellow-700 dark:text-yellow-400', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30', icon: 'Minus' },
+  low: { label: 'Baixa', color: 'text-green-700 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900/30', icon: 'ArrowDown' },
 };

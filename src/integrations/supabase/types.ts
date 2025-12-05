@@ -1579,6 +1579,54 @@ export type Database = {
         }
         Relationships: []
       }
+      process_diagrams: {
+        Row: {
+          category: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          diagram_data: Json
+          id: string
+          is_published: boolean | null
+          module: string | null
+          name: string
+          thumbnail: string | null
+          updated_at: string | null
+          updated_by: string | null
+          version: number | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          diagram_data?: Json
+          id?: string
+          is_published?: boolean | null
+          module?: string | null
+          name: string
+          thumbnail?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          version?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          diagram_data?: Json
+          id?: string
+          is_published?: boolean | null
+          module?: string | null
+          name?: string
+          thumbnail?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
       profile_field_mapping: {
         Row: {
           chatwoot_field: string
@@ -1691,6 +1739,7 @@ export type Database = {
           launch_date: string | null
           module: string
           name: string
+          priority: string | null
           progress: number | null
           sort_order: number | null
           status: string
@@ -1707,6 +1756,7 @@ export type Database = {
           launch_date?: string | null
           module: string
           name: string
+          priority?: string | null
           progress?: number | null
           sort_order?: number | null
           status?: string
@@ -1723,6 +1773,7 @@ export type Database = {
           launch_date?: string | null
           module?: string
           name?: string
+          priority?: string | null
           progress?: number | null
           sort_order?: number | null
           status?: string

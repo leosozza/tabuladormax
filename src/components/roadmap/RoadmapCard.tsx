@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { RoadmapFeature } from '@/hooks/useRoadmapFeatures';
-import { moduleConfig, statusConfig, FeatureModule, FeatureStatus } from '@/types/roadmap';
+import { moduleConfig, statusConfig, priorityConfig, FeatureModule, FeatureStatus, FeaturePriority } from '@/types/roadmap';
 import { RoadmapStatusChanger } from './RoadmapStatusChanger';
 import { 
   Circle, LayoutDashboard, MousePointerClick, Sparkles, FileDown, FileText,
@@ -14,7 +14,8 @@ import {
   MessageCircle, MessageSquare, Workflow, Webhook, Bell, Sun, Smartphone,
   ChevronRight, Globe, Zap, Activity, UserCheck, Pencil, Trash2, Calendar,
   Scan, FileUser, Wallet, UserCog, FileSpreadsheet, Rocket, Mail, Link,
-  MessagesSquare, Hash, Wrench, Bug, Gauge, LineChart, Bot, CloudCog
+  MessagesSquare, Hash, Wrench, Bug, Gauge, LineChart, Bot, CloudCog,
+  AlertTriangle, ArrowUp, Minus, ArrowDown
 } from 'lucide-react';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -26,7 +27,11 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   MessageCircle, MessageSquare, Workflow, Webhook, Bell, Sun, Smartphone,
   ChevronRight, Globe, Zap, Activity, UserCheck, Calendar, Scan, FileUser,
   Wallet, UserCog, FileSpreadsheet, Rocket, Mail, Link, MessagesSquare, Hash,
-  Wrench, Bug, Gauge, LineChart, Bot, CloudCog
+  Wrench, Bug, Gauge, LineChart, Bot, CloudCog, AlertTriangle, ArrowUp, Minus, ArrowDown
+};
+
+const priorityIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  AlertTriangle, ArrowUp, Minus, ArrowDown
 };
 
 interface RoadmapCardProps {
@@ -40,7 +45,9 @@ interface RoadmapCardProps {
 export function RoadmapCard({ feature, canManage, onEdit, onDelete, onStatusChange }: RoadmapCardProps) {
   const status = statusConfig[feature.status as FeatureStatus];
   const module = moduleConfig[feature.module as FeatureModule];
+  const priority = priorityConfig[feature.priority as FeaturePriority] || priorityConfig.medium;
   const IconComponent = iconMap[feature.icon] || Circle;
+  const PriorityIcon = priorityIconMap[priority.icon] || Minus;
 
   return (
     <Card className="group hover:shadow-md transition-shadow">
@@ -65,6 +72,12 @@ export function RoadmapCard({ feature, canManage, onEdit, onDelete, onStatusChan
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Badge className={`${priority.bgColor} ${priority.color} text-xs`}>
+            <PriorityIcon className="h-3 w-3 mr-1" />
+            {priority.label}
+          </Badge>
+        </div>
         <p className="text-sm text-muted-foreground line-clamp-2">{feature.description}</p>
         
         {feature.status === 'in-progress' && (

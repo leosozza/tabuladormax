@@ -10,7 +10,7 @@ import { RoadmapDeleteDialog } from '@/components/roadmap/RoadmapDeleteDialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { Map, ArrowLeft, Plus, Loader2 } from 'lucide-react';
+import { Map, ArrowLeft, Plus, Loader2, GitBranch } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Roadmap() {
@@ -123,12 +123,20 @@ export default function Roadmap() {
                 </div>
               </div>
             </div>
-            {canManageRoadmap && (
-              <Button onClick={handleOpenNewDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Funcionalidade
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/docs/processos">
+                  <GitBranch className="h-4 w-4 mr-2" />
+                  Processos BPMN
+                </Link>
               </Button>
-            )}
+              {canManageRoadmap && (
+                <Button onClick={handleOpenNewDialog}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Funcionalidade
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
