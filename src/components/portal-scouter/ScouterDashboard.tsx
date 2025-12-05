@@ -216,9 +216,6 @@ export const ScouterDashboard = ({
                   </div>
                 </div>
                 
-                {ranking.rank_position > 1 && ranking.first_place_name && <div className="text-sm text-muted-foreground">
-                    1º lugar: <span className="font-medium text-foreground">{ranking.first_place_name}</span> ({ranking.first_place_fichas} fichas)
-                  </div>}
               </div>
             </CardContent>
           </Card>}
