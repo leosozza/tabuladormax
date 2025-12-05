@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { LogOut, RefreshCw, Camera, Trophy, Medal } from 'lucide-react';
+import { LogOut, RefreshCw, Trophy, Medal } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ScouterStatsCards } from './ScouterStatsCards';
 import { ScouterFilters } from './ScouterFilters';
@@ -157,18 +157,16 @@ export const ScouterDashboard = ({
           <div className="flex items-center justify-between">
             {/* Área do perfil */}
             <div className="flex items-center gap-4">
-              {/* Foto maior com botão de edição */}
-              <div className="relative">
-                <Avatar className="h-20 w-20 border-4 border-primary/20 shadow-lg ring-2 ring-primary/10">
-                  <AvatarImage src={currentPhoto || undefined} className="object-cover" />
-                  <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
-                    {scouterData.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-                <Button variant="secondary" size="icon" className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full shadow-md border-2 border-background" onClick={() => setShowPhotoDialog(true)}>
-                  <Camera className="h-4 w-4" />
-                </Button>
-              </div>
+              {/* Foto clicável para trocar */}
+              <Avatar 
+                className="h-20 w-20 border-4 border-primary/20 shadow-lg ring-2 ring-primary/10 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => setShowPhotoDialog(true)}
+              >
+                <AvatarImage src={currentPhoto || undefined} className="object-cover" />
+                <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
+                  {scouterData.name.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
 
               {/* Info do scouter */}
               <div className="flex flex-col">
