@@ -2671,7 +2671,7 @@ export type Database = {
           confirmados: number
           pendentes: number
           reagendar: number
-          total: number
+          total_leads: number
         }[]
       }
       get_scouter_projects: {
