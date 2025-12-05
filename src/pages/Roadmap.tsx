@@ -10,8 +10,7 @@ import { RoadmapDeleteDialog } from '@/components/roadmap/RoadmapDeleteDialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { Map, ArrowLeft, Plus, Loader2, GitBranch } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Map, Plus, Loader2 } from 'lucide-react';
 
 export default function Roadmap() {
   const [search, setSearch] = useState('');
@@ -105,38 +104,23 @@ export default function Roadmap() {
         {/* Header */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" asChild>
-                <Link to="/">
-                  <ArrowLeft className="h-5 w-5" />
-                </Link>
-              </Button>
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Map className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight">Roadmap TabuladorMax</h1>
-                  <p className="text-muted-foreground">
-                    Acompanhe todas as funcionalidades implementadas e planejadas
-                  </p>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Map className="h-6 w-6 text-primary" />
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" asChild>
-                <Link to="/docs/processos">
-                  <GitBranch className="h-4 w-4 mr-2" />
-                  Processos BPMN
-                </Link>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Roadmap TabuladorMax</h1>
+                <p className="text-muted-foreground">
+                  Acompanhe todas as funcionalidades implementadas e planejadas
+                </p>
+              </div>
+          </div>
+            {canManageRoadmap && (
+              <Button onClick={handleOpenNewDialog}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Funcionalidade
               </Button>
-              {canManageRoadmap && (
-                <Button onClick={handleOpenNewDialog}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nova Funcionalidade
-                </Button>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
