@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { User, MapPin, Phone, Filter, Settings2, Eye, EyeOff, Loader2 } from "lucide-react";
+import { User, MapPin, Phone, Filter, Settings2, Eye, EyeOff, Loader2, MessageSquare } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -432,27 +432,50 @@ const Index = () => {
           </div>
           
           {/* Segunda linha: Botões de ação */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/telemarketing')}
-              className="gap-2"
-            >
-              <Phone className="w-4 h-4" />
-              Gestão de Leads
-            </Button>
-            {isAdmin && (
-              <label className="flex items-center gap-2 text-sm min-h-[44px]">
-                <input 
-                  type="checkbox" 
-                  checked={showAllUsers}
-                  onChange={(e) => setShowAllUsers(e.target.checked)}
-                  className="rounded w-5 h-5"
-                />
-                <span className="hidden sm:inline">Ver todos os usuários</span>
-                <span className="sm:hidden">Todos</span>
-              </label>
-            )}
+          <div className="flex flex-wrap gap-2 items-center justify-between w-full">
+            {/* Lado esquerdo */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/telemarketing')}
+                className="gap-2"
+              >
+                <Phone className="w-4 h-4" />
+                Gestão de Leads
+              </Button>
+              {isAdmin && (
+                <label className="flex items-center gap-2 text-sm min-h-[44px]">
+                  <input 
+                    type="checkbox" 
+                    checked={showAllUsers}
+                    onChange={(e) => setShowAllUsers(e.target.checked)}
+                    className="rounded w-5 h-5"
+                  />
+                  <span className="hidden sm:inline">Ver todos os usuários</span>
+                  <span className="sm:hidden">Todos</span>
+                </label>
+              )}
+            </div>
+            
+            {/* Lado direito - Navegação rápida */}
+            <div className="flex gap-2">
+              <Button 
+                variant="secondary" 
+                onClick={() => navigate('/telemarketing')} 
+                className="gap-2"
+              >
+                <Phone className="w-4 h-4" />
+                <span className="hidden xs:inline">Tabulador</span>
+              </Button>
+              <Button 
+                variant="secondary" 
+                onClick={() => navigate('/whatsapp', { state: { from: 'telemarketing' } })} 
+                className="gap-2"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span className="hidden xs:inline">WhatsApp</span>
+              </Button>
+            </div>
           </div>
 
           {/* Filter Bar */}
