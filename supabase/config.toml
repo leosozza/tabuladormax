@@ -170,3 +170,6 @@ verify_jwt = false
 
 [functions.reprocess-leads-background]
 verify_jwt = true
+
+[functions.update-scouter-photo]
+verify_jwt = false
