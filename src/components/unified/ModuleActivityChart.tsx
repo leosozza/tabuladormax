@@ -10,6 +10,11 @@ interface ModuleActivityChartProps {
   dateFilter: DateFilterValue;
 }
 
+interface LeadRow {
+  criado: string;
+  fonte_normalizada: string | null;
+}
+
 export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
   const isToday = dateFilter.preset === 'today' || dateFilter.preset === 'exact';
   
@@ -34,77 +39,90 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
   const { data: chartData, isLoading } = useQuery({
     queryKey: ['activity-chart', dateFilter.startDate.toISOString(), dateFilter.endDate.toISOString(), isToday],
     queryFn: async () => {
+      // Fetch all leads in the period with a single query
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select('criado, fonte_normalizada')
+        .gte('criado', dateFilter.startDate.toISOString())
+        .lte('criado', dateFilter.endDate.toISOString())
+        .not('criado', 'is', null);
+
+      if (error) {
+        console.error('Error fetching leads:', error);
+        return [];
+      }
+
+      if (!leads || leads.length === 0) {
+        // Return empty data structure
+        if (isToday) {
+          const hours = eachHourOfInterval({
+            start: startOfDay(dateFilter.startDate),
+            end: endOfDay(dateFilter.startDate)
+          });
+          return hours.map(hour => ({
+            date: format(hour, 'HH\'h\'', { locale: ptBR }),
+            total: 0,
+            scouter: 0,
+            meta: 0,
+          }));
+        } else {
+          const days = eachDayOfInterval({
+            start: dateFilter.startDate,
+            end: dateFilter.endDate
+          });
+          return days.map(date => {
+            let label: string;
+            if (dateFilter.preset === 'week') {
+              label = format(date, 'EEE', { locale: ptBR });
+            } else if (dateFilter.preset === 'month') {
+              label = format(date, 'dd', { locale: ptBR });
+            } else {
+              label = format(date, 'dd/MMM', { locale: ptBR });
+            }
+            return { date: label, total: 0, scouter: 0, meta: 0 };
+          });
+        }
+      }
+
+      // Process data based on granularity
       if (isToday) {
-        // Por hora
+        // Group by hour
         const hours = eachHourOfInterval({
           start: startOfDay(dateFilter.startDate),
           end: endOfDay(dateFilter.startDate)
         });
 
-        const promises = hours.map(async (hour) => {
-          const hourStart = hour.toISOString();
-          const hourEnd = new Date(hour.getTime() + 60 * 60 * 1000 - 1).toISOString();
+        return hours.map(hour => {
+          const hourStart = hour.getTime();
+          const hourEnd = hourStart + 60 * 60 * 1000;
 
-          const [totalResult, scouterResult, metaResult] = await Promise.all([
-            supabase
-              .from('leads')
-              .select('*', { count: 'exact', head: true })
-              .gte('criado', hourStart)
-              .lt('criado', hourEnd),
-            supabase
-              .from('leads')
-              .select('*', { count: 'exact', head: true })
-              .gte('criado', hourStart)
-              .lt('criado', hourEnd)
-              .eq('fonte_normalizada', 'Scouter - Fichas'),
-            supabase
-              .from('leads')
-              .select('*', { count: 'exact', head: true })
-              .gte('criado', hourStart)
-              .lt('criado', hourEnd)
-              .eq('fonte_normalizada', 'Meta'),
-          ]);
+          const hourLeads = (leads as LeadRow[]).filter(lead => {
+            const leadTime = new Date(lead.criado).getTime();
+            return leadTime >= hourStart && leadTime < hourEnd;
+          });
 
           return {
             date: format(hour, 'HH\'h\'', { locale: ptBR }),
-            total: totalResult.count || 0,
-            scouter: scouterResult.count || 0,
-            meta: metaResult.count || 0,
+            total: hourLeads.length,
+            scouter: hourLeads.filter(l => l.fonte_normalizada === 'Scouter - Fichas').length,
+            meta: hourLeads.filter(l => l.fonte_normalizada === 'Meta').length,
           };
         });
-
-        return await Promise.all(promises);
       } else {
-        // Por dia
+        // Group by day
         const days = eachDayOfInterval({
           start: dateFilter.startDate,
           end: dateFilter.endDate
         });
 
-        const promises = days.map(async (date) => {
+        return days.map(date => {
           const dayStr = format(date, 'yyyy-MM-dd');
 
-          const [totalResult, scouterResult, metaResult] = await Promise.all([
-            supabase
-              .from('leads')
-              .select('*', { count: 'exact', head: true })
-              .gte('criado', `${dayStr}T00:00:00`)
-              .lt('criado', `${dayStr}T23:59:59`),
-            supabase
-              .from('leads')
-              .select('*', { count: 'exact', head: true })
-              .gte('criado', `${dayStr}T00:00:00`)
-              .lt('criado', `${dayStr}T23:59:59`)
-              .eq('fonte_normalizada', 'Scouter - Fichas'),
-            supabase
-              .from('leads')
-              .select('*', { count: 'exact', head: true })
-              .gte('criado', `${dayStr}T00:00:00`)
-              .lt('criado', `${dayStr}T23:59:59`)
-              .eq('fonte_normalizada', 'Meta'),
-          ]);
+          const dayLeads = (leads as LeadRow[]).filter(lead => {
+            const leadDate = lead.criado?.substring(0, 10);
+            return leadDate === dayStr;
+          });
 
-          // Formato do eixo X baseado no preset
           let label: string;
           if (dateFilter.preset === 'week') {
             label = format(date, 'EEE', { locale: ptBR });
@@ -116,13 +134,11 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
 
           return {
             date: label,
-            total: totalResult.count || 0,
-            scouter: scouterResult.count || 0,
-            meta: metaResult.count || 0,
+            total: dayLeads.length,
+            scouter: dayLeads.filter(l => l.fonte_normalizada === 'Scouter - Fichas').length,
+            meta: dayLeads.filter(l => l.fonte_normalizada === 'Meta').length,
           };
         });
-
-        return await Promise.all(promises);
       }
     },
   });
