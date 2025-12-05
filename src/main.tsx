@@ -3,4 +3,6 @@ import App from "./App";
 import "./index.css";
 import "./theme-overrides.css";
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <App />
+);
