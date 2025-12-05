@@ -11,27 +11,24 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DateFilterValue } from '@/components/MinimalDateFilter';
 
-interface ComparecidosStatsCardProps {
+export interface ComparecidosStatsCardProps {
   dateFilter: DateFilterValue;
+  sourceFilter?: 'all' | 'scouter' | 'meta';
 }
 
-export function ComparecidosStatsCard({ dateFilter }: ComparecidosStatsCardProps) {
+export function ComparecidosStatsCard({ dateFilter, sourceFilter = 'all' }: ComparecidosStatsCardProps) {
   const { data, isLoading } = useQuery({
-    queryKey: ['comparecidos-stats-dashboard', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString()],
+    queryKey: ['comparecidos-stats-dashboard', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString(), sourceFilter],
     queryFn: async () => {
-      const startDate = dateFilter.startDate.toISOString();
-      const endDate = dateFilter.endDate.toISOString();
+      const { data, error } = await supabase.rpc('get_comparecidos_stats', {
+        p_start_date: dateFilter.startDate.toISOString(),
+        p_end_date: dateFilter.endDate.toISOString(),
+        p_source_filter: sourceFilter,
+      });
 
-      // Get leads comparecidos no período (by date_closed)
-      const { count: comparecidos } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .in('etapa', ['CONVERTED', 'Lead convertido'])
-        .not('date_closed', 'is', null)
-        .gte('date_closed', startDate)
-        .lte('date_closed', endDate);
-
-      return comparecidos || 0;
+      if (error) throw error;
+      const result = data as { total: number; comparecidos: number };
+      return result.comparecidos || 0;
     },
     refetchInterval: 60000,
   });

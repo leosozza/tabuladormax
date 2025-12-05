@@ -78,7 +78,11 @@ const periodOptions: PeriodOption[] = [
   },
 ];
 
-export function TeamStatusPanel() {
+interface TeamStatusPanelProps {
+  sourceFilter?: 'all' | 'scouter' | 'meta';
+}
+
+export function TeamStatusPanel({ sourceFilter = 'all' }: TeamStatusPanelProps) {
   const { totalOnline, telemarketingOnline } = useOnlinePresence();
   const [scouterPeriod, setScouterPeriod] = useState<PeriodKey>('today');
   const [telemarketingPeriod, setTelemarketingPeriod] = useState<PeriodKey>('today');

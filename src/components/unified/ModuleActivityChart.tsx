@@ -6,8 +6,9 @@ import { ptBR } from "date-fns/locale";
 import { Area, ComposedChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Line, Legend } from "recharts";
 import { DateFilterValue } from "@/components/MinimalDateFilter";
 
-interface ModuleActivityChartProps {
+export interface ModuleActivityChartProps {
   dateFilter: DateFilterValue;
+  sourceFilter?: 'all' | 'scouter' | 'meta';
 }
 
 interface ChartDataRow {
@@ -17,7 +18,7 @@ interface ChartDataRow {
   meta: number;
 }
 
-export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
+export function ModuleActivityChart({ dateFilter, sourceFilter = 'all' }: ModuleActivityChartProps) {
   const isToday = dateFilter.preset === 'today' || dateFilter.preset === 'exact';
   
   const getTitle = () => {

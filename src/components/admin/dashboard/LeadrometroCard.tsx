@@ -15,8 +15,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-interface LeadrometroCardProps {
+export interface LeadrometroCardProps {
   dateFilter: DateFilterValue;
+  sourceFilter?: 'all' | 'scouter' | 'meta';
 }
 interface Weights {
   verificados: number;
@@ -116,7 +117,8 @@ function getClassification(score: number): {
   };
 }
 export function LeadrometroCard({
-  dateFilter
+  dateFilter,
+  sourceFilter = 'all'
 }: LeadrometroCardProps) {
   const [weights, setWeights] = useState<Weights>(getStoredWeights);
   const [tempWeights, setTempWeights] = useState<Weights>(weights);
