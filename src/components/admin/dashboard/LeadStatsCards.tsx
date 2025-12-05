@@ -169,9 +169,11 @@ export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
           <CardContent>
             <div className="text-2xl font-bold">{formatNumber(card.value)}</div>
             {card.breakdown && (
-              <p className="text-xs text-muted-foreground mt-1">
-                <span className="font-medium">{formatNumber(card.breakdown.scouter)}</span> Scouter · <span className="font-medium">{formatNumber(card.breakdown.meta)}</span> Meta · <span className="font-medium">{formatNumber(card.breakdown.outros)}</span> Outros
-              </p>
+              <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                <p>Scouter: <span className="font-medium">{formatNumber(card.breakdown.scouter)}</span></p>
+                <p>Meta: <span className="font-medium">{formatNumber(card.breakdown.meta)}</span></p>
+                <p>Outros: <span className="font-medium">{formatNumber(card.breakdown.outros)}</span></p>
+              </div>
             )}
             {card.rate && (
               <p className="text-xs text-muted-foreground mt-1">
