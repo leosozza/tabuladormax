@@ -32,10 +32,11 @@ export function AgendadosStatsCard({ dateFilter }: AgendadosStatsCardProps) {
         .lte('data_criacao_agendamento', endDate);
 
       // Get leads agendados no período (by data_criacao_agendamento)
+      // Considera tanto o nome normalizado quanto o código Bitrix original
       const { count: agendados } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .eq('etapa', 'Agendados')
+        .in('etapa', ['Agendados', 'UC_QWPO2W'])
         .gte('data_criacao_agendamento', startDate)
         .lte('data_criacao_agendamento', endDate);
 
