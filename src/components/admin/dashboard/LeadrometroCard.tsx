@@ -118,6 +118,11 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
   const { data, isLoading } = useQuery({
     queryKey: ['leadrometro', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString()],
     queryFn: async () => {
+      // Safety check - should not happen due to enabled condition
+      if (!dateFilter.startDate || !dateFilter.endDate) {
+        return { total: 0, comFoto: 0, confirmados: 0, agendados: 0, convertidos: 0, emAnalise: 0 };
+      }
+      
       // CRITICAL: Convert Date objects to ISO strings for Supabase queries
       const startDate = dateFilter.startDate.toISOString();
       const endDate = dateFilter.endDate.toISOString();
@@ -179,6 +184,7 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
       };
     },
     refetchInterval: 60000,
+    enabled: !!dateFilter.startDate && !!dateFilter.endDate,
   });
 
   const calculateScore = (metrics: typeof data, w: Weights): number => {
