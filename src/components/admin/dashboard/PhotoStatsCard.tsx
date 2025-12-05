@@ -30,11 +30,11 @@ export function PhotoStatsCard({ dateFilter }: PhotoStatsCardProps) {
         .gte('criado', startDate)
         .lte('criado', endDate);
 
-      // Get leads with photo no período
+      // Get leads with photo no período (cadastro_existe_foto = true)
       const { count: comFoto } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .not('photo_url', 'is', null)
+        .eq('cadastro_existe_foto', true)
         .gte('criado', startDate)
         .lte('criado', endDate);
 
