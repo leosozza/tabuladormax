@@ -14,16 +14,17 @@ import { LogsPanel } from '@/components/admin/Diagnostics/LogsPanel';
 import { DataQualityPanel } from '@/components/admin/DataQualityPanel';
 import { LeadStatsCards } from '@/components/admin/dashboard/LeadStatsCards';
 import { PhotoStatsCard } from '@/components/admin/dashboard/PhotoStatsCard';
-import { SystemActivityBar } from '@/components/admin/dashboard/SystemActivityBar';
 import { SystemStatusPanel } from '@/components/admin/dashboard/SystemStatusPanel';
-import { OnlineUsersPanel } from '@/components/admin/dashboard/OnlineUsersPanel';
 import { AlertsOverview } from '@/components/admin/dashboard/AlertsOverview';
+import { TeamStatusPanel } from '@/components/admin/dashboard/TeamStatusPanel';
+import { ModuleActivityChart } from '@/components/unified/ModuleActivityChart';
+import { QuickActionsPanel } from '@/components/unified/QuickActionsPanel';
 import { getDefaultMonthFilter, DateFilterValue } from '@/components/MinimalDateFilter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle } from 'lucide-react';
+import { RefreshCw, AlertCircle, Users, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface LeadStats {
@@ -119,25 +120,38 @@ export default function UnifiedDashboard() {
           </Alert>
         )}
 
-        {/* Lead Stats Cards - Row 1 */}
+        {/* Linha 1: Lead Stats Cards */}
         <LeadStatsCards dateFilter={dateFilter} />
 
-        {/* Photo Stats + Online Users - Row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <PhotoStatsCard dateFilter={dateFilter} />
-          <div className="lg:col-span-2">
-            <OnlineUsersPanel />
+        {/* Linha 2: Photo Stats */}
+        <PhotoStatsCard dateFilter={dateFilter} />
+
+        {/* Linha 3: Atividade do Mês */}
+        <ModuleActivityChart dateFilter={dateFilter} />
+
+        {/* Linha 4: Equipe */}
+        <div>
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            Equipe
+          </h3>
+          <TeamStatusPanel />
+        </div>
+
+        {/* Linha 5: Sistema */}
+        <div>
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <Settings className="h-5 w-5 text-primary" />
+            Sistema
+          </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <SystemStatusPanel />
+            <AlertsOverview />
           </div>
         </div>
 
-        {/* System Activity Bar - Full Width Row 3 */}
-        <SystemActivityBar />
-
-        {/* System Status + Alerts - Row 4 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <SystemStatusPanel />
-          <AlertsOverview />
-        </div>
+        {/* Linha 6: Ações Rápidas */}
+        <QuickActionsPanel />
 
         {/* Detailed Tabs */}
         <Card>
