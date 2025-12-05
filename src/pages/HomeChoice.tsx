@@ -132,11 +132,11 @@ export default function HomeChoice() {
               <AlertsOverview />
             </div>
 
-            {/* Row 6: Atividades + Ações Rápidas */}
-            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-              <SystemActivityBar />
-              <QuickActionsPanel />
-            </div>
+            {/* Row 6: Atividades do Sistema */}
+            <SystemActivityBar />
+
+            {/* Row 7: Ações Rápidas - Full Width */}
+            <QuickActionsPanel />
           </>
         ) : (
           <MaxconnectAgent />
