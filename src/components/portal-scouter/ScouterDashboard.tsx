@@ -184,7 +184,7 @@ export const ScouterDashboard = ({
             </div>
 
             {/* Botões de ação */}
-            <div className="flex items-center gap-2">
+            <div className="gap-2 flex-col flex items-start justify-end">
               <Button variant="outline" size="icon" onClick={() => refetch()}>
                 <RefreshCw className="h-4 w-4" />
               </Button>
