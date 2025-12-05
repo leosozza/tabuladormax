@@ -30,34 +30,58 @@ function UserAvatar({ name }: { name: string }) {
 export function OnlineUsersPanel() {
   const { onlineUsers, usersOnline } = useOnlinePresence();
 
-  // Fetch active scouters from database (status = ativo)
+  // Fetch scouters working today (with location records today)
   const { data: activeScouters } = useQuery({
-    queryKey: ['active-scouters'],
+    queryKey: ['active-scouters-today'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('scouters')
-        .select('id, name, status')
-        .eq('status', 'ativo')
-        .order('name', { ascending: true })
-        .limit(10);
+      // Get today's start
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStart = today.toISOString();
 
-      if (error) throw error;
-      return data || [];
+      // Get unique scouters with location records today
+      const { data: locationData, error: locError } = await supabase
+        .from('scouter_location_history')
+        .select('scouter_bitrix_id, scouter_name')
+        .gte('recorded_at', todayStart)
+        .order('recorded_at', { ascending: false });
+
+      if (locError) throw locError;
+
+      // Get unique scouters
+      const uniqueScouters = new Map<number, string>();
+      (locationData || []).forEach(loc => {
+        if (!uniqueScouters.has(loc.scouter_bitrix_id)) {
+          uniqueScouters.set(loc.scouter_bitrix_id, loc.scouter_name);
+        }
+      });
+
+      return Array.from(uniqueScouters.entries()).slice(0, 10).map(([id, name]) => ({
+        id: id.toString(),
+        name,
+      }));
     },
     refetchInterval: 60000,
   });
 
-  // Get total count of active scouters
+  // Get total count of scouters working today
   const { data: scoutersCount } = useQuery({
-    queryKey: ['active-scouters-count'],
+    queryKey: ['active-scouters-today-count'],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from('scouters')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'ativo');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStart = today.toISOString();
+
+      const { data, error } = await supabase
+        .from('scouter_location_history')
+        .select('scouter_bitrix_id')
+        .gte('recorded_at', todayStart);
 
       if (error) throw error;
-      return count || 0;
+
+      // Count unique scouters
+      const uniqueIds = new Set((data || []).map(d => d.scouter_bitrix_id));
+      return uniqueIds.size;
     },
     refetchInterval: 60000,
   });
@@ -109,7 +133,7 @@ export function OnlineUsersPanel() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <UserCheck className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium">Scouters Ativos</span>
+              <span className="text-xs font-medium">Scouters em Campo</span>
             </div>
             <Badge variant="secondary" className="text-xs h-5 px-1.5 bg-primary/10 text-primary">
               {totalScouters}
