@@ -127,23 +127,7 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
         .gte('criado', startDate)
         .lte('criado', endDate);
 
-      // Leads aprovados (qualidade_lead = 'aprovado' ou 'super_aprovado')
-      const { count: aprovados } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .gte('criado', startDate)
-        .lte('criado', endDate)
-        .in('qualidade_lead', ['aprovado', 'super_aprovado']);
-
-      // Leads reprovados
-      const { count: reprovados } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .gte('criado', startDate)
-        .lte('criado', endDate)
-        .eq('qualidade_lead', 'reprovado');
-
-      // Leads com foto (indicador de qualidade)
+      // Leads COM FOTO (indicador de qualidade principal)
       const { count: comFoto } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
@@ -151,29 +135,45 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
         .lte('criado', endDate)
         .eq('cadastro_existe_foto', true);
 
+      // Fichas CONFIRMADAS
+      const { count: confirmados } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .gte('criado', startDate)
+        .lte('criado', endDate)
+        .eq('ficha_confirmada', true);
+
       // Agendados (várias etapas indicam agendamento)
       const { count: agendados } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
         .gte('criado', startDate)
         .lte('criado', endDate)
-        .in('etapa', ['Agendados', 'UC_QWPO2W', 'Em agendamento']);
+        .in('etapa', ['Agendados', 'UC_QWPO2W', 'Em agendamento', 'Reagendar', 'Retornar Ligação']);
 
-      // Convertidos/Comparecidos
-      const { count: comparecidos } = await supabase
+      // Convertidos (Lead convertido ou compareceu=true)
+      const { count: convertidos } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
         .gte('criado', startDate)
         .lte('criado', endDate)
-        .or('etapa.eq.Lead convertido,etapa.eq.UC_GPH3PL');
+        .or('etapa.eq.Lead convertido,etapa.eq.UC_GPH3PL,compareceu.eq.true');
+
+      // Leads em análise (não qualificados ainda)
+      const { count: emAnalise } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .gte('criado', startDate)
+        .lte('criado', endDate)
+        .in('etapa', ['Lead a Qualificar', 'Triagem', 'Banco de Leads']);
 
       return {
         total: total || 0,
-        aprovados: aprovados || 0,
-        reprovados: reprovados || 0,
         comFoto: comFoto || 0,
+        confirmados: confirmados || 0,
         agendados: agendados || 0,
-        comparecidos: comparecidos || 0,
+        convertidos: convertidos || 0,
+        emAnalise: emAnalise || 0,
       };
     },
     refetchInterval: 60000,
@@ -182,26 +182,28 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
   const calculateScore = (metrics: typeof data, w: Weights): number => {
     if (!metrics || metrics.total === 0) return 0;
 
-    const { total, aprovados, reprovados, comFoto, agendados, comparecidos } = metrics;
+    const { total, comFoto, confirmados, agendados, convertidos, emAnalise } = metrics;
 
     // Calcular taxas (0-100)
-    const taxaAprovados = (aprovados / total) * 100;
     const taxaComFoto = (comFoto / total) * 100;
-    const taxaReprovados = (reprovados / total) * 100;
+    const taxaConfirmados = (confirmados / total) * 100;
     const taxaAgendados = (agendados / total) * 100;
-    const taxaComparecidos = agendados > 0 ? (comparecidos / agendados) * 100 : (comparecidos / total) * 100;
+    // Taxa de conversão: convertidos em relação aos agendados (ou total se não houver agendados)
+    const taxaConvertidos = agendados > 0 ? (convertidos / agendados) * 100 : (convertidos / total) * 100;
+    // Inverte: quanto MENOS em análise, melhor (leads sendo processados)
+    const taxaProcessados = ((total - emAnalise) / total) * 100;
 
     // Normalizar pesos
     const totalWeight = w.verificados + w.emVerificacao + w.naoReconhecidos + w.agendados + w.comparecidos;
     
     // Calcular score ponderado
-    // verificados = aprovados, emVerificacao = comFoto (qualidade), naoReconhecidos = reprovados (penaliza)
+    // verificados = confirmados, emVerificacao = comFoto, naoReconhecidos = processados, agendados, comparecidos = convertidos
     const score = 
-      (taxaAprovados * (w.verificados / totalWeight)) +
+      (taxaConfirmados * (w.verificados / totalWeight)) +
       (taxaComFoto * (w.emVerificacao / totalWeight)) +
-      ((100 - taxaReprovados) * (w.naoReconhecidos / totalWeight) * 0.2) + // Penaliza reprovados
+      (taxaProcessados * (w.naoReconhecidos / totalWeight) * 0.5) +
       (taxaAgendados * (w.agendados / totalWeight)) +
-      (taxaComparecidos * (w.comparecidos / totalWeight));
+      (taxaConvertidos * (w.comparecidos / totalWeight));
 
     return Math.max(0, Math.min(100, score));
   };
@@ -242,7 +244,15 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
         </CardTitle>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 z-10 relative"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDialogOpen(true);
+              }}
+            >
               <Settings className="h-4 w-4 text-muted-foreground" />
             </Button>
           </DialogTrigger>
@@ -252,11 +262,11 @@ export function LeadrometroCard({ dateFilter }: LeadrometroCardProps) {
             </DialogHeader>
             <div className="space-y-6 py-4">
               {[
-                { key: 'verificados', label: 'Aprovados', desc: 'Leads com qualidade aprovada/super aprovada' },
-                { key: 'emVerificacao', label: 'Com Foto', desc: 'Leads que possuem foto cadastrada' },
-                { key: 'naoReconhecidos', label: 'Reprovados', desc: 'Penaliza leads reprovados' },
-                { key: 'agendados', label: 'Agendados', desc: 'Taxa de leads agendados' },
-                { key: 'comparecidos', label: 'Convertidos', desc: 'Taxa de leads convertidos' },
+                { key: 'verificados', label: 'Confirmados', desc: 'Fichas confirmadas' },
+                { key: 'emVerificacao', label: 'Com Foto', desc: 'Leads com foto cadastrada' },
+                { key: 'naoReconhecidos', label: 'Processados', desc: 'Leads fora da fila de qualificação' },
+                { key: 'agendados', label: 'Agendados', desc: 'Taxa de leads em agendamento' },
+                { key: 'comparecidos', label: 'Convertidos', desc: 'Taxa de conversão (comparecidos/agendados)' },
               ].map(({ key, label, desc }) => (
                 <div key={key} className="space-y-2">
                   <div className="flex justify-between">
