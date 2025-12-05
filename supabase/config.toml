@@ -164,3 +164,6 @@ verify_jwt = false
 
 [functions.backfill-geolocation]
 verify_jwt = false
+
+[functions.reprocess-leads-background]
+verify_jwt = true

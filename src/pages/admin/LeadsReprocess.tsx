@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,256 +7,348 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { RefreshCw, PlayCircle, AlertTriangle, CheckCircle2, Database } from 'lucide-react';
+import { 
+  RefreshCw, PlayCircle, AlertTriangle, CheckCircle2, Database, 
+  XCircle, Clock, Loader2, History 
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-interface DiagnosticStats {
-  totalLeadsWithRaw: number;
-  leadsWithNullScouter: number;
-  leadsWithNullFonte: number;
-  leadsWithNullEtapa: number;
-  leadsWithNullProject: number;
-  leadsNeedingUpdate: number;
+interface ReprocessJob {
+  id: string;
+  status: string;
+  total_leads: number;
+  processed_leads: number;
+  updated_leads: number;
+  skipped_leads: number;
+  error_leads: number;
+  last_processed_id: number | null;
+  batch_size: number;
+  only_missing_fields: boolean;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  error_details: any[];
 }
 
 export default function LeadsReprocess() {
   const [loading, setLoading] = useState(false);
-  const [diagnosticStats, setDiagnosticStats] = useState<DiagnosticStats | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
-  
-  // Filtros
-  const [onlyMissingFields, setOnlyMissingFields] = useState(true);
+  const [totalToProcess, setTotalToProcess] = useState<number | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [jobs, setJobs] = useState<ReprocessJob[]>([]);
+  const [onlyMissingFields, setOnlyMissingFields] = useState(false);
 
+  // Load count and jobs on mount
   useEffect(() => {
-    loadDiagnostics();
+    loadData();
   }, []);
 
-  const loadDiagnostics = async () => {
+  // Polling for active jobs
+  useEffect(() => {
+    const hasActiveJob = jobs.some(j => j.status === 'running');
+    if (!hasActiveJob) return;
+
+    const interval = setInterval(() => {
+      loadJobs();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [jobs]);
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('reprocess-leads-from-raw', {
-        body: { action: 'stats' }
-      });
-
-      if (error) throw error;
-
-      setDiagnosticStats(data);
-      addLog(`✅ Diagnóstico carregado: ${data.leadsNeedingUpdate} leads precisam de atualização`);
-    } catch (error) {
-      console.error('Erro ao carregar diagnóstico:', error);
-      toast.error('Erro ao carregar diagnóstico');
-      addLog(`❌ Erro ao carregar diagnóstico: ${error}`);
+      await Promise.all([loadCount(), loadJobs()]);
     } finally {
       setLoading(false);
+    }
+  }, [onlyMissingFields]);
+
+  const loadCount = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('reprocess-leads-background', {
+        body: { action: 'count', onlyMissingFields }
+      });
+      if (error) throw error;
+      setTotalToProcess(data.count);
+    } catch (error) {
+      console.error('Error loading count:', error);
+    }
+  };
+
+  const loadJobs = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('reprocess-leads-background', {
+        body: { action: 'status' }
+      });
+      if (error) throw error;
+      setJobs(data.jobs || []);
+    } catch (error) {
+      console.error('Error loading jobs:', error);
     }
   };
 
   const startReprocessing = async () => {
-    if (!diagnosticStats?.leadsNeedingUpdate) {
-      toast.info('Não há leads para re-processar');
+    if (!totalToProcess || totalToProcess === 0) {
+      toast.info('Não há leads para processar');
       return;
     }
 
-    setIsProcessing(true);
-    setLogs([]);
-    addLog('🚀 Iniciando re-processamento instantâneo de TODOS os leads...');
+    // Check if there's already a running job
+    if (jobs.some(j => j.status === 'running')) {
+      toast.warning('Já existe um job em execução');
+      return;
+    }
 
+    setIsStarting(true);
     try {
-      const startTime = Date.now();
-      
-      const { data, error } = await supabase.functions.invoke('reprocess-leads-from-raw', {
-        body: {
+      const { data, error } = await supabase.functions.invoke('reprocess-leads-background', {
+        body: { 
           action: 'start',
-          filters: {
-            onlyMissingFields
-          }
+          onlyMissingFields,
+          batchSize: 5000
         }
       });
 
       if (error) throw error;
 
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      
-      addLog(`✅ Re-processamento concluído em ${duration}s!`);
-      addLog(`📊 ${data.updated_count?.toLocaleString('pt-BR') || 0} leads atualizados`);
-
-      toast.success(`${data.updated_count?.toLocaleString('pt-BR') || 0} leads re-processados em ${duration}s!`);
-      
-      // Recarregar diagnóstico
-      await loadDiagnostics();
+      toast.success('Processamento iniciado em background!');
+      await loadJobs();
     } catch (error) {
-      console.error('Erro ao re-processar leads:', error);
-      toast.error('Erro ao re-processar leads');
-      addLog(`❌ Erro: ${error}`);
+      console.error('Error starting reprocess:', error);
+      toast.error('Erro ao iniciar processamento');
     } finally {
-      setIsProcessing(false);
+      setIsStarting(false);
     }
   };
 
-  const addLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString('pt-BR');
-    setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+  const cancelJob = async (jobId: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('reprocess-leads-background', {
+        body: { action: 'cancel', jobId }
+      });
+
+      if (error) throw error;
+
+      toast.success('Job cancelado');
+      await loadJobs();
+    } catch (error) {
+      console.error('Error cancelling job:', error);
+      toast.error('Erro ao cancelar job');
+    }
   };
 
+  const activeJob = jobs.find(j => j.status === 'running');
+  const completedJobs = jobs.filter(j => j.status !== 'running');
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'running':
+        return <Badge className="bg-blue-500"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Processando</Badge>;
+      case 'completed':
+        return <Badge className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" />Concluído</Badge>;
+      case 'failed':
+        return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Falhou</Badge>;
+      case 'cancelled':
+        return <Badge variant="secondary"><XCircle className="h-3 w-3 mr-1" />Cancelado</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
 
   return (
     <AdminPageLayout 
-      title="Re-processar Leads Históricos"
-      description="Re-processar leads históricos extraindo dados do campo 'raw' usando os mapeamentos ativos"
+      title="Re-processar Leads (Background)"
+      description="Re-processar leads históricos em segundo plano - continua mesmo se fechar a página"
     >
       <div className="space-y-6">
-        {/* Diagnóstico */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              Diagnóstico
-            </CardTitle>
-            <CardDescription>
-              Análise dos leads que precisam de re-processamento
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+        {/* Active Job */}
+        {activeJob && (
+          <Card className="border-blue-500/50 bg-blue-500/5">
+            <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Total de leads com raw</span>
-                <Badge variant="secondary">
-                  {loading ? '...' : diagnosticStats?.totalLeadsWithRaw.toLocaleString('pt-BR')}
-                </Badge>
+                <CardTitle className="flex items-center gap-2 text-blue-500">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Processamento em Andamento
+                </CardTitle>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => cancelJob(activeJob.id)}
+                >
+                  <XCircle className="h-4 w-4 mr-1" />
+                  Cancelar
+                </Button>
               </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Leads sem scouter <span className="text-xs text-muted-foreground">(apenas Scouters/CALL)</span></span>
-                  <Badge variant="outline">
-                    {loading ? '...' : diagnosticStats?.leadsWithNullScouter.toLocaleString('pt-BR')}
-                  </Badge>
+              <CardDescription>
+                Pode fechar esta página - o processamento continua em segundo plano
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Progresso</span>
+                    <span className="font-mono">
+                      {activeJob.processed_leads.toLocaleString('pt-BR')} / {activeJob.total_leads.toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={(activeJob.processed_leads / activeJob.total_leads) * 100} 
+                    className="h-3"
+                  />
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Leads sem fonte</span>
-                  <Badge variant="outline">
-                    {loading ? '...' : diagnosticStats?.leadsWithNullFonte.toLocaleString('pt-BR')}
-                  </Badge>
+
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-green-500">
+                      {activeJob.updated_leads.toLocaleString('pt-BR')}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Atualizados</div>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-2xl font-bold">
+                      {activeJob.processed_leads.toLocaleString('pt-BR')}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Processados</div>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-muted-foreground">
+                      {(activeJob.total_leads - activeJob.processed_leads).toLocaleString('pt-BR')}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Restantes</div>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Leads sem etapa</span>
-                  <Badge variant="outline">
-                    {loading ? '...' : diagnosticStats?.leadsWithNullEtapa.toLocaleString('pt-BR')}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Leads sem projeto</span>
-                  <Badge variant="outline">
-                    {loading ? '...' : diagnosticStats?.leadsWithNullProject.toLocaleString('pt-BR')}
-                  </Badge>
-                </div>
-              </div>
 
-              {diagnosticStats && (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>{diagnosticStats.leadsNeedingUpdate.toLocaleString('pt-BR')} leads</strong> precisam de atualização
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <Button 
-                onClick={loadDiagnostics} 
-                disabled={loading}
-                variant="outline"
-                className="w-full"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Atualizar Diagnóstico
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Configurações */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Configurações</CardTitle>
-            <CardDescription>
-              Opções de re-processamento
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="only-missing">Apenas leads com campos faltando</Label>
-                <p className="text-sm text-muted-foreground">
-                  Re-processar apenas leads com scouter, fonte, etapa ou projeto NULL
-                </p>
-              </div>
-              <Switch
-                id="only-missing"
-                checked={onlyMissingFields}
-                onCheckedChange={setOnlyMissingFields}
-                disabled={isProcessing}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Ação */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Re-processar Leads</CardTitle>
-            <CardDescription>
-              Iniciar o processo de re-sincronização em massa
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {logs.length > 0 && (
-                <Alert>
-                  <CheckCircle2 className="h-4 w-4" />
-                  <AlertDescription>
-                    {logs[logs.length - 1].split('] ')[1]}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <Button 
-                onClick={startReprocessing}
-                disabled={isProcessing || loading || !diagnosticStats?.leadsNeedingUpdate}
-                className="w-full"
-                size="lg"
-              >
-                {isProcessing ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Processando...
-                  </>
-                ) : (
-                  <>
-                    <PlayCircle className="h-4 w-4 mr-2" />
-                    Iniciar Re-processamento
-                  </>
+                {activeJob.started_at && (
+                  <div className="text-xs text-muted-foreground text-center">
+                    Iniciado {formatDistanceToNow(new Date(activeJob.started_at), { locale: ptBR, addSuffix: true })}
+                  </div>
                 )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Logs */}
-        {logs.length > 0 && (
+        {/* Start New Job */}
+        {!activeJob && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5" />
-                Logs
+                <Database className="h-5 w-5" />
+                Novo Re-processamento
+              </CardTitle>
+              <CardDescription>
+                Processa leads em batches de 5.000 usando SQL puro (sem API)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Count Display */}
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>{totalToProcess?.toLocaleString('pt-BR') || '...'} leads</strong> serão processados
+                    {onlyMissingFields && ' (apenas com campos faltando)'}
+                  </AlertDescription>
+                </Alert>
+
+                {/* Options */}
+                <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="only-missing">Apenas leads com campos faltando</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Scouter, fonte, etapa ou projeto NULL
+                    </p>
+                  </div>
+                  <Switch
+                    id="only-missing"
+                    checked={onlyMissingFields}
+                    onCheckedChange={(checked) => {
+                      setOnlyMissingFields(checked);
+                      // Reload count when option changes
+                      setTimeout(loadCount, 100);
+                    }}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={loadData} 
+                    disabled={loading}
+                    variant="outline"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                    Atualizar
+                  </Button>
+                  <Button 
+                    onClick={startReprocessing}
+                    disabled={isStarting || loading || !totalToProcess}
+                    className="flex-1"
+                    size="lg"
+                  >
+                    {isStarting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Iniciando...
+                      </>
+                    ) : (
+                      <>
+                        <PlayCircle className="h-4 w-4 mr-2" />
+                        Iniciar Processamento em Background
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Job History */}
+        {completedJobs.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Histórico de Jobs
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="bg-muted rounded-lg p-4 max-h-64 overflow-y-auto font-mono text-xs space-y-1">
-                {logs.map((log, index) => (
-                  <div key={index} className="text-muted-foreground">
-                    {log}
+              <div className="space-y-3">
+                {completedJobs.map(job => (
+                  <div 
+                    key={job.id} 
+                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(job.status)}
+                        <span className="text-sm font-mono">
+                          {job.updated_leads.toLocaleString('pt-BR')} / {job.total_leads.toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {job.completed_at 
+                          ? formatDistanceToNow(new Date(job.completed_at), { locale: ptBR, addSuffix: true })
+                          : formatDistanceToNow(new Date(job.created_at), { locale: ptBR, addSuffix: true })
+                        }
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-green-500">
+                        {job.updated_leads.toLocaleString('pt-BR')} atualizados
+                      </div>
+                      {job.only_missing_fields && (
+                        <div className="text-xs text-muted-foreground">
+                          Apenas campos faltando
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
