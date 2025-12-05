@@ -1954,6 +1954,7 @@ export type Database = {
       }
       scouters: {
         Row: {
+          access_key: string | null
           bitrix_id: number | null
           created_at: string | null
           created_by: string | null
@@ -1973,6 +1974,7 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          access_key?: string | null
           bitrix_id?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -1992,6 +1994,7 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          access_key?: string | null
           bitrix_id?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -2654,6 +2657,32 @@ export type Database = {
         Args: { p_scouter_id: string }
         Returns: Json
       }
+      get_scouter_portal_stats: {
+        Args: {
+          p_end_date?: string
+          p_project_id?: string
+          p_scouter_name: string
+          p_start_date?: string
+        }
+        Returns: {
+          agendados: number
+          com_foto: number
+          compareceram: number
+          confirmados: number
+          pendentes: number
+          reagendar: number
+          total: number
+        }[]
+      }
+      get_scouter_projects: {
+        Args: { p_scouter_name: string }
+        Returns: {
+          lead_count: number
+          project_code: string
+          project_id: string
+          project_name: string
+        }[]
+      }
       get_scouter_timesheet: {
         Args: {
           p_end_date?: string
@@ -2766,6 +2795,14 @@ export type Database = {
           p_only_missing_fields?: boolean
         }
         Returns: Json
+      }
+      validate_scouter_access_key: {
+        Args: { p_access_key: string }
+        Returns: {
+          scouter_id: string
+          scouter_name: string
+          scouter_photo: string
+        }[]
       }
     }
     Enums: {
