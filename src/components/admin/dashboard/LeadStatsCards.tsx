@@ -125,7 +125,7 @@ export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
       bgColor: 'bg-primary/10',
     },
     {
-      title: 'Fichas Confirmadas',
+      title: 'Leads Verificados',
       value: stats?.confirmadas || 0,
       rate: calcRate(stats?.confirmadas || 0, stats?.total || 0),
       breakdown: null,
@@ -134,7 +134,7 @@ export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
       bgColor: 'bg-green-500/10',
     },
     {
-      title: 'Fichas Aguardando',
+      title: 'Leads em Verificação',
       value: stats?.aguardando || 0,
       rate: calcRate(stats?.aguardando || 0, stats?.total || 0),
       breakdown: null,
@@ -143,7 +143,7 @@ export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
       bgColor: 'bg-yellow-500/10',
     },
     {
-      title: 'Fichas Não Confirmadas',
+      title: 'Leads Não Reconhecidos',
       value: stats?.naoConfirmadas || 0,
       rate: calcRate(stats?.naoConfirmadas || 0, stats?.total || 0),
       breakdown: null,
