@@ -1,4 +1,4 @@
-import { Home, Target, DollarSign, Shield, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText, Headset, BarChart3 } from "lucide-react";
+import { Home, Target, DollarSign, Shield, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText, Headset, BarChart3, ClipboardList, Workflow } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,15 @@ const mainNavItems = [
       { path: "/scouter/relatorios", label: "Relatórios", icon: FileText },
     ]
   },
+  { 
+    path: "/roadmap", 
+    label: "Planejamento", 
+    icon: ClipboardList,
+    subItems: [
+      { path: "/roadmap", label: "Roadmap", icon: TrendingUp },
+      { path: "/docs/processos", label: "Processos BPMN", icon: Workflow },
+    ]
+  },
   { path: "/agenciamento", label: "Agenciamento", icon: DollarSign },
   { path: "/admin", label: "Administrativo", icon: Shield },
 ];
@@ -70,11 +79,15 @@ export function UnifiedSidebar() {
   const [telemarketingOpen, setTelemarketingOpen] = useState(
     location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador') || location.pathname === '/dashboard'
   );
+  const [planejamentoOpen, setPlanejamentoOpen] = useState(
+    location.pathname.startsWith('/roadmap') || location.pathname.startsWith('/docs/processos')
+  );
 
   // Atualizar estado quando a rota mudar
   useEffect(() => {
     setScouterOpen(location.pathname.startsWith('/scouter'));
     setTelemarketingOpen(location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador') || location.pathname === '/dashboard');
+    setPlanejamentoOpen(location.pathname.startsWith('/roadmap') || location.pathname.startsWith('/docs/processos'));
   }, [location.pathname]);
 
   // Função para verificar se tem acesso a uma rota
@@ -173,8 +186,9 @@ export function UnifiedSidebar() {
                   if (item.subItems) {
                     const isScouterMenu = item.path === '/scouter';
                     const isTelemarketingMenu = item.path === '/telemarketing';
-                    const menuOpen = isScouterMenu ? scouterOpen : isTelemarketingMenu ? telemarketingOpen : false;
-                    const setMenuOpen = isScouterMenu ? setScouterOpen : isTelemarketingMenu ? setTelemarketingOpen : () => {};
+                    const isPlanejamentoMenu = item.path === '/roadmap';
+                    const menuOpen = isScouterMenu ? scouterOpen : isTelemarketingMenu ? telemarketingOpen : isPlanejamentoMenu ? planejamentoOpen : false;
+                    const setMenuOpen = isScouterMenu ? setScouterOpen : isTelemarketingMenu ? setTelemarketingOpen : isPlanejamentoMenu ? setPlanejamentoOpen : () => {};
                     
                     return (
                       <Collapsible
