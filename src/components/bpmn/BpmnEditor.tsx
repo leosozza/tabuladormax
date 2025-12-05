@@ -24,14 +24,14 @@ import GatewayNode from './nodes/GatewayNode';
 import DataStoreNode from './nodes/DataStoreNode';
 import SubprocessNode from './nodes/SubprocessNode';
 import AnnotationNode from './nodes/AnnotationNode';
-import { SmartEdge } from './edges/SmartEdge';
+import { SimpleEdge } from './edges/SimpleEdge';
 import { BpmnNodePalette } from './BpmnNodePalette';
 import { QuickActionsMenu } from './ui/QuickActionsMenu';
 import { NodeContextToolbar } from './ui/NodeContextToolbar';
 import { EdgeContextMenu } from './ui/EdgeContextMenu';
 import { AiFlowGenerator } from './ai/AiFlowGenerator';
 import { BpmnNodeType } from '@/types/bpmn';
-import { EdgeRoutingMode, SmartEdgeData, NodeColor } from './edges/types';
+import { EdgeRoutingMode, SimpleEdgeData, NodeColor } from './edges/types';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { Button } from '@/components/ui/button';
 import { 
@@ -53,7 +53,7 @@ const nodeTypes = {
 };
 
 const edgeTypes: EdgeTypes = {
-  smart: SmartEdge,
+  simple: SimpleEdge,
 };
 
 interface BpmnEditorProps {
@@ -66,16 +66,15 @@ interface BpmnEditorProps {
 let nodeId = 0;
 const getNodeId = () => `node_${nodeId++}`;
 
-// Normalize edges to use smart edge type
+// Normalize edges to use simple edge type
 const normalizeEdges = (edges: Edge[]): Edge[] => {
   return edges.map(edge => ({
     ...edge,
-    type: 'smart',
+    type: 'simple',
     data: {
-      routingMode: 'orthogonal',
-      waypoints: [],
+      routingMode: 'curved',
       ...edge.data,
-    } as SmartEdgeData,
+    } as SimpleEdgeData,
   }));
 };
 
@@ -237,11 +236,10 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
       id: `edge_${newNodeId}`,
       source: sourceNode.id,
       target: newNodeId,
-      type: 'smart',
+      type: 'simple',
       data: {
-        routingMode: 'orthogonal',
-        waypoints: [],
-      } as SmartEdgeData,
+        routingMode: 'curved',
+      } as SimpleEdgeData,
     };
     
     setNodes((nds) => [...nds, newNode]);
@@ -324,11 +322,10 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
       recordChange();
       setEdges((eds) => addEdge({ 
         ...params, 
-        type: 'smart',
+        type: 'simple',
         data: {
-          routingMode: 'orthogonal',
-          waypoints: [],
-        } as SmartEdgeData,
+          routingMode: 'curved',
+        } as SimpleEdgeData,
       }, eds));
     },
     [recordChange]
@@ -454,7 +451,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
               data: { 
                 ...edge.data, 
                 routingMode,
-                waypoints: [], // Clear waypoints when changing mode
+                controlPoint: undefined, // Clear control point when changing mode
                 labelPosition: undefined,
               } 
             }
@@ -468,7 +465,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
             data: { 
               ...prev.data, 
               routingMode,
-              waypoints: [],
+              controlPoint: undefined,
               labelPosition: undefined,
             } 
           }
@@ -476,19 +473,19 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
     );
   }, [recordChange]);
   
-  // Clear edge waypoints
-  const clearEdgeWaypoints = useCallback((edgeId: string) => {
+  // Reset edge curve (clear control point)
+  const resetEdgeCurve = useCallback((edgeId: string) => {
     recordChange();
     setEdges((eds) =>
       eds.map((edge) =>
         edge.id === edgeId
-          ? { ...edge, data: { ...edge.data, waypoints: [], labelPosition: undefined } }
+          ? { ...edge, data: { ...edge.data, controlPoint: undefined, labelPosition: undefined } }
           : edge
       )
     );
     setSelectedEdge((prev) =>
       prev?.id === edgeId
-        ? { ...prev, data: { ...prev.data, waypoints: [], labelPosition: undefined } }
+        ? { ...prev, data: { ...prev.data, controlPoint: undefined, labelPosition: undefined } }
         : prev
     );
   }, [recordChange]);
@@ -552,11 +549,10 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
             selectNodesOnDrag={false}
             connectionMode={ConnectionMode.Loose}
             defaultEdgeOptions={{
-              type: 'smart',
+              type: 'simple',
               data: {
-                routingMode: 'orthogonal',
-                waypoints: [],
-              } as SmartEdgeData,
+                routingMode: 'curved',
+              } as SimpleEdgeData,
             }}
           >
             <Background 
@@ -754,7 +750,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
               handleDeleteSelected();
               setEdgeContextMenu(null);
             }}
-            onClearWaypoints={() => clearEdgeWaypoints(edgeContextMenu.edge.id)}
+            onResetCurve={() => resetEdgeCurve(edgeContextMenu.edge.id)}
           />
         )}
 

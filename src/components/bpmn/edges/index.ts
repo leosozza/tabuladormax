@@ -1,3 +1,2 @@
-export { SmartEdge } from './SmartEdge';
+export { SimpleEdge } from './SimpleEdge';
 export * from './types';
-export { getBezierPath } from './routing/bezier';

@@ -1,33 +1,31 @@
 import { EdgeProps } from 'reactflow';
 
-export type EdgeRoutingMode = 'straight' | 'orthogonal' | 'smooth' | 'freeform';
+// Simplified routing modes: just straight or curved
+export type EdgeRoutingMode = 'straight' | 'curved';
 
 export type BpmnEdgeType = 'sequenceFlow' | 'messageFlow' | 'association';
 
-export interface WaypointData {
+// Single control point for quadratic bezier curve
+export interface ControlPoint {
   x: number;
   y: number;
-  // Bezier control handles for freeform mode
-  handleIn?: { x: number; y: number };
-  handleOut?: { x: number; y: number };
 }
 
-export interface SmartEdgeData {
+export interface SimpleEdgeData {
   label?: string;
   type?: BpmnEdgeType;
   routingMode?: EdgeRoutingMode;
-  waypoints?: WaypointData[];
+  controlPoint?: ControlPoint;
   condition?: string;
   isDefault?: boolean;
   labelPosition?: { x: number; y: number };
 }
 
-export interface SmartEdgeProps extends EdgeProps<SmartEdgeData> {}
+export interface SimpleEdgeProps extends EdgeProps<SimpleEdgeData> {}
 
-export const DEFAULT_EDGE_DATA: SmartEdgeData = {
+export const DEFAULT_EDGE_DATA: SimpleEdgeData = {
   type: 'sequenceFlow',
-  routingMode: 'orthogonal',
-  waypoints: [],
+  routingMode: 'curved',
 };
 
 // Node colors
