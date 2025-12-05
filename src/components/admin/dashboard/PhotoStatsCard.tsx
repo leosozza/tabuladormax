@@ -70,7 +70,7 @@ export function PhotoStatsCard({ dateFilter }: PhotoStatsCardProps) {
       <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-bl-full opacity-50" />
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
-          Fichas com Foto
+          Leads com Foto
         </CardTitle>
         <div className="p-2 rounded-full bg-primary/10">
           <Camera className="h-4 w-4 text-primary" />
@@ -85,7 +85,7 @@ export function PhotoStatsCard({ dateFilter }: PhotoStatsCardProps) {
             </span>
           </div>
           <p className="text-sm font-medium text-primary mt-1">
-            {percentage.toFixed(1)}% com fotos
+            {percentage.toFixed(1)}% com foto
           </p>
         </div>
         <div className="space-y-1">
