@@ -62,13 +62,8 @@ export default function HomeChoice() {
             {/* Row 1: Lead Stats - 4 cards */}
             <LeadStatsCards dateFilter={dateFilter} />
 
-            {/* Row 2: Photo + Activity Bar */}
-            <div className="grid gap-4 grid-cols-1 lg:grid-cols-4">
-              <PhotoStatsCard dateFilter={dateFilter} />
-              <div className="lg:col-span-3">
-                <SystemActivityBar />
-              </div>
-            </div>
+            {/* Row 2: Photo Stats */}
+            <PhotoStatsCard dateFilter={dateFilter} />
 
             {/* Row 3: Status + Online + Alerts */}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -84,6 +79,9 @@ export default function HomeChoice() {
               </div>
               <QuickActionsPanel />
             </div>
+
+            {/* Row 5: System Activity Bar */}
+            <SystemActivityBar />
           </>
         ) : (
           <MaxconnectAgent />
