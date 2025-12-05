@@ -23,12 +23,13 @@ export function AgendadosStatsCard({ dateFilter }: AgendadosStatsCardProps) {
       const startDate = dateFilter.startDate.toISOString();
       const endDate = dateFilter.endDate.toISOString();
 
-      // Get total leads no período (by criado)
+      // Get total leads com agendamento criado no período (by data_criacao_agendamento)
       const { count: total } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .gte('criado', startDate)
-        .lte('criado', endDate);
+        .not('data_criacao_agendamento', 'is', null)
+        .gte('data_criacao_agendamento', startDate)
+        .lte('data_criacao_agendamento', endDate);
 
       // Get leads agendados no período (by data_criacao_agendamento)
       const { count: agendados } = await supabase
