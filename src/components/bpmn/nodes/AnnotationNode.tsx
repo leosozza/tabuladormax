@@ -1,26 +1,31 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { StickyNote } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const AnnotationNode = memo(({ data, selected }: NodeProps) => {
   return (
-    <div 
-      className={`min-w-[100px] ${selected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
-    >
+    <div className="group">
       <Handle
         type="target"
         position={Position.Left}
-        className="w-2 h-2 !bg-gray-400"
+        className="!w-3 !h-3 !bg-slate-400 !border-2 !border-white dark:!border-slate-300 !-left-1.5"
       />
-      <div className="px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded-r shadow-sm">
-        <div className="flex items-center gap-1 mb-1">
-          <StickyNote className="w-3 h-3 text-yellow-600" />
-          <span className="text-[10px] text-yellow-700 dark:text-yellow-400">Nota</span>
-        </div>
-        <p className="text-xs text-foreground">{data.label || 'Anotação'}</p>
-        {data.description && (
-          <p className="text-[10px] text-muted-foreground mt-1">{data.description}</p>
+      <div 
+        className={cn(
+          "min-w-[140px] max-w-[220px] transition-all duration-200",
+          "bg-amber-50 dark:bg-amber-950/30",
+          "border-l-4 border-amber-400",
+          "rounded-r-xl",
+          "shadow-lg shadow-amber-500/10",
+          selected && "ring-2 ring-primary ring-offset-2 ring-offset-background scale-105",
+          !selected && "group-hover:scale-[1.02] group-hover:shadow-xl"
         )}
+      >
+        <div className="p-3">
+          <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
+            {data.label || 'Adicione uma nota...'}
+          </p>
+        </div>
       </div>
     </div>
   );

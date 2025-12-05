@@ -10,6 +10,7 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   ReactFlowInstance,
+  BackgroundVariant,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -23,7 +24,9 @@ import AnnotationNode from './nodes/AnnotationNode';
 import { BpmnNodePalette } from './BpmnNodePalette';
 import { BpmnNodeType } from '@/types/bpmn';
 import { Button } from '@/components/ui/button';
-import { Save, Download, Trash2, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Save, Download, Trash2, Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, MousePointer2, Hand, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const nodeTypes = {
   startEvent: StartEventNode,
@@ -54,9 +57,15 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [showPalette, setShowPalette] = useState(true);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [tool, setTool] = useState<'select' | 'pan'>('select');
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: 'hsl(var(--primary))' } }, eds)),
+    (params: Connection) => setEdges((eds) => addEdge({ 
+      ...params, 
+      animated: false, 
+      style: { stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 },
+      type: 'smoothstep',
+    }, eds)),
     [setEdges]
   );
 
@@ -128,49 +137,22 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
     setSelectedNode(null);
   };
 
+  const handleZoomIn = () => reactFlowInstance?.zoomIn();
+  const handleZoomOut = () => reactFlowInstance?.zoomOut();
+  const handleFitView = () => reactFlowInstance?.fitView();
+
   return (
-    <div className="flex h-full bg-background">
-      {!readOnly && showPalette && (
-        <BpmnNodePalette onAddNode={onAddNode} />
-      )}
-      
-      <div className="flex-1 flex flex-col">
-        {!readOnly && (
-          <div className="flex items-center justify-between p-2 border-b border-border bg-card">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowPalette(!showPalette)}
-              >
-                {showPalette ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
-              </Button>
-              {selectedNode && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDeleteSelected}
-                  className="text-destructive"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Excluir
-                </Button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-1" />
-                Exportar
-              </Button>
-              <Button size="sm" onClick={handleSave}>
-                <Save className="w-4 h-4 mr-1" />
-                Salvar
-              </Button>
-            </div>
+    <TooltipProvider>
+      <div className="flex h-full bg-[#f8f9fa] dark:bg-[#1a1a1a] relative overflow-hidden">
+        {/* Palette - Miro style floating left */}
+        {!readOnly && showPalette && (
+          <div className="absolute left-4 top-4 z-10">
+            <BpmnNodePalette onAddNode={onAddNode} onClose={() => setShowPalette(false)} />
           </div>
         )}
         
-        <div ref={reactFlowWrapper} className="flex-1">
+        {/* Canvas */}
+        <div ref={reactFlowWrapper} className="flex-1 h-full">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -185,22 +167,182 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
             nodeTypes={nodeTypes}
             fitView
             snapToGrid
-            snapGrid={[15, 15]}
+            snapGrid={[20, 20]}
             nodesDraggable={!readOnly}
             nodesConnectable={!readOnly}
             elementsSelectable={!readOnly}
+            panOnDrag={tool === 'pan'}
+            selectionOnDrag={tool === 'select'}
+            defaultEdgeOptions={{
+              type: 'smoothstep',
+              style: { strokeWidth: 2 },
+            }}
           >
-            <Background gap={15} size={1} />
-            <Controls />
+            <Background 
+              variant={BackgroundVariant.Dots} 
+              gap={20} 
+              size={1.5}
+              color="hsl(var(--muted-foreground) / 0.2)"
+            />
             <MiniMap 
-              nodeStrokeColor={() => 'hsl(var(--primary))'}
-              nodeColor={() => 'hsl(var(--card))'}
-              maskColor="hsl(var(--background) / 0.8)"
+              className="!bg-background !border-border !shadow-lg !rounded-xl overflow-hidden"
+              nodeStrokeWidth={3}
+              maskColor="hsl(var(--background) / 0.85)"
             />
           </ReactFlow>
         </div>
+
+        {/* Floating Bottom Toolbar - Miro style */}
+        {!readOnly && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
+            <div className="flex items-center gap-1 bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl px-2 py-2">
+              {/* Tool Selection */}
+              <div className="flex items-center gap-1 pr-2 border-r border-border/50">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={tool === 'select' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="h-9 w-9 rounded-xl"
+                      onClick={() => setTool('select')}
+                    >
+                      <MousePointer2 className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Selecionar (V)</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={tool === 'pan' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="h-9 w-9 rounded-xl"
+                      onClick={() => setTool('pan')}
+                    >
+                      <Hand className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Mover (H)</TooltipContent>
+                </Tooltip>
+              </div>
+
+              {/* Add Elements */}
+              <div className="flex items-center gap-1 px-2 border-r border-border/50">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 w-9 rounded-xl"
+                      onClick={() => setShowPalette(!showPalette)}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Elementos BPMN</TooltipContent>
+                </Tooltip>
+              </div>
+
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-1 px-2 border-r border-border/50">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-9 w-9 rounded-xl" onClick={handleZoomOut}>
+                      <ZoomOut className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Menos zoom</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-9 w-9 rounded-xl" onClick={handleZoomIn}>
+                      <ZoomIn className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Mais zoom</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-9 w-9 rounded-xl" onClick={handleFitView}>
+                      <Maximize2 className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Ajustar à tela</TooltipContent>
+                </Tooltip>
+              </div>
+
+              {/* Undo/Redo */}
+              <div className="flex items-center gap-1 px-2 border-r border-border/50">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-9 w-9 rounded-xl" disabled>
+                      <Undo2 className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Desfazer (Ctrl+Z)</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-9 w-9 rounded-xl" disabled>
+                      <Redo2 className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Refazer (Ctrl+Y)</TooltipContent>
+                </Tooltip>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-1 pl-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-9 px-3 rounded-xl gap-2">
+                      <Download className="w-4 h-4" />
+                      <span className="text-sm">Exportar</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Exportar diagrama</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="sm" className="h-9 px-4 rounded-xl gap-2" onClick={handleSave}>
+                      <Save className="w-4 h-4" />
+                      <span className="text-sm">Salvar</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Salvar diagrama</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Selected Node Actions - Floating */}
+        {selectedNode && !readOnly && (
+          <div className="absolute top-4 right-4 z-10">
+            <div className="flex items-center gap-2 bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-lg px-3 py-2">
+              <span className="text-sm font-medium text-foreground">
+                {selectedNode.data.label}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDeleteSelected}
+                className="h-8 w-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Controls - Hide default, we have custom */}
+        <style>{`
+          .react-flow__controls {
+            display: none;
+          }
+        `}</style>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
 
