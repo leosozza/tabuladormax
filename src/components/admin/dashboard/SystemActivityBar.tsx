@@ -80,5 +80,30 @@ export function SystemActivityBar() {
     value: `${(metrics?.successRate24h || 0).toFixed(1)}%`,
     color: (metrics?.successRate24h || 0) >= 95 ? 'text-success' : 'text-warning'
   }];
-  return;
+  return (
+    <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+      <CardContent className="py-3 px-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Activity className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">Atividade do Sistema</span>
+          {isLoading && (
+            <Badge variant="outline" className="text-xs animate-pulse">
+              Carregando...
+            </Badge>
+          )}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {items.map((item, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <item.icon className={`h-4 w-4 ${item.color}`} />
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">{item.label}</span>
+                <span className="text-sm font-medium">{item.value}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
