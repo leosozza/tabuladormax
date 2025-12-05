@@ -11,6 +11,11 @@ import ReactFlow, {
   ReactFlowInstance,
   BackgroundVariant,
   EdgeTypes,
+  OnEdgesChange,
+  OnNodesChange,
+  ConnectionMode,
+  applyNodeChanges,
+  applyEdgeChanges,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -21,12 +26,18 @@ import GatewayNode from './nodes/GatewayNode';
 import DataStoreNode from './nodes/DataStoreNode';
 import SubprocessNode from './nodes/SubprocessNode';
 import AnnotationNode from './nodes/AnnotationNode';
-import { EditableEdge } from './edges/EditableEdge';
+import { SmartEdge } from './edges/SmartEdge';
 import { BpmnNodePalette } from './BpmnNodePalette';
 import { BpmnNodeType } from '@/types/bpmn';
+import { EdgeRoutingMode, SmartEdgeData } from './edges/types';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { Button } from '@/components/ui/button';
-import { Save, Download, Trash2, Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, MousePointer2, Hand, Plus } from 'lucide-react';
+import { 
+  Save, Download, Trash2, Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, 
+  MousePointer2, Hand, Plus, Minus, ArrowRight, CornerDownRight, Spline
+} from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const nodeTypes = {
   startEvent: StartEventNode,
@@ -41,7 +52,7 @@ const nodeTypes = {
 };
 
 const edgeTypes: EdgeTypes = {
-  editable: EditableEdge,
+  smart: SmartEdge,
 };
 
 interface BpmnEditorProps {
@@ -54,28 +65,102 @@ interface BpmnEditorProps {
 let nodeId = 0;
 const getNodeId = () => `node_${nodeId++}`;
 
-// Normaliza edges para garantir que todas usem o tipo editável
+// Normalize edges to use smart edge type
 const normalizeEdges = (edges: Edge[]): Edge[] => {
   return edges.map(edge => ({
     ...edge,
-    type: 'editable',
-    style: edge.style || { stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 },
+    type: 'smart',
+    data: {
+      routingMode: 'orthogonal',
+      waypoints: [],
+      ...edge.data,
+    } as SmartEdgeData,
   }));
 };
 
 export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readOnly = false }: BpmnEditorProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(normalizeEdges(initialEdges));
+  const [nodes, setNodes] = useState<Node[]>(initialNodes);
+  const [edges, setEdges] = useState<Edge[]>(normalizeEdges(initialEdges));
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [tool, setTool] = useState<'select' | 'pan'>('select');
   const [isMiddleClickPanning, setIsMiddleClickPanning] = useState(false);
+  
+  // Undo/Redo system
+  const { canUndo, canRedo, undo, redo, takeSnapshot } = useUndoRedo();
+  const isUndoRedoAction = useRef(false);
+  
+  // Take snapshot before changes (for undo)
+  const recordChange = useCallback(() => {
+    if (!isUndoRedoAction.current) {
+      takeSnapshot(nodes, edges);
+    }
+  }, [nodes, edges, takeSnapshot]);
+  
+  // Custom node changes handler with undo support
+  const onNodesChange: OnNodesChange = useCallback((changes) => {
+    // Record before applying if it's a significant change
+    const hasSignificantChange = changes.some(
+      c => c.type === 'position' || c.type === 'remove' || c.type === 'add'
+    );
+    
+    if (hasSignificantChange && !isUndoRedoAction.current) {
+      takeSnapshot(nodes, edges);
+    }
+    
+    setNodes((nds) => applyNodeChanges(changes, nds));
+  }, [nodes, edges, takeSnapshot]);
+  
+  // Custom edge changes handler with undo support
+  const onEdgesChange: OnEdgesChange = useCallback((changes) => {
+    const hasSignificantChange = changes.some(
+      c => c.type === 'remove' || c.type === 'add'
+    );
+    
+    if (hasSignificantChange && !isUndoRedoAction.current) {
+      takeSnapshot(nodes, edges);
+    }
+    
+    setEdges((eds) => applyEdgeChanges(changes, eds));
+  }, [nodes, edges, takeSnapshot]);
+  
+  // Undo handler
+  const handleUndo = useCallback(() => {
+    const previousState = undo();
+    if (previousState) {
+      isUndoRedoAction.current = true;
+      setNodes(previousState.nodes);
+      setEdges(previousState.edges);
+      setSelectedNode(null);
+      setSelectedEdge(null);
+      setTimeout(() => {
+        isUndoRedoAction.current = false;
+      }, 50);
+    }
+  }, [undo]);
+  
+  // Redo handler
+  const handleRedo = useCallback(() => {
+    const nextState = redo();
+    if (nextState) {
+      isUndoRedoAction.current = true;
+      setNodes(nextState.nodes);
+      setEdges(nextState.edges);
+      setSelectedNode(null);
+      setSelectedEdge(null);
+      setTimeout(() => {
+        isUndoRedoAction.current = false;
+      }, 50);
+    }
+  }, [redo]);
 
   // Handle delete for selected node or edge
   const handleDeleteSelected = useCallback(() => {
+    recordChange();
+    
     if (selectedNode) {
       setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
       setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
@@ -85,20 +170,36 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
       setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
       setSelectedEdge(null);
     }
-  }, [selectedNode, selectedEdge, setNodes, setEdges]);
+  }, [selectedNode, selectedEdge, recordChange]);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'v' || e.key === 'V') setTool('select');
-      if (e.key === 'h' || e.key === 'H') setTool('pan');
-      if (e.key === ' ') setIsMiddleClickPanning(true);
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
       
-      // Delete/Backspace to remove selected element
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        const target = e.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-        handleDeleteSelected();
+      // Tool shortcuts (only when not in input)
+      if (!isInput) {
+        if (e.key === 'v' || e.key === 'V') setTool('select');
+        if (e.key === 'h' || e.key === 'H') setTool('pan');
+        if (e.key === ' ') setIsMiddleClickPanning(true);
+        
+        // Delete/Backspace to remove selected element
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          handleDeleteSelected();
+        }
+      }
+      
+      // Undo/Redo (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z)
+      if ((e.ctrlKey || e.metaKey) && !isInput) {
+        if (e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          handleUndo();
+        }
+        if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+          e.preventDefault();
+          handleRedo();
+        }
       }
     };
     
@@ -112,11 +213,11 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleDeleteSelected]);
+  }, [handleDeleteSelected, handleUndo, handleRedo]);
 
   // Middle click pan handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 1) { // Middle click
+    if (e.button === 1) {
       e.preventDefault();
       setIsMiddleClickPanning(true);
     }
@@ -129,13 +230,18 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
   }, []);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ 
-      ...params, 
-      animated: false, 
-      style: { stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 },
-      type: 'editable',
-    }, eds)),
-    [setEdges]
+    (params: Connection) => {
+      recordChange();
+      setEdges((eds) => addEdge({ 
+        ...params, 
+        type: 'smart',
+        data: {
+          routingMode: 'orthogonal',
+          waypoints: [],
+        } as SmartEdgeData,
+      }, eds));
+    },
+    [recordChange]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -149,6 +255,8 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
 
       const type = event.dataTransfer.getData('application/bpmn-node') as BpmnNodeType;
       if (!type || !reactFlowInstance || !reactFlowWrapper.current) return;
+
+      recordChange();
 
       const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
       const position = reactFlowInstance.project({
@@ -165,11 +273,13 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [reactFlowInstance, setNodes]
+    [reactFlowInstance, recordChange]
   );
 
   const onAddNode = useCallback((type: BpmnNodeType) => {
     if (!reactFlowInstance) return;
+    
+    recordChange();
     
     const position = reactFlowInstance.project({
       x: window.innerWidth / 2,
@@ -184,7 +294,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
     };
 
     setNodes((nds) => nds.concat(newNode));
-  }, [reactFlowInstance, setNodes]);
+  }, [reactFlowInstance, recordChange]);
 
   const handleSave = () => {
     onSave?.(nodes, edges);
@@ -211,8 +321,83 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
 
   const togglePalette = () => setPaletteCollapsed(!paletteCollapsed);
 
+  // Update edge label
+  const updateEdgeLabel = useCallback((edgeId: string, label: string) => {
+    setEdges((eds) =>
+      eds.map((edge) =>
+        edge.id === edgeId
+          ? { ...edge, data: { ...edge.data, label } }
+          : edge
+      )
+    );
+    setSelectedEdge((prev) =>
+      prev?.id === edgeId
+        ? { ...prev, data: { ...prev.data, label } }
+        : prev
+    );
+  }, []);
+  
+  // Update edge routing mode
+  const updateEdgeRoutingMode = useCallback((edgeId: string, routingMode: EdgeRoutingMode) => {
+    recordChange();
+    setEdges((eds) =>
+      eds.map((edge) =>
+        edge.id === edgeId
+          ? { 
+              ...edge, 
+              data: { 
+                ...edge.data, 
+                routingMode,
+                waypoints: [], // Clear waypoints when changing mode
+                labelPosition: undefined, // Reset label position
+              } 
+            }
+          : edge
+      )
+    );
+    setSelectedEdge((prev) =>
+      prev?.id === edgeId
+        ? { 
+            ...prev, 
+            data: { 
+              ...prev.data, 
+              routingMode,
+              waypoints: [],
+              labelPosition: undefined,
+            } 
+          }
+        : prev
+    );
+  }, [recordChange]);
+  
+  // Clear edge waypoints
+  const clearEdgeWaypoints = useCallback((edgeId: string) => {
+    recordChange();
+    setEdges((eds) =>
+      eds.map((edge) =>
+        edge.id === edgeId
+          ? { ...edge, data: { ...edge.data, waypoints: [], labelPosition: undefined } }
+          : edge
+      )
+    );
+    setSelectedEdge((prev) =>
+      prev?.id === edgeId
+        ? { ...prev, data: { ...prev.data, waypoints: [], labelPosition: undefined } }
+        : prev
+    );
+  }, [recordChange]);
+
   // Determine if we should pan
   const shouldPan = tool === 'pan' || isMiddleClickPanning;
+  
+  // Get routing mode icon
+  const getRoutingIcon = (mode: EdgeRoutingMode) => {
+    switch (mode) {
+      case 'straight': return <ArrowRight className="w-4 h-4" />;
+      case 'orthogonal': return <CornerDownRight className="w-4 h-4" />;
+      case 'smooth': return <Spline className="w-4 h-4" />;
+    }
+  };
 
   return (
     <TooltipProvider>
@@ -262,9 +447,13 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
             zoomOnScroll={true}
             selectionOnDrag={false}
             selectNodesOnDrag={false}
+            connectionMode={ConnectionMode.Loose}
             defaultEdgeOptions={{
-              type: 'editable',
-              style: { strokeWidth: 2 },
+              type: 'smart',
+              data: {
+                routingMode: 'orthogonal',
+                waypoints: [],
+              } as SmartEdgeData,
             }}
           >
             <Background 
@@ -364,7 +553,13 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
               <div className="flex items-center gap-1 px-2 border-r border-border/50">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-9 w-9 rounded-xl" disabled>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-9 w-9 rounded-xl" 
+                      disabled={!canUndo}
+                      onClick={handleUndo}
+                    >
                       <Undo2 className="w-4 h-4" />
                     </Button>
                   </TooltipTrigger>
@@ -372,7 +567,13 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-9 w-9 rounded-xl" disabled>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-9 w-9 rounded-xl" 
+                      disabled={!canRedo}
+                      onClick={handleRedo}
+                    >
                       <Redo2 className="w-4 h-4" />
                     </Button>
                   </TooltipTrigger>
@@ -424,51 +625,43 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
           </div>
         )}
 
-        {/* Selected Edge Actions - Improved panel with quick buttons */}
+        {/* Selected Edge Actions - Enhanced panel */}
         {selectedEdge && !readOnly && (
           <div className="absolute top-4 right-4 z-10">
-            <div className="flex flex-col gap-3 bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-lg p-4 min-w-[240px]">
-              <div className="text-xs font-medium text-muted-foreground">
-                Conexão selecionada
+            <div className="flex flex-col gap-3 bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-lg p-4 min-w-[280px]">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Conexão selecionada
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteSelected}
+                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
               </div>
               
-              <input
-                type="text"
-                value={selectedEdge.data?.label || ''}
-                onChange={(e) => {
-                  const newLabel = e.target.value;
-                  setEdges((eds) =>
-                    eds.map((edge) =>
-                      edge.id === selectedEdge.id
-                        ? { ...edge, data: { ...edge.data, label: newLabel } }
-                        : edge
-                    )
-                  );
-                  setSelectedEdge((prev) => 
-                    prev ? { ...prev, data: { ...prev.data, label: newLabel } } : null
-                  );
-                }}
-                placeholder="Adicionar texto..."
-                className="h-9 px-3 text-sm border border-border rounded-lg bg-background text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+              {/* Label input */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">Rótulo</label>
+                <input
+                  type="text"
+                  value={selectedEdge.data?.label || ''}
+                  onChange={(e) => updateEdgeLabel(selectedEdge.id, e.target.value)}
+                  placeholder="Adicionar texto..."
+                  className="h-9 px-3 text-sm border border-border rounded-lg bg-background text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
               
+              {/* Quick label buttons */}
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   className="flex-1 h-8"
-                  onClick={() => {
-                    setEdges((eds) =>
-                      eds.map((edge) =>
-                        edge.id === selectedEdge.id
-                          ? { ...edge, data: { ...edge.data, label: 'Sim' } }
-                          : edge
-                      )
-                    );
-                    setSelectedEdge((prev) => 
-                      prev ? { ...prev, data: { ...prev.data, label: 'Sim' } } : null
-                    );
-                  }}
+                  onClick={() => updateEdgeLabel(selectedEdge.id, 'Sim')}
                 >
                   Sim
                 </Button>
@@ -476,30 +669,62 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
                   variant="outline"
                   size="sm"
                   className="flex-1 h-8"
-                  onClick={() => {
-                    setEdges((eds) =>
-                      eds.map((edge) =>
-                        edge.id === selectedEdge.id
-                          ? { ...edge, data: { ...edge.data, label: 'Não' } }
-                          : edge
-                      )
-                    );
-                    setSelectedEdge((prev) => 
-                      prev ? { ...prev, data: { ...prev.data, label: 'Não' } } : null
-                    );
-                  }}
+                  onClick={() => updateEdgeLabel(selectedEdge.id, 'Não')}
                 >
                   Não
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDeleteSelected}
-                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
               </div>
+              
+              {/* Routing mode selector */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">Tipo de linha</label>
+                <div className="flex gap-1">
+                  {(['straight', 'orthogonal', 'smooth'] as EdgeRoutingMode[]).map((mode) => (
+                    <Tooltip key={mode}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={(selectedEdge.data as SmartEdgeData)?.routingMode === mode ? 'secondary' : 'outline'}
+                          size="sm"
+                          className="flex-1 h-9"
+                          onClick={() => updateEdgeRoutingMode(selectedEdge.id, mode)}
+                        >
+                          {getRoutingIcon(mode)}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {mode === 'straight' && 'Linha reta'}
+                        {mode === 'orthogonal' && 'Linha ortogonal'}
+                        {mode === 'smooth' && 'Linha curva'}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Waypoints info */}
+              {((selectedEdge.data as SmartEdgeData)?.waypoints?.length || 0) > 0 && (
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground">
+                    {(selectedEdge.data as SmartEdgeData)?.waypoints?.length} ponto(s) de controle
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => clearEdgeWaypoints(selectedEdge.id)}
+                  >
+                    <Minus className="w-3 h-3 mr-1" />
+                    Limpar
+                  </Button>
+                </div>
+              )}
+              
+              {/* Help text */}
+              <p className="text-[10px] text-muted-foreground leading-relaxed pt-2 border-t border-border/50">
+                💡 <strong>Duplo clique</strong> na linha para adicionar pontos de controle.
+                <br />
+                <strong>Arraste</strong> os pontos para ajustar. <strong>Duplo clique</strong> no ponto para remover.
+              </p>
             </div>
           </div>
         )}
