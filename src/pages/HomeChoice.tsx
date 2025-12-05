@@ -14,7 +14,7 @@ import { OnlineUsersPanel } from "@/components/admin/dashboard/OnlineUsersPanel"
 import { AlertsOverview } from "@/components/admin/dashboard/AlertsOverview";
 import { AgendadosStatsCard } from "@/components/admin/dashboard/AgendadosStatsCard";
 import { ComparecidosStatsCard } from "@/components/admin/dashboard/ComparecidosStatsCard";
-import { PlaceholderStatsCard } from "@/components/admin/dashboard/PlaceholderStatsCard";
+import { LeadrometroCard } from "@/components/admin/dashboard/LeadrometroCard";
 import { ModuleActivityChart } from "@/components/unified/ModuleActivityChart";
 import { QuickActionsPanel } from "@/components/unified/QuickActionsPanel";
 
@@ -70,7 +70,7 @@ export default function HomeChoice() {
               <PhotoStatsCard dateFilter={dateFilter} />
               <AgendadosStatsCard dateFilter={dateFilter} />
               <ComparecidosStatsCard dateFilter={dateFilter} />
-              <PlaceholderStatsCard />
+              <LeadrometroCard dateFilter={dateFilter} />
             </div>
 
             {/* Row 3: Gráfico de Atividade - Full Width */}
