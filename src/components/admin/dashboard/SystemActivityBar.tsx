@@ -21,7 +21,7 @@ interface ActivityMetrics {
   lastSyncTime: Date | null;
   pendingSync: number;
   successRate24h: number;
-  activeEdgeFunctions: number;
+  syncs24h: number;
 }
 
 export function SystemActivityBar() {
@@ -36,13 +36,15 @@ export function SystemActivityBar() {
         .limit(1)
         .single();
 
-      // Get pending sync count
+      // Get pending sync count (only recent - last 7 days)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const { count: pendingSync } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .eq('sync_status', 'pending');
+        .eq('sync_status', 'pending')
+        .gte('criado', sevenDaysAgo);
 
-      // Calculate success rate (last 24h)
+      // Calculate success rate and count (last 24h)
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data: syncEvents } = await supabase
         .from('sync_events')
@@ -57,7 +59,7 @@ export function SystemActivityBar() {
         lastSyncTime: lastSync?.created_at ? new Date(lastSync.created_at) : null,
         pendingSync: pendingSync || 0,
         successRate24h: successRate,
-        activeEdgeFunctions: 45, // Placeholder - would need analytics query
+        syncs24h: totalEvents,
       };
     },
     refetchInterval: 30000, // Refresh every 30 seconds
@@ -80,8 +82,8 @@ export function SystemActivityBar() {
     },
     {
       icon: Zap,
-      label: 'Edge Functions',
-      value: `${metrics?.activeEdgeFunctions || 0} ativas`,
+      label: 'Syncs 24h',
+      value: `${metrics?.syncs24h || 0} eventos`,
       color: 'text-primary',
     },
     {

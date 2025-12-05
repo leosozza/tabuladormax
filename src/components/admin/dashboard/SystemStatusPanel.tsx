@@ -20,15 +20,27 @@ export function SystemStatusPanel() {
   const { data, isLoading } = useQuery({
     queryKey: ['system-status-compact'],
     queryFn: async () => {
+      // Only count recent pending syncs (last 7 days) to avoid historical data
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      
       const { count: pendingSync } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .eq('sync_status', 'pending');
+        .eq('sync_status', 'pending')
+        .gte('criado', sevenDaysAgo);
 
       const { count: syncErrors } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .eq('has_sync_errors', true);
+        .eq('has_sync_errors', true)
+        .gte('criado', sevenDaysAgo);
+
+      // Count syncs in last 24h
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count: syncs24h } = await supabase
+        .from('sync_events')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', oneDayAgo);
 
       const start = performance.now();
       await supabase.from('profiles').select('id').limit(1);
@@ -38,7 +50,7 @@ export function SystemStatusPanel() {
         pending: pendingSync || 0,
         errors: syncErrors || 0,
         latency,
-        edgeFunctions: { active: 45, total: 50 },
+        syncs24h: syncs24h || 0,
       };
     },
     refetchInterval: 60000,
@@ -59,7 +71,7 @@ export function SystemStatusPanel() {
 
   const items = [
     { icon: RefreshCw, label: 'Sincronização', status: data?.errors === 0 ? 'healthy' : 'warning' as StatusType, value: `Pendentes: ${data?.pending || 0}`, subValue: `Com ${data?.errors || 0} erros` },
-    { icon: Zap, label: 'Edge Functions', status: 'healthy' as StatusType, value: `Ativas: ${data?.edgeFunctions.active}/${data?.edgeFunctions.total}`, subValue: 'Com 0 erros' },
+    { icon: Zap, label: 'Syncs 24h', status: 'healthy' as StatusType, value: `${data?.syncs24h || 0} eventos`, subValue: 'Últimas 24h' },
     { icon: Database, label: 'Database', status: (data?.latency || 0) > 200 ? 'warning' : 'healthy' as StatusType, value: `Latência: ${data?.latency || 0}ms`, subValue: (data?.latency || 0) > 200 ? 'Lento' : 'Saudável' },
   ];
 
