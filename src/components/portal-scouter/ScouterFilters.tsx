@@ -54,12 +54,12 @@ export const ScouterFilters = ({
       onDatePresetChange('custom');
     }
   };
-  return <div className="flex flex-wrap items-center gap-3">
+  return <div className="flex flex-col w-full gap-3 sm:flex-row sm:flex-wrap sm:items-center">
       {/* Filtro de Período */}
-      <div className="flex items-center gap-2">
-        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+      <div className="flex items-center gap-2 w-full sm:w-auto">
+        <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <Select value={datePreset} onValueChange={v => onDatePresetChange(v as DateRangePreset)}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Período" />
           </SelectTrigger>
           <SelectContent>
@@ -73,7 +73,7 @@ export const ScouterFilters = ({
       {/* Calendário personalizado */}
       {datePreset === 'custom' && <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-auto">
+            <Button variant="outline" className="w-full sm:w-auto">
               {customRange ? <>
                   {format(customRange.from, 'dd/MM/yy', {
               locale: ptBR
@@ -93,10 +93,10 @@ export const ScouterFilters = ({
         </Popover>}
 
       {/* Filtro de Projeto */}
-      <div className="flex items-center gap-2">
-        <Building className="h-4 w-4 text-muted-foreground" />
+      <div className="flex items-center gap-2 w-full sm:w-auto">
+        <Building className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <Select value={projectId || 'all'} onValueChange={v => onProjectChange(v === 'all' ? null : v)}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Projeto" />
           </SelectTrigger>
           <SelectContent>
@@ -107,8 +107,5 @@ export const ScouterFilters = ({
           </SelectContent>
         </Select>
       </div>
-
-      {/* Badge fonte fixa */}
-      
     </div>;
 };
