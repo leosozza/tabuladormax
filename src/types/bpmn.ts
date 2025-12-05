@@ -3,13 +3,23 @@ import { Node, Edge } from 'reactflow';
 export type BpmnNodeType = 
   | 'startEvent'
   | 'endEvent'
+  | 'timerEvent'
+  | 'messageEvent'
+  | 'errorEvent'
   | 'task'
   | 'userTask'
   | 'serviceTask'
   | 'gateway'
+  | 'parallelGateway'
+  | 'inclusiveGateway'
+  | 'eventGateway'
   | 'subprocess'
   | 'dataStore'
-  | 'annotation';
+  | 'document'
+  | 'annotation'
+  | 'textBox'
+  | 'swimlane'
+  | 'frame';
 
 export type BpmnCategory = 'processo' | 'arquitetura' | 'fluxo-usuario' | 'integracao';
 
@@ -44,13 +54,16 @@ export interface BpmnPaletteItem {
   label: string;
   description: string;
   icon: string;
-  category: 'eventos' | 'atividades' | 'gateways' | 'dados';
+  category: 'eventos' | 'atividades' | 'gateways' | 'dados' | 'containers';
 }
 
 export const bpmnPaletteItems: BpmnPaletteItem[] = [
   // Eventos
   { type: 'startEvent', label: 'Início', description: 'Início do processo', icon: 'Circle', category: 'eventos' },
   { type: 'endEvent', label: 'Fim', description: 'Fim do processo', icon: 'CircleDot', category: 'eventos' },
+  { type: 'timerEvent', label: 'Timer', description: 'Evento de tempo/espera', icon: 'Timer', category: 'eventos' },
+  { type: 'messageEvent', label: 'Mensagem', description: 'Receber/enviar mensagem', icon: 'Mail', category: 'eventos' },
+  { type: 'errorEvent', label: 'Erro', description: 'Tratamento de erro', icon: 'AlertTriangle', category: 'eventos' },
   
   // Atividades
   { type: 'task', label: 'Tarefa', description: 'Tarefa genérica', icon: 'Square', category: 'atividades' },
@@ -59,11 +72,20 @@ export const bpmnPaletteItems: BpmnPaletteItem[] = [
   { type: 'subprocess', label: 'Subprocesso', description: 'Processo aninhado', icon: 'FolderOpen', category: 'atividades' },
   
   // Gateways
-  { type: 'gateway', label: 'Gateway', description: 'Decisão/Branch', icon: 'Diamond', category: 'gateways' },
+  { type: 'gateway', label: 'Exclusivo (XOR)', description: 'Apenas um caminho', icon: 'X', category: 'gateways' },
+  { type: 'parallelGateway', label: 'Paralelo (AND)', description: 'Todos os caminhos', icon: 'Plus', category: 'gateways' },
+  { type: 'inclusiveGateway', label: 'Inclusivo (OR)', description: 'Um ou mais caminhos', icon: 'CircleDot', category: 'gateways' },
+  { type: 'eventGateway', label: 'Baseado em Evento', description: 'Baseado em evento', icon: 'Zap', category: 'gateways' },
   
   // Dados
   { type: 'dataStore', label: 'Banco de Dados', description: 'Armazenamento de dados', icon: 'Database', category: 'dados' },
+  { type: 'document', label: 'Documento', description: 'Documento/Arquivo', icon: 'FileText', category: 'dados' },
   { type: 'annotation', label: 'Anotação', description: 'Comentário/Nota', icon: 'StickyNote', category: 'dados' },
+  
+  // Containers
+  { type: 'textBox', label: 'Caixa de Texto', description: 'Texto livre', icon: 'Type', category: 'containers' },
+  { type: 'swimlane', label: 'Raia (Swimlane)', description: 'Área por responsável', icon: 'LayoutList', category: 'containers' },
+  { type: 'frame', label: 'Frame', description: 'Container/Grupo', icon: 'Frame', category: 'containers' },
 ];
 
 export const categoryConfig: Record<BpmnCategory, { label: string; color: string; icon: string }> = {

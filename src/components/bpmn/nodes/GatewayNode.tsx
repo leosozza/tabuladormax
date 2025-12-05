@@ -1,11 +1,17 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { X, Plus, Circle } from 'lucide-react';
+import { X, Plus, Circle, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NodeColor, NODE_COLORS } from '../edges/types';
 
 const GatewayNode = memo(({ data, selected }: NodeProps) => {
-  const gatewayType = data.config?.gatewayType || 'exclusive';
+  // Support both old config.gatewayType and new node type-based approach
+  const nodeType = data.type;
+  const gatewayType = data.config?.gatewayType || 
+    (nodeType === 'parallelGateway' ? 'parallel' : 
+     nodeType === 'inclusiveGateway' ? 'inclusive' : 
+     nodeType === 'eventGateway' ? 'eventBased' : 'exclusive');
+  
   const nodeColor: NodeColor = data.color || 'yellow';
   const colorConfig = NODE_COLORS[nodeColor] || NODE_COLORS.yellow;
   
@@ -15,6 +21,8 @@ const GatewayNode = memo(({ data, selected }: NodeProps) => {
         return Plus;
       case 'inclusive':
         return Circle;
+      case 'eventBased':
+        return Zap;
       default:
         return X;
     }

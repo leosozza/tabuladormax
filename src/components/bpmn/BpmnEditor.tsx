@@ -24,6 +24,13 @@ import GatewayNode from './nodes/GatewayNode';
 import DataStoreNode from './nodes/DataStoreNode';
 import SubprocessNode from './nodes/SubprocessNode';
 import AnnotationNode from './nodes/AnnotationNode';
+import TimerEventNode from './nodes/TimerEventNode';
+import MessageEventNode from './nodes/MessageEventNode';
+import ErrorEventNode from './nodes/ErrorEventNode';
+import DocumentNode from './nodes/DocumentNode';
+import TextBoxNode from './nodes/TextBoxNode';
+import SwimlaneNode from './nodes/SwimlaneNode';
+import FrameNode from './nodes/FrameNode';
 import { SimpleEdge } from './edges/SimpleEdge';
 import { BpmnNodePalette } from './BpmnNodePalette';
 import { QuickActionsMenu } from './ui/QuickActionsMenu';
@@ -43,13 +50,23 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 const nodeTypes = {
   startEvent: StartEventNode,
   endEvent: EndEventNode,
+  timerEvent: TimerEventNode,
+  messageEvent: MessageEventNode,
+  errorEvent: ErrorEventNode,
   task: TaskNode,
   userTask: TaskNode,
   serviceTask: TaskNode,
   gateway: GatewayNode,
+  parallelGateway: GatewayNode,
+  inclusiveGateway: GatewayNode,
+  eventGateway: GatewayNode,
   dataStore: DataStoreNode,
+  document: DocumentNode,
   subprocess: SubprocessNode,
   annotation: AnnotationNode,
+  textBox: TextBoxNode,
+  swimlane: SwimlaneNode,
+  frame: FrameNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -769,13 +786,23 @@ function getDefaultLabel(type: BpmnNodeType): string {
   const labels: Record<BpmnNodeType, string> = {
     startEvent: 'Início',
     endEvent: 'Fim',
+    timerEvent: 'Timer',
+    messageEvent: 'Mensagem',
+    errorEvent: 'Erro',
     task: 'Tarefa',
     userTask: 'Tarefa Manual',
     serviceTask: 'Tarefa Auto',
     gateway: 'Decisão',
+    parallelGateway: 'Paralelo',
+    inclusiveGateway: 'Inclusivo',
+    eventGateway: 'Evento',
     subprocess: 'Subprocesso',
     dataStore: 'Banco de Dados',
+    document: 'Documento',
     annotation: 'Nota',
+    textBox: 'Texto',
+    swimlane: 'Raia',
+    frame: 'Frame',
   };
   return labels[type] || 'Elemento';
 }

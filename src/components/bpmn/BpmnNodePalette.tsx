@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { Circle, CircleDot, Square, User, Cog, Diamond, FolderOpen, Database, StickyNote, Search, ChevronDown, ChevronRight, ChevronLeft, Layers } from 'lucide-react';
+import { 
+  Circle, CircleDot, Square, User, Cog, Diamond, FolderOpen, Database, StickyNote, 
+  Search, ChevronDown, ChevronRight, ChevronLeft, Layers,
+  Timer, Mail, AlertTriangle, FileText, Type, LayoutList, Frame, X, Plus, Zap
+} from 'lucide-react';
 import { BpmnNodeType, bpmnPaletteItems } from '@/types/bpmn';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -24,6 +28,16 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   FolderOpen,
   Database,
   StickyNote,
+  Timer,
+  Mail,
+  AlertTriangle,
+  FileText,
+  Type,
+  LayoutList,
+  Frame,
+  X,
+  Plus,
+  Zap,
 };
 
 const categoryConfig: Record<string, { label: string; icon: string; color: string }> = {
@@ -31,11 +45,12 @@ const categoryConfig: Record<string, { label: string; icon: string; color: strin
   atividades: { label: 'Atividades', icon: '📦', color: 'bg-blue-500/10 text-blue-600' },
   gateways: { label: 'Gateways', icon: '◇', color: 'bg-amber-500/10 text-amber-600' },
   dados: { label: 'Dados', icon: '🗄️', color: 'bg-purple-500/10 text-purple-600' },
+  containers: { label: 'Containers', icon: '🖼️', color: 'bg-cyan-500/10 text-cyan-600' },
 };
 
 export function BpmnNodePalette({ onAddNode, collapsed, onToggleCollapse }: BpmnNodePaletteProps) {
   const [search, setSearch] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['eventos', 'atividades', 'gateways', 'dados']);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['eventos', 'atividades', 'gateways', 'dados', 'containers']);
 
   const handleDragStart = (event: React.DragEvent, type: BpmnNodeType) => {
     event.dataTransfer.setData('application/bpmn-node', type);
@@ -117,6 +132,7 @@ export function BpmnNodePalette({ onAddNode, collapsed, onToggleCollapse }: Bpmn
         <div className="p-3 space-y-2">
           {Object.entries(groupedItems).map(([category, items]) => {
             const config = categoryConfig[category];
+            if (!config) return null;
             const isExpanded = expandedCategories.includes(category);
             
             return (
