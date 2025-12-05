@@ -175,8 +175,13 @@ export const ScouterDashboard = ({
                 <h1 className="font-bold text-lg">Olá, {scouterData.name}!</h1>
                 <p className="text-sm text-muted-foreground">Portal do Scouter</p>
                 
-                {/* Ranking badge */}
-                {ranking}
+              {/* Ranking badge */}
+                {ranking && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    {getRankingIcon()}
+                    <span>{ranking.rank_position}º de {ranking.total_scouters} scouters</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -213,7 +218,11 @@ export const ScouterDashboard = ({
                   </div>
                 </div>
                 
-                {ranking.rank_position > 1 && ranking.first_place_name}
+                {ranking.rank_position > 1 && ranking.first_place_name && (
+                  <div className="text-sm text-muted-foreground">
+                    1º lugar: <span className="font-medium text-foreground">{ranking.first_place_name}</span> ({ranking.first_place_fichas} fichas)
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>}
