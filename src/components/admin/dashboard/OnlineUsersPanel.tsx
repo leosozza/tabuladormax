@@ -1,5 +1,5 @@
 /**
- * Online Users Panel - Compact single card
+ * Online Users Panel - Shows users and scouters online
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Users, UserCheck } from 'lucide-react';
 import { useOnlinePresence, OnlineUser } from '@/hooks/useOnlinePresence';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
-function UserAvatar({ user }: { user: OnlineUser }) {
-  const initials = user.displayName
+function UserAvatar({ name }: { name: string }) {
+  const initials = name
     .split(' ')
     .map(n => n[0])
     .join('')
@@ -26,10 +28,32 @@ function UserAvatar({ user }: { user: OnlineUser }) {
 }
 
 export function OnlineUsersPanel() {
-  const { onlineUsers, scoutersOnline, usersOnline } = useOnlinePresence();
+  const { onlineUsers, usersOnline } = useOnlinePresence();
+
+  // Fetch active scouters from database (scouters with recent activity)
+  const { data: activeScouters } = useQuery({
+    queryKey: ['active-scouters'],
+    queryFn: async () => {
+      // Get scouters with activity in last 24 hours or status ativo
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      
+      const { data, error } = await supabase
+        .from('scouters')
+        .select('id, name, last_activity_at, status')
+        .eq('status', 'ativo')
+        .gte('last_activity_at', twentyFourHoursAgo)
+        .order('last_activity_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 60000,
+  });
 
   const users = onlineUsers.filter(u => !u.isScouter).slice(0, 3);
-  const scouters = onlineUsers.filter(u => u.isScouter).slice(0, 3);
+  const scoutersCount = activeScouters?.length || 0;
+  const displayScouters = activeScouters?.slice(0, 3) || [];
 
   return (
     <Card className="h-full">
@@ -57,7 +81,7 @@ export function OnlineUsersPanel() {
             <div className="flex items-center gap-2">
               <div className="flex -space-x-1.5">
                 {users.map((user) => (
-                  <UserAvatar key={user.id} user={user} />
+                  <UserAvatar key={user.id} name={user.displayName} />
                 ))}
               </div>
               {users[0] && (
@@ -74,24 +98,24 @@ export function OnlineUsersPanel() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <UserCheck className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium">Scouters</span>
+              <span className="text-xs font-medium">Scouters Ativos</span>
             </div>
             <Badge variant="secondary" className="text-xs h-5 px-1.5 bg-primary/10 text-primary">
-              {scoutersOnline}
+              {scoutersCount}
             </Badge>
           </div>
-          {scouters.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Nenhum scouter online</p>
+          {displayScouters.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum scouter ativo</p>
           ) : (
             <div className="flex items-center gap-2">
               <div className="flex -space-x-1.5">
-                {scouters.map((user) => (
-                  <UserAvatar key={user.id} user={user} />
+                {displayScouters.map((scouter) => (
+                  <UserAvatar key={scouter.id} name={scouter.name} />
                 ))}
               </div>
-              {scouters[0] && (
+              {displayScouters[0] && (
                 <span className="text-xs text-muted-foreground truncate">
-                  {scouters[0].displayName}{scouters.length > 1 && ` +${scoutersOnline - 1}`}
+                  {displayScouters[0].name.split(' ')[0]}{scoutersCount > 1 && ` +${scoutersCount - 1}`}
                 </span>
               )}
             </div>
