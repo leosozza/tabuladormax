@@ -1,32 +1,23 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { SafeSidebarTrigger } from "@/components/SafeSidebarTrigger";
-import { GeneralStatsCards } from "@/components/unified/GeneralStatsCards";
-import { ModuleActivityChart } from "@/components/unified/ModuleActivityChart";
-import { QuickActionsPanel } from "@/components/unified/QuickActionsPanel";
-import { SystemHealthPanel } from "@/components/unified/SystemHealthPanel";
 import { MaxconnectAgent } from "@/components/unified/MaxconnectAgent";
 import { Button } from "@/components/ui/button";
 import { Bot, LayoutDashboard } from "lucide-react";
 import { MinimalDateFilter, DateFilterValue, getDefaultMonthFilter } from "@/components/MinimalDateFilter";
 
+// New Dashboard Components
+import { LeadStatsCards } from "@/components/admin/dashboard/LeadStatsCards";
+import { PhotoStatsCard } from "@/components/admin/dashboard/PhotoStatsCard";
+import { SystemActivityBar } from "@/components/admin/dashboard/SystemActivityBar";
+import { SystemStatusPanel } from "@/components/admin/dashboard/SystemStatusPanel";
+import { OnlineUsersPanel } from "@/components/admin/dashboard/OnlineUsersPanel";
+import { AlertsOverview } from "@/components/admin/dashboard/AlertsOverview";
+import { ModuleActivityChart } from "@/components/unified/ModuleActivityChart";
+import { QuickActionsPanel } from "@/components/unified/QuickActionsPanel";
+
 export default function HomeChoice() {
   const [view, setView] = useState<'dashboard' | 'agent'>('dashboard');
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getDefaultMonthFilter);
-  
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ['general-stats-filtered', dateFilter.startDate, dateFilter.endDate],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_general_stats_filtered', {
-        p_start_date: dateFilter.startDate.toISOString(),
-        p_end_date: dateFilter.endDate.toISOString(),
-      }).single();
-      
-      if (error) throw error;
-      return data;
-    },
-  });
 
   return (
     <>
@@ -76,18 +67,26 @@ export default function HomeChoice() {
       <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-6">
         {view === 'dashboard' ? (
           <>
-            {/* Statistics Cards */}
-            <GeneralStatsCards stats={stats} isLoading={isLoading} periodLabel={dateFilter.label} />
+            {/* 1-4: Lead Statistics Cards */}
+            <LeadStatsCards />
 
-            {/* Charts and Health */}
-            <div className="grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <ModuleActivityChart />
-              </div>
-              <div>
-                <SystemHealthPanel />
-              </div>
+            {/* 5: Photo Stats + Online Users */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <PhotoStatsCard />
+              <OnlineUsersPanel />
             </div>
+
+            {/* 6: System Activity Bar - Full Width */}
+            <SystemActivityBar />
+
+            {/* 7: System Status Panel + Alerts */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <SystemStatusPanel />
+              <AlertsOverview />
+            </div>
+
+            {/* Charts */}
+            <ModuleActivityChart />
 
             {/* Quick Actions */}
             <QuickActionsPanel />
