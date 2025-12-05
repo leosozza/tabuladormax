@@ -1,6 +1,5 @@
 /**
- * Online Users Panel
- * Shows online users and scouters with real-time presence
+ * Online Users Panel - Compact single card
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,8 +17,8 @@ function UserAvatar({ user }: { user: OnlineUser }) {
     .slice(0, 2);
 
   return (
-    <Avatar className="h-8 w-8 border-2 border-success">
-      <AvatarFallback className="text-xs bg-primary/10 text-primary">
+    <Avatar className="h-7 w-7 border-2 border-green-500">
+      <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
         {initials}
       </AvatarFallback>
     </Avatar>
@@ -27,103 +26,78 @@ function UserAvatar({ user }: { user: OnlineUser }) {
 }
 
 export function OnlineUsersPanel() {
-  const { onlineUsers, totalOnline, scoutersOnline, usersOnline } = useOnlinePresence();
+  const { onlineUsers, scoutersOnline, usersOnline } = useOnlinePresence();
 
-  const users = onlineUsers.filter(u => !u.isScouter).slice(0, 5);
-  const scouters = onlineUsers.filter(u => u.isScouter).slice(0, 5);
+  const users = onlineUsers.filter(u => !u.isScouter).slice(0, 3);
+  const scouters = onlineUsers.filter(u => u.isScouter).slice(0, 3);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Users Online */}
-      <Card>
-        <CardHeader className="pb-3">
+    <Card className="h-full">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Users className="h-4 w-4" />
+          Usuários Online
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Users Section */}
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
-              Usuários Online
-            </CardTitle>
-            <Badge variant="secondary" className="bg-success/10 text-success">
-              {usersOnline} ativos
+            <div className="flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium">Usuários</span>
+            </div>
+            <Badge variant="secondary" className="text-xs h-5 px-1.5 bg-green-500/10 text-green-600">
+              {usersOnline}
             </Badge>
           </div>
-        </CardHeader>
-        <CardContent>
           {users.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhum usuário online no momento
-            </p>
+            <p className="text-xs text-muted-foreground">Nenhum usuário online</p>
           ) : (
-            <div className="space-y-3">
-              <div className="flex -space-x-2">
+            <div className="flex items-center gap-2">
+              <div className="flex -space-x-1.5">
                 {users.map((user) => (
                   <UserAvatar key={user.id} user={user} />
                 ))}
-                {usersOnline > 5 && (
-                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">
-                    +{usersOnline - 5}
-                  </div>
-                )}
               </div>
-              <div className="space-y-1">
-                {users.slice(0, 3).map((user) => (
-                  <div key={user.id} className="flex items-center justify-between text-sm">
-                    <span className="truncate">{user.displayName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {user.role}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              {users[0] && (
+                <span className="text-xs text-muted-foreground truncate">
+                  {users[0].displayName}{users.length > 1 && ` +${usersOnline - 1}`}
+                </span>
+              )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Scouters Online */}
-      <Card>
-        <CardHeader className="pb-3">
+        {/* Scouters Section */}
+        <div className="space-y-2 pt-2 border-t">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-primary" />
-              Scouters Online
-            </CardTitle>
-            <Badge variant="secondary" className="bg-primary/10 text-primary">
-              {scoutersOnline} ativos
+            <div className="flex items-center gap-1.5">
+              <UserCheck className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium">Scouters</span>
+            </div>
+            <Badge variant="secondary" className="text-xs h-5 px-1.5 bg-primary/10 text-primary">
+              {scoutersOnline}
             </Badge>
           </div>
-        </CardHeader>
-        <CardContent>
           {scouters.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhum scouter online no momento
-            </p>
+            <p className="text-xs text-muted-foreground">Nenhum scouter online</p>
           ) : (
-            <div className="space-y-3">
-              <div className="flex -space-x-2">
+            <div className="flex items-center gap-2">
+              <div className="flex -space-x-1.5">
                 {scouters.map((user) => (
                   <UserAvatar key={user.id} user={user} />
                 ))}
-                {scoutersOnline > 5 && (
-                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">
-                    +{scoutersOnline - 5}
-                  </div>
-                )}
               </div>
-              <div className="space-y-1">
-                {scouters.slice(0, 3).map((user) => (
-                  <div key={user.id} className="flex items-center justify-between text-sm">
-                    <span className="truncate">{user.displayName}</span>
-                    <div className="flex items-center gap-1">
-                      <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-                      <span className="text-xs text-success">Online</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {scouters[0] && (
+                <span className="text-xs text-muted-foreground truncate">
+                  {scouters[0].displayName}{scouters.length > 1 && ` +${scoutersOnline - 1}`}
+                </span>
+              )}
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
