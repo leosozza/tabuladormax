@@ -1,15 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Edge } from 'reactflow';
-import { EdgeRoutingMode, SmartEdgeData } from '../edges/types';
+import { EdgeRoutingMode, SimpleEdgeData } from '../edges/types';
 import { Button } from '@/components/ui/button';
 import { 
   ArrowRight, 
-  CornerDownRight, 
   Spline, 
-  PenTool, 
   Trash2,
   Eraser,
-  Check
 } from 'lucide-react';
 
 interface EdgeContextMenuProps {
@@ -19,14 +16,12 @@ interface EdgeContextMenuProps {
   onUpdateLabel: (label: string) => void;
   onUpdateRoutingMode: (mode: EdgeRoutingMode) => void;
   onDelete: () => void;
-  onClearWaypoints: () => void;
+  onResetCurve: () => void;
 }
 
 const routingModes: { mode: EdgeRoutingMode; icon: React.ReactNode; label: string }[] = [
   { mode: 'straight', icon: <ArrowRight className="w-4 h-4" />, label: 'Reta' },
-  { mode: 'orthogonal', icon: <CornerDownRight className="w-4 h-4" />, label: 'Ortogonal' },
-  { mode: 'smooth', icon: <Spline className="w-4 h-4" />, label: 'Curva' },
-  { mode: 'freeform', icon: <PenTool className="w-4 h-4" />, label: 'Livre' },
+  { mode: 'curved', icon: <Spline className="w-4 h-4" />, label: 'Curva' },
 ];
 
 export function EdgeContextMenu({
@@ -36,15 +31,15 @@ export function EdgeContextMenu({
   onUpdateLabel,
   onUpdateRoutingMode,
   onDelete,
-  onClearWaypoints,
+  onResetCurve,
 }: EdgeContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [label, setLabel] = useState(edge.data?.label || '');
   
-  const edgeData = edge.data as SmartEdgeData | undefined;
-  const currentMode = edgeData?.routingMode || 'orthogonal';
-  const waypointsCount = edgeData?.waypoints?.length || 0;
+  const edgeData = edge.data as SimpleEdgeData | undefined;
+  const currentMode = edgeData?.routingMode || 'curved';
+  const hasControlPoint = !!edgeData?.controlPoint;
 
   // Focus input on open
   useEffect(() => {
@@ -74,7 +69,7 @@ export function EdgeContextMenu({
   // Adjust position to stay within viewport
   const adjustedPosition = {
     x: Math.min(position.x, window.innerWidth - 220),
-    y: Math.min(position.y, window.innerHeight - 320),
+    y: Math.min(position.y, window.innerHeight - 280),
   };
 
   const handleLabelChange = (newLabel: string) => {
@@ -90,7 +85,7 @@ export function EdgeContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 bg-popover border border-border rounded-lg shadow-xl min-w-[200px] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-100"
+      className="fixed z-50 bg-popover border border-border rounded-lg shadow-xl min-w-[180px] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-100"
       style={{
         left: adjustedPosition.x,
         top: adjustedPosition.y,
@@ -99,22 +94,19 @@ export function EdgeContextMenu({
       {/* Tipo de linha */}
       <div className="p-2 border-b border-border">
         <span className="text-[10px] uppercase font-medium text-muted-foreground px-1">
-          Tipo de linha
+          Tipo
         </span>
-        <div className="grid grid-cols-4 gap-1 mt-1.5">
+        <div className="flex gap-1 mt-1.5">
           {routingModes.map(({ mode, icon, label: modeLabel }) => (
             <Button
               key={mode}
               variant={currentMode === mode ? 'secondary' : 'ghost'}
               size="sm"
-              className="h-8 w-full relative"
+              className="flex-1 h-8 gap-1.5"
               onClick={() => onUpdateRoutingMode(mode)}
-              title={modeLabel}
             >
               {icon}
-              {currentMode === mode && (
-                <Check className="w-2.5 h-2.5 absolute top-0.5 right-0.5 text-primary" />
-              )}
+              <span className="text-xs">{modeLabel}</span>
             </Button>
           ))}
         </div>
@@ -166,17 +158,15 @@ export function EdgeContextMenu({
 
       {/* Ações */}
       <div className="p-1.5">
-        {waypointsCount > 0 && (
+        {hasControlPoint && currentMode === 'curved' && (
           <Button
             variant="ghost"
             size="sm"
             className="w-full justify-start h-8 text-xs gap-2"
-            onClick={() => {
-              onClearWaypoints();
-            }}
+            onClick={onResetCurve}
           >
             <Eraser className="w-3.5 h-3.5" />
-            Limpar pontos ({waypointsCount})
+            Resetar curva
           </Button>
         )}
         <Button
@@ -189,7 +179,7 @@ export function EdgeContextMenu({
           }}
         >
           <Trash2 className="w-3.5 h-3.5" />
-          Excluir conexão
+          Excluir
         </Button>
       </div>
     </div>
