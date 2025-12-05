@@ -676,7 +676,21 @@ serve(async (req) => {
           if (conversion.hasError) {
             console.warn(`⚠️ Erro ao converter enum ${mapping.bitrix_field}: ${conversion.errorMsg}`);
           }
-          value = conversion.converted;
+          // ✨ SEMPRE atribuir o valor convertido para campos enum boolean (incluindo null)
+          // null representa "Aguardando" que é um estado válido
+          leadData[supabaseField] = conversion.converted;
+          appliedMappings.push({
+            bitrix_field: mapping.bitrix_field,
+            supabase_field: supabaseField,
+            value: conversion.converted,
+            transformed: true,
+            transform_function: 'enumToBoolean',
+            priority: mapping.priority,
+            display_name: mapping.display_name || null,
+            bitrix_field_type: mapping.bitrix_field_type || null
+          });
+          console.log(`✅ ${supabaseField} = ${mapping.bitrix_field} → ${conversion.converted} (enum→boolean)`);
+          break; // Usar este mapeamento
         }
         
         // Se encontrou valor, usar e parar (fallback automático)

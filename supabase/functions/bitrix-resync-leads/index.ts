@@ -677,15 +677,22 @@ async function processBatch(supabase: any, jobId: string) {
             mappedData['responsible'] = responsibleName;
           }
 
-          // Conversões especiais
-          const booleanFields = ['cadastro_existe_foto', 'presenca_confirmada', 'compareceu', 'ficha_confirmada'];
-          for (const field of booleanFields) {
-            if (mappedData[field] !== undefined && mappedData[field] !== null) {
-              const bitrixField = SUPABASE_TO_BITRIX_ENUM[field];
-              if (bitrixField) {
-                const conversion = convertBitrixEnumToBoolean(bitrixField, mappedData[field]);
-                mappedData[field] = conversion.converted;
-              }
+          // ✨ Conversões especiais para campos boolean enum
+          // IMPORTANTE: Buscar diretamente do Bitrix para tratar null (Aguardando) corretamente
+          const booleanEnumFields: Array<{supabaseField: string, bitrixField: string}> = [
+            { supabaseField: 'cadastro_existe_foto', bitrixField: 'UF_CRM_1737377961680' },
+            { supabaseField: 'presenca_confirmada', bitrixField: 'UF_CRM_1737377922' },
+            { supabaseField: 'compareceu', bitrixField: 'UF_CRM_1737377946' },
+            { supabaseField: 'ficha_confirmada', bitrixField: 'UF_CRM_1737378043893' }
+          ];
+          
+          for (const { supabaseField, bitrixField } of booleanEnumFields) {
+            const bitrixValue = bitrixLead[bitrixField];
+            // Converter mesmo se o valor existir (para tratar null corretamente)
+            if (bitrixValue !== undefined) {
+              const conversion = convertBitrixEnumToBoolean(bitrixField, bitrixValue);
+              // ✨ SEMPRE atribuir, inclusive null (que representa "Aguardando")
+              mappedData[supabaseField] = conversion.converted;
             }
           }
 
