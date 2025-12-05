@@ -6,8 +6,6 @@ import ReactFlow, {
   Edge,
   Connection,
   addEdge,
-  useNodesState,
-  useEdgesState,
   ReactFlowInstance,
   BackgroundVariant,
   EdgeTypes,
@@ -28,16 +26,18 @@ import SubprocessNode from './nodes/SubprocessNode';
 import AnnotationNode from './nodes/AnnotationNode';
 import { SmartEdge } from './edges/SmartEdge';
 import { BpmnNodePalette } from './BpmnNodePalette';
+import { QuickActionsMenu } from './ui/QuickActionsMenu';
+import { NodeContextToolbar } from './ui/NodeContextToolbar';
+import { AiFlowGenerator } from './ai/AiFlowGenerator';
 import { BpmnNodeType } from '@/types/bpmn';
-import { EdgeRoutingMode, SmartEdgeData } from './edges/types';
+import { EdgeRoutingMode, SmartEdgeData, NodeColor } from './edges/types';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { Button } from '@/components/ui/button';
 import { 
   Save, Download, Trash2, Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, 
-  MousePointer2, Hand, Plus, Minus, ArrowRight, CornerDownRight, Spline
+  MousePointer2, Hand, Plus, Minus, ArrowRight, CornerDownRight, Spline, PenTool
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const nodeTypes = {
   startEvent: StartEventNode,
@@ -88,6 +88,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [tool, setTool] = useState<'select' | 'pan'>('select');
   const [isMiddleClickPanning, setIsMiddleClickPanning] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   
   // Undo/Redo system
   const { canUndo, canRedo, undo, redo, takeSnapshot } = useUndoRedo();
@@ -102,7 +103,6 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
   
   // Custom node changes handler with undo support
   const onNodesChange: OnNodesChange = useCallback((changes) => {
-    // Record before applying if it's a significant change
     const hasSignificantChange = changes.some(
       c => c.type === 'position' || c.type === 'remove' || c.type === 'add'
     );
@@ -165,12 +165,91 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
       setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
       setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
       setSelectedNode(null);
+      setShowQuickActions(false);
     }
     if (selectedEdge) {
       setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
       setSelectedEdge(null);
     }
   }, [selectedNode, selectedEdge, recordChange]);
+
+  // Duplicate selected node
+  const handleDuplicateNode = useCallback(() => {
+    if (!selectedNode) return;
+    
+    recordChange();
+    
+    const newNode: Node = {
+      ...selectedNode,
+      id: getNodeId(),
+      position: {
+        x: selectedNode.position.x + 50,
+        y: selectedNode.position.y + 50,
+      },
+      selected: false,
+    };
+    
+    setNodes((nds) => [...nds, newNode]);
+  }, [selectedNode, recordChange]);
+
+  // Update node color
+  const handleNodeColorChange = useCallback((color: NodeColor) => {
+    if (!selectedNode) return;
+    
+    recordChange();
+    
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === selectedNode.id
+          ? { ...n, data: { ...n.data, color } }
+          : n
+      )
+    );
+    
+    setSelectedNode((prev) =>
+      prev ? { ...prev, data: { ...prev.data, color } } : null
+    );
+  }, [selectedNode, recordChange]);
+
+  // Add connected node from quick actions
+  const handleAddConnectedNode = useCallback((type: BpmnNodeType, sourceNode: Node) => {
+    if (!reactFlowInstance) return;
+    
+    recordChange();
+    
+    const newNodeId = getNodeId();
+    const newNode: Node = {
+      id: newNodeId,
+      type,
+      position: {
+        x: sourceNode.position.x + 200,
+        y: sourceNode.position.y,
+      },
+      data: { label: getDefaultLabel(type), type },
+    };
+    
+    const newEdge: Edge = {
+      id: `edge_${newNodeId}`,
+      source: sourceNode.id,
+      target: newNodeId,
+      type: 'smart',
+      data: {
+        routingMode: 'orthogonal',
+        waypoints: [],
+      } as SmartEdgeData,
+    };
+    
+    setNodes((nds) => [...nds, newNode]);
+    setEdges((eds) => [...eds, newEdge]);
+    setShowQuickActions(false);
+  }, [reactFlowInstance, recordChange]);
+
+  // Handle AI generated flow
+  const handleAiGenerate = useCallback((newNodes: Node[], newEdges: Edge[]) => {
+    recordChange();
+    setNodes(newNodes);
+    setEdges(normalizeEdges(newEdges));
+  }, [recordChange]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -187,6 +266,12 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
         // Delete/Backspace to remove selected element
         if (e.key === 'Delete' || e.key === 'Backspace') {
           handleDeleteSelected();
+        }
+        
+        // Ctrl+D to duplicate
+        if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+          e.preventDefault();
+          handleDuplicateNode();
         }
       }
       
@@ -213,7 +298,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleDeleteSelected, handleUndo, handleRedo]);
+  }, [handleDeleteSelected, handleUndo, handleRedo, handleDuplicateNode]);
 
   // Middle click pan handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -303,16 +388,19 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
   const onNodeClick = (_: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
     setSelectedEdge(null);
+    setShowQuickActions(false);
   };
 
   const onEdgeClick = (_: React.MouseEvent, edge: Edge) => {
     setSelectedEdge(edge);
     setSelectedNode(null);
+    setShowQuickActions(false);
   };
 
   const onPaneClick = () => {
     setSelectedNode(null);
     setSelectedEdge(null);
+    setShowQuickActions(false);
   };
 
   const handleZoomIn = () => reactFlowInstance?.zoomIn();
@@ -349,7 +437,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
                 ...edge.data, 
                 routingMode,
                 waypoints: [], // Clear waypoints when changing mode
-                labelPosition: undefined, // Reset label position
+                labelPosition: undefined,
               } 
             }
           : edge
@@ -396,8 +484,14 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
       case 'straight': return <ArrowRight className="w-4 h-4" />;
       case 'orthogonal': return <CornerDownRight className="w-4 h-4" />;
       case 'smooth': return <Spline className="w-4 h-4" />;
+      case 'freeform': return <PenTool className="w-4 h-4" />;
     }
   };
+
+  // Get selected node position for quick actions
+  const selectedNodePosition = selectedNode 
+    ? reactFlowInstance?.flowToScreenPosition(selectedNode.position)
+    : null;
 
   return (
     <TooltipProvider>
@@ -470,6 +564,23 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
           </ReactFlow>
         </div>
 
+        {/* Quick Actions Menu - positioned near selected node */}
+        {showQuickActions && selectedNode && selectedNodePosition && !readOnly && (
+          <div 
+            className="absolute z-20"
+            style={{
+              left: selectedNodePosition.x + 100,
+              top: selectedNodePosition.y - 90,
+            }}
+          >
+            <QuickActionsMenu
+              node={selectedNode}
+              onAddNode={handleAddConnectedNode}
+              onClose={() => setShowQuickActions(false)}
+            />
+          </div>
+        )}
+
         {/* Floating Bottom Toolbar - Miro style */}
         {!readOnly && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
@@ -519,6 +630,9 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
                   </TooltipTrigger>
                   <TooltipContent>Elementos BPMN</TooltipContent>
                 </Tooltip>
+                
+                {/* AI Generator */}
+                <AiFlowGenerator onGenerate={handleAiGenerate} />
               </div>
 
               {/* Zoom Controls */}
@@ -606,22 +720,16 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
           </div>
         )}
 
-        {/* Selected Node Actions - Floating */}
-        {selectedNode && !readOnly && (
+        {/* Selected Node Actions - Context Toolbar */}
+        {selectedNode && !readOnly && !showQuickActions && (
           <div className="absolute top-4 right-4 z-10">
-            <div className="flex items-center gap-2 bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-lg px-3 py-2">
-              <span className="text-sm font-medium text-foreground">
-                {selectedNode.data.label}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDeleteSelected}
-                className="h-8 w-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
+            <NodeContextToolbar
+              node={selectedNode}
+              onDelete={handleDeleteSelected}
+              onDuplicate={handleDuplicateNode}
+              onColorChange={handleNodeColorChange}
+              onShowQuickActions={() => setShowQuickActions(true)}
+            />
           </div>
         )}
 
@@ -675,17 +783,17 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
                 </Button>
               </div>
               
-              {/* Routing mode selector */}
+              {/* Routing mode selector - now with 4 options */}
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground">Tipo de linha</label>
-                <div className="flex gap-1">
-                  {(['straight', 'orthogonal', 'smooth'] as EdgeRoutingMode[]).map((mode) => (
+                <div className="grid grid-cols-4 gap-1">
+                  {(['straight', 'orthogonal', 'smooth', 'freeform'] as EdgeRoutingMode[]).map((mode) => (
                     <Tooltip key={mode}>
                       <TooltipTrigger asChild>
                         <Button
                           variant={(selectedEdge.data as SmartEdgeData)?.routingMode === mode ? 'secondary' : 'outline'}
                           size="sm"
-                          className="flex-1 h-9"
+                          className="h-9"
                           onClick={() => updateEdgeRoutingMode(selectedEdge.id, mode)}
                         >
                           {getRoutingIcon(mode)}
@@ -695,6 +803,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
                         {mode === 'straight' && 'Linha reta'}
                         {mode === 'orthogonal' && 'Linha ortogonal'}
                         {mode === 'smooth' && 'Linha curva'}
+                        {mode === 'freeform' && 'Linha livre (Bezier)'}
                       </TooltipContent>
                     </Tooltip>
                   ))}
@@ -721,9 +830,10 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
               
               {/* Help text */}
               <p className="text-[10px] text-muted-foreground leading-relaxed pt-2 border-t border-border/50">
-                💡 <strong>Duplo clique</strong> na linha para adicionar pontos de controle.
-                <br />
-                <strong>Arraste</strong> os pontos para ajustar. <strong>Duplo clique</strong> no ponto para remover.
+                💡 <strong>Duplo clique</strong> na linha para adicionar pontos.
+                {(selectedEdge.data as SmartEdgeData)?.routingMode === 'freeform' && (
+                  <> Arraste os <strong>handles</strong> para ajustar a curvatura.</>
+                )}
               </p>
             </div>
           </div>

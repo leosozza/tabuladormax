@@ -10,6 +10,7 @@ import { SmartEdgeData, EdgeRoutingMode, WaypointData } from './types';
 import { getStraightPath } from './routing/straight';
 import { getOrthogonalPath } from './routing/orthogonal';
 import { getSmoothPath } from './routing/smooth';
+import { getBezierPath } from './routing/bezier';
 
 interface SmartEdgeProps extends EdgeProps<SmartEdgeData> {}
 
@@ -29,6 +30,7 @@ export const SmartEdge = memo(function SmartEdge({
   const { setEdges } = useReactFlow();
   const [isDraggingLabel, setIsDraggingLabel] = useState(false);
   const [isDraggingWaypoint, setIsDraggingWaypoint] = useState<number | null>(null);
+  const [isDraggingHandle, setIsDraggingHandle] = useState<{ index: number; type: 'in' | 'out' } | null>(null);
   const labelRef = useRef<HTMLDivElement>(null);
   
   const routingMode: EdgeRoutingMode = data?.routingMode || 'orthogonal';
@@ -55,9 +57,15 @@ export const SmartEdge = memo(function SmartEdge({
         waypoints,
       });
       break;
+    case 'freeform':
+      [edgePath, labelX, labelY] = getBezierPath({
+        sourceX, sourceY, targetX, targetY,
+        sourcePosition, targetPosition,
+        controlPoints: waypoints,
+      });
+      break;
     case 'orthogonal':
     default:
-      // Use ReactFlow's built-in smooth step for orthogonal when no custom waypoints
       if (waypoints.length === 0) {
         [edgePath, labelX, labelY] = getSmoothStepPath({
           sourceX, sourceY, sourcePosition,
@@ -82,7 +90,6 @@ export const SmartEdge = memo(function SmartEdge({
   const handlePathDoubleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     
-    // Get click position relative to SVG
     const svg = (e.target as SVGElement).closest('svg');
     if (!svg) return;
     
@@ -91,7 +98,6 @@ export const SmartEdge = memo(function SmartEdge({
     point.x = e.clientX - rect.left;
     point.y = e.clientY - rect.top;
     
-    // Transform to flow coordinates
     const ctm = svg.getScreenCTM()?.inverse();
     if (!ctm) return;
     
@@ -102,7 +108,13 @@ export const SmartEdge = memo(function SmartEdge({
       y: transformedPoint.y,
     };
     
-    // Insert waypoint at the right position
+    // For freeform mode, initialize bezier handles
+    if (routingMode === 'freeform') {
+      const offset = 30;
+      newWaypoint.handleIn = { x: transformedPoint.x - offset, y: transformedPoint.y };
+      newWaypoint.handleOut = { x: transformedPoint.x + offset, y: transformedPoint.y };
+    }
+    
     const newWaypoints = [...waypoints, newWaypoint];
     
     setEdges((eds) =>
@@ -112,13 +124,20 @@ export const SmartEdge = memo(function SmartEdge({
           : edge
       )
     );
-  }, [id, waypoints, setEdges]);
+  }, [id, waypoints, setEdges, routingMode]);
   
   // Drag waypoint
   const handleWaypointMouseDown = useCallback((e: React.MouseEvent, index: number) => {
     e.stopPropagation();
     e.preventDefault();
     setIsDraggingWaypoint(index);
+  }, []);
+  
+  // Drag bezier handle
+  const handleBezierHandleMouseDown = useCallback((e: React.MouseEvent, index: number, type: 'in' | 'out') => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsDraggingHandle({ index, type });
   }, []);
   
   // Delete waypoint on double-click
@@ -146,7 +165,7 @@ export const SmartEdge = memo(function SmartEdge({
   
   // Global mouse move/up for dragging
   useEffect(() => {
-    if (isDraggingWaypoint === null && !isDraggingLabel) return;
+    if (isDraggingWaypoint === null && !isDraggingLabel && !isDraggingHandle) return;
     
     const handleMouseMove = (e: MouseEvent) => {
       const svg = document.querySelector('.react-flow__edges svg') as SVGSVGElement;
@@ -163,11 +182,43 @@ export const SmartEdge = memo(function SmartEdge({
       const transformedPoint = point.matrixTransform(ctm);
       
       if (isDraggingWaypoint !== null) {
-        const newWaypoints = waypoints.map((wp, i) =>
-          i === isDraggingWaypoint
-            ? { x: transformedPoint.x, y: transformedPoint.y }
-            : wp
+        const newWaypoints = waypoints.map((wp, i) => {
+          if (i !== isDraggingWaypoint) return wp;
+          
+          // Calculate delta for moving handles together
+          const dx = transformedPoint.x - wp.x;
+          const dy = transformedPoint.y - wp.y;
+          
+          return {
+            ...wp,
+            x: transformedPoint.x,
+            y: transformedPoint.y,
+            // Move handles with the point
+            handleIn: wp.handleIn ? { x: wp.handleIn.x + dx, y: wp.handleIn.y + dy } : undefined,
+            handleOut: wp.handleOut ? { x: wp.handleOut.x + dx, y: wp.handleOut.y + dy } : undefined,
+          };
+        });
+        
+        setEdges((eds) =>
+          eds.map((edge) =>
+            edge.id === id
+              ? { ...edge, data: { ...edge.data, waypoints: newWaypoints } }
+              : edge
+          )
         );
+      }
+      
+      if (isDraggingHandle) {
+        const { index, type } = isDraggingHandle;
+        const newWaypoints = waypoints.map((wp, i) => {
+          if (i !== index) return wp;
+          
+          if (type === 'in') {
+            return { ...wp, handleIn: { x: transformedPoint.x, y: transformedPoint.y } };
+          } else {
+            return { ...wp, handleOut: { x: transformedPoint.x, y: transformedPoint.y } };
+          }
+        });
         
         setEdges((eds) =>
           eds.map((edge) =>
@@ -198,6 +249,7 @@ export const SmartEdge = memo(function SmartEdge({
     const handleMouseUp = () => {
       setIsDraggingWaypoint(null);
       setIsDraggingLabel(false);
+      setIsDraggingHandle(null);
     };
     
     window.addEventListener('mousemove', handleMouseMove);
@@ -207,7 +259,7 @@ export const SmartEdge = memo(function SmartEdge({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingWaypoint, isDraggingLabel, id, waypoints, setEdges]);
+  }, [isDraggingWaypoint, isDraggingLabel, isDraggingHandle, id, waypoints, setEdges]);
   
   const strokeColor = selected 
     ? 'hsl(var(--primary))' 
@@ -240,9 +292,56 @@ export const SmartEdge = memo(function SmartEdge({
         onDoubleClick={handlePathDoubleClick}
       />
       
-      {/* Waypoint handles - only show when selected */}
+      {/* Waypoint handles and bezier control handles - only show when selected */}
       {selected && waypoints.map((wp, index) => (
         <g key={`waypoint-${index}`}>
+          {/* Bezier handle lines (freeform mode) */}
+          {routingMode === 'freeform' && wp.handleIn && (
+            <line
+              x1={wp.x}
+              y1={wp.y}
+              x2={wp.handleIn.x}
+              y2={wp.handleIn.y}
+              stroke="hsl(var(--primary) / 0.5)"
+              strokeWidth={1}
+              strokeDasharray="4 2"
+            />
+          )}
+          {routingMode === 'freeform' && wp.handleOut && (
+            <line
+              x1={wp.x}
+              y1={wp.y}
+              x2={wp.handleOut.x}
+              y2={wp.handleOut.y}
+              stroke="hsl(var(--primary) / 0.5)"
+              strokeWidth={1}
+              strokeDasharray="4 2"
+            />
+          )}
+          
+          {/* Bezier handle circles (freeform mode) */}
+          {routingMode === 'freeform' && wp.handleIn && (
+            <circle
+              cx={wp.handleIn.x}
+              cy={wp.handleIn.y}
+              r={5}
+              fill="hsl(var(--primary))"
+              className="cursor-crosshair"
+              onMouseDown={(e) => handleBezierHandleMouseDown(e, index, 'in')}
+            />
+          )}
+          {routingMode === 'freeform' && wp.handleOut && (
+            <circle
+              cx={wp.handleOut.x}
+              cy={wp.handleOut.y}
+              r={5}
+              fill="hsl(var(--primary))"
+              className="cursor-crosshair"
+              onMouseDown={(e) => handleBezierHandleMouseDown(e, index, 'out')}
+            />
+          )}
+          
+          {/* Main waypoint circle */}
           <circle
             cx={wp.x}
             cy={wp.y}
