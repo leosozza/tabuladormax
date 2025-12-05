@@ -1224,6 +1224,69 @@ export type Database = {
           },
         ]
       }
+      lead_reprocess_jobs: {
+        Row: {
+          batch_size: number | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          date_from: string | null
+          date_to: string | null
+          error_details: Json | null
+          error_leads: number | null
+          id: string
+          last_processed_id: number | null
+          only_missing_fields: boolean | null
+          processed_leads: number | null
+          skipped_leads: number | null
+          started_at: string | null
+          status: string
+          total_leads: number | null
+          updated_at: string | null
+          updated_leads: number | null
+        }
+        Insert: {
+          batch_size?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          error_details?: Json | null
+          error_leads?: number | null
+          id?: string
+          last_processed_id?: number | null
+          only_missing_fields?: boolean | null
+          processed_leads?: number | null
+          skipped_leads?: number | null
+          started_at?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string | null
+          updated_leads?: number | null
+        }
+        Update: {
+          batch_size?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          error_details?: Json | null
+          error_leads?: number | null
+          id?: string
+          last_processed_id?: number | null
+          only_missing_fields?: boolean | null
+          processed_leads?: number | null
+          skipped_leads?: number | null
+          started_at?: string | null
+          status?: string
+          total_leads?: number | null
+          updated_at?: string | null
+          updated_leads?: number | null
+        }
+        Relationships: []
+      }
       lead_resync_jobs: {
         Row: {
           batch_size: number | null
@@ -2344,6 +2407,14 @@ export type Database = {
       clean_corrupted_fonte: { Args: never; Returns: Json }
       clean_old_lead_search_cache: { Args: never; Returns: undefined }
       cleanup_scouter_location_history: { Args: never; Returns: number }
+      count_leads_to_reprocess: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_only_missing_fields?: boolean
+        }
+        Returns: number
+      }
       fix_scouter_names: {
         Args: never
         Returns: {
@@ -2616,6 +2687,16 @@ export type Database = {
       recalculate_fonte_batch: { Args: never; Returns: Json }
       recalculate_fonte_single_batch: {
         Args: { p_batch_size?: number }
+        Returns: Json
+      }
+      reprocess_leads_batch: {
+        Args: {
+          p_batch_size?: number
+          p_date_from?: string
+          p_date_to?: string
+          p_last_processed_id?: number
+          p_only_missing_fields?: boolean
+        }
         Returns: Json
       }
       reprocess_leads_from_raw_bulk: {
