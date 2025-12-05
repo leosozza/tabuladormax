@@ -148,7 +148,7 @@ export const ScouterDashboard = ({
     } else if (ranking.rank_position === 3) {
       return <Medal className="h-5 w-5 text-amber-600" />;
     }
-    return <Trophy className="h-5 w-5 text-primary/60" />;
+    return;
   };
   return <div className="min-h-screen bg-background">
       {/* Header */}
@@ -176,12 +176,10 @@ export const ScouterDashboard = ({
                 <p className="text-sm text-muted-foreground">Portal do Scouter</p>
                 
               {/* Ranking badge */}
-                {ranking && (
-                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                {ranking && <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     {getRankingIcon()}
-                    <span>{ranking.rank_position}º de {ranking.total_scouters} scouters</span>
-                  </div>
-                )}
+                    
+                  </div>}
               </div>
             </div>
 
@@ -218,11 +216,9 @@ export const ScouterDashboard = ({
                   </div>
                 </div>
                 
-                {ranking.rank_position > 1 && ranking.first_place_name && (
-                  <div className="text-sm text-muted-foreground">
+                {ranking.rank_position > 1 && ranking.first_place_name && <div className="text-sm text-muted-foreground">
                     1º lugar: <span className="font-medium text-foreground">{ranking.first_place_name}</span> ({ranking.first_place_fichas} fichas)
-                  </div>
-                )}
+                  </div>}
               </div>
             </CardContent>
           </Card>}
