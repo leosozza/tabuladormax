@@ -8,12 +8,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DateFilterValue } from '@/components/MinimalDateFilter';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Settings } from 'lucide-react';
+import { Settings, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 interface LeadrometroCardProps {
   dateFilter: DateFilterValue;
 }
@@ -240,9 +241,31 @@ export function LeadrometroCard({
   return <Card className="relative overflow-hidden">
       <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-bl-full opacity-50" />
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Leadrômetro
-        </CardTitle>
+        <div className="flex items-center gap-1">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Leadrômetro
+          </CardTitle>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs">
+                <p className="font-semibold mb-1">Como é calculado:</p>
+                <ul className="text-xs space-y-1">
+                  <li><strong>Confirmados:</strong> % de fichas confirmadas</li>
+                  <li><strong>Com Foto:</strong> % de leads com foto</li>
+                  <li><strong>Processados:</strong> % fora da fila de qualificação</li>
+                  <li><strong>Agendados:</strong> % em agendamento</li>
+                  <li><strong>Convertidos:</strong> comparecidos / agendados</li>
+                </ul>
+                <p className="text-xs mt-2 text-muted-foreground">
+                  Cada indicador tem um peso configurável via ⚙️
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8 z-10 relative" onClick={e => {
