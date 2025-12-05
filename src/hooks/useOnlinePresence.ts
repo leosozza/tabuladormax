@@ -12,6 +12,7 @@ export interface OnlineUser {
   displayName: string;
   role?: string;
   isScouter?: boolean;
+  isTelemarketing?: boolean;
   onlineAt: string;
 }
 
@@ -43,6 +44,15 @@ export function useOnlinePresence() {
 
       const isScouter = roleData?.role === 'agent'; // Scouters typically have agent role
 
+      // Check if user is telemarketing
+      const { data: telemarketingMapping } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('id')
+        .eq('tabuladormax_user_id', user.id)
+        .maybeSingle();
+
+      const isTelemarketing = !!telemarketingMapping;
+
       // Create presence channel
       presenceChannel = supabase.channel('online-users', {
         config: {
@@ -64,6 +74,7 @@ export function useOnlinePresence() {
                 displayName: String(presence.displayName || 'Usuário'),
                 role: presence.role ? String(presence.role) : undefined,
                 isScouter: Boolean(presence.isScouter),
+                isTelemarketing: Boolean(presence.isTelemarketing),
                 onlineAt: String(presence.onlineAt || new Date().toISOString()),
               });
             }
@@ -91,6 +102,7 @@ export function useOnlinePresence() {
                   displayName: String(presence.displayName || 'Usuário'),
                   role: presence.role ? String(presence.role) : undefined,
                   isScouter: Boolean(presence.isScouter),
+                  isTelemarketing: Boolean(presence.isTelemarketing),
                   onlineAt: String(presence.onlineAt || new Date().toISOString()),
                 });
               }
@@ -116,6 +128,7 @@ export function useOnlinePresence() {
               displayName: profile?.display_name || user.email || 'Usuário',
               role: roleData?.role || 'agent',
               isScouter: isScouter,
+              isTelemarketing: isTelemarketing,
               onlineAt: new Date().toISOString(),
             });
           }
@@ -135,12 +148,14 @@ export function useOnlinePresence() {
 
   const totalOnline = onlineUsers.length;
   const scoutersOnline = onlineUsers.filter(u => u.isScouter).length;
-  const usersOnline = onlineUsers.filter(u => !u.isScouter).length;
+  const telemarketingOnline = onlineUsers.filter(u => u.isTelemarketing).length;
+  const usersOnline = onlineUsers.filter(u => !u.isScouter && !u.isTelemarketing).length;
 
   return {
     onlineUsers,
     totalOnline,
     scoutersOnline,
+    telemarketingOnline,
     usersOnline,
     channel,
   };
