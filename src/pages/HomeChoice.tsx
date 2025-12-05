@@ -65,31 +65,33 @@ export default function HomeChoice() {
             {/* Row 1: Lead Stats - 4 cards */}
             <LeadStatsCards dateFilter={dateFilter} />
 
-            {/* Row 2: Photo + Agendados + Comparecidos + Placeholder */}
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              <PhotoStatsCard dateFilter={dateFilter} />
+            {/* Row 2: Leads com Foto */}
+            <PhotoStatsCard dateFilter={dateFilter} />
+
+            {/* Row 3: Gráfico de Atividade - Full Width */}
+            <ModuleActivityChart dateFilter={dateFilter} />
+
+            {/* Row 4: Agendados + Comparecidos + Placeholder */}
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <AgendadosStatsCard dateFilter={dateFilter} />
               <ComparecidosStatsCard dateFilter={dateFilter} />
               <PlaceholderStatsCard />
             </div>
 
-            {/* Row 3: Status + Online + Alerts */}
+            {/* Row 5: Status + Online + Alerts */}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <SystemStatusPanel />
               <OnlineUsersPanel />
               <AlertsOverview />
             </div>
 
-            {/* Row 4: Chart + Quick Actions */}
+            {/* Row 6: Quick Actions + System Activity */}
             <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <ModuleActivityChart />
-              </div>
               <QuickActionsPanel />
+              <div className="lg:col-span-2">
+                <SystemActivityBar />
+              </div>
             </div>
-
-            {/* Row 5: System Activity Bar */}
-            <SystemActivityBar />
           </>
         ) : (
           <MaxconnectAgent />

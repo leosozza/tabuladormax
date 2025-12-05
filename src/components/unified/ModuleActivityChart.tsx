@@ -1,41 +1,105 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, subDays } from "date-fns";
+import { format, eachDayOfInterval, eachHourOfInterval, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { DateFilterValue } from "@/components/MinimalDateFilter";
 
-export function ModuleActivityChart() {
+interface ModuleActivityChartProps {
+  dateFilter: DateFilterValue;
+}
+
+export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
+  const isToday = dateFilter.preset === 'today' || dateFilter.preset === 'exact';
+  
+  const getTitle = () => {
+    switch (dateFilter.preset) {
+      case 'today': return 'Atividade do Dia';
+      case 'week': return 'Atividade da Semana';
+      case 'month': return 'Atividade do Mês';
+      case 'exact': return `Atividade de ${format(dateFilter.startDate, "dd 'de' MMMM", { locale: ptBR })}`;
+      case 'range': return 'Atividade do Período';
+      default: return 'Atividade';
+    }
+  };
+
+  const getDescription = () => {
+    if (isToday) {
+      return 'Leads criados por hora';
+    }
+    return 'Leads criados por dia';
+  };
+
   const { data: chartData, isLoading } = useQuery({
-    queryKey: ['activity-chart'],
+    queryKey: ['activity-chart', dateFilter.startDate.toISOString(), dateFilter.endDate.toISOString(), isToday],
     queryFn: async () => {
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const date = subDays(new Date(), 6 - i);
-        return format(date, 'yyyy-MM-dd');
-      });
+      if (isToday) {
+        // Por hora
+        const hours = eachHourOfInterval({
+          start: startOfDay(dateFilter.startDate),
+          end: endOfDay(dateFilter.startDate)
+        });
 
-      const promises = last7Days.map(async (date) => {
-        const { count } = await supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .gte('criado', `${date}T00:00:00`)
-          .lt('criado', `${date}T23:59:59`);
+        const promises = hours.map(async (hour) => {
+          const hourStart = hour.toISOString();
+          const hourEnd = new Date(hour.getTime() + 60 * 60 * 1000 - 1).toISOString();
 
-        return {
-          date: format(new Date(date), 'dd/MMM', { locale: ptBR }),
-          leads: count || 0,
-        };
-      });
+          const { count } = await supabase
+            .from('leads')
+            .select('*', { count: 'exact', head: true })
+            .gte('criado', hourStart)
+            .lt('criado', hourEnd);
 
-      return await Promise.all(promises);
+          return {
+            date: format(hour, 'HH\'h\'', { locale: ptBR }),
+            leads: count || 0,
+          };
+        });
+
+        return await Promise.all(promises);
+      } else {
+        // Por dia
+        const days = eachDayOfInterval({
+          start: dateFilter.startDate,
+          end: dateFilter.endDate
+        });
+
+        const promises = days.map(async (date) => {
+          const dayStr = format(date, 'yyyy-MM-dd');
+
+          const { count } = await supabase
+            .from('leads')
+            .select('*', { count: 'exact', head: true })
+            .gte('criado', `${dayStr}T00:00:00`)
+            .lt('criado', `${dayStr}T23:59:59`);
+
+          // Formato do eixo X baseado no preset
+          let label: string;
+          if (dateFilter.preset === 'week') {
+            label = format(date, 'EEE', { locale: ptBR });
+          } else if (dateFilter.preset === 'month') {
+            label = format(date, 'dd', { locale: ptBR });
+          } else {
+            label = format(date, 'dd/MMM', { locale: ptBR });
+          }
+
+          return {
+            date: label,
+            leads: count || 0,
+          };
+        });
+
+        return await Promise.all(promises);
+      }
     },
   });
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Atividade dos Últimos 7 Dias</CardTitle>
-        <CardDescription>Leads criados por dia</CardDescription>
+        <CardTitle>{getTitle()}</CardTitle>
+        <CardDescription>{getDescription()}</CardDescription>
       </CardHeader>
       <CardContent>
         {isLoading ? (
