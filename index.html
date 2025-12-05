@@ -73,9 +73,7 @@
           });
         }
         
-        // 3. Limpar storage
-        try { localStorage.clear(); } catch(e) {}
-        try { sessionStorage.clear(); } catch(e) {}
+        // 3. Storage preservado para manter autenticação
         
         // 4. Limpar IndexedDB
         if ('indexedDB' in window) {
