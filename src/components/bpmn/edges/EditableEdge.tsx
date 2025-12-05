@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   EdgeProps,
   getSmoothStepPath,
@@ -24,8 +24,9 @@ export function EditableEdge({
   data,
   selected,
 }: EdgeProps) {
-  const { setEdges } = useReactFlow();
+  const { setEdges, getViewport } = useReactFlow();
   const [isDragging, setIsDragging] = useState(false);
+  const svgRef = useRef<SVGPathElement>(null);
   
   const waypoints: Waypoint[] = data?.waypoints || [];
   
@@ -63,33 +64,55 @@ export function EditableEdge({
     labelY = points[midIndex].y;
   }
 
-  const handleWaypointDrag = useCallback((
-    index: number,
-    event: React.MouseEvent
-  ) => {
+  // Convert screen coordinates to flow coordinates
+  const screenToFlowPosition = useCallback((clientX: number, clientY: number) => {
+    const svg = svgRef.current?.closest('svg');
+    if (!svg) return { x: 0, y: 0 };
+    
+    const rect = svg.getBoundingClientRect();
+    const { x: viewX, y: viewY, zoom } = getViewport();
+    
+    return {
+      x: (clientX - rect.left - viewX) / zoom,
+      y: (clientY - rect.top - viewY) / zoom,
+    };
+  }, [getViewport]);
+
+  // Handle dragging the entire edge - adds a waypoint and drags it
+  const handleEdgeDrag = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
+    event.preventDefault();
+    
     setIsDragging(true);
     
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const currentWaypoints = [...waypoints];
-    const startWaypoint = { ...currentWaypoints[index] };
+    const startPos = screenToFlowPosition(event.clientX, event.clientY);
+    
+    // Add a new waypoint at the drag start position
+    const newWaypoint = { x: startPos.x, y: startPos.y };
+    const newWaypoints = [...waypoints, newWaypoint];
+    const newIndex = newWaypoints.length - 1;
+    
+    // Update edges with new waypoint
+    setEdges((eds) =>
+      eds.map((edge) =>
+        edge.id === id
+          ? { ...edge, data: { ...edge.data, waypoints: newWaypoints } }
+          : edge
+      )
+    );
     
     const onMouseMove = (e: MouseEvent) => {
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      
-      currentWaypoints[index] = {
-        x: startWaypoint.x + dx,
-        y: startWaypoint.y + dy,
-      };
+      const currentPos = screenToFlowPosition(e.clientX, e.clientY);
       
       setEdges((eds) =>
-        eds.map((edge) =>
-          edge.id === id
-            ? { ...edge, data: { ...edge.data, waypoints: [...currentWaypoints] } }
-            : edge
-        )
+        eds.map((edge) => {
+          if (edge.id !== id) return edge;
+          const currentWaypoints = [...(edge.data?.waypoints || [])];
+          if (currentWaypoints[newIndex]) {
+            currentWaypoints[newIndex] = { x: currentPos.x, y: currentPos.y };
+          }
+          return { ...edge, data: { ...edge.data, waypoints: currentWaypoints } };
+        })
       );
     };
     
@@ -101,29 +124,45 @@ export function EditableEdge({
     
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
-  }, [id, waypoints, setEdges]);
+  }, [id, waypoints, setEdges, screenToFlowPosition]);
 
-  const addWaypoint = useCallback((event: React.MouseEvent) => {
-    if (event.detail === 2) { // Double click
-      event.stopPropagation();
-      
-      const rect = (event.target as SVGElement).closest('svg')?.getBoundingClientRect();
-      if (!rect) return;
-      
-      const newWaypoint = {
-        x: (sourceX + targetX) / 2,
-        y: (sourceY + targetY) / 2,
-      };
+  const handleWaypointDrag = useCallback((
+    index: number,
+    event: React.MouseEvent
+  ) => {
+    event.stopPropagation();
+    setIsDragging(true);
+    
+    const startWaypoint = { ...waypoints[index] };
+    const startPos = screenToFlowPosition(event.clientX, event.clientY);
+    
+    const onMouseMove = (e: MouseEvent) => {
+      const currentPos = screenToFlowPosition(e.clientX, e.clientY);
+      const dx = currentPos.x - startPos.x;
+      const dy = currentPos.y - startPos.y;
       
       setEdges((eds) =>
-        eds.map((edge) =>
-          edge.id === id
-            ? { ...edge, data: { ...edge.data, waypoints: [...waypoints, newWaypoint] } }
-            : edge
-        )
+        eds.map((edge) => {
+          if (edge.id !== id) return edge;
+          const currentWaypoints = [...(edge.data?.waypoints || [])];
+          currentWaypoints[index] = {
+            x: startWaypoint.x + dx,
+            y: startWaypoint.y + dy,
+          };
+          return { ...edge, data: { ...edge.data, waypoints: currentWaypoints } };
+        })
       );
-    }
-  }, [id, sourceX, sourceY, targetX, targetY, waypoints, setEdges]);
+    };
+    
+    const onMouseUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, [id, waypoints, setEdges, screenToFlowPosition]);
 
   const removeWaypoint = useCallback((index: number, event: React.MouseEvent) => {
     if (event.detail === 2) { // Double click to remove
@@ -141,14 +180,15 @@ export function EditableEdge({
 
   return (
     <>
-      {/* Invisible wider path for easier selection */}
+      {/* Invisible wider path for easier selection and dragging */}
       <path
+        ref={svgRef}
         d={edgePath}
         fill="none"
         strokeWidth={20}
         stroke="transparent"
-        className="cursor-pointer"
-        onClick={addWaypoint}
+        className="cursor-grab active:cursor-grabbing"
+        onMouseDown={handleEdgeDrag}
       />
       
       {/* Visible edge path */}
@@ -160,14 +200,14 @@ export function EditableEdge({
           stroke: selected ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
           transition: isDragging ? 'none' : 'stroke 0.2s, stroke-width 0.2s',
         }}
-        className="react-flow__edge-path"
+        className="react-flow__edge-path pointer-events-none"
         d={edgePath}
         markerEnd={markerEnd}
         fill="none"
       />
       
       {/* Waypoint handles - only show when selected */}
-      {selected && (
+      {selected && waypoints.length > 0 && (
         <EdgeLabelRenderer>
           {waypoints.map((waypoint, index) => (
             <div
@@ -187,8 +227,12 @@ export function EditableEdge({
               />
             </div>
           ))}
-          
-          {/* Add waypoint hint */}
+        </EdgeLabelRenderer>
+      )}
+      
+      {/* Hint when selected but no waypoints */}
+      {selected && waypoints.length === 0 && (
+        <EdgeLabelRenderer>
           <div
             style={{
               position: 'absolute',
@@ -197,7 +241,7 @@ export function EditableEdge({
             }}
           >
             <span className="text-[10px] text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded">
-              Duplo clique na linha para adicionar ponto
+              Arraste a linha para ajustar o caminho
             </span>
           </div>
         </EdgeLabelRenderer>
