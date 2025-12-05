@@ -265,3 +265,38 @@ All colors MUST be HSL.
     max-width: calc(100vw - 2rem) !important;
   }
 }
+
+/* ============================================
+   OVERLAY MANAGEMENT - Prevent darkened screen issues
+   ============================================ */
+
+/* Prevenir acúmulo de overlays - apenas o último deve estar visível */
+[data-radix-dialog-overlay] ~ [data-radix-dialog-overlay] {
+  display: none !important;
+}
+
+/* Garantir que overlays tenham transição suave */
+[data-radix-dialog-overlay] {
+  transition: opacity 150ms ease-out;
+}
+
+/* Forçar remoção visual quando fechado */
+[data-radix-dialog-overlay][data-state="closed"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Prevenir overlays órfãos */
+[data-radix-dialog-overlay]:not([data-state="open"]) {
+  display: none !important;
+}
+
+/* Sheet overlays */
+[data-radix-sheet-overlay] ~ [data-radix-sheet-overlay] {
+  display: none !important;
+}
+
+[data-radix-sheet-overlay][data-state="closed"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
