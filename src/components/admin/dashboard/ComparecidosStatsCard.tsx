@@ -5,7 +5,6 @@
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { UserCheck } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
@@ -23,13 +22,6 @@ export function ComparecidosStatsCard({ dateFilter }: ComparecidosStatsCardProps
       const startDate = dateFilter.startDate.toISOString();
       const endDate = dateFilter.endDate.toISOString();
 
-      // Get total leads no período (by criado)
-      const { count: total } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .gte('criado', startDate)
-        .lte('criado', endDate);
-
       // Get leads comparecidos no período (by date_closed)
       const { count: comparecidos } = await supabase
         .from('leads')
@@ -39,17 +31,12 @@ export function ComparecidosStatsCard({ dateFilter }: ComparecidosStatsCardProps
         .gte('date_closed', startDate)
         .lte('date_closed', endDate);
 
-      return {
-        total: total || 0,
-        comparecidos: comparecidos || 0,
-      };
+      return comparecidos || 0;
     },
     refetchInterval: 60000,
   });
 
-  const total = data?.total || 0;
-  const comparecidos = data?.comparecidos || 0;
-  const percentage = total > 0 ? (comparecidos / total) * 100 : 0;
+  const comparecidos = data || 0;
   const formatNumber = (num: number) => num.toLocaleString('pt-BR');
 
   if (isLoading) {
@@ -77,25 +64,8 @@ export function ComparecidosStatsCard({ dateFilter }: ComparecidosStatsCardProps
           <UserCheck className="h-4 w-4 text-emerald-500" />
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold">{formatNumber(comparecidos)}</span>
-            <span className="text-sm text-muted-foreground">
-              de {formatNumber(total)}
-            </span>
-          </div>
-          <p className="text-sm font-medium text-emerald-500 mt-1">
-            {percentage.toFixed(1)}% comparecidos
-          </p>
-        </div>
-        <div className="space-y-1">
-          <Progress value={percentage} className="h-2 [&>div]:bg-emerald-500" />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>0%</span>
-            <span>100%</span>
-          </div>
-        </div>
+      <CardContent>
+        <span className="text-2xl font-bold">{formatNumber(comparecidos)}</span>
       </CardContent>
     </Card>
   );
