@@ -21,76 +21,70 @@ export default function HomeChoice() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
+      <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 md:px-6">
         <SafeSidebarTrigger />
         <div className="flex items-center gap-2 flex-1">
-          <div>
-            <h1 className="text-2xl font-bold">
-              {view === 'dashboard' ? 'Dashboard Geral' : 'Agente MAXconnect'}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {view === 'dashboard' 
-                ? 'Visão consolidada do sistema' 
-                : 'Análise de dados por IA conversacional'
-              }
-            </p>
-          </div>
+          <h1 className="text-lg font-semibold">
+            {view === 'dashboard' ? 'Dashboard Geral' : 'Agente MAXconnect'}
+          </h1>
           {view === 'dashboard' && (
-            <div className="flex items-center gap-1 ml-2">
+            <div className="flex items-center gap-1 ml-4">
               <MinimalDateFilter value={dateFilter} onChange={setDateFilter} />
-              <span className="text-xs text-muted-foreground capitalize">
+              <span className="text-xs text-muted-foreground capitalize hidden sm:inline">
                 {dateFilter.label}
               </span>
             </div>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <Button
-            variant={view === 'dashboard' ? 'default' : 'outline'}
-            size="icon"
+            variant={view === 'dashboard' ? 'default' : 'ghost'}
+            size="sm"
             onClick={() => setView('dashboard')}
-            title="Dashboard"
           >
-            <LayoutDashboard className="h-4 w-4" />
+            <LayoutDashboard className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">Dashboard</span>
           </Button>
           <Button
-            variant={view === 'agent' ? 'default' : 'outline'}
-            size="icon"
+            variant={view === 'agent' ? 'default' : 'ghost'}
+            size="sm"
             onClick={() => setView('agent')}
-            title="Agente IA"
           >
-            <Bot className="h-4 w-4" />
+            <Bot className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">IA</span>
           </Button>
         </div>
       </header>
 
-      <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-6">
+      <main className="flex-1 p-4 md:p-6 space-y-4">
         {view === 'dashboard' ? (
-          <>
-            {/* 1-4: Lead Statistics Cards */}
+          <div className="space-y-4">
+            {/* Row 1: Lead Statistics - 4 cards */}
             <LeadStatsCards />
 
-            {/* 5: Photo Stats + Online Users */}
-            <div className="grid gap-4 md:grid-cols-3">
+            {/* Row 2: Photo Stats + System Activity */}
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-4">
               <PhotoStatsCard />
-              <OnlineUsersPanel />
+              <div className="lg:col-span-3">
+                <SystemActivityBar />
+              </div>
             </div>
 
-            {/* 6: System Activity Bar - Full Width */}
-            <SystemActivityBar />
-
-            {/* 7: System Status Panel + Alerts */}
-            <div className="grid gap-4 md:grid-cols-2">
+            {/* Row 3: System Status + Online Users + Alerts */}
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               <SystemStatusPanel />
+              <OnlineUsersPanel />
               <AlertsOverview />
             </div>
 
-            {/* Charts */}
-            <ModuleActivityChart />
-
-            {/* Quick Actions */}
-            <QuickActionsPanel />
-          </>
+            {/* Row 4: Chart + Quick Actions */}
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <ModuleActivityChart />
+              </div>
+              <QuickActionsPanel />
+            </div>
+          </div>
         ) : (
           <MaxconnectAgent />
         )}
