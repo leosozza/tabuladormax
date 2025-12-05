@@ -51,24 +51,26 @@ export function RoadmapCard({ feature, canManage, onEdit, onDelete, onStatusChan
 
   return (
     <Card className="group hover:shadow-md transition-shadow">
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 overflow-hidden">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${module.color} bg-opacity-20`}>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className={`p-2 rounded-lg ${module.color} bg-opacity-20 shrink-0`}>
               <IconComponent className="h-5 w-5 text-foreground" />
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-sm leading-tight truncate">{feature.name}</h3>
-              <p className="text-xs text-muted-foreground">{module.label}</p>
+              <p className="text-xs text-muted-foreground truncate">{module.label}</p>
             </div>
           </div>
-          {canManage && onStatusChange ? (
-            <RoadmapStatusChanger feature={feature} onStatusChange={onStatusChange} />
-          ) : (
-            <Badge className={`${status.bgColor} ${status.color} text-xs shrink-0`}>
-              {status.label}
-            </Badge>
-          )}
+          <div className="shrink-0">
+            {canManage && onStatusChange ? (
+              <RoadmapStatusChanger feature={feature} onStatusChange={onStatusChange} />
+            ) : (
+              <Badge className={`${status.bgColor} ${status.color} text-xs whitespace-nowrap`}>
+                {status.label}
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
