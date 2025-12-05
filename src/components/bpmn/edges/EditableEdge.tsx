@@ -26,7 +26,10 @@ export function EditableEdge({
 }: EdgeProps) {
   const { setEdges, getViewport } = useReactFlow();
   const [isDragging, setIsDragging] = useState(false);
+  const [isEditingLabel, setIsEditingLabel] = useState(false);
+  const [labelText, setLabelText] = useState(data?.label || '');
   const svgRef = useRef<SVGPathElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   
   const waypoints: Waypoint[] = data?.waypoints || [];
   
@@ -78,22 +81,26 @@ export function EditableEdge({
     };
   }, [getViewport]);
 
-  // Handle dragging the edge - creates a waypoint immediately and drags it (like bpmn.io)
+  // Handle dragging the edge - creates a waypoint immediately and drags it
   const handleEdgeDrag = useCallback((event: React.PointerEvent) => {
+    // CRITICAL: Stop all propagation to prevent ReactFlow from capturing the event
     event.stopPropagation();
     event.preventDefault();
+    event.nativeEvent.stopImmediatePropagation();
     
     // Capture pointer for reliable tracking
     const target = event.currentTarget as SVGPathElement;
     target.setPointerCapture(event.pointerId);
     
-    const startPos = screenToFlowPosition(event.clientX, event.clientY);
     const startX = event.clientX;
     const startY = event.clientY;
     let waypointCreated = false;
     let newIndex = -1;
     
     const onPointerMove = (e: PointerEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      
       const dx = Math.abs(e.clientX - startX);
       const dy = Math.abs(e.clientY - startY);
       
@@ -133,6 +140,7 @@ export function EditableEdge({
     };
     
     const onPointerUp = (e: PointerEvent) => {
+      e.stopPropagation();
       target.releasePointerCapture(e.pointerId);
       setIsDragging(false);
       target.removeEventListener('pointermove', onPointerMove);
@@ -149,6 +157,7 @@ export function EditableEdge({
   ) => {
     event.stopPropagation();
     event.preventDefault();
+    event.nativeEvent.stopImmediatePropagation();
     
     const target = event.currentTarget as HTMLDivElement;
     target.setPointerCapture(event.pointerId);
@@ -159,6 +168,7 @@ export function EditableEdge({
     const startPos = screenToFlowPosition(event.clientX, event.clientY);
     
     const onPointerMove = (e: PointerEvent) => {
+      e.stopPropagation();
       const currentPos = screenToFlowPosition(e.clientX, e.clientY);
       const dx = currentPos.x - startPos.x;
       const dy = currentPos.y - startPos.y;
@@ -177,6 +187,7 @@ export function EditableEdge({
     };
     
     const onPointerUp = (e: PointerEvent) => {
+      e.stopPropagation();
       target.releasePointerCapture(e.pointerId);
       setIsDragging(false);
       target.removeEventListener('pointermove', onPointerMove);
@@ -201,6 +212,37 @@ export function EditableEdge({
     );
   }, [id, waypoints, setEdges]);
 
+  // Save label
+  const saveLabel = useCallback(() => {
+    setEdges((eds) =>
+      eds.map((edge) =>
+        edge.id === id
+          ? { ...edge, data: { ...edge.data, label: labelText } }
+          : edge
+      )
+    );
+    setIsEditingLabel(false);
+  }, [id, labelText, setEdges]);
+
+  // Handle label key down
+  const handleLabelKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      saveLabel();
+    }
+    if (e.key === 'Escape') {
+      setLabelText(data?.label || '');
+      setIsEditingLabel(false);
+    }
+  }, [saveLabel, data?.label]);
+
+  // Start editing label
+  const startEditingLabel = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLabelText(data?.label || '');
+    setIsEditingLabel(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  }, [data?.label]);
+
   return (
     <>
       {/* Invisible wider path for easier selection and dragging */}
@@ -212,6 +254,7 @@ export function EditableEdge({
         stroke="transparent"
         style={{ touchAction: 'none', cursor: isDragging ? 'grabbing' : 'grab' }}
         onPointerDown={handleEdgeDrag}
+        className="nodrag nopan"
       />
       
       {/* Visible edge path */}
@@ -228,6 +271,44 @@ export function EditableEdge({
         markerEnd={markerEnd}
         fill="none"
       />
+      
+      {/* Edge Label - Always visible, editable on double click */}
+      <EdgeLabelRenderer>
+        <div
+          style={{
+            position: 'absolute',
+            transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+            pointerEvents: 'all',
+          }}
+          className="nodrag nopan"
+        >
+          {isEditingLabel ? (
+            <input
+              ref={inputRef}
+              type="text"
+              value={labelText}
+              onChange={(e) => setLabelText(e.target.value)}
+              onBlur={saveLabel}
+              onKeyDown={handleLabelKeyDown}
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+              className="px-2 py-1 text-xs rounded border border-primary bg-background text-foreground min-w-[60px] text-center focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Texto..."
+            />
+          ) : (
+            <div
+              onDoubleClick={startEditingLabel}
+              className={`px-2 py-1 text-xs rounded cursor-text select-none transition-colors ${
+                data?.label 
+                  ? 'bg-background/95 border border-border/50 text-foreground font-medium shadow-sm' 
+                  : 'bg-background/70 text-muted-foreground italic hover:bg-background/90'
+              }`}
+            >
+              {data?.label || '+ texto'}
+            </div>
+          )}
+        </div>
+      </EdgeLabelRenderer>
       
       {/* Waypoint handles - only show when selected */}
       {selected && waypoints.length > 0 && (
@@ -255,17 +336,17 @@ export function EditableEdge({
       )}
       
       {/* Hint when selected but no waypoints */}
-      {selected && waypoints.length === 0 && (
+      {selected && waypoints.length === 0 && !isEditingLabel && (
         <EdgeLabelRenderer>
           <div
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 20}px)`,
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 25}px)`,
               pointerEvents: 'none',
             }}
           >
             <span className="text-[10px] text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded">
-              Arraste a linha para ajustar o caminho
+              Arraste a linha para ajustar
             </span>
           </div>
         </EdgeLabelRenderer>
