@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, eachDayOfInterval, eachHourOfInterval, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, ComposedChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Line, Legend } from "recharts";
 import { DateFilterValue } from "@/components/MinimalDateFilter";
 
 interface ModuleActivityChartProps {
@@ -26,9 +26,9 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
 
   const getDescription = () => {
     if (isToday) {
-      return 'Leads criados por hora';
+      return 'Leads criados por hora (Total, Scouter e Meta)';
     }
-    return 'Leads criados por dia';
+    return 'Leads criados por dia (Total, Scouter e Meta)';
   };
 
   const { data: chartData, isLoading } = useQuery({
@@ -45,15 +45,31 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
           const hourStart = hour.toISOString();
           const hourEnd = new Date(hour.getTime() + 60 * 60 * 1000 - 1).toISOString();
 
-          const { count } = await supabase
-            .from('leads')
-            .select('*', { count: 'exact', head: true })
-            .gte('criado', hourStart)
-            .lt('criado', hourEnd);
+          const [totalResult, scouterResult, metaResult] = await Promise.all([
+            supabase
+              .from('leads')
+              .select('*', { count: 'exact', head: true })
+              .gte('criado', hourStart)
+              .lt('criado', hourEnd),
+            supabase
+              .from('leads')
+              .select('*', { count: 'exact', head: true })
+              .gte('criado', hourStart)
+              .lt('criado', hourEnd)
+              .eq('fonte_normalizada', 'Scouter - Fichas'),
+            supabase
+              .from('leads')
+              .select('*', { count: 'exact', head: true })
+              .gte('criado', hourStart)
+              .lt('criado', hourEnd)
+              .eq('fonte_normalizada', 'Meta'),
+          ]);
 
           return {
             date: format(hour, 'HH\'h\'', { locale: ptBR }),
-            leads: count || 0,
+            total: totalResult.count || 0,
+            scouter: scouterResult.count || 0,
+            meta: metaResult.count || 0,
           };
         });
 
@@ -68,11 +84,25 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
         const promises = days.map(async (date) => {
           const dayStr = format(date, 'yyyy-MM-dd');
 
-          const { count } = await supabase
-            .from('leads')
-            .select('*', { count: 'exact', head: true })
-            .gte('criado', `${dayStr}T00:00:00`)
-            .lt('criado', `${dayStr}T23:59:59`);
+          const [totalResult, scouterResult, metaResult] = await Promise.all([
+            supabase
+              .from('leads')
+              .select('*', { count: 'exact', head: true })
+              .gte('criado', `${dayStr}T00:00:00`)
+              .lt('criado', `${dayStr}T23:59:59`),
+            supabase
+              .from('leads')
+              .select('*', { count: 'exact', head: true })
+              .gte('criado', `${dayStr}T00:00:00`)
+              .lt('criado', `${dayStr}T23:59:59`)
+              .eq('fonte_normalizada', 'Scouter - Fichas'),
+            supabase
+              .from('leads')
+              .select('*', { count: 'exact', head: true })
+              .gte('criado', `${dayStr}T00:00:00`)
+              .lt('criado', `${dayStr}T23:59:59`)
+              .eq('fonte_normalizada', 'Meta'),
+          ]);
 
           // Formato do eixo X baseado no preset
           let label: string;
@@ -86,7 +116,9 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
 
           return {
             date: label,
-            leads: count || 0,
+            total: totalResult.count || 0,
+            scouter: scouterResult.count || 0,
+            meta: metaResult.count || 0,
           };
         });
 
@@ -108,10 +140,10 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={chartData}>
+            <ComposedChart data={chartData}>
               <defs>
-                <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
                   <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
                 </linearGradient>
               </defs>
@@ -131,15 +163,52 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
                 }}
+                formatter={(value: number, name: string) => {
+                  const labels: Record<string, string> = { 
+                    total: 'Total', 
+                    scouter: 'Scouter - Fichas', 
+                    meta: 'Meta' 
+                  };
+                  return [value, labels[name] || name];
+                }}
+              />
+              <Legend 
+                wrapperStyle={{ paddingTop: '10px' }}
+                formatter={(value: string) => {
+                  const labels: Record<string, string> = { 
+                    total: 'Total', 
+                    scouter: 'Scouter - Fichas', 
+                    meta: 'Meta' 
+                  };
+                  return labels[value] || value;
+                }}
               />
               <Area 
                 type="monotone" 
-                dataKey="leads" 
+                dataKey="total" 
                 stroke="hsl(var(--primary))" 
+                strokeOpacity={0.5}
                 fillOpacity={1} 
-                fill="url(#colorLeads)" 
+                fill="url(#colorTotal)" 
+                name="total"
               />
-            </AreaChart>
+              <Line 
+                type="monotone" 
+                dataKey="scouter" 
+                stroke="#3b82f6" 
+                strokeWidth={2} 
+                dot={false}
+                name="scouter"
+              />
+              <Line 
+                type="monotone" 
+                dataKey="meta" 
+                stroke="#22c55e" 
+                strokeWidth={2} 
+                dot={false}
+                name="meta"
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </CardContent>
