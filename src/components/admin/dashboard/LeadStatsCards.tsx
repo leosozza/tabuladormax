@@ -11,75 +11,36 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DateFilterValue } from '@/components/MinimalDateFilter';
 
+export type SourceFilter = 'all' | 'scouter' | 'meta';
+
 interface LeadStatsCardsProps {
   dateFilter: DateFilterValue;
+  sourceFilter?: SourceFilter;
 }
 
-export function LeadStatsCards({ dateFilter }: LeadStatsCardsProps) {
+export function LeadStatsCards({ dateFilter, sourceFilter = 'all' }: LeadStatsCardsProps) {
   const { data: stats, isLoading } = useQuery({
-    queryKey: ['lead-stats-dashboard', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString()],
+    queryKey: ['lead-stats-dashboard', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString(), sourceFilter],
     queryFn: async () => {
-      const startDate = dateFilter.startDate.toISOString();
-      const endDate = dateFilter.endDate.toISOString();
+      const { data, error } = await supabase.rpc('get_lead_stats', {
+        p_start_date: dateFilter.startDate.toISOString(),
+        p_end_date: dateFilter.endDate.toISOString(),
+        p_source_filter: sourceFilter,
+      });
 
-      // Total de leads no período
-      const { count: total } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .gte('criado', startDate)
-        .lte('criado', endDate);
+      if (error) throw error;
 
-      // Scouter-Fichas
-      const { count: scouter } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('fonte_normalizada', 'Scouter - Fichas')
-        .gte('criado', startDate)
-        .lte('criado', endDate);
-
-      // Meta
-      const { count: meta } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('fonte_normalizada', 'Meta')
-        .gte('criado', startDate)
-        .lte('criado', endDate);
-
-      // Confirmadas: ficha_confirmada = true
-      const { count: confirmadas } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('ficha_confirmada', true)
-        .gte('criado', startDate)
-        .lte('criado', endDate);
-
-      // Não Confirmadas: ficha_confirmada = false
-      const { count: naoConfirmadas } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('ficha_confirmada', false)
-        .gte('criado', startDate)
-        .lte('criado', endDate);
-
-      // Aguardando: ficha_confirmada IS NULL
-      const { count: aguardando } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .is('ficha_confirmada', null)
-        .gte('criado', startDate)
-        .lte('criado', endDate);
-
-      // Outros = total - scouter - meta
-      const outros = (total || 0) - (scouter || 0) - (meta || 0);
+      const result = data as { total: number; scouter: number; meta: number; confirmadas: number; aguardando: number; naoConfirmadas: number };
+      const outros = (result.total || 0) - (result.scouter || 0) - (result.meta || 0);
 
       return {
-        total: total || 0,
-        scouter: scouter || 0,
-        meta: meta || 0,
+        total: result.total || 0,
+        scouter: result.scouter || 0,
+        meta: result.meta || 0,
         outros: outros,
-        confirmadas: confirmadas || 0,
-        aguardando: aguardando || 0,
-        naoConfirmadas: naoConfirmadas || 0,
+        confirmadas: result.confirmadas || 0,
+        aguardando: result.aguardando || 0,
+        naoConfirmadas: result.naoConfirmadas || 0,
       };
     },
     refetchInterval: 60000,

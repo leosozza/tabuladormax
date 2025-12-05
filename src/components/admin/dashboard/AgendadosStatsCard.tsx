@@ -11,27 +11,24 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DateFilterValue } from '@/components/MinimalDateFilter';
 
-interface AgendadosStatsCardProps {
+export interface AgendadosStatsCardProps {
   dateFilter: DateFilterValue;
+  sourceFilter?: 'all' | 'scouter' | 'meta';
 }
 
-export function AgendadosStatsCard({ dateFilter }: AgendadosStatsCardProps) {
+export function AgendadosStatsCard({ dateFilter, sourceFilter = 'all' }: AgendadosStatsCardProps) {
   const { data, isLoading } = useQuery({
-    queryKey: ['agendados-stats-dashboard', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString()],
+    queryKey: ['agendados-stats-dashboard', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString(), sourceFilter],
     queryFn: async () => {
-      const startDate = dateFilter.startDate.toISOString();
-      const endDate = dateFilter.endDate.toISOString();
+      const { data, error } = await supabase.rpc('get_agendados_stats', {
+        p_start_date: dateFilter.startDate.toISOString(),
+        p_end_date: dateFilter.endDate.toISOString(),
+        p_source_filter: sourceFilter,
+      });
 
-      // Get leads agendados no período (by data_criacao_agendamento)
-      // Considera tanto o nome normalizado quanto o código Bitrix original
-      const { count: agendados } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .in('etapa', ['Agendados', 'UC_QWPO2W'])
-        .gte('data_criacao_agendamento', startDate)
-        .lte('data_criacao_agendamento', endDate);
-
-      return agendados || 0;
+      if (error) throw error;
+      const result = data as { total: number; agendados: number };
+      return result.agendados || 0;
     },
     refetchInterval: 60000,
   });

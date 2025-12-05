@@ -2,8 +2,9 @@ import { useState } from "react";
 import { SafeSidebarTrigger } from "@/components/SafeSidebarTrigger";
 import { MaxconnectAgent } from "@/components/unified/MaxconnectAgent";
 import { Button } from "@/components/ui/button";
-import { Bot, LayoutDashboard } from "lucide-react";
+import { Bot, LayoutDashboard, Target, UserSearch } from "lucide-react";
 import { MinimalDateFilter, DateFilterValue, getDefaultMonthFilter } from "@/components/MinimalDateFilter";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Dashboard Components
 import { LeadStatsCards } from "@/components/admin/dashboard/LeadStatsCards";
@@ -21,6 +22,11 @@ import { QuickActionsPanel } from "@/components/unified/QuickActionsPanel";
 export default function HomeChoice() {
   const [view, setView] = useState<'dashboard' | 'agent'>('dashboard');
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getDefaultMonthFilter);
+  const [showMeta, setShowMeta] = useState(true);
+  const [showScouter, setShowScouter] = useState(true);
+
+  // Derive source filter for components
+  const sourceFilter = showMeta && showScouter ? 'all' : showMeta ? 'meta' : showScouter ? 'scouter' : 'all';
 
   return (
     <>
@@ -40,22 +46,63 @@ export default function HomeChoice() {
           )}
         </div>
         <div className="flex gap-1">
-          <Button
-            variant={view === 'dashboard' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setView('dashboard')}
-          >
-            <LayoutDashboard className="h-4 w-4 mr-1" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </Button>
-          <Button
-            variant={view === 'agent' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setView('agent')}
-          >
-            <Bot className="h-4 w-4 mr-1" />
-            <span className="hidden sm:inline">IA</span>
-          </Button>
+          {view === 'dashboard' && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={showMeta ? 'default' : 'outline'}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setShowMeta(!showMeta)}
+                  >
+                    <Target className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Meta</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={showScouter ? 'default' : 'outline'}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setShowScouter(!showScouter)}
+                  >
+                    <UserSearch className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Scouter</TooltipContent>
+              </Tooltip>
+              <div className="w-px h-6 bg-border mx-1 self-center" />
+            </>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={view === 'dashboard' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setView('dashboard')}
+              >
+                <LayoutDashboard className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Dashboard</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={view === 'agent' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setView('agent')}
+              >
+                <Bot className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Agente IA</TooltipContent>
+          </Tooltip>
         </div>
       </header>
 
@@ -63,21 +110,21 @@ export default function HomeChoice() {
         {view === 'dashboard' ? (
           <>
             {/* Row 1: Lead Stats - 4 cards */}
-            <LeadStatsCards dateFilter={dateFilter} />
+            <LeadStatsCards dateFilter={dateFilter} sourceFilter={sourceFilter} />
 
             {/* Row 2: Foto + Agendados + Comparecidos + A Definir */}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              <PhotoStatsCard dateFilter={dateFilter} />
-              <AgendadosStatsCard dateFilter={dateFilter} />
-              <ComparecidosStatsCard dateFilter={dateFilter} />
-              <LeadrometroCard dateFilter={dateFilter} />
+              <PhotoStatsCard dateFilter={dateFilter} sourceFilter={sourceFilter} />
+              <AgendadosStatsCard dateFilter={dateFilter} sourceFilter={sourceFilter} />
+              <ComparecidosStatsCard dateFilter={dateFilter} sourceFilter={sourceFilter} />
+              <LeadrometroCard dateFilter={dateFilter} sourceFilter={sourceFilter} />
             </div>
 
             {/* Row 3: Gráfico de Atividade - Full Width */}
-            <ModuleActivityChart dateFilter={dateFilter} />
+            <ModuleActivityChart dateFilter={dateFilter} sourceFilter={sourceFilter} />
 
             {/* Row 4: Equipe - Status + Rankings */}
-            <TeamStatusPanel />
+            <TeamStatusPanel sourceFilter={sourceFilter} />
 
             {/* Row 5: Sistema - Status + Alerts + Activity */}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">

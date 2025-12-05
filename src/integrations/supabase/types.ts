@@ -2442,6 +2442,22 @@ export type Database = {
           total: number
         }[]
       }
+      get_agendados_stats: {
+        Args: {
+          p_end_date: string
+          p_source_filter?: string
+          p_start_date: string
+        }
+        Returns: Json
+      }
+      get_comparecidos_stats: {
+        Args: {
+          p_end_date: string
+          p_source_filter?: string
+          p_start_date: string
+        }
+        Returns: Json
+      }
       get_conversion_funnel_data: {
         Args: {
           p_end_date?: string
@@ -2473,6 +2489,14 @@ export type Database = {
           total_leads: number
           valor_total: number
         }[]
+      }
+      get_lead_stats: {
+        Args: {
+          p_end_date: string
+          p_source_filter?: string
+          p_start_date: string
+        }
+        Returns: Json
       }
       get_leads_chart_data: {
         Args: {
@@ -2569,6 +2593,14 @@ export type Database = {
         Returns: {
           fonte_normalizada: string
         }[]
+      }
+      get_photo_stats: {
+        Args: {
+          p_end_date: string
+          p_source_filter?: string
+          p_start_date: string
+        }
+        Returns: Json
       }
       get_projection_data: {
         Args: {

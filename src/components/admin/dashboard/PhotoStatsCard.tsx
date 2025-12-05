@@ -12,35 +12,26 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DateFilterValue } from '@/components/MinimalDateFilter';
 
-interface PhotoStatsCardProps {
+export interface PhotoStatsCardProps {
   dateFilter: DateFilterValue;
+  sourceFilter?: 'all' | 'scouter' | 'meta';
 }
 
-export function PhotoStatsCard({ dateFilter }: PhotoStatsCardProps) {
+export function PhotoStatsCard({ dateFilter, sourceFilter = 'all' }: PhotoStatsCardProps) {
   const { data, isLoading } = useQuery({
-    queryKey: ['photo-stats-dashboard', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString()],
+    queryKey: ['photo-stats-dashboard', dateFilter.startDate?.toISOString(), dateFilter.endDate?.toISOString(), sourceFilter],
     queryFn: async () => {
-      const startDate = dateFilter.startDate.toISOString();
-      const endDate = dateFilter.endDate.toISOString();
+      const { data, error } = await supabase.rpc('get_photo_stats', {
+        p_start_date: dateFilter.startDate.toISOString(),
+        p_end_date: dateFilter.endDate.toISOString(),
+        p_source_filter: sourceFilter,
+      });
 
-      // Get total leads no período
-      const { count: total } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .gte('criado', startDate)
-        .lte('criado', endDate);
-
-      // Get leads with photo no período (cadastro_existe_foto = true)
-      const { count: comFoto } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('cadastro_existe_foto', true)
-        .gte('criado', startDate)
-        .lte('criado', endDate);
-
+      if (error) throw error;
+      const result = data as { total: number; comFoto: number; semFoto: number };
       return {
-        total: total || 0,
-        comFoto: comFoto || 0,
+        total: result.total || 0,
+        comFoto: result.comFoto || 0,
       };
     },
     refetchInterval: 60000,
