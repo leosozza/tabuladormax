@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Users, MapPin, Phone, Loader2, Trophy, ChevronDown } from 'lucide-react';
 import { useOnlinePresence } from '@/hooks/useOnlinePresence';
 import { useQuery } from '@tanstack/react-query';
@@ -150,15 +151,16 @@ export function TeamStatusPanel() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Badge 
-            variant="outline" 
-            className="cursor-pointer hover:bg-accent transition-colors flex items-center gap-1"
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-xs font-normal gap-1"
           >
             {currentLabel}
             <ChevronDown className="h-3 w-3" />
-          </Badge>
+          </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-32">
+        <DropdownMenuContent align="end" className="w-32 z-50 bg-popover">
           {periodOptions.map((option) => (
             <DropdownMenuItem
               key={option.key}
