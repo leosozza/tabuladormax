@@ -5,7 +5,6 @@
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { CalendarCheck } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
@@ -23,14 +22,6 @@ export function AgendadosStatsCard({ dateFilter }: AgendadosStatsCardProps) {
       const startDate = dateFilter.startDate.toISOString();
       const endDate = dateFilter.endDate.toISOString();
 
-      // Get total leads com agendamento criado no período (by data_criacao_agendamento)
-      const { count: total } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .not('data_criacao_agendamento', 'is', null)
-        .gte('data_criacao_agendamento', startDate)
-        .lte('data_criacao_agendamento', endDate);
-
       // Get leads agendados no período (by data_criacao_agendamento)
       // Considera tanto o nome normalizado quanto o código Bitrix original
       const { count: agendados } = await supabase
@@ -40,17 +31,12 @@ export function AgendadosStatsCard({ dateFilter }: AgendadosStatsCardProps) {
         .gte('data_criacao_agendamento', startDate)
         .lte('data_criacao_agendamento', endDate);
 
-      return {
-        total: total || 0,
-        agendados: agendados || 0,
-      };
+      return agendados || 0;
     },
     refetchInterval: 60000,
   });
 
-  const total = data?.total || 0;
-  const agendados = data?.agendados || 0;
-  const percentage = total > 0 ? (agendados / total) * 100 : 0;
+  const agendados = data || 0;
   const formatNumber = (num: number) => num.toLocaleString('pt-BR');
 
   if (isLoading) {
@@ -78,25 +64,8 @@ export function AgendadosStatsCard({ dateFilter }: AgendadosStatsCardProps) {
           <CalendarCheck className="h-4 w-4 text-purple-500" />
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold">{formatNumber(agendados)}</span>
-            <span className="text-sm text-muted-foreground">
-              de {formatNumber(total)}
-            </span>
-          </div>
-          <p className="text-sm font-medium text-purple-500 mt-1">
-            {percentage.toFixed(1)}% agendados
-          </p>
-        </div>
-        <div className="space-y-1">
-          <Progress value={percentage} className="h-2 [&>div]:bg-purple-500" />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>0%</span>
-            <span>100%</span>
-          </div>
-        </div>
+      <CardContent>
+        <span className="text-2xl font-bold">{formatNumber(agendados)}</span>
       </CardContent>
     </Card>
   );
