@@ -46,84 +46,62 @@
   <body>
     <div id="root"></div>
     
-    <!-- Forçar remoção AGRESSIVA de Service Workers e caches antigos -->
+    <!-- Limpeza agressiva de PWA/Service Workers - Versão Final -->
     <script>
       (function() {
-        var CACHE_VERSION = 'v20251205-force-clean'; // Incrementar para forçar limpeza
-        var lastClean = localStorage.getItem('cache_cleaned_version');
+        var hadServiceWorker = false;
         
-        // Sempre limpar caches e SWs
-        function cleanAll() {
-          console.log('[PWA-Clean] Iniciando limpeza agressiva...');
-          
-          // 1. Remover TODOS os Service Workers
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-              registrations.forEach(function(registration) {
-                registration.unregister().then(function(success) {
-                  console.log('[SW] Service Worker removido:', success);
-                });
-              });
-            }).catch(function(e) {
-              console.error('[SW] Erro ao remover SW:', e);
-            });
-            
-            // Também tentar via ready
-            navigator.serviceWorker.ready.then(function(registration) {
-              registration.unregister();
-            }).catch(function() {});
-          }
-          
-          // 2. Limpar TODOS os caches
-          if ('caches' in window) {
-            caches.keys().then(function(names) {
-              return Promise.all(names.map(function(name) {
-                console.log('[Cache] Removendo cache:', name);
-                return caches.delete(name);
-              }));
-            }).then(function() {
-              console.log('[Cache] Todos os caches removidos');
-            }).catch(function(e) {
-              console.error('[Cache] Erro ao remover caches:', e);
-            });
-          }
-          
-          // 3. Limpar IndexedDB relacionados a PWA/Workbox
-          if ('indexedDB' in window) {
-            var dbNames = ['workbox-expiration', 'workbox-background-sync', 'workbox-precache'];
-            dbNames.forEach(function(dbName) {
-              try {
-                indexedDB.deleteDatabase(dbName);
-                console.log('[IDB] Database removido:', dbName);
-              } catch(e) {}
-            });
-          }
-          
-          // 4. Limpar sessionStorage
-          try {
-            sessionStorage.clear();
-            console.log('[Storage] sessionStorage limpo');
-          } catch(e) {}
-          
-          // Marcar como limpo
-          localStorage.setItem('cache_cleaned_version', CACHE_VERSION);
-          console.log('[PWA-Clean] Limpeza concluída, versão:', CACHE_VERSION);
-        }
-        
-        // Executar limpeza se versão mudou ou primeira vez
-        if (lastClean !== CACHE_VERSION) {
-          cleanAll();
-        }
-        
-        // Sempre tentar desregistrar SWs (mesmo se já limpou antes)
+        // 1. Sempre remover Service Workers
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistrations().then(function(registrations) {
             if (registrations.length > 0) {
-              console.log('[SW] Encontrados', registrations.length, 'SWs - removendo...');
-              registrations.forEach(function(r) { r.unregister(); });
+              hadServiceWorker = true;
+              console.log('[PWA] Removendo', registrations.length, 'Service Workers...');
+              
+              Promise.all(registrations.map(function(r) {
+                return r.unregister();
+              })).then(function() {
+                console.log('[PWA] Todos SWs removidos');
+                
+                // 2. Limpar todos os caches
+                if ('caches' in window) {
+                  caches.keys().then(function(names) {
+                    return Promise.all(names.map(function(name) {
+                      console.log('[PWA] Removendo cache:', name);
+                      return caches.delete(name);
+                    }));
+                  }).then(function() {
+                    // 3. Forçar reload se havia SW (para carregar versão nova)
+                    if (hadServiceWorker && !sessionStorage.getItem('pwa_cleaned')) {
+                      sessionStorage.setItem('pwa_cleaned', '1');
+                      console.log('[PWA] Recarregando para aplicar versão nova...');
+                      window.location.reload(true);
+                    }
+                  });
+                }
+              });
             }
           });
         }
+        
+        // Também limpar caches mesmo sem SW
+        if ('caches' in window) {
+          caches.keys().then(function(names) {
+            names.forEach(function(name) {
+              caches.delete(name);
+            });
+          });
+        }
+        
+        // Limpar IndexedDB do Workbox
+        if ('indexedDB' in window) {
+          ['workbox-expiration', 'workbox-background-sync', 'workbox-precache'].forEach(function(db) {
+            try { indexedDB.deleteDatabase(db); } catch(e) {}
+          });
+        }
+        
+        // Limpar sessionStorage antigo
+        try { sessionStorage.clear(); } catch(e) {}
       })();
     </script>
 
