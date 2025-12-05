@@ -61,8 +61,22 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [tool, setTool] = useState<'select' | 'pan'>('select');
   const [isMiddleClickPanning, setIsMiddleClickPanning] = useState(false);
+
+  // Handle delete for selected node or edge
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedNode) {
+      setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
+      setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
+      setSelectedNode(null);
+    }
+    if (selectedEdge) {
+      setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
+      setSelectedEdge(null);
+    }
+  }, [selectedNode, selectedEdge, setNodes, setEdges]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -70,6 +84,13 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
       if (e.key === 'v' || e.key === 'V') setTool('select');
       if (e.key === 'h' || e.key === 'H') setTool('pan');
       if (e.key === ' ') setIsMiddleClickPanning(true);
+      
+      // Delete/Backspace to remove selected element
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+        handleDeleteSelected();
+      }
     };
     
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -82,7 +103,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
+  }, [handleDeleteSelected]);
 
   // Middle click pan handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -160,20 +181,19 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
     onSave?.(nodes, edges);
   };
 
-  const handleDeleteSelected = () => {
-    if (selectedNode) {
-      setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
-      setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
-      setSelectedNode(null);
-    }
-  };
-
   const onNodeClick = (_: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
+    setSelectedEdge(null);
+  };
+
+  const onEdgeClick = (_: React.MouseEvent, edge: Edge) => {
+    setSelectedEdge(edge);
+    setSelectedNode(null);
   };
 
   const onPaneClick = () => {
     setSelectedNode(null);
+    setSelectedEdge(null);
   };
 
   const handleZoomIn = () => reactFlowInstance?.zoomIn();
@@ -216,6 +236,7 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
             onDrop={readOnly ? undefined : onDrop}
             onDragOver={readOnly ? undefined : onDragOver}
             onNodeClick={onNodeClick}
+            onEdgeClick={onEdgeClick}
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -380,6 +401,25 @@ export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readO
             <div className="flex items-center gap-2 bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-lg px-3 py-2">
               <span className="text-sm font-medium text-foreground">
                 {selectedNode.data.label}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDeleteSelected}
+                className="h-8 w-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Selected Edge Actions - Floating */}
+        {selectedEdge && !readOnly && (
+          <div className="absolute top-4 right-4 z-10">
+            <div className="flex items-center gap-2 bg-background/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-lg px-3 py-2">
+              <span className="text-sm font-medium text-foreground">
+                Conexão
               </span>
               <Button
                 variant="ghost"
