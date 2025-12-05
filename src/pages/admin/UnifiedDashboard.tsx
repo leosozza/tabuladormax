@@ -12,301 +12,164 @@ import { AlertsPanel } from '@/components/diagnostic/AlertsPanel';
 import { PerformanceMonitoringDashboard } from '@/components/monitoring/PerformanceMonitoringDashboard';
 import { LogsPanel } from '@/components/admin/Diagnostics/LogsPanel';
 import { DataQualityPanel } from '@/components/admin/DataQualityPanel';
+import { LeadStatsCards } from '@/components/admin/dashboard/LeadStatsCards';
+import { PhotoStatsCard } from '@/components/admin/dashboard/PhotoStatsCard';
+import { SystemActivityBar } from '@/components/admin/dashboard/SystemActivityBar';
+import { SystemStatusPanel } from '@/components/admin/dashboard/SystemStatusPanel';
+import { OnlineUsersPanel } from '@/components/admin/dashboard/OnlineUsersPanel';
+import { AlertsOverview } from '@/components/admin/dashboard/AlertsOverview';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  RefreshCw, 
-  Users, 
-  FileText, 
-  TrendingUp, 
-  Activity,
-  AlertCircle,
-  CheckCircle2,
-  ExternalLink
-} from 'lucide-react';
+import { RefreshCw, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
 
-interface SystemStats {
-  usersCount: number;
-  logsCount: number;
-  leadsCount: number;
-  systemStatus: 'healthy' | 'warning' | 'critical';
+interface LeadStats {
+  total: number;
+  confirmadas: number;
+  aguardando: number;
+  naoConfirmadas: number;
+  comFoto: number;
 }
 
 export default function UnifiedDashboard() {
   const [refreshKey, setRefreshKey] = useState(0);
-  const navigate = useNavigate();
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'healthy':
-        return 'Saudável';
-      case 'warning':
-        return 'Atenção';
-      case 'critical':
-        return 'Crítico';
-      default:
-        return 'Desconhecido';
-    }
-  };
-
-  // Fetch system statistics using React Query
-  const { data: stats, isLoading, error } = useQuery<SystemStats>({
-    queryKey: ['admin-dashboard-stats', refreshKey],
+  // Fetch lead statistics
+  const { data: leadStats, isLoading, error } = useQuery<LeadStats>({
+    queryKey: ['admin-lead-stats', refreshKey],
     queryFn: async () => {
-      // Fetch users count
-      const { count: usersCount, error: usersError } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
-
-      if (usersError) throw usersError;
-
-      // Fetch logs count
-      const { count: logsCount, error: logsError } = await supabase
-        .from('actions_log')
-        .select('*', { count: 'exact', head: true });
-
-      if (logsError) throw logsError;
-
-      // Fetch leads count
-      const { count: leadsCount, error: leadsError } = await supabase
+      // Total leads
+      const { count: total } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true });
 
-      if (leadsError) throw leadsError;
+      // Confirmadas (ficha_confirmada = true)
+      const { count: confirmadas } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('ficha_confirmada', true);
 
-      // Determine system status based on basic health check
-      let systemStatus: 'healthy' | 'warning' | 'critical' = 'healthy';
-      
-      // Simple health check: if we got all data, system is healthy
-      if (usersCount === null && logsCount === null && leadsCount === null) {
-        systemStatus = 'critical';
-      } else if (usersCount === null || logsCount === null || leadsCount === null) {
-        systemStatus = 'warning';
-      }
+      // Aguardando (etapa IN ('Agendados', 'Reagendar', 'Em agendamento'))
+      const { count: aguardando } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .in('etapa', ['Agendados', 'Reagendar', 'Em agendamento', 'UC_SARR07', 'UC_QWPO2W', 'UC_DMLQB7']);
+
+      // Não confirmadas (total - confirmadas)
+      const naoConfirmadas = (total || 0) - (confirmadas || 0);
+
+      // Com foto
+      const { count: comFoto } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('cadastro_existe_foto', true);
 
       return {
-        usersCount: usersCount || 0,
-        logsCount: logsCount || 0,
-        leadsCount: leadsCount || 0,
-        systemStatus,
+        total: total || 0,
+        confirmadas: confirmadas || 0,
+        aguardando: aguardando || 0,
+        naoConfirmadas,
+        comFoto: comFoto || 0,
       };
     },
-    refetchInterval: 60000, // Auto-refresh every 60 seconds
+    refetchInterval: 60000,
   });
 
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'healthy':
-        return <CheckCircle2 className="w-5 h-5 text-green-600" />;
-      case 'warning':
-        return <AlertCircle className="w-5 h-5 text-yellow-600" />;
-      case 'critical':
-        return <AlertCircle className="w-5 h-5 text-red-600" />;
-      default:
-        return <Activity className="w-5 h-5" />;
-    }
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'healthy':
-        return 'default';
-      case 'warning':
-        return 'secondary';
-      case 'critical':
-        return 'destructive';
-      default:
-        return 'outline';
-    }
-  };
-
   return (
     <AdminPageLayout
-      title=""
-      description=""
+      title="Dashboard Geral"
+      description="Visão completa do sistema"
       backTo="/admin"
     >
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Monitoramento de Performance</CardTitle>
-              <CardDescription>
-                Acompanhe métricas de performance, carga e bottlenecks do sistema
-              </CardDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isLoading}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Atualizar
-            </Button>
+      <div className="space-y-6">
+        {/* Header with Refresh */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Visão Geral do Sistema</h2>
+            <p className="text-muted-foreground">
+              Monitoramento em tempo real de leads, usuários e sistema
+            </p>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {/* Error Alert */}
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Erro ao carregar estatísticas: {error instanceof Error ? error.message : 'Erro desconhecido'}
-                </AlertDescription>
-              </Alert>
-            )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+        </div>
 
-            {/* Overview Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Usuários</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {isLoading ? '...' : stats?.usersCount || 0}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Agentes cadastrados no sistema
-                  </p>
-                </CardContent>
-              </Card>
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Erro ao carregar estatísticas: {error instanceof Error ? error.message : 'Erro desconhecido'}
+            </AlertDescription>
+          </Alert>
+        )}
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Logs</CardTitle>
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {isLoading ? '...' : stats?.logsCount || 0}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Registros de atividade
-                  </p>
-                </CardContent>
-              </Card>
+        {/* Lead Stats Cards - Row 1 */}
+        <LeadStatsCards
+          stats={leadStats ? {
+            total: leadStats.total,
+            confirmadas: leadStats.confirmadas,
+            aguardando: leadStats.aguardando,
+            naoConfirmadas: leadStats.naoConfirmadas,
+          } : null}
+          isLoading={isLoading}
+        />
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Leads</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {isLoading ? '...' : stats?.leadsCount || 0}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Leads no sistema
-                  </p>
-                </CardContent>
-              </Card>
+        {/* Photo Stats + Online Users - Row 2 */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <PhotoStatsCard
+            comFoto={leadStats?.comFoto || 0}
+            total={leadStats?.total || 0}
+            isLoading={isLoading}
+          />
+          <div className="lg:col-span-2">
+            <OnlineUsersPanel />
+          </div>
+        </div>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Status do Sistema</CardTitle>
-                  <Activity className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    {stats && getStatusIcon(stats.systemStatus)}
-                    <Badge variant={stats ? getStatusBadgeVariant(stats.systemStatus) : 'outline'}>
-                      {isLoading ? '...' : stats ? getStatusLabel(stats.systemStatus) : 'Desconhecido'}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Status geral da aplicação
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+        {/* System Activity Bar - Full Width Row 3 */}
+        <SystemActivityBar />
 
-            {/* Main Content Tabs */}
-            <Tabs defaultValue="overview" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+        {/* System Status + Alerts - Row 4 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <SystemStatusPanel />
+          <AlertsOverview />
+        </div>
+
+        {/* Detailed Tabs */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Informações Detalhadas</CardTitle>
+            <CardDescription>
+              Acesse informações detalhadas de cada área do sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="monitoring" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="monitoring">Monitoramento</TabsTrigger>
                 <TabsTrigger value="diagnostics">Diagnósticos</TabsTrigger>
                 <TabsTrigger value="quality">Qualidade</TabsTrigger>
                 <TabsTrigger value="logs">Logs</TabsTrigger>
               </TabsList>
 
-              {/* Visão Geral Tab */}
-              <TabsContent value="overview" className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  {/* Quick Actions */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Ações Rápidas</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => navigate('/admin/users')}
-                      >
-                        <Users className="w-4 h-4 mr-2" />
-                        Gerenciar Usuários
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => navigate('/admin/config')}
-                      >
-                        <Activity className="w-4 h-4 mr-2" />
-                        Configurações
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => navigate('/admin/permissions')}
-                      >
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                        Permissões
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  {/* Recent Activity Summary */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Atividade Recente</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-4">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">Sistema operando normalmente</p>
-                            <p className="text-xs text-muted-foreground">
-                              Última atualização: {new Date().toLocaleTimeString()}
-                            </p>
-                          </div>
-                          <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              {/* Monitoramento Tab */}
               <TabsContent value="monitoring" className="space-y-4">
                 <PerformanceMonitoringDashboard />
               </TabsContent>
 
-              {/* Diagnósticos Tab */}
               <TabsContent value="diagnostics" className="space-y-4">
                 <div className="grid gap-6">
                   <HealthCheckPanel />
@@ -315,19 +178,17 @@ export default function UnifiedDashboard() {
                 </div>
               </TabsContent>
 
-              {/* Qualidade de Dados Tab */}
               <TabsContent value="quality" className="space-y-4">
                 <DataQualityPanel />
               </TabsContent>
 
-              {/* Logs Tab */}
               <TabsContent value="logs" className="space-y-4">
                 <LogsPanel />
               </TabsContent>
             </Tabs>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </AdminPageLayout>
   );
 }
