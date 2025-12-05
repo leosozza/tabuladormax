@@ -54,10 +54,19 @@ interface BpmnEditorProps {
 let nodeId = 0;
 const getNodeId = () => `node_${nodeId++}`;
 
+// Normaliza edges para garantir que todas usem o tipo editável
+const normalizeEdges = (edges: Edge[]): Edge[] => {
+  return edges.map(edge => ({
+    ...edge,
+    type: 'editable',
+    style: edge.style || { stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 },
+  }));
+};
+
 export function BpmnEditor({ initialNodes = [], initialEdges = [], onSave, readOnly = false }: BpmnEditorProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(normalizeEdges(initialEdges));
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
