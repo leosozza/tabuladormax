@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { Circle, CircleDot, Square, User, Cog, Diamond, FolderOpen, Database, StickyNote, X, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { Circle, CircleDot, Square, User, Cog, Diamond, FolderOpen, Database, StickyNote, Search, ChevronDown, ChevronRight, ChevronLeft, Layers } from 'lucide-react';
 import { BpmnNodeType, bpmnPaletteItems } from '@/types/bpmn';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface BpmnNodePaletteProps {
   onAddNode?: (type: BpmnNodeType) => void;
-  onClose?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -31,7 +33,7 @@ const categoryConfig: Record<string, { label: string; icon: string; color: strin
   dados: { label: 'Dados', icon: '🗄️', color: 'bg-purple-500/10 text-purple-600' },
 };
 
-export function BpmnNodePalette({ onAddNode, onClose }: BpmnNodePaletteProps) {
+export function BpmnNodePalette({ onAddNode, collapsed, onToggleCollapse }: BpmnNodePaletteProps) {
   const [search, setSearch] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['eventos', 'atividades', 'gateways', 'dados']);
 
@@ -61,6 +63,27 @@ export function BpmnNodePalette({ onAddNode, onClose }: BpmnNodePaletteProps) {
     return acc;
   }, {} as Record<string, typeof bpmnPaletteItems>);
 
+  // Collapsed state - show compact button
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-12 w-12 rounded-2xl bg-background/95 backdrop-blur-xl border border-border/50 shadow-2xl hover:scale-105 transition-transform"
+            onClick={onToggleCollapse}
+          >
+            <Layers className="w-5 h-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          Abrir paleta de elementos
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
   return (
     <div className="w-72 bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-8rem)] overflow-hidden">
       {/* Header */}
@@ -69,9 +92,9 @@ export function BpmnNodePalette({ onAddNode, onClose }: BpmnNodePaletteProps) {
           <h3 className="font-semibold text-foreground">Elementos</h3>
           <p className="text-xs text-muted-foreground">Arraste para o canvas</p>
         </div>
-        {onClose && (
-          <Button variant="ghost" size="sm" className="h-8 w-8 rounded-lg" onClick={onClose}>
-            <X className="w-4 h-4" />
+        {onToggleCollapse && (
+          <Button variant="ghost" size="sm" className="h-8 w-8 rounded-lg" onClick={onToggleCollapse}>
+            <ChevronLeft className="w-4 h-4" />
           </Button>
         )}
       </div>
@@ -151,7 +174,7 @@ export function BpmnNodePalette({ onAddNode, onClose }: BpmnNodePaletteProps) {
       {/* Footer tip */}
       <div className="px-4 py-3 border-t border-border/50 bg-muted/30">
         <p className="text-xs text-muted-foreground text-center">
-          💡 Dica: Use <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">Del</kbd> para excluir
+          💡 <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">Scroll</kbd> para mover • <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">Del</kbd> para excluir
         </p>
       </div>
     </div>
