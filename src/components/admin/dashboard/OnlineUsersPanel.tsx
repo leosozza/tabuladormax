@@ -30,19 +30,15 @@ function UserAvatar({ name }: { name: string }) {
 export function OnlineUsersPanel() {
   const { onlineUsers, usersOnline } = useOnlinePresence();
 
-  // Fetch active scouters from database (scouters with recent activity)
+  // Fetch active scouters from database (status = ativo)
   const { data: activeScouters } = useQuery({
     queryKey: ['active-scouters'],
     queryFn: async () => {
-      // Get scouters with activity in last 24 hours or status ativo
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      
       const { data, error } = await supabase
         .from('scouters')
-        .select('id, name, last_activity_at, status')
+        .select('id, name, status')
         .eq('status', 'ativo')
-        .gte('last_activity_at', twentyFourHoursAgo)
-        .order('last_activity_at', { ascending: false })
+        .order('name', { ascending: true })
         .limit(10);
 
       if (error) throw error;
@@ -51,8 +47,23 @@ export function OnlineUsersPanel() {
     refetchInterval: 60000,
   });
 
+  // Get total count of active scouters
+  const { data: scoutersCount } = useQuery({
+    queryKey: ['active-scouters-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('scouters')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'ativo');
+
+      if (error) throw error;
+      return count || 0;
+    },
+    refetchInterval: 60000,
+  });
+
   const users = onlineUsers.filter(u => !u.isScouter).slice(0, 3);
-  const scoutersCount = activeScouters?.length || 0;
+  const totalScouters = scoutersCount || 0;
   const displayScouters = activeScouters?.slice(0, 3) || [];
 
   return (
@@ -101,7 +112,7 @@ export function OnlineUsersPanel() {
               <span className="text-xs font-medium">Scouters Ativos</span>
             </div>
             <Badge variant="secondary" className="text-xs h-5 px-1.5 bg-primary/10 text-primary">
-              {scoutersCount}
+              {totalScouters}
             </Badge>
           </div>
           {displayScouters.length === 0 ? (
@@ -115,7 +126,7 @@ export function OnlineUsersPanel() {
               </div>
               {displayScouters[0] && (
                 <span className="text-xs text-muted-foreground truncate">
-                  {displayScouters[0].name.split(' ')[0]}{scoutersCount > 1 && ` +${scoutersCount - 1}`}
+                  {displayScouters[0].name.split(' ')[0]}{totalScouters > 1 && ` +${totalScouters - 1}`}
                 </span>
               )}
             </div>
