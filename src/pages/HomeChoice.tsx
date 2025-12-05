@@ -126,15 +126,17 @@ export default function HomeChoice() {
             {/* Row 4: Equipe - Status + Rankings */}
             <TeamStatusPanel sourceFilter={sourceFilter} />
 
-            {/* Row 5: Sistema - Status + Alerts + Activity */}
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Row 5: Status + Alertas */}
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
               <SystemStatusPanel />
               <AlertsOverview />
-              <SystemActivityBar />
             </div>
 
-            {/* Row 6: Ações Rápidas */}
-            <QuickActionsPanel />
+            {/* Row 6: Atividades + Ações Rápidas */}
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+              <SystemActivityBar />
+              <QuickActionsPanel />
+            </div>
           </>
         ) : (
           <MaxconnectAgent />
