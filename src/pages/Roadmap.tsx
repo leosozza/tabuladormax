@@ -103,22 +103,21 @@ export default function Roadmap() {
       <div className="container max-w-7xl mx-auto py-8 px-4 space-y-8">
         {/* Header */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                 <Map className="h-6 w-6 text-primary" />
               </div>
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">Roadmap TabuladorMax</h1>
-                <p className="text-muted-foreground">
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">Roadmap TabuladorMax</h1>
+                <p className="text-sm text-muted-foreground">
                   Acompanhe todas as funcionalidades implementadas e planejadas
                 </p>
               </div>
-          </div>
+            </div>
             {canManageRoadmap && (
-              <Button onClick={handleOpenNewDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Funcionalidade
+              <Button onClick={handleOpenNewDialog} size="icon" className="shrink-0" title="Nova Funcionalidade">
+                <Plus className="h-5 w-5" />
               </Button>
             )}
           </div>
