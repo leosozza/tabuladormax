@@ -46,40 +46,25 @@
   <body>
     <div id="root"></div>
     
-    <!-- REMOÇÃO TOTAL de Service Workers e caches - v2 -->
+    <!-- Limpeza de Service Workers apenas (preserva localStorage) -->
     <script>
       (function() {
-        // 1. Remover TODOS os Service Workers IMEDIATAMENTE
+        // Remover Service Workers do PWA antigo
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for (var i = 0; i < registrations.length; i++) {
               registrations[i].unregister();
-              console.log('[CLEANUP] SW removido');
             }
           });
         }
         
-        // 2. Limpar TODOS os caches
+        // Limpar apenas caches do PWA (NÃO localStorage!)
         if ('caches' in window) {
           caches.keys().then(function(names) {
             for (var i = 0; i < names.length; i++) {
               caches.delete(names[i]);
-              console.log('[CLEANUP] Cache removido:', names[i]);
             }
           });
-        }
-        
-        // 3. Limpar storage
-        try { localStorage.clear(); } catch(e) {}
-        try { sessionStorage.clear(); } catch(e) {}
-        
-        // 4. Limpar IndexedDB
-        if ('indexedDB' in window) {
-          indexedDB.databases().then(function(dbs) {
-            for (var i = 0; i < dbs.length; i++) {
-              indexedDB.deleteDatabase(dbs[i].name);
-            }
-          }).catch(function() {});
         }
       })();
     </script>
