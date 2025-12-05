@@ -45,7 +45,8 @@ export function ModuleActivityChart({ dateFilter }: ModuleActivityChartProps) {
         .select('criado, fonte_normalizada')
         .gte('criado', dateFilter.startDate.toISOString())
         .lte('criado', dateFilter.endDate.toISOString())
-        .not('criado', 'is', null);
+        .not('criado', 'is', null)
+        .limit(50000);
 
       if (error) {
         console.error('Error fetching leads:', error);
