@@ -13,6 +13,7 @@ export interface RoadmapFeature {
   launch_date: string | null;
   tags: string[];
   sort_order: number;
+  priority: 'critical' | 'high' | 'medium' | 'low';
   created_at: string;
   updated_at: string;
   created_by: string | null;

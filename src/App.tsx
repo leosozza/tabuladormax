@@ -67,6 +67,7 @@ import "@/styles/hub.css";
 
 // Roadmap
 import Roadmap from "./pages/Roadmap";
+import Processos from "./pages/docs/Processos";
 
 // Discador Module
 import DiscadorHub from "./pages/discador/DiscadorHub";
@@ -153,8 +154,9 @@ const App = () => (
             <Route path="/scouter/area" element={<GestaoArea />} />
             <Route path="/scouter/relatorios" element={<GestaoRelatorios />} />
 
-            {/* Roadmap */}
+            {/* Roadmap & Docs */}
             <Route path="/roadmap" element={<Roadmap />} />
+            <Route path="/docs/processos" element={<Processos />} />
 
             {/* Redirects */}
             <Route path="/users" element={<Navigate to="/admin/users" replace />} />
