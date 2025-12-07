@@ -146,7 +146,7 @@ export function ScouterLeadsModal({
                         <Calendar className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <span className="text-xs text-muted-foreground">
                           {lead.criado
-                            ? format(new Date(lead.criado), "dd/MM/yyyy", { locale: ptBR })
+                            ? format(new Date(lead.criado), "dd/MM/yyyy HH:mm", { locale: ptBR })
                             : '-'}
                         </span>
                       </div>
@@ -182,9 +182,9 @@ export function ScouterLeadsModal({
                       <TableCell>
                         {lead.nome_modelo || '-'}
                       </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell className="text-sm whitespace-nowrap">
                         {lead.criado
-                          ? format(new Date(lead.criado), "dd/MM/yyyy", { locale: ptBR })
+                          ? format(new Date(lead.criado), "dd/MM/yyyy HH:mm", { locale: ptBR })
                           : '-'}
                       </TableCell>
                       <TableCell className="text-sm">
