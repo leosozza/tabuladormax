@@ -20,18 +20,14 @@ interface ScouterDashboardProps {
   onLogout: () => void;
 }
 
-export type DateRangePreset = 'today' | 'week' | 'month' | '30days' | 'all' | 'custom';
+export type DateRangePreset = 'today' | 'yesterday' | 'week' | 'month';
 
 export const ScouterDashboard = ({
   scouterData,
   onLogout
 }: ScouterDashboardProps) => {
-  const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
+  const [datePreset, setDatePreset] = useState<DateRangePreset>('today');
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [customRange, setCustomRange] = useState<{
-    from: Date;
-    to: Date;
-  } | null>(null);
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
   const [currentPhoto, setCurrentPhoto] = useState(scouterData.photo);
   
@@ -47,6 +43,12 @@ export const ScouterDashboard = ({
           start: startOfDay(now),
           end: endOfDay(now)
         };
+      case 'yesterday':
+        const yesterday = subDays(now, 1);
+        return {
+          start: startOfDay(yesterday),
+          end: endOfDay(yesterday)
+        };
       case 'week':
         return {
           start: startOfWeek(now, {
@@ -58,28 +60,6 @@ export const ScouterDashboard = ({
         return {
           start: startOfMonth(now),
           end: endOfDay(now)
-        };
-      case '30days':
-        return {
-          start: subDays(now, 30),
-          end: endOfDay(now)
-        };
-      case 'custom':
-        if (customRange) {
-          return {
-            start: startOfDay(customRange.from),
-            end: endOfDay(customRange.to)
-          };
-        }
-        return {
-          start: null,
-          end: null
-        };
-      case 'all':
-      default:
-        return {
-          start: null,
-          end: null
         };
     }
   };
@@ -226,8 +206,6 @@ export const ScouterDashboard = ({
           projectId={projectId} 
           onProjectChange={setProjectId} 
           projects={projects} 
-          customRange={customRange} 
-          onCustomRangeChange={setCustomRange} 
         />
 
         {/* Cards de Estatísticas */}
