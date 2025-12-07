@@ -150,7 +150,8 @@ export function ScouterLeadsModal({
 
     // Finalizar
     setDuplicateStatus(newStatus);
-    setCheckProgress({ phase: 'complete', progress: 100, message: `✓ ${newStatus.size} duplicado(s) encontrado(s)` });
+    const uniqueCount = leads.length - newStatus.size;
+    setCheckProgress({ phase: 'complete', progress: 100, message: `✓ ${uniqueCount} leads únicos (${newStatus.size} duplicados)` });
   }, [leads, projectId]);
 
   const totalPages = Math.ceil((leads?.length || 0) / ITEMS_PER_PAGE);
@@ -188,6 +189,7 @@ export function ScouterLeadsModal({
   };
 
   const duplicatesCount = duplicateStatus.size;
+  const uniqueLeadsCount = (leads?.length || 0) - duplicatesCount;
   const isChecking = checkProgress.phase !== 'idle' && checkProgress.phase !== 'complete';
 
   return (
@@ -197,14 +199,24 @@ export function ScouterLeadsModal({
           <DialogTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
             {filterLabel}
             {leads && (
-              <Badge variant="secondary" className="ml-1">
-                {leads.length} leads
-              </Badge>
-            )}
-            {duplicatesCount > 0 && (
-              <Badge variant="destructive" className="ml-1">
-                {duplicatesCount} duplicado(s)
-              </Badge>
+              <>
+                {checkProgress.phase === 'complete' ? (
+                  <>
+                    <Badge className="ml-1 bg-green-600 hover:bg-green-700">
+                      {uniqueLeadsCount} leads únicos
+                    </Badge>
+                    {duplicatesCount > 0 && (
+                      <Badge variant="destructive" className="ml-1">
+                        {duplicatesCount} duplicado(s)
+                      </Badge>
+                    )}
+                  </>
+                ) : (
+                  <Badge variant="secondary" className="ml-1">
+                    {leads.length} leads
+                  </Badge>
+                )}
+              </>
             )}
           </DialogTitle>
         </DialogHeader>
