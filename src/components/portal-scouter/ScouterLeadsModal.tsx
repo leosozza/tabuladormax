@@ -21,11 +21,11 @@ interface ScouterLeadsModalProps {
 }
 
 interface LeadData {
-  id: number;
+  lead_id: number;
   nome_modelo: string | null;
   criado: string | null;
   local_abordagem: string | null;
-  etapa: string | null;
+  etapa_lead: string | null;
   has_duplicate: boolean;
   is_duplicate_deleted: boolean;
 }
@@ -123,13 +123,13 @@ export function ScouterLeadsModal({
               <div className="md:hidden space-y-3">
                 {paginatedLeads.map((lead) => (
                   <div 
-                    key={lead.id} 
+                    key={lead.lead_id} 
                     className="bg-muted/50 rounded-lg p-3 border border-border"
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Hash className="h-3 w-3" />
-                        <span className="font-mono">{lead.id}</span>
+                        <span className="font-mono">{lead.lead_id}</span>
                       </div>
                       {renderDuplicateBadge(lead)}
                     </div>
@@ -175,9 +175,9 @@ export function ScouterLeadsModal({
                 </TableHeader>
                 <TableBody>
                   {paginatedLeads.map((lead) => (
-                    <TableRow key={lead.id}>
+                    <TableRow key={lead.lead_id}>
                       <TableCell className="font-mono text-xs">
-                        {lead.id}
+                        {lead.lead_id}
                       </TableCell>
                       <TableCell>
                         {lead.nome_modelo || '-'}
