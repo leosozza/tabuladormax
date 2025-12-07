@@ -2407,6 +2407,19 @@ export type Database = {
         Args: { _route_path: string; _user_id: string }
         Returns: boolean
       }
+      check_leads_duplicates: {
+        Args: {
+          p_days_back?: number
+          p_lead_ids: number[]
+          p_project_id?: string
+        }
+        Returns: {
+          duplicate_lead_id: number
+          has_duplicate: boolean
+          is_duplicate_deleted: boolean
+          lead_id: number
+        }[]
+      }
       clean_corrupted_fonte: { Args: never; Returns: Json }
       clean_old_lead_search_cache: { Args: never; Returns: undefined }
       cleanup_scouter_location_history: { Args: never; Returns: number }
@@ -2677,6 +2690,23 @@ export type Database = {
               nome_modelo: string
             }[]
           }
+      get_scouter_leads_simple: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_project_id?: string
+          p_scouter_name: string
+        }
+        Returns: {
+          address: string
+          celular: string
+          commercial_project_id: string
+          criado: string
+          etapa_lead: string
+          lead_id: number
+          nome_modelo: string
+        }[]
+      }
       get_scouter_location_stats: { Args: never; Returns: Json }
       get_scouter_performance_data: {
         Args: {
