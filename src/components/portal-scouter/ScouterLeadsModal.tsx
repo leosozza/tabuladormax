@@ -24,7 +24,7 @@ interface LeadData {
   lead_id: number;
   nome_modelo: string | null;
   criado: string | null;
-  local_abordagem: string | null;
+  address: string | null;
   etapa_lead: string | null;
   has_duplicate: boolean;
   is_duplicate_deleted: boolean;
@@ -52,7 +52,6 @@ export function ScouterLeadsModal({
         p_date_from: dateFrom?.toISOString() || null,
         p_date_to: dateTo?.toISOString() || null,
         p_project_id: projectId || null,
-        p_filter_type: filterType,
       });
 
       if (error) throw error;
@@ -154,7 +153,7 @@ export function ScouterLeadsModal({
                       <div className="flex items-center gap-2">
                         <MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <span className="text-xs text-muted-foreground truncate">
-                          {lead.local_abordagem || '-'}
+                          {lead.address || '-'}
                         </span>
                       </div>
                     </div>
@@ -188,7 +187,7 @@ export function ScouterLeadsModal({
                           : '-'}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {lead.local_abordagem || '-'}
+                        {lead.address || '-'}
                       </TableCell>
                       <TableCell>
                         {renderDuplicateBadge(lead)}
