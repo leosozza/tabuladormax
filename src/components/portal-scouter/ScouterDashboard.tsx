@@ -8,7 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { ScouterStatsCards } from './ScouterStatsCards';
 import { ScouterFilters } from './ScouterFilters';
 import { PhotoUploadDialog } from './PhotoUploadDialog';
+import { ScouterLeadsModal } from './ScouterLeadsModal';
 import { startOfDay, endOfDay, startOfWeek, startOfMonth, subDays } from 'date-fns';
+
 interface ScouterDashboardProps {
   scouterData: {
     id: string;
@@ -17,7 +19,9 @@ interface ScouterDashboardProps {
   };
   onLogout: () => void;
 }
+
 export type DateRangePreset = 'today' | 'week' | 'month' | '30days' | 'all' | 'custom';
+
 export const ScouterDashboard = ({
   scouterData,
   onLogout
@@ -30,6 +34,11 @@ export const ScouterDashboard = ({
   } | null>(null);
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
   const [currentPhoto, setCurrentPhoto] = useState(scouterData.photo);
+  
+  // State para o modal de leads
+  const [leadsModalOpen, setLeadsModalOpen] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<{ type: string; label: string }>({ type: 'all', label: 'Total de Leads' });
+
   const getDateRange = () => {
     const now = new Date();
     switch (datePreset) {
@@ -74,21 +83,14 @@ export const ScouterDashboard = ({
         };
     }
   };
-  const {
-    start,
-    end
-  } = getDateRange();
+
+  const { start, end } = getDateRange();
 
   // Buscar projetos do scouter
-  const {
-    data: projects = []
-  } = useQuery({
+  const { data: projects = [] } = useQuery({
     queryKey: ['scouter-projects', scouterData.name],
     queryFn: async () => {
-      const {
-        data,
-        error
-      } = await supabase.rpc('get_scouter_projects', {
+      const { data, error } = await supabase.rpc('get_scouter_projects', {
         p_scouter_name: scouterData.name
       });
       if (error) throw error;
@@ -97,17 +99,10 @@ export const ScouterDashboard = ({
   });
 
   // Buscar estatísticas
-  const {
-    data: stats,
-    isLoading,
-    refetch
-  } = useQuery({
+  const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ['scouter-portal-stats', scouterData.name, start?.toISOString(), end?.toISOString(), projectId],
     queryFn: async () => {
-      const {
-        data,
-        error
-      } = await supabase.rpc('get_scouter_portal_stats', {
+      const { data, error } = await supabase.rpc('get_scouter_portal_stats', {
         p_scouter_name: scouterData.name,
         p_start_date: start?.toISOString() || null,
         p_end_date: end?.toISOString() || null,
@@ -119,15 +114,10 @@ export const ScouterDashboard = ({
   });
 
   // Buscar posição no ranking
-  const {
-    data: ranking
-  } = useQuery({
+  const { data: ranking } = useQuery({
     queryKey: ['scouter-ranking', scouterData.name, start?.toISOString(), end?.toISOString()],
     queryFn: async () => {
-      const {
-        data,
-        error
-      } = await supabase.rpc('get_scouter_ranking_position', {
+      const { data, error } = await supabase.rpc('get_scouter_ranking_position', {
         p_scouter_name: scouterData.name,
         p_start_date: start?.toISOString() || null,
         p_end_date: end?.toISOString() || null
@@ -136,9 +126,16 @@ export const ScouterDashboard = ({
       return data?.[0] || null;
     }
   });
+
   const handlePhotoUpdated = (newPhotoUrl: string) => {
     setCurrentPhoto(newPhotoUrl);
   };
+
+  const handleCardClick = (filterType: string, label: string) => {
+    setSelectedFilter({ type: filterType, label });
+    setLeadsModalOpen(true);
+  };
+
   const getRankingIcon = () => {
     if (!ranking) return <Trophy className="h-5 w-5 text-muted-foreground" />;
     if (ranking.rank_position === 1) {
@@ -148,9 +145,11 @@ export const ScouterDashboard = ({
     } else if (ranking.rank_position === 3) {
       return <Medal className="h-5 w-5 text-amber-600" />;
     }
-    return;
+    return null;
   };
-  return <div className="min-h-screen bg-background">
+
+  return (
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
@@ -173,11 +172,12 @@ export const ScouterDashboard = ({
                 <h1 className="font-bold text-lg">Olá, {scouterData.name}!</h1>
                 <p className="text-sm text-muted-foreground">Portal do Scouter</p>
                 
-              {/* Ranking badge */}
-                {ranking && <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                {/* Ranking badge */}
+                {ranking && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     {getRankingIcon()}
-                    
-                  </div>}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -197,7 +197,8 @@ export const ScouterDashboard = ({
       {/* Content */}
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Card de Ranking detalhado */}
-        {ranking && <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+        {ranking && (
+          <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
             <CardContent className="py-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -213,19 +214,51 @@ export const ScouterDashboard = ({
                     </p>
                   </div>
                 </div>
-                
               </div>
             </CardContent>
-          </Card>}
+          </Card>
+        )}
 
         {/* Filtros */}
-        <ScouterFilters datePreset={datePreset} onDatePresetChange={setDatePreset} projectId={projectId} onProjectChange={setProjectId} projects={projects} customRange={customRange} onCustomRangeChange={setCustomRange} />
+        <ScouterFilters 
+          datePreset={datePreset} 
+          onDatePresetChange={setDatePreset} 
+          projectId={projectId} 
+          onProjectChange={setProjectId} 
+          projects={projects} 
+          customRange={customRange} 
+          onCustomRangeChange={setCustomRange} 
+        />
 
         {/* Cards de Estatísticas */}
-        <ScouterStatsCards stats={stats} isLoading={isLoading} />
+        <ScouterStatsCards 
+          stats={stats} 
+          isLoading={isLoading} 
+          onCardClick={handleCardClick}
+        />
       </main>
 
       {/* Dialog de upload de foto */}
-      <PhotoUploadDialog open={showPhotoDialog} onOpenChange={setShowPhotoDialog} scouterId={scouterData.id} scouterName={scouterData.name} currentPhoto={currentPhoto} onPhotoUpdated={handlePhotoUpdated} />
-    </div>;
+      <PhotoUploadDialog 
+        open={showPhotoDialog} 
+        onOpenChange={setShowPhotoDialog} 
+        scouterId={scouterData.id} 
+        scouterName={scouterData.name} 
+        currentPhoto={currentPhoto} 
+        onPhotoUpdated={handlePhotoUpdated} 
+      />
+
+      {/* Modal de leads */}
+      <ScouterLeadsModal
+        isOpen={leadsModalOpen}
+        onClose={() => setLeadsModalOpen(false)}
+        scouterName={scouterData.name}
+        filterType={selectedFilter.type}
+        filterLabel={selectedFilter.label}
+        dateFrom={start}
+        dateTo={end}
+        projectId={projectId}
+      />
+    </div>
+  );
 };

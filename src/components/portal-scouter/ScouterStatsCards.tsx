@@ -23,9 +23,10 @@ interface Stats {
 interface ScouterStatsCardsProps {
   stats: Stats | null;
   isLoading: boolean;
+  onCardClick?: (filterType: string, label: string) => void;
 }
 
-export const ScouterStatsCards = ({ stats, isLoading }: ScouterStatsCardsProps) => {
+export const ScouterStatsCards = ({ stats, isLoading, onCardClick }: ScouterStatsCardsProps) => {
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
@@ -57,56 +58,67 @@ export const ScouterStatsCards = ({ stats, isLoading }: ScouterStatsCardsProps) 
       value: stats.total_leads, 
       icon: Users, 
       color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10'
+      bgColor: 'bg-blue-500/10',
+      filterType: 'all'
     },
     { 
       title: 'Com Foto', 
       value: stats.com_foto, 
       icon: Camera, 
       color: 'text-purple-500',
-      bgColor: 'bg-purple-500/10'
+      bgColor: 'bg-purple-500/10',
+      filterType: 'com_foto'
     },
     { 
       title: 'Confirmados', 
       value: stats.confirmados, 
       icon: CheckCircle, 
       color: 'text-green-500',
-      bgColor: 'bg-green-500/10'
+      bgColor: 'bg-green-500/10',
+      filterType: 'confirmados'
     },
     { 
       title: 'Agendados', 
       value: stats.agendados, 
       icon: Calendar, 
       color: 'text-orange-500',
-      bgColor: 'bg-orange-500/10'
+      bgColor: 'bg-orange-500/10',
+      filterType: 'agendados'
     },
     { 
       title: 'Reagendar', 
       value: stats.reagendar, 
       icon: RefreshCw, 
       color: 'text-yellow-500',
-      bgColor: 'bg-yellow-500/10'
+      bgColor: 'bg-yellow-500/10',
+      filterType: 'reagendar'
     },
     { 
       title: 'Compareceram', 
       value: stats.compareceram, 
       icon: UserCheck, 
       color: 'text-emerald-500',
-      bgColor: 'bg-emerald-500/10'
+      bgColor: 'bg-emerald-500/10',
+      filterType: 'compareceram'
     },
     { 
       title: 'Pendentes', 
       value: stats.pendentes, 
       icon: Clock, 
       color: 'text-red-500',
-      bgColor: 'bg-red-500/10'
+      bgColor: 'bg-red-500/10',
+      filterType: 'pendentes'
     },
   ];
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
       {cards.map((card) => (
-        <Card key={card.title} className="overflow-hidden">
+        <Card 
+          key={card.title} 
+          className="overflow-hidden cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+          onClick={() => onCardClick?.(card.filterType, card.title)}
+        >
           <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {card.title}
