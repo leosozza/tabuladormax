@@ -2,12 +2,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { Progress } from "@/components/ui/progress";
 
 interface ScouterLeadsModalProps {
   isOpen: boolean;
@@ -26,8 +27,17 @@ interface LeadData {
   criado: string | null;
   address: string | null;
   etapa_lead: string | null;
-  has_duplicate: boolean;
-  is_duplicate_deleted: boolean;
+  celular: string | null;
+  commercial_project_id: string | null;
+  // Campos de duplicado (preenchidos após verificação)
+  has_duplicate?: boolean;
+  is_duplicate_deleted?: boolean;
+}
+
+interface DuplicateCheckProgress {
+  phase: 'idle' | 'internal' | 'database' | 'complete';
+  progress: number;
+  message: string;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -43,11 +53,14 @@ export function ScouterLeadsModal({
   projectId,
 }: ScouterLeadsModalProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [duplicateStatus, setDuplicateStatus] = useState<Map<number, { has_duplicate: boolean; is_duplicate_deleted: boolean }>>(new Map());
+  const [checkProgress, setCheckProgress] = useState<DuplicateCheckProgress>({ phase: 'idle', progress: 0, message: '' });
 
+  // Carregar leads de forma RÁPIDA (sem verificar duplicados)
   const { data: leads, isLoading } = useQuery({
-    queryKey: ['scouter-leads', scouterName, filterType, dateFrom, dateTo, projectId],
+    queryKey: ['scouter-leads-simple', scouterName, dateFrom, dateTo, projectId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_scouter_leads', {
+      const { data, error } = await supabase.rpc('get_scouter_leads_simple', {
         p_scouter_name: scouterName,
         p_date_from: dateFrom?.toISOString() || null,
         p_date_to: dateTo?.toISOString() || null,
@@ -60,6 +73,86 @@ export function ScouterLeadsModal({
     enabled: isOpen && !!scouterName,
   });
 
+  // Reset estado quando modal fecha ou leads mudam
+  useEffect(() => {
+    if (!isOpen) {
+      setDuplicateStatus(new Map());
+      setCheckProgress({ phase: 'idle', progress: 0, message: '' });
+      setCurrentPage(1);
+    }
+  }, [isOpen]);
+
+  // Função para verificar duplicados
+  const checkDuplicates = useCallback(async () => {
+    if (!leads || leads.length === 0) return;
+
+    const newStatus = new Map<number, { has_duplicate: boolean; is_duplicate_deleted: boolean }>();
+    
+    // FASE 1: Verificar duplicados INTERNOS (entre os próprios leads carregados)
+    setCheckProgress({ phase: 'internal', progress: 20, message: 'Verificando entre seus leads...' });
+    
+    // Agrupar por telefone
+    const phoneMap = new Map<string, number[]>();
+    leads.forEach(lead => {
+      if (lead.celular) {
+        const phone = lead.celular.replace(/\D/g, ''); // Normalizar telefone
+        if (phone.length >= 8) {
+          const existing = phoneMap.get(phone) || [];
+          existing.push(lead.lead_id);
+          phoneMap.set(phone, existing);
+        }
+      }
+    });
+
+    // Marcar duplicados internos
+    phoneMap.forEach((leadIds) => {
+      if (leadIds.length > 1) {
+        // O primeiro é o original, os outros são duplicados
+        leadIds.forEach((id, index) => {
+          if (index > 0) {
+            newStatus.set(id, { has_duplicate: true, is_duplicate_deleted: false });
+          }
+        });
+      }
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 300)); // Pequeno delay para UX
+
+    // FASE 2: Verificar duplicados na BASE DE DADOS
+    setCheckProgress({ phase: 'database', progress: 50, message: 'Verificando na base de dados...' });
+
+    try {
+      const leadIds = leads.map(l => l.lead_id);
+      const { data: duplicates, error } = await supabase.rpc('check_leads_duplicates', {
+        p_lead_ids: leadIds,
+        p_project_id: projectId || null,
+        p_days_back: 60,
+      });
+
+      if (error) {
+        console.error('Erro ao verificar duplicados:', error);
+      } else if (duplicates) {
+        setCheckProgress({ phase: 'database', progress: 80, message: 'Processando resultados...' });
+        
+        (duplicates as Array<{ lead_id: number; has_duplicate: boolean; is_duplicate_deleted: boolean }>).forEach(dup => {
+          // Só atualizar se não já foi marcado como duplicado interno
+          if (dup.has_duplicate && !newStatus.has(dup.lead_id)) {
+            newStatus.set(dup.lead_id, { 
+              has_duplicate: true, 
+              is_duplicate_deleted: dup.is_duplicate_deleted 
+            });
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Erro na verificação de duplicados:', err);
+    }
+
+    // Finalizar
+    setDuplicateStatus(newStatus);
+    setCheckProgress({ phase: 'complete', progress: 100, message: `✓ ${newStatus.size} duplicado(s) encontrado(s)` });
+  }, [leads, projectId]);
+
   const totalPages = Math.ceil((leads?.length || 0) / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedLeads = leads?.slice(startIndex, startIndex + ITEMS_PER_PAGE) || [];
@@ -67,23 +160,24 @@ export function ScouterLeadsModal({
   const handlePrevPage = () => setCurrentPage((prev) => Math.max(1, prev - 1));
   const handleNextPage = () => setCurrentPage((prev) => Math.min(totalPages, prev + 1));
 
-  // Reset page when modal opens
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       onClose();
-      setCurrentPage(1);
     }
   };
 
   const renderDuplicateBadge = (lead: LeadData) => {
-    if (lead.is_duplicate_deleted) {
+    const status = duplicateStatus.get(lead.lead_id);
+    if (!status) return null;
+
+    if (status.is_duplicate_deleted) {
       return (
         <Badge variant="destructive" className="text-xs whitespace-nowrap">
           Duplicado Excluído
         </Badge>
       );
     }
-    if (lead.has_duplicate) {
+    if (status.has_duplicate) {
       return (
         <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs whitespace-nowrap">
           Duplicado
@@ -92,6 +186,9 @@ export function ScouterLeadsModal({
     }
     return null;
   };
+
+  const duplicatesCount = duplicateStatus.size;
+  const isChecking = checkProgress.phase !== 'idle' && checkProgress.phase !== 'complete';
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -104,8 +201,47 @@ export function ScouterLeadsModal({
                 {leads.length} leads
               </Badge>
             )}
+            {duplicatesCount > 0 && (
+              <Badge variant="destructive" className="ml-1">
+                {duplicatesCount} duplicado(s)
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Botão Verificar Duplicados + Progresso */}
+        {leads && leads.length > 0 && (
+          <div className="flex flex-col gap-2 py-2 border-b border-border">
+            <div className="flex items-center gap-3">
+              <Button
+                variant={checkProgress.phase === 'complete' ? 'secondary' : 'default'}
+                size="sm"
+                onClick={checkDuplicates}
+                disabled={isChecking}
+                className="gap-2"
+              >
+                {isChecking ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : checkProgress.phase === 'complete' ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+                {checkProgress.phase === 'complete' ? 'Verificado' : 'Verificar Duplicados'}
+              </Button>
+              
+              {checkProgress.phase !== 'idle' && (
+                <span className="text-sm text-muted-foreground">
+                  {checkProgress.message}
+                </span>
+              )}
+            </div>
+            
+            {isChecking && (
+              <Progress value={checkProgress.progress} className="h-1.5" />
+            )}
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto -mx-4 px-4 sm:-mx-6 sm:px-6">
           {isLoading ? (
