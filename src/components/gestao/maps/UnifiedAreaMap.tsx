@@ -25,6 +25,7 @@ import { useTrafficLayer } from "@/hooks/useTrafficLayer";
 import { useWeatherLayer } from "@/hooks/useWeatherLayer";
 import { TrafficLegend } from "./TrafficLegend";
 import { WeatherLegend } from "./WeatherLegend";
+import { MapLayerSelector, MAP_LAYERS, MapLayerOption } from "./MapLayerSelector";
 
 // Ícones padrão do Leaflet
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -186,6 +187,10 @@ export default function UnifiedAreaMap({
   const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   
   const { toast } = useToast();
+  
+  // Base layer state
+  const [selectedLayerId, setSelectedLayerId] = useState("osm-standard");
+  const baseLayerRef = useRef<L.TileLayer | null>(null);
   
   // Real-time updates
   const { updates: realtimeUpdates, clearUpdates, isConnected } = useRealtimeLeads({
@@ -407,8 +412,10 @@ export default function UnifiedAreaMap({
 
     mapRef.current = L.map(containerRef.current).setView(center, zoom);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    // Add initial base layer
+    const initialLayer = MAP_LAYERS.find(l => l.id === selectedLayerId) || MAP_LAYERS[0];
+    baseLayerRef.current = L.tileLayer(initialLayer.url, {
+      attribution: initialLayer.attribution,
     }).addTo(mapRef.current);
 
     // Criar layer groups
@@ -451,7 +458,25 @@ export default function UnifiedAreaMap({
     };
   }, []);
 
-  // Atualizar tamanho do mapa quando fullscreen muda
+  // Handle base layer change
+  const handleLayerChange = useCallback((layer: MapLayerOption) => {
+    if (!mapRef.current) return;
+    
+    // Remove old base layer
+    if (baseLayerRef.current) {
+      mapRef.current.removeLayer(baseLayerRef.current);
+    }
+    
+    // Add new base layer (insert at bottom)
+    baseLayerRef.current = L.tileLayer(layer.url, {
+      attribution: layer.attribution,
+    });
+    baseLayerRef.current.addTo(mapRef.current);
+    baseLayerRef.current.bringToBack();
+    
+    setSelectedLayerId(layer.id);
+  }, []);
+
   useEffect(() => {
     if (mapRef.current) {
       setTimeout(() => {
@@ -920,6 +945,13 @@ export default function UnifiedAreaMap({
         scouterName={selectedScouterForTimeline?.name || "Scouter"}
         scouterPhotoUrl={selectedScouterForTimeline?.photoUrl}
         locations={locationHistory}
+      />
+
+      {/* Layer Selector */}
+      <MapLayerSelector
+        selectedLayerId={selectedLayerId}
+        onLayerChange={handleLayerChange}
+        className="top-4 left-4"
       />
 
       {/* Indicadores superiores */}
