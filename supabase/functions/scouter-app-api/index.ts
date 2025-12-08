@@ -8,7 +8,7 @@ const corsHeaders = {
 interface RequestBody {
   action: "login" | "get_stats" | "get_ranking" | "get_projects" | "get_leads";
   access_key?: string;
-  scouter_name?: string;
+  bitrix_id?: number;
   params?: {
     date_preset?: "today" | "yesterday" | "week" | "month";
     project_id?: string;
@@ -29,9 +29,24 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body: RequestBody = await req.json();
-    const { action, access_key, scouter_name, params } = body;
+    const { action, access_key, bitrix_id, params } = body;
 
-    console.log(`[scouter-app-api] Action: ${action}, Scouter: ${scouter_name || "N/A"}`);
+    console.log(`[scouter-app-api] Action: ${action}, Bitrix ID: ${bitrix_id || "N/A"}`);
+
+    // Helper: Get scouter name by bitrix_id
+    const getScouterName = async (bitrixId: number): Promise<string> => {
+      const { data, error } = await supabase
+        .from("scouters")
+        .select("name")
+        .eq("bitrix_id", bitrixId)
+        .single();
+
+      if (error || !data) {
+        console.error(`[scouter-app-api] Scouter not found for bitrix_id: ${bitrixId}`);
+        throw new Error("Scouter not found");
+      }
+      return data.name;
+    };
 
     // Calculate date range based on preset
     const getDateRange = (preset?: string) => {
@@ -90,8 +105,20 @@ Deno.serve(async (req) => {
           );
         }
 
+        // Fetch bitrix_id from scouters table
+        const { data: scouterData, error: scouterError } = await supabase
+          .from("scouters")
+          .select("bitrix_id")
+          .eq("id", data[0].scouter_id)
+          .single();
+
+        if (scouterError) {
+          console.error("[scouter-app-api] Error fetching scouter bitrix_id:", scouterError);
+        }
+
         result = {
           scouter_id: data[0].scouter_id,
+          bitrix_id: scouterData?.bitrix_id || null,
           scouter_name: data[0].scouter_name,
           scouter_photo: data[0].scouter_photo,
         };
@@ -99,20 +126,21 @@ Deno.serve(async (req) => {
       }
 
       case "get_stats": {
-        if (!scouter_name) {
+        if (!bitrix_id) {
           return new Response(
-            JSON.stringify({ success: false, error: "scouter_name is required" }),
+            JSON.stringify({ success: false, error: "bitrix_id is required" }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
+        const scouterName = await getScouterName(bitrix_id);
         const dateRange = getDateRange(params?.date_preset);
 
         const { data, error } = await supabase.rpc("get_leads_stats", {
           p_start_date: params?.start_date || dateRange.start,
           p_end_date: params?.end_date || dateRange.end,
           p_project_id: params?.project_id || null,
-          p_scouter: scouter_name,
+          p_scouter: scouterName,
           p_fonte: "Scouter - Fichas",
         });
 
@@ -131,17 +159,18 @@ Deno.serve(async (req) => {
       }
 
       case "get_ranking": {
-        if (!scouter_name) {
+        if (!bitrix_id) {
           return new Response(
-            JSON.stringify({ success: false, error: "scouter_name is required" }),
+            JSON.stringify({ success: false, error: "bitrix_id is required" }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
+        const scouterName = await getScouterName(bitrix_id);
         const dateRange = getDateRange(params?.date_preset);
 
         const { data, error } = await supabase.rpc("get_scouter_ranking_position", {
-          p_scouter_name: scouter_name,
+          p_scouter_name: scouterName,
           p_start_date: params?.start_date || dateRange.start,
           p_end_date: params?.end_date || dateRange.end,
           p_project_id: params?.project_id || null,
@@ -160,15 +189,17 @@ Deno.serve(async (req) => {
       }
 
       case "get_projects": {
-        if (!scouter_name) {
+        if (!bitrix_id) {
           return new Response(
-            JSON.stringify({ success: false, error: "scouter_name is required" }),
+            JSON.stringify({ success: false, error: "bitrix_id is required" }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
+        const scouterName = await getScouterName(bitrix_id);
+
         const { data, error } = await supabase.rpc("get_scouter_projects", {
-          p_scouter_name: scouter_name,
+          p_scouter_name: scouterName,
         });
 
         if (error) throw error;
@@ -178,17 +209,18 @@ Deno.serve(async (req) => {
       }
 
       case "get_leads": {
-        if (!scouter_name) {
+        if (!bitrix_id) {
           return new Response(
-            JSON.stringify({ success: false, error: "scouter_name is required" }),
+            JSON.stringify({ success: false, error: "bitrix_id is required" }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
+        const scouterName = await getScouterName(bitrix_id);
         const dateRange = getDateRange(params?.date_preset);
 
         const { data, error } = await supabase.rpc("get_scouter_leads_simple", {
-          p_scouter_name: scouter_name,
+          p_scouter_name: scouterName,
           p_date_from: params?.start_date || dateRange.start,
           p_date_to: params?.end_date || dateRange.end,
           p_project_id: params?.project_id || null,
