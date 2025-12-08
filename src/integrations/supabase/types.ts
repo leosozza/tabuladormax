@@ -2282,6 +2282,44 @@ export type Database = {
         }
         Relationships: []
       }
+      scouter_sessions: {
+        Row: {
+          bitrix_id: number
+          created_at: string | null
+          expires_at: string
+          id: string
+          last_used_at: string | null
+          scouter_id: string
+          session_token: string
+        }
+        Insert: {
+          bitrix_id: number
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          last_used_at?: string | null
+          scouter_id: string
+          session_token: string
+        }
+        Update: {
+          bitrix_id?: number
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          last_used_at?: string | null
+          scouter_id?: string
+          session_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scouter_sessions_scouter_id_fkey"
+            columns: ["scouter_id"]
+            isOneToOne: false
+            referencedRelation: "scouters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scouters: {
         Row: {
           access_key: string | null
@@ -2752,6 +2790,7 @@ export type Database = {
       }
       clean_corrupted_fonte: { Args: never; Returns: Json }
       clean_old_lead_search_cache: { Args: never; Returns: undefined }
+      cleanup_expired_scouter_sessions: { Args: never; Returns: number }
       cleanup_scouter_location_history: { Args: never; Returns: number }
       count_leads_to_reprocess: {
         Args: {
