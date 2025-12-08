@@ -317,18 +317,7 @@ function GestaoAreaDeAbordagemContent() {
                   </Label>
                 </div>
 
-                <div className="flex items-center gap-1 sm:gap-2">
-                  <Switch 
-                    checked={showPOIs} 
-                    onCheckedChange={setShowPOIs}
-                    id="show-pois"
-                    className="scale-75 sm:scale-100"
-                  />
-                  <Label htmlFor="show-pois" className="flex items-center gap-1 cursor-pointer text-xs sm:text-sm">
-                    <Building2 className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-500" />
-                    <span className="hidden xs:inline">POIs</span>
-                  </Label>
-                </div>
+
                 <div className="flex items-center gap-1 sm:gap-2">
                   <Switch 
                     checked={showWeather} 
