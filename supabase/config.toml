@@ -194,3 +194,6 @@ verify_jwt = false
 
 [functions.scouter-app-api]
 verify_jwt = false
+
+[functions.api-key-management]
+verify_jwt = true
