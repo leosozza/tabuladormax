@@ -231,6 +231,42 @@ export type Database = {
         }
         Relationships: []
       }
+      app_resources: {
+        Row: {
+          active: boolean | null
+          code: string
+          created_at: string | null
+          description: string | null
+          id: string
+          module: string
+          name: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          code: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          module: string
+          name: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          code?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          module?: string
+          name?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       app_routes: {
         Row: {
           active: boolean
@@ -1785,6 +1821,48 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      resource_permissions: {
+        Row: {
+          created_at: string | null
+          id: string
+          resource_id: string
+          role_id: string
+          scope: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          resource_id: string
+          role_id: string
+          scope?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          resource_id?: string
+          role_id?: string
+          scope?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_permissions_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "app_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       resync_field_mappings: {
         Row: {
