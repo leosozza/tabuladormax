@@ -40,9 +40,9 @@ serve(async (req) => {
       );
     }
 
-    // TomTom Traffic Flow Tiles API - style goes in the path, not query params
-    // https://developer.tomtom.com/traffic-api/documentation/traffic-flow/raster-flow-tiles
-    const tomtomUrl = `https://api.tomtom.com/traffic/map/1/tile/flow/relative/${z}/${x}/${y}.png?key=${TOMTOM_API_KEY}&tileSize=256`;
+    // TomTom Orbis Maps Traffic Flow Tiles API (November 2024+)
+    // https://developer.tomtom.com/orbis-maps/documentation/raster/traffic-flow-tiles
+    const tomtomUrl = `https://api.tomtom.com/maps/orbis/traffic/tile/flow/${z}/${x}/${y}.png?apiVersion=1&key=${TOMTOM_API_KEY}&style=light&tileSize=256`;
 
     console.log(`Fetching traffic tile: z=${z}, x=${x}, y=${y}`);
 
