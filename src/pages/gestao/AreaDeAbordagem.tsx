@@ -35,14 +35,14 @@ function GestaoAreaDeAbordagemContent() {
   const [drawnAreas, setDrawnAreas] = useState<DrawnArea[]>([]);
   const [filteredAreaLeads, setFilteredAreaLeads] = useState<LeadMapLocation[]>([]);
   
-  // Estado dos switches do mapa - ligados por padrão (exceto POIs que tem limite de taxa)
-  const [showScouters, setShowScouters] = useState(true);
-  const [showHeatmap, setShowHeatmap] = useState(true);
-  const [showLeads, setShowLeads] = useState(true);
-  const [showWeather, setShowWeather] = useState(true);
-  const [showTraffic, setShowTraffic] = useState(true);
+  // Estado dos switches do mapa - todos desativados por padrão
+  const [showScouters, setShowScouters] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showLeads, setShowLeads] = useState(false);
+  const [showWeather, setShowWeather] = useState(false);
+  const [showTraffic, setShowTraffic] = useState(false);
   const [showWeatherForecast, setShowWeatherForecast] = useState(false);
-  const [showPOIs, setShowPOIs] = useState(false); // POIs desabilitado por padrão devido ao limite de taxa da API
+  const [showPOIs, setShowPOIs] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawMode, setDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
   const [drawingPointsCount, setDrawingPointsCount] = useState(0);
