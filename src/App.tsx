@@ -39,6 +39,8 @@ import TemplateManagement from "./pages/admin/TemplateManagement";
 import AITraining from './pages/admin/AITraining';
 import StageMappings from './pages/admin/StageMappings';
 import AppReleases from './pages/admin/AppReleases';
+import ApiDocumentation from './pages/admin/ApiDocumentation';
+import ApiKeyManagement from './pages/admin/ApiKeyManagement';
 
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
@@ -141,6 +143,8 @@ const App = () => (
             <Route path="/admin/ai-training" element={<ProtectedRoute requireAdmin><AITraining /></ProtectedRoute>} />
             <Route path="/admin/stage-mappings" element={<ProtectedRoute requireManager><StageMappings /></ProtectedRoute>} />
             <Route path="/admin/app-releases" element={<ProtectedRoute requireAdmin><AppReleases /></ProtectedRoute>} />
+            <Route path="/admin/api-docs" element={<ProtectedRoute requireAdmin><ApiDocumentation /></ProtectedRoute>} />
+            <Route path="/admin/api-keys" element={<ProtectedRoute requireAdmin><ApiKeyManagement /></ProtectedRoute>} />
 
             {/* Agenciamento */}
             <Route path="/agenciamento" element={<Agenciamento />} />

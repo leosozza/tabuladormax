@@ -19,6 +19,8 @@ import {
   MessageSquare,
   Smartphone,
   Loader2,
+  FileText,
+  Key,
 } from 'lucide-react';
 import { ResyncDateClosedButton } from '@/components/admin/ResyncDateClosedButton';
 
@@ -106,6 +108,20 @@ const adminOptions = [
     title: 'App Android',
     description: 'Gerenciar versões do aplicativo Android',
     color: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
+  },
+  {
+    path: '/admin/api-docs',
+    icon: FileText,
+    title: 'Documentação API',
+    description: 'Referência completa da API REST',
+    color: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  },
+  {
+    path: '/admin/api-keys',
+    icon: Key,
+    title: 'API Keys',
+    description: 'Gerenciar chaves de acesso à API',
+    color: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
   },
 ];
 
