@@ -76,24 +76,24 @@ const apiCategories: ApiCategory[] = [
   {
     name: 'Scouter App',
     icon: <Users className="w-4 h-4" />,
-    description: 'API para o Portal e Aplicativo Scouter',
+    description: 'API para o Portal e Aplicativo Scouter (não requer API Key)',
     endpoints: [
       {
         method: 'POST',
         path: '/scouter-app-api',
         description: 'Login com chave de acesso do scouter',
-        auth: ['access_key'],
+        auth: [],
         body: { 
           action: 'login', 
-          access_key: 'SCTR123456' 
+          access_key: '722797' 
         },
         response: { 
           success: true, 
           data: { 
-            scouter_id: 'uuid-do-scouter', 
-            bitrix_id: 12345,
-            scouter_name: 'João Silva',
-            scouter_photo: 'https://example.com/photo.jpg'
+            scouter_id: '8ef9d4b8-51b5-45b7-af80-4592b7cff9ff', 
+            bitrix_id: 1356,
+            scouter_name: 'Ramon Mello',
+            scouter_photo: 'https://...'
           } 
         },
         notes: 'Retorna bitrix_id para usar nas demais ações'
@@ -102,13 +102,12 @@ const apiCategories: ApiCategory[] = [
         method: 'POST',
         path: '/scouter-app-api',
         description: 'Obter estatísticas do scouter (fichas, confirmados, etc)',
-        auth: ['api_key'],
+        auth: [],
         body: { 
           action: 'get_stats', 
-          bitrix_id: 12345,
+          bitrix_id: 1356,
           params: {
-            date_preset: 'month',
-            project_id: 'uuid-opcional'
+            date_preset: 'month'
           }
         },
         response: { 
@@ -129,12 +128,12 @@ const apiCategories: ApiCategory[] = [
         method: 'POST',
         path: '/scouter-app-api',
         description: 'Obter posição do scouter no ranking',
-        auth: ['api_key'],
+        auth: [],
         body: { 
           action: 'get_ranking', 
-          bitrix_id: 12345,
+          bitrix_id: 1356,
           params: {
-            date_preset: 'week'
+            date_preset: 'month'
           }
         },
         response: { 
@@ -152,10 +151,10 @@ const apiCategories: ApiCategory[] = [
         method: 'POST',
         path: '/scouter-app-api',
         description: 'Listar projetos vinculados ao scouter',
-        auth: ['api_key'],
+        auth: [],
         body: { 
           action: 'get_projects', 
-          bitrix_id: 12345
+          bitrix_id: 1356
         },
         response: { 
           success: true, 
@@ -168,13 +167,13 @@ const apiCategories: ApiCategory[] = [
         method: 'POST',
         path: '/scouter-app-api',
         description: 'Listar leads/fichas do scouter',
-        auth: ['api_key'],
+        auth: [],
         body: { 
           action: 'get_leads', 
-          bitrix_id: 12345,
+          bitrix_id: 1356,
           params: {
-            date_preset: 'today',
-            project_id: 'uuid-opcional'
+            date_preset: 'week',
+            project_id: 'uuid-do-projeto'
           }
         },
         response: { 
@@ -535,11 +534,11 @@ export default function ApiDocumentation() {
   -H "Content-Type: application/json" \\
   -d '{
     "action": "login",
-    "access_key": "SCTR123456"
+    "access_key": "722797"
   }'
 
 # Resposta:
-# { "success": true, "data": { "bitrix_id": 12345, "scouter_name": "João" } }`} />
+# { "success": true, "data": { "bitrix_id": 1356, "scouter_name": "Ramon Mello" } }`} />
               </div>
 
               <div className="space-y-3">
@@ -549,10 +548,9 @@ export default function ApiDocumentation() {
                 </div>
                 <CodeBlock code={`curl -X POST "${baseUrl}/scouter-app-api" \\
   -H "Content-Type: application/json" \\
-  -H "X-API-Key: tmx_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -d '{
     "action": "get_stats",
-    "bitrix_id": 12345,
+    "bitrix_id": 1356,
     "params": {
       "date_preset": "month"
     }
@@ -566,13 +564,12 @@ export default function ApiDocumentation() {
                 </div>
                 <CodeBlock code={`curl -X POST "${baseUrl}/scouter-app-api" \\
   -H "Content-Type: application/json" \\
-  -H "X-API-Key: tmx_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -d '{
     "action": "get_leads",
-    "bitrix_id": 12345,
+    "bitrix_id": 1356,
     "params": {
-      "date_preset": "today",
-      "project_id": "abc123-uuid-do-projeto"
+      "date_preset": "week",
+      "project_id": "uuid-do-projeto"
     }
   }'`} />
               </div>
@@ -686,7 +683,6 @@ npm install axios
 import axios from 'axios';
 
 const BASE_URL = '${baseUrl}';
-const API_KEY = 'tmx_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 
 // 1. Login com Access Key
 async function loginScouter(accessKey: string) {
@@ -703,51 +699,33 @@ async function loginScouter(accessKey: string) {
   throw new Error(response.data.error);
 }
 
-// 2. Buscar estatísticas (requer API Key)
+// 2. Buscar estatísticas
 async function getStats(bitrixId: number, datePreset = 'month') {
-  const response = await axios.post(
-    \`\${BASE_URL}/scouter-app-api\`,
-    {
-      action: 'get_stats',
-      bitrix_id: bitrixId,
-      params: { date_preset: datePreset }
-    },
-    {
-      headers: {
-        'X-API-Key': API_KEY,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
+  const response = await axios.post(\`\${BASE_URL}/scouter-app-api\`, {
+    action: 'get_stats',
+    bitrix_id: bitrixId,
+    params: { date_preset: datePreset }
+  });
   
   return response.data.data;
 }
 
 // 3. Listar leads do dia
 async function getLeadsToday(bitrixId: number, projectId?: string) {
-  const response = await axios.post(
-    \`\${BASE_URL}/scouter-app-api\`,
-    {
-      action: 'get_leads',
-      bitrix_id: bitrixId,
-      params: { 
-        date_preset: 'today',
-        ...(projectId && { project_id: projectId })
-      }
-    },
-    {
-      headers: {
-        'X-API-Key': API_KEY,
-        'Content-Type': 'application/json'
-      }
+  const response = await axios.post(\`\${BASE_URL}/scouter-app-api\`, {
+    action: 'get_leads',
+    bitrix_id: bitrixId,
+    params: { 
+      date_preset: 'today',
+      ...(projectId && { project_id: projectId })
     }
-  );
+  });
   
   return response.data.data;
 }
 
 // Exemplo de uso
-const bitrixId = await loginScouter('SCTR123456');
+const bitrixId = await loginScouter('722797');
 const stats = await getStats(bitrixId, 'month');
 console.log('Estatísticas:', stats);
 
@@ -769,7 +747,6 @@ pip install requests
 import requests
 
 BASE_URL = '${baseUrl}'
-API_KEY = 'tmx_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 
 def login_scouter(access_key: str) -> int:
     """Login com access_key, retorna bitrix_id"""
@@ -792,10 +769,6 @@ def get_stats(bitrix_id: int, date_preset: str = 'month') -> dict:
     """Buscar estatísticas do scouter"""
     response = requests.post(
         f'{BASE_URL}/scouter-app-api',
-        headers={
-            'X-API-Key': API_KEY,
-            'Content-Type': 'application/json'
-        },
         json={
             'action': 'get_stats',
             'bitrix_id': bitrix_id,
@@ -812,10 +785,6 @@ def get_leads(bitrix_id: int, date_preset: str = 'today', project_id: str = None
     
     response = requests.post(
         f'{BASE_URL}/scouter-app-api',
-        headers={
-            'X-API-Key': API_KEY,
-            'Content-Type': 'application/json'
-        },
         json={
             'action': 'get_leads',
             'bitrix_id': bitrix_id,
@@ -826,7 +795,7 @@ def get_leads(bitrix_id: int, date_preset: str = 'today', project_id: str = None
 
 # Exemplo de uso
 if __name__ == '__main__':
-    bitrix_id = login_scouter('SCTR123456')
+    bitrix_id = login_scouter('722797')
     
     stats = get_stats(bitrix_id, 'month')
     print(f"Total de fichas: {stats['total']}")
