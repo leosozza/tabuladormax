@@ -24,6 +24,7 @@ import { POIMarkers } from "@/components/gestao/maps/POIMarkers";
 import { RoutePolyline } from "@/components/gestao/maps/RoutePolyline";
 import { usePOIs, POICategory } from "@/hooks/usePOIs";
 import { OptimizedRoute } from "@/hooks/useRouteOptimization";
+import { MapLayerSelector, MAP_LAYERS, MapLayerOption } from "@/components/gestao/maps/MapLayerSelector";
 import { cn } from "@/lib/utils";
 import type L from "leaflet";
 
@@ -52,6 +53,7 @@ function GestaoAreaDeAbordagemContent() {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [optimizedRoute, setOptimizedRoute] = useState<OptimizedRoute | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [selectedLayerId, setSelectedLayerId] = useState("osm-standard");
 
   // POIs hook
   const { pois, fetchPOIs, isLoading: poisLoading } = usePOIs();
@@ -343,6 +345,12 @@ function GestaoAreaDeAbordagemContent() {
                     <span className="hidden xs:inline">Trânsito</span>
                   </Label>
                 </div>
+
+                {/* Seletor de Camadas */}
+                <MapLayerSelector
+                  selectedLayerId={selectedLayerId}
+                  onLayerChange={(layer) => setSelectedLayerId(layer.id)}
+                />
                 
                 {/* Controles de Desenho */}
                 <div className="flex items-center gap-1 sm:gap-2">
@@ -470,6 +478,7 @@ function GestaoAreaDeAbordagemContent() {
                   isFullscreen={isFullscreen}
                   onMapCenterChange={(lat, lng) => setMapCenter({ lat, lng })}
                   onMapReady={setMapInstance}
+                  selectedLayerId={selectedLayerId}
                 />
               
               {/* POI Markers layer */}

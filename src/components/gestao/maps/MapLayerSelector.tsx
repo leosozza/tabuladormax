@@ -1,7 +1,13 @@
-import React, { useState } from "react";
-import { Layers, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import React from "react";
+import { Layers, ChevronDown } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export interface MapLayerOption {
   id: string;
@@ -65,84 +71,52 @@ export const MAP_LAYERS: MapLayerOption[] = [
 interface MapLayerSelectorProps {
   selectedLayerId: string;
   onLayerChange: (layer: MapLayerOption) => void;
-  className?: string;
 }
 
 export function MapLayerSelector({ 
   selectedLayerId, 
-  onLayerChange, 
-  className 
+  onLayerChange
 }: MapLayerSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
   const selectedLayer = MAP_LAYERS.find(l => l.id === selectedLayerId) || MAP_LAYERS[0];
 
   return (
-    <div className={cn("absolute z-[1000]", className)}>
-      {/* Toggle Button */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsOpen(!isOpen)}
-        className="bg-background/95 backdrop-blur-sm shadow-lg border-border hover:bg-accent"
-      >
-        <Layers className="w-4 h-4 mr-2" />
-        Camadas
-      </Button>
-
-      {/* Layer Panel */}
-      {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-64 bg-background/95 backdrop-blur-sm border border-border rounded-lg shadow-xl overflow-hidden">
-          <div className="flex items-center justify-between p-3 border-b border-border">
-            <h3 className="font-semibold text-sm">Camadas do mapa</h3>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => setIsOpen(false)}
+    <div className="flex items-center gap-1 sm:gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-1 cursor-pointer text-xs sm:text-sm hover:text-foreground transition-colors">
+            <Layers className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-500" />
+            <span className="hidden xs:inline">{selectedLayer.name}</span>
+            <ChevronDown className="w-3 h-3 opacity-50" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48 z-[1000]">
+          {MAP_LAYERS.map((layer) => (
+            <DropdownMenuItem
+              key={layer.id}
+              onClick={() => onLayerChange(layer)}
+              className={cn(
+                "flex items-center gap-2 cursor-pointer",
+                selectedLayerId === layer.id && "bg-primary/10 text-primary"
+              )}
             >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-
-          <div className="p-2 max-h-80 overflow-y-auto">
-            <div className="grid grid-cols-2 gap-2">
-              {MAP_LAYERS.map((layer) => (
-                <button
-                  key={layer.id}
-                  onClick={() => {
-                    onLayerChange(layer);
-                    setIsOpen(false);
-                  }}
-                  className={cn(
-                    "flex flex-col items-start p-2 rounded-md border transition-all text-left",
-                    selectedLayerId === layer.id
-                      ? "border-primary bg-primary/10 ring-2 ring-primary/30"
-                      : "border-border hover:border-muted-foreground/50 hover:bg-accent"
-                  )}
-                >
-                  <div className="w-full h-12 rounded bg-muted mb-1 overflow-hidden">
-                    <img
-                      src={layer.url
-                        .replace("{s}", "a")
-                        .replace("{z}", "12")
-                        .replace("{x}", "1511")
-                        .replace("{y}", "2401")
-                        .replace("{r}", "")}
-                      alt={layer.name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                  <span className="text-xs font-medium truncate w-full">
-                    {layer.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="w-8 h-6 rounded overflow-hidden border border-border flex-shrink-0">
+                <img
+                  src={layer.url
+                    .replace("{s}", "a")
+                    .replace("{z}", "12")
+                    .replace("{x}", "1511")
+                    .replace("{y}", "2401")
+                    .replace("{r}", "")}
+                  alt={layer.name}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+              <span className="text-sm">{layer.name}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

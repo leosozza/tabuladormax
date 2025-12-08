@@ -113,6 +113,7 @@ interface UnifiedAreaMapProps {
   isFullscreen?: boolean;
   onMapCenterChange?: (lat: number, lng: number) => void;
   onMapReady?: (map: L.Map | null) => void;
+  selectedLayerId?: string;
 }
 
 export default function UnifiedAreaMap({
@@ -139,6 +140,7 @@ export default function UnifiedAreaMap({
   isFullscreen = false,
   onMapCenterChange,
   onMapReady,
+  selectedLayerId: externalSelectedLayerId,
 }: UnifiedAreaMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -188,8 +190,9 @@ export default function UnifiedAreaMap({
   
   const { toast } = useToast();
   
-  // Base layer state
-  const [selectedLayerId, setSelectedLayerId] = useState("osm-standard");
+  // Base layer state - use external if provided
+  const [internalSelectedLayerId, setInternalSelectedLayerId] = useState("osm-standard");
+  const selectedLayerId = externalSelectedLayerId ?? internalSelectedLayerId;
   const baseLayerRef = useRef<L.TileLayer | null>(null);
   
   // Real-time updates
@@ -459,8 +462,11 @@ export default function UnifiedAreaMap({
   }, []);
 
   // Handle base layer change
-  const handleLayerChange = useCallback((layer: MapLayerOption) => {
+  const handleLayerChange = useCallback((layerId: string) => {
     if (!mapRef.current) return;
+    
+    const layer = MAP_LAYERS.find(l => l.id === layerId);
+    if (!layer) return;
     
     // Remove old base layer
     if (baseLayerRef.current) {
@@ -474,8 +480,15 @@ export default function UnifiedAreaMap({
     baseLayerRef.current.addTo(mapRef.current);
     baseLayerRef.current.bringToBack();
     
-    setSelectedLayerId(layer.id);
+    setInternalSelectedLayerId(layer.id);
   }, []);
+  
+  // Watch for external layer changes
+  useEffect(() => {
+    if (externalSelectedLayerId && externalSelectedLayerId !== internalSelectedLayerId) {
+      handleLayerChange(externalSelectedLayerId);
+    }
+  }, [externalSelectedLayerId, handleLayerChange, internalSelectedLayerId]);
 
   useEffect(() => {
     if (mapRef.current) {
@@ -947,12 +960,6 @@ export default function UnifiedAreaMap({
         locations={locationHistory}
       />
 
-      {/* Layer Selector */}
-      <MapLayerSelector
-        selectedLayerId={selectedLayerId}
-        onLayerChange={handleLayerChange}
-        className="top-4 left-4"
-      />
 
       {/* Indicadores superiores */}
       <div className="absolute top-4 right-4 z-[450] flex gap-2">
