@@ -488,22 +488,6 @@ function GestaoAreaDeAbordagemContent() {
               {/* Route polyline layer */}
               <RoutePolyline map={mapInstance} route={optimizedRoute} visible={!!optimizedRoute} />
               
-              {/* Route Optimizer panel */}
-              {leadsData && leadsData.length > 0 && (
-                <RouteOptimizer
-                  leads={leadsData.map(l => ({
-                    id: l.id,
-                    name: l.name,
-                    lat: l.lat,
-                    lon: l.lng,
-                    address: l.address,
-                  }))}
-                  userLocation={userLocation || undefined}
-                  onRouteCalculated={setOptimizedRoute}
-                  onClearRoute={() => setOptimizedRoute(null)}
-                />
-              )}
-              
               {/* Weather overlay */}
               {showWeather && mapCenter && (
                 <>
