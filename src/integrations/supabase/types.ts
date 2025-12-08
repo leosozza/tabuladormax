@@ -1033,6 +1033,50 @@ export type Database = {
         }
         Relationships: []
       }
+      departments: {
+        Row: {
+          active: boolean | null
+          code: string
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          code: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          code?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       field_mapping_history: {
         Row: {
           action: string
@@ -1680,6 +1724,80 @@ export type Database = {
             columns: ["commercial_project_id"]
             isOneToOne: false
             referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permission_assignments: {
+        Row: {
+          assign_type: string
+          can_access: boolean | null
+          created_at: string | null
+          created_by: string | null
+          department_id: string | null
+          id: string
+          resource_id: string | null
+          role_id: string | null
+          route_id: string | null
+          scope: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          assign_type: string
+          can_access?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          department_id?: string | null
+          id?: string
+          resource_id?: string | null
+          role_id?: string | null
+          route_id?: string | null
+          scope?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          assign_type?: string
+          can_access?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          department_id?: string | null
+          id?: string
+          resource_id?: string | null
+          role_id?: string | null
+          route_id?: string | null
+          scope?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_assignments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permission_assignments_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "app_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permission_assignments_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permission_assignments_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "app_routes"
             referencedColumns: ["id"]
           },
         ]
