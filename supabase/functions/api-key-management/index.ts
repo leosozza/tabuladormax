@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
           p_description: body.description || null,
           p_rate_limit: body.rate_limit || 60,
           p_expires_at: body.expires_at || null,
+          p_user_id: user.id,
         });
 
         if (error) {
@@ -116,6 +117,7 @@ Deno.serve(async (req) => {
 
         const { data, error } = await supabase.rpc("revoke_api_key", {
           p_key_id: body.key_id,
+          p_user_id: user.id,
         });
 
         if (error) {
@@ -142,6 +144,7 @@ Deno.serve(async (req) => {
 
         const { data, error } = await supabase.rpc("rotate_api_key", {
           p_key_id: body.key_id,
+          p_user_id: user.id,
         });
 
         if (error) {

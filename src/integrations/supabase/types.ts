@@ -2782,6 +2782,7 @@ export type Database = {
           p_name: string
           p_rate_limit?: number
           p_scopes?: string[]
+          p_user_id?: string
         }
         Returns: {
           api_key: string
@@ -3220,9 +3221,12 @@ export type Database = {
         }
         Returns: Json
       }
-      revoke_api_key: { Args: { p_key_id: string }; Returns: boolean }
+      revoke_api_key: {
+        Args: { p_key_id: string; p_user_id?: string }
+        Returns: boolean
+      }
       rotate_api_key: {
-        Args: { p_key_id: string }
+        Args: { p_key_id: string; p_user_id?: string }
         Returns: {
           api_key: string
           key_id: string
