@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface POI {
@@ -20,6 +20,10 @@ interface UsePOIsOptions {
   defaultRadius?: number;
 }
 
+// Cache para evitar requisições duplicadas
+const poiCache = new Map<string, { pois: POI[]; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
 export function usePOIs(options: UsePOIsOptions = {}) {
   const { 
     defaultCategories = ['shopping', 'school', 'hospital', 'park', 'metro'],
@@ -29,6 +33,7 @@ export function usePOIs(options: UsePOIsOptions = {}) {
   const [pois, setPois] = useState<POI[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lastFetchRef = useRef<{ lat: number; lon: number; time: number } | null>(null);
 
   const fetchPOIs = useCallback(async (
     lat: number, 
@@ -36,6 +41,27 @@ export function usePOIs(options: UsePOIsOptions = {}) {
     categories: POICategory[] = defaultCategories,
     radius: number = defaultRadius
   ) => {
+    // Debounce: evita requisições muito frequentes (mínimo 3 segundos entre chamadas)
+    const now = Date.now();
+    if (lastFetchRef.current) {
+      const timeSinceLastFetch = now - lastFetchRef.current.time;
+      const distanceMoved = Math.abs(lat - lastFetchRef.current.lat) + Math.abs(lon - lastFetchRef.current.lon);
+      
+      // Se moveu menos de 0.001 graus (~100m) e passou menos de 3 segundos, ignora
+      if (distanceMoved < 0.001 && timeSinceLastFetch < 3000) {
+        return pois;
+      }
+    }
+
+    // Verifica cache
+    const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)},${radius}`;
+    const cached = poiCache.get(cacheKey);
+    if (cached && now - cached.timestamp < CACHE_TTL) {
+      setPois(cached.pois);
+      return cached.pois;
+    }
+
+    lastFetchRef.current = { lat, lon, time: now };
     setIsLoading(true);
     setError(null);
 
@@ -52,8 +78,13 @@ export function usePOIs(options: UsePOIsOptions = {}) {
         throw new Error(data.error);
       }
 
-      setPois(data?.pois || []);
-      return data?.pois || [];
+      const fetchedPois = data?.pois || [];
+      
+      // Salva no cache
+      poiCache.set(cacheKey, { pois: fetchedPois, timestamp: now });
+      
+      setPois(fetchedPois);
+      return fetchedPois;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao buscar POIs';
       setError(message);
@@ -62,7 +93,7 @@ export function usePOIs(options: UsePOIsOptions = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [defaultCategories, defaultRadius]);
+  }, [defaultCategories, defaultRadius, pois]);
 
   const clearPOIs = useCallback(() => {
     setPois([]);
