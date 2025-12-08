@@ -191,3 +191,6 @@ verify_jwt = false
 
 [functions.get-tomtom-map-tiles]
 verify_jwt = false
+
+[functions.scouter-app-api]
+verify_jwt = false
