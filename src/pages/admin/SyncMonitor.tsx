@@ -42,9 +42,21 @@ interface LocationFieldMappings {
   [key: string]: any;
 }
 
+interface ScouterLocationHistory {
+  id: string;
+  scouter_bitrix_id: number;
+  scouter_name: string;
+  latitude: number;
+  longitude: number;
+  address: string | null;
+  recorded_at: string;
+  created_at: string;
+}
+
 export default function SyncMonitor() {
   const navigate = useNavigate();
   const [syncEvents, setSyncEvents] = useState<SyncEvent[]>([]);
+  const [locationHistory, setLocationHistory] = useState<ScouterLocationHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedErrorEvent, setSelectedErrorEvent] = useState<SyncEvent | null>(null);
@@ -52,6 +64,7 @@ export default function SyncMonitor() {
   const loadSyncEvents = async () => {
     setLoading(true);
     try {
+      // Carregar sync_events
       const { data, error } = await supabase
         .from('sync_events')
         .select('*')
@@ -62,11 +75,6 @@ export default function SyncMonitor() {
       
       console.log('📊 sync_events carregados:', data?.length || 0);
       
-      // ✅ FASE 3.3: Mensagem útil quando não há eventos
-      if (!data || data.length === 0) {
-        console.warn('⚠️ Nenhum evento encontrado. Verifique permissões RLS se você é admin/manager.');
-      }
-      
       // Cast field_mappings from Json to SyncFieldMappings
       const typedData: SyncEvent[] = (data || []).map((event: any) => ({
         ...event,
@@ -74,6 +82,20 @@ export default function SyncMonitor() {
         fields_synced_count: event.fields_synced_count ?? null
       }));
       setSyncEvents(typedData);
+
+      // Carregar histórico de localização dos scouters
+      const { data: locationData, error: locationError } = await supabase
+        .from('scouter_location_history')
+        .select('*')
+        .order('recorded_at', { ascending: false })
+        .limit(50);
+
+      if (locationError) {
+        console.error('Erro ao carregar localização:', locationError);
+      } else {
+        console.log('📍 scouter_location_history carregados:', locationData?.length || 0);
+        setLocationHistory(locationData || []);
+      }
     } catch (error) {
       console.error('Erro ao carregar eventos:', error);
       toast.error('Erro ao carregar eventos de sincronização');
@@ -149,13 +171,11 @@ export default function SyncMonitor() {
   const errorCount = syncOnlyEvents.filter(e => e.status === 'error').length;
   const pendingCount = syncOnlyEvents.filter(e => e.status === 'pending').length;
 
-  // Estatísticas de geolocalização
-  const locationSuccessCount = locationEvents.filter(e => e.status === 'success').length;
-  const locationErrorCount = locationEvents.filter(e => e.status === 'error').length;
+  // Estatísticas de geolocalização - usar locationHistory da tabela dedicada
+  const locationSuccessCount = locationHistory.length;
+  const locationErrorCount = 0; // Tabela só armazena sucessos
   const uniqueScoutersCount = new Set(
-    locationEvents
-      .filter(e => e.field_mappings && 'scouter_bitrix_id' in e.field_mappings)
-      .map(e => (e.field_mappings as LocationFieldMappings).scouter_bitrix_id)
+    locationHistory.map(l => l.scouter_bitrix_id)
   ).size;
 
   const copyErrorDetails = () => {
@@ -413,59 +433,48 @@ ${JSON.stringify(selectedErrorEvent, null, 2)}
                 <div className="text-center py-8 text-muted-foreground">
                   Carregando eventos...
                 </div>
-              ) : locationEvents.length === 0 ? (
+              ) : locationHistory.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Nenhum webhook de geolocalização recebido
+                  Nenhum registro de geolocalização encontrado
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {locationEvents.map((event) => {
-                    const locationData = event.field_mappings as LocationFieldMappings;
-                    return (
-                      <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                        <div className="mt-0.5">{getStatusIcon(event.status)}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <MapPin className="w-4 h-4 text-blue-600" />
-                            <span className="font-medium text-sm">
-                              {locationData?.scouter_name || 'Scouter'}
-                            </span>
-                            <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-700 dark:text-blue-400">
-                              📍 Localização
-                            </Badge>
-                            <Badge className={`text-xs ${getStatusColor(event.status)}`}>
-                              {event.status}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {format(new Date(event.created_at), 'dd/MM/yyyy HH:mm:ss')}
-                            {event.sync_duration_ms && (
-                              <span className="ml-2">• {event.sync_duration_ms}ms</span>
-                            )}
+                  {locationHistory.map((location) => (
+                    <div key={location.id} className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                      <div className="mt-0.5">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <MapPin className="w-4 h-4 text-blue-600" />
+                          <span className="font-medium text-sm">
+                            {location.scouter_name}
+                          </span>
+                          <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-700 dark:text-blue-400">
+                            📍 Localização
+                          </Badge>
+                          <Badge className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                            success
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {format(new Date(location.recorded_at), 'dd/MM/yyyy HH:mm:ss')}
+                        </p>
+                        <div className="mt-2 space-y-1">
+                          <p className="text-xs">
+                            <span className="text-muted-foreground">Coordenadas:</span>{' '}
+                            <span className="font-mono">{location.latitude}, {location.longitude}</span>
                           </p>
-                          {locationData && (
-                            <div className="mt-2 space-y-1">
-                              <p className="text-xs">
-                                <span className="text-muted-foreground">Coordenadas:</span>{' '}
-                                <span className="font-mono">{locationData.latitude}, {locationData.longitude}</span>
-                              </p>
-                              {locationData.address && (
-                                <p className="text-xs">
-                                  <span className="text-muted-foreground">Endereço:</span>{' '}
-                                  {locationData.address}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                          {event.error_message && (
-                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                              {event.error_message}
+                          {location.address && (
+                            <p className="text-xs">
+                              <span className="text-muted-foreground">Endereço:</span>{' '}
+                              {location.address}
                             </p>
                           )}
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
