@@ -134,6 +134,7 @@ export default function UnifiedAreaMap({
 }: UnifiedAreaMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   
   // Layer groups para cada tipo
   const scoutersLayerRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -186,8 +187,8 @@ export default function UnifiedAreaMap({
     scouterId,
   });
 
-  // Traffic layer
-  useTrafficLayer({ map: mapRef.current, enabled: showTraffic });
+  // Traffic layer - use mapInstance state to trigger re-render when map is ready
+  useTrafficLayer({ map: mapInstance, enabled: showTraffic });
 
   const polygonColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -412,6 +413,9 @@ export default function UnifiedAreaMap({
       maxClusterRadius: 80,
     });
 
+    // Set map instance state to trigger hooks that depend on it
+    setMapInstance(mapRef.current);
+
     // Emit initial center
     onMapCenterChange?.(center[0], center[1]);
 
@@ -427,6 +431,7 @@ export default function UnifiedAreaMap({
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
+        setMapInstance(null);
       }
     };
   }, []);
