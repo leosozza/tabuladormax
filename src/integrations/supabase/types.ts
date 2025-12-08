@@ -198,6 +198,101 @@ export type Database = {
         }
         Relationships: []
       }
+      api_key_usage_logs: {
+        Row: {
+          api_key_id: string | null
+          created_at: string | null
+          endpoint: string
+          id: string
+          ip_address: string | null
+          method: string
+          response_time_ms: number | null
+          status_code: number | null
+          user_agent: string | null
+        }
+        Insert: {
+          api_key_id?: string | null
+          created_at?: string | null
+          endpoint: string
+          id?: string
+          ip_address?: string | null
+          method: string
+          response_time_ms?: number | null
+          status_code?: number | null
+          user_agent?: string | null
+        }
+        Update: {
+          api_key_id?: string | null
+          created_at?: string | null
+          endpoint?: string
+          id?: string
+          ip_address?: string | null
+          method?: string
+          response_time_ms?: number | null
+          status_code?: number | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_key_usage_logs_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          rate_limit_per_minute: number | null
+          scopes: string[]
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          rate_limit_per_minute?: number | null
+          scopes?: string[]
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          rate_limit_per_minute?: number | null
+          scopes?: string[]
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
       app_releases: {
         Row: {
           file_path: string
@@ -2680,6 +2775,20 @@ export type Database = {
           leads_not_found: number
         }[]
       }
+      generate_api_key: {
+        Args: {
+          p_description?: string
+          p_expires_at?: string
+          p_name: string
+          p_rate_limit?: number
+          p_scopes?: string[]
+        }
+        Returns: {
+          api_key: string
+          key_id: string
+          key_prefix: string
+        }[]
+      }
       get_activity_chart_data: {
         Args: {
           p_end_date: string
@@ -3110,6 +3219,26 @@ export type Database = {
           p_only_missing_fields?: boolean
         }
         Returns: Json
+      }
+      revoke_api_key: { Args: { p_key_id: string }; Returns: boolean }
+      rotate_api_key: {
+        Args: { p_key_id: string }
+        Returns: {
+          api_key: string
+          key_id: string
+          key_prefix: string
+        }[]
+      }
+      validate_api_key: {
+        Args: { p_key: string; p_required_scope?: string }
+        Returns: {
+          error_message: string
+          is_valid: boolean
+          key_id: string
+          key_name: string
+          rate_limit: number
+          scopes: string[]
+        }[]
       }
       validate_scouter_access_key: {
         Args: { p_access_key: string }
