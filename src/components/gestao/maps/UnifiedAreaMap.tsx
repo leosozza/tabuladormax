@@ -22,7 +22,9 @@ import { useRealtimeLeads } from "@/hooks/useRealtimeLeads";
 import { ScouterTimelineModal, LocationPoint } from "./ScouterTimelineModal";
 import { useToast } from "@/hooks/use-toast";
 import { useTrafficLayer } from "@/hooks/useTrafficLayer";
+import { useWeatherLayer } from "@/hooks/useWeatherLayer";
 import { TrafficLegend } from "./TrafficLegend";
+import { WeatherLegend } from "./WeatherLegend";
 
 // Ícones padrão do Leaflet
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -94,6 +96,7 @@ interface UnifiedAreaMapProps {
   showHeatmap: boolean;
   showLeads: boolean;
   showTraffic?: boolean;
+  showWeather?: boolean;
   isDrawing: boolean;
   onDrawingChange: (isDrawing: boolean) => void;
   onAreaCreated?: (area: DrawnArea) => void;
@@ -121,6 +124,7 @@ export default function UnifiedAreaMap({
   showHeatmap,
   showLeads,
   showTraffic = false,
+  showWeather = false,
   isDrawing,
   onDrawingChange,
   onAreaCreated,
@@ -192,6 +196,12 @@ export default function UnifiedAreaMap({
 
   // Traffic layer - use mapInstance state to trigger re-render when map is ready
   const { isTomTomMapActive } = useTrafficLayer({ map: mapInstance, enabled: showTraffic });
+
+  // Weather radar layer
+  const { isLoading: isWeatherLoading, lastUpdate: weatherLastUpdate } = useWeatherLayer({ 
+    map: mapInstance, 
+    enabled: showWeather 
+  });
 
   const polygonColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -895,6 +905,13 @@ export default function UnifiedAreaMap({
     <div className={`relative ${isFullscreen ? 'h-full' : ''}`}>
       {/* Traffic Legend */}
       <TrafficLegend isVisible={showTraffic && isTomTomMapActive} />
+
+      {/* Weather Radar Legend */}
+      <WeatherLegend 
+        isVisible={showWeather} 
+        lastUpdate={weatherLastUpdate}
+        isLoading={isWeatherLoading}
+      />
 
       {/* Timeline Modal */}
       <ScouterTimelineModal
