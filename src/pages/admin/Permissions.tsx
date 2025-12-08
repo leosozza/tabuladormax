@@ -1,14 +1,14 @@
 import { AdminPageLayout } from "@/components/layouts/AdminPageLayout";
-import { UnifiedPermissionsManager } from "@/components/admin/permissions/UnifiedPermissionsManager";
+import { PermissionTabs } from "@/components/admin/permissions/PermissionTabs";
 
 export default function Permissions() {
   return (
     <AdminPageLayout
       title="Gerenciar Permissões"
-      description="Configure o acesso de cada função às páginas e recursos do sistema"
+      description="Configure o acesso por função, departamento ou usuário específico"
       backTo="/admin"
     >
-      <UnifiedPermissionsManager />
+      <PermissionTabs />
     </AdminPageLayout>
   );
 }
