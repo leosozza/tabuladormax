@@ -188,3 +188,6 @@ verify_jwt = false
 
 [functions.tomtom-reverse-geocode]
 verify_jwt = false
+
+[functions.get-tomtom-map-tiles]
+verify_jwt = false
