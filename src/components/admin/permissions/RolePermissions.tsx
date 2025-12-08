@@ -52,6 +52,7 @@ export function RolePermissions() {
   const [pendingChanges, setPendingChanges] = useState<Map<string, { scope: PermissionScope; canAccess: boolean }>>(new Map());
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [roleToDelete, setRoleToDelete] = useState<CustomRole | null>(null);
+  const [createRoleOpen, setCreateRoleOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -222,11 +223,19 @@ export function RolePermissions() {
           </CardDescription>
         </div>
         <div className="flex gap-2">
-          <CreateRoleDialog onCreated={loadData} />
+          <Button variant="outline" onClick={() => setCreateRoleOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Função
+          </Button>
           <Button onClick={handleSave} disabled={pendingChanges.size === 0}>
             <Save className="h-4 w-4 mr-2" />
             Salvar ({pendingChanges.size})
           </Button>
+          <CreateRoleDialog 
+            open={createRoleOpen} 
+            onOpenChange={setCreateRoleOpen} 
+            onRoleCreated={loadData} 
+          />
         </div>
       </CardHeader>
       <CardContent>
