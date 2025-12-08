@@ -134,7 +134,7 @@ export function SystemStatusPanel() {
         actions: [
           {
             label: 'Ver Leads com Erro',
-            onClick: () => navigate('/leads?filter=sync_errors'),
+            onClick: () => navigate('/admin/sync-errors'),
           },
           {
             label: 'Forçar Ressincronização',
