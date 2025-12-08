@@ -9,9 +9,10 @@ interface WeatherBadgeProps {
   lng: number | null;
   className?: string;
   compact?: boolean;
+  onClick?: () => void;
 }
 
-export function WeatherBadge({ lat, lng, className, compact = false }: WeatherBadgeProps) {
+export function WeatherBadge({ lat, lng, className, compact = false, onClick }: WeatherBadgeProps) {
   const { data: weather, isLoading, error } = useWeather(lat, lng);
 
   if (!lat || !lng) return null;
@@ -39,11 +40,16 @@ export function WeatherBadge({ lat, lng, className, compact = false }: WeatherBa
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className={cn(
-              "bg-background/95 backdrop-blur-sm rounded-lg px-2 py-1.5 shadow-lg border flex items-center gap-1.5 cursor-default",
-              weather.willRainSoon && "border-amber-500/50 bg-amber-500/10",
-              className
-            )}>
+            <div 
+              onClick={onClick}
+              className={cn(
+                "bg-background/95 backdrop-blur-sm rounded-lg px-2 py-1.5 shadow-lg border flex items-center gap-1.5",
+                onClick && "cursor-pointer hover:bg-accent/50 transition-colors",
+                !onClick && "cursor-default",
+                weather.willRainSoon && "border-amber-500/50 bg-amber-500/10",
+                className
+              )}
+            >
               <span className="text-lg">{weatherInfo.icon}</span>
               <span className="text-sm font-medium">{weather.current.temperature}°</span>
               {weather.willRainSoon && (
