@@ -104,6 +104,7 @@ interface UnifiedAreaMapProps {
   drawingPointsCount?: number;
   onDrawingPointsCountChange?: (count: number) => void;
   isFullscreen?: boolean;
+  onMapCenterChange?: (lat: number, lng: number) => void;
 }
 
 export default function UnifiedAreaMap({
@@ -126,6 +127,7 @@ export default function UnifiedAreaMap({
   onCancelDrawing,
   onDrawingPointsCountChange,
   isFullscreen = false,
+  onMapCenterChange,
 }: UnifiedAreaMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -402,6 +404,17 @@ export default function UnifiedAreaMap({
     leadsLayerRef.current = L.markerClusterGroup({
       chunkedLoading: true,
       maxClusterRadius: 80,
+    });
+
+    // Emit initial center
+    onMapCenterChange?.(center[0], center[1]);
+
+    // Listen to map move for weather updates
+    mapRef.current.on('moveend', () => {
+      const mapCenter = mapRef.current?.getCenter();
+      if (mapCenter) {
+        onMapCenterChange?.(mapCenter.lat, mapCenter.lng);
+      }
     });
 
     return () => {
