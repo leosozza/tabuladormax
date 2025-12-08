@@ -88,7 +88,7 @@ export function AlertsOverview() {
           count: syncErrors || 0,
           action: {
             label: 'Ver Leads com Erro',
-            path: '/leads?filter=sync_errors',
+            path: '/admin/sync-errors',
           },
         });
       }
@@ -119,7 +119,7 @@ export function AlertsOverview() {
           count: noPhoto || 0,
           action: {
             label: 'Ver Leads sem Foto',
-            path: '/leads?filter=no_photo',
+            path: '/scouter/leads?filter=no_photo',
           },
         });
       }
