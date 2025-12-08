@@ -107,6 +107,7 @@ interface UnifiedAreaMapProps {
   onDrawingPointsCountChange?: (count: number) => void;
   isFullscreen?: boolean;
   onMapCenterChange?: (lat: number, lng: number) => void;
+  onMapReady?: (map: L.Map | null) => void;
 }
 
 export default function UnifiedAreaMap({
@@ -131,6 +132,7 @@ export default function UnifiedAreaMap({
   onDrawingPointsCountChange,
   isFullscreen = false,
   onMapCenterChange,
+  onMapReady,
 }: UnifiedAreaMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -415,6 +417,7 @@ export default function UnifiedAreaMap({
 
     // Set map instance state to trigger hooks that depend on it
     setMapInstance(mapRef.current);
+    onMapReady?.(mapRef.current);
 
     // Emit initial center
     onMapCenterChange?.(center[0], center[1]);
@@ -432,6 +435,7 @@ export default function UnifiedAreaMap({
         mapRef.current.remove();
         mapRef.current = null;
         setMapInstance(null);
+        onMapReady?.(null);
       }
     };
   }, []);

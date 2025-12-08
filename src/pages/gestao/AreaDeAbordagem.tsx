@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X, Maximize2, Minimize2, CloudSun, Car } from "lucide-react";
+import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X, Maximize2, Minimize2, CloudSun, Car, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createDateFilter } from "@/lib/dateUtils";
@@ -18,7 +18,14 @@ import { ScouterHistorySettings } from "@/components/gestao/ScouterHistorySettin
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { WeatherBadge } from "@/components/gestao/WeatherBadge";
 import { WeatherForecast } from "@/components/gestao/WeatherForecast";
+import { TrafficInfo } from "@/components/gestao/TrafficInfo";
+import { RouteOptimizer } from "@/components/gestao/RouteOptimizer";
+import { POIMarkers } from "@/components/gestao/maps/POIMarkers";
+import { RoutePolyline } from "@/components/gestao/maps/RoutePolyline";
+import { usePOIs, POICategory } from "@/hooks/usePOIs";
+import { OptimizedRoute } from "@/hooks/useRouteOptimization";
 import { cn } from "@/lib/utils";
+import type L from "leaflet";
 
 function GestaoAreaDeAbordagemContent() {
   const [filters, setFilters] = useState<FilterType>({
@@ -34,12 +41,38 @@ function GestaoAreaDeAbordagemContent() {
   const [showLeads, setShowLeads] = useState(true);
   const [showWeather, setShowWeather] = useState(true);
   const [showTraffic, setShowTraffic] = useState(false);
+  const [showPOIs, setShowPOIs] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawMode, setDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
   const [drawingPointsCount, setDrawingPointsCount] = useState(0);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const [optimizedRoute, setOptimizedRoute] = useState<OptimizedRoute | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+
+  // POIs hook
+  const { pois, fetchPOIs, isLoading: poisLoading } = usePOIs();
+
+  // Get user location for route optimization
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        },
+        (err) => console.log('Geolocation not available:', err.message)
+      );
+    }
+  }, []);
+
+  // Fetch POIs when enabled and map center changes
+  useEffect(() => {
+    if (showPOIs && mapCenter) {
+      fetchPOIs(mapCenter.lat, mapCenter.lng, ['shopping', 'school', 'hospital', 'park', 'metro'] as POICategory[]);
+    }
+  }, [showPOIs, mapCenter, fetchPOIs]);
 
   // Handlers para controle externo do desenho
   const handleFinishDrawing = () => {
@@ -285,6 +318,18 @@ function GestaoAreaDeAbordagemContent() {
 
                 <div className="flex items-center gap-1 sm:gap-2">
                   <Switch 
+                    checked={showPOIs} 
+                    onCheckedChange={setShowPOIs}
+                    id="show-pois"
+                    className="scale-75 sm:scale-100"
+                  />
+                  <Label htmlFor="show-pois" className="flex items-center gap-1 cursor-pointer text-xs sm:text-sm">
+                    <Building2 className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-500" />
+                    <span className="hidden xs:inline">POIs</span>
+                  </Label>
+                </div>
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Switch 
                     checked={showWeather} 
                     onCheckedChange={setShowWeather}
                     id="show-weather"
@@ -433,18 +478,46 @@ function GestaoAreaDeAbordagemContent() {
                   onDrawingPointsCountChange={setDrawingPointsCount}
                   isFullscreen={isFullscreen}
                   onMapCenterChange={(lat, lng) => setMapCenter({ lat, lng })}
+                  onMapReady={setMapInstance}
                 />
+              
+              {/* POI Markers layer */}
+              <POIMarkers map={mapInstance} pois={pois} visible={showPOIs} />
+              
+              {/* Route polyline layer */}
+              <RoutePolyline map={mapInstance} route={optimizedRoute} visible={!!optimizedRoute} />
+              
+              {/* Route Optimizer panel */}
+              {leadsData && leadsData.length > 0 && (
+                <RouteOptimizer
+                  leads={leadsData.map(l => ({
+                    id: l.id,
+                    name: l.name,
+                    lat: l.lat,
+                    lon: l.lng,
+                    address: l.address,
+                  }))}
+                  userLocation={userLocation || undefined}
+                  onRouteCalculated={setOptimizedRoute}
+                  onClearRoute={() => setOptimizedRoute(null)}
+                />
+              )}
               
               {/* Weather overlay */}
               {showWeather && mapCenter && (
                 <>
                   {/* Badge compacto no canto */}
-                  <WeatherBadge 
-                    lat={mapCenter.lat} 
-                    lng={mapCenter.lng} 
-                    className="absolute top-2 right-2 z-[400]"
-                    compact
-                  />
+                  <div className="absolute top-2 right-2 z-[400] flex items-center gap-2">
+                    {/* Traffic Info badge */}
+                    {showTraffic && (
+                      <TrafficInfo lat={mapCenter.lat} lon={mapCenter.lng} enabled={showTraffic} />
+                    )}
+                    <WeatherBadge 
+                      lat={mapCenter.lat} 
+                      lng={mapCenter.lng} 
+                      compact
+                    />
+                  </div>
                   
                   {/* Previsão nas próximas horas - só em fullscreen ou desktop */}
                   <div className={cn(
@@ -458,6 +531,13 @@ function GestaoAreaDeAbordagemContent() {
                     />
                   </div>
                 </>
+              )}
+              
+              {/* Traffic info without weather */}
+              {showTraffic && !showWeather && mapCenter && (
+                <div className="absolute top-2 right-2 z-[400]">
+                  <TrafficInfo lat={mapCenter.lat} lon={mapCenter.lng} enabled={showTraffic} />
+                </div>
               )}
             </div>
           </CardContent>
