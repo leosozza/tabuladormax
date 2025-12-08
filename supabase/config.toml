@@ -176,3 +176,15 @@ verify_jwt = false
 
 [functions.get-traffic-tiles]
 verify_jwt = false
+
+[functions.tomtom-search-pois]
+verify_jwt = false
+
+[functions.tomtom-optimize-route]
+verify_jwt = false
+
+[functions.tomtom-traffic-flow]
+verify_jwt = false
+
+[functions.tomtom-reverse-geocode]
+verify_jwt = false

@@ -40,9 +40,9 @@ serve(async (req) => {
       );
     }
 
-    // TomTom Traffic Flow Tiles API
+    // TomTom Traffic Flow Tiles API - Orbis Maps v1
     // https://developer.tomtom.com/traffic-api/documentation/traffic-flow/raster-flow-tiles
-    const tomtomUrl = `https://api.tomtom.com/traffic/map/4/tile/flow/relative0/${z}/${x}/${y}.png?key=${TOMTOM_API_KEY}&thickness=10`;
+    const tomtomUrl = `https://api.tomtom.com/traffic/map/1/tile/flow/${z}/${x}/${y}.png?key=${TOMTOM_API_KEY}&style=relative&tileSize=256`;
 
     console.log(`Fetching traffic tile: z=${z}, x=${x}, y=${y}`);
 
