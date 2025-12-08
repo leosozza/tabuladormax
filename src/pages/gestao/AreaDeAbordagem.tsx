@@ -9,13 +9,16 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X, Maximize2, Minimize2 } from "lucide-react";
+import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X, Maximize2, Minimize2, CloudSun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createDateFilter } from "@/lib/dateUtils";
 import { LeadColumnConfigProvider } from "@/hooks/useLeadColumnConfig";
 import { ScouterHistorySettings } from "@/components/gestao/ScouterHistorySettings";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { WeatherBadge } from "@/components/gestao/WeatherBadge";
+import { WeatherForecast } from "@/components/gestao/WeatherForecast";
+import { cn } from "@/lib/utils";
 
 function GestaoAreaDeAbordagemContent() {
   const [filters, setFilters] = useState<FilterType>({
@@ -29,11 +32,13 @@ function GestaoAreaDeAbordagemContent() {
   const [showScouters, setShowScouters] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showLeads, setShowLeads] = useState(true);
+  const [showWeather, setShowWeather] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawMode, setDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
   const [drawingPointsCount, setDrawingPointsCount] = useState(0);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   // Handlers para controle externo do desenho
   const handleFinishDrawing = () => {
@@ -276,6 +281,19 @@ function GestaoAreaDeAbordagemContent() {
                     <span className="hidden xs:inline">Leads</span>
                   </Label>
                 </div>
+
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Switch 
+                    checked={showWeather} 
+                    onCheckedChange={setShowWeather}
+                    id="show-weather"
+                    className="scale-75 sm:scale-100"
+                  />
+                  <Label htmlFor="show-weather" className="flex items-center gap-1 cursor-pointer text-xs sm:text-sm">
+                    <CloudSun className="w-3 h-3 sm:w-4 sm:h-4 text-sky-500" />
+                    <span className="hidden xs:inline">Clima</span>
+                  </Label>
+                </div>
                 
                 {/* Controles de Desenho */}
                 <div className="flex items-center gap-1 sm:gap-2">
@@ -380,7 +398,7 @@ function GestaoAreaDeAbordagemContent() {
               </div>
             )}
             {/* Mapa sempre visível - dados carregam em paralelo */}
-            <div className={isFullscreen ? "h-full" : ""}>
+            <div className={cn("relative", isFullscreen ? "h-full" : "")}>
               <UnifiedAreaMap
                   projectId={filters.projectId}
                   dateRange={{
@@ -399,7 +417,33 @@ function GestaoAreaDeAbordagemContent() {
                   onDrawModeChange={setDrawMode}
                   onDrawingPointsCountChange={setDrawingPointsCount}
                   isFullscreen={isFullscreen}
+                  onMapCenterChange={(lat, lng) => setMapCenter({ lat, lng })}
                 />
+              
+              {/* Weather overlay */}
+              {showWeather && mapCenter && (
+                <>
+                  {/* Badge compacto no canto */}
+                  <WeatherBadge 
+                    lat={mapCenter.lat} 
+                    lng={mapCenter.lng} 
+                    className="absolute top-2 right-2 z-[400]"
+                    compact
+                  />
+                  
+                  {/* Previsão nas próximas horas - só em fullscreen ou desktop */}
+                  <div className={cn(
+                    "absolute bottom-2 left-2 right-2 z-[400]",
+                    !isFullscreen && "hidden lg:block"
+                  )}>
+                    <WeatherForecast 
+                      lat={mapCenter.lat} 
+                      lng={mapCenter.lng}
+                      hours={isFullscreen ? 10 : 6}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
