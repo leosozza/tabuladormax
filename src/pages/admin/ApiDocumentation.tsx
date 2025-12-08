@@ -76,7 +76,7 @@ const apiCategories: ApiCategory[] = [
   {
     name: 'Scouter App',
     icon: <Users className="w-4 h-4" />,
-    description: 'API para o Portal e Aplicativo Scouter (não requer API Key)',
+    description: 'API para o Portal e Aplicativo Scouter (autenticação via session token)',
     endpoints: [
       {
         method: 'POST',
@@ -93,16 +93,18 @@ const apiCategories: ApiCategory[] = [
             scouter_id: '8ef9d4b8-51b5-45b7-af80-4592b7cff9ff', 
             bitrix_id: 1356,
             scouter_name: 'Ramon Mello',
-            scouter_photo: 'https://...'
+            scouter_photo: 'https://...',
+            session_token: 'a1b2c3d4-e5f6-7890-abcd-1234567890ab-1702070400000',
+            expires_at: '2025-12-09T14:00:00.000Z'
           } 
         },
-        notes: 'Retorna bitrix_id para usar nas demais ações'
+        notes: 'Retorna session_token (válido 24h) e bitrix_id para usar nas demais ações'
       },
       {
         method: 'POST',
         path: '/scouter-app-api',
         description: 'Obter estatísticas do scouter (fichas, confirmados, etc)',
-        auth: [],
+        auth: ['access_key'],
         body: { 
           action: 'get_stats', 
           bitrix_id: 1356,
@@ -122,13 +124,13 @@ const apiCategories: ApiCategory[] = [
             reagendar: 10
           } 
         },
-        notes: 'date_preset: today | yesterday | week | month'
+        notes: 'Requer Authorization: Bearer <session_token>'
       },
       {
         method: 'POST',
         path: '/scouter-app-api',
         description: 'Obter posição do scouter no ranking',
-        auth: [],
+        auth: ['access_key'],
         body: { 
           action: 'get_ranking', 
           bitrix_id: 1356,
@@ -145,13 +147,14 @@ const apiCategories: ApiCategory[] = [
             first_place_name: 'Maria Santos',
             first_place_fichas: 62
           } 
-        }
+        },
+        notes: 'Requer Authorization: Bearer <session_token>'
       },
       {
         method: 'POST',
         path: '/scouter-app-api',
         description: 'Listar projetos vinculados ao scouter',
-        auth: [],
+        auth: ['access_key'],
         body: { 
           action: 'get_projects', 
           bitrix_id: 1356
@@ -161,13 +164,14 @@ const apiCategories: ApiCategory[] = [
           data: [
             { id: 'uuid', name: 'Projeto Alpha', code: 'ALPHA', active: true }
           ] 
-        }
+        },
+        notes: 'Requer Authorization: Bearer <session_token>'
       },
       {
         method: 'POST',
         path: '/scouter-app-api',
         description: 'Listar leads/fichas do scouter',
-        auth: [],
+        auth: ['access_key'],
         body: { 
           action: 'get_leads', 
           bitrix_id: 1356,
@@ -188,7 +192,8 @@ const apiCategories: ApiCategory[] = [
               horario_agendamento: '10:00'
             }
           ] 
-        }
+        },
+        notes: 'Requer Authorization: Bearer <session_token>'
       }
     ]
   },
@@ -310,6 +315,7 @@ const scouterApiParams = [
   { param: 'action', type: 'string', required: true, description: 'Ação a executar: login, get_stats, get_ranking, get_projects, get_leads' },
   { param: 'access_key', type: 'string', required: false, description: 'Chave de acesso do scouter (apenas para login)' },
   { param: 'bitrix_id', type: 'number', required: false, description: 'ID do Bitrix do scouter (obrigatório para todas ações exceto login)' },
+  { param: 'Authorization', type: 'header', required: true, description: 'Header Bearer <session_token> (obrigatório para todas ações exceto login)' },
   { param: 'params.date_preset', type: 'string', required: false, description: 'Período: today, yesterday, week, month' },
   { param: 'params.project_id', type: 'string', required: false, description: 'UUID do projeto para filtrar resultados' },
   { param: 'params.start_date', type: 'string', required: false, description: 'Data inicial customizada (ISO 8601: 2025-12-01)' },
@@ -525,10 +531,17 @@ export default function ApiDocumentation() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-4">
+                <h4 className="font-medium text-green-600 dark:text-green-400 mb-1">🔐 Autenticação com Session Token</h4>
+                <p className="text-sm text-muted-foreground">
+                  A API agora usa session tokens para segurança. O login retorna um token válido por 24h que deve ser usado em todas as chamadas subsequentes.
+                </p>
+              </div>
+
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Badge className="rounded-full">1</Badge>
-                  <span className="font-medium">Login com access_key</span>
+                  <span className="font-medium">Login com access_key (recebe session_token)</span>
                 </div>
                 <CodeBlock code={`curl -X POST "${baseUrl}/scouter-app-api" \\
   -H "Content-Type: application/json" \\
@@ -538,16 +551,26 @@ export default function ApiDocumentation() {
   }'
 
 # Resposta:
-# { "success": true, "data": { "bitrix_id": 1356, "scouter_name": "Ramon Mello" } }`} />
+{
+  "success": true,
+  "data": {
+    "scouter_id": "uuid",
+    "bitrix_id": 1356,
+    "scouter_name": "Ramon Mello",
+    "session_token": "a1b2c3d4-xxxx-xxxx-xxxx-1234567890ab-1702070400000",
+    "expires_at": "2025-12-09T14:00:00.000Z"
+  }
+}`} />
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Badge className="rounded-full">2</Badge>
-                  <span className="font-medium">Usar bitrix_id nas demais chamadas</span>
+                  <span className="font-medium">Usar session_token no header Authorization</span>
                 </div>
                 <CodeBlock code={`curl -X POST "${baseUrl}/scouter-app-api" \\
   -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer a1b2c3d4-xxxx-xxxx-xxxx-1234567890ab-1702070400000" \\
   -d '{
     "action": "get_stats",
     "bitrix_id": 1356,
@@ -564,6 +587,7 @@ export default function ApiDocumentation() {
                 </div>
                 <CodeBlock code={`curl -X POST "${baseUrl}/scouter-app-api" \\
   -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer a1b2c3d4-xxxx-xxxx-xxxx-1234567890ab-1702070400000" \\
   -d '{
     "action": "get_leads",
     "bitrix_id": 1356,
@@ -572,6 +596,13 @@ export default function ApiDocumentation() {
       "project_id": "uuid-do-projeto"
     }
   }'`} />
+              </div>
+
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                <h4 className="font-medium text-amber-600 dark:text-amber-400 mb-1">⚠️ Sessão expirada</h4>
+                <p className="text-sm text-muted-foreground">
+                  Se receber erro 401 "Session expired", faça login novamente para obter um novo token.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -683,8 +714,9 @@ npm install axios
 import axios from 'axios';
 
 const BASE_URL = '${baseUrl}';
+let sessionToken: string | null = null;
 
-// 1. Login com Access Key
+// 1. Login com Access Key (obtém session_token)
 async function loginScouter(accessKey: string) {
   const response = await axios.post(\`\${BASE_URL}/scouter-app-api\`, {
     action: 'login',
@@ -692,19 +724,23 @@ async function loginScouter(accessKey: string) {
   });
   
   if (response.data.success) {
-    const { bitrix_id, scouter_name } = response.data.data;
+    const { bitrix_id, scouter_name, session_token, expires_at } = response.data.data;
+    sessionToken = session_token; // Salvar para próximas chamadas
     console.log(\`Logado como \${scouter_name} (Bitrix ID: \${bitrix_id})\`);
+    console.log(\`Token expira em: \${expires_at}\`);
     return bitrix_id;
   }
   throw new Error(response.data.error);
 }
 
-// 2. Buscar estatísticas
+// 2. Buscar estatísticas (usa session_token)
 async function getStats(bitrixId: number, datePreset = 'month') {
   const response = await axios.post(\`\${BASE_URL}/scouter-app-api\`, {
     action: 'get_stats',
     bitrix_id: bitrixId,
     params: { date_preset: datePreset }
+  }, {
+    headers: { 'Authorization': \`Bearer \${sessionToken}\` }
   });
   
   return response.data.data;
@@ -719,6 +755,8 @@ async function getLeadsToday(bitrixId: number, projectId?: string) {
       date_preset: 'today',
       ...(projectId && { project_id: projectId })
     }
+  }, {
+    headers: { 'Authorization': \`Bearer \${sessionToken}\` }
   });
   
   return response.data.data;
@@ -747,9 +785,10 @@ pip install requests
 import requests
 
 BASE_URL = '${baseUrl}'
+session_token = None
 
-def login_scouter(access_key: str) -> int:
-    """Login com access_key, retorna bitrix_id"""
+def login_scouter(access_key: str) -> tuple[int, str]:
+    """Login com access_key, retorna (bitrix_id, session_token)"""
     response = requests.post(
         f'{BASE_URL}/scouter-app-api',
         json={
@@ -760,15 +799,19 @@ def login_scouter(access_key: str) -> int:
     data = response.json()
     
     if data['success']:
+        global session_token
+        session_token = data['data']['session_token']
         bitrix_id = data['data']['bitrix_id']
         print(f"Logado como {data['data']['scouter_name']}")
-        return bitrix_id
+        print(f"Token expira em: {data['data']['expires_at']}")
+        return bitrix_id, session_token
     raise Exception(data['error'])
 
 def get_stats(bitrix_id: int, date_preset: str = 'month') -> dict:
     """Buscar estatísticas do scouter"""
     response = requests.post(
         f'{BASE_URL}/scouter-app-api',
+        headers={'Authorization': f'Bearer {session_token}'},
         json={
             'action': 'get_stats',
             'bitrix_id': bitrix_id,
@@ -785,6 +828,7 @@ def get_leads(bitrix_id: int, date_preset: str = 'today', project_id: str = None
     
     response = requests.post(
         f'{BASE_URL}/scouter-app-api',
+        headers={'Authorization': f'Bearer {session_token}'},
         json={
             'action': 'get_leads',
             'bitrix_id': bitrix_id,
@@ -795,7 +839,7 @@ def get_leads(bitrix_id: int, date_preset: str = 'today', project_id: str = None
 
 # Exemplo de uso
 if __name__ == '__main__':
-    bitrix_id = login_scouter('722797')
+    bitrix_id, token = login_scouter('722797')
     
     stats = get_stats(bitrix_id, 'month')
     print(f"Total de fichas: {stats['total']}")

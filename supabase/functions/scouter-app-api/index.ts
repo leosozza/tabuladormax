@@ -17,6 +17,9 @@ interface RequestBody {
   };
 }
 
+// Session token duration: 24 hours
+const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -32,6 +35,64 @@ Deno.serve(async (req) => {
     const { action, access_key, bitrix_id, params } = body;
 
     console.log(`[scouter-app-api] Action: ${action}, Bitrix ID: ${bitrix_id || "N/A"}`);
+
+    // ==========================================
+    // SESSION TOKEN VALIDATION (for all actions except login)
+    // ==========================================
+    if (action !== "login") {
+      const authHeader = req.headers.get("Authorization");
+      
+      if (!authHeader?.startsWith("Bearer ")) {
+        console.log("[scouter-app-api] Missing or invalid Authorization header");
+        return new Response(
+          JSON.stringify({ success: false, error: "Authorization required. Use Bearer <session_token>" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const sessionToken = authHeader.replace("Bearer ", "");
+
+      // Validate session token
+      const { data: session, error: sessionError } = await supabase
+        .from("scouter_sessions")
+        .select("scouter_id, bitrix_id, expires_at")
+        .eq("session_token", sessionToken)
+        .single();
+
+      if (sessionError || !session) {
+        console.log("[scouter-app-api] Invalid session token");
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid session token" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if session is expired
+      if (new Date(session.expires_at) < new Date()) {
+        console.log("[scouter-app-api] Session token expired");
+        // Clean up expired session
+        await supabase.from("scouter_sessions").delete().eq("session_token", sessionToken);
+        return new Response(
+          JSON.stringify({ success: false, error: "Session expired. Please login again." }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate that bitrix_id matches the session
+      if (bitrix_id && session.bitrix_id !== bitrix_id) {
+        console.log(`[scouter-app-api] bitrix_id mismatch: request=${bitrix_id}, session=${session.bitrix_id}`);
+        return new Response(
+          JSON.stringify({ success: false, error: "Access denied. bitrix_id does not match session." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update last_used_at
+      await supabase
+        .from("scouter_sessions")
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("session_token", sessionToken);
+    }
 
     // Helper: Get scouter name by bitrix_id
     const getScouterName = async (bitrixId: number): Promise<string> => {
@@ -116,11 +177,49 @@ Deno.serve(async (req) => {
           console.error("[scouter-app-api] Error fetching scouter bitrix_id:", scouterError);
         }
 
+        const scouterBitrixId = scouterData?.bitrix_id;
+
+        if (!scouterBitrixId) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Scouter does not have a bitrix_id configured" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Generate session token
+        const sessionToken = crypto.randomUUID() + "-" + Date.now();
+        const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
+
+        // Remove any existing sessions for this scouter (single session per scouter)
+        await supabase
+          .from("scouter_sessions")
+          .delete()
+          .eq("scouter_id", data[0].scouter_id);
+
+        // Create new session
+        const { error: sessionInsertError } = await supabase
+          .from("scouter_sessions")
+          .insert({
+            scouter_id: data[0].scouter_id,
+            bitrix_id: scouterBitrixId,
+            session_token: sessionToken,
+            expires_at: expiresAt.toISOString(),
+          });
+
+        if (sessionInsertError) {
+          console.error("[scouter-app-api] Error creating session:", sessionInsertError);
+          throw new Error("Failed to create session");
+        }
+
+        console.log(`[scouter-app-api] Login successful for scouter: ${data[0].scouter_name}, session expires: ${expiresAt.toISOString()}`);
+
         result = {
           scouter_id: data[0].scouter_id,
-          bitrix_id: scouterData?.bitrix_id || null,
+          bitrix_id: scouterBitrixId,
           scouter_name: data[0].scouter_name,
           scouter_photo: data[0].scouter_photo,
+          session_token: sessionToken,
+          expires_at: expiresAt.toISOString(),
         };
         break;
       }
