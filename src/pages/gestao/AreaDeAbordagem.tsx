@@ -491,28 +491,18 @@ function GestaoAreaDeAbordagemContent() {
               {/* Weather overlay */}
               {showWeather && mapCenter && (
                 <>
-                  {/* Badge compacto no canto com botão de previsão */}
+                  {/* Badge compacto no canto - clique para ver previsão */}
                   <div className="absolute top-2 right-2 z-[400] flex items-center gap-2">
                     {/* Traffic Info badge */}
                     {showTraffic && (
                       <TrafficInfo lat={mapCenter.lat} lon={mapCenter.lng} enabled={showTraffic} />
                     )}
                     
-                    {/* Botão de previsão do tempo */}
-                    <Button
-                      variant={showWeatherForecast ? "default" : "outline"}
-                      size="icon"
-                      className="h-8 w-8 bg-background/95 backdrop-blur-sm shadow-lg border"
-                      onClick={() => setShowWeatherForecast(!showWeatherForecast)}
-                      title="Previsão das próximas horas"
-                    >
-                      <CloudSun className="h-4 w-4" />
-                    </Button>
-                    
                     <WeatherBadge 
                       lat={mapCenter.lat} 
                       lng={mapCenter.lng} 
                       compact
+                      onClick={() => setShowWeatherForecast(!showWeatherForecast)}
                     />
                   </div>
                   
