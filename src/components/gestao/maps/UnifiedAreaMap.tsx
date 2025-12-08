@@ -22,6 +22,7 @@ import { useRealtimeLeads } from "@/hooks/useRealtimeLeads";
 import { ScouterTimelineModal, LocationPoint } from "./ScouterTimelineModal";
 import { useToast } from "@/hooks/use-toast";
 import { useTrafficLayer } from "@/hooks/useTrafficLayer";
+import { TrafficLegend } from "./TrafficLegend";
 
 // Ícones padrão do Leaflet
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -190,7 +191,7 @@ export default function UnifiedAreaMap({
   });
 
   // Traffic layer - use mapInstance state to trigger re-render when map is ready
-  useTrafficLayer({ map: mapInstance, enabled: showTraffic });
+  const { isTomTomMapActive } = useTrafficLayer({ map: mapInstance, enabled: showTraffic });
 
   const polygonColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -892,6 +893,9 @@ export default function UnifiedAreaMap({
 
   return (
     <div className={`relative ${isFullscreen ? 'h-full' : ''}`}>
+      {/* Traffic Legend */}
+      <TrafficLegend isVisible={showTraffic && isTomTomMapActive} />
+
       {/* Timeline Modal */}
       <ScouterTimelineModal
         open={timelineModalOpen}

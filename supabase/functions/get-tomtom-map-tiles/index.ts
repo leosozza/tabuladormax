@@ -6,7 +6,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -18,10 +17,7 @@ serve(async (req) => {
       console.error('TOMTOM_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'TomTom API key not configured' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -33,29 +29,22 @@ serve(async (req) => {
     if (!z || !x || !y) {
       return new Response(
         JSON.stringify({ error: 'Missing tile coordinates (z, x, y)' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // TomTom Traffic Flow Tiles API - style goes in the path, not query params
-    // https://developer.tomtom.com/traffic-api/documentation/traffic-flow/raster-flow-tiles
-    const tomtomUrl = `https://api.tomtom.com/traffic/map/1/tile/flow/relative/${z}/${x}/${y}.png?key=${TOMTOM_API_KEY}&tileSize=256`;
+    // TomTom Basic Map Tiles API
+    const tomtomUrl = `https://api.tomtom.com/map/1/tile/basic/main/${z}/${x}/${y}.png?key=${TOMTOM_API_KEY}&tileSize=256`;
 
-    console.log(`Fetching traffic tile: z=${z}, x=${x}, y=${y}`);
+    console.log(`Fetching map tile: z=${z}, x=${x}, y=${y}`);
 
     const response = await fetch(tomtomUrl);
 
     if (!response.ok) {
       console.error(`TomTom API error: ${response.status} ${response.statusText}`);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch traffic tile' }),
-        { 
-          status: response.status, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        JSON.stringify({ error: 'Failed to fetch map tile' }),
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -65,18 +54,15 @@ serve(async (req) => {
       headers: {
         ...corsHeaders,
         'Content-Type': 'image/png',
-        'Cache-Control': 'public, max-age=60', // Cache for 1 minute
+        'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
       },
     });
 
   } catch (error) {
-    console.error('Error in get-traffic-tiles:', error);
+    console.error('Error in get-tomtom-map-tiles:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
