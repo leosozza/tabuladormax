@@ -469,6 +469,7 @@ function GestaoAreaDeAbordagemContent() {
                   showHeatmap={showHeatmap}
                   showLeads={showLeads}
                   showTraffic={showTraffic}
+                  showWeather={showWeather}
                   isDrawing={isDrawing}
                   onDrawingChange={setIsDrawing}
                   onAreaCreated={(area) => setDrawnAreas(prev => [...prev, area])}
