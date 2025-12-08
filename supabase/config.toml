@@ -173,3 +173,6 @@ verify_jwt = true
 
 [functions.update-scouter-photo]
 verify_jwt = false
+
+[functions.get-traffic-tiles]
+verify_jwt = false

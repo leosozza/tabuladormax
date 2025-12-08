@@ -21,6 +21,7 @@ import { ptBR } from "date-fns/locale";
 import { useRealtimeLeads } from "@/hooks/useRealtimeLeads";
 import { ScouterTimelineModal, LocationPoint } from "./ScouterTimelineModal";
 import { useToast } from "@/hooks/use-toast";
+import { useTrafficLayer } from "@/hooks/useTrafficLayer";
 
 // Ícones padrão do Leaflet
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -91,6 +92,7 @@ interface UnifiedAreaMapProps {
   showScouters: boolean;
   showHeatmap: boolean;
   showLeads: boolean;
+  showTraffic?: boolean;
   isDrawing: boolean;
   onDrawingChange: (isDrawing: boolean) => void;
   onAreaCreated?: (area: DrawnArea) => void;
@@ -116,6 +118,7 @@ export default function UnifiedAreaMap({
   showScouters,
   showHeatmap,
   showLeads,
+  showTraffic = false,
   isDrawing,
   onDrawingChange,
   onAreaCreated,
@@ -182,6 +185,9 @@ export default function UnifiedAreaMap({
     projectId,
     scouterId,
   });
+
+  // Traffic layer
+  useTrafficLayer({ map: mapRef.current, enabled: showTraffic });
 
   const polygonColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
