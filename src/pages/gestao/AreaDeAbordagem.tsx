@@ -41,6 +41,7 @@ function GestaoAreaDeAbordagemContent() {
   const [showLeads, setShowLeads] = useState(true);
   const [showWeather, setShowWeather] = useState(true);
   const [showTraffic, setShowTraffic] = useState(false);
+  const [showWeatherForecast, setShowWeatherForecast] = useState(false);
   const [showPOIs, setShowPOIs] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawMode, setDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
@@ -506,12 +507,24 @@ function GestaoAreaDeAbordagemContent() {
               {/* Weather overlay */}
               {showWeather && mapCenter && (
                 <>
-                  {/* Badge compacto no canto */}
+                  {/* Badge compacto no canto com botão de previsão */}
                   <div className="absolute top-2 right-2 z-[400] flex items-center gap-2">
                     {/* Traffic Info badge */}
                     {showTraffic && (
                       <TrafficInfo lat={mapCenter.lat} lon={mapCenter.lng} enabled={showTraffic} />
                     )}
+                    
+                    {/* Botão de previsão do tempo */}
+                    <Button
+                      variant={showWeatherForecast ? "default" : "outline"}
+                      size="icon"
+                      className="h-8 w-8 bg-background/95 backdrop-blur-sm shadow-lg border"
+                      onClick={() => setShowWeatherForecast(!showWeatherForecast)}
+                      title="Previsão das próximas horas"
+                    >
+                      <CloudSun className="h-4 w-4" />
+                    </Button>
+                    
                     <WeatherBadge 
                       lat={mapCenter.lat} 
                       lng={mapCenter.lng} 
@@ -519,17 +532,19 @@ function GestaoAreaDeAbordagemContent() {
                     />
                   </div>
                   
-                  {/* Previsão nas próximas horas - só em fullscreen ou desktop */}
-                  <div className={cn(
-                    "absolute bottom-2 left-2 right-2 z-[400]",
-                    !isFullscreen && "hidden lg:block"
-                  )}>
-                    <WeatherForecast 
-                      lat={mapCenter.lat} 
-                      lng={mapCenter.lng}
-                      hours={isFullscreen ? 10 : 6}
-                    />
-                  </div>
+                  {/* Previsão nas próximas horas - aparece ao clicar no botão de nuvem */}
+                  {showWeatherForecast && (
+                    <div className={cn(
+                      "absolute bottom-2 left-2 right-2 z-[400]",
+                      !isFullscreen && "hidden lg:block"
+                    )}>
+                      <WeatherForecast 
+                        lat={mapCenter.lat} 
+                        lng={mapCenter.lng}
+                        hours={isFullscreen ? 10 : 6}
+                      />
+                    </div>
+                  )}
                 </>
               )}
               
