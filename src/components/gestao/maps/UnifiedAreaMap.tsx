@@ -1037,18 +1037,6 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
         </div>
       )}
 
-      {/* Street View Button */}
-      <div className="absolute top-4 left-4 z-[450]">
-        <Button
-          variant={isStreetViewMode ? "default" : "secondary"}
-          size="sm"
-          className={`shadow-lg gap-2 ${isStreetViewMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-white/95 backdrop-blur hover:bg-white'}`}
-          onClick={() => setIsStreetViewMode(!isStreetViewMode)}
-        >
-          <PersonStanding className="w-4 h-4" />
-          Street View
-        </Button>
-      </div>
 
       {/* Indicadores superiores */}
       <div className="absolute top-4 right-4 z-[450] flex gap-2">
