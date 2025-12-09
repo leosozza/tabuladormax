@@ -184,11 +184,22 @@ serve(async (req) => {
           
           // Processar Produtores - criar/atualizar na tabela producers
           if (entityType.id === 1156) {
-            // Campo UF_CRM_54_CHAVE do Bitrix (vem como ufCrm54Chave na API)
-            const accessKey = item.ufCrm54Chave ? String(item.ufCrm54Chave) : null;
-            console.log(`👔 Processando Produtor ${item.id} (${item.title})`);
-            console.log(`  🔑 Chave de acesso (ufCrm54Chave): ${accessKey || 'NÃO ENCONTRADA'}`);
+            // DEBUG: Mostrar TODAS as chaves do objeto para descobrir nome correto do campo
+            console.log(`👔 Produtor ${item.id} (${item.title}) - TODAS AS CHAVES DO OBJETO:`);
+            console.log(`  🔍 Keys:`, Object.keys(item));
             console.log(`  📦 Dados completos:`, JSON.stringify(item, null, 2));
+            
+            // Tentar múltiplas variações do nome do campo UF_CRM_54_CHAVE
+            const accessKey = 
+              item.ufCrm54Chave || 
+              item.ufCrm_54_Chave ||
+              item['UF_CRM_54_CHAVE'] ||
+              item.ufCrm54_Chave ||
+              item['ufCrm54Chave'] ||
+              item.ufCrm54chave ||
+              null;
+            
+            console.log(`  🔑 Chave encontrada: ${accessKey ? String(accessKey) : 'NENHUMA VARIAÇÃO ENCONTRADA'}`);
             
             const { error: producerError } = await supabase
               .from('producers')
