@@ -64,7 +64,7 @@ export function POICategorySelector({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-3 z-[500]" align="end">
+      <PopoverContent className="w-72 p-3 z-[1000]" align="end">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium">Pontos de Interesse</h4>
