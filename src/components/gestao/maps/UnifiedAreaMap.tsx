@@ -772,7 +772,29 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
     }
   }, [showLeads, leadsData, filteredLeads, selectedAreaIds]);
 
-  const finishDrawingRectangle = (rectanglePoints: L.LatLng[]) => {
+  // Geocodificação reversa para obter nome do local
+  const getLocationName = async (lat: number, lng: number): Promise<string> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`,
+        { headers: { 'Accept-Language': 'pt-BR' } }
+      );
+      const data = await response.json();
+      
+      // Tenta pegar bairro, depois suburb, depois city
+      const address = data.address || {};
+      const name = address.neighbourhood || address.suburb || address.district || 
+                   address.city_district || address.town || address.city || 
+                   address.village || address.municipality || 'Local desconhecido';
+      
+      return name;
+    } catch (error) {
+      console.error('Erro ao geocodificar:', error);
+      return `Área ${drawnAreas.length + 1}`;
+    }
+  };
+
+  const finishDrawingRectangle = async (rectanglePoints: L.LatLng[]) => {
     if (!mapRef.current || !areasLayerRef.current) return;
 
     const areaId = `area-${Date.now()}`;
@@ -793,9 +815,14 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
       return turf.booleanPointInPolygon(point, turfPolygon);
     });
 
+    // Calcula o centro da área para geocodificação
+    const center = turf.center(turfPolygon);
+    const [centerLng, centerLat] = center.geometry.coordinates;
+    const locationName = await getLocationName(centerLat, centerLng);
+
     const newArea: DrawnArea = {
       id: areaId,
-      name: `Área ${drawnAreas.length + 1}`,
+      name: locationName,
       bounds: rectanglePoints,
       leadCount: leadsInArea.length,
       selected: true,
@@ -824,7 +851,7 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
     rectangleStartRef.current = null;
   };
 
-  const finishDrawing = () => {
+  const finishDrawing = async () => {
     if (drawingPoints.length < 3 || !mapRef.current || !areasLayerRef.current) {
       cancelDrawing();
       return;
@@ -848,9 +875,14 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
       return turf.booleanPointInPolygon(point, turfPolygon);
     });
 
+    // Calcula o centro da área para geocodificação
+    const center = turf.center(turfPolygon);
+    const [centerLng, centerLat] = center.geometry.coordinates;
+    const locationName = await getLocationName(centerLat, centerLng);
+
     const newArea: DrawnArea = {
       id: areaId,
-      name: `Área ${drawnAreas.length + 1}`,
+      name: locationName,
       bounds: drawingPoints,
       leadCount: leadsInArea.length,
       selected: true,
