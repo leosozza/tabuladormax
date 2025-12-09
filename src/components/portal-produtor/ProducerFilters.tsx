@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { DealStatusFilter } from './ProducerDashboard';
+import { DealStatusFilter } from './ProducerDealsTab';
 
 interface ProducerFiltersProps {
   statusFilter: DealStatusFilter;
