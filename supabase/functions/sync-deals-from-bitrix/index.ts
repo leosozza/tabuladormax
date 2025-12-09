@@ -299,6 +299,25 @@ async function upsertDealWithNegotiation(supabase: any, bitrixDeal: BitrixDeal) 
     }
   }
 
+  // Try to find the producer by PARENT_ID_1156
+  let producerId: string | null = null
+  const bitrixProducerId = bitrixDeal['PARENT_ID_1156']
+  if (bitrixProducerId) {
+    console.log(`[sync-deals] Deal ${bitrixDeal.ID} has PARENT_ID_1156: ${bitrixProducerId}`)
+    const { data: producer } = await supabase
+      .from('producers')
+      .select('id')
+      .eq('bitrix_id', parseInt(String(bitrixProducerId)))
+      .single()
+
+    if (producer) {
+      producerId = producer.id
+      console.log(`[sync-deals] Linked to producer: ${producerId}`)
+    } else {
+      console.log(`[sync-deals] Producer not found for bitrix_id: ${bitrixProducerId}`)
+    }
+  }
+
   // Extract client info
   const clientName = bitrixDeal.CLIENT_NAME || bitrixDeal.TITLE || 'Cliente não identificado'
   const clientPhone = bitrixDeal.PHONE?.[0]?.VALUE || null
@@ -308,6 +327,7 @@ async function upsertDealWithNegotiation(supabase: any, bitrixDeal: BitrixDeal) 
     bitrix_deal_id: parseInt(bitrixDeal.ID),
     bitrix_lead_id: bitrixDeal.LEAD_ID ? parseInt(bitrixDeal.LEAD_ID) : null,
     lead_id: leadId,
+    producer_id: producerId,
     title: bitrixDeal.TITLE || 'Deal sem título',
     stage_id: bitrixDeal.STAGE_ID,
     category_id: bitrixDeal.CATEGORY_ID,
