@@ -14,6 +14,8 @@ import autoTable from "jspdf-autotable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Copy, ExternalLink } from "lucide-react";
 import { Pencil, Trash2, Save, Square, FileDown, FileSpreadsheet, Eye, EyeOff, Radio, Clock, Route, ChevronDown, ChevronUp, MapPin, Search, X, PersonStanding } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { filterItemsInPolygons, leafletToTurfPolygon } from "@/utils/polygonUtils";
@@ -200,6 +202,7 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   const [internalSelectedLayerId, setInternalSelectedLayerId] = useState("osm-standard");
   const selectedLayerId = externalSelectedLayerId ?? internalSelectedLayerId;
   const baseLayerRef = useRef<L.TileLayer | null>(null);
+  const [streetViewUrl, setStreetViewUrl] = useState<string | null>(null);
   
   // Real-time updates
   const { updates: realtimeUpdates, clearUpdates, isConnected } = useRealtimeLeads({
@@ -543,31 +546,11 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
     }
   };
 
-  // Street View click handler - Opens Google Street View in new tab
-  const handleStreetViewClick = async (e: L.LeafletMouseEvent) => {
+  // Street View click handler - Opens modal with link
+  const handleStreetViewClick = (e: L.LeafletMouseEvent) => {
     const { lat, lng } = e.latlng;
-    const googleStreetViewUrl = `https://www.google.com/maps/@${lat},${lng},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`;
-    
-    // Try to open directly
-    const newWindow = window.open(googleStreetViewUrl, '_blank', 'noopener,noreferrer');
-    
-    // If blocked, copy to clipboard as fallback
-    if (!newWindow || newWindow.closed) {
-      try {
-        await navigator.clipboard.writeText(googleStreetViewUrl);
-        toast({
-          title: "Link copiado!",
-          description: "Cole o link em uma nova aba para ver o Street View",
-        });
-      } catch {
-        toast({
-          title: "Street View",
-          description: googleStreetViewUrl,
-          duration: 10000,
-        });
-      }
-    }
-    
+    const url = `https://www.google.com/maps/@${lat},${lng},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`;
+    setStreetViewUrl(url);
     setIsStreetViewMode(false);
   };
 
@@ -1234,6 +1217,56 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
         className="w-full h-full rounded-lg"
         style={{ minHeight: isFullscreen ? "100%" : "600px", height: isFullscreen ? "100%" : undefined }}
       />
+
+      {/* Street View Modal */}
+      <Dialog open={!!streetViewUrl} onOpenChange={() => setStreetViewUrl(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PersonStanding className="h-5 w-5" />
+              Google Street View
+            </DialogTitle>
+            <DialogDescription>
+              Clique com botão direito no link → "Abrir em nova guia" ou copie o link
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <a 
+              href={streetViewUrl || ''} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary underline break-all text-sm hover:text-primary/80 transition-colors p-2 bg-muted rounded"
+            >
+              {streetViewUrl}
+            </a>
+            <div className="flex gap-2">
+              <Button 
+                className="flex-1"
+                onClick={() => {
+                  if (streetViewUrl) {
+                    navigator.clipboard.writeText(streetViewUrl);
+                    toast({ title: "Link copiado!" });
+                  }
+                }}
+              >
+                <Copy className="mr-2 h-4 w-4" />
+                Copiar Link
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  if (streetViewUrl) {
+                    window.open(streetViewUrl, '_blank');
+                  }
+                }}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Abrir
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
