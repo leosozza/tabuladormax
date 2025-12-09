@@ -14,7 +14,8 @@ import autoTable from "jspdf-autotable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Pencil, Trash2, Save, Square, FileDown, FileSpreadsheet, Eye, EyeOff, Radio, Clock, Route, ChevronDown, ChevronUp, MapPin } from "lucide-react";
+import { Pencil, Trash2, Save, Square, FileDown, FileSpreadsheet, Eye, EyeOff, Radio, Clock, Route, ChevronDown, ChevronUp, MapPin, Search, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { filterItemsInPolygons, leafletToTurfPolygon } from "@/utils/polygonUtils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -186,7 +187,9 @@ export default function UnifiedAreaMap({
     photoUrl?: string;
   } | null>(null);
   const [locationHistory, setLocationHistory] = useState<LocationPoint[]>([]);
-  const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
+const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
+  const [scouterSearchTerm, setScouterSearchTerm] = useState("");
+  const [showScouterSearch, setShowScouterSearch] = useState(false);
   
   const { toast } = useToast();
   
@@ -1031,12 +1034,45 @@ export default function UnifiedAreaMap({
               <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
               <span className="truncate">Scouters ({scouterLocations.length})</span>
             </span>
-            {isScouterListExpanded ? <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4" /> : <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />}
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-5 w-5 sm:h-6 sm:w-6 p-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowScouterSearch(!showScouterSearch);
+                  if (showScouterSearch) setScouterSearchTerm("");
+                }}
+                title="Buscar scouter"
+              >
+                {showScouterSearch ? <X className="w-3 h-3 sm:w-4 sm:h-4" /> : <Search className="w-3 h-3 sm:w-4 sm:h-4" />}
+              </Button>
+              {isScouterListExpanded ? <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4" /> : <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />}
+            </div>
           </h3>
           
           {isScouterListExpanded && (
-            <div className="space-y-1 sm:space-y-2 max-h-[calc(50vh-4rem)] overflow-y-auto">
-              {scouterLocations.map(location => (
+            <>
+              {showScouterSearch && (
+                <div className="mb-2">
+                  <Input
+                    type="text"
+                    placeholder="Buscar por nome..."
+                    value={scouterSearchTerm}
+                    onChange={(e) => setScouterSearchTerm(e.target.value)}
+                    className="h-7 sm:h-8 text-xs"
+                    autoFocus
+                  />
+                </div>
+              )}
+              <div className="space-y-1 sm:space-y-2 max-h-[calc(50vh-4rem)] overflow-y-auto">
+                {scouterLocations
+                  .filter(location => 
+                    !scouterSearchTerm || 
+                    location.scouterName.toLowerCase().includes(scouterSearchTerm.toLowerCase())
+                  )
+                  .map(location => (
                 <div 
                   key={location.scouterBitrixId} 
                   className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded hover:bg-accent transition-colors cursor-pointer"
@@ -1082,7 +1118,8 @@ export default function UnifiedAreaMap({
                   </Button>
                 </div>
               ))}
-            </div>
+              </div>
+            </>
           )}
         </Card>
       )}
