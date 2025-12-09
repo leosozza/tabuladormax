@@ -211,9 +211,6 @@ export default function Agenciamento() {
         </TabsList>
 
         <TabsContent value="pipeline" className="space-y-6">
-          {/* Statistics */}
-          <NegotiationStats negotiations={filteredNegotiations} />
-
           {/* Filters */}
           <Card>
             <CardContent className="pt-6">
