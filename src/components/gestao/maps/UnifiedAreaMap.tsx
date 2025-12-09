@@ -643,15 +643,16 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
             <p>🕐 ${formatDistanceToNow(new Date(location.recordedAt), { locale: ptBR, addSuffix: true })}</p>
             ${scouterLeadCount > 0 ? `<p class="font-semibold text-green-600">📋 ${scouterLeadCount} ficha${scouterLeadCount !== 1 ? 's' : ''}</p>` : ''}
           </div>
-          <div class="flex gap-1 mt-2">
+          <div class="flex items-center gap-2 mt-2">
             <button 
-              class="flex-1 px-2 py-1.5 bg-green-600 text-white rounded text-xs font-medium flex items-center justify-center gap-1"
+              class="p-1.5 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
               onclick="window.open('https://www.google.com/maps/@${location.latitude},${location.longitude},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192', '_blank')"
+              title="Abrir Street View"
             >
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="5" r="2.5"/>
+                <path d="M12 8c-2.5 0-4 2-4 4v3h2v5h4v-5h2v-3c0-2-1.5-4-4-4z"/>
               </svg>
-              Street View
             </button>
             <button 
               class="flex-1 px-2 py-1.5 bg-blue-600 text-white rounded text-xs font-medium flex items-center justify-center gap-1"
