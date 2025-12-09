@@ -1177,6 +1177,21 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
                     </p>
                   </div>
                   
+                  {/* Botão Street View */}
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    className="h-6 w-6 sm:h-8 sm:w-8 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const url = `https://www.google.com/maps/@${location.latitude},${location.longitude},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`;
+                      setStreetViewUrl(url);
+                    }}
+                    title="Street View"
+                  >
+                    <PersonStanding className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" />
+                  </Button>
+
                   {/* Botão Ver Rota */}
                   <Button 
                     size="sm" 
