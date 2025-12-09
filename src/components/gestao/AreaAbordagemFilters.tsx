@@ -10,6 +10,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { createDateFilter } from "@/lib/dateUtils";
 import type { DateFilter } from "@/types/filters";
+import { useState } from "react";
+import { DateRange } from "react-day-picker";
 
 export interface AreaAbordagemFilters {
   dateFilter: DateFilter;
@@ -22,8 +24,16 @@ interface AreaAbordagemFiltersProps {
 }
 
 type DatePreset = 'today' | 'yesterday' | 'custom';
+type DateMode = 'exact' | 'range';
 
 export function AreaAbordagemFilters({ filters, onChange }: AreaAbordagemFiltersProps) {
+  const [dateMode, setDateMode] = useState<DateMode>('exact');
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: filters.dateFilter.startDate,
+    to: filters.dateFilter.endDate
+  });
+
   const { data: projects = [] } = useQuery({
     queryKey: ["commercial-projects-area"],
     queryFn: async () => {
@@ -81,7 +91,7 @@ export function AreaAbordagemFilters({ filters, onChange }: AreaAbordagemFilters
     }
   };
 
-  const handleCustomDateSelect = (date: Date | undefined) => {
+  const handleExactDateSelect = (date: Date | undefined) => {
     if (!date) return;
     
     const startDate = new Date(date);
@@ -97,6 +107,39 @@ export function AreaAbordagemFilters({ filters, onChange }: AreaAbordagemFilters
         endDate,
       },
     });
+    setIsCalendarOpen(false);
+  };
+
+  const handleRangeSelect = (range: DateRange | undefined) => {
+    setDateRange(range);
+    
+    if (range?.from && range?.to) {
+      const startDate = new Date(range.from);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(range.to);
+      endDate.setHours(23, 59, 59, 999);
+      
+      onChange({
+        ...filters,
+        dateFilter: {
+          preset: 'custom',
+          startDate,
+          endDate,
+        },
+      });
+      setIsCalendarOpen(false);
+    }
+  };
+
+  const getDateButtonLabel = () => {
+    if (currentPreset !== 'custom') return "Escolher";
+    
+    if (dateMode === 'range') {
+      const start = format(filters.dateFilter.startDate, "dd/MM", { locale: ptBR });
+      const end = format(filters.dateFilter.endDate, "dd/MM", { locale: ptBR });
+      return `${start} - ${end}`;
+    }
+    return format(filters.dateFilter.startDate, "dd/MM/yyyy", { locale: ptBR });
   };
 
   return (
@@ -121,7 +164,7 @@ export function AreaAbordagemFilters({ filters, onChange }: AreaAbordagemFilters
           >
             Ontem
           </Button>
-          <Popover>
+          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant={currentPreset === 'custom' ? 'default' : 'outline'}
@@ -129,21 +172,50 @@ export function AreaAbordagemFilters({ filters, onChange }: AreaAbordagemFilters
                 className={cn("gap-2")}
               >
                 <CalendarIcon className="h-4 w-4" />
-                {currentPreset === 'custom' 
-                  ? format(filters.dateFilter.startDate, "dd/MM/yyyy", { locale: ptBR })
-                  : "Escolher"
-                }
+                {getDateButtonLabel()}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 z-[110]" align="start">
-              <Calendar
-                mode="single"
-                selected={filters.dateFilter.startDate}
-                onSelect={handleCustomDateSelect}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-                locale={ptBR}
-              />
+              <div className="p-3 border-b">
+                <div className="flex gap-1">
+                  <Button
+                    variant={dateMode === 'exact' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDateMode('exact')}
+                    className="flex-1"
+                  >
+                    Data Exata
+                  </Button>
+                  <Button
+                    variant={dateMode === 'range' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDateMode('range')}
+                    className="flex-1"
+                  >
+                    Período
+                  </Button>
+                </div>
+              </div>
+              {dateMode === 'exact' ? (
+                <Calendar
+                  mode="single"
+                  selected={filters.dateFilter.startDate}
+                  onSelect={handleExactDateSelect}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                  locale={ptBR}
+                />
+              ) : (
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={handleRangeSelect}
+                  numberOfMonths={1}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                  locale={ptBR}
+                />
+              )}
             </PopoverContent>
           </Popover>
         </div>
