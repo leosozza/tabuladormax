@@ -290,6 +290,11 @@ export default function Agenciamento() {
             <div className="text-center py-12">
               <p className="text-muted-foreground">Carregando negociações...</p>
             </div>
+          ) : viewMode === 'pipeline' ? (
+            <NegotiationPipeline
+              negotiations={filteredNegotiations}
+              onCardClick={(negotiation) => setViewingNegotiation(negotiation)}
+            />
           ) : filteredNegotiations.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
@@ -301,11 +306,6 @@ export default function Agenciamento() {
                 </p>
               </CardContent>
             </Card>
-          ) : viewMode === 'pipeline' ? (
-            <NegotiationPipeline
-              negotiations={filteredNegotiations}
-              onCardClick={(negotiation) => setViewingNegotiation(negotiation)}
-            />
           ) : viewMode === 'list' ? (
             <NegotiationList
               negotiations={filteredNegotiations}
