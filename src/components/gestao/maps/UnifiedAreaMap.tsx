@@ -14,7 +14,7 @@ import autoTable from "jspdf-autotable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Pencil, Trash2, Save, Square, FileDown, FileSpreadsheet, Eye, EyeOff, Radio, Clock, Route, ChevronDown, ChevronUp, MapPin, Search, X } from "lucide-react";
+import { Pencil, Trash2, Save, Square, FileDown, FileSpreadsheet, Eye, EyeOff, Radio, Clock, Route, ChevronDown, ChevronUp, MapPin, Search, X, PersonStanding } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { filterItemsInPolygons, leafletToTurfPolygon } from "@/utils/polygonUtils";
 import { formatDistanceToNow } from "date-fns";
@@ -27,6 +27,7 @@ import { useWeatherLayer } from "@/hooks/useWeatherLayer";
 import { TrafficLegend } from "./TrafficLegend";
 import { WeatherLegend } from "./WeatherLegend";
 import { MapLayerSelector, MAP_LAYERS, MapLayerOption } from "./MapLayerSelector";
+import { MapillaryStreetView } from "./MapillaryStreetView";
 
 // Ícones padrão do Leaflet
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -190,6 +191,10 @@ export default function UnifiedAreaMap({
 const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   const [scouterSearchTerm, setScouterSearchTerm] = useState("");
   const [showScouterSearch, setShowScouterSearch] = useState(false);
+  
+  // Street View mode
+  const [isStreetViewMode, setIsStreetViewMode] = useState(false);
+  const [streetViewLocation, setStreetViewLocation] = useState<{ lat: number; lng: number; name?: string } | null>(null);
   
   const { toast } = useToast();
   
@@ -540,22 +545,58 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
     }
   };
 
-  // Adicionar/remover event listener do mapa baseado no estado de desenho
+  // Street View click handler
+  const handleStreetViewClick = async (e: L.LeafletMouseEvent) => {
+    const { lat, lng } = e.latlng;
+    
+    // Get location name via reverse geocoding
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+        { headers: { 'Accept-Language': 'pt-BR' } }
+      );
+      const data = await response.json();
+      const address = data.address || {};
+      const name = address.road || address.neighbourhood || address.suburb || 
+                   address.district || 'Local selecionado';
+      
+      setStreetViewLocation({ lat, lng, name });
+    } catch {
+      setStreetViewLocation({ lat, lng, name: 'Local selecionado' });
+    }
+    
+    setIsStreetViewMode(false);
+    toast({
+      title: "Carregando Street View...",
+      description: "Buscando imagens da rua",
+    });
+  };
+
+  // Adicionar/remover event listeners do mapa baseado nos modos ativos
   useEffect(() => {
     if (!mapRef.current) return;
 
-    if (isDrawing) {
+    // Remove all click handlers first
+    mapRef.current.off('click');
+
+    // Add appropriate handler based on active mode
+    if (isStreetViewMode) {
+      mapRef.current.getContainer().style.cursor = 'crosshair';
+      mapRef.current.on('click', handleStreetViewClick);
+    } else if (isDrawing) {
+      mapRef.current.getContainer().style.cursor = 'crosshair';
       mapRef.current.on('click', handleMapClick);
     } else {
-      mapRef.current.off('click', handleMapClick);
+      mapRef.current.getContainer().style.cursor = '';
     }
 
     return () => {
       if (mapRef.current) {
-        mapRef.current.off('click', handleMapClick);
+        mapRef.current.off('click');
+        mapRef.current.getContainer().style.cursor = '';
       }
     };
-  }, [isDrawing, drawMode, drawingPoints]);
+  }, [isDrawing, isStreetViewMode, drawMode, drawingPoints]);
 
   // Atualizar layer de scouters
   useEffect(() => {
@@ -995,6 +1036,47 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
         locations={locationHistory}
       />
 
+      {/* Mapillary Street View Modal */}
+      {streetViewLocation && (
+        <MapillaryStreetView
+          isOpen={!!streetViewLocation}
+          onClose={() => setStreetViewLocation(null)}
+          lat={streetViewLocation.lat}
+          lng={streetViewLocation.lng}
+          locationName={streetViewLocation.name}
+        />
+      )}
+
+      {/* Street View Mode Indicator */}
+      {isStreetViewMode && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[500]">
+          <Badge className="bg-blue-600 text-white shadow-lg px-4 py-2 flex items-center gap-2">
+            <PersonStanding className="w-4 h-4" />
+            <span>Clique no mapa para ver Street View</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-5 w-5 p-0 text-white hover:bg-blue-700"
+              onClick={() => setIsStreetViewMode(false)}
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          </Badge>
+        </div>
+      )}
+
+      {/* Street View Button */}
+      <div className="absolute top-4 left-4 z-[450]">
+        <Button
+          variant={isStreetViewMode ? "default" : "secondary"}
+          size="sm"
+          className={`shadow-lg gap-2 ${isStreetViewMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-white/95 backdrop-blur hover:bg-white'}`}
+          onClick={() => setIsStreetViewMode(!isStreetViewMode)}
+        >
+          <PersonStanding className="w-4 h-4" />
+          Street View
+        </Button>
+      </div>
 
       {/* Indicadores superiores */}
       <div className="absolute top-4 right-4 z-[450] flex gap-2">
