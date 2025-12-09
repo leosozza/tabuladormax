@@ -794,13 +794,13 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
               <span style="font-size:11px;color:#6b7280">Ficha Confirmada</span>
             </div>
             <button 
-              style="margin-left:auto;padding:4px;color:#f97316;border:none;background:transparent;cursor:pointer;border-radius:4px"
+              style="margin-left:auto;padding:6px;color:#f97316;border:none;background:transparent;cursor:pointer;border-radius:4px"
               onclick="window.open('https://www.google.com/maps/@${lead.lat},${lead.lng},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192', '_blank')"
               title="Abrir Street View"
               onmouseover="this.style.backgroundColor='#fff7ed'"
               onmouseout="this.style.backgroundColor='transparent'"
             >
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="5" r="2.5"/>
                 <path d="M12 8c-2.5 0-4 2-4 4v3h2v5h4v-5h2v-3c0-2-1.5-4-4-4z"/>
               </svg>
