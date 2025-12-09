@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X, Maximize2, Minimize2, CloudSun, Car, Building2 } from "lucide-react";
+import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X, Maximize2, Minimize2, CloudSun, Car } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createDateFilter } from "@/lib/dateUtils";
@@ -24,7 +24,7 @@ import { RouteOptimizer } from "@/components/gestao/RouteOptimizer";
 import { POIMarkers } from "@/components/gestao/maps/POIMarkers";
 import { RoutePolyline } from "@/components/gestao/maps/RoutePolyline";
 import { usePOIs, POICategory } from "@/hooks/usePOIs";
-import { AreaPOIDialog } from "@/components/gestao/maps/AreaPOIDialog";
+import { POICategorySelector } from "@/components/gestao/maps/POICategorySelector";
 import { OptimizedRoute } from "@/hooks/useRouteOptimization";
 import { MapLayerSelector, MAP_LAYERS, MapLayerOption } from "@/components/gestao/maps/MapLayerSelector";
 import { cn } from "@/lib/utils";
@@ -75,8 +75,8 @@ function GestaoAreaDeAbordagemContent() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState("osm-standard");
   
-  // POI Dialog state - abrir após criar área
-  const [poiDialogArea, setPOIDialogArea] = useState<DrawnArea | null>(null);
+  // POI Categories state - seletor inline na toolbar
+  const [selectedPOICategories, setSelectedPOICategories] = useState<POICategory[]>([]);
 
   // POIs hook - agora usa busca por área
   const { allAreaPOIs, fetchPOIsInArea, isLoading: poisLoading, clearAreaPOIs } = usePOIs();
@@ -93,20 +93,29 @@ function GestaoAreaDeAbordagemContent() {
     }
   }, []);
 
-  // Handler para quando área é criada - abre dialog de POIs
+  // Handler para quando área é criada
   const handleAreaCreated = useCallback((area: DrawnArea) => {
     setDrawnAreas(prev => [...prev, area]);
-    setPOIDialogArea(area); // Abre dialog para seleção de POIs
-  }, []);
+    // Se já tem categorias selecionadas, busca POIs automaticamente
+    if (selectedPOICategories.length > 0) {
+      fetchPOIsInArea(area.id, area.bounds, selectedPOICategories);
+      setShowPOIs(true);
+    }
+  }, [selectedPOICategories, fetchPOIsInArea]);
 
-  // Handler para buscar POIs na área
-  const handleSearchPOIsForArea = useCallback(async (areaId: string, categories: POICategory[]) => {
-    const area = drawnAreas.find(a => a.id === areaId) || poiDialogArea;
-    if (!area) return;
-    
-    await fetchPOIsInArea(areaId, area.bounds, categories);
-    setShowPOIs(true); // Liga visualização de POIs automaticamente
-  }, [drawnAreas, poiDialogArea, fetchPOIsInArea]);
+  // Quando categorias mudam, busca POIs para todas as áreas
+  useEffect(() => {
+    if (selectedPOICategories.length > 0 && drawnAreas.length > 0) {
+      drawnAreas.forEach(area => {
+        fetchPOIsInArea(area.id, area.bounds, selectedPOICategories);
+      });
+      setShowPOIs(true);
+    } else if (selectedPOICategories.length === 0) {
+      // Limpa POIs se nenhuma categoria selecionada
+      drawnAreas.forEach(area => clearAreaPOIs(area.id));
+      setShowPOIs(false);
+    }
+  }, [selectedPOICategories]);
 
   // Handler para deletar área - também limpa POIs
   const handleAreaDeleted = useCallback((areaId: string) => {
@@ -384,25 +393,13 @@ function GestaoAreaDeAbordagemContent() {
                   </Label>
                 </div>
 
-                {/* POI Toggle - só aparece após ter áreas desenhadas */}
-                {(drawnAreas.length > 0 || allAreaPOIs.length > 0) && (
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <Switch 
-                      checked={showPOIs} 
-                      onCheckedChange={setShowPOIs}
-                      id="show-pois"
-                      className="scale-75 sm:scale-100"
-                    />
-                    <Label htmlFor="show-pois" className="flex items-center gap-1 cursor-pointer text-xs sm:text-sm">
-                      <Building2 className="w-3 h-3 sm:w-4 sm:h-4 text-teal-500" />
-                      <span className="hidden xs:inline">POIs</span>
-                      {allAreaPOIs.length > 0 && (
-                        <Badge variant="secondary" className="ml-1 text-[10px] px-1">
-                          {allAreaPOIs.length}
-                        </Badge>
-                      )}
-                    </Label>
-                  </div>
+                {/* POI Category Selector - só aparece após ter áreas desenhadas */}
+                {drawnAreas.length > 0 && (
+                  <POICategorySelector
+                    selectedCategories={selectedPOICategories}
+                    onCategoriesChange={setSelectedPOICategories}
+                    isLoading={poisLoading}
+                  />
                 )}
 
                 {/* Seletor de Camadas */}
@@ -697,15 +694,6 @@ function GestaoAreaDeAbordagemContent() {
             <ScouterHistorySettings />
           </TabsContent>
         </Tabs>
-
-        {/* Dialog para selecionar categorias de POIs após desenhar área */}
-        <AreaPOIDialog
-          area={poiDialogArea}
-          isOpen={!!poiDialogArea}
-          onClose={() => setPOIDialogArea(null)}
-          onSearchPOIs={handleSearchPOIsForArea}
-          isLoading={poisLoading}
-        />
     </GestaoPageLayout>
   );
 }
