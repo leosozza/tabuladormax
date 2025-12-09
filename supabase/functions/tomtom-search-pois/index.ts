@@ -24,6 +24,7 @@ const CATEGORY_MAP: Record<string, string> = {
   gym: '7320', // Sports centers
   restaurant: '7315', // Restaurants
   bank: '7328', // Banks
+  pedestrian: '9376,7376', // Pedestrian zones + Shopping districts
 };
 
 serve(async (req) => {

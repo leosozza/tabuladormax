@@ -13,7 +13,22 @@ export interface POI {
   phone?: string;
 }
 
-export type POICategory = 'shopping' | 'school' | 'hospital' | 'park' | 'metro' | 'mall' | 'university' | 'gym' | 'restaurant' | 'bank';
+export type POICategory = 'shopping' | 'school' | 'hospital' | 'park' | 'metro' | 'mall' | 'university' | 'gym' | 'restaurant' | 'bank' | 'pedestrian';
+
+// Configuração das categorias de POI com labels e ícones
+export const POI_CATEGORIES: { id: POICategory; label: string; icon: string; description: string }[] = [
+  { id: 'shopping', label: 'Shopping', icon: '🛒', description: 'Centros comerciais' },
+  { id: 'mall', label: 'Shopping Mall', icon: '🏬', description: 'Grandes shoppings' },
+  { id: 'school', label: 'Escolas', icon: '🏫', description: 'Escolas e colégios' },
+  { id: 'university', label: 'Universidades', icon: '🎓', description: 'Universidades e faculdades' },
+  { id: 'park', label: 'Parques', icon: '🌳', description: 'Parques e praças' },
+  { id: 'pedestrian', label: 'Calçadões', icon: '🚶', description: 'Zonas de pedestres' },
+  { id: 'metro', label: 'Metrô/Transporte', icon: '🚇', description: 'Estações de transporte' },
+  { id: 'gym', label: 'Academias', icon: '🏋️', description: 'Academias e centros esportivos' },
+  { id: 'hospital', label: 'Hospitais', icon: '🏥', description: 'Hospitais e clínicas' },
+  { id: 'restaurant', label: 'Restaurantes', icon: '🍽️', description: 'Restaurantes e lanchonetes' },
+  { id: 'bank', label: 'Bancos', icon: '🏦', description: 'Agências bancárias' },
+];
 
 interface UsePOIsOptions {
   defaultCategories?: POICategory[];
