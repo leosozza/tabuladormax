@@ -41,6 +41,7 @@ import StageMappings from './pages/admin/StageMappings';
 import AppReleases from './pages/admin/AppReleases';
 import ApiDocumentation from './pages/admin/ApiDocumentation';
 import ApiKeyManagement from './pages/admin/ApiKeyManagement';
+import SpaSync from './pages/admin/SpaSync';
 
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
@@ -149,6 +150,7 @@ const App = () => (
             <Route path="/admin/app-releases" element={<ProtectedRoute requireAdmin><AppReleases /></ProtectedRoute>} />
             <Route path="/admin/api-docs" element={<ProtectedRoute requireAdmin><ApiDocumentation /></ProtectedRoute>} />
             <Route path="/admin/api-keys" element={<ProtectedRoute requireAdmin><ApiKeyManagement /></ProtectedRoute>} />
+            <Route path="/admin/spa-sync" element={<ProtectedRoute requireManager><SpaSync /></ProtectedRoute>} />
 
             {/* Agenciamento */}
             <Route path="/agenciamento" element={<Agenciamento />} />
