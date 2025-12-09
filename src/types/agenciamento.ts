@@ -47,12 +47,15 @@ export interface SelectedPaymentMethod {
 export interface Negotiation {
   id: string;
 
+  // Deal reference
+  deal_id?: string | null;
+
   // Bitrix24 Integration
-  bitrix_deal_id?: string | null;
+  bitrix_deal_id?: number | null;
   bitrix_project_id?: string | null;
   bitrix_contact_id?: string | null;
   bitrix_company_id?: string | null;
-  bitrix_product_id?: string | null; // ID do produto selecionado do Bitrix24
+  bitrix_product_id?: number | null;
 
   // Basic Information
   title: string;
@@ -101,8 +104,11 @@ export interface Negotiation {
   // Approval Workflow
   requires_approval: boolean;
   approved_by?: string | null;
-  approval_date?: string | null;
+  approved_at?: string | null;
   approval_notes?: string | null;
+  rejected_by?: string | null;
+  rejected_at?: string | null;
+  rejection_reason?: string | null;
 
   // Tracking
   created_by: string;
@@ -141,25 +147,17 @@ export interface NegotiationSummary {
   title: string;
   client_name: string;
   status: NegotiationStatus;
-  base_value: number;
-  discount_percentage: number;
-  discount_value: number;
-  final_value: number;
-  additional_fees: number;
-  tax_value: number;
   total_value: number;
-  installments_number: number;
-  installment_value: number;
-  payment_methods: SelectedPaymentMethod[];
-  negotiation_date: string;
-  expected_closing_date?: string | null;
   created_at: string;
-  creator_email?: string;
-  creator_name?: string;
+  updated_at?: string;
 }
 
 // Form types for creation/editing
 export interface NegotiationFormData {
+  // Deal reference
+  deal_id?: string;
+  bitrix_deal_id?: number;
+
   // Basic Information
   title: string;
   description?: string;
@@ -173,7 +171,7 @@ export interface NegotiationFormData {
 
   // Bitrix24 Integration
   bitrix_project_id?: string;
-  bitrix_product_id?: string; // ID do produto selecionado do Bitrix24
+  bitrix_product_id?: string | number;
 
   // Commercial Conditions
   base_value: number;
@@ -228,6 +226,7 @@ export interface NegotiationCalculation {
 // Filter and search options
 export interface NegotiationFilters {
   status?: NegotiationStatus[];
+  search?: string;
   client_name?: string;
   date_from?: string;
   date_to?: string;
