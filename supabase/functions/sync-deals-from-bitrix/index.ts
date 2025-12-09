@@ -20,12 +20,19 @@ interface BitrixDeal {
   DATE_CREATE: string
   DATE_MODIFY: string
   CLOSEDATE: string
+  BEGINDATE: string
+  COMMENTS: string
   PHONE?: Array<{ VALUE: string }>
   EMAIL?: Array<{ VALUE: string }>
+  CLIENT_NAME?: string
+  // Campos personalizados do Bitrix (UF_CRM_*)
   [key: string]: any
 }
 
 const BITRIX_WEBHOOK_URL = 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr'
+
+// Stages que devem ser EXCLUÍDOS (deals convertidos/finalizados)
+const EXCLUDED_STAGES = ['C1:WON', 'C1:LOSE', 'WON', 'LOSE']
 
 // Mapeamento de stages do Bitrix para status de negociação
 // Status válidos: inicial, ficha_preenchida, atendimento_produtor, realizado, nao_realizado
@@ -40,6 +47,8 @@ const BITRIX_STAGE_TO_STATUS: Record<string, string> = {
   'APOLOGY': 'nao_realizado',
   // Stages da categoria 1 (Agenciamento)
   'C1:NEW': 'inicial',
+  'C1:UC_O2KDK6': 'inicial',
+  'C1:UC_MKIQ0S': 'ficha_preenchida',
   'C1:PREPARATION': 'ficha_preenchida',
   'C1:PREPAYMENT_INVOICE': 'atendimento_produtor',
   'C1:EXECUTING': 'atendimento_produtor',
@@ -51,6 +60,34 @@ const BITRIX_STAGE_TO_STATUS: Record<string, string> = {
 function mapBitrixStageToStatus(stageId: string | null): string {
   if (!stageId) return 'inicial'
   return BITRIX_STAGE_TO_STATUS[stageId] || 'inicial'
+}
+
+// Extrai métodos de pagamento do deal
+function extractPaymentMethods(deal: BitrixDeal): any {
+  const methods: any[] = []
+  
+  // Campo de tipo de pagamento
+  if (deal['UF_CRM_1762880287']) {
+    methods.push({ type: deal['UF_CRM_1762880287'], label: 'Tipo Pagamento' })
+  }
+  
+  // Forma de pagamento
+  if (deal['UF_CRM_1763145001890']) {
+    methods.push({ type: 'parcelas', details: deal['UF_CRM_1763145001890'] })
+  }
+  
+  return methods.length > 0 ? methods : null
+}
+
+// Extrai número de parcelas
+function extractInstallments(deal: BitrixDeal): number | null {
+  // Campo de quantidade de parcelas
+  const parcelas = deal['UF_CRM_1763145001'] || deal['UF_CRM_PARCELAS']
+  if (parcelas) {
+    const num = parseInt(String(parcelas))
+    return isNaN(num) ? null : num
+  }
+  return null
 }
 
 Deno.serve(async (req) => {
@@ -65,14 +102,26 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { action, deal_id, filters, limit } = await req.json()
+    const { action, deal_id, filters, limit, excludeConverted = true } = await req.json()
 
-    console.log(`[sync-deals] Action: ${action}, deal_id: ${deal_id}, filters:`, filters)
+    console.log(`[sync-deals] Action: ${action}, deal_id: ${deal_id}, filters:`, filters, `excludeConverted: ${excludeConverted}`)
 
     if (action === 'sync_single' && deal_id) {
       // Sync a single deal
       const deal = await fetchDealFromBitrix(deal_id)
       if (deal) {
+        // Check if should exclude converted deals
+        if (excludeConverted && EXCLUDED_STAGES.includes(deal.STAGE_ID)) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'Deal is converted/closed and excluded from sync',
+            stage: deal.STAGE_ID
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+        
         const result = await upsertDealWithNegotiation(supabase, deal)
         return new Response(JSON.stringify({ success: true, deal: result.deal, negotiation: result.negotiation }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -85,9 +134,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'sync_all' || action === 'sync_batch') {
-      // Sync all deals or a batch
-      const deals = await fetchDealsFromBitrix(filters, limit || 50)
-      console.log(`[sync-deals] Fetched ${deals.length} deals from Bitrix`)
+      // Sync all deals or a batch - with filter for non-converted only
+      const deals = await fetchDealsFromBitrix(filters, limit || 50, excludeConverted)
+      console.log(`[sync-deals] Fetched ${deals.length} deals from Bitrix (excludeConverted: ${excludeConverted})`)
 
       const results = []
       let negotiationsCreated = 0
@@ -109,6 +158,7 @@ Deno.serve(async (req) => {
           synced: results.filter((r) => r.success).length,
           failed: results.filter((r) => !r.success).length,
           negotiationsCreated,
+          excludedStages: EXCLUDED_STAGES,
           results,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -158,7 +208,8 @@ async function fetchDealFromBitrix(dealId: string): Promise<BitrixDeal | null> {
 
 async function fetchDealsFromBitrix(
   filters?: Record<string, any>,
-  limit = 50
+  limit = 50,
+  excludeConverted = true
 ): Promise<BitrixDeal[]> {
   try {
     let url = `${BITRIX_WEBHOOK_URL}/crm.deal.list.json?select[]=*&order[DATE_CREATE]=DESC`
@@ -167,6 +218,13 @@ async function fetchDealsFromBitrix(
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         url += `&filter[${key}]=${encodeURIComponent(String(value))}`
+      })
+    }
+
+    // Exclude converted/closed stages
+    if (excludeConverted) {
+      EXCLUDED_STAGES.forEach(stage => {
+        url += `&filter[!STAGE_ID][]=${encodeURIComponent(stage)}`
       })
     }
 
@@ -180,7 +238,7 @@ async function fetchDealsFromBitrix(
 
     console.log(`[sync-deals] Got ${deals.length} deals from Bitrix API`)
 
-    // Fetch assigned user names
+    // Fetch assigned user names and contact info
     for (const deal of deals) {
       if (deal.ASSIGNED_BY_ID) {
         try {
@@ -265,7 +323,7 @@ async function upsertDealWithNegotiation(supabase: any, bitrixDeal: BitrixDeal) 
     created_date: bitrixDeal.DATE_CREATE ? new Date(bitrixDeal.DATE_CREATE).toISOString() : null,
     close_date: bitrixDeal.CLOSEDATE ? new Date(bitrixDeal.CLOSEDATE).toISOString() : null,
     date_modify: bitrixDeal.DATE_MODIFY ? new Date(bitrixDeal.DATE_MODIFY).toISOString() : null,
-    raw: bitrixDeal,
+    raw: bitrixDeal, // Salva TODOS os campos do Bitrix
     sync_status: 'synced',
     last_sync_at: new Date().toISOString(),
   }
@@ -279,7 +337,7 @@ async function upsertDealWithNegotiation(supabase: any, bitrixDeal: BitrixDeal) 
 
   if (dealError) throw dealError
 
-  console.log(`[sync-deals] Upserted deal ${deal.id} (Bitrix ID: ${bitrixDeal.ID})`)
+  console.log(`[sync-deals] Upserted deal ${deal.id} (Bitrix ID: ${bitrixDeal.ID}, Stage: ${bitrixDeal.STAGE_ID})`)
 
   // Check if negotiation already exists for this deal
   const { data: existingNegotiation } = await supabase
@@ -292,22 +350,38 @@ async function upsertDealWithNegotiation(supabase: any, bitrixDeal: BitrixDeal) 
   let negotiationCreated = false
 
   if (!existingNegotiation) {
-    // Create new negotiation
+    // Create new negotiation with all mapped fields
     const negotiationStatus = mapBitrixStageToStatus(bitrixDeal.STAGE_ID)
     const opportunityValue = parseFloat(bitrixDeal.OPPORTUNITY) || 0
 
-    const negotiationData = {
+    // Extract additional fields from Bitrix deal
+    const clientDocument = bitrixDeal['UF_CRM_1762868654'] || null // CPF
+    const paymentMethods = extractPaymentMethods(bitrixDeal)
+    const installmentsCount = extractInstallments(bitrixDeal)
+    const firstInstallmentDate = bitrixDeal['UF_CRM_1763145001890'] || null
+
+    const negotiationData: any = {
       deal_id: deal.id,
       bitrix_deal_id: parseInt(bitrixDeal.ID),
       title: bitrixDeal.TITLE || 'Negociação sem título',
       client_name: clientName,
       client_phone: clientPhone,
       client_email: clientEmail,
+      client_document: clientDocument,
       status: negotiationStatus,
       base_value: opportunityValue,
       total_value: opportunityValue,
-      start_date: bitrixDeal.DATE_CREATE ? new Date(bitrixDeal.DATE_CREATE).toISOString() : new Date().toISOString(),
+      start_date: bitrixDeal.BEGINDATE 
+        ? new Date(bitrixDeal.BEGINDATE).toISOString() 
+        : (bitrixDeal.DATE_CREATE ? new Date(bitrixDeal.DATE_CREATE).toISOString() : new Date().toISOString()),
+      end_date: bitrixDeal.CLOSEDATE ? new Date(bitrixDeal.CLOSEDATE).toISOString() : null,
+      notes: bitrixDeal.COMMENTS || null,
     }
+
+    // Only add optional fields if they have values
+    if (paymentMethods) negotiationData.payment_methods = paymentMethods
+    if (installmentsCount) negotiationData.installments_count = installmentsCount
+    if (firstInstallmentDate) negotiationData.first_installment_date = firstInstallmentDate
 
     const { data: newNegotiation, error: negError } = await supabase
       .from('negotiations')
@@ -320,7 +394,7 @@ async function upsertDealWithNegotiation(supabase: any, bitrixDeal: BitrixDeal) 
     } else {
       negotiation = newNegotiation
       negotiationCreated = true
-      console.log(`[sync-deals] Created negotiation ${newNegotiation.id} for deal ${deal.id}`)
+      console.log(`[sync-deals] Created negotiation ${newNegotiation.id} for deal ${deal.id} (status: ${negotiationStatus})`)
     }
   } else {
     console.log(`[sync-deals] Negotiation already exists for deal ${deal.id}: ${existingNegotiation.id}`)
