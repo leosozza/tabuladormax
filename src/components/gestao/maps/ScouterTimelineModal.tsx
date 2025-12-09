@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Loader2, FileDown, User, Hash } from "lucide-react";
+import { MapPin, Clock, Loader2, FileDown, User, Hash, PersonStanding } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
@@ -420,8 +420,20 @@ export function ScouterTimelineModal({
                             </span>
                           </div>
 
-                          <div className="text-[10px] sm:text-xs text-muted-foreground font-mono hidden sm:block">
-                            {location.latitude?.toFixed(6) ?? 'N/A'}, {location.longitude?.toFixed(6) ?? 'N/A'}
+                          <div className="flex items-center justify-between">
+                            <div className="text-[10px] sm:text-xs text-muted-foreground font-mono hidden sm:block">
+                              {location.latitude?.toFixed(6) ?? 'N/A'}, {location.longitude?.toFixed(6) ?? 'N/A'}
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(`https://www.google.com/maps/@${location.latitude},${location.longitude},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`, '_blank');
+                              }}
+                              className="text-blue-500 hover:text-blue-700 transition-colors p-1"
+                              title="Abrir Street View"
+                            >
+                              <PersonStanding className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </button>
                           </div>
 
                           {isFirst && (

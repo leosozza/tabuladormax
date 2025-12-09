@@ -1171,19 +1171,7 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
                   
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      <p className="text-[10px] sm:text-xs font-medium truncate">{location.scouterName}</p>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(`https://www.google.com/maps/@${location.latitude},${location.longitude},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`, '_blank');
-                        }}
-                        className="text-blue-500 hover:text-blue-700 transition-colors"
-                        title="Abrir Street View"
-                      >
-                        <PersonStanding className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </button>
-                    </div>
+                    <p className="text-[10px] sm:text-xs font-medium truncate">{location.scouterName}</p>
                     <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                       {formatDistanceToNow(new Date(location.recordedAt), { locale: ptBR, addSuffix: true })}
                     </p>
