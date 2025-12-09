@@ -2255,6 +2255,63 @@ export type Database = {
         }
         Relationships: []
       }
+      producers: {
+        Row: {
+          access_key: string | null
+          bitrix_id: number | null
+          created_at: string | null
+          created_by: string | null
+          deals_last_30_days: number | null
+          email: string | null
+          hired_at: string | null
+          id: string
+          last_activity_at: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          photo_url: string | null
+          status: string
+          total_deals: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          access_key?: string | null
+          bitrix_id?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deals_last_30_days?: number | null
+          email?: string | null
+          hired_at?: string | null
+          id?: string
+          last_activity_at?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          status?: string
+          total_deals?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          access_key?: string | null
+          bitrix_id?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deals_last_30_days?: number | null
+          email?: string | null
+          hired_at?: string | null
+          id?: string
+          last_activity_at?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          status?: string
+          total_deals?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profile_field_mapping: {
         Row: {
           chatwoot_field: string
@@ -3279,6 +3336,31 @@ export type Database = {
         }
         Returns: Json
       }
+      get_producer_deals: {
+        Args: { p_limit?: number; p_producer_id: string; p_status?: string }
+        Returns: {
+          bitrix_deal_id: number
+          client_name: string
+          client_phone: string
+          created_date: string
+          deal_id: string
+          negotiation_id: string
+          negotiation_status: string
+          opportunity: number
+          stage_id: string
+          title: string
+        }[]
+      }
+      get_producer_stats: {
+        Args: { p_producer_id: string }
+        Returns: {
+          deals_concluidos: number
+          deals_em_andamento: number
+          deals_pendentes: number
+          total_deals: number
+          valor_total: number
+        }[]
+      }
       get_projection_data: {
         Args: {
           p_end_date: string
@@ -3558,6 +3640,14 @@ export type Database = {
           key_name: string
           rate_limit: number
           scopes: string[]
+        }[]
+      }
+      validate_producer_access_key: {
+        Args: { p_access_key: string }
+        Returns: {
+          producer_id: string
+          producer_name: string
+          producer_photo: string
         }[]
       }
       validate_scouter_access_key: {

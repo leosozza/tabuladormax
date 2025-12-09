@@ -25,10 +25,12 @@ serve(async (req) => {
     // 1096 = Scouters (apenas ativos: stageId=DT1096_210:NEW)
     // 1120 = Projetos Comerciais
     // 1144 = Telemarketing
+    // 1156 = Produtores
     const entityTypes = [
       { id: 1096, name: 'Scouters' },
       { id: 1120, name: 'Projetos Comerciais' },
-      { id: 1144, name: 'Telemarketing' }
+      { id: 1144, name: 'Telemarketing' },
+      { id: 1156, name: 'Produtores' }
     ];
 
     let totalSynced = 0;
@@ -45,11 +47,20 @@ serve(async (req) => {
 
         // Implementar paginação para buscar todos os registros
         while (hasMore) {
-          // Filtro de scouters ativos + campos de foto e chave de acesso
-          const stageFilter = entityType.id === 1096 ? '&filter[stageId]=DT1096_210:NEW' : '';
-          // ufCrm32_1739220520381 = foto, ufCrm32_1739219729812 = chave de acesso
-          const scouterFields = entityType.id === 1096 ? '&select[]=ufCrm32_1739220520381&select[]=ufCrm32_1739219729812' : '';
-          const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}${stageFilter}&select[]=id&select[]=title&select[]=stageId&select[]=categoryId${scouterFields}&start=${start}`;
+        // Filtros específicos por tipo de entidade
+          let stageFilter = '';
+          let extraFields = '';
+          
+          if (entityType.id === 1096) {
+            // Scouters: apenas ativos + campos de foto e chave de acesso
+            stageFilter = '&filter[stageId]=DT1096_210:NEW';
+            extraFields = '&select[]=ufCrm32_1739220520381&select[]=ufCrm32_1739219729812';
+          } else if (entityType.id === 1156) {
+            // Produtores: campos de foto e chave de acesso (ajustar IDs se necessário)
+            extraFields = '&select[]=ufCrm32_1739220520381&select[]=ufCrm32_1739219729812';
+          }
+          
+          const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}${stageFilter}&select[]=id&select[]=title&select[]=stageId&select[]=categoryId${extraFields}&start=${start}`;
           
           console.log(`  📄 Buscando página ${Math.floor(start / limit) + 1} (offset: ${start})...`);
           
@@ -168,6 +179,31 @@ serve(async (req) => {
               console.error(`  ⚠️ Erro ao atualizar access_key: ${accessKeyError.message}`);
             } else {
               console.log(`  ✅ Chave de acesso salva para scouter ${item.title}`);
+            }
+          }
+          
+          // Processar Produtores - criar/atualizar na tabela producers
+          if (entityType.id === 1156) {
+            const accessKey = item.ufCrm32_1739219729812 ? String(item.ufCrm32_1739219729812) : null;
+            console.log(`👔 Processando Produtor ${item.id} (${item.title})`);
+            
+            const { error: producerError } = await supabase
+              .from('producers')
+              .upsert({
+                bitrix_id: item.id,
+                name: (item.title || `Produtor ${item.id}`).trim(),
+                access_key: accessKey,
+                photo_url: photoUrl,
+                status: 'ativo',
+                updated_at: new Date().toISOString(),
+              }, {
+                onConflict: 'bitrix_id'
+              });
+            
+            if (producerError) {
+              console.error(`  ⚠️ Erro ao salvar produtor: ${producerError.message}`);
+            } else {
+              console.log(`  ✅ Produtor ${item.title} salvo/atualizado`);
             }
           }
           

@@ -85,6 +85,7 @@ export function getEntityTypeFromField(bitrixField: string): number | null {
     'PARENT_ID_1096': 1096, // Scouters
     'PARENT_ID_1120': 1120, // Projetos Comerciais
     'PARENT_ID_1144': 1144, // Telemarketing
+    'PARENT_ID_1156': 1156, // Produtores
   };
   return map[bitrixField] || null;
 }

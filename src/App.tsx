@@ -66,6 +66,9 @@ import PreCadastroSucesso from "./pages/precadastro/PreCadastroSucesso";
 // Portal Scouter (público)
 import PortalScouter from "./pages/PortalScouter";
 
+// Portal Produtor (público)
+import PortalProdutor from "./pages/PortalProdutor";
+
 // Hub Panels
 import HubPanels from "./pages/HubPanels";
 import "@/styles/hub.css";
@@ -97,6 +100,7 @@ const App = () => (
           <Route path="/precadastro" element={<PreCadastro />} />
           <Route path="/precadastro/sucesso" element={<PreCadastroSucesso />} />
           <Route path="/portal-scouter" element={<PortalScouter />} />
+          <Route path="/portal-produtor" element={<PortalProdutor />} />
 
           {/* Rotas PROTEGIDAS - com sidebar persistente */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
