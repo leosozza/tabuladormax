@@ -197,3 +197,9 @@ verify_jwt = false
 
 [functions.api-key-management]
 verify_jwt = true
+
+[functions.bitrix-deal-webhook]
+verify_jwt = false
+
+[functions.sync-deal-to-bitrix]
+verify_jwt = false
