@@ -13,16 +13,18 @@ const corsHeaders = {
 // Mapeamento de Stage do Bitrix → Status da Negociação
 const BITRIX_STAGE_TO_STATUS: Record<string, string> = {
   'NEW': 'inicial',
-  'PREPARATION': 'inicial',
+  'PREPARATION': 'ficha_preenchida',
   'PREPAYMENT_INVOICE': 'atendimento_produtor',
   'EXECUTING': 'atendimento_produtor',
   'FINAL_INVOICE': 'atendimento_produtor',
   'WON': 'realizado',
   'LOSE': 'nao_realizado',
   'APOLOGY': 'nao_realizado',
-  // Stages customizados podem ser adicionados aqui
-  'C1:NEW': 'inicial',
-  'C1:PREPARATION': 'inicial',
+  // Stages da categoria 1 (Agenciamento)
+  'C1:NEW': 'inicial',                    // Recepção - Cadastro atendimento
+  'C1:UC_O2KDK6': 'ficha_preenchida',     // Fichas Preenchidas
+  'C1:UC_MKIQ0S': 'atendimento_produtor', // Atendimento Produtor
+  'C1:PREPARATION': 'ficha_preenchida',
   'C1:PREPAYMENT_INVOICE': 'atendimento_produtor',
   'C1:EXECUTING': 'atendimento_produtor',
   'C1:FINAL_INVOICE': 'atendimento_produtor',
