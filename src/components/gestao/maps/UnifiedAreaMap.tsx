@@ -643,15 +643,26 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
             <p>🕐 ${formatDistanceToNow(new Date(location.recordedAt), { locale: ptBR, addSuffix: true })}</p>
             ${scouterLeadCount > 0 ? `<p class="font-semibold text-green-600">📋 ${scouterLeadCount} ficha${scouterLeadCount !== 1 ? 's' : ''}</p>` : ''}
           </div>
-          <button 
-            class="w-full mt-2 px-2 py-1.5 bg-blue-600 text-white rounded text-xs font-medium flex items-center justify-center gap-1"
-            onclick="window.dispatchEvent(new CustomEvent('view-scouter-timeline', { detail: { scouterBitrixId: ${location.scouterBitrixId}, scouterName: '${location.scouterName.replace(/'/g, "\\'")}', photoUrl: '${location.photoUrl || ''}' } }))"
-          >
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            Histórico
-          </button>
+          <div class="flex gap-1 mt-2">
+            <button 
+              class="flex-1 px-2 py-1.5 bg-green-600 text-white rounded text-xs font-medium flex items-center justify-center gap-1"
+              onclick="window.open('https://www.google.com/maps/@${location.latitude},${location.longitude},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192', '_blank')"
+            >
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+              Street View
+            </button>
+            <button 
+              class="flex-1 px-2 py-1.5 bg-blue-600 text-white rounded text-xs font-medium flex items-center justify-center gap-1"
+              onclick="window.dispatchEvent(new CustomEvent('view-scouter-timeline', { detail: { scouterBitrixId: ${location.scouterBitrixId}, scouterName: '${location.scouterName.replace(/'/g, "\\'")}', photoUrl: '${location.photoUrl || ''}' } }))"
+            >
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Histórico
+            </button>
+          </div>
         </div>
       `;
       
