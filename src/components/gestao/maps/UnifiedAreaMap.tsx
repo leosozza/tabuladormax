@@ -544,11 +544,30 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   };
 
   // Street View click handler - Opens Google Street View in new tab
-  const handleStreetViewClick = (e: L.LeafletMouseEvent) => {
+  const handleStreetViewClick = async (e: L.LeafletMouseEvent) => {
     const { lat, lng } = e.latlng;
-    // Use maps.google.com format which works better with external links
-    const googleStreetViewUrl = `https://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
-    window.open(googleStreetViewUrl, '_blank', 'noopener,noreferrer');
+    const googleStreetViewUrl = `https://www.google.com/maps/@${lat},${lng},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`;
+    
+    // Try to open directly
+    const newWindow = window.open(googleStreetViewUrl, '_blank', 'noopener,noreferrer');
+    
+    // If blocked, copy to clipboard as fallback
+    if (!newWindow || newWindow.closed) {
+      try {
+        await navigator.clipboard.writeText(googleStreetViewUrl);
+        toast({
+          title: "Link copiado!",
+          description: "Cole o link em uma nova aba para ver o Street View",
+        });
+      } catch {
+        toast({
+          title: "Street View",
+          description: googleStreetViewUrl,
+          duration: 10000,
+        });
+      }
+    }
+    
     setIsStreetViewMode(false);
   };
 
