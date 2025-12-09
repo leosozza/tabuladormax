@@ -46,9 +46,9 @@ const BITRIX_STAGE_TO_STATUS: Record<string, string> = {
   'LOSE': 'nao_realizado',
   'APOLOGY': 'nao_realizado',
   // Stages da categoria 1 (Agenciamento)
-  'C1:NEW': 'inicial',
-  'C1:UC_O2KDK6': 'inicial',
-  'C1:UC_MKIQ0S': 'ficha_preenchida',
+  'C1:NEW': 'inicial',                    // Recepção - Cadastro atendimento
+  'C1:UC_O2KDK6': 'ficha_preenchida',     // Fichas Preenchidas
+  'C1:UC_MKIQ0S': 'atendimento_produtor', // Atendimento Produtor
   'C1:PREPARATION': 'ficha_preenchida',
   'C1:PREPAYMENT_INVOICE': 'atendimento_produtor',
   'C1:EXECUTING': 'atendimento_produtor',
