@@ -18,6 +18,9 @@ import { updateNegotiation } from '@/services/agenciamentoService';
 import { PipelineColumn } from './PipelineColumn';
 import { PipelineCard } from './PipelineCard';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ProducerSelectDialog } from './ProducerSelectDialog';
+import { Producer } from '@/hooks/useProducers';
+import { supabase } from '@/integrations/supabase/client';
 
 interface NegotiationPipelineProps {
   negotiations: Negotiation[];
@@ -35,6 +38,12 @@ const PIPELINE_STATUSES: NegotiationStatus[] = [
 
 export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPipelineProps) {
   const [activeNegotiation, setActiveNegotiation] = useState<Negotiation | null>(null);
+  const [producerSelectOpen, setProducerSelectOpen] = useState(false);
+  const [pendingTransition, setPendingTransition] = useState<{
+    negotiationId: string;
+    dealId: string | null;
+    newStatus: NegotiationStatus;
+  } | null>(null);
   const queryClient = useQueryClient();
 
   const sensors = useSensors(
@@ -88,6 +97,20 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
     }
   };
 
+  // Mutation to assign producer to deal
+  const assignProducerMutation = useMutation({
+    mutationFn: async ({ dealId, producerId }: { dealId: string; producerId: string }) => {
+      const { error } = await supabase
+        .from('deals')
+        .update({ producer_id: producerId })
+        .eq('id', dealId);
+      if (error) throw error;
+    },
+    onError: () => {
+      toast.error('Erro ao atribuir produtor');
+    },
+  });
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveNegotiation(null);
@@ -103,7 +126,50 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
     // Validate status transition
     if (!PIPELINE_STATUSES.includes(newStatus)) return;
 
+    // Intercept transition to "atendimento_produtor" - require producer selection
+    if (newStatus === 'atendimento_produtor' && negotiation.deal_id) {
+      setPendingTransition({
+        negotiationId,
+        dealId: negotiation.deal_id,
+        newStatus,
+      });
+      setProducerSelectOpen(true);
+      return;
+    }
+
     updateStatusMutation.mutate({ id: negotiationId, status: newStatus });
+  };
+
+  const handleProducerSelect = async (producer: Producer) => {
+    if (!pendingTransition) return;
+
+    try {
+      // First assign producer to deal
+      if (pendingTransition.dealId) {
+        await assignProducerMutation.mutateAsync({
+          dealId: pendingTransition.dealId,
+          producerId: producer.id,
+        });
+      }
+
+      // Then update negotiation status
+      await updateStatusMutation.mutateAsync({
+        id: pendingTransition.negotiationId,
+        status: pendingTransition.newStatus,
+      });
+
+      toast.success(`Negociação atribuída ao produtor ${producer.name}`);
+    } catch (error) {
+      // Errors are handled by mutations
+    } finally {
+      setProducerSelectOpen(false);
+      setPendingTransition(null);
+    }
+  };
+
+  const handleProducerSelectClose = () => {
+    setProducerSelectOpen(false);
+    setPendingTransition(null);
   };
 
   return (
@@ -137,6 +203,13 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
           </div>
         )}
       </DragOverlay>
+
+      <ProducerSelectDialog
+        open={producerSelectOpen}
+        onClose={handleProducerSelectClose}
+        onSelect={handleProducerSelect}
+        title="Selecionar Produtor para Atendimento"
+      />
     </DndContext>
   );
 }
