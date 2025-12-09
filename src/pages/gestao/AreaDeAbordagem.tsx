@@ -24,6 +24,7 @@ import { RouteOptimizer } from "@/components/gestao/RouteOptimizer";
 import { POIMarkers } from "@/components/gestao/maps/POIMarkers";
 import { RoutePolyline } from "@/components/gestao/maps/RoutePolyline";
 import { usePOIs, POICategory } from "@/hooks/usePOIs";
+import { POICategorySelector } from "@/components/gestao/maps/POICategorySelector";
 import { OptimizedRoute } from "@/hooks/useRouteOptimization";
 import { MapLayerSelector, MAP_LAYERS, MapLayerOption } from "@/components/gestao/maps/MapLayerSelector";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,7 @@ function GestaoAreaDeAbordagemContent() {
   const [showTraffic, setShowTraffic] = useState(false);
   const [showWeatherForecast, setShowWeatherForecast] = useState(false);
   const [showPOIs, setShowPOIs] = useState(false);
+  const [selectedPOICategories, setSelectedPOICategories] = useState<POICategory[]>(['shopping', 'mall', 'school', 'park', 'pedestrian']);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawMode, setDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
   const [drawingPointsCount, setDrawingPointsCount] = useState(0);
@@ -91,10 +93,10 @@ function GestaoAreaDeAbordagemContent() {
 
   // Fetch POIs when enabled and map center changes
   useEffect(() => {
-    if (showPOIs && mapCenter) {
-      fetchPOIs(mapCenter.lat, mapCenter.lng, ['shopping', 'school', 'hospital', 'park', 'metro'] as POICategory[]);
+    if (showPOIs && mapCenter && selectedPOICategories.length > 0) {
+      fetchPOIs(mapCenter.lat, mapCenter.lng, selectedPOICategories);
     }
-  }, [showPOIs, mapCenter, fetchPOIs]);
+  }, [showPOIs, mapCenter, selectedPOICategories, fetchPOIs]);
 
   // Handlers para controle externo do desenho
   const handleFinishDrawing = () => {
@@ -364,6 +366,22 @@ function GestaoAreaDeAbordagemContent() {
                     <Car className="w-3 h-3 sm:w-4 sm:h-4 text-red-500" />
                     <span className="hidden xs:inline">Trânsito</span>
                   </Label>
+                </div>
+
+                {/* POI Category Selector */}
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Switch 
+                    checked={showPOIs} 
+                    onCheckedChange={setShowPOIs}
+                    id="show-pois"
+                    className="scale-75 sm:scale-100"
+                  />
+                  <POICategorySelector
+                    selectedCategories={selectedPOICategories}
+                    onCategoriesChange={setSelectedPOICategories}
+                    isLoading={poisLoading}
+                    disabled={!showPOIs}
+                  />
                 </div>
 
                 {/* Seletor de Camadas */}
