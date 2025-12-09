@@ -56,8 +56,8 @@ serve(async (req) => {
             stageFilter = '&filter[stageId]=DT1096_210:NEW';
             extraFields = '&select[]=ufCrm32_1739220520381&select[]=ufCrm32_1739219729812';
           } else if (entityType.id === 1156) {
-            // Produtores: campos de foto e chave de acesso (ajustar IDs se necessário)
-            extraFields = '&select[]=ufCrm32_1739220520381&select[]=ufCrm32_1739219729812';
+            // Produtores: campo UF_CRM_54_CHAVE para chave de acesso
+            extraFields = '&select[]=ufCrm54Chave';
           }
           
           const url = `https://${bitrixDomain}/rest/${bitrixToken}/crm.item.list.json?entityTypeId=${entityType.id}${stageFilter}&select[]=id&select[]=title&select[]=stageId&select[]=categoryId${extraFields}&start=${start}`;
@@ -184,8 +184,11 @@ serve(async (req) => {
           
           // Processar Produtores - criar/atualizar na tabela producers
           if (entityType.id === 1156) {
-            const accessKey = item.ufCrm32_1739219729812 ? String(item.ufCrm32_1739219729812) : null;
+            // Campo UF_CRM_54_CHAVE do Bitrix (vem como ufCrm54Chave na API)
+            const accessKey = item.ufCrm54Chave ? String(item.ufCrm54Chave) : null;
             console.log(`👔 Processando Produtor ${item.id} (${item.title})`);
+            console.log(`  🔑 Chave de acesso (ufCrm54Chave): ${accessKey || 'NÃO ENCONTRADA'}`);
+            console.log(`  📦 Dados completos:`, JSON.stringify(item, null, 2));
             
             const { error: producerError } = await supabase
               .from('producers')
@@ -203,7 +206,7 @@ serve(async (req) => {
             if (producerError) {
               console.error(`  ⚠️ Erro ao salvar produtor: ${producerError.message}`);
             } else {
-              console.log(`  ✅ Produtor ${item.title} salvo/atualizado`);
+              console.log(`  ✅ Produtor ${item.title} salvo com chave: ${accessKey}`);
             }
           }
           
