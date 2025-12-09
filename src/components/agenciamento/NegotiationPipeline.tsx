@@ -26,11 +26,11 @@ interface NegotiationPipelineProps {
 
 // Pipeline status order (excluding rejected and cancelled)
 const PIPELINE_STATUSES: NegotiationStatus[] = [
-  'draft',
-  'in_progress',
-  'pending_approval',
-  'approved',
-  'completed',
+  'inicial',
+  'ficha_preenchida',
+  'atendimento_produtor',
+  'realizado',
+  'nao_realizado',
 ];
 
 export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPipelineProps) {
@@ -51,13 +51,11 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
   // Group negotiations by status
   const negotiationsByStatus = useMemo(() => {
     const grouped: Record<NegotiationStatus, Negotiation[]> = {
-      draft: [],
-      in_progress: [],
-      pending_approval: [],
-      approved: [],
-      rejected: [],
-      completed: [],
-      cancelled: [],
+      inicial: [],
+      ficha_preenchida: [],
+      atendimento_produtor: [],
+      realizado: [],
+      nao_realizado: [],
     };
 
     negotiations.forEach((neg) => {
