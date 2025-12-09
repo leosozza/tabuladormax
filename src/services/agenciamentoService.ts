@@ -117,7 +117,7 @@ export async function createNegotiation(data: NegotiationFormData): Promise<Nego
   const negotiationData = {
     deal_id: data.deal_id || null,
     bitrix_deal_id: data.bitrix_deal_id || null,
-    bitrix_product_id: data.bitrix_product_id ? parseInt(data.bitrix_product_id) : null,
+    bitrix_product_id: data.bitrix_product_id ? parseInt(String(data.bitrix_product_id)) : null,
     title: data.title,
     status: data.status || 'draft',
     client_name: data.client_name,
@@ -232,7 +232,7 @@ export async function updateNegotiation(
       additional_fees: data.additional_fees ?? current.additional_fee_value ?? 0,
       tax_percentage: data.tax_percentage ?? current.tax_percentage ?? 0,
       installments_number: data.installments_number ?? current.installments_count ?? 1,
-      payment_methods: data.payment_methods ?? (Array.isArray(current.payment_methods) ? current.payment_methods : []) as SelectedPaymentMethod[],
+      payment_methods: data.payment_methods ?? (Array.isArray(current.payment_methods) ? current.payment_methods as unknown as SelectedPaymentMethod[] : []),
     });
 
     updateData.base_value = calculation.base_value;

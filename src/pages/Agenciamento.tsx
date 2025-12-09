@@ -28,7 +28,6 @@ import {
   FileText,
   DollarSign,
   Calendar,
-  User,
   CheckCircle,
   XCircle,
   Clock,
@@ -37,6 +36,7 @@ import {
   Trash2,
   LayoutGrid,
   List as ListIcon,
+  Kanban,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -53,7 +53,6 @@ import {
   updateNegotiation,
   deleteNegotiation,
   approveNegotiation,
-  rejectNegotiation,
   completeNegotiation,
   cancelNegotiation,
 } from '@/services/agenciamentoService';
@@ -61,8 +60,11 @@ import { NegotiationForm } from '@/components/agenciamento/NegotiationForm';
 import { NegotiationDetailsDialog } from '@/components/agenciamento/NegotiationDetailsDialog';
 import { NegotiationList } from '@/components/agenciamento/NegotiationList';
 import { NegotiationStats } from '@/components/agenciamento/NegotiationStats';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { NegotiationPipeline } from '@/components/agenciamento/NegotiationPipeline';
+import { CommercialProjectSelector } from '@/components/CommercialProjectSelector';
 import { MainLayout } from '@/components/layouts/MainLayout';
+
+type ViewMode = 'pipeline' | 'grid' | 'list';
 
 export default function Agenciamento() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -70,13 +72,14 @@ export default function Agenciamento() {
   const [viewingNegotiation, setViewingNegotiation] = useState<Negotiation | null>(null);
   const [statusFilter, setStatusFilter] = useState<NegotiationStatus | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('pipeline');
+  const [commercialProjectId, setCommercialProjectId] = useState<string>('');
 
   const queryClient = useQueryClient();
 
   // Fetch negotiations
   const { data: negotiations = [], isLoading } = useQuery({
-    queryKey: ['negotiations', statusFilter],
+    queryKey: ['negotiations', statusFilter, commercialProjectId],
     queryFn: () =>
       listNegotiations(
         statusFilter !== 'all' ? { status: [statusFilter] } : undefined
@@ -193,149 +196,176 @@ export default function Agenciamento() {
       }
     >
       <div className="space-y-6">
+        {/* Statistics */}
+        <NegotiationStats negotiations={filteredNegotiations} />
 
-      {/* Statistics */}
-      <NegotiationStats negotiations={filteredNegotiations} />
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por título ou cliente..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+        {/* Filters */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap gap-4">
+              {/* Commercial Project Filter */}
+              <div className="w-[200px]">
+                <CommercialProjectSelector
+                  value={commercialProjectId}
+                  onChange={setCommercialProjectId}
                 />
               </div>
-            </div>
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value as NegotiationStatus | 'all')}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Status</SelectItem>
-                {Object.entries(NEGOTIATION_STATUS_CONFIG).map(([status, config]) => (
-                  <SelectItem key={status} value={status}>
-                    {config.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'outline'}
-                size="icon"
-                onClick={() => setViewMode('grid')}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'outline'}
-                size="icon"
-                onClick={() => setViewMode('list')}
-              >
-                <ListIcon className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Negotiations List */}
-      {isLoading ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Carregando negociações...</p>
-        </div>
-      ) : filteredNegotiations.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
-              {searchTerm || statusFilter !== 'all'
-                ? 'Nenhuma negociação encontrada com os filtros aplicados'
-                : 'Nenhuma negociação cadastrada ainda'}
-            </p>
+              {/* Search */}
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por título ou cliente..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* Status Filter */}
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => setStatusFilter(value as NegotiationStatus | 'all')}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Status</SelectItem>
+                  {Object.entries(NEGOTIATION_STATUS_CONFIG).map(([status, config]) => (
+                    <SelectItem key={status} value={status}>
+                      {config.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* View Mode Toggle */}
+              <div className="flex gap-1 border rounded-md p-1">
+                <Button
+                  variant={viewMode === 'pipeline' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('pipeline')}
+                  className="h-8"
+                >
+                  <Kanban className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('grid')}
+                  className="h-8"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="h-8"
+                >
+                  <ListIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
-      ) : viewMode === 'list' ? (
-        <NegotiationList
-          negotiations={filteredNegotiations}
-          onView={(negotiation) => setViewingNegotiation(negotiation)}
-          onEdit={(negotiation) => setEditingNegotiation(negotiation)}
-          onDelete={(id) => handleDelete(id)}
-          onApprove={(id) => approveMutation.mutate(id)}
-          onComplete={(id) => completeMutation.mutate(id)}
-          onCancel={(id) => cancelMutation.mutate(id)}
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredNegotiations.map((negotiation) => (
-            <NegotiationCard
-              key={negotiation.id}
-              negotiation={negotiation}
-              onView={() => setViewingNegotiation(negotiation)}
-              onEdit={() => setEditingNegotiation(negotiation)}
-              onDelete={() => handleDelete(negotiation.id)}
-              onApprove={() => approveMutation.mutate(negotiation.id)}
-              onComplete={() => completeMutation.mutate(negotiation.id)}
-              onCancel={() => cancelMutation.mutate(negotiation.id)}
-            />
-          ))}
-        </div>
-      )}
 
-      {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Nova Negociação</DialogTitle>
-            <DialogDescription>
-              Preencha os dados da negociação comercial
-            </DialogDescription>
-          </DialogHeader>
-          <NegotiationForm
-            onSubmit={handleCreateSubmit}
-            onCancel={() => setIsCreateDialogOpen(false)}
-            isLoading={createMutation.isPending}
+        {/* Negotiations Display */}
+        {isLoading ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Carregando negociações...</p>
+          </div>
+        ) : filteredNegotiations.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">
+                {searchTerm || statusFilter !== 'all'
+                  ? 'Nenhuma negociação encontrada com os filtros aplicados'
+                  : 'Nenhuma negociação cadastrada ainda'}
+              </p>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'pipeline' ? (
+          <NegotiationPipeline
+            negotiations={filteredNegotiations}
+            onCardClick={(negotiation) => setViewingNegotiation(negotiation)}
           />
-        </DialogContent>
-      </Dialog>
+        ) : viewMode === 'list' ? (
+          <NegotiationList
+            negotiations={filteredNegotiations}
+            onView={(negotiation) => setViewingNegotiation(negotiation)}
+            onEdit={(negotiation) => setEditingNegotiation(negotiation)}
+            onDelete={(id) => handleDelete(id)}
+            onApprove={(id) => approveMutation.mutate(id)}
+            onComplete={(id) => completeMutation.mutate(id)}
+            onCancel={(id) => cancelMutation.mutate(id)}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredNegotiations.map((negotiation) => (
+              <NegotiationCard
+                key={negotiation.id}
+                negotiation={negotiation}
+                onView={() => setViewingNegotiation(negotiation)}
+                onEdit={() => setEditingNegotiation(negotiation)}
+                onDelete={() => handleDelete(negotiation.id)}
+                onApprove={() => approveMutation.mutate(negotiation.id)}
+                onComplete={() => completeMutation.mutate(negotiation.id)}
+                onCancel={() => cancelMutation.mutate(negotiation.id)}
+              />
+            ))}
+          </div>
+        )}
 
-      {/* Edit Dialog */}
-      {editingNegotiation && (
-        <Dialog open={!!editingNegotiation} onOpenChange={() => setEditingNegotiation(null)}>
+        {/* Create Dialog */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Editar Negociação</DialogTitle>
+              <DialogTitle>Nova Negociação</DialogTitle>
               <DialogDescription>
-                Atualize os dados da negociação
+                Preencha os dados da negociação comercial
               </DialogDescription>
             </DialogHeader>
             <NegotiationForm
-              initialData={editingNegotiation}
-              onSubmit={handleUpdateSubmit}
-              onCancel={() => setEditingNegotiation(null)}
-              isLoading={updateMutation.isPending}
+              onSubmit={handleCreateSubmit}
+              onCancel={() => setIsCreateDialogOpen(false)}
+              isLoading={createMutation.isPending}
             />
           </DialogContent>
         </Dialog>
-      )}
 
-      {/* View Details Dialog */}
-      {viewingNegotiation && (
-        <NegotiationDetailsDialog
-          negotiation={viewingNegotiation}
-          open={!!viewingNegotiation}
-          onClose={() => setViewingNegotiation(null)}
-        />
-      )}
+        {/* Edit Dialog */}
+        {editingNegotiation && (
+          <Dialog open={!!editingNegotiation} onOpenChange={() => setEditingNegotiation(null)}>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Editar Negociação</DialogTitle>
+                <DialogDescription>
+                  Atualize os dados da negociação
+                </DialogDescription>
+              </DialogHeader>
+              <NegotiationForm
+                initialData={editingNegotiation}
+                onSubmit={handleUpdateSubmit}
+                onCancel={() => setEditingNegotiation(null)}
+                isLoading={updateMutation.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* View Details Dialog */}
+        {viewingNegotiation && (
+          <NegotiationDetailsDialog
+            negotiation={viewingNegotiation}
+            open={!!viewingNegotiation}
+            onClose={() => setViewingNegotiation(null)}
+          />
+        )}
       </div>
     </MainLayout>
   );
@@ -385,25 +415,25 @@ function NegotiationCard({
               {negotiation.status === 'pending_approval' && (
                 <>
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onApprove(); }}>
-                    <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                    <CheckCircle className="mr-2 h-4 w-4 text-success" />
                     Aprovar
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCancel(); }}>
-                    <XCircle className="mr-2 h-4 w-4 text-red-600" />
+                    <XCircle className="mr-2 h-4 w-4 text-destructive" />
                     Rejeitar
                   </DropdownMenuItem>
                 </>
               )}
               {negotiation.status === 'approved' && (
                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onComplete(); }}>
-                  <CheckCircle className="mr-2 h-4 w-4 text-blue-600" />
+                  <CheckCircle className="mr-2 h-4 w-4 text-primary" />
                   Concluir
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="text-red-600"
+                className="text-destructive"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Excluir
@@ -426,21 +456,27 @@ function NegotiationCard({
         <div className="flex items-center gap-2 text-sm">
           <DollarSign className="h-4 w-4 text-muted-foreground" />
           <span className="font-semibold text-primary">
-            R$ {negotiation.total_value.toFixed(2)}
+            {new Intl.NumberFormat('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+            }).format(negotiation.total_value)}
           </span>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Calendar className="h-4 w-4" />
           <span>
-            {new Date(negotiation.negotiation_date).toLocaleDateString('pt-BR')}
+            {new Date(negotiation.created_at).toLocaleDateString('pt-BR')}
           </span>
         </div>
         {negotiation.installments_number > 1 && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-4 w-4" />
             <span>
-              {negotiation.installments_number}x de R${' '}
-              {negotiation.installment_value.toFixed(2)}
+              {negotiation.installments_number}x de{' '}
+              {new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              }).format(negotiation.installment_value)}
             </span>
           </div>
         )}
