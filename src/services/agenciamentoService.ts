@@ -114,53 +114,62 @@ export async function createNegotiation(data: NegotiationFormData): Promise<Nego
     payment_methods: data.payment_methods,
   });
 
-  // Prepare negotiation data
   const negotiationData = {
+    deal_id: data.deal_id || null,
+    bitrix_deal_id: data.bitrix_deal_id || null,
+    bitrix_product_id: data.bitrix_product_id ? parseInt(data.bitrix_product_id) : null,
     title: data.title,
-    description: data.description,
     status: data.status || 'draft',
     client_name: data.client_name,
-    client_email: data.client_email,
-    client_phone: data.client_phone,
-    client_document: data.client_document,
-    bitrix_project_id: data.bitrix_project_id,
-    bitrix_product_id: data.bitrix_product_id,
+    client_phone: data.client_phone || null,
+    client_email: data.client_email || null,
+    client_document: data.client_document || null,
     base_value: calculation.base_value,
     discount_percentage: calculation.discount_percentage,
     discount_value: calculation.discount_value,
-    final_value: calculation.final_value,
-    payment_methods: data.payment_methods,
-    installments_number: data.installments_number || 1,
-    installment_value: calculation.installment_value,
-    first_payment_date: data.first_payment_date,
-    payment_frequency: data.payment_frequency || 'monthly',
-    additional_fees: calculation.additional_fees,
+    additional_fee_percentage: data.additional_fees || 0,
+    additional_fee_value: calculation.additional_fees,
     tax_percentage: calculation.tax_percentage,
     tax_value: calculation.tax_value,
     total_value: calculation.total_value,
-    negotiation_date: data.negotiation_date || new Date().toISOString().split('T')[0],
-    validity_date: data.validity_date,
-    expected_closing_date: data.expected_closing_date,
-    items: data.items || [],
-    terms_and_conditions: data.terms_and_conditions,
-    special_conditions: data.special_conditions,
-    internal_notes: data.internal_notes,
-    requires_approval: data.requires_approval || false,
+    payment_methods: data.payment_methods as unknown as any,
+    installments_count: data.installments_number || 1,
+    first_installment_date: data.first_payment_date || null,
+    payment_frequency: data.payment_frequency || 'monthly',
+    start_date: data.negotiation_date || null,
+    end_date: data.validity_date || null,
+    terms: data.terms_and_conditions || null,
+    notes: data.internal_notes || null,
     created_by: userData.user.id,
   };
 
-  // NOTA: A tabela 'negotiations' ainda não foi criada no banco de dados
-  // Por enquanto, retornamos um objeto mock
-  console.warn('Tabela negotiations não existe ainda. Retornando mock data.');
-  
-  const mockNegotiation: Negotiation = {
-    id: crypto.randomUUID(),
-    ...negotiationData,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+  const { data: created, error } = await supabase
+    .from('negotiations')
+    .insert([negotiationData])
+    .select()
+    .single();
 
-  return mockNegotiation;
+  if (error) {
+    console.error('Error creating negotiation:', error);
+    throw new Error('Erro ao criar negociação');
+  }
+
+  // If has deal, sync status to Bitrix
+  if (created.bitrix_deal_id) {
+    try {
+      await supabase.functions.invoke('sync-deal-to-bitrix', {
+        body: {
+          negotiation_id: created.id,
+          status: created.status,
+        },
+      });
+    } catch (e) {
+      console.warn('Failed to sync to Bitrix:', e);
+    }
+  }
+
+  // Transform to Negotiation type
+  return transformDbToNegotiation(created);
 }
 
 /**
@@ -183,98 +192,341 @@ export async function updateNegotiation(
     }
   }
 
-  // Prepare update data
-  const updateData: any = {
-    ...data,
-    updated_by: userData.user.id,
-  };
+  // Get current negotiation for recalculation if needed
+  const { data: current } = await supabase
+    .from('negotiations')
+    .select('*')
+    .eq('id', id)
+    .single();
 
-  // If any value-related fields are updated, recalculate
+  if (!current) {
+    throw new Error('Negociação não encontrada');
+  }
+
+  // Prepare update data
+  const updateData: any = {};
+
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.status !== undefined) updateData.status = data.status;
+  if (data.client_name !== undefined) updateData.client_name = data.client_name;
+  if (data.client_phone !== undefined) updateData.client_phone = data.client_phone;
+  if (data.client_email !== undefined) updateData.client_email = data.client_email;
+  if (data.client_document !== undefined) updateData.client_document = data.client_document;
+  if (data.payment_methods !== undefined) updateData.payment_methods = data.payment_methods;
+  if (data.installments_number !== undefined) updateData.installments_count = data.installments_number;
+  if (data.first_payment_date !== undefined) updateData.first_installment_date = data.first_payment_date;
+  if (data.payment_frequency !== undefined) updateData.payment_frequency = data.payment_frequency;
+  if (data.terms_and_conditions !== undefined) updateData.terms = data.terms_and_conditions;
+  if (data.internal_notes !== undefined) updateData.notes = data.internal_notes;
+
+  // Recalculate values if any value field changed
   if (
     data.base_value !== undefined ||
     data.discount_percentage !== undefined ||
     data.additional_fees !== undefined ||
     data.tax_percentage !== undefined
   ) {
-    // NOTA: A tabela 'negotiations' ainda não foi criada no banco de dados
-    // Não podemos recalcular sem acessar a tabela
-    console.warn('updateNegotiation: Tabela negotiations não existe ainda - recálculo desabilitado');
+    const calculation = calculateNegotiationValues({
+      base_value: data.base_value ?? current.base_value,
+      discount_percentage: data.discount_percentage ?? current.discount_percentage ?? 0,
+      additional_fees: data.additional_fees ?? current.additional_fee_value ?? 0,
+      tax_percentage: data.tax_percentage ?? current.tax_percentage ?? 0,
+      installments_number: data.installments_number ?? current.installments_count ?? 1,
+      payment_methods: data.payment_methods ?? (Array.isArray(current.payment_methods) ? current.payment_methods : []) as SelectedPaymentMethod[],
+    });
+
+    updateData.base_value = calculation.base_value;
+    updateData.discount_percentage = calculation.discount_percentage;
+    updateData.discount_value = calculation.discount_value;
+    updateData.tax_percentage = calculation.tax_percentage;
+    updateData.tax_value = calculation.tax_value;
+    updateData.total_value = calculation.total_value;
+    updateData.additional_fee_value = calculation.additional_fees;
   }
-  
-  // NOTA: A tabela 'negotiations' ainda não foi criada no banco de dados
-  // Essa função não pode ser executada até que a migration seja feita
-  console.warn('updateNegotiation: Tabela negotiations não existe ainda');
-  throw new Error('Funcionalidade de negociações ainda não está disponível - tabela não criada');
+
+  const { data: updated, error } = await supabase
+    .from('negotiations')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating negotiation:', error);
+    throw new Error('Erro ao atualizar negociação');
+  }
+
+  // Sync status change to Bitrix
+  if (data.status && updated.bitrix_deal_id) {
+    try {
+      await supabase.functions.invoke('sync-deal-to-bitrix', {
+        body: {
+          negotiation_id: updated.id,
+          status: updated.status,
+        },
+      });
+    } catch (e) {
+      console.warn('Failed to sync to Bitrix:', e);
+    }
+  }
+
+  return transformDbToNegotiation(updated);
 }
 
 /**
  * Get a single negotiation by ID
  */
 export async function getNegotiation(id: string): Promise<Negotiation | null> {
-  console.warn('getNegotiation: Tabela negotiations não existe ainda');
-  return null;
+  const { data, error } = await supabase
+    .from('negotiations')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw new Error('Erro ao buscar negociação');
+  }
+
+  return transformDbToNegotiation(data);
 }
 
 /**
  * List negotiations with filters
  */
 export async function listNegotiations(filters?: NegotiationFilters): Promise<Negotiation[]> {
-  console.warn('listNegotiations: Tabela negotiations não existe ainda');
-  return [];
-}
+  let query = supabase
+    .from('negotiations')
+    .select('*')
+    .order('created_at', { ascending: false });
 
-/**
- * Get negotiation summary
- */
-export async function getNegotiationSummary(id: string): Promise<NegotiationSummary | null> {
-  console.warn('getNegotiationSummary: Tabela negotiation_summary não existe ainda');
-  return null;
+  if (filters?.status && filters.status.length > 0) {
+    query = query.in('status', filters.status);
+  }
+
+  if (filters?.search) {
+    query = query.or(`title.ilike.%${filters.search}%,client_name.ilike.%${filters.search}%`);
+  }
+
+  if (filters?.created_by) {
+    query = query.eq('created_by', filters.created_by);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error listing negotiations:', error);
+    throw new Error('Erro ao listar negociações');
+  }
+
+  return (data || []).map(transformDbToNegotiation);
 }
 
 /**
  * Get negotiation history
  */
 export async function getNegotiationHistory(negotiationId: string): Promise<NegotiationHistory[]> {
-  console.warn('getNegotiationHistory: Tabela negotiation_history não existe ainda');
-  return [];
+  const { data, error } = await supabase
+    .from('negotiation_history')
+    .select('*')
+    .eq('negotiation_id', negotiationId)
+    .order('performed_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching history:', error);
+    return [];
+  }
+
+  return (data || []).map((h: any): NegotiationHistory => ({
+    id: h.id,
+    negotiation_id: h.negotiation_id,
+    action: h.action,
+    changes: h.changes,
+    performed_by: h.performed_by,
+    performed_at: h.performed_at,
+    notes: h.notes,
+  }));
 }
 
 /**
  * Delete a negotiation
  */
 export async function deleteNegotiation(id: string): Promise<void> {
-  console.warn('deleteNegotiation: Tabela negotiations não existe ainda');
-  throw new Error('Funcionalidade de negociações ainda não está disponível - tabela não criada');
+  const { error } = await supabase.from('negotiations').delete().eq('id', id);
+
+  if (error) {
+    console.error('Error deleting negotiation:', error);
+    throw new Error('Erro ao excluir negociação');
+  }
 }
 
 /**
  * Approve a negotiation
  */
 export async function approveNegotiation(id: string, notes?: string): Promise<Negotiation | null> {
-  console.warn('approveNegotiation: Tabela negotiations não existe ainda');
-  return null;
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('negotiations')
+    .update({
+      status: 'approved',
+      approved_by: userData.user.id,
+      approved_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw new Error('Erro ao aprovar negociação');
+
+  // Sync to Bitrix
+  if (data.bitrix_deal_id) {
+    await supabase.functions.invoke('sync-deal-to-bitrix', {
+      body: { negotiation_id: id, status: 'approved' },
+    });
+  }
+
+  return transformDbToNegotiation(data);
 }
 
 /**
  * Reject a negotiation
  */
-export async function rejectNegotiation(id: string, notes?: string): Promise<Negotiation | null> {
-  console.warn('rejectNegotiation: Tabela negotiations não existe ainda');
-  return null;
+export async function rejectNegotiation(id: string, reason?: string): Promise<Negotiation | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) throw new Error('User not authenticated');
+
+  const { data, error } = await supabase
+    .from('negotiations')
+    .update({
+      status: 'rejected',
+      rejection_reason: reason || null,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw new Error('Erro ao rejeitar negociação');
+
+  if (data.bitrix_deal_id) {
+    await supabase.functions.invoke('sync-deal-to-bitrix', {
+      body: { negotiation_id: id, status: 'rejected' },
+    });
+  }
+
+  return transformDbToNegotiation(data);
 }
 
 /**
  * Complete a negotiation
  */
 export async function completeNegotiation(id: string): Promise<Negotiation | null> {
-  console.warn('completeNegotiation: Tabela negotiations não existe ainda');
-  return null;
+  const { data, error } = await supabase
+    .from('negotiations')
+    .update({ status: 'completed' })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw new Error('Erro ao concluir negociação');
+
+  if (data.bitrix_deal_id) {
+    await supabase.functions.invoke('sync-deal-to-bitrix', {
+      body: { negotiation_id: id, status: 'completed' },
+    });
+  }
+
+  return transformDbToNegotiation(data);
 }
 
 /**
  * Cancel a negotiation
  */
 export async function cancelNegotiation(id: string, reason?: string): Promise<Negotiation | null> {
-  console.warn('cancelNegotiation: Tabela negotiations não existe ainda');
-  return null;
+  const { data, error } = await supabase
+    .from('negotiations')
+    .update({
+      status: 'cancelled',
+      rejection_reason: reason || null,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw new Error('Erro ao cancelar negociação');
+
+  if (data.bitrix_deal_id) {
+    await supabase.functions.invoke('sync-deal-to-bitrix', {
+      body: { negotiation_id: id, status: 'cancelled' },
+    });
+  }
+
+  return transformDbToNegotiation(data);
+}
+
+/**
+ * Get negotiation summary (placeholder for reporting)
+ */
+export async function getNegotiationSummary(id: string): Promise<NegotiationSummary | null> {
+  const negotiation = await getNegotiation(id);
+  if (!negotiation) return null;
+
+  return {
+    id: negotiation.id,
+    title: negotiation.title,
+    client_name: negotiation.client_name,
+    status: negotiation.status,
+    total_value: negotiation.total_value,
+    created_at: negotiation.created_at,
+    updated_at: negotiation.updated_at,
+  };
+}
+
+// Helper function to transform DB record to Negotiation type
+function transformDbToNegotiation(data: any): Negotiation {
+  return {
+    id: data.id,
+    deal_id: data.deal_id,
+    bitrix_deal_id: data.bitrix_deal_id,
+    title: data.title,
+    description: data.notes,
+    status: data.status,
+    client_name: data.client_name,
+    client_email: data.client_email,
+    client_phone: data.client_phone,
+    client_document: data.client_document,
+    bitrix_project_id: null,
+    bitrix_product_id: data.bitrix_product_id,
+    base_value: data.base_value || 0,
+    discount_percentage: data.discount_percentage || 0,
+    discount_value: data.discount_value || 0,
+    final_value: (data.base_value || 0) - (data.discount_value || 0),
+    payment_methods: data.payment_methods || [],
+    installments_number: data.installments_count || 1,
+    installment_value: data.installments_count > 0 ? (data.total_value || 0) / data.installments_count : data.total_value || 0,
+    first_payment_date: data.first_installment_date,
+    payment_frequency: data.payment_frequency || 'monthly',
+    additional_fees: data.additional_fee_value || 0,
+    tax_percentage: data.tax_percentage || 0,
+    tax_value: data.tax_value || 0,
+    total_value: data.total_value || 0,
+    negotiation_date: data.start_date || data.created_at?.split('T')[0],
+    validity_date: data.end_date,
+    expected_closing_date: data.close_date,
+    items: [],
+    terms_and_conditions: data.terms,
+    special_conditions: null,
+    internal_notes: data.notes,
+    requires_approval: false,
+    approved_by: data.approved_by,
+    approved_at: data.approved_at,
+    rejected_by: null,
+    rejected_at: null,
+    rejection_reason: data.rejection_reason,
+    created_by: data.created_by,
+    updated_by: null,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+  };
 }

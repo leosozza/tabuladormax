@@ -1128,6 +1128,105 @@ export type Database = {
         }
         Relationships: []
       }
+      deals: {
+        Row: {
+          assigned_by_id: number | null
+          assigned_by_name: string | null
+          bitrix_deal_id: number
+          bitrix_lead_id: number | null
+          category_id: string | null
+          client_email: string | null
+          client_name: string | null
+          client_phone: string | null
+          close_date: string | null
+          company_id: number | null
+          contact_id: number | null
+          created_at: string | null
+          created_date: string | null
+          currency_id: string | null
+          date_modify: string | null
+          id: string
+          last_sync_at: string | null
+          lead_id: number | null
+          opportunity: number | null
+          producer_id: string | null
+          raw: Json | null
+          stage_id: string | null
+          sync_status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_by_id?: number | null
+          assigned_by_name?: string | null
+          bitrix_deal_id: number
+          bitrix_lead_id?: number | null
+          category_id?: string | null
+          client_email?: string | null
+          client_name?: string | null
+          client_phone?: string | null
+          close_date?: string | null
+          company_id?: number | null
+          contact_id?: number | null
+          created_at?: string | null
+          created_date?: string | null
+          currency_id?: string | null
+          date_modify?: string | null
+          id?: string
+          last_sync_at?: string | null
+          lead_id?: number | null
+          opportunity?: number | null
+          producer_id?: string | null
+          raw?: Json | null
+          stage_id?: string | null
+          sync_status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_by_id?: number | null
+          assigned_by_name?: string | null
+          bitrix_deal_id?: number
+          bitrix_lead_id?: number | null
+          category_id?: string | null
+          client_email?: string | null
+          client_name?: string | null
+          client_phone?: string | null
+          close_date?: string | null
+          company_id?: number | null
+          contact_id?: number | null
+          created_at?: string | null
+          created_date?: string | null
+          currency_id?: string | null
+          date_modify?: string | null
+          id?: string
+          last_sync_at?: string | null
+          lead_id?: number | null
+          opportunity?: number | null
+          producer_id?: string | null
+          raw?: Json | null
+          stage_id?: string | null
+          sync_status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_producer_id_fkey"
+            columns: ["producer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           active: boolean | null
@@ -1819,6 +1918,184 @@ export type Database = {
             columns: ["commercial_project_id"]
             isOneToOne: false
             referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      negotiation_history: {
+        Row: {
+          action: string
+          changes: Json | null
+          id: string
+          negotiation_id: string
+          new_status: string | null
+          notes: string | null
+          old_status: string | null
+          performed_at: string | null
+          performed_by: string | null
+        }
+        Insert: {
+          action: string
+          changes?: Json | null
+          id?: string
+          negotiation_id: string
+          new_status?: string | null
+          notes?: string | null
+          old_status?: string | null
+          performed_at?: string | null
+          performed_by?: string | null
+        }
+        Update: {
+          action?: string
+          changes?: Json | null
+          id?: string
+          negotiation_id?: string
+          new_status?: string | null
+          notes?: string | null
+          old_status?: string | null
+          performed_at?: string | null
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "negotiation_history_negotiation_id_fkey"
+            columns: ["negotiation_id"]
+            isOneToOne: false
+            referencedRelation: "negotiations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negotiation_history_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      negotiations: {
+        Row: {
+          additional_fee_percentage: number | null
+          additional_fee_value: number | null
+          approved_at: string | null
+          approved_by: string | null
+          base_value: number
+          bitrix_deal_id: number | null
+          bitrix_product_id: number | null
+          client_document: string | null
+          client_email: string | null
+          client_name: string
+          client_phone: string | null
+          created_at: string | null
+          created_by: string | null
+          deal_id: string | null
+          discount_percentage: number | null
+          discount_value: number | null
+          end_date: string | null
+          first_installment_date: string | null
+          id: string
+          installments_count: number | null
+          notes: string | null
+          payment_frequency: string | null
+          payment_methods: Json | null
+          rejection_reason: string | null
+          start_date: string | null
+          status: string | null
+          tax_percentage: number | null
+          tax_value: number | null
+          terms: string | null
+          title: string
+          total_value: number
+          updated_at: string | null
+        }
+        Insert: {
+          additional_fee_percentage?: number | null
+          additional_fee_value?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          base_value?: number
+          bitrix_deal_id?: number | null
+          bitrix_product_id?: number | null
+          client_document?: string | null
+          client_email?: string | null
+          client_name: string
+          client_phone?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string | null
+          discount_percentage?: number | null
+          discount_value?: number | null
+          end_date?: string | null
+          first_installment_date?: string | null
+          id?: string
+          installments_count?: number | null
+          notes?: string | null
+          payment_frequency?: string | null
+          payment_methods?: Json | null
+          rejection_reason?: string | null
+          start_date?: string | null
+          status?: string | null
+          tax_percentage?: number | null
+          tax_value?: number | null
+          terms?: string | null
+          title: string
+          total_value?: number
+          updated_at?: string | null
+        }
+        Update: {
+          additional_fee_percentage?: number | null
+          additional_fee_value?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          base_value?: number
+          bitrix_deal_id?: number | null
+          bitrix_product_id?: number | null
+          client_document?: string | null
+          client_email?: string | null
+          client_name?: string
+          client_phone?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string | null
+          discount_percentage?: number | null
+          discount_value?: number | null
+          end_date?: string | null
+          first_installment_date?: string | null
+          id?: string
+          installments_count?: number | null
+          notes?: string | null
+          payment_frequency?: string | null
+          payment_methods?: Json | null
+          rejection_reason?: string | null
+          start_date?: string | null
+          status?: string | null
+          tax_percentage?: number | null
+          tax_value?: number | null
+          terms?: string | null
+          title?: string
+          total_value?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "negotiations_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negotiations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negotiations_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
             referencedColumns: ["id"]
           },
         ]
