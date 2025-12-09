@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { GestaoPageLayout } from "@/components/layouts/GestaoPageLayout";
 import { AreaAbordagemFilters, type AreaAbordagemFilters as FilterType } from "@/components/gestao/AreaAbordagemFilters";
 import { LeadMapLocation, DrawnArea } from "@/components/gestao/AreaMap";
@@ -27,6 +28,24 @@ import { OptimizedRoute } from "@/hooks/useRouteOptimization";
 import { MapLayerSelector, MAP_LAYERS, MapLayerOption } from "@/components/gestao/maps/MapLayerSelector";
 import { cn } from "@/lib/utils";
 import type L from "leaflet";
+
+// Interface para os dados raw dos leads
+interface LeadRawData {
+  id: number;
+  name: string | null;
+  address: string | null;
+  local_abordagem: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  scouter: string | null;
+  status_fluxo: string | null;
+  commercial_project_id: string | null;
+  projeto_comercial: string | null;
+  criado: string | null;
+  photo_url: string | null;
+  ficha_confirmada: boolean | null;
+  data_criacao_ficha: string | null;
+}
 
 function GestaoAreaDeAbordagemContent() {
   const [filters, setFilters] = useState<FilterType>({
@@ -92,23 +111,24 @@ function GestaoAreaDeAbordagemContent() {
     setIsPopoverOpen(false);
   };
 
-  // Buscar leads com coordenadas (OTIMIZADO: apenas leads que já tem coordenadas)
+  // Buscar leads com coordenadas usando paginação automática (sem limite de 1000)
   const { data: leadsData, isLoading: leadsLoading, isFetching } = useQuery({
     queryKey: ["gestao-area-leads", filters],
     queryFn: async () => {
-      // Buscar apenas leads que JÁ TEM coordenadas para carregamento instantâneo
-      const { data, error } = await supabase
-        .from("leads")
-        .select("id, name, address, local_abordagem, latitude, longitude, scouter, status_fluxo, commercial_project_id, projeto_comercial, criado, photo_url, ficha_confirmada, data_criacao_ficha")
-        .gte("criado", filters.dateFilter.startDate.toISOString())
-        .lte("criado", filters.dateFilter.endDate.toISOString())
-        .eq("fonte_normalizada", "Scouter - Fichas")
-        .not("latitude", "is", null)
-        .not("longitude", "is", null)
-        .order("criado", { ascending: false })
-        .limit(2000);
+      console.log(`🔍 Iniciando busca de leads com paginação automática...`);
       
-      if (error) throw error;
+      // Usar fetchAllLeads para buscar TODOS os leads sem limitação
+      const data = await fetchAllLeads<LeadRawData>(
+        supabase,
+        "id, name, address, local_abordagem, latitude, longitude, scouter, status_fluxo, commercial_project_id, projeto_comercial, criado, photo_url, ficha_confirmada, data_criacao_ficha",
+        (query) => query
+          .gte("criado", filters.dateFilter.startDate.toISOString())
+          .lte("criado", filters.dateFilter.endDate.toISOString())
+          .eq("fonte_normalizada", "Scouter - Fichas")
+          .not("latitude", "is", null)
+          .not("longitude", "is", null)
+          .order("criado", { ascending: false })
+      );
       
       // Aplicar filtro de projeto se necessário
       let filteredData = data || [];
@@ -131,7 +151,7 @@ function GestaoAreaDeAbordagemContent() {
         dataFicha: lead.data_criacao_ficha || lead.criado || undefined,
       }));
 
-      console.log(`✅ Carregados ${leads.length} leads com coordenadas`);
+      console.log(`✅ Carregados ${leads.length} leads com coordenadas (sem limitação)`);
       return leads;
     },
     staleTime: 5 * 60 * 1000, // Cache por 5 minutos
