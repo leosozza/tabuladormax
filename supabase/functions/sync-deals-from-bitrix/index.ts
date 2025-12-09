@@ -20,14 +20,38 @@ interface BitrixDeal {
   DATE_CREATE: string
   DATE_MODIFY: string
   CLOSEDATE: string
-  // Cliente
-  UF_CRM_1234567890?: string // Campo customizado para nome do cliente
   PHONE?: Array<{ VALUE: string }>
   EMAIL?: Array<{ VALUE: string }>
   [key: string]: any
 }
 
 const BITRIX_WEBHOOK_URL = 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr'
+
+// Mapeamento de stages do Bitrix para status de negociação
+// Status válidos: inicial, ficha_preenchida, atendimento_produtor, realizado, nao_realizado
+const BITRIX_STAGE_TO_STATUS: Record<string, string> = {
+  'NEW': 'inicial',
+  'PREPARATION': 'ficha_preenchida',
+  'PREPAYMENT_INVOICE': 'atendimento_produtor',
+  'EXECUTING': 'atendimento_produtor',
+  'FINAL_INVOICE': 'atendimento_produtor',
+  'WON': 'realizado',
+  'LOSE': 'nao_realizado',
+  'APOLOGY': 'nao_realizado',
+  // Stages da categoria 1 (Agenciamento)
+  'C1:NEW': 'inicial',
+  'C1:PREPARATION': 'ficha_preenchida',
+  'C1:PREPAYMENT_INVOICE': 'atendimento_produtor',
+  'C1:EXECUTING': 'atendimento_produtor',
+  'C1:FINAL_INVOICE': 'atendimento_produtor',
+  'C1:WON': 'realizado',
+  'C1:LOSE': 'nao_realizado',
+}
+
+function mapBitrixStageToStatus(stageId: string | null): string {
+  if (!stageId) return 'inicial'
+  return BITRIX_STAGE_TO_STATUS[stageId] || 'inicial'
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -43,14 +67,14 @@ Deno.serve(async (req) => {
 
     const { action, deal_id, filters, limit } = await req.json()
 
-    console.log(`[sync-deals] Action: ${action}, deal_id: ${deal_id}`)
+    console.log(`[sync-deals] Action: ${action}, deal_id: ${deal_id}, filters:`, filters)
 
     if (action === 'sync_single' && deal_id) {
       // Sync a single deal
       const deal = await fetchDealFromBitrix(deal_id)
       if (deal) {
-        const result = await upsertDeal(supabase, deal)
-        return new Response(JSON.stringify({ success: true, deal: result }), {
+        const result = await upsertDealWithNegotiation(supabase, deal)
+        return new Response(JSON.stringify({ success: true, deal: result.deal, negotiation: result.negotiation }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
@@ -66,10 +90,13 @@ Deno.serve(async (req) => {
       console.log(`[sync-deals] Fetched ${deals.length} deals from Bitrix`)
 
       const results = []
+      let negotiationsCreated = 0
+      
       for (const deal of deals) {
         try {
-          const result = await upsertDeal(supabase, deal)
-          results.push({ id: deal.ID, success: true })
+          const result = await upsertDealWithNegotiation(supabase, deal)
+          results.push({ id: deal.ID, success: true, negotiationCreated: result.negotiationCreated })
+          if (result.negotiationCreated) negotiationsCreated++
         } catch (error) {
           console.error(`[sync-deals] Error syncing deal ${deal.ID}:`, error)
           results.push({ id: deal.ID, success: false, error: String(error) })
@@ -81,6 +108,7 @@ Deno.serve(async (req) => {
           success: true,
           synced: results.filter((r) => r.success).length,
           failed: results.filter((r) => !r.success).length,
+          negotiationsCreated,
           results,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -142,11 +170,15 @@ async function fetchDealsFromBitrix(
       })
     }
 
+    console.log(`[sync-deals] Fetching deals with URL: ${url}`)
+
     const response = await fetch(url)
     if (!response.ok) throw new Error(`Bitrix API error: ${response.status}`)
 
     const data = await response.json()
     const deals = (data.result || []).slice(0, limit)
+
+    console.log(`[sync-deals] Got ${deals.length} deals from Bitrix API`)
 
     // Fetch assigned user names
     for (const deal of deals) {
@@ -165,6 +197,26 @@ async function fetchDealsFromBitrix(
           // Ignore user fetch errors
         }
       }
+
+      // Fetch contact info if available
+      if (deal.CONTACT_ID) {
+        try {
+          const contactResponse = await fetch(
+            `${BITRIX_WEBHOOK_URL}/crm.contact.get.json?id=${deal.CONTACT_ID}`
+          )
+          if (contactResponse.ok) {
+            const contactData = await contactResponse.json()
+            if (contactData.result) {
+              const contact = contactData.result
+              deal.CLIENT_NAME = `${contact.NAME || ''} ${contact.LAST_NAME || ''}`.trim() || deal.TITLE
+              deal.PHONE = contact.PHONE
+              deal.EMAIL = contact.EMAIL
+            }
+          }
+        } catch (e) {
+          // Ignore contact fetch errors
+        }
+      }
     }
 
     return deals
@@ -174,7 +226,7 @@ async function fetchDealsFromBitrix(
   }
 }
 
-async function upsertDeal(supabase: any, bitrixDeal: BitrixDeal) {
+async function upsertDealWithNegotiation(supabase: any, bitrixDeal: BitrixDeal) {
   // Try to find the local lead
   let leadId: number | null = null
   if (bitrixDeal.LEAD_ID) {
@@ -190,6 +242,7 @@ async function upsertDeal(supabase: any, bitrixDeal: BitrixDeal) {
   }
 
   // Extract client info
+  const clientName = bitrixDeal.CLIENT_NAME || bitrixDeal.TITLE || 'Cliente não identificado'
   const clientPhone = bitrixDeal.PHONE?.[0]?.VALUE || null
   const clientEmail = bitrixDeal.EMAIL?.[0]?.VALUE || null
 
@@ -204,7 +257,7 @@ async function upsertDeal(supabase: any, bitrixDeal: BitrixDeal) {
     currency_id: bitrixDeal.CURRENCY_ID || 'BRL',
     contact_id: bitrixDeal.CONTACT_ID ? parseInt(bitrixDeal.CONTACT_ID) : null,
     company_id: bitrixDeal.COMPANY_ID ? parseInt(bitrixDeal.COMPANY_ID) : null,
-    client_name: bitrixDeal.TITLE, // Will be updated if contact is fetched
+    client_name: clientName,
     client_phone: clientPhone,
     client_email: clientEmail,
     assigned_by_id: bitrixDeal.ASSIGNED_BY_ID ? parseInt(bitrixDeal.ASSIGNED_BY_ID) : null,
@@ -218,12 +271,60 @@ async function upsertDeal(supabase: any, bitrixDeal: BitrixDeal) {
   }
 
   // Upsert by bitrix_deal_id
-  const { data, error } = await supabase
+  const { data: deal, error: dealError } = await supabase
     .from('deals')
     .upsert(dealData, { onConflict: 'bitrix_deal_id' })
     .select()
     .single()
 
-  if (error) throw error
-  return data
+  if (dealError) throw dealError
+
+  console.log(`[sync-deals] Upserted deal ${deal.id} (Bitrix ID: ${bitrixDeal.ID})`)
+
+  // Check if negotiation already exists for this deal
+  const { data: existingNegotiation } = await supabase
+    .from('negotiations')
+    .select('id, status')
+    .eq('deal_id', deal.id)
+    .maybeSingle()
+
+  let negotiation = existingNegotiation
+  let negotiationCreated = false
+
+  if (!existingNegotiation) {
+    // Create new negotiation
+    const negotiationStatus = mapBitrixStageToStatus(bitrixDeal.STAGE_ID)
+    const opportunityValue = parseFloat(bitrixDeal.OPPORTUNITY) || 0
+
+    const negotiationData = {
+      deal_id: deal.id,
+      bitrix_deal_id: parseInt(bitrixDeal.ID),
+      title: bitrixDeal.TITLE || 'Negociação sem título',
+      client_name: clientName,
+      client_phone: clientPhone,
+      client_email: clientEmail,
+      status: negotiationStatus,
+      base_value: opportunityValue,
+      total_value: opportunityValue,
+      start_date: bitrixDeal.DATE_CREATE ? new Date(bitrixDeal.DATE_CREATE).toISOString() : new Date().toISOString(),
+    }
+
+    const { data: newNegotiation, error: negError } = await supabase
+      .from('negotiations')
+      .insert(negotiationData)
+      .select()
+      .single()
+
+    if (negError) {
+      console.error(`[sync-deals] Error creating negotiation for deal ${deal.id}:`, negError)
+    } else {
+      negotiation = newNegotiation
+      negotiationCreated = true
+      console.log(`[sync-deals] Created negotiation ${newNegotiation.id} for deal ${deal.id}`)
+    }
+  } else {
+    console.log(`[sync-deals] Negotiation already exists for deal ${deal.id}: ${existingNegotiation.id}`)
+  }
+
+  return { deal, negotiation, negotiationCreated }
 }

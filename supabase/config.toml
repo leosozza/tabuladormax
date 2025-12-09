@@ -203,3 +203,6 @@ verify_jwt = false
 
 [functions.sync-deal-to-bitrix]
 verify_jwt = false
+
+[functions.sync-deals-from-bitrix]
+verify_jwt = false
