@@ -429,10 +429,13 @@ export function ScouterTimelineModal({
                                 e.stopPropagation();
                                 window.open(`https://www.google.com/maps/@${location.latitude},${location.longitude},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`, '_blank');
                               }}
-                              className="text-blue-500 hover:text-blue-700 transition-colors p-1"
+                              className="text-orange-500 hover:text-orange-600 hover:bg-orange-50 transition-colors p-1.5 rounded"
                               title="Abrir Street View"
                             >
-                              <PersonStanding className="w-4 h-4 sm:w-5 sm:h-5" />
+                              <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="5" r="2.5"/>
+                                <path d="M12 8c-2.5 0-4 2-4 4v3h2v5h4v-5h2v-3c0-2-1.5-4-4-4z"/>
+                              </svg>
                             </button>
                           </div>
 
