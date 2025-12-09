@@ -27,7 +27,6 @@ import { useWeatherLayer } from "@/hooks/useWeatherLayer";
 import { TrafficLegend } from "./TrafficLegend";
 import { WeatherLegend } from "./WeatherLegend";
 import { MapLayerSelector, MAP_LAYERS, MapLayerOption } from "./MapLayerSelector";
-import { MapillaryStreetView } from "./MapillaryStreetView";
 
 // Ícones padrão do Leaflet
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
@@ -194,7 +193,6 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   
   // Street View mode
   const [isStreetViewMode, setIsStreetViewMode] = useState(false);
-  const [streetViewLocation, setStreetViewLocation] = useState<{ lat: number; lng: number; name?: string } | null>(null);
   
   const { toast } = useToast();
   
@@ -545,31 +543,12 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
     }
   };
 
-  // Street View click handler
-  const handleStreetViewClick = async (e: L.LeafletMouseEvent) => {
+  // Street View click handler - Opens Google Street View in new tab
+  const handleStreetViewClick = (e: L.LeafletMouseEvent) => {
     const { lat, lng } = e.latlng;
-    
-    // Get location name via reverse geocoding
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-        { headers: { 'Accept-Language': 'pt-BR' } }
-      );
-      const data = await response.json();
-      const address = data.address || {};
-      const name = address.road || address.neighbourhood || address.suburb || 
-                   address.district || 'Local selecionado';
-      
-      setStreetViewLocation({ lat, lng, name });
-    } catch {
-      setStreetViewLocation({ lat, lng, name: 'Local selecionado' });
-    }
-    
+    const googleStreetViewUrl = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+    window.open(googleStreetViewUrl, '_blank');
     setIsStreetViewMode(false);
-    toast({
-      title: "Carregando Street View...",
-      description: "Buscando imagens da rua",
-    });
   };
 
   // Adicionar/remover event listeners do mapa baseado nos modos ativos
@@ -1036,16 +1015,6 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
         locations={locationHistory}
       />
 
-      {/* Mapillary Street View Modal */}
-      {streetViewLocation && (
-        <MapillaryStreetView
-          isOpen={!!streetViewLocation}
-          onClose={() => setStreetViewLocation(null)}
-          lat={streetViewLocation.lat}
-          lng={streetViewLocation.lng}
-          locationName={streetViewLocation.name}
-        />
-      )}
 
       {/* Street View Mode Indicator */}
       {isStreetViewMode && (
