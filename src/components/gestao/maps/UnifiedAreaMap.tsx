@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Copy, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { Pencil, Trash2, Save, Square, FileDown, FileSpreadsheet, Eye, EyeOff, Radio, Clock, Route, ChevronDown, ChevronUp, MapPin, Search, X, PersonStanding } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { filterItemsInPolygons, leafletToTurfPolygon } from "@/utils/polygonUtils";
@@ -202,7 +202,7 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   const [internalSelectedLayerId, setInternalSelectedLayerId] = useState("osm-standard");
   const selectedLayerId = externalSelectedLayerId ?? internalSelectedLayerId;
   const baseLayerRef = useRef<L.TileLayer | null>(null);
-  const [streetViewUrl, setStreetViewUrl] = useState<string | null>(null);
+  const [streetViewCoords, setStreetViewCoords] = useState<{ lat: number; lng: number } | null>(null);
   
   // Real-time updates
   const { updates: realtimeUpdates, clearUpdates, isConnected } = useRealtimeLeads({
@@ -290,6 +290,17 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
     };
     window.addEventListener('view-scouter-timeline', handleViewTimeline);
     return () => window.removeEventListener('view-scouter-timeline', handleViewTimeline);
+  }, []);
+
+  // Escutar evento de abrir street view do popup
+  useEffect(() => {
+    const handleOpenStreetView = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { lat, lng } = customEvent.detail;
+      setStreetViewCoords({ lat, lng });
+    };
+    window.addEventListener('open-street-view', handleOpenStreetView);
+    return () => window.removeEventListener('open-street-view', handleOpenStreetView);
   }, []);
 
   // Buscar leads para marcadores
@@ -546,11 +557,10 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
     }
   };
 
-  // Street View click handler - Opens modal with link
+  // Street View click handler - Opens modal with iframe embed
   const handleStreetViewClick = (e: L.LeafletMouseEvent) => {
     const { lat, lng } = e.latlng;
-    const url = `https://www.google.com/maps/@${lat},${lng},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`;
-    setStreetViewUrl(url);
+    setStreetViewCoords({ lat, lng });
     setIsStreetViewMode(false);
   };
 
@@ -646,7 +656,7 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
           <div class="flex gap-1 mt-2">
             <button 
               class="flex-1 px-2 py-1.5 bg-green-600 text-white rounded text-xs font-medium flex items-center justify-center gap-1"
-              onclick="window.open('https://www.google.com/maps/@${location.latitude},${location.longitude},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192', '_blank')"
+              onclick="window.dispatchEvent(new CustomEvent('open-street-view', { detail: { lat: ${location.latitude}, lng: ${location.longitude} } }))"
             >
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
@@ -1195,8 +1205,7 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
                     className="h-6 w-6 sm:h-8 sm:w-8 p-0"
                     onClick={(e) => {
                       e.stopPropagation();
-                      const url = `https://www.google.com/maps/@${location.latitude},${location.longitude},3a,75y,0h,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`;
-                      setStreetViewUrl(url);
+                      setStreetViewCoords({ lat: location.latitude, lng: location.longitude });
                     }}
                     title="Street View"
                   >
@@ -1232,52 +1241,26 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
         style={{ minHeight: isFullscreen ? "100%" : "600px", height: isFullscreen ? "100%" : undefined }}
       />
 
-      {/* Street View Modal */}
-      <Dialog open={!!streetViewUrl} onOpenChange={() => setStreetViewUrl(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+      {/* Street View Modal com Iframe Embed */}
+      <Dialog open={!!streetViewCoords} onOpenChange={() => setStreetViewCoords(null)}>
+        <DialogContent className="max-w-4xl w-[95vw] h-[80vh] p-0">
+          <DialogHeader className="p-4 pb-0">
             <DialogTitle className="flex items-center gap-2">
               <PersonStanding className="h-5 w-5" />
               Google Street View
             </DialogTitle>
-            <DialogDescription>
-              Clique com botão direito no link → "Abrir em nova guia" ou copie o link
-            </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-4">
-            <a 
-              href={streetViewUrl || ''} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary underline break-all text-sm hover:text-primary/80 transition-colors p-2 bg-muted rounded"
-            >
-              {streetViewUrl}
-            </a>
-            <div className="flex gap-2">
-              <Button 
-                className="flex-1"
-                onClick={() => {
-                  if (streetViewUrl) {
-                    navigator.clipboard.writeText(streetViewUrl);
-                    toast({ title: "Link copiado!" });
-                  }
-                }}
-              >
-                <Copy className="mr-2 h-4 w-4" />
-                Copiar Link
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={() => {
-                  if (streetViewUrl) {
-                    window.open(streetViewUrl, '_blank');
-                  }
-                }}
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Abrir
-              </Button>
-            </div>
+          <div className="flex-1 p-4 pt-2">
+            {streetViewCoords && (
+              <iframe
+                src={`https://maps.google.com/maps?q=${streetViewCoords.lat},${streetViewCoords.lng}&z=18&layer=c&cbll=${streetViewCoords.lat},${streetViewCoords.lng}&cbp=11,0,0,0,0&output=embed`}
+                className="w-full h-full rounded-lg border-0"
+                style={{ minHeight: "calc(80vh - 80px)" }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            )}
           </div>
         </DialogContent>
       </Dialog>
