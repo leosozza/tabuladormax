@@ -12,13 +12,11 @@ interface PipelineCardProps {
 }
 
 const STATUS_COLORS: Record<NegotiationStatus, string> = {
-  draft: 'border-l-muted-foreground',
-  in_progress: 'border-l-primary',
-  pending_approval: 'border-l-warning',
-  approved: 'border-l-success',
-  rejected: 'border-l-destructive',
-  completed: 'border-l-primary',
-  cancelled: 'border-l-muted-foreground',
+  inicial: 'border-l-slate-500',
+  ficha_preenchida: 'border-l-blue-500',
+  atendimento_produtor: 'border-l-amber-500',
+  realizado: 'border-l-green-500',
+  nao_realizado: 'border-l-red-500',
 };
 
 export function PipelineCard({ negotiation, onClick }: PipelineCardProps) {

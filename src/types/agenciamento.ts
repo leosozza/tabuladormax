@@ -2,13 +2,11 @@
 // Complete type definitions for commercial negotiations
 
 export type NegotiationStatus =
-  | 'draft'
-  | 'in_progress'
-  | 'pending_approval'
-  | 'approved'
-  | 'rejected'
-  | 'completed'
-  | 'cancelled';
+  | 'inicial'
+  | 'ficha_preenchida'
+  | 'atendimento_produtor'
+  | 'realizado'
+  | 'nao_realizado';
 
 export type PaymentMethod =
   | 'cash'
@@ -254,13 +252,11 @@ export const NEGOTIATION_STATUS_CONFIG: Record<
   NegotiationStatus,
   { label: string; color: string; icon?: string }
 > = {
-  draft: { label: 'Rascunho', color: 'gray' },
-  in_progress: { label: 'Em Andamento', color: 'blue' },
-  pending_approval: { label: 'Aguardando Aprovação', color: 'yellow' },
-  approved: { label: 'Aprovado', color: 'green' },
-  rejected: { label: 'Rejeitado', color: 'red' },
-  completed: { label: 'Concluído', color: 'teal' },
-  cancelled: { label: 'Cancelado', color: 'gray' },
+  inicial: { label: 'Inicial', color: 'gray' },
+  ficha_preenchida: { label: 'Ficha Preenchida', color: 'blue' },
+  atendimento_produtor: { label: 'Atendimento Produtor', color: 'amber' },
+  realizado: { label: 'Realizado', color: 'green' },
+  nao_realizado: { label: 'Não Realizado', color: 'red' },
 };
 
 // Payment frequency labels

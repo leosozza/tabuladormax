@@ -13,13 +13,11 @@ interface PipelineColumnProps {
 }
 
 const COLUMN_COLORS: Record<NegotiationStatus, { bg: string; border: string }> = {
-  draft: { bg: 'bg-muted/50', border: 'border-muted-foreground/30' },
-  in_progress: { bg: 'bg-primary/5', border: 'border-primary/30' },
-  pending_approval: { bg: 'bg-warning/5', border: 'border-warning/30' },
-  approved: { bg: 'bg-success/5', border: 'border-success/30' },
-  rejected: { bg: 'bg-destructive/5', border: 'border-destructive/30' },
-  completed: { bg: 'bg-primary/10', border: 'border-primary/50' },
-  cancelled: { bg: 'bg-muted/30', border: 'border-muted-foreground/20' },
+  inicial: { bg: 'bg-slate-50', border: 'border-slate-300' },
+  ficha_preenchida: { bg: 'bg-blue-50', border: 'border-blue-300' },
+  atendimento_produtor: { bg: 'bg-amber-50', border: 'border-amber-300' },
+  realizado: { bg: 'bg-green-50', border: 'border-green-300' },
+  nao_realizado: { bg: 'bg-red-50', border: 'border-red-300' },
 };
 
 export function PipelineColumn({ status, negotiations, onCardClick }: PipelineColumnProps) {

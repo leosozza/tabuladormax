@@ -14,10 +14,11 @@ export function NegotiationStats({ negotiations }: NegotiationStatsProps) {
   const stats = {
     total: negotiations.length,
     totalValue: negotiations.reduce((sum, n) => sum + n.total_value, 0),
-    inProgress: negotiations.filter((n) => n.status === 'in_progress').length,
-    pendingApproval: negotiations.filter((n) => n.status === 'pending_approval').length,
-    approved: negotiations.filter((n) => n.status === 'approved').length,
-    completed: negotiations.filter((n) => n.status === 'completed').length,
+    inicial: negotiations.filter((n) => n.status === 'inicial').length,
+    fichaPreenchida: negotiations.filter((n) => n.status === 'ficha_preenchida').length,
+    atendimentoProdutor: negotiations.filter((n) => n.status === 'atendimento_produtor').length,
+    realizado: negotiations.filter((n) => n.status === 'realizado').length,
+    naoRealizado: negotiations.filter((n) => n.status === 'nao_realizado').length,
     averageValue:
       negotiations.length > 0
         ? negotiations.reduce((sum, n) => sum + n.total_value, 0) / negotiations.length
@@ -38,28 +39,28 @@ export function NegotiationStats({ negotiations }: NegotiationStatsProps) {
       color: 'text-green-600',
     },
     {
-      title: 'Valor Médio',
-      value: `R$ ${stats.averageValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      icon: TrendingUp,
-      color: 'text-purple-600',
-    },
-    {
-      title: 'Em Andamento',
-      value: stats.inProgress,
+      title: 'Inicial',
+      value: stats.inicial,
       icon: Clock,
-      color: 'text-orange-600',
+      color: 'text-slate-600',
     },
     {
-      title: 'Aguardando Aprovação',
-      value: stats.pendingApproval,
+      title: 'Atendimento Produtor',
+      value: stats.atendimentoProdutor,
       icon: Clock,
-      color: 'text-yellow-600',
+      color: 'text-amber-600',
     },
     {
-      title: 'Concluídas',
-      value: stats.completed,
+      title: 'Realizados',
+      value: stats.realizado,
       icon: CheckCircle,
-      color: 'text-teal-600',
+      color: 'text-green-600',
+    },
+    {
+      title: 'Não Realizados',
+      value: stats.naoRealizado,
+      icon: Clock,
+      color: 'text-red-600',
     },
   ];
 

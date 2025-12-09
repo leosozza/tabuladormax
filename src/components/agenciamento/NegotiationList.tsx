@@ -153,23 +153,17 @@ export function NegotiationList({
                           <Edit className="mr-2 h-4 w-4" />
                           Editar
                         </DropdownMenuItem>
-                        {negotiation.status === 'pending_approval' && (
+                        {negotiation.status === 'atendimento_produtor' && (
                           <>
                             <DropdownMenuItem onClick={() => onApprove(negotiation.id)}>
                               <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                              Aprovar
+                              Marcar como Realizado
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => onCancel(negotiation.id)}>
                               <XCircle className="mr-2 h-4 w-4 text-red-600" />
-                              Rejeitar
+                              Marcar como Não Realizado
                             </DropdownMenuItem>
                           </>
-                        )}
-                        {negotiation.status === 'approved' && (
-                          <DropdownMenuItem onClick={() => onComplete(negotiation.id)}>
-                            <CheckCircle className="mr-2 h-4 w-4 text-blue-600" />
-                            Concluir
-                          </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
