@@ -546,8 +546,9 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   // Street View click handler - Opens Google Street View in new tab
   const handleStreetViewClick = (e: L.LeafletMouseEvent) => {
     const { lat, lng } = e.latlng;
-    const googleStreetViewUrl = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
-    window.open(googleStreetViewUrl, '_blank');
+    // Use maps.google.com format which works better with external links
+    const googleStreetViewUrl = `https://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
+    window.open(googleStreetViewUrl, '_blank', 'noopener,noreferrer');
     setIsStreetViewMode(false);
   };
 
