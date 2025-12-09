@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import * as turf from "@turf/turf";
+import L from "leaflet";
 
 export interface POI {
   id: string;
@@ -46,6 +48,7 @@ export function usePOIs(options: UsePOIsOptions = {}) {
   } = options;
 
   const [pois, setPois] = useState<POI[]>([]);
+  const [areaPOIs, setAreaPOIs] = useState<Map<string, POI[]>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastFetchRef = useRef<{ lat: number; lon: number; time: number } | null>(null);
@@ -69,7 +72,7 @@ export function usePOIs(options: UsePOIsOptions = {}) {
     }
 
     // Verifica cache
-    const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)},${radius}`;
+    const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)},${radius},${categories.sort().join(',')}`;
     const cached = poiCache.get(cacheKey);
     if (cached && now - cached.timestamp < CACHE_TTL) {
       setPois(cached.pois);
@@ -110,17 +113,113 @@ export function usePOIs(options: UsePOIsOptions = {}) {
     }
   }, [defaultCategories, defaultRadius, pois]);
 
+  // Nova função para buscar POIs dentro de uma área desenhada
+  const fetchPOIsInArea = useCallback(async (
+    areaId: string,
+    bounds: L.LatLng[],
+    categories: POICategory[]
+  ): Promise<POI[]> => {
+    if (bounds.length < 3 || categories.length === 0) {
+      return [];
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Criar polígono com Turf.js
+      const coords = bounds.map(p => [p.lng, p.lat]);
+      coords.push([bounds[0].lng, bounds[0].lat]); // Fechar polígono
+      const polygon = turf.polygon([coords]);
+      
+      // Calcular centro e bounding box
+      const center = turf.center(polygon);
+      const bbox = turf.bbox(polygon);
+      
+      // Calcular raio que cubra toda a área (diagonal / 2)
+      const diagonal = turf.distance(
+        turf.point([bbox[0], bbox[1]]), 
+        turf.point([bbox[2], bbox[3]]), 
+        { units: 'meters' }
+      );
+      const radius = Math.ceil(diagonal / 2) + 200; // +200m margem
+
+      const centerLat = center.geometry.coordinates[1];
+      const centerLon = center.geometry.coordinates[0];
+
+      // Verificar cache
+      const cacheKey = `area-${areaId}-${categories.sort().join(',')}`;
+      const now = Date.now();
+      const cached = poiCache.get(cacheKey);
+      if (cached && now - cached.timestamp < CACHE_TTL) {
+        setAreaPOIs(prev => new Map(prev).set(areaId, cached.pois));
+        return cached.pois;
+      }
+
+      console.log(`🔍 Buscando POIs na área ${areaId}:`, { centerLat, centerLon, radius, categories });
+
+      const { data, error: fnError } = await supabase.functions.invoke('tomtom-search-pois', {
+        body: { lat: centerLat, lon: centerLon, radius, categories },
+      });
+
+      if (fnError) throw fnError;
+      if (data?.error) throw new Error(data.error);
+
+      const fetchedPois: POI[] = data?.pois || [];
+      
+      // Filtrar apenas POIs que estão dentro do polígono desenhado
+      const poisInPolygon = fetchedPois.filter(poi => {
+        const point = turf.point([poi.lon, poi.lat]);
+        return turf.booleanPointInPolygon(point, polygon);
+      });
+
+      console.log(`✅ ${poisInPolygon.length} POIs encontrados dentro da área (de ${fetchedPois.length} total)`);
+
+      // Salvar no cache e estado
+      poiCache.set(cacheKey, { pois: poisInPolygon, timestamp: now });
+      setAreaPOIs(prev => new Map(prev).set(areaId, poisInPolygon));
+      
+      return poisInPolygon;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro ao buscar POIs na área';
+      setError(message);
+      console.error('Error fetching POIs in area:', err);
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const clearPOIs = useCallback(() => {
     setPois([]);
     setError(null);
   }, []);
 
+  const clearAreaPOIs = useCallback((areaId?: string) => {
+    if (areaId) {
+      setAreaPOIs(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(areaId);
+        return newMap;
+      });
+    } else {
+      setAreaPOIs(new Map());
+    }
+  }, []);
+
+  // Combinar todos os POIs de todas as áreas
+  const allAreaPOIs = Array.from(areaPOIs.values()).flat();
+
   return {
     pois,
+    areaPOIs,
+    allAreaPOIs,
     isLoading,
     error,
     fetchPOIs,
+    fetchPOIsInArea,
     clearPOIs,
+    clearAreaPOIs,
   };
 }
 
@@ -136,6 +235,8 @@ export const POI_CATEGORY_CONFIG: Record<string, { icon: string; color: string; 
   '7320': { icon: '🏋️', color: '#f59e0b', label: 'Academia' },
   '7315': { icon: '🍽️', color: '#ec4899', label: 'Restaurante' },
   '7328': { icon: '🏦', color: '#6366f1', label: 'Banco' },
+  '9376': { icon: '🚶', color: '#14b8a6', label: 'Calçadão' },
+  '7376': { icon: '🚶', color: '#14b8a6', label: 'Zona Comercial' },
 };
 
 export function getPOICategoryConfig(categoryId: string) {
