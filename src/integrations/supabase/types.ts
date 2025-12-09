@@ -3043,6 +3043,23 @@ export type Database = {
             Args: {
               p_date_from?: string
               p_date_to?: string
+              p_project_id?: string
+              p_scouter_name: string
+            }
+            Returns: {
+              address: string
+              criado: string
+              etapa_lead: string
+              has_duplicate: boolean
+              is_duplicate_deleted: boolean
+              lead_id: number
+              nome_modelo: string
+            }[]
+          }
+        | {
+            Args: {
+              p_date_from?: string
+              p_date_to?: string
               p_filter_type?: string
               p_project_id?: string
               p_scouter_name: string
@@ -3054,23 +3071,6 @@ export type Database = {
               is_duplicate_deleted: boolean
               lead_id: number
               local_abordagem: string
-              nome_modelo: string
-            }[]
-          }
-        | {
-            Args: {
-              p_date_from?: string
-              p_date_to?: string
-              p_project_id?: string
-              p_scouter_name: string
-            }
-            Returns: {
-              address: string
-              criado: string
-              etapa_lead: string
-              has_duplicate: boolean
-              is_duplicate_deleted: boolean
-              lead_id: number
               nome_modelo: string
             }[]
           }
