@@ -773,7 +773,7 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   }, [showLeads, leadsData, filteredLeads, selectedAreaIds]);
 
   const finishDrawingRectangle = (rectanglePoints: L.LatLng[]) => {
-    if (!mapRef.current || !areasLayerRef.current || !leadsData) return;
+    if (!mapRef.current || !areasLayerRef.current) return;
 
     const areaId = `area-${Date.now()}`;
     const color = polygonColors[drawnAreas.length % polygonColors.length];
@@ -788,7 +788,7 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
     polygonCoords.push(polygonCoords[0]);
     const turfPolygon = turf.polygon([polygonCoords]);
 
-    const leadsInArea = leadsData.filter(lead => {
+    const leadsInArea = (leadsData || []).filter(lead => {
       const point = turf.point([lead.lng, lead.lat]);
       return turf.booleanPointInPolygon(point, turfPolygon);
     });
@@ -825,7 +825,7 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
   };
 
   const finishDrawing = () => {
-    if (drawingPoints.length < 3 || !mapRef.current || !areasLayerRef.current || !leadsData) {
+    if (drawingPoints.length < 3 || !mapRef.current || !areasLayerRef.current) {
       cancelDrawing();
       return;
     }
@@ -843,7 +843,7 @@ const [isScouterListExpanded, setIsScouterListExpanded] = useState(true);
     polygonCoords.push(polygonCoords[0]);
     const turfPolygon = turf.polygon([polygonCoords]);
 
-    const leadsInArea = leadsData.filter(lead => {
+    const leadsInArea = (leadsData || []).filter(lead => {
       const point = turf.point([lead.lng, lead.lat]);
       return turf.booleanPointInPolygon(point, turfPolygon);
     });
