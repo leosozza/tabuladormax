@@ -30,12 +30,22 @@ interface MapillaryStreetViewProps {
 export function MapillaryStreetView({ isOpen, onClose, lat, lng, locationName }: MapillaryStreetViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
+  const isMountedRef = useRef(true);
+  const isInitializingRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<MapillaryImage[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [viewerReady, setViewerReady] = useState(false);
+
+  // Track mount state
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Fetch nearby images
   useEffect(() => {
@@ -50,6 +60,8 @@ export function MapillaryStreetView({ isOpen, onClose, lat, lng, locationName }:
           body: { lat, lng, radius: 100 }
         });
 
+        if (!isMountedRef.current) return;
+
         if (fnError) throw fnError;
         if (data.error) throw new Error(data.error);
 
@@ -63,35 +75,31 @@ export function MapillaryStreetView({ isOpen, onClose, lat, lng, locationName }:
         setCurrentIndex(0);
       } catch (err) {
         console.error("Error fetching Mapillary images:", err);
-        setError("Erro ao buscar imagens. Verifique se o token do Mapillary está configurado.");
+        if (isMountedRef.current) {
+          setError("Erro ao buscar imagens. Verifique se o token do Mapillary está configurado.");
+        }
       } finally {
-        setIsLoading(false);
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchImages();
   }, [isOpen, lat, lng]);
 
-  // Initialize or update viewer
+  // Initialize viewer ONCE when we have data
   useEffect(() => {
     if (!isOpen || !containerRef.current || !accessToken || images.length === 0) return;
+    if (isInitializingRef.current || viewerRef.current) return;
 
-    const currentImage = images[currentIndex];
+    const currentImage = images[0];
     if (!currentImage) return;
 
-    // If viewer exists, just navigate to new image
-    if (viewerRef.current && viewerReady) {
-      viewerRef.current.moveTo(currentImage.id).catch(console.error);
-      return;
-    }
+    isInitializingRef.current = true;
 
-    // Create new viewer
     const initViewer = async () => {
       try {
-        if (viewerRef.current) {
-          viewerRef.current.remove();
-        }
-
         const viewer = new Viewer({
           accessToken,
           container: containerRef.current!,
@@ -106,38 +114,66 @@ export function MapillaryStreetView({ isOpen, onClose, lat, lng, locationName }:
         });
 
         viewer.on("load", () => {
-          setViewerReady(true);
+          if (isMountedRef.current) {
+            setViewerReady(true);
+          }
         });
 
         viewerRef.current = viewer;
       } catch (err) {
         console.error("Error initializing Mapillary viewer:", err);
-        setError("Erro ao inicializar visualizador");
+        if (isMountedRef.current) {
+          setError("Erro ao inicializar visualizador");
+        }
+      } finally {
+        isInitializingRef.current = false;
       }
     };
 
     initViewer();
 
     return () => {
-      if (viewerRef.current) {
-        viewerRef.current.remove();
-        viewerRef.current = null;
-        setViewerReady(false);
+      try {
+        if (viewerRef.current) {
+          viewerRef.current.remove();
+          viewerRef.current = null;
+        }
+      } catch (e) {
+        // Silently ignore cleanup errors
       }
+      setViewerReady(false);
     };
-  }, [isOpen, accessToken, images, currentIndex, viewerReady]);
+  }, [isOpen, accessToken, images.length]);
+
+  // Navigate between images (separate effect)
+  useEffect(() => {
+    if (!viewerRef.current || !viewerReady || images.length === 0) return;
+    
+    const currentImage = images[currentIndex];
+    if (!currentImage) return;
+    
+    viewerRef.current.moveTo(currentImage.id).catch(() => {
+      // Silently ignore navigation errors during transitions
+    });
+  }, [currentIndex, viewerReady, images]);
 
   // Cleanup on close
   useEffect(() => {
-    if (!isOpen && viewerRef.current) {
-      viewerRef.current.remove();
-      viewerRef.current = null;
+    if (!isOpen) {
+      try {
+        if (viewerRef.current) {
+          viewerRef.current.remove();
+          viewerRef.current = null;
+        }
+      } catch (e) {
+        // Silently ignore cleanup errors
+      }
       setViewerReady(false);
       setImages([]);
       setCurrentIndex(0);
+      isInitializingRef.current = false;
     }
   }, [isOpen]);
-
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
