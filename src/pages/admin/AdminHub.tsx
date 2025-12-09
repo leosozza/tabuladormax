@@ -103,6 +103,13 @@ const adminOptions = [
     color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
   },
   {
+    path: '/admin/spa-sync',
+    icon: RefreshCw,
+    title: 'Sincronizar SPAs',
+    description: 'Sincronizar Scouters, Telemarketing e Produtores',
+    color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+  },
+  {
     path: '/admin/app-releases',
     icon: Smartphone,
     title: 'App Android',

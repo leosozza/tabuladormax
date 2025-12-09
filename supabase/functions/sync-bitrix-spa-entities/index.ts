@@ -12,6 +12,19 @@ serve(async (req) => {
   }
 
   try {
+    // Parse do body para verificar filtros
+    let filterEntityTypeId: number | null = null;
+    let filterItemId: number | null = null;
+    
+    try {
+      const body = await req.json();
+      filterEntityTypeId = body.entityTypeId || null;
+      filterItemId = body.itemId || null;
+      console.log(`🔍 Filtros recebidos: entityTypeId=${filterEntityTypeId}, itemId=${filterItemId}`);
+    } catch {
+      // Sem body, sincronizar tudo
+    }
+
     console.log('🔄 Sincronizando entidades SPA do Bitrix...');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -26,12 +39,19 @@ serve(async (req) => {
     // 1120 = Projetos Comerciais
     // 1144 = Telemarketing
     // 1156 = Produtores
-    const entityTypes = [
+    const allEntityTypes = [
       { id: 1096, name: 'Scouters' },
       { id: 1120, name: 'Projetos Comerciais' },
       { id: 1144, name: 'Telemarketing' },
       { id: 1156, name: 'Produtores' }
     ];
+
+    // Filtrar por entityTypeId se especificado
+    const entityTypes = filterEntityTypeId 
+      ? allEntityTypes.filter(t => t.id === filterEntityTypeId)
+      : allEntityTypes;
+
+    console.log(`📋 Sincronizando ${entityTypes.length} tipo(s) de entidade`);
 
     let totalSynced = 0;
     const errors: string[] = [];
