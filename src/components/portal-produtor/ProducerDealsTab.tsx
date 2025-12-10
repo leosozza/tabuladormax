@@ -22,6 +22,7 @@ export interface Deal {
   negotiation_status: string | null;
   created_date: string | null;
   lead_id: number | null;
+  model_name: string | null;
 }
 
 interface ProducerDealsTabProps {
