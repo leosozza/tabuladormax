@@ -128,18 +128,15 @@ serve(async (req) => {
 
     let photoIdsToProcess: number[] = [];
     let oldFieldPhotos: Array<{ id: number; downloadUrl?: string | null }> = [];
-    let fileObjectsToProcess: Array<{ id: number; showUrl?: string; downloadUrl?: string }> = [];
 
-    // Se fileObjects foram fornecidos (com URLs do Bitrix), usar diretamente
-    if (fileObjects && fileObjects.length > 0) {
-      fileObjectsToProcess = fileObjects;
-      console.log(`📸 Processar ${fileObjects.length} fotos com URLs diretas`);
-    }
-    // Se fileIds foram fornecidos, usar eles diretamente
-    else if (fileIds && fileIds.length > 0) {
+    // PRIORIDADE 1: fileIds do campo UF_CRM_1764358561 (IDs de pasta pública do Disk)
+    // Estes são os IDs corretos para disk.file.get
+    if (fileIds && fileIds.length > 0) {
       photoIdsToProcess = fileIds;
-      console.log(`📸 Processar ${fileIds.length} fotos por ID:`, fileIds);
-    } else {
+      console.log(`📸 Processar ${fileIds.length} fotos por ID (UF_CRM_1764358561):`, fileIds);
+    }
+    // PRIORIDADE 2: Buscar do Bitrix se nenhum ID foi fornecido
+    else if (!fileIds || fileIds.length === 0) {
       // Buscar fotos do Bitrix
       console.log(`📡 Buscando lead completo do Bitrix: crm.lead.get?ID=${leadId}`);
       const leadUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.lead.get?ID=${leadId}`;
@@ -157,22 +154,35 @@ serve(async (req) => {
       if (newPhotoField) {
         if (typeof newPhotoField === 'string') {
           // Campo múltiplo vem como string "1183610,1183732,1183734"
-          photoIdsToProcess = newPhotoField.split(',').map(id => parseInt(id.trim())).filter(Boolean);
+          photoIdsToProcess = newPhotoField.split(',').map((id: string) => parseInt(id.trim())).filter(Boolean);
           console.log(`📸 Encontradas ${photoIdsToProcess.length} fotos no novo campo UF_CRM_1764358561`);
         } else if (Array.isArray(newPhotoField)) {
-          photoIdsToProcess = newPhotoField.map(id => parseInt(id)).filter(Boolean);
+          photoIdsToProcess = newPhotoField.map((id: any) => parseInt(String(id))).filter(Boolean);
           console.log(`📸 Encontradas ${photoIdsToProcess.length} fotos no novo campo (array)`);
         }
       }
       
-      // Fallback para campo antigo se novo estiver vazio
-      // O campo antigo pode ter estrutura: { id, showUrl, downloadUrl } ou apenas IDs
+      // Fallback: UF_CRM_ID_FOTO (campo único)
+      if (photoIdsToProcess.length === 0) {
+        const singlePhotoId = leadData.result?.UF_CRM_ID_FOTO;
+        if (singlePhotoId) {
+          const parsedId = parseInt(String(singlePhotoId));
+          if (parsedId > 0) {
+            photoIdsToProcess.push(parsedId);
+            console.log(`📸 Encontrada foto no campo UF_CRM_ID_FOTO: ${parsedId}`);
+          }
+        }
+      }
+      
+      // Último fallback: campo antigo UF_CRM_LEAD_1733231445171 (IDs internos CRM - NÃO são IDs do Disk)
+      // NOTA: Estes IDs provavelmente não funcionarão com disk.file.get
       if (photoIdsToProcess.length === 0) {
         const oldPhotoField = leadData.result?.UF_CRM_LEAD_1733231445171;
         if (Array.isArray(oldPhotoField) && oldPhotoField.length > 0) {
-          console.log(`⚠️ Fallback: Campo antigo UF_CRM_LEAD_1733231445171:`, JSON.stringify(oldPhotoField).slice(0, 500));
+          console.log(`⚠️ Fallback: Campo antigo UF_CRM_LEAD_1733231445171 (IDs CRM internos):`, JSON.stringify(oldPhotoField).slice(0, 500));
           
-          // Verificar estrutura do campo antigo
+          // Estes são IDs de arquivos CRM, não de Disk público
+          // Vamos tentar mesmo assim mas provavelmente vai falhar
           oldFieldPhotos = oldPhotoField.map((p: any) => {
             if (typeof p === 'object' && p !== null) {
               return {
@@ -185,13 +195,19 @@ serve(async (req) => {
             return { id: 0, downloadUrl: null };
           }).filter((p: any) => p.id > 0);
           
-          console.log(`⚠️ Fallback: Encontradas ${oldFieldPhotos.length} fotos no campo antigo`);
+          console.log(`⚠️ Fallback: Encontradas ${oldFieldPhotos.length} fotos no campo antigo (podem falhar)`);
         }
       }
     }
 
+    // IMPORTANTE: Ignorar fileObjects - os IDs deles são IDs CRM internos, não IDs de Disk público
+    // Os IDs corretos vêm de fileIds (UF_CRM_1764358561 ou UF_CRM_ID_FOTO)
+    if (fileObjects && fileObjects.length > 0) {
+      console.log(`⚠️ Ignorando ${fileObjects.length} fileObjects (IDs CRM internos não funcionam com disk.file.get)`);
+    }
+
     // Se não há fotos de nenhuma fonte
-    if (photoIdsToProcess.length === 0 && fileObjectsToProcess.length === 0 && (!oldFieldPhotos || oldFieldPhotos.length === 0)) {
+    if (photoIdsToProcess.length === 0 && (!oldFieldPhotos || oldFieldPhotos.length === 0)) {
       return new Response(
         JSON.stringify({ success: true, message: 'Nenhuma foto para sincronizar' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -202,15 +218,6 @@ serve(async (req) => {
     const allPublicUrls: string[] = [];
     const allStoragePaths: string[] = [];
     let totalSize = 0;
-
-    // 1. Converter fileObjects em IDs para usar métodos REST corretos
-    // URLs do show_file.php não funcionam com tokens REST - precisam de sessão
-    for (const fileObj of fileObjectsToProcess) {
-      if (fileObj.id && !photoIdsToProcess.includes(fileObj.id)) {
-        console.log(`📋 Convertendo fileObject ${fileObj.id} para processamento via REST API`);
-        photoIdsToProcess.push(fileObj.id);
-      }
-    }
 
     // 2. Processar fotos por ID usando disk.file.get → result.DOWNLOAD_URL
     for (const photoId of photoIdsToProcess) {
