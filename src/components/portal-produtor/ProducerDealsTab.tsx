@@ -27,9 +27,10 @@ export interface Deal {
 
 interface ProducerDealsTabProps {
   producerId: string;
+  onDealOpen?: (isOpen: boolean) => void;
 }
 
-export const ProducerDealsTab = ({ producerId }: ProducerDealsTabProps) => {
+export const ProducerDealsTab = ({ producerId, onDealOpen }: ProducerDealsTabProps) => {
   const [statusFilter, setStatusFilter] = useState<DealStatusFilter>('all');
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
 
@@ -58,10 +59,12 @@ export const ProducerDealsTab = ({ producerId }: ProducerDealsTabProps) => {
 
   const handleDealClick = (deal: Deal) => {
     setSelectedDeal(deal);
+    onDealOpen?.(true);
   };
 
   const handleCloseDealDetail = () => {
     setSelectedDeal(null);
+    onDealOpen?.(false);
     refetch(); // Refresh after closing to get updated data
   };
 

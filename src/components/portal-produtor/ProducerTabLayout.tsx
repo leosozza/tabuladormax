@@ -19,6 +19,7 @@ interface ProducerTabLayoutProps {
 export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutProps) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'deals' | 'dashboard'>('deals');
+  const [isDealOpen, setIsDealOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -57,26 +58,30 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
 
       {/* Content */}
       <main className="container mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'deals' | 'dashboard')}>
-          <TabsList className="grid w-full grid-cols-2 h-12 mb-4">
-            <TabsTrigger value="deals" className="gap-2">
-              <Briefcase className="h-4 w-4" />
-              Deals
-            </TabsTrigger>
-            <TabsTrigger value="dashboard" className="gap-2">
-              <LayoutDashboard className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="deals" className="mt-0">
-            <ProducerDealsTab producerId={producerData.id} />
-          </TabsContent>
-          
-          <TabsContent value="dashboard" className="mt-0">
-            <ProducerDashboardTab producerId={producerData.id} />
-          </TabsContent>
-        </Tabs>
+        {isDealOpen ? (
+          <ProducerDealsTab producerId={producerData.id} onDealOpen={setIsDealOpen} />
+        ) : (
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'deals' | 'dashboard')}>
+            <TabsList className="grid w-full grid-cols-2 h-12 mb-4">
+              <TabsTrigger value="deals" className="gap-2">
+                <Briefcase className="h-4 w-4" />
+                Deals
+              </TabsTrigger>
+              <TabsTrigger value="dashboard" className="gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="deals" className="mt-0">
+              <ProducerDealsTab producerId={producerData.id} onDealOpen={setIsDealOpen} />
+            </TabsContent>
+            
+            <TabsContent value="dashboard" className="mt-0">
+              <ProducerDashboardTab producerId={producerData.id} />
+            </TabsContent>
+          </Tabs>
+        )}
       </main>
     </div>
   );
