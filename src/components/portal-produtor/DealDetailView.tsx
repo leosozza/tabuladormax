@@ -44,8 +44,13 @@ export const DealDetailView = ({
   const [activeTab, setActiveTab] = useState<'perfil' | 'agenciar'>('perfil');
   const statusInfo = STATUS_LABELS[deal.negotiation_status || 'inicial'] || STATUS_LABELS['inicial'];
   return <div className="flex flex-col min-h-[calc(100vh-200px)]">
-      {/* Header compacto */}
-      
+      {/* Header com botão voltar */}
+      <div className="flex items-center gap-3 mb-4">
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h2 className="text-lg font-semibold">Detalhes do Deal</h2>
+      </div>
 
       {/* Tabs maiores para mobile */}
       <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'perfil' | 'agenciar')} className="flex-1 flex flex-col">
@@ -60,26 +65,13 @@ export const DealDetailView = ({
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="perfil" className="flex-1 mt-4 pb-20">
+        <TabsContent value="perfil" className="flex-1 mt-4">
           <ModelProfileView leadId={deal.lead_id} bitrixDealId={deal.bitrix_deal_id} />
         </TabsContent>
 
-        <TabsContent value="agenciar" className="flex-1 mt-4 pb-20">
+        <TabsContent value="agenciar" className="flex-1 mt-4">
           <ProducerAgenciarForm deal={deal} producerId={producerId} onSuccess={onClose} />
         </TabsContent>
       </Tabs>
-
-      {/* Bottom Action Bar - Fixed */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t shadow-lg z-20">
-        <div className="flex gap-3 max-w-lg mx-auto">
-          <Button variant="outline" className="flex-1 h-12" onClick={onClose}>
-            Voltar
-          </Button>
-          <Button className="flex-1 h-12 bg-primary hover:bg-primary/90 gap-2" onClick={() => setActiveTab('agenciar')}>
-            <Handshake className="h-4 w-4" />
-            Agenciar
-          </Button>
-        </div>
-      </div>
     </div>;
 };
