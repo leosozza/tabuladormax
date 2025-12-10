@@ -303,17 +303,17 @@ export const ModelProfileView = ({
           <div className="flex-1 min-w-0 pr-16">
             <h1 className="text-xl font-bold text-foreground truncate">{nomeModelo}</h1>
             
-            {/* IDs */}
-            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-              {bitrixDealId && <span>Deal: {bitrixDealId}</span>}
-              {leadId && <span>Lead: {leadId}</span>}
-            </div>
-            
             {/* Responsável */}
-            {nomeResponsavel && <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+            {nomeResponsavel && <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                 <Users className="h-3 w-3" />
                 {nomeResponsavel}
               </p>}
+            
+            {/* IDs */}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+              {bitrixDealId && <span>Deal: {bitrixDealId}</span>}
+              {leadId && <span>Lead: {leadId}</span>}
+            </div>
             
             
             
