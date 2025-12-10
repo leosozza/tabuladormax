@@ -1222,7 +1222,7 @@ export type Database = {
             foreignKeyName: "deals_producer_id_fkey"
             columns: ["producer_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "producers"
             referencedColumns: ["id"]
           },
         ]
