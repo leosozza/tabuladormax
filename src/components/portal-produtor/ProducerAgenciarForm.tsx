@@ -98,6 +98,8 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
         updated_at: new Date().toISOString()
       };
 
+      let negotiationId: string;
+
       if (existingNegotiation) {
         const { error } = await supabase
           .from('negotiations')
@@ -105,21 +107,53 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
           .eq('id', existingNegotiation.id);
         
         if (error) throw error;
+        negotiationId = existingNegotiation.id;
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('negotiations')
           .insert({
             ...negotiationData,
             created_by: producerId
-          });
+          })
+          .select('id')
+          .single();
         
         if (error) throw error;
+        negotiationId = data.id;
       }
+
+      // Sincronizar com Bitrix
+      if (deal.bitrix_deal_id) {
+        console.log('Sincronizando com Bitrix:', {
+          negotiation_id: negotiationId,
+          deal_id: deal.deal_id,
+          status: formData.status,
+          bitrix_deal_id: deal.bitrix_deal_id
+        });
+
+        const { error: syncError } = await supabase.functions.invoke('sync-deal-to-bitrix', {
+          body: {
+            negotiation_id: negotiationId,
+            deal_id: deal.deal_id,
+            status: formData.status,
+          },
+        });
+
+        if (syncError) {
+          console.error('Erro ao sincronizar com Bitrix:', syncError);
+          // Não bloqueia o salvamento, apenas loga o erro
+        } else {
+          console.log('Sincronização com Bitrix concluída');
+        }
+      }
+
+      return { negotiationId, status: formData.status };
     },
-    onSuccess: () => {
-      toast.success('Negociação salva com sucesso!');
+    onSuccess: (data) => {
+      toast.success('Negociação salva e sincronizada com Bitrix!');
       queryClient.invalidateQueries({ queryKey: ['negotiation', deal.deal_id] });
       queryClient.invalidateQueries({ queryKey: ['producer-deals'] });
+      queryClient.invalidateQueries({ queryKey: ['negotiations'] });
     },
     onError: (error) => {
       console.error('Erro ao salvar:', error);
