@@ -18,8 +18,8 @@ const PreCadastroSucesso = () => {
   return <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-4">
       <Card className="max-w-lg w-full shadow-elegant">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 w-20 h-20 rounded-full overflow-hidden">
-            <img src={maxfamaLogo} alt="Max Fama" className="w-full h-full object-cover" />
+          <div className="mx-auto mb-4">
+            <img src={maxfamaLogo} alt="Max Fama - Modeling and Influencer Agency" className="h-14 md:h-16 w-auto mx-auto" />
           </div>
           <CardTitle className="text-2xl">Perfil enviado! 🎉</CardTitle>
         </CardHeader>

@@ -1104,8 +1104,8 @@ const PreCadastro = () => {
   return <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
-          <div className="mx-auto mb-4 w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden shadow-elegant">
-            <img src={maxfamaLogo} alt="Max Fama" className="w-full h-full object-cover" />
+          <div className="mx-auto mb-4">
+            <img src={maxfamaLogo} alt="Max Fama - Modeling and Influencer Agency" className="h-16 md:h-20 w-auto mx-auto" />
           </div>
           
           <div className="mt-4 max-w-xl mx-auto">
