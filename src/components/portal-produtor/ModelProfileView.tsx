@@ -309,7 +309,7 @@ export const ModelProfileView = ({
                 {nomeResponsavel}
               </p>}
             
-            {ageInfo && ageInfo.value > 0 && <p className="text-base text-muted-foreground">{ageInfo.value} {ageInfo.unit}</p>}
+            
             
             {/* Type badges */}
             {tipoModelo.length > 0 && <div className="flex flex-wrap gap-1.5 mt-2">
