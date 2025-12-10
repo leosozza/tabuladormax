@@ -1,14 +1,21 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { DollarSign, Calendar, GripVertical } from 'lucide-react';
+import { DollarSign, Calendar, GripVertical, MoreVertical } from 'lucide-react';
 import type { Negotiation, NegotiationStatus } from '@/types/agenciamento';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
 interface PipelineCardProps {
   negotiation: Negotiation;
   onClick: () => void;
+  onChangeStatus?: (status: NegotiationStatus) => void;
 }
 
 const STATUS_COLORS: Record<NegotiationStatus, string> = {
@@ -19,7 +26,7 @@ const STATUS_COLORS: Record<NegotiationStatus, string> = {
   nao_realizado: 'border-l-red-500',
 };
 
-export function PipelineCard({ negotiation, onClick }: PipelineCardProps) {
+export function PipelineCard({ negotiation, onClick, onChangeStatus }: PipelineCardProps) {
   const {
     attributes,
     listeners,
@@ -50,7 +57,6 @@ export function PipelineCard({ negotiation, onClick }: PipelineCardProps) {
         STATUS_COLORS[negotiation.status],
         isDragging && 'opacity-50 shadow-lg rotate-2'
       )}
-      onClick={onClick}
     >
       <div className="flex items-start gap-3">
         <div
@@ -61,7 +67,7 @@ export function PipelineCard({ negotiation, onClick }: PipelineCardProps) {
           <GripVertical className="h-4 w-4" />
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0" onClick={onClick}>
           <div className="flex items-center gap-2 mb-2">
             <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
               {initials}
@@ -93,6 +99,68 @@ export function PipelineCard({ negotiation, onClick }: PipelineCardProps) {
             </div>
           </div>
         </div>
+
+        {onChangeStatus && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChangeStatus('inicial');
+                }}
+                disabled={negotiation.status === 'inicial'}
+              >
+                Inicial
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChangeStatus('ficha_preenchida');
+                }}
+                disabled={negotiation.status === 'ficha_preenchida'}
+              >
+                Ficha Preenchida
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChangeStatus('atendimento_produtor');
+                }}
+                disabled={negotiation.status === 'atendimento_produtor'}
+              >
+                Atendimento Produtor
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChangeStatus('realizado');
+                }}
+                disabled={negotiation.status === 'realizado'}
+              >
+                Realizado
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChangeStatus('nao_realizado');
+                }}
+                disabled={negotiation.status === 'nao_realizado'}
+              >
+                Não Realizado
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </Card>
   );
