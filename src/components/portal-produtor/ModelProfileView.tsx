@@ -313,6 +313,7 @@ export const ModelProfileView = ({
 
       {/* ==================== QUICK STATS ==================== */}
       <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        {age && age > 0 && <QuickStatCard icon={<Calendar className="h-4 w-4" />} label="Idade" value={`${age} anos`} />}
         {altura && <QuickStatCard icon={<Ruler className="h-4 w-4" />} label="Altura" value={`${altura}cm`} />}
         {manequim.length > 0 && <QuickStatCard icon={<User className="h-4 w-4" />} label="Manequim" value={manequim[0]} />}
         {calcado && <QuickStatCard icon={<Footprints className="h-4 w-4" />} label="Calçado" value={calcado} />}
