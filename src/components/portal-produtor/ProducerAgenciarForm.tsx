@@ -228,26 +228,6 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
   return (
     <div className="space-y-4">
-      {/* Status da negociação */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Status da Negociação</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="inicial">Inicial</SelectItem>
-              <SelectItem value="atendimento_produtor">Em Atendimento</SelectItem>
-              <SelectItem value="ficha_preenchida">Ficha Preenchida</SelectItem>
-              <SelectItem value="realizado">Realizado</SelectItem>
-              <SelectItem value="nao_realizado">Não Realizado</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
 
       {/* Valores */}
       <Card>
