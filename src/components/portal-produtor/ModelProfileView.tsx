@@ -352,21 +352,19 @@ export const ModelProfileView = ({
               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <User className="h-4 w-4 text-primary" />
               </div>
-              <span className="font-medium">Dados Pessoais</span>
+              <span className="font-medium">Dados do Modelo</span>
             </div>
           </AccordionTrigger>
           <AccordionContent>
             <div className="grid grid-cols-2 gap-3 pt-1 pb-2">
               {birthDate && <DataItem label="Nascimento" value={birthDate} />}
               {sexo !== '-' && <DataItem label="Sexo" value={sexo} />}
-              {cpf && <DataItem label="CPF" value={cpf} />}
-              {phone && <DataItem label="Telefone" value={phone} />}
             </div>
           </AccordionContent>
         </AccordionItem>
 
         {/* Guardian */}
-        {(nomeResponsavel || estadoCivil !== '-') && <AccordionItem value="guardian" className="border rounded-xl px-4 bg-card">
+        {(nomeResponsavel || estadoCivil !== '-' || cpf || phone) && <AccordionItem value="guardian" className="border rounded-xl px-4 bg-card">
             <AccordionTrigger className="hover:no-underline py-3">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
@@ -379,6 +377,8 @@ export const ModelProfileView = ({
               <div className="grid grid-cols-2 gap-3 pt-1 pb-2">
                 {nomeResponsavel && <DataItem label="Nome" value={nomeResponsavel} />}
                 {estadoCivil !== '-' && <DataItem label="Estado Civil" value={estadoCivil} />}
+                {cpf && <DataItem label="CPF" value={cpf} />}
+                {phone && <DataItem label="Telefone" value={phone} />}
               </div>
             </AccordionContent>
           </AccordionItem>}
