@@ -332,7 +332,7 @@ export const ModelProfileView = ({
       </div>
 
       {/* ==================== QUICK STATS ==================== */}
-      <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-3">
         {ageInfo && ageInfo.value > 0 && (
           <div className="flex-shrink-0 min-w-[100px] bg-card border rounded-xl p-3 text-center">
             <div className="flex justify-center text-primary mb-1"><Calendar className="h-4 w-4" /></div>
