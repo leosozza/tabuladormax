@@ -27,7 +27,7 @@ interface NegotiationPipelineProps {
   onCardClick: (negotiation: Negotiation) => void;
 }
 
-// Pipeline status order (excluding rejected and cancelled)
+// Pipeline status order
 const PIPELINE_STATUSES: NegotiationStatus[] = [
   'inicial',
   'ficha_preenchida',
@@ -78,8 +78,28 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
 
   // Update status mutation
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: NegotiationStatus }) =>
-      updateNegotiation(id, { status }),
+    mutationFn: async ({ id, status }: { id: string; status: NegotiationStatus }) => {
+      // Update negotiation status
+      const result = await updateNegotiation(id, { status });
+      
+      // Sync to Bitrix
+      const negotiation = negotiations.find(n => n.id === id);
+      if (negotiation?.deal_id) {
+        try {
+          await supabase.functions.invoke('sync-deal-to-bitrix', {
+            body: {
+              negotiation_id: id,
+              deal_id: negotiation.deal_id,
+              status: status,
+            },
+          });
+        } catch (err) {
+          console.error('Erro ao sincronizar com Bitrix:', err);
+        }
+      }
+      
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['negotiations'] });
       toast.success('Status atualizado!');
@@ -88,14 +108,6 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
       toast.error('Erro ao atualizar status');
     },
   });
-
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const negotiation = negotiations.find((n) => n.id === active.id);
-    if (negotiation) {
-      setActiveNegotiation(negotiation);
-    }
-  };
 
   // Mutation to assign producer to deal
   const assignProducerMutation = useMutation({
@@ -106,10 +118,21 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
         .eq('id', dealId);
       if (error) throw error;
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+    },
     onError: () => {
       toast.error('Erro ao atribuir produtor');
     },
   });
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const negotiation = negotiations.find((n) => n.id === active.id);
+    if (negotiation) {
+      setActiveNegotiation(negotiation);
+    }
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -126,25 +149,36 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
     // Validate status transition
     if (!PIPELINE_STATUSES.includes(newStatus)) return;
 
+    handleStatusChange(negotiation, newStatus);
+  };
+
+  // Centralized status change handler - used by both drag-and-drop and menu
+  const handleStatusChange = (negotiation: Negotiation, newStatus: NegotiationStatus) => {
     // Intercept transition to "atendimento_produtor" - require producer selection
-    if (newStatus === 'atendimento_produtor' && negotiation.deal_id) {
+    if (newStatus === 'atendimento_produtor') {
       setPendingTransition({
-        negotiationId,
-        dealId: negotiation.deal_id,
+        negotiationId: negotiation.id,
+        dealId: negotiation.deal_id || null,
         newStatus,
       });
       setProducerSelectOpen(true);
       return;
     }
 
-    updateStatusMutation.mutate({ id: negotiationId, status: newStatus });
+    updateStatusMutation.mutate({ id: negotiation.id, status: newStatus });
+  };
+
+  // Handler for PipelineCard menu status change
+  const handleCardStatusChange = (negotiation: Negotiation) => (newStatus: NegotiationStatus) => {
+    if (negotiation.status === newStatus) return;
+    handleStatusChange(negotiation, newStatus);
   };
 
   const handleProducerSelect = async (producer: Producer) => {
     if (!pendingTransition) return;
 
     try {
-      // First assign producer to deal
+      // First assign producer to deal if deal exists
       if (pendingTransition.dealId) {
         await assignProducerMutation.mutateAsync({
           dealId: pendingTransition.dealId,
@@ -152,7 +186,7 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
         });
       }
 
-      // Then update negotiation status
+      // Then update negotiation status and sync to Bitrix
       await updateStatusMutation.mutateAsync({
         id: pendingTransition.negotiationId,
         status: pendingTransition.newStatus,
@@ -160,7 +194,7 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
 
       toast.success(`Negociação atribuída ao produtor ${producer.name}`);
     } catch (error) {
-      // Errors are handled by mutations
+      console.error('Erro ao processar transição:', error);
     } finally {
       setProducerSelectOpen(false);
       setPendingTransition(null);
@@ -187,6 +221,7 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
               status={status}
               negotiations={negotiationsByStatus[status]}
               onCardClick={onCardClick}
+              onChangeStatus={handleCardStatusChange}
             />
           ))}
         </div>

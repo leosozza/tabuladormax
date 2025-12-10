@@ -9,13 +9,11 @@ const BITRIX_WEBHOOK_URL = 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9i
 
 // Map negotiation status to Bitrix deal stage
 const STATUS_TO_STAGE: Record<string, string> = {
-  draft: 'NEW',
-  in_progress: 'PREPARATION',
-  pending_approval: 'PREPAYMENT_INVOICE',
-  approved: 'WON',
-  rejected: 'LOSE',
-  completed: 'WON',
-  cancelled: 'APOLOGY',
+  inicial: 'NEW',
+  ficha_preenchida: 'PREPARATION',
+  atendimento_produtor: 'PREPAYMENT_INVOICE',
+  realizado: 'WON',
+  nao_realizado: 'LOSE',
 }
 
 Deno.serve(async (req) => {

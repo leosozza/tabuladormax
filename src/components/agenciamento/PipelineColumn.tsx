@@ -10,6 +10,7 @@ interface PipelineColumnProps {
   status: NegotiationStatus;
   negotiations: Negotiation[];
   onCardClick: (negotiation: Negotiation) => void;
+  onChangeStatus?: (negotiation: Negotiation) => (newStatus: NegotiationStatus) => void;
 }
 
 const COLUMN_COLORS: Record<NegotiationStatus, { bg: string; border: string }> = {
@@ -20,7 +21,7 @@ const COLUMN_COLORS: Record<NegotiationStatus, { bg: string; border: string }> =
   nao_realizado: { bg: 'bg-red-50', border: 'border-red-300' },
 };
 
-export function PipelineColumn({ status, negotiations, onCardClick }: PipelineColumnProps) {
+export function PipelineColumn({ status, negotiations, onCardClick, onChangeStatus }: PipelineColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const config = NEGOTIATION_STATUS_CONFIG[status];
   const colors = COLUMN_COLORS[status];
@@ -70,6 +71,7 @@ export function PipelineColumn({ status, negotiations, onCardClick }: PipelineCo
               key={negotiation.id}
               negotiation={negotiation}
               onClick={() => onCardClick(negotiation)}
+              onChangeStatus={onChangeStatus ? onChangeStatus(negotiation) : undefined}
             />
           ))}
         </SortableContext>
