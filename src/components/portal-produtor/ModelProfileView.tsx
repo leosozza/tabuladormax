@@ -160,19 +160,33 @@ export const ModelProfileView = ({
     }
     return null;
   };
-  const calculateAge = (): number | null => {
+  const calculateAgeWithUnit = (): { value: number; unit: 'meses' | 'anos' } | null => {
     const birthDate = getValue('dataNascimento');
     if (!birthDate) return null;
     try {
       const date = new Date(birthDate);
       if (isNaN(date.getTime())) return null;
       const today = new Date();
-      let age = today.getFullYear() - date.getFullYear();
-      const monthDiff = today.getMonth() - date.getMonth();
-      if (monthDiff < 0 || monthDiff === 0 && today.getDate() < date.getDate()) {
-        age--;
+      
+      // Calcular meses totais
+      let totalMonths = (today.getFullYear() - date.getFullYear()) * 12;
+      totalMonths += today.getMonth() - date.getMonth();
+      if (today.getDate() < date.getDate()) {
+        totalMonths--;
       }
-      return age;
+      
+      // Se menos de 2 anos, mostrar em meses
+      if (totalMonths < 24) {
+        return { value: Math.max(0, totalMonths), unit: 'meses' };
+      }
+      
+      // Caso contrário, mostrar em anos
+      let years = today.getFullYear() - date.getFullYear();
+      const monthDiff = today.getMonth() - date.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+        years--;
+      }
+      return { value: years, unit: 'anos' };
     } catch {
       return null;
     }
@@ -196,7 +210,7 @@ export const ModelProfileView = ({
   // Extracted data
   const phone = getPhone();
   const nomeModelo = getValue('nomeModelo') || 'Nome não informado';
-  const age = calculateAge();
+  const ageInfo = calculateAgeWithUnit();
   const birthDate = getBirthDate();
   const cpf = getValue('cpf');
   const sexo = translateEnumValue(getValue('sexo'), dealFields[BITRIX_DEAL_FIELD_MAPPING.sexo]?.items);
@@ -295,7 +309,7 @@ export const ModelProfileView = ({
                 {nomeResponsavel}
               </p>}
             
-            {age && age > 0 && <p className="text-base text-muted-foreground">{age} anos</p>}
+            {ageInfo && ageInfo.value > 0 && <p className="text-base text-muted-foreground">{ageInfo.value} {ageInfo.unit}</p>}
             
             {/* Type badges */}
             {tipoModelo.length > 0 && <div className="flex flex-wrap gap-1.5 mt-2">
@@ -313,7 +327,13 @@ export const ModelProfileView = ({
 
       {/* ==================== QUICK STATS ==================== */}
       <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-        {age && age > 0 && <QuickStatCard icon={<Calendar className="h-4 w-4" />} label="Idade" value={`${age} anos`} />}
+        {ageInfo && ageInfo.value > 0 && (
+          <div className="flex-shrink-0 min-w-[100px] bg-card border rounded-xl p-3 text-center">
+            <div className="flex justify-center text-primary mb-1"><Calendar className="h-4 w-4" /></div>
+            <p className="text-2xl font-bold text-foreground leading-tight">{ageInfo.value}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{ageInfo.unit}</p>
+          </div>
+        )}
         {altura && <QuickStatCard icon={<Ruler className="h-4 w-4" />} label="Altura" value={`${altura}cm`} />}
         {manequim.length > 0 && <QuickStatCard icon={<User className="h-4 w-4" />} label="Manequim" value={manequim[0]} />}
         {calcado && <QuickStatCard icon={<Footprints className="h-4 w-4" />} label="Calçado" value={calcado} />}
