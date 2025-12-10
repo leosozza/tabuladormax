@@ -1,11 +1,8 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Briefcase, LayoutDashboard, ArrowLeft } from 'lucide-react';
+import { LogOut, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ProducerDealsTab } from './ProducerDealsTab';
-import { ProducerDashboardTab } from './ProducerDashboardTab';
 
 interface ProducerTabLayoutProps {
   producerData: {
@@ -17,7 +14,6 @@ interface ProducerTabLayoutProps {
 }
 
 export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutProps) => {
-  const [activeTab, setActiveTab] = useState<'deals' | 'dashboard'>('deals');
   const navigate = useNavigate();
 
   return (
@@ -55,40 +51,10 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
         </div>
       </header>
 
-      {/* Tabs Navigation */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'deals' | 'dashboard')} className="w-full">
-        <div className="border-b bg-card/50 sticky top-[73px] z-10">
-          <div className="container mx-auto px-4">
-            <TabsList className="h-12 bg-transparent gap-4">
-              <TabsTrigger 
-                value="deals" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2"
-              >
-                <Briefcase className="h-4 w-4" />
-                Deals
-              </TabsTrigger>
-              <TabsTrigger 
-                value="dashboard" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2"
-              >
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </TabsTrigger>
-            </TabsList>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        <main className="container mx-auto px-4 py-6">
-          <TabsContent value="deals" className="mt-0">
-            <ProducerDealsTab producerId={producerData.id} />
-          </TabsContent>
-          
-          <TabsContent value="dashboard" className="mt-0">
-            <ProducerDashboardTab producerId={producerData.id} />
-          </TabsContent>
-        </main>
-      </Tabs>
+      {/* Content */}
+      <main className="container mx-auto px-4 py-6">
+        <ProducerDealsTab producerId={producerData.id} />
+      </main>
     </div>
   );
 };
