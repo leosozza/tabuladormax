@@ -5,7 +5,6 @@ import { RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ProducerFilters } from './ProducerFilters';
 import { ProducerDealCard } from './ProducerDealCard';
-import { DealDetailView } from './DealDetailView';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -27,12 +26,11 @@ export interface Deal {
 
 interface ProducerDealsTabProps {
   producerId: string;
-  onDealOpen?: (isOpen: boolean) => void;
+  onDealSelect: (deal: Deal) => void;
 }
 
-export const ProducerDealsTab = ({ producerId, onDealOpen }: ProducerDealsTabProps) => {
+export const ProducerDealsTab = ({ producerId, onDealSelect }: ProducerDealsTabProps) => {
   const [statusFilter, setStatusFilter] = useState<DealStatusFilter>('all');
-  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
 
   // Buscar deals do produtor
   const { data: deals = [], isLoading, refetch } = useQuery({
@@ -56,27 +54,6 @@ export const ProducerDealsTab = ({ producerId, onDealOpen }: ProducerDealsTabPro
       return (data || []) as Deal[];
     }
   });
-
-  const handleDealClick = (deal: Deal) => {
-    setSelectedDeal(deal);
-    onDealOpen?.(true);
-  };
-
-  const handleCloseDealDetail = () => {
-    setSelectedDeal(null);
-    onDealOpen?.(false);
-    refetch(); // Refresh after closing to get updated data
-  };
-
-  if (selectedDeal) {
-    return (
-      <DealDetailView 
-        deal={selectedDeal} 
-        onClose={handleCloseDealDetail}
-        producerId={producerId}
-      />
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -120,7 +97,7 @@ export const ProducerDealsTab = ({ producerId, onDealOpen }: ProducerDealsTabPro
             <ProducerDealCard 
               key={deal.deal_id} 
               deal={deal} 
-              onClick={() => handleDealClick(deal)}
+              onClick={() => onDealSelect(deal)}
             />
           ))}
         </div>

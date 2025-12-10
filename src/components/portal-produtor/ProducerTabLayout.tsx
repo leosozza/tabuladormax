@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LogOut, ArrowLeft, Briefcase, LayoutDashboard } from 'lucide-react';
-import { ProducerDealsTab } from './ProducerDealsTab';
+import { ProducerDealsTab, Deal } from './ProducerDealsTab';
 import { ProducerDashboardTab } from './ProducerDashboardTab';
+import { DealDetailView } from './DealDetailView';
 
 interface ProducerTabLayoutProps {
   producerData: {
@@ -17,7 +18,11 @@ interface ProducerTabLayoutProps {
 
 export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutProps) => {
   const [activeTab, setActiveTab] = useState<'deals' | 'dashboard'>('deals');
-  const [isDealOpen, setIsDealOpen] = useState(false);
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+
+  const handleCloseDeal = () => {
+    setSelectedDeal(null);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -27,8 +32,8 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
           <div className="flex items-center justify-between">
             {/* Área do perfil */}
             <div className="flex items-center gap-3">
-              {isDealOpen && (
-                <Button variant="ghost" size="icon" onClick={() => setIsDealOpen(false)} title="Voltar">
+              {selectedDeal && (
+                <Button variant="ghost" size="icon" onClick={handleCloseDeal} title="Voltar">
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               )}
@@ -58,8 +63,12 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
 
       {/* Content */}
       <main className="container mx-auto px-4 py-6">
-        {isDealOpen ? (
-          <ProducerDealsTab producerId={producerData.id} onDealOpen={setIsDealOpen} />
+        {selectedDeal ? (
+          <DealDetailView 
+            deal={selectedDeal} 
+            onClose={handleCloseDeal}
+            producerId={producerData.id}
+          />
         ) : (
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'deals' | 'dashboard')}>
             <TabsList className="grid w-full grid-cols-2 h-12 mb-4">
@@ -74,7 +83,7 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
             </TabsList>
             
             <TabsContent value="deals" className="mt-0">
-              <ProducerDealsTab producerId={producerData.id} onDealOpen={setIsDealOpen} />
+              <ProducerDealsTab producerId={producerData.id} onDealSelect={setSelectedDeal} />
             </TabsContent>
             
             <TabsContent value="dashboard" className="mt-0">
