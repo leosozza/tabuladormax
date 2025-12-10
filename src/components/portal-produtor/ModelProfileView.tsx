@@ -90,7 +90,8 @@ interface ModelProfileViewProps {
 }
 
 export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps) => {
-  const { data: bitrixData, isLoading, error } = useQuery({
+  // Buscar dados do deal do Bitrix
+  const { data: bitrixData, isLoading: loadingBitrix, error } = useQuery({
     queryKey: ['bitrix-deal-profile', bitrixDealId],
     queryFn: async () => {
       if (!bitrixDealId) return null;
@@ -104,6 +105,25 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
     enabled: !!bitrixDealId,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Buscar dados do lead para fonte e scouter
+  const { data: leadData, isLoading: loadingLead } = useQuery({
+    queryKey: ['lead-source', leadId],
+    queryFn: async () => {
+      if (!leadId) return null;
+      const { data, error } = await supabase
+        .from('leads')
+        .select('fonte_normalizada, scouter')
+        .eq('id', leadId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!leadId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isLoading = loadingBitrix || loadingLead;
 
   if (!bitrixDealId && !leadId) {
     return (
@@ -251,10 +271,31 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
     return username.replace('@', '');
   };
 
+  // Fonte e Scouter do lead
+  const fonte = leadData?.fonte_normalizada || null;
+  const scouter = leadData?.scouter || null;
+  const isScouter = fonte?.toLowerCase().includes('scouter');
+
   return (
     <div className="space-y-4 pb-4">
       {/* ==================== HERO SECTION ==================== */}
       <div className="relative rounded-2xl bg-gradient-to-br from-primary/10 via-background to-accent/10 p-5 border border-primary/20">
+        {/* Source Badge - Top Right */}
+        <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+          {fonte && (
+            <Badge 
+              className={`text-[10px] ${isScouter ? 'bg-orange-500/20 text-orange-600 border-orange-500/30' : 'bg-blue-500/20 text-blue-600 border-blue-500/30'}`}
+            >
+              {isScouter ? '📋 Scouter' : '📱 Meta'}
+            </Badge>
+          )}
+          {isScouter && scouter && (
+            <Badge variant="outline" className="text-[10px] bg-background/80">
+              {scouter}
+            </Badge>
+          )}
+        </div>
+
         <div className="flex items-start gap-4">
           {/* Avatar */}
           <Avatar className="h-24 w-24 rounded-2xl border-2 border-primary/30 shadow-lg">
@@ -264,22 +305,31 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
           </Avatar>
 
           {/* Info */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 pr-16">
             <h1 className="text-xl font-bold text-foreground truncate">{nomeModelo}</h1>
+            
+            {/* Responsável */}
+            {nomeResponsavel && (
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {nomeResponsavel}
+              </p>
+            )}
+            
             {age && (
-              <p className="text-lg text-muted-foreground">{age} anos</p>
+              <p className="text-base text-muted-foreground">{age} anos</p>
             )}
             
             {/* Type badges */}
             {tipoModelo.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
-                {tipoModelo.slice(0, 3).map((tipo, i) => (
+                {tipoModelo.slice(0, 2).map((tipo, i) => (
                   <Badge key={i} className="bg-primary/20 text-primary border-primary/30 text-xs">
                     {tipo}
                   </Badge>
                 ))}
-                {tipoModelo.length > 3 && (
-                  <Badge variant="secondary" className="text-xs">+{tipoModelo.length - 3}</Badge>
+                {tipoModelo.length > 2 && (
+                  <Badge variant="secondary" className="text-xs">+{tipoModelo.length - 2}</Badge>
                 )}
               </div>
             )}
