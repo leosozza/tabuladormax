@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,15 +8,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
+import { format, addMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { 
   Plus, Trash2, Save, CheckCircle, 
-  Calculator, CreditCard, Loader2, Package, Check
+  Calculator, CreditCard, Loader2, Package, Check, 
+  CalendarIcon, FileText
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Deal } from './ProducerDealsTab';
 import { Json } from '@/integrations/supabase/types';
 import { listProductsBySection, BitrixProduct } from '@/lib/bitrix';
+import { generateContractPDF } from '@/services/contractPDFService';
+import { cn } from '@/lib/utils';
 
 interface ProducerAgenciarFormProps {
   deal: Deal;
@@ -29,10 +37,21 @@ interface PaymentMethod {
   method: string;
   value: number;
   installments?: number;
+  firstDueDate?: string;
+  dueDates?: string[];
 }
 
 // ID da seção "SERVIÇOS E PROJETOS" no Bitrix
 const SERVICES_SECTION_ID = 296;
+
+const PAYMENT_METHOD_OPTIONS = [
+  { value: 'pix', label: 'PIX' },
+  { value: 'cartao_credito', label: 'Cartão de Crédito' },
+  { value: 'cartao_debito', label: 'Cartão de Débito' },
+  { value: 'boleto', label: 'Boleto' },
+  { value: 'dinheiro', label: 'Dinheiro' },
+  { value: 'transferencia', label: 'Transferência' },
+];
 
 export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAgenciarFormProps) => {
   const queryClient = useQueryClient();
@@ -52,7 +71,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
       const products = await listProductsBySection(SERVICES_SECTION_ID, 100);
       return products.filter(p => p.ACTIVE !== 'N');
     },
-    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+    staleTime: 5 * 60 * 1000,
   });
 
   // Buscar negociação existente
@@ -68,7 +87,6 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
       if (error) throw error;
       
       if (data) {
-        // Preencher form com dados existentes
         setSelectedProductId(data.bitrix_product_id?.toString() || null);
         setBaseValue(data.base_value || deal.opportunity || 0);
         setDiscountPercent(data.discount_percentage || 0);
@@ -95,6 +113,20 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
   // Calcular valores
   const discountValue = (baseValue * discountPercent) / 100;
   const totalValue = baseValue - discountValue;
+
+  // Calcular total das formas de pagamento
+  const paymentTotal = paymentMethods.reduce((sum, pm) => sum + (pm.value || 0), 0);
+  const remainingValue = totalValue - paymentTotal;
+
+  // Calcular datas de boleto automaticamente
+  const calculateBoletooDates = (firstDate: Date, installments: number): string[] => {
+    const dates: string[] = [];
+    for (let i = 0; i < installments; i++) {
+      const date = addMonths(firstDate, i);
+      dates.push(date.toISOString());
+    }
+    return dates;
+  };
 
   // Mutation para salvar
   const saveMutation = useMutation({
@@ -151,14 +183,6 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
       // Sincronizar com Bitrix
       if (deal.bitrix_deal_id) {
-        console.log('Sincronizando com Bitrix:', {
-          negotiation_id: negotiationId,
-          deal_id: deal.deal_id,
-          status: formData.status,
-          bitrix_deal_id: deal.bitrix_deal_id,
-          product_id: formData.bitrix_product_id
-        });
-
         const { error: syncError } = await supabase.functions.invoke('sync-deal-to-bitrix', {
           body: {
             negotiation_id: negotiationId,
@@ -169,18 +193,15 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
         if (syncError) {
           console.error('Erro ao sincronizar com Bitrix:', syncError);
-        } else {
-          console.log('Sincronização com Bitrix concluída');
         }
       }
 
       return { negotiationId, status: formData.status };
     },
-    onSuccess: (data) => {
-      toast.success('Negociação salva e sincronizada com Bitrix!');
+    onSuccess: () => {
+      toast.success('Negociação salva!');
       queryClient.invalidateQueries({ queryKey: ['negotiation', deal.deal_id] });
       queryClient.invalidateQueries({ queryKey: ['producer-deals'] });
-      queryClient.invalidateQueries({ queryKey: ['negotiations'] });
     },
     onError: (error) => {
       console.error('Erro ao salvar:', error);
@@ -202,15 +223,30 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
   };
 
   // Atualizar forma de pagamento
-  const updatePaymentMethod = (id: string, field: string, value: string | number) => {
-    setPaymentMethods(paymentMethods.map(pm => 
-      pm.id === id ? { ...pm, [field]: value } as PaymentMethod : pm
-    ));
+  const updatePaymentMethod = (id: string, updates: Partial<PaymentMethod>) => {
+    setPaymentMethods(paymentMethods.map(pm => {
+      if (pm.id !== id) return pm;
+      
+      const updated = { ...pm, ...updates };
+      
+      // Se mudou método para boleto, inicializar campos
+      if (updates.method === 'boleto' && !pm.firstDueDate) {
+        updated.installments = 1;
+        updated.firstDueDate = new Date().toISOString();
+        updated.dueDates = [new Date().toISOString()];
+      }
+      
+      // Se atualizou data ou parcelas do boleto, recalcular datas
+      if (updated.method === 'boleto' && updated.firstDueDate && updated.installments) {
+        updated.dueDates = calculateBoletooDates(
+          new Date(updated.firstDueDate), 
+          updated.installments
+        );
+      }
+      
+      return updated;
+    }));
   };
-
-  // Calcular total das formas de pagamento
-  const paymentTotal = paymentMethods.reduce((sum, pm) => sum + (pm.value || 0), 0);
-  const remainingValue = totalValue - paymentTotal;
 
   // Salvar
   const handleSave = () => {
@@ -245,6 +281,41 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
     });
   };
 
+  // Gerar contrato PDF
+  const handleGenerateContract = () => {
+    if (paymentMethods.length === 0) {
+      toast.error('Adicione pelo menos uma forma de pagamento');
+      return;
+    }
+
+    try {
+      const fileName = generateContractPDF({
+        clientName: deal.client_name || 'Cliente',
+        clientPhone: deal.client_phone || undefined,
+        productName: selectedProduct?.NAME,
+        baseValue,
+        discountPercentage: discountPercent,
+        discountValue,
+        totalValue,
+        paymentMethods: paymentMethods.map(pm => ({
+          method: pm.method,
+          value: pm.value,
+          installments: pm.installments,
+          firstDueDate: pm.firstDueDate,
+          dueDates: pm.dueDates
+        })),
+        notes: notes || undefined
+      });
+      toast.success(`Contrato gerado: ${fileName}`);
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      toast.error('Erro ao gerar contrato');
+    }
+  };
+
+  const formatCurrency = (value: number) => 
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
   if (loadingNegotiation) {
     return (
       <Card>
@@ -257,55 +328,60 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
   return (
     <div className="space-y-4">
-
-      {/* Seleção de Serviço/Projeto */}
+      {/* Seleção de Serviço/Projeto - Accordion Colapsável */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Package className="h-4 w-4" />
             Selecione o Serviço/Projeto
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           {loadingProducts ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">Carregando serviços...</span>
+              <span className="ml-2 text-sm text-muted-foreground">Carregando...</span>
             </div>
           ) : products && products.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Accordion type="single" collapsible className="w-full">
               {products.map((product) => (
-                <div
-                  key={product.ID}
-                  onClick={() => handleSelectProduct(product)}
-                  className={`
-                    relative p-4 border rounded-lg cursor-pointer transition-all
-                    ${selectedProductId === product.ID 
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary' 
-                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                    }
-                  `}
-                >
-                  {selectedProductId === product.ID && (
-                    <div className="absolute top-2 right-2">
-                      <Check className="h-4 w-4 text-primary" />
+                <AccordionItem key={product.ID} value={product.ID} className="border-b-0">
+                  <div 
+                    className={cn(
+                      "flex items-center rounded-lg border mb-2 transition-all",
+                      selectedProductId === product.ID 
+                        ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <div 
+                      className="flex-1 flex items-center justify-between p-3 cursor-pointer"
+                      onClick={() => handleSelectProduct(product)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate pr-2">{product.NAME}</p>
+                        <p className="text-lg font-bold text-primary">
+                          {formatCurrency(product.PRICE)}
+                        </p>
+                      </div>
+                      {selectedProductId === product.ID && (
+                        <Check className="h-5 w-5 text-primary shrink-0" />
+                      )}
                     </div>
-                  )}
-                  <p className="font-medium text-sm pr-6">{product.NAME}</p>
-                  <p className="text-lg font-bold text-primary mt-1">
-                    {new Intl.NumberFormat('pt-BR', { 
-                      style: 'currency', 
-                      currency: 'BRL' 
-                    }).format(product.PRICE)}
-                  </p>
+                    {product.DESCRIPTION && (
+                      <AccordionTrigger className="px-3 py-0 hover:no-underline [&[data-state=open]>svg]:rotate-180" />
+                    )}
+                  </div>
                   {product.DESCRIPTION && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                      {product.DESCRIPTION}
-                    </p>
+                    <AccordionContent className="px-3 pb-3 pt-0">
+                      <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                        {product.DESCRIPTION}
+                      </p>
+                    </AccordionContent>
                   )}
-                </div>
+                </AccordionItem>
               ))}
-            </div>
+            </Accordion>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">
               Nenhum serviço/projeto disponível
@@ -313,11 +389,8 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
           )}
 
           {selectedProduct && (
-            <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
-              <p className="text-sm font-medium">Selecionado: {selectedProduct.NAME}</p>
-              <p className="text-xs text-muted-foreground">
-                Valor base preenchido automaticamente
-              </p>
+            <div className="mt-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
+              <p className="text-sm font-medium">✓ {selectedProduct.NAME}</p>
             </div>
           )}
         </CardContent>
@@ -332,18 +405,19 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Valor Base (R$)</Label>
+              <Label className="text-xs">Valor Base (R$)</Label>
               <Input
                 type="number"
                 value={baseValue}
                 onChange={(e) => setBaseValue(Number(e.target.value))}
                 placeholder="0,00"
+                className="h-10"
               />
             </div>
             <div>
-              <Label>Desconto (%)</Label>
+              <Label className="text-xs">Desconto (%)</Label>
               <Input
                 type="number"
                 min={0}
@@ -351,25 +425,19 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
                 value={discountPercent}
                 onChange={(e) => setDiscountPercent(Number(e.target.value))}
                 placeholder="0"
+                className="h-10"
               />
             </div>
           </div>
 
-          <Separator />
-
-          <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg">
             <div>
-              <p className="text-sm text-muted-foreground">Valor Final</p>
-              <p className="text-2xl font-bold text-primary">
-                {new Intl.NumberFormat('pt-BR', { 
-                  style: 'currency', 
-                  currency: 'BRL' 
-                }).format(totalValue)}
-              </p>
+              <p className="text-xs text-muted-foreground">Valor Final</p>
+              <p className="text-xl font-bold text-primary">{formatCurrency(totalValue)}</p>
             </div>
             {discountPercent > 0 && (
-              <Badge variant="secondary">
-                -{discountPercent}% (R$ {discountValue.toFixed(2)})
+              <Badge variant="secondary" className="text-xs">
+                -{discountPercent}%
               </Badge>
             )}
           </div>
@@ -378,124 +446,209 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
       {/* Formas de Pagamento */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
               Formas de Pagamento
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={addPaymentMethod} className="gap-1">
-              <Plus className="h-4 w-4" />
-              Adicionar
+            <Button variant="outline" size="sm" onClick={addPaymentMethod} className="h-8 gap-1">
+              <Plus className="h-3 w-3" />
+              <span className="hidden sm:inline">Adicionar</span>
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {paymentMethods.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhuma forma de pagamento adicionada
+              Nenhuma forma de pagamento
             </p>
           ) : (
             paymentMethods.map((pm) => (
-              <div key={pm.id} className="flex items-end gap-3 p-3 border rounded-lg">
-                <div className="flex-1">
-                  <Label className="text-xs">Método</Label>
-                  <Select 
-                    value={pm.method} 
-                    onValueChange={(v) => updatePaymentMethod(pm.id, 'method', v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pix">PIX</SelectItem>
-                      <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
-                      <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
-                      <SelectItem value="boleto">Boleto</SelectItem>
-                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                      <SelectItem value="transferencia">Transferência</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-28">
-                  <Label className="text-xs">Valor (R$)</Label>
-                  <Input
-                    type="number"
-                    value={pm.value}
-                    onChange={(e) => updatePaymentMethod(pm.id, 'value', Number(e.target.value))}
-                    placeholder="0,00"
-                  />
-                </div>
-                {pm.method === 'cartao_credito' && (
-                  <div className="w-20">
-                    <Label className="text-xs">Parcelas</Label>
+              <div key={pm.id} className="p-3 border rounded-lg space-y-3">
+                {/* Linha principal - Responsivo */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs">Método</Label>
+                    <Select 
+                      value={pm.method} 
+                      onValueChange={(v) => updatePaymentMethod(pm.id, { method: v })}
+                    >
+                      <SelectTrigger className="h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAYMENT_METHOD_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-full sm:w-32">
+                    <Label className="text-xs">Valor (R$)</Label>
                     <Input
                       type="number"
-                      min={1}
-                      max={12}
-                      value={pm.installments || 1}
-                      onChange={(e) => updatePaymentMethod(pm.id, 'installments', Number(e.target.value))}
+                      value={pm.value}
+                      onChange={(e) => updatePaymentMethod(pm.id, { value: Number(e.target.value) })}
+                      placeholder="0,00"
+                      className="h-10"
                     />
                   </div>
+                  <div className="flex items-end">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => removePaymentMethod(pm.id)}
+                      className="h-10 w-10 text-destructive hover:text-destructive shrink-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Campos adicionais para Cartão de Crédito */}
+                {pm.method === 'cartao_credito' && (
+                  <div className="pt-2 border-t">
+                    <div className="w-full sm:w-32">
+                      <Label className="text-xs">Parcelas</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={pm.installments || 1}
+                        onChange={(e) => updatePaymentMethod(pm.id, { installments: Number(e.target.value) })}
+                        className="h-10"
+                      />
+                    </div>
+                    {pm.installments && pm.installments > 1 && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {pm.installments}x de {formatCurrency(pm.value / pm.installments)}
+                      </p>
+                    )}
+                  </div>
                 )}
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={() => removePaymentMethod(pm.id)}
-                  className="shrink-0 text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+
+                {/* Campos adicionais para Boleto */}
+                {pm.method === 'boleto' && (
+                  <div className="pt-2 border-t space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">1º Vencimento</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full h-10 justify-start text-left font-normal",
+                                !pm.firstDueDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {pm.firstDueDate 
+                                ? format(new Date(pm.firstDueDate), 'dd/MM/yyyy')
+                                : 'Selecionar'
+                              }
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={pm.firstDueDate ? new Date(pm.firstDueDate) : undefined}
+                              onSelect={(date) => {
+                                if (date) {
+                                  updatePaymentMethod(pm.id, { firstDueDate: date.toISOString() });
+                                }
+                              }}
+                              locale={ptBR}
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Parcelas</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={12}
+                          value={pm.installments || 1}
+                          onChange={(e) => updatePaymentMethod(pm.id, { installments: Number(e.target.value) })}
+                          className="h-10"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Preview das datas calculadas */}
+                    {pm.dueDates && pm.dueDates.length > 0 && (
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-xs font-medium mb-1">Vencimentos:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {pm.dueDates.map((date, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              {format(new Date(date), 'dd/MM/yy')}
+                            </Badge>
+                          ))}
+                        </div>
+                        {pm.installments && pm.installments > 1 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {pm.installments}x de {formatCurrency(pm.value / pm.installments)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))
           )}
 
           {paymentMethods.length > 0 && (
-            <div className="flex items-center justify-between pt-3 border-t">
-              <span className="text-sm">Total em Pagamentos:</span>
-              <span className="font-medium">
-                {new Intl.NumberFormat('pt-BR', { 
-                  style: 'currency', 
-                  currency: 'BRL' 
-                }).format(paymentTotal)}
-              </span>
-            </div>
-          )}
-
-          {remainingValue > 0 && paymentMethods.length > 0 && (
-            <div className="flex items-center justify-between text-destructive">
-              <span className="text-sm">Valor Restante:</span>
-              <span className="font-medium">
-                {new Intl.NumberFormat('pt-BR', { 
-                  style: 'currency', 
-                  currency: 'BRL' 
-                }).format(remainingValue)}
-              </span>
-            </div>
+            <>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Total:</span>
+                <span className="font-medium">{formatCurrency(paymentTotal)}</span>
+              </div>
+              {remainingValue > 0 && (
+                <div className="flex items-center justify-between text-destructive">
+                  <span className="text-sm">Restante:</span>
+                  <span className="font-medium">{formatCurrency(remainingValue)}</span>
+                </div>
+              )}
+              {remainingValue <= 0 && remainingValue !== 0 && (
+                <div className="flex items-center justify-between text-amber-600">
+                  <span className="text-sm">Excedente:</span>
+                  <span className="font-medium">{formatCurrency(Math.abs(remainingValue))}</span>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
 
       {/* Observações */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-2">
           <CardTitle className="text-base">Observações</CardTitle>
         </CardHeader>
         <CardContent>
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Adicione observações sobre a negociação..."
+            placeholder="Adicione observações..."
             rows={3}
+            className="resize-none"
           />
         </CardContent>
       </Card>
 
-      {/* Ações */}
-      <div className="flex gap-3">
+      {/* Ações - Layout Mobile Otimizado */}
+      <div className="flex flex-col sm:flex-row gap-2">
         <Button 
           variant="outline" 
-          className="flex-1 gap-2"
+          className="flex-1 h-12 sm:h-10 gap-2"
           onClick={handleSave}
           disabled={saveMutation.isPending}
         >
@@ -507,7 +660,16 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
           Salvar Rascunho
         </Button>
         <Button 
-          className="flex-1 gap-2"
+          variant="outline"
+          className="flex-1 h-12 sm:h-10 gap-2"
+          onClick={handleGenerateContract}
+          disabled={paymentMethods.length === 0}
+        >
+          <FileText className="h-4 w-4" />
+          Gerar Contrato
+        </Button>
+        <Button 
+          className="flex-1 h-12 sm:h-10 gap-2"
           onClick={handleFinalize}
           disabled={saveMutation.isPending || status === 'realizado'}
         >
@@ -516,7 +678,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
           ) : (
             <CheckCircle className="h-4 w-4" />
           )}
-          Finalizar Negociação
+          Finalizar
         </Button>
       </div>
     </div>
