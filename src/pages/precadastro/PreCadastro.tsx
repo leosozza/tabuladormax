@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Plus, Trash2, Camera, User, Ruler, Instagram as InstagramIcon, Sparkles, Send, MapPin, Loader2, Phone } from "lucide-react";
+import maxfamaLogo from "@/assets/maxfama-logo.png";
 import { FormSection } from "@/components/cadastro/FormSection";
 import { PreCadastroFooter } from "@/components/precadastro/PreCadastroFooter";
 import { FormField } from "@/components/cadastro/FormField";
@@ -1103,8 +1104,9 @@ const PreCadastro = () => {
   return <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gradient mb-2">Max Fama</h1>
-          <p className="text-muted-foreground">Pré-análise de perfil</p>
+          <div className="mx-auto mb-4 w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden shadow-elegant">
+            <img src={maxfamaLogo} alt="Max Fama" className="w-full h-full object-cover" />
+          </div>
           
           <div className="mt-4 max-w-xl mx-auto">
             
