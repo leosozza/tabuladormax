@@ -17,8 +17,10 @@ import { ptBR } from 'date-fns/locale';
 import { 
   Plus, Trash2, Save, CheckCircle, 
   Calculator, CreditCard, Loader2, Package, Check, 
-  CalendarIcon, FileText
+  CalendarIcon, FileText, ChevronDown, GitCompare
 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { Deal } from './ProducerDealsTab';
 import { Json } from '@/integrations/supabase/types';
@@ -63,6 +65,8 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
   const [notes, setNotes] = useState<string>('');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [status, setStatus] = useState<string>(deal.negotiation_status || 'inicial');
+  const [isServicesOpen, setIsServicesOpen] = useState(true);
+  const [showComparison, setShowComparison] = useState(false);
 
   // Buscar produtos da seção SERVIÇOS E PROJETOS
   const { data: products, isLoading: loadingProducts } = useQuery({
@@ -328,73 +332,165 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
   return (
     <div className="space-y-4">
-      {/* Seleção de Serviço/Projeto - Accordion Colapsável */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Selecione o Serviço/Projeto
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          {loadingProducts ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">Carregando...</span>
+      {/* Seleção de Serviço - Colapsável */}
+      <Collapsible open={isServicesOpen} onOpenChange={setIsServicesOpen}>
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Selecione o Serviço
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowComparison(true)}
+                  className="h-8 gap-1"
+                >
+                  <GitCompare className="h-3 w-3" />
+                  <span className="hidden sm:inline">Comparar</span>
+                </Button>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <ChevronDown className={cn("h-4 w-4 transition-transform", isServicesOpen && "rotate-180")} />
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
             </div>
-          ) : products && products.length > 0 ? (
-            <Accordion type="single" collapsible className="w-full">
-              {products.map((product) => (
-                <AccordionItem key={product.ID} value={product.ID} className="border-b-0">
-                  <div 
-                    className={cn(
-                      "flex items-center rounded-lg border mb-2 transition-all",
-                      selectedProductId === product.ID 
-                        ? "border-primary bg-primary/5 ring-1 ring-primary" 
-                        : "border-border hover:border-primary/50"
-                    )}
-                  >
-                    <div 
-                      className="flex-1 flex items-center justify-between p-3 cursor-pointer"
-                      onClick={() => handleSelectProduct(product)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate pr-2">{product.NAME}</p>
-                        <p className="text-lg font-bold text-primary">
-                          {formatCurrency(product.PRICE)}
-                        </p>
+            {selectedProduct && !isServicesOpen && (
+              <div className="mt-2 p-2 bg-primary/5 rounded-lg border border-primary/20">
+                <p className="text-sm font-medium">✓ {selectedProduct.NAME} - {formatCurrency(selectedProduct.PRICE)}</p>
+              </div>
+            )}
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              {loadingProducts ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">Carregando...</span>
+                </div>
+              ) : products && products.length > 0 ? (
+                <Accordion type="single" collapsible className="w-full">
+                  {products.map((product) => (
+                    <AccordionItem key={product.ID} value={product.ID} className="border-b-0">
+                      <div 
+                        className={cn(
+                          "flex items-center rounded-lg border mb-2 transition-all",
+                          selectedProductId === product.ID 
+                            ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                            : "border-border hover:border-primary/50"
+                        )}
+                      >
+                        <div 
+                          className="flex-1 flex items-center justify-between p-3 cursor-pointer"
+                          onClick={() => handleSelectProduct(product)}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate pr-2">{product.NAME}</p>
+                            <p className="text-lg font-bold text-primary">
+                              {formatCurrency(product.PRICE)}
+                            </p>
+                          </div>
+                          {selectedProductId === product.ID && (
+                            <Check className="h-5 w-5 text-primary shrink-0" />
+                          )}
+                        </div>
+                        {product.DESCRIPTION && (
+                          <AccordionTrigger className="px-3 py-0 hover:no-underline [&[data-state=open]>svg]:rotate-180" />
+                        )}
                       </div>
-                      {selectedProductId === product.ID && (
-                        <Check className="h-5 w-5 text-primary shrink-0" />
+                      {product.DESCRIPTION && (
+                        <AccordionContent className="px-3 pb-3 pt-0">
+                          <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                            {product.DESCRIPTION}
+                          </p>
+                        </AccordionContent>
                       )}
-                    </div>
-                    {product.DESCRIPTION && (
-                      <AccordionTrigger className="px-3 py-0 hover:no-underline [&[data-state=open]>svg]:rotate-180" />
-                    )}
-                  </div>
-                  {product.DESCRIPTION && (
-                    <AccordionContent className="px-3 pb-3 pt-0">
-                      <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                        {product.DESCRIPTION}
-                      </p>
-                    </AccordionContent>
-                  )}
-                </AccordionItem>
-              ))}
-            </Accordion>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhum serviço/projeto disponível
-            </p>
-          )}
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhum serviço disponível
+                </p>
+              )}
 
-          {selectedProduct && (
-            <div className="mt-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
-              <p className="text-sm font-medium">✓ {selectedProduct.NAME}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              {selectedProduct && (
+                <div className="mt-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                  <p className="text-sm font-medium">✓ {selectedProduct.NAME}</p>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* Modal de Comparação de Serviços */}
+      <Dialog open={showComparison} onOpenChange={setShowComparison}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitCompare className="h-5 w-5" />
+              Comparar Serviços
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-x-auto">
+            {loadingProducts ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : products && products.length > 0 ? (
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-3 font-medium">Serviço</th>
+                    <th className="text-left p-3 font-medium">Preço</th>
+                    <th className="text-left p-3 font-medium hidden sm:table-cell">Descrição</th>
+                    <th className="p-3 font-medium text-center">Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map((product) => (
+                    <tr 
+                      key={product.ID} 
+                      className={cn(
+                        "border-b hover:bg-muted/50 transition-colors",
+                        selectedProductId === product.ID && "bg-primary/10"
+                      )}
+                    >
+                      <td className="p-3 font-medium">{product.NAME}</td>
+                      <td className="p-3 text-primary font-bold whitespace-nowrap">
+                        {formatCurrency(product.PRICE)}
+                      </td>
+                      <td className="p-3 text-sm text-muted-foreground hidden sm:table-cell">
+                        {product.DESCRIPTION || '-'}
+                      </td>
+                      <td className="p-3 text-center">
+                        <Button 
+                          size="sm" 
+                          variant={selectedProductId === product.ID ? "default" : "outline"}
+                          onClick={() => {
+                            handleSelectProduct(product);
+                            setShowComparison(false);
+                          }}
+                        >
+                          {selectedProductId === product.ID ? 'Selecionado' : 'Selecionar'}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">
+                Nenhum serviço disponível
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Valores */}
       <Card>
