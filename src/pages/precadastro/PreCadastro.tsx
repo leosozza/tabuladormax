@@ -638,7 +638,8 @@ const PreCadastro = () => {
           setLeadData({
             nomeResponsavel: lead.nome_responsavel_legal || "",
             estadoCivil: normalizeEnumerationValue(rawData[BITRIX_LEAD_FIELD_MAPPING.estadoCivil]) as string,
-            telefone: lead.celular || lead.telefone_casa || "",
+            telefone: lead.celular || lead.telefone_casa || 
+              (rawData.PHONE && Array.isArray(rawData.PHONE) && rawData.PHONE[0]?.VALUE) || "",
             cidade: rawData[BITRIX_LEAD_FIELD_MAPPING.cidade] || "",
             estado: rawData[BITRIX_LEAD_FIELD_MAPPING.estado] || "",
             nomeModelo: lead.nome_modelo || lead.name || "",
@@ -697,10 +698,10 @@ const PreCadastro = () => {
               })).filter(item => !isNaN(item.id));
             }
 
-            // 3. Verificar campo fotoIds tradicional (apenas IDs, sem URLs)
+            // 3. Verificar campo fotoIds tradicional (UF_CRM_1764358561) - SEMPRE verificar e combinar
             const newPhotoField = rawData.UF_CRM_1764358561 || rawData[BITRIX_LEAD_FIELD_MAPPING.fotoIds];
             let traditionalIds: number[] = [];
-            if (newPhotoField && fileObjectsToSync.length === 0) {
+            if (newPhotoField) {
               if (Array.isArray(newPhotoField)) {
                 traditionalIds = newPhotoField.map(id => typeof id === 'string' ? parseInt(id) : id).filter(id => !isNaN(id));
               } else if (typeof newPhotoField === 'string' && newPhotoField.trim()) {
@@ -708,11 +709,25 @@ const PreCadastro = () => {
               }
             }
 
-            // Sincronizar: preferir objetos com URLs, senão usar IDs
-            if (fileObjectsToSync.length > 0) {
-              syncPhotosInBackground(parseInt(leadId), undefined, fileObjectsToSync);
-            } else if (traditionalIds.length > 0) {
-              syncPhotosInBackground(parseInt(leadId), traditionalIds);
+            // 4. Verificar UF_CRM_ID_FOTO também (campo alternativo)
+            const idFotoField = rawData.UF_CRM_ID_FOTO;
+            if (idFotoField && typeof idFotoField === 'string' && idFotoField.trim()) {
+              const idFoto = parseInt(idFotoField.trim());
+              if (!isNaN(idFoto) && !traditionalIds.includes(idFoto)) {
+                traditionalIds.push(idFoto);
+              }
+            }
+
+            // Sincronizar: combinar objetos com URLs e IDs tradicionais
+            const objectIds = fileObjectsToSync.map(o => o.id);
+            const uniqueTraditionalIds = traditionalIds.filter(id => !objectIds.includes(id));
+
+            if (fileObjectsToSync.length > 0 || uniqueTraditionalIds.length > 0) {
+              syncPhotosInBackground(
+                parseInt(leadId), 
+                uniqueTraditionalIds.length > 0 ? uniqueTraditionalIds : undefined, 
+                fileObjectsToSync.length > 0 ? fileObjectsToSync : undefined
+              );
             }
           }
           if (photoUrls.length > 0) {
