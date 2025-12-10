@@ -3344,6 +3344,7 @@ export type Database = {
           client_phone: string
           created_date: string
           deal_id: string
+          lead_id: number
           negotiation_id: string
           negotiation_status: string
           opportunity: number
