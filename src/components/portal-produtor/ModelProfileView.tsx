@@ -295,7 +295,7 @@ export const ModelProfileView = ({
                 {nomeResponsavel}
               </p>}
             
-            {age && <p className="text-base text-muted-foreground">{age} anos</p>}
+            {age && age > 0 && <p className="text-base text-muted-foreground">{age} anos</p>}
             
             {/* Type badges */}
             {tipoModelo.length > 0 && <div className="flex flex-wrap gap-1.5 mt-2">
