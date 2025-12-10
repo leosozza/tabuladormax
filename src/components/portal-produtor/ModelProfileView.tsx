@@ -106,6 +106,33 @@ export const ModelProfileView = ({ leadId }: ModelProfileViewProps) => {
   // Extract data from raw field if available
   const rawData = lead.raw as Record<string, unknown> | null;
 
+  // Extrair telefone do raw.PHONE se lead.celular estiver vazio
+  const getPhone = (): string | null => {
+    if (lead.celular) return lead.celular;
+    if (rawData?.PHONE && Array.isArray(rawData.PHONE) && rawData.PHONE.length > 0) {
+      const phoneObj = rawData.PHONE[0] as { VALUE?: string } | null;
+      return phoneObj?.VALUE || null;
+    }
+    return null;
+  };
+  const phone = getPhone();
+
+  // Verificar se há dados físicos preenchidos
+  const hasPhysicalData = Boolean(
+    rawData?.UF_CRM_1733485575 || // altura
+    rawData?.UF_CRM_1733485977896 || // peso
+    rawData?.UF_CRM_1762283056 || // manequim
+    rawData?.UF_CRM_1733485454702 // sapato
+  );
+
+  // Verificar se há habilidades/características
+  const hasSkillsData = Boolean(
+    rawData?.UF_CRM_1762282315 || // habilidades
+    rawData?.UF_CRM_1762282626 || // cursos
+    rawData?.UF_CRM_1762282725 || // características
+    rawData?.UF_CRM_1762282818   // tipo modelo
+  );
+
   return (
     <div className="space-y-4">
       {/* Foto principal e dados básicos */}
@@ -132,10 +159,10 @@ export const ModelProfileView = ({ leadId }: ModelProfileViewProps) => {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {lead.celular && (
+                {phone && (
                   <Badge variant="outline" className="gap-1">
                     <Phone className="h-3 w-3" />
-                    {lead.celular}
+                    {phone}
                   </Badge>
                 )}
                 {(lead.address || (rawData?.ADDRESS_CITY as string)) && (
@@ -202,16 +229,22 @@ export const ModelProfileView = ({ leadId }: ModelProfileViewProps) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            <DataItem label="Altura" value={rawData?.UF_CRM_1733485575 as string} />
-            <DataItem label="Peso" value={rawData?.UF_CRM_1733485977896 as string} suffix="kg" />
-            <DataItem label="Manequim" value={rawData?.UF_CRM_1762283056 as string} />
-            <DataItem label="Sapato" value={rawData?.UF_CRM_1733485454702 as string} />
-            <DataItem label="Cor da Pele" value={rawData?.UF_CRM_1762283877 as string} />
-            <DataItem label="Cor do Cabelo" value={rawData?.UF_CRM_1762283650 as string} />
-            <DataItem label="Cor dos Olhos" value={rawData?.UF_CRM_1733485183850 as string} />
-            <DataItem label="Tipo de Cabelo" value={rawData?.UF_CRM_1733485270151 as string} />
-          </div>
+          {hasPhysicalData ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <DataItem label="Altura" value={rawData?.UF_CRM_1733485575 as string} />
+              <DataItem label="Peso" value={rawData?.UF_CRM_1733485977896 as string} suffix="kg" />
+              <DataItem label="Manequim" value={rawData?.UF_CRM_1762283056 as string} />
+              <DataItem label="Sapato" value={rawData?.UF_CRM_1733485454702 as string} />
+              <DataItem label="Cor da Pele" value={rawData?.UF_CRM_1762283877 as string} />
+              <DataItem label="Cor do Cabelo" value={rawData?.UF_CRM_1762283650 as string} />
+              <DataItem label="Cor dos Olhos" value={rawData?.UF_CRM_1733485183850 as string} />
+              <DataItem label="Tipo de Cabelo" value={rawData?.UF_CRM_1733485270151 as string} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Dados físicos ainda não preenchidos
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -224,7 +257,13 @@ export const ModelProfileView = ({ leadId }: ModelProfileViewProps) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {rawData?.UF_CRM_1762282315 && (
+          {!hasSkillsData ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Habilidades ainda não preenchidas
+            </p>
+          ) : (
+            <>
+              {rawData?.UF_CRM_1762282315 && (
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-2">Habilidades</p>
               <div className="flex flex-wrap gap-1">
@@ -266,18 +305,20 @@ export const ModelProfileView = ({ leadId }: ModelProfileViewProps) => {
             </div>
           )}
 
-          {rawData?.UF_CRM_1762282818 && (
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-2">Tipo de Modelo</p>
-              <div className="flex flex-wrap gap-1">
-                {(Array.isArray(rawData.UF_CRM_1762282818) 
-                  ? rawData.UF_CRM_1762282818 
-                  : [rawData.UF_CRM_1762282818]
-                ).map((type, i) => (
-                  <Badge key={i}>{String(type)}</Badge>
-                ))}
-              </div>
-            </div>
+              {rawData?.UF_CRM_1762282818 && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Tipo de Modelo</p>
+                  <div className="flex flex-wrap gap-1">
+                    {(Array.isArray(rawData.UF_CRM_1762282818) 
+                      ? rawData.UF_CRM_1762282818 
+                      : [rawData.UF_CRM_1762282818]
+                    ).map((type, i) => (
+                      <Badge key={i}>{String(type)}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
