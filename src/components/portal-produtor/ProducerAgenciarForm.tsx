@@ -55,17 +55,6 @@ const PAYMENT_METHOD_OPTIONS = [
   { value: 'transferencia', label: 'Transferência' },
 ];
 
-// Features para comparação de pacotes
-const PACKAGE_FEATURES = [
-  { name: 'Social Media Design', description: 'Criação de conteúdo para redes sociais' },
-  { name: 'Packaging Design', description: 'Design de embalagens' },
-  { name: 'Logo Design', description: 'Criação de logotipo' },
-  { name: 'SEO', description: 'Otimização para mecanismos de busca' },
-  { name: 'Domain Research', description: 'Pesquisa de domínio' },
-  { name: 'Marketing Strategy', description: 'Estratégia de marketing' },
-  { name: 'UX Writing', description: 'Texto e copywriting' },
-];
-
 // Cores dos headers dos pacotes
 const PACKAGE_HEADER_COLORS = [
   'bg-blue-500',
@@ -75,19 +64,26 @@ const PACKAGE_HEADER_COLORS = [
   'bg-purple-500',
 ];
 
-// Função para determinar quais features o pacote inclui
-const getPackageFeatures = (product: BitrixProduct, index: number, total: number): boolean[] => {
-  const price = product.PRICE;
-  const name = product.NAME.toLowerCase();
+// Parsear descrição do produto para extrair features
+const parseProductFeatures = (description: string | undefined): string[] => {
+  if (!description) return [];
   
-  // Lógica baseada em preço ou posição
-  if (name.includes('vip') || name.includes('premium') || price > 4000 || index === total - 1) {
-    return [true, true, true, true, true, true, true]; // Todos
-  } else if (name.includes('pro') || price > 2000 || index >= Math.floor(total / 2)) {
-    return [true, true, true, true, true, true, false];
-  } else {
-    return [true, true, true, true, false, false, false]; // Básico
-  }
+  // Separar por linhas, vírgulas ou ponto e vírgula
+  const lines = description
+    .split(/[\n\r,;•●\-]+/)
+    .map(line => line.trim())
+    .filter(line => line.length > 2);
+  
+  return lines;
+};
+
+// Verificar se um produto tem uma feature (comparação case-insensitive)
+const productHasFeature = (product: BitrixProduct, feature: string): boolean => {
+  const features = parseProductFeatures(product.DESCRIPTION);
+  return features.some(f => 
+    f.toLowerCase().includes(feature.toLowerCase()) ||
+    feature.toLowerCase().includes(f.toLowerCase())
+  );
 };
 
 export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAgenciarFormProps) => {
@@ -492,11 +488,16 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
                 );
               }
 
+              // Extrair todas as features únicas de todos os produtos
+              const allFeatures = [...new Set(
+                productsForComparison.flatMap(p => parseProductFeatures(p.DESCRIPTION))
+              )].filter(f => f.length > 0);
+
               return (
                 <div 
                   className="grid gap-0" 
                   style={{ 
-                    gridTemplateColumns: `minmax(180px, 1fr) repeat(${productsForComparison.length}, minmax(140px, 1fr))` 
+                    gridTemplateColumns: `minmax(200px, 1.5fr) repeat(${productsForComparison.length}, minmax(140px, 1fr))` 
                   }}
                 >
                   {/* Headers dos pacotes */}
@@ -515,28 +516,24 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
                     </div>
                   ))}
                   
-                  {/* Linhas de features */}
-                  {PACKAGE_FEATURES.map((feature, fIdx) => (
+                  {/* Linhas de features extraídas das descrições */}
+                  {allFeatures.map((feature, fIdx) => (
                     <>
                       <div key={`feature-${fIdx}`} className="p-3 border-b bg-muted/10">
-                        <p className="font-medium text-sm">{feature.name}</p>
-                        <p className="text-xs text-muted-foreground">{feature.description}</p>
+                        <p className="font-medium text-sm">{feature}</p>
                       </div>
-                      {productsForComparison.map((product, pIdx) => {
-                        const features = getPackageFeatures(product, pIdx, productsForComparison.length);
-                        return (
-                          <div 
-                            key={`feature-${fIdx}-${product.ID}`} 
-                            className="flex items-center justify-center p-3 border-b"
-                          >
-                            {features[fIdx] ? (
-                              <Check className="h-5 w-5 text-primary" />
-                            ) : (
-                              <X className="h-5 w-5 text-muted-foreground/30" />
-                            )}
-                          </div>
-                        );
-                      })}
+                      {productsForComparison.map((product) => (
+                        <div 
+                          key={`feature-${fIdx}-${product.ID}`} 
+                          className="flex items-center justify-center p-3 border-b"
+                        >
+                          {productHasFeature(product, feature) ? (
+                            <Check className="h-5 w-5 text-primary" />
+                          ) : (
+                            <X className="h-5 w-5 text-muted-foreground/30" />
+                          )}
+                        </div>
+                      ))}
                     </>
                   ))}
                   
