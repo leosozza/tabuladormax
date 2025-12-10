@@ -388,6 +388,16 @@ export async function getProductPrice(productId: string | number): Promise<Bitri
 }
 
 /**
+ * Listar produtos de uma seção específica do catálogo Bitrix24
+ */
+export async function listProductsBySection(sectionId: number, limit?: number): Promise<BitrixProduct[]> {
+  return listProducts({ 
+    limit: limit || 100,
+    filter: { SECTION_ID: sectionId }
+  });
+}
+
+/**
  * Buscar produtos em linha de pedido/negócio
  */
 export async function getProductRows(entityType: 'deal' | 'lead', entityId: string | number): Promise<any[]> {
