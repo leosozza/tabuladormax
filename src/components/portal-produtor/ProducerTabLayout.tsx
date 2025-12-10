@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Briefcase, LayoutDashboard, ArrowLeft } from 'lucide-react';
+import { LogOut, Briefcase, LayoutDashboard } from 'lucide-react';
 import { ProducerDealsTab } from './ProducerDealsTab';
 import { ProducerDashboardTab } from './ProducerDashboardTab';
 
@@ -25,11 +25,7 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             {/* Área do perfil */}
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={onLogout} title="Voltar">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              
+            <div className="flex items-center gap-4">
               <Avatar className="h-12 w-12 border-2 border-primary/20 shadow-lg">
                 <AvatarImage src={producerData.photo || undefined} className="object-cover" />
                 <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
