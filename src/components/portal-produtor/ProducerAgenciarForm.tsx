@@ -16,7 +16,7 @@ import { format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
   Plus, Trash2, Save, CheckCircle, 
-  Calculator, CreditCard, Loader2, Package, Check, 
+  Calculator, CreditCard, Loader2, Package, Check, X,
   CalendarIcon, FileText, ChevronDown, GitCompare
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -54,6 +54,41 @@ const PAYMENT_METHOD_OPTIONS = [
   { value: 'dinheiro', label: 'Dinheiro' },
   { value: 'transferencia', label: 'Transferência' },
 ];
+
+// Features para comparação de pacotes
+const PACKAGE_FEATURES = [
+  { name: 'Social Media Design', description: 'Criação de conteúdo para redes sociais' },
+  { name: 'Packaging Design', description: 'Design de embalagens' },
+  { name: 'Logo Design', description: 'Criação de logotipo' },
+  { name: 'SEO', description: 'Otimização para mecanismos de busca' },
+  { name: 'Domain Research', description: 'Pesquisa de domínio' },
+  { name: 'Marketing Strategy', description: 'Estratégia de marketing' },
+  { name: 'UX Writing', description: 'Texto e copywriting' },
+];
+
+// Cores dos headers dos pacotes
+const PACKAGE_HEADER_COLORS = [
+  'bg-blue-500',
+  'bg-yellow-500', 
+  'bg-red-500',
+  'bg-emerald-500',
+  'bg-purple-500',
+];
+
+// Função para determinar quais features o pacote inclui
+const getPackageFeatures = (product: BitrixProduct, index: number, total: number): boolean[] => {
+  const price = product.PRICE;
+  const name = product.NAME.toLowerCase();
+  
+  // Lógica baseada em preço ou posição
+  if (name.includes('vip') || name.includes('premium') || price > 4000 || index === total - 1) {
+    return [true, true, true, true, true, true, true]; // Todos
+  } else if (name.includes('pro') || price > 2000 || index >= Math.floor(total / 2)) {
+    return [true, true, true, true, true, true, false];
+  } else {
+    return [true, true, true, true, false, false, false]; // Básico
+  }
+};
 
 export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAgenciarFormProps) => {
   const queryClient = useQueryClient();
@@ -427,67 +462,115 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
         </Card>
       </Collapsible>
 
-      {/* Modal de Comparação de Serviços */}
+      {/* Modal de Comparação de Pacotes */}
       <Dialog open={showComparison} onOpenChange={setShowComparison}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-auto p-0">
+          <DialogHeader className="p-6 pb-4 border-b">
             <DialogTitle className="flex items-center gap-2">
               <GitCompare className="h-5 w-5" />
-              Comparar Serviços
+              Comparar Pacotes
             </DialogTitle>
           </DialogHeader>
-          <div className="overflow-x-auto">
+          
+          <div className="overflow-x-auto p-6">
             {loadingProducts ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : products && products.length > 0 ? (
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-3 font-medium">Serviço</th>
-                    <th className="text-left p-3 font-medium">Preço</th>
-                    <th className="text-left p-3 font-medium hidden sm:table-cell">Descrição</th>
-                    <th className="p-3 font-medium text-center">Ação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map((product) => (
-                    <tr 
-                      key={product.ID} 
+            ) : (() => {
+              // Filtrar produtos de renovação
+              const productsForComparison = products?.filter(p => 
+                !p.NAME.toLowerCase().includes('renovação') &&
+                !p.NAME.toLowerCase().includes('renovacao')
+              ) || [];
+
+              if (productsForComparison.length === 0) {
+                return (
+                  <p className="text-center text-muted-foreground py-8">
+                    Nenhum pacote disponível para comparação
+                  </p>
+                );
+              }
+
+              return (
+                <div 
+                  className="grid gap-0" 
+                  style={{ 
+                    gridTemplateColumns: `minmax(180px, 1fr) repeat(${productsForComparison.length}, minmax(140px, 1fr))` 
+                  }}
+                >
+                  {/* Headers dos pacotes */}
+                  <div className="p-3 font-semibold text-sm border-b bg-muted/30">
+                    Recursos
+                  </div>
+                  {productsForComparison.map((product, idx) => (
+                    <div 
+                      key={`header-${product.ID}`}
                       className={cn(
-                        "border-b hover:bg-muted/50 transition-colors",
-                        selectedProductId === product.ID && "bg-primary/10"
+                        "p-4 text-center text-white font-bold text-sm rounded-t-lg",
+                        PACKAGE_HEADER_COLORS[idx % PACKAGE_HEADER_COLORS.length]
                       )}
                     >
-                      <td className="p-3 font-medium">{product.NAME}</td>
-                      <td className="p-3 text-primary font-bold whitespace-nowrap">
-                        {formatCurrency(product.PRICE)}
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground hidden sm:table-cell">
-                        {product.DESCRIPTION || '-'}
-                      </td>
-                      <td className="p-3 text-center">
-                        <Button 
-                          size="sm" 
-                          variant={selectedProductId === product.ID ? "default" : "outline"}
-                          onClick={() => {
-                            handleSelectProduct(product);
-                            setShowComparison(false);
-                          }}
-                        >
-                          {selectedProductId === product.ID ? 'Selecionado' : 'Selecionar'}
-                        </Button>
-                      </td>
-                    </tr>
+                      {product.NAME}
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="text-center text-muted-foreground py-8">
-                Nenhum serviço disponível
-              </p>
-            )}
+                  
+                  {/* Linhas de features */}
+                  {PACKAGE_FEATURES.map((feature, fIdx) => (
+                    <>
+                      <div key={`feature-${fIdx}`} className="p-3 border-b bg-muted/10">
+                        <p className="font-medium text-sm">{feature.name}</p>
+                        <p className="text-xs text-muted-foreground">{feature.description}</p>
+                      </div>
+                      {productsForComparison.map((product, pIdx) => {
+                        const features = getPackageFeatures(product, pIdx, productsForComparison.length);
+                        return (
+                          <div 
+                            key={`feature-${fIdx}-${product.ID}`} 
+                            className="flex items-center justify-center p-3 border-b"
+                          >
+                            {features[fIdx] ? (
+                              <Check className="h-5 w-5 text-primary" />
+                            ) : (
+                              <X className="h-5 w-5 text-muted-foreground/30" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </>
+                  ))}
+                  
+                  {/* Linha de preços */}
+                  <div className="p-4 font-bold text-sm bg-muted/30">
+                    Preço
+                  </div>
+                  {productsForComparison.map((product) => (
+                    <div key={`price-${product.ID}`} className="p-4 text-center bg-muted/10">
+                      <span className="text-xl font-bold text-primary">
+                        {formatCurrency(product.PRICE)}
+                      </span>
+                    </div>
+                  ))}
+                  
+                  {/* Linha de botões */}
+                  <div className="p-4" />
+                  {productsForComparison.map((product) => (
+                    <div key={`button-${product.ID}`} className="p-4 text-center">
+                      <Button 
+                        className="w-full"
+                        variant={selectedProductId === product.ID ? "default" : "outline"}
+                        onClick={() => {
+                          handleSelectProduct(product);
+                          setShowComparison(false);
+                        }}
+                      >
+                        {selectedProductId === product.ID ? 'Selecionado' : 'Selecionar'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
