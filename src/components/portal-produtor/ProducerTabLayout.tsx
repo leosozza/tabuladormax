@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Briefcase, LayoutDashboard } from 'lucide-react';
+import { LogOut, Briefcase, LayoutDashboard, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { ProducerDealsTab } from './ProducerDealsTab';
 import { ProducerDashboardTab } from './ProducerDashboardTab';
 
@@ -17,6 +18,7 @@ interface ProducerTabLayoutProps {
 
 export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutProps) => {
   const [activeTab, setActiveTab] = useState<'deals' | 'dashboard'>('deals');
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
@@ -25,7 +27,11 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             {/* Área do perfil */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={() => navigate('/')} title="Voltar">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              
               <Avatar className="h-12 w-12 border-2 border-primary/20 shadow-lg">
                 <AvatarImage src={producerData.photo || undefined} className="object-cover" />
                 <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
