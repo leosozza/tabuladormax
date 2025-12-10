@@ -938,13 +938,13 @@ const PreCadastro = () => {
       toast.error("ID do lead não encontrado");
       return;
     }
-    const validPhotos = images.filter(img => img && !img.includes('no-photo-placeholder'));
-    if (validPhotos.length === 0) {
-      toast.error("Envie pelo menos uma foto em que o rosto do(a) modelo apareça.");
-      return;
-    }
+    // Foto é opcional - removida validação obrigatória
     if (!leadData.nomeModelo) {
       toast.error("Nome do modelo é obrigatório");
+      return;
+    }
+    if (!leadData.nomeResponsavel) {
+      toast.error("Nome do responsável é obrigatório");
       return;
     }
     if (!leadData.telefone) {
@@ -1029,7 +1029,7 @@ const PreCadastro = () => {
           }
         });
         setSaveStatus('Concluído!');
-        toast.success("Mini currículo enviado!");
+        toast.success("Dados salvos com sucesso!");
         setTimeout(() => {
           navigate('/precadastro/sucesso', {
             state: {
@@ -1084,7 +1084,7 @@ const PreCadastro = () => {
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>;
   }
-  const isModelDataComplete = !!(leadData.nomeModelo && leadData.dataNascimento && leadData.sexo);
+  const isModelDataComplete = !!leadData.nomeModelo;
   return <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
@@ -1166,8 +1166,8 @@ const PreCadastro = () => {
             <FormSection title="Dados do Modelo" icon={<User />} collapsible={true} defaultOpen={!isModelDataComplete} isComplete={isModelDataComplete}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField id="nomeModelo" label="Nome Completo do Modelo" value={leadData.nomeModelo} onChange={v => handleFieldChange("nomeModelo", v)} required />
-                <DateSelectField id="dataNascimento" label="Data de Nascimento" value={leadData.dataNascimento} onChange={v => handleFieldChange("dataNascimento", v)} required />
-                <FormField id="sexo" label="Sexo" type="select" value={leadData.sexo} onChange={v => handleFieldChange("sexo", v)} options={SEXO_OPTIONS} required />
+                <DateSelectField id="dataNascimento" label="Data de Nascimento" value={leadData.dataNascimento} onChange={v => handleFieldChange("dataNascimento", v)} />
+                <FormField id="sexo" label="Sexo" type="select" value={leadData.sexo} onChange={v => handleFieldChange("sexo", v)} options={SEXO_OPTIONS} />
                 <FormField id="tipoCabelo" label="Tipo de Cabelo" type="select" value={leadData.tipoCabelo} onChange={v => handleFieldChange("tipoCabelo", v)} options={TIPO_CABELO_OPTIONS} />
                 <FormField id="corCabelo" label="Cor do Cabelo" type="select" value={leadData.corCabelo} onChange={v => handleFieldChange("corCabelo", v)} options={COR_CABELO_OPTIONS} />
                 <FormField id="corOlhos" label="Cor dos Olhos" type="select" value={leadData.corOlhos} onChange={v => handleFieldChange("corOlhos", v)} options={COR_OLHOS_OPTIONS} />
@@ -1216,8 +1216,34 @@ const PreCadastro = () => {
                 <FormField id="nomeResponsavel" label="Nome do Responsável Legal" value={leadData.nomeResponsavel} onChange={v => handleFieldChange("nomeResponsavel", v)} required />
                 <FormField id="estadoCivil" label="Estado Civil" type="select" value={leadData.estadoCivil} onChange={v => handleFieldChange("estadoCivil", v)} options={ESTADO_CIVIL_OPTIONS} />
                 <FormField id="telefone" label="Telefone Principal" type="tel" value={leadData.telefone} onChange={v => handleFieldChange("telefone", v)} required disabled={!!leadId} />
-                <FormField id="cidade" label="Cidade" value={leadData.cidade} onChange={v => handleFieldChange("cidade", v)} required />
-                <FormField id="estado" label="Estado" value={leadData.estado} onChange={v => handleFieldChange("estado", v)} required />
+                
+                {/* Telefones adicionais */}
+                {additionalPhones.map((phone, index) => (
+                  <div key={index} className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <FormField 
+                        id={`phone-${index}`} 
+                        label={`Telefone ${index + 2}`} 
+                        type="tel" 
+                        value={phone} 
+                        onChange={v => handlePhoneChange(index, v)} 
+                      />
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => handleRemovePhone(index)} className="mb-1">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+                
+                <div className="col-span-full">
+                  <Button variant="outline" size="sm" onClick={handleAddPhone} className="mt-2">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar telefone
+                  </Button>
+                </div>
+                
+                <FormField id="cidade" label="Cidade" value={leadData.cidade} onChange={v => handleFieldChange("cidade", v)} />
+                <FormField id="estado" label="Estado" value={leadData.estado} onChange={v => handleFieldChange("estado", v)} />
               </div>
             </FormSection>
 
@@ -1227,7 +1253,7 @@ const PreCadastro = () => {
                   {saveStatus || 'Enviando...'}
                 </> : <>
                   <Send className="h-5 w-5 mr-2" />
-                  Enviar perfil para análise
+                  Salvar atualizações
                 </>}
             </Button>
           </div>
