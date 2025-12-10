@@ -4,11 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { 
-  User, Ruler, Instagram, Calendar, MapPin, Phone, Sparkles, 
-  Heart, Users, Facebook, Youtube, MessageCircle, ExternalLink,
-  Scale, Footprints, Palette, Eye
-} from 'lucide-react';
+import { User, Ruler, Instagram, Calendar, MapPin, Phone, Sparkles, Heart, Users, Facebook, Youtube, MessageCircle, ExternalLink, Scale, Footprints, Palette, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -50,35 +46,24 @@ const BITRIX_DEAL_FIELD_MAPPING = {
   tiktokLink: 'UF_CRM_1762868543',
   tiktokSeguidores: 'UF_CRM_1762872886'
 } as const;
-
 interface OptionItem {
   ID: string;
   VALUE: string;
 }
-
-const translateEnumValue = (
-  value: string | number | null | undefined,
-  items: OptionItem[] | null | undefined
-): string => {
+const translateEnumValue = (value: string | number | null | undefined, items: OptionItem[] | null | undefined): string => {
   if (!value || !items) return '-';
   const strValue = String(value);
   const option = items.find(item => item.ID === strValue);
   return option?.VALUE || strValue;
 };
-
-const translateEnumArray = (
-  values: unknown,
-  items: OptionItem[] | null | undefined
-): string[] => {
+const translateEnumArray = (values: unknown, items: OptionItem[] | null | undefined): string[] => {
   if (!values || !items) return [];
   const arr = Array.isArray(values) ? values : [values];
-  return arr
-    .map(val => {
-      const strVal = String(val);
-      const option = items.find(item => item.ID === strVal);
-      return option?.VALUE || null;
-    })
-    .filter((v): v is string => v !== null && v !== '0' && v !== '');
+  return arr.map(val => {
+    const strVal = String(val);
+    const option = items.find(item => item.ID === strVal);
+    return option?.VALUE || null;
+  }).filter((v): v is string => v !== null && v !== '0' && v !== '');
 };
 
 // ========================================================================
@@ -88,73 +73,77 @@ interface ModelProfileViewProps {
   leadId: number | null;
   bitrixDealId?: number | null;
 }
-
-export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps) => {
+export const ModelProfileView = ({
+  leadId,
+  bitrixDealId
+}: ModelProfileViewProps) => {
   // Buscar dados do deal do Bitrix
-  const { data: bitrixData, isLoading: loadingBitrix, error } = useQuery({
+  const {
+    data: bitrixData,
+    isLoading: loadingBitrix,
+    error
+  } = useQuery({
     queryKey: ['bitrix-deal-profile', bitrixDealId],
     queryFn: async () => {
       if (!bitrixDealId) return null;
-      const { data, error } = await supabase.functions.invoke('bitrix-entity-get', {
-        body: { entityType: 'deal', entityId: String(bitrixDealId) }
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('bitrix-entity-get', {
+        body: {
+          entityType: 'deal',
+          entityId: String(bitrixDealId)
+        }
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Erro ao buscar dados do deal');
       return data;
     },
     enabled: !!bitrixDealId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000
   });
 
   // Buscar dados do lead para fonte e scouter
-  const { data: leadData, isLoading: loadingLead } = useQuery({
+  const {
+    data: leadData,
+    isLoading: loadingLead
+  } = useQuery({
     queryKey: ['lead-source', leadId],
     queryFn: async () => {
       if (!leadId) return null;
-      const { data, error } = await supabase
-        .from('leads')
-        .select('fonte_normalizada, scouter')
-        .eq('id', leadId)
-        .maybeSingle();
+      const {
+        data,
+        error
+      } = await supabase.from('leads').select('fonte_normalizada, scouter').eq('id', leadId).maybeSingle();
       if (error) throw error;
       return data;
     },
     enabled: !!leadId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000
   });
-
   const isLoading = loadingBitrix || loadingLead;
-
   if (!bitrixDealId && !leadId) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
+    return <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
           <User className="h-10 w-10 text-muted-foreground" />
         </div>
         <p className="text-muted-foreground">Nenhum modelo associado</p>
-      </div>
-    );
+      </div>;
   }
-
   if (isLoading) {
     return <MobileLoadingSkeleton />;
   }
-
   if (error || !bitrixData) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
+    return <div className="flex flex-col items-center justify-center py-12 text-center">
         <p className="text-destructive font-medium">Erro ao carregar perfil</p>
         <p className="text-sm text-muted-foreground mt-2">
           {error instanceof Error ? error.message : 'Tente novamente'}
         </p>
-      </div>
-    );
+      </div>;
   }
-
   const dealData = bitrixData.dealData || {};
   const contactData = bitrixData.contactData || {};
   const dealFields = bitrixData.dealFields || {};
-
   const getValue = (fieldKey: keyof typeof BITRIX_DEAL_FIELD_MAPPING): string => {
     const bitrixField = BITRIX_DEAL_FIELD_MAPPING[fieldKey];
     const value = dealData[bitrixField];
@@ -162,15 +151,15 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
     if (Array.isArray(value)) return value[0] || '';
     return String(value);
   };
-
   const getPhone = (): string | null => {
     if (contactData?.PHONE && Array.isArray(contactData.PHONE) && contactData.PHONE.length > 0) {
-      const phoneObj = contactData.PHONE[0] as { VALUE?: string } | null;
+      const phoneObj = contactData.PHONE[0] as {
+        VALUE?: string;
+      } | null;
       return phoneObj?.VALUE || null;
     }
     return null;
   };
-
   const calculateAge = (): number | null => {
     const birthDate = getValue('dataNascimento');
     if (!birthDate) return null;
@@ -180,7 +169,7 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
       const today = new Date();
       let age = today.getFullYear() - date.getFullYear();
       const monthDiff = today.getMonth() - date.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+      if (monthDiff < 0 || monthDiff === 0 && today.getDate() < date.getDate()) {
         age--;
       }
       return age;
@@ -188,14 +177,15 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
       return null;
     }
   };
-
   const getBirthDate = (): string | null => {
     const birthDate = getValue('dataNascimento');
     if (!birthDate) return null;
     try {
       const date = new Date(birthDate);
       if (!isNaN(date.getTime())) {
-        return format(date, "dd/MM/yyyy", { locale: ptBR });
+        return format(date, "dd/MM/yyyy", {
+          locale: ptBR
+        });
       }
     } catch {
       return null;
@@ -261,7 +251,6 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
     if (cleaned.length >= 10) return `55${cleaned}`;
     return cleaned;
   };
-
   const getInstagramUsername = (link: string): string => {
     let username = link;
     if (link.includes('/')) {
@@ -275,25 +264,17 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
   const fonte = leadData?.fonte_normalizada || null;
   const scouter = leadData?.scouter || null;
   const isScouter = fonte?.toLowerCase().includes('scouter');
-
-  return (
-    <div className="space-y-4 pb-4">
+  return <div className="space-y-4 pb-4">
       {/* ==================== HERO SECTION ==================== */}
       <div className="relative rounded-2xl bg-gradient-to-br from-primary/10 via-background to-accent/10 p-5 border border-primary/20">
         {/* Source Badge - Top Right */}
         <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
-          {fonte && (
-            <Badge 
-              className={`text-[10px] ${isScouter ? 'bg-orange-500/20 text-orange-600 border-orange-500/30' : 'bg-blue-500/20 text-blue-600 border-blue-500/30'}`}
-            >
+          {fonte && <Badge className={`text-[10px] ${isScouter ? 'bg-orange-500/20 text-orange-600 border-orange-500/30' : 'bg-blue-500/20 text-blue-600 border-blue-500/30'}`}>
               {isScouter ? '📋 Scouter' : '📱 Meta'}
-            </Badge>
-          )}
-          {isScouter && scouter && (
-            <Badge variant="outline" className="text-[10px] bg-background/80">
+            </Badge>}
+          {isScouter && scouter && <Badge variant="outline" className="text-[10px] bg-background/80">
               {scouter}
-            </Badge>
-          )}
+            </Badge>}
         </div>
 
         <div className="flex items-start gap-4">
@@ -309,94 +290,50 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
             <h1 className="text-xl font-bold text-foreground truncate">{nomeModelo}</h1>
             
             {/* Responsável */}
-            {nomeResponsavel && (
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
+            {nomeResponsavel && <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <Users className="h-3 w-3" />
                 {nomeResponsavel}
-              </p>
-            )}
+              </p>}
             
-            {age && (
-              <p className="text-base text-muted-foreground">{age} anos</p>
-            )}
+            {age && <p className="text-base text-muted-foreground">{age} anos</p>}
             
             {/* Type badges */}
-            {tipoModelo.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {tipoModelo.slice(0, 2).map((tipo, i) => (
-                  <Badge key={i} className="bg-primary/20 text-primary border-primary/30 text-xs">
+            {tipoModelo.length > 0 && <div className="flex flex-wrap gap-1.5 mt-2">
+                {tipoModelo.slice(0, 2).map((tipo, i) => <Badge key={i} className="bg-primary/20 text-primary border-primary/30 text-xs">
                     {tipo}
-                  </Badge>
-                ))}
-                {tipoModelo.length > 2 && (
-                  <Badge variant="secondary" className="text-xs">+{tipoModelo.length - 2}</Badge>
-                )}
-              </div>
-            )}
+                  </Badge>)}
+                {tipoModelo.length > 2 && <Badge variant="secondary" className="text-xs">+{tipoModelo.length - 2}</Badge>}
+              </div>}
           </div>
         </div>
 
         {/* Quick Actions */}
         <div className="flex gap-2 mt-4">
-          {phone && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1 h-11 gap-2 bg-background/80"
-                onClick={() => window.open(`tel:${phone}`, '_self')}
-              >
-                <Phone className="h-4 w-4 text-primary" />
-                <span className="text-sm">Ligar</span>
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1 h-11 gap-2 bg-background/80"
-                onClick={() => window.open(`https://wa.me/${formatPhoneForWhatsApp(phone)}`, '_blank')}
-              >
+          {phone && <>
+              
+              <Button size="sm" variant="outline" className="flex-1 h-11 gap-2 bg-background/80" onClick={() => window.open(`https://wa.me/${formatPhoneForWhatsApp(phone)}`, '_blank')}>
                 <MessageCircle className="h-4 w-4 text-success" />
                 <span className="text-sm">WhatsApp</span>
               </Button>
-            </>
-          )}
-          {instagramLink && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1 h-11 gap-2 bg-background/80"
-              onClick={() => {
-                const username = getInstagramUsername(instagramLink);
-                window.open(`https://instagram.com/${username}`, '_blank');
-              }}
-            >
+            </>}
+          {instagramLink && <Button size="sm" variant="outline" className="flex-1 h-11 gap-2 bg-background/80" onClick={() => {
+          const username = getInstagramUsername(instagramLink);
+          window.open(`https://instagram.com/${username}`, '_blank');
+        }}>
               <Instagram className="h-4 w-4 text-pink-500" />
               <span className="text-sm">Instagram</span>
-            </Button>
-          )}
+            </Button>}
         </div>
       </div>
 
       {/* ==================== QUICK STATS ==================== */}
       <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-        {altura && (
-          <QuickStatCard icon={<Ruler className="h-4 w-4" />} label="Altura" value={`${altura}cm`} />
-        )}
-        {manequim.length > 0 && (
-          <QuickStatCard icon={<User className="h-4 w-4" />} label="Manequim" value={manequim[0]} />
-        )}
-        {calcado && (
-          <QuickStatCard icon={<Footprints className="h-4 w-4" />} label="Calçado" value={calcado} />
-        )}
-        {peso && (
-          <QuickStatCard icon={<Scale className="h-4 w-4" />} label="Peso" value={`${peso}kg`} />
-        )}
-        {corPele !== '-' && (
-          <QuickStatCard icon={<Palette className="h-4 w-4" />} label="Pele" value={corPele} />
-        )}
-        {corOlhos !== '-' && (
-          <QuickStatCard icon={<Eye className="h-4 w-4" />} label="Olhos" value={corOlhos} />
-        )}
+        {altura && <QuickStatCard icon={<Ruler className="h-4 w-4" />} label="Altura" value={`${altura}cm`} />}
+        {manequim.length > 0 && <QuickStatCard icon={<User className="h-4 w-4" />} label="Manequim" value={manequim[0]} />}
+        {calcado && <QuickStatCard icon={<Footprints className="h-4 w-4" />} label="Calçado" value={calcado} />}
+        {peso && <QuickStatCard icon={<Scale className="h-4 w-4" />} label="Peso" value={`${peso}kg`} />}
+        {corPele !== '-' && <QuickStatCard icon={<Palette className="h-4 w-4" />} label="Pele" value={corPele} />}
+        {corOlhos !== '-' && <QuickStatCard icon={<Eye className="h-4 w-4" />} label="Olhos" value={corOlhos} />}
       </div>
 
       {/* ==================== ACCORDION SECTIONS ==================== */}
@@ -423,8 +360,7 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
         </AccordionItem>
 
         {/* Guardian */}
-        {(nomeResponsavel || estadoCivil !== '-') && (
-          <AccordionItem value="guardian" className="border rounded-xl px-4 bg-card">
+        {(nomeResponsavel || estadoCivil !== '-') && <AccordionItem value="guardian" className="border rounded-xl px-4 bg-card">
             <AccordionTrigger className="hover:no-underline py-3">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
@@ -439,12 +375,10 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
                 {estadoCivil !== '-' && <DataItem label="Estado Civil" value={estadoCivil} />}
               </div>
             </AccordionContent>
-          </AccordionItem>
-        )}
+          </AccordionItem>}
 
         {/* Address */}
-        {hasAddress && (
-          <AccordionItem value="address" className="border rounded-xl px-4 bg-card">
+        {hasAddress && <AccordionItem value="address" className="border rounded-xl px-4 bg-card">
             <AccordionTrigger className="hover:no-underline py-3">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
@@ -455,31 +389,18 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
             </AccordionTrigger>
             <AccordionContent>
               <div className="space-y-2 pt-1 pb-2">
-                {enderecoCompleto && (
-                  <p className="text-sm text-foreground">{enderecoCompleto}</p>
-                )}
-                {cep && (
-                  <p className="text-xs text-muted-foreground">CEP: {cep}</p>
-                )}
-                {enderecoCompleto && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 h-9 gap-2"
-                    onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(enderecoCompleto)}`, '_blank')}
-                  >
+                {enderecoCompleto && <p className="text-sm text-foreground">{enderecoCompleto}</p>}
+                {cep && <p className="text-xs text-muted-foreground">CEP: {cep}</p>}
+                {enderecoCompleto && <Button variant="outline" size="sm" className="mt-2 h-9 gap-2" onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(enderecoCompleto)}`, '_blank')}>
                     <ExternalLink className="h-3 w-3" />
                     Ver no Mapa
-                  </Button>
-                )}
+                  </Button>}
               </div>
             </AccordionContent>
-          </AccordionItem>
-        )}
+          </AccordionItem>}
 
         {/* Physical Details */}
-        {hasPhysicalData && (
-          <AccordionItem value="physical" className="border rounded-xl px-4 bg-card">
+        {hasPhysicalData && <AccordionItem value="physical" className="border rounded-xl px-4 bg-card">
             <AccordionTrigger className="hover:no-underline py-3">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center">
@@ -500,12 +421,10 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
                 {corOlhos !== '-' && <DataItem label="Cor Olhos" value={corOlhos} />}
               </div>
             </AccordionContent>
-          </AccordionItem>
-        )}
+          </AccordionItem>}
 
         {/* Skills */}
-        {hasSkillsData && (
-          <AccordionItem value="skills" className="border rounded-xl px-4 bg-card">
+        {hasSkillsData && <AccordionItem value="skills" className="border rounded-xl px-4 bg-card">
             <AccordionTrigger className="hover:no-underline py-3">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center">
@@ -516,44 +435,30 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
             </AccordionTrigger>
             <AccordionContent>
               <div className="space-y-3 pt-1 pb-2">
-                {habilidades.length > 0 && (
-                  <div>
+                {habilidades.length > 0 && <div>
                     <p className="text-xs text-muted-foreground mb-1.5">Habilidades</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {habilidades.map((h, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs">{h}</Badge>
-                      ))}
+                      {habilidades.map((h, i) => <Badge key={i} variant="secondary" className="text-xs">{h}</Badge>)}
                     </div>
-                  </div>
-                )}
-                {cursos.length > 0 && (
-                  <div>
+                  </div>}
+                {cursos.length > 0 && <div>
                     <p className="text-xs text-muted-foreground mb-1.5">Cursos</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {cursos.map((c, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">{c}</Badge>
-                      ))}
+                      {cursos.map((c, i) => <Badge key={i} variant="outline" className="text-xs">{c}</Badge>)}
                     </div>
-                  </div>
-                )}
-                {caracteristicas.length > 0 && (
-                  <div>
+                  </div>}
+                {caracteristicas.length > 0 && <div>
                     <p className="text-xs text-muted-foreground mb-1.5">Características</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {caracteristicas.map((c, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">{c}</Badge>
-                      ))}
+                      {caracteristicas.map((c, i) => <Badge key={i} variant="outline" className="text-xs">{c}</Badge>)}
                     </div>
-                  </div>
-                )}
+                  </div>}
               </div>
             </AccordionContent>
-          </AccordionItem>
-        )}
+          </AccordionItem>}
 
         {/* Social Media */}
-        {hasSocialMedia && (
-          <AccordionItem value="social" className="border rounded-xl px-4 bg-card">
+        {hasSocialMedia && <AccordionItem value="social" className="border rounded-xl px-4 bg-card">
             <AccordionTrigger className="hover:no-underline py-3">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-pink-500/10 flex items-center justify-center">
@@ -564,72 +469,46 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
             </AccordionTrigger>
             <AccordionContent>
               <div className="grid grid-cols-2 gap-3 pt-1 pb-2">
-                {instagramLink && (
-                  <SocialItem
-                    icon={<Instagram className="h-4 w-4 text-pink-500" />}
-                    label="Instagram"
-                    link={instagramLink}
-                    followers={instagramSeguidores}
-                    baseUrl="https://instagram.com/"
-                  />
-                )}
-                {tiktokLink && (
-                  <SocialItem
-                    icon={<span className="text-xs font-bold">TT</span>}
-                    label="TikTok"
-                    link={tiktokLink}
-                    followers={tiktokSeguidores}
-                    baseUrl="https://tiktok.com/@"
-                  />
-                )}
-                {facebookLink && (
-                  <SocialItem
-                    icon={<Facebook className="h-4 w-4 text-blue-600" />}
-                    label="Facebook"
-                    link={facebookLink}
-                    followers={facebookSeguidores}
-                    baseUrl="https://facebook.com/"
-                  />
-                )}
-                {youtubeLink && (
-                  <SocialItem
-                    icon={<Youtube className="h-4 w-4 text-red-500" />}
-                    label="YouTube"
-                    link={youtubeLink}
-                    followers={youtubeSeguidores}
-                    baseUrl="https://youtube.com/@"
-                  />
-                )}
+                {instagramLink && <SocialItem icon={<Instagram className="h-4 w-4 text-pink-500" />} label="Instagram" link={instagramLink} followers={instagramSeguidores} baseUrl="https://instagram.com/" />}
+                {tiktokLink && <SocialItem icon={<span className="text-xs font-bold">TT</span>} label="TikTok" link={tiktokLink} followers={tiktokSeguidores} baseUrl="https://tiktok.com/@" />}
+                {facebookLink && <SocialItem icon={<Facebook className="h-4 w-4 text-blue-600" />} label="Facebook" link={facebookLink} followers={facebookSeguidores} baseUrl="https://facebook.com/" />}
+                {youtubeLink && <SocialItem icon={<Youtube className="h-4 w-4 text-red-500" />} label="YouTube" link={youtubeLink} followers={youtubeSeguidores} baseUrl="https://youtube.com/@" />}
               </div>
             </AccordionContent>
-          </AccordionItem>
-        )}
+          </AccordionItem>}
       </Accordion>
-    </div>
-  );
+    </div>;
 };
 
 // ========================================================================
 // AUXILIARY COMPONENTS
 // ========================================================================
-const QuickStatCard = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
-  <div className="flex-shrink-0 min-w-[100px] bg-card border rounded-xl p-3 text-center">
+const QuickStatCard = ({
+  icon,
+  label,
+  value
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) => <div className="flex-shrink-0 min-w-[100px] bg-card border rounded-xl p-3 text-center">
     <div className="flex justify-center text-primary mb-1">{icon}</div>
     <p className="text-lg font-bold text-foreground leading-tight">{value}</p>
     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
-  </div>
-);
-
-const DataItem = ({ label, value }: { label: string; value: string | null }) => {
+  </div>;
+const DataItem = ({
+  label,
+  value
+}: {
+  label: string;
+  value: string | null;
+}) => {
   if (!value) return null;
-  return (
-    <div>
+  return <div>
       <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
       <p className="text-sm font-medium text-foreground">{value}</p>
-    </div>
-  );
+    </div>;
 };
-
 interface SocialItemProps {
   icon: React.ReactNode;
   label: string;
@@ -637,8 +516,13 @@ interface SocialItemProps {
   followers?: string;
   baseUrl: string;
 }
-
-const SocialItem = ({ icon, label, link, followers, baseUrl }: SocialItemProps) => {
+const SocialItem = ({
+  icon,
+  label,
+  link,
+  followers,
+  baseUrl
+}: SocialItemProps) => {
   let username = link;
   if (link.includes('/')) {
     const parts = link.split('/');
@@ -646,27 +530,15 @@ const SocialItem = ({ icon, label, link, followers, baseUrl }: SocialItemProps) 
   }
   username = username.replace('@', '');
   const fullUrl = link.startsWith('http') ? link : `${baseUrl}${username}`;
-
-  return (
-    <a
-      href={fullUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-    >
+  return <a href={fullUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
       {icon}
       <div className="min-w-0">
         <p className="text-sm font-medium truncate">@{username}</p>
-        {followers && (
-          <p className="text-[10px] text-muted-foreground">{followers} seguidores</p>
-        )}
+        {followers && <p className="text-[10px] text-muted-foreground">{followers} seguidores</p>}
       </div>
-    </a>
-  );
+    </a>;
 };
-
-const MobileLoadingSkeleton = () => (
-  <div className="space-y-4">
+const MobileLoadingSkeleton = () => <div className="space-y-4">
     {/* Hero skeleton */}
     <div className="rounded-2xl border p-5 space-y-4">
       <div className="flex gap-4">
@@ -689,14 +561,9 @@ const MobileLoadingSkeleton = () => (
     
     {/* Quick stats skeleton */}
     <div className="flex gap-3 overflow-hidden">
-      {[1, 2, 3, 4].map(i => (
-        <Skeleton key={i} className="h-20 w-24 rounded-xl flex-shrink-0" />
-      ))}
+      {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20 w-24 rounded-xl flex-shrink-0" />)}
     </div>
     
     {/* Accordion skeletons */}
-    {[1, 2, 3].map(i => (
-      <Skeleton key={i} className="h-14 w-full rounded-xl" />
-    ))}
-  </div>
-);
+    {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
+  </div>;
