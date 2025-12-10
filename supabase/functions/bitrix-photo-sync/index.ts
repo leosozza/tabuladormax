@@ -203,51 +203,12 @@ serve(async (req) => {
     const allStoragePaths: string[] = [];
     let totalSize = 0;
 
-    // 1. Processar fileObjects (já têm URLs do Bitrix)
+    // 1. Converter fileObjects em IDs para usar métodos REST corretos
+    // URLs do show_file.php não funcionam com tokens REST - precisam de sessão
     for (const fileObj of fileObjectsToProcess) {
-      try {
-        console.log(`📡 Processando arquivo ${fileObj.id} com URL direta...`);
-        
-        // Construir URL completa a partir do showUrl ou downloadUrl
-        let downloadUrl = fileObj.downloadUrl || fileObj.showUrl;
-        
-        if (!downloadUrl) {
-          console.error(`❌ Objeto de arquivo ${fileObj.id} sem URL`);
-          continue;
-        }
-        
-        // Se for URL relativa, adicionar domínio
-        if (downloadUrl.startsWith('/')) {
-          downloadUrl = `https://${bitrixDomain}${downloadUrl}`;
-        }
-        
-        // Corrigir auth vazio ou ausente na URL
-        if (downloadUrl.includes('auth=&') || downloadUrl.includes('auth=')) {
-          // Substituir auth vazio pelo token correto
-          downloadUrl = downloadUrl.replace(/auth=(&|$)/, `auth=${bitrixToken}&`);
-          downloadUrl = downloadUrl.replace(/&&/g, '&'); // Limpar double &
-        } else if (downloadUrl.includes('?') && !downloadUrl.includes('auth=')) {
-          // Adicionar auth se não existir
-          downloadUrl += `&auth=${bitrixToken}`;
-        }
-        
-        console.log(`📥 URL para download: ${downloadUrl}`);
-        
-        // Baixar, fazer upload e obter URL pública
-        const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
-          leadId,
-          fileObj.id,
-          downloadUrl,
-          supabase
-        );
-        
-        allPublicUrls.push(publicUrl);
-        allStoragePaths.push(storagePath);
-        totalSize += fileSize;
-        
-        console.log(`✅ Arquivo ${fileObj.id} sincronizado: ${publicUrl}`);
-      } catch (error) {
-        console.error(`❌ Erro ao processar arquivo ${fileObj.id}:`, error);
+      if (fileObj.id && !photoIdsToProcess.includes(fileObj.id)) {
+        console.log(`📋 Convertendo fileObject ${fileObj.id} para processamento via REST API`);
+        photoIdsToProcess.push(fileObj.id);
       }
     }
 
