@@ -57,7 +57,10 @@ export const DealDetailView = ({ deal, onClose, producerId }: DealDetailViewProp
         </TabsList>
 
         <TabsContent value="perfil" className="mt-4">
-          <ModelProfileView leadId={deal.lead_id} />
+          <ModelProfileView 
+            leadId={deal.lead_id} 
+            bitrixDealId={deal.bitrix_deal_id}
+          />
         </TabsContent>
 
         <TabsContent value="agenciar" className="mt-4">
