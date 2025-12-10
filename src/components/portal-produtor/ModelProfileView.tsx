@@ -308,13 +308,7 @@ export const ModelProfileView = ({
         </div>
 
         {/* Quick Actions */}
-        <div className="flex gap-2 mt-4">
-          {phone && <>
-              
-              
-            </>}
-          {instagramLink}
-        </div>
+        
       </div>
 
       {/* ==================== QUICK STATS ==================== */}
