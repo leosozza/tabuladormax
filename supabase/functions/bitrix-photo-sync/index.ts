@@ -212,64 +212,36 @@ serve(async (req) => {
       }
     }
 
-    // 2. Processar fotos por ID usando disk.file.getExternalLink (gera URL pública temporária)
+    // 2. Processar fotos por ID usando disk.file.get → result.DOWNLOAD_URL
     for (const photoId of photoIdsToProcess) {
       try {
         console.log(`📡 Processando foto ${photoId}...`);
         
-        let downloadUrl: string | null = null;
+        // Método correto: disk.file.get retorna JSON com DOWNLOAD_URL
+        const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}`;
+        console.log(`📡 Chamando disk.file.get: ${diskFileUrl}`);
         
-        // 1. MELHOR MÉTODO: disk.file.getExternalLink - gera URL pública temporária
-        const externalLinkUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.getExternalLink?id=${photoId}`;
-        console.log(`📡 Tentando disk.file.getExternalLink: ${externalLinkUrl}`);
-        const extResp = await fetch(externalLinkUrl);
+        const diskResp = await fetch(diskFileUrl);
         
-        if (extResp.ok) {
-          const extJson = await extResp.json();
-          console.log(`📋 Resposta getExternalLink:`, JSON.stringify(extJson).slice(0, 300));
-          downloadUrl = extJson.result;
-          if (downloadUrl && typeof downloadUrl === 'string') {
-            console.log(`✅ disk.file.getExternalLink retornou URL pública para foto ${photoId}`);
-          } else {
-            downloadUrl = null;
-          }
-        }
-        
-        // 2. Se getExternalLink não funcionou, tentar disk.file.get para obter DOWNLOAD_URL
-        if (!downloadUrl) {
-          const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}`;
-          console.log(`📡 Fallback para disk.file.get: ${diskFileUrl}`);
-          const diskResp = await fetch(diskFileUrl);
-          
-          if (diskResp.ok) {
-            const diskJson = await diskResp.json();
-            console.log(`📋 Resposta disk.file.get:`, JSON.stringify(diskJson).slice(0, 300));
-            downloadUrl = diskJson.result?.DOWNLOAD_URL;
-            if (downloadUrl) {
-              console.log(`✅ disk.file.get retornou URL para foto ${photoId}`);
-            }
-          }
-        }
-        
-        // 3. Último recurso: URL direta do REST API com download via /rest/
-        if (!downloadUrl) {
-          // Construir URL de download via REST API (não show_file.php que requer sessão)
-          downloadUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.download?id=${photoId}`;
-          console.log(`📡 Tentando disk.file.download: ${downloadUrl}`);
-          
-          // Verificar se esse método existe fazendo um HEAD request
-          const testResp = await fetch(downloadUrl, { method: 'HEAD' });
-          if (!testResp.ok) {
-            console.log(`⚠️ disk.file.download não disponível, tentando URL alternativa...`);
-            // Última tentativa: URL de download direto do módulo disk
-            downloadUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}&download=true`;
-          }
-        }
-        
-        if (!downloadUrl) {
-          console.error(`❌ Não foi possível obter URL de download para foto ${photoId}`);
+        if (!diskResp.ok) {
+          console.error(`❌ disk.file.get falhou para foto ${photoId}: ${diskResp.status} ${diskResp.statusText}`);
+          const errorBody = await diskResp.text().catch(() => '');
+          console.error(`❌ Resposta de erro: ${errorBody.slice(0, 500)}`);
           continue;
         }
+        
+        const diskJson = await diskResp.json();
+        console.log(`📋 Resposta disk.file.get:`, JSON.stringify(diskJson).slice(0, 500));
+        
+        const downloadUrl = diskJson.result?.DOWNLOAD_URL;
+        
+        if (!downloadUrl) {
+          console.error(`❌ DOWNLOAD_URL não encontrado na resposta para foto ${photoId}`);
+          console.error(`📋 result disponível:`, JSON.stringify(diskJson.result || {}).slice(0, 300));
+          continue;
+        }
+        
+        console.log(`✅ DOWNLOAD_URL obtido: ${downloadUrl}`);
         
         // Baixar, fazer upload e obter URL pública
         const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
@@ -289,45 +261,33 @@ serve(async (req) => {
       }
     }
 
-    // Processar fotos do campo antigo (podem ter downloadUrl direto ou precisar de disk.file.getExternalLink)
+    // Processar fotos do campo antigo usando disk.file.get → result.DOWNLOAD_URL
     for (const photo of oldFieldPhotos || []) {
       try {
         console.log(`📡 Processando foto antiga ${photo.id}...`);
         
-        let downloadUrl = photo.downloadUrl;
+        // Método correto: disk.file.get retorna JSON com DOWNLOAD_URL
+        const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photo.id}`;
+        console.log(`📡 Chamando disk.file.get para foto antiga: ${diskFileUrl}`);
         
-        // Se não tem downloadUrl direto, usar disk.file.getExternalLink
-        if (!downloadUrl) {
-          // 1. MELHOR MÉTODO: disk.file.getExternalLink
-          const externalLinkUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.getExternalLink?id=${photo.id}`;
-          console.log(`📡 Tentando disk.file.getExternalLink: ${externalLinkUrl}`);
-          const extResp = await fetch(externalLinkUrl);
-          
-          if (extResp.ok) {
-            const extJson = await extResp.json();
-            console.log(`📋 Resposta getExternalLink (foto antiga):`, JSON.stringify(extJson).slice(0, 300));
-            if (extJson.result && typeof extJson.result === 'string') {
-              downloadUrl = extJson.result;
-              console.log(`✅ disk.file.getExternalLink retornou URL para foto antiga ${photo.id}`);
-            }
-          }
-          
-          // 2. Fallback: disk.file.get
-          if (!downloadUrl) {
-            const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photo.id}`;
-            const diskResp = await fetch(diskFileUrl);
-            
-            if (diskResp.ok) {
-              const diskJson = await diskResp.json();
-              downloadUrl = diskJson.result?.DOWNLOAD_URL;
-            }
-          }
-        }
+        const diskResp = await fetch(diskFileUrl);
         
-        if (!downloadUrl) {
-          console.error(`❌ Não foi possível obter URL de download para foto antiga ${photo.id}`);
+        if (!diskResp.ok) {
+          console.error(`❌ disk.file.get falhou para foto antiga ${photo.id}: ${diskResp.status}`);
           continue;
         }
+        
+        const diskJson = await diskResp.json();
+        console.log(`📋 Resposta disk.file.get (foto antiga):`, JSON.stringify(diskJson).slice(0, 500));
+        
+        const downloadUrl = diskJson.result?.DOWNLOAD_URL;
+        
+        if (!downloadUrl) {
+          console.error(`❌ DOWNLOAD_URL não encontrado para foto antiga ${photo.id}`);
+          continue;
+        }
+        
+        console.log(`✅ DOWNLOAD_URL obtido para foto antiga: ${downloadUrl}`);
         
         // Baixar, fazer upload e obter URL pública
         const { publicUrl, storagePath, fileSize } = await downloadAndUploadPhoto(
