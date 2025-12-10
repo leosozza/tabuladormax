@@ -19,7 +19,7 @@ const PreCadastroSucesso = () => {
       <Card className="max-w-lg w-full shadow-elegant">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <img src={maxfamaLogo} alt="Max Fama - Modeling and Influencer Agency" className="h-14 md:h-16 w-auto mx-auto" />
+            <img src={maxfamaLogo} alt="Max Fama - Modeling and Influencer Agency" className="h-20 md:h-24 w-auto mx-auto" />
           </div>
           <CardTitle className="text-2xl">Perfil enviado! 🎉</CardTitle>
         </CardHeader>

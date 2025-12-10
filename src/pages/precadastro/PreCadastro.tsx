@@ -1105,7 +1105,7 @@ const PreCadastro = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <div className="mx-auto mb-4">
-            <img src={maxfamaLogo} alt="Max Fama - Modeling and Influencer Agency" className="h-16 md:h-20 w-auto mx-auto" />
+            <img src={maxfamaLogo} alt="Max Fama - Modeling and Influencer Agency" className="h-24 md:h-32 w-auto mx-auto" />
           </div>
           
           <div className="mt-4 max-w-xl mx-auto">
