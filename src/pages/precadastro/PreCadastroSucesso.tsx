@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Instagram } from "lucide-react";
+import { Instagram } from "lucide-react";
+import maxfamaLogo from "@/assets/maxfama-logo.png";
 const PreCadastroSucesso = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -17,10 +18,10 @@ const PreCadastroSucesso = () => {
   return <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background flex items-center justify-center p-4">
       <Card className="max-w-lg w-full shadow-elegant">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center">
-            <CheckCircle2 className="h-12 w-12 text-primary-foreground" />
+          <div className="mx-auto mb-4 w-20 h-20 rounded-full overflow-hidden">
+            <img src={maxfamaLogo} alt="Max Fama" className="w-full h-full object-cover" />
           </div>
-          <CardTitle className="text-2xl">Mini currículo enviado! 🎉</CardTitle>
+          <CardTitle className="text-2xl">Perfil enviado! 🎉</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 text-center">
           <p className="text-muted-foreground">
