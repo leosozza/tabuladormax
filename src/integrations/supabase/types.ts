@@ -3345,6 +3345,7 @@ export type Database = {
           created_date: string
           deal_id: string
           lead_id: number
+          model_name: string
           negotiation_id: string
           negotiation_status: string
           opportunity: number

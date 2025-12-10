@@ -48,9 +48,16 @@ export const ProducerDealCard = ({ deal, onClick }: ProducerDealCardProps) => {
     >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-base font-medium line-clamp-2">
-            {deal.title}
-          </CardTitle>
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-base font-medium line-clamp-2">
+              {deal.model_name || deal.title}
+            </CardTitle>
+            {deal.lead_id && (
+              <span className="text-xs text-muted-foreground">
+                Lead #{deal.lead_id}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2 shrink-0">
             <Badge variant={statusInfo.variant}>
               {statusInfo.label}
