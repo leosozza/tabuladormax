@@ -221,6 +221,16 @@ serve(async (req) => {
           downloadUrl = `https://${bitrixDomain}${downloadUrl}`;
         }
         
+        // Corrigir auth vazio ou ausente na URL
+        if (downloadUrl.includes('auth=&') || downloadUrl.includes('auth=')) {
+          // Substituir auth vazio pelo token correto
+          downloadUrl = downloadUrl.replace(/auth=(&|$)/, `auth=${bitrixToken}&`);
+          downloadUrl = downloadUrl.replace(/&&/g, '&'); // Limpar double &
+        } else if (downloadUrl.includes('?') && !downloadUrl.includes('auth=')) {
+          // Adicionar auth se não existir
+          downloadUrl += `&auth=${bitrixToken}`;
+        }
+        
         console.log(`📥 URL para download: ${downloadUrl}`);
         
         // Baixar, fazer upload e obter URL pública
