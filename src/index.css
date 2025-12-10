@@ -207,6 +207,15 @@ All colors MUST be HSL.
     }
   }
 
+  /* Hide scrollbar utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Cards responsivos */
   .mobile-card {
     @apply w-full p-4;

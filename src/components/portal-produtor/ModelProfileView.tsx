@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { 
-  User, Ruler, Palette, Instagram, 
-  Calendar, MapPin, Phone, Sparkles, ImageIcon, Heart, Users, Facebook, Youtube
+  User, Ruler, Instagram, Calendar, MapPin, Phone, Sparkles, 
+  Heart, Users, Facebook, Youtube, MessageCircle, ExternalLink,
+  Scale, Footprints, Palette, Eye
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -15,23 +17,18 @@ import { ptBR } from 'date-fns/locale';
 // MAPEAMENTO DE CAMPOS DO BITRIX DEAL (igual ao /cadastro)
 // ========================================================================
 const BITRIX_DEAL_FIELD_MAPPING = {
-  // Identificação
   nomeModelo: 'UF_CRM_6748E09939008',
   nomeResponsavel: 'UF_CRM_690CA588BDFB7',
   cpf: 'UF_CRM_1762868654',
   dataNascimento: 'UF_CRM_1762533440587',
   estadoCivil: 'UF_CRM_690CA586298B8',
   sexo: 'UF_CRM_6748E0996FC57',
-  
-  // Endereço
   cep: 'UF_CRM_1761762176',
   endereco: 'UF_CRM_1761762201',
   numero: 'UF_CRM_1762450966586',
   bairro: 'UF_CRM_1762450985051',
   cidade: 'UF_CRM_1762451032936',
   estado: 'UF_CRM_1762451508',
-  
-  // Características Físicas
   altura: 'UF_CRM_6753068A7DEC9',
   peso: 'UF_CRM_6753068A86FE0',
   calcado: 'UF_CRM_6753068A765FD',
@@ -40,14 +37,10 @@ const BITRIX_DEAL_FIELD_MAPPING = {
   corCabelo: 'UF_CRM_DEAL_1750166749133',
   corOlhos: 'UF_CRM_6753068A5BE7C',
   corPele: 'UF_CRM_690CA5863827D',
-  
-  // Habilidades (multi-select)
   habilidades: 'UF_CRM_690CA585CADA1',
   cursos: 'UF_CRM_690CA585DA123',
   caracteristicasEspeciais: 'UF_CRM_690CA585EAFC3',
   tipoModelo: 'UF_CRM_690CA58606670',
-  
-  // Redes Sociais
   instagramLink: 'UF_CRM_1762866652',
   instagramSeguidores: 'UF_CRM_1762866813',
   facebookLink: 'UF_CRM_1762867010',
@@ -58,9 +51,6 @@ const BITRIX_DEAL_FIELD_MAPPING = {
   tiktokSeguidores: 'UF_CRM_1762872886'
 } as const;
 
-// ========================================================================
-// FUNÇÕES DE TRADUÇÃO
-// ========================================================================
 interface OptionItem {
   ID: string;
   VALUE: string;
@@ -100,75 +90,44 @@ interface ModelProfileViewProps {
 }
 
 export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps) => {
-  // Buscar dados do Bitrix Deal via edge function
   const { data: bitrixData, isLoading, error } = useQuery({
     queryKey: ['bitrix-deal-profile', bitrixDealId],
     queryFn: async () => {
       if (!bitrixDealId) return null;
-      
       const { data, error } = await supabase.functions.invoke('bitrix-entity-get', {
         body: { entityType: 'deal', entityId: String(bitrixDealId) }
       });
-      
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Erro ao buscar dados do deal');
-      
       return data;
     },
     enabled: !!bitrixDealId,
-    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+    staleTime: 5 * 60 * 1000,
   });
 
   if (!bitrixDealId && !leadId) {
     return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Nenhum modelo associado a este deal</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex gap-6">
-              <Skeleton className="h-32 w-32 rounded-lg" />
-              <div className="flex-1 space-y-3">
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-4 w-40" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-2 gap-4">
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-16 w-full" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+          <User className="h-10 w-10 text-muted-foreground" />
+        </div>
+        <p className="text-muted-foreground">Nenhum modelo associado</p>
       </div>
     );
   }
 
+  if (isLoading) {
+    return <MobileLoadingSkeleton />;
+  }
+
   if (error || !bitrixData) {
     return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <p className="text-destructive">Erro ao carregar perfil do modelo</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            {error instanceof Error ? error.message : 'Tente novamente mais tarde'}
-          </p>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <p className="text-destructive font-medium">Erro ao carregar perfil</p>
+        <p className="text-sm text-muted-foreground mt-2">
+          {error instanceof Error ? error.message : 'Tente novamente'}
+        </p>
+      </div>
     );
   }
 
@@ -176,11 +135,6 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
   const contactData = bitrixData.contactData || {};
   const dealFields = bitrixData.dealFields || {};
 
-  // ========================================================================
-  // EXTRAÇÃO DE DADOS DO DEAL
-  // ========================================================================
-  
-  // Helper para obter valor
   const getValue = (fieldKey: keyof typeof BITRIX_DEAL_FIELD_MAPPING): string => {
     const bitrixField = BITRIX_DEAL_FIELD_MAPPING[fieldKey];
     const value = dealData[bitrixField];
@@ -189,7 +143,6 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
     return String(value);
   };
 
-  // Telefone do contato
   const getPhone = (): string | null => {
     if (contactData?.PHONE && Array.isArray(contactData.PHONE) && contactData.PHONE.length > 0) {
       const phoneObj = contactData.PHONE[0] as { VALUE?: string } | null;
@@ -197,32 +150,13 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
     }
     return null;
   };
-  const phone = getPhone();
-
-  // Data de nascimento
-  const getBirthDate = (): string | null => {
-    const birthDate = getValue('dataNascimento');
-    if (!birthDate) return null;
-    
-    try {
-      const date = new Date(birthDate);
-      if (!isNaN(date.getTime())) {
-        return format(date, "dd/MM/yyyy", { locale: ptBR });
-      }
-    } catch {
-      return null;
-    }
-    return null;
-  };
 
   const calculateAge = (): number | null => {
     const birthDate = getValue('dataNascimento');
     if (!birthDate) return null;
-    
     try {
       const date = new Date(birthDate);
       if (isNaN(date.getTime())) return null;
-      
       const today = new Date();
       let age = today.getFullYear() - date.getFullYear();
       const monthDiff = today.getMonth() - date.getMonth();
@@ -235,394 +169,418 @@ export const ModelProfileView = ({ leadId, bitrixDealId }: ModelProfileViewProps
     }
   };
 
-  // Dados básicos
-  const nomeModelo = getValue('nomeModelo') || 'Nome não informado';
-  const nomeResponsavel = getValue('nomeResponsavel');
-  const cpf = getValue('cpf');
-  const cidade = getValue('cidade');
-  const estado = translateEnumValue(
-    getValue('estado'),
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.estado]?.items
-  );
-  const sexo = translateEnumValue(
-    getValue('sexo'),
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.sexo]?.items
-  );
-  const estadoCivil = translateEnumValue(
-    getValue('estadoCivil'),
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.estadoCivil]?.items
-  );
-  const birthDate = getBirthDate();
-  const age = calculateAge();
+  const getBirthDate = (): string | null => {
+    const birthDate = getValue('dataNascimento');
+    if (!birthDate) return null;
+    try {
+      const date = new Date(birthDate);
+      if (!isNaN(date.getTime())) {
+        return format(date, "dd/MM/yyyy", { locale: ptBR });
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  };
 
-  // Endereço completo
+  // Extracted data
+  const phone = getPhone();
+  const nomeModelo = getValue('nomeModelo') || 'Nome não informado';
+  const age = calculateAge();
+  const birthDate = getBirthDate();
+  const cpf = getValue('cpf');
+  const sexo = translateEnumValue(getValue('sexo'), dealFields[BITRIX_DEAL_FIELD_MAPPING.sexo]?.items);
+  const estadoCivil = translateEnumValue(getValue('estadoCivil'), dealFields[BITRIX_DEAL_FIELD_MAPPING.estadoCivil]?.items);
+  const nomeResponsavel = getValue('nomeResponsavel');
+
+  // Address
   const cep = getValue('cep');
   const endereco = getValue('endereco');
   const numero = getValue('numero');
   const bairro = getValue('bairro');
-  const enderecoCompleto = [endereco, numero, bairro, cidade, estado !== '-' ? estado : null]
-    .filter(Boolean)
-    .join(', ');
+  const cidade = getValue('cidade');
+  const estado = translateEnumValue(getValue('estado'), dealFields[BITRIX_DEAL_FIELD_MAPPING.estado]?.items);
+  const enderecoCompleto = [endereco, numero, bairro, cidade, estado !== '-' ? estado : null].filter(Boolean).join(', ');
 
-  // Dados físicos
+  // Physical data
   const altura = getValue('altura');
   const peso = getValue('peso');
   const calcado = getValue('calcado');
-  const manequimValues = dealData[BITRIX_DEAL_FIELD_MAPPING.manequim];
-  const manequim = translateEnumArray(
-    manequimValues,
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.manequim]?.items
-  );
-  const tipoCabelo = translateEnumValue(
-    getValue('tipoCabelo'),
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.tipoCabelo]?.items
-  );
-  const corCabelo = translateEnumValue(
-    getValue('corCabelo'),
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.corCabelo]?.items
-  );
-  const corOlhos = translateEnumValue(
-    getValue('corOlhos'),
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.corOlhos]?.items
-  );
-  const corPele = translateEnumValue(
-    getValue('corPele'),
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.corPele]?.items
-  );
+  const manequim = translateEnumArray(dealData[BITRIX_DEAL_FIELD_MAPPING.manequim], dealFields[BITRIX_DEAL_FIELD_MAPPING.manequim]?.items);
+  const tipoCabelo = translateEnumValue(getValue('tipoCabelo'), dealFields[BITRIX_DEAL_FIELD_MAPPING.tipoCabelo]?.items);
+  const corCabelo = translateEnumValue(getValue('corCabelo'), dealFields[BITRIX_DEAL_FIELD_MAPPING.corCabelo]?.items);
+  const corOlhos = translateEnumValue(getValue('corOlhos'), dealFields[BITRIX_DEAL_FIELD_MAPPING.corOlhos]?.items);
+  const corPele = translateEnumValue(getValue('corPele'), dealFields[BITRIX_DEAL_FIELD_MAPPING.corPele]?.items);
 
-  // Habilidades e características
-  const habilidades = translateEnumArray(
-    dealData[BITRIX_DEAL_FIELD_MAPPING.habilidades],
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.habilidades]?.items
-  );
-  const cursos = translateEnumArray(
-    dealData[BITRIX_DEAL_FIELD_MAPPING.cursos],
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.cursos]?.items
-  );
-  const caracteristicas = translateEnumArray(
-    dealData[BITRIX_DEAL_FIELD_MAPPING.caracteristicasEspeciais],
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.caracteristicasEspeciais]?.items
-  );
-  const tipoModelo = translateEnumArray(
-    dealData[BITRIX_DEAL_FIELD_MAPPING.tipoModelo],
-    dealFields[BITRIX_DEAL_FIELD_MAPPING.tipoModelo]?.items
-  );
+  // Skills
+  const habilidades = translateEnumArray(dealData[BITRIX_DEAL_FIELD_MAPPING.habilidades], dealFields[BITRIX_DEAL_FIELD_MAPPING.habilidades]?.items);
+  const cursos = translateEnumArray(dealData[BITRIX_DEAL_FIELD_MAPPING.cursos], dealFields[BITRIX_DEAL_FIELD_MAPPING.cursos]?.items);
+  const caracteristicas = translateEnumArray(dealData[BITRIX_DEAL_FIELD_MAPPING.caracteristicasEspeciais], dealFields[BITRIX_DEAL_FIELD_MAPPING.caracteristicasEspeciais]?.items);
+  const tipoModelo = translateEnumArray(dealData[BITRIX_DEAL_FIELD_MAPPING.tipoModelo], dealFields[BITRIX_DEAL_FIELD_MAPPING.tipoModelo]?.items);
 
-  // Redes sociais
+  // Social
   const instagramLink = getValue('instagramLink');
   const instagramSeguidores = getValue('instagramSeguidores');
+  const tiktokLink = getValue('tiktokLink');
+  const tiktokSeguidores = getValue('tiktokSeguidores');
   const facebookLink = getValue('facebookLink');
   const facebookSeguidores = getValue('facebookSeguidores');
   const youtubeLink = getValue('youtubeLink');
   const youtubeSeguidores = getValue('youtubeSeguidores');
-  const tiktokLink = getValue('tiktokLink');
-  const tiktokSeguidores = getValue('tiktokSeguidores');
 
-  // Verificar se há dados preenchidos
+  // Flags
   const hasPhysicalData = Boolean(altura || peso || manequim.length || calcado || corPele !== '-' || corCabelo !== '-' || corOlhos !== '-' || tipoCabelo !== '-');
-  const hasSkillsData = Boolean(habilidades.length || cursos.length || caracteristicas.length || tipoModelo.length);
+  const hasSkillsData = Boolean(habilidades.length || cursos.length || caracteristicas.length);
   const hasSocialMedia = Boolean(instagramLink || facebookLink || youtubeLink || tiktokLink);
   const hasAddress = Boolean(enderecoCompleto || cep);
 
+  // Format phone for WhatsApp
+  const formatPhoneForWhatsApp = (phoneNumber: string): string => {
+    const cleaned = phoneNumber.replace(/\D/g, '');
+    if (cleaned.startsWith('55')) return cleaned;
+    if (cleaned.length >= 10) return `55${cleaned}`;
+    return cleaned;
+  };
+
+  const getInstagramUsername = (link: string): string => {
+    let username = link;
+    if (link.includes('/')) {
+      const parts = link.split('/');
+      username = parts[parts.length - 1] || parts[parts.length - 2] || link;
+    }
+    return username.replace('@', '');
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Foto principal e dados básicos */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Dados do Modelo
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-6">
-            {/* Avatar placeholder - deal não tem foto */}
-            <div className="shrink-0 flex justify-center sm:justify-start">
-              <Avatar className="h-32 w-32 rounded-lg border-2 border-primary/20">
-                <AvatarFallback className="rounded-lg bg-muted">
-                  <User className="h-12 w-12 text-muted-foreground" />
-                </AvatarFallback>
-              </Avatar>
-            </div>
+    <div className="space-y-4 pb-4">
+      {/* ==================== HERO SECTION ==================== */}
+      <div className="relative rounded-2xl bg-gradient-to-br from-primary/10 via-background to-accent/10 p-5 border border-primary/20">
+        <div className="flex items-start gap-4">
+          {/* Avatar */}
+          <Avatar className="h-24 w-24 rounded-2xl border-2 border-primary/30 shadow-lg">
+            <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 text-2xl font-bold text-primary">
+              {nomeModelo.split(' ').map(n => n[0]).slice(0, 2).join('')}
+            </AvatarFallback>
+          </Avatar>
 
-            {/* Dados básicos */}
-            <div className="flex-1 space-y-4">
-              <div>
-                <h2 className="text-xl font-bold">{nomeModelo}</h2>
-                {age && (
-                  <p className="text-muted-foreground">{age} anos</p>
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold text-foreground truncate">{nomeModelo}</h1>
+            {age && (
+              <p className="text-lg text-muted-foreground">{age} anos</p>
+            )}
+            
+            {/* Type badges */}
+            {tipoModelo.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {tipoModelo.slice(0, 3).map((tipo, i) => (
+                  <Badge key={i} className="bg-primary/20 text-primary border-primary/30 text-xs">
+                    {tipo}
+                  </Badge>
+                ))}
+                {tipoModelo.length > 3 && (
+                  <Badge variant="secondary" className="text-xs">+{tipoModelo.length - 3}</Badge>
                 )}
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {birthDate && (
-                  <DataItem 
-                    icon={<Calendar className="h-3 w-3" />}
-                    label="Data de Nascimento" 
-                    value={birthDate} 
-                  />
-                )}
-                {sexo !== '-' && (
-                  <DataItem label="Sexo" value={sexo} />
-                )}
-                {phone && (
-                  <DataItem 
-                    icon={<Phone className="h-3 w-3" />}
-                    label="Telefone" 
-                    value={phone} 
-                  />
-                )}
-                {cpf && (
-                  <DataItem label="CPF" value={cpf} />
-                )}
-              </div>
-            </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Dados do Responsável */}
-      {(nomeResponsavel || estadoCivil !== '-') && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Dados do Responsável
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              {nomeResponsavel && (
-                <DataItem label="Nome do Responsável" value={nomeResponsavel} />
-              )}
-              {estadoCivil !== '-' && (
-                <DataItem 
-                  icon={<Heart className="h-3 w-3" />}
-                  label="Estado Civil" 
-                  value={estadoCivil} 
-                />
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Endereço */}
-      {hasAddress && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Endereço
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {enderecoCompleto && (
-                <p className="text-sm">{enderecoCompleto}</p>
-              )}
-              {cep && (
-                <p className="text-sm text-muted-foreground">CEP: {cep}</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Dados Físicos */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Ruler className="h-4 w-4" />
-            Dados Físicos
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {hasPhysicalData ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {altura && (
-                <DataItem label="Altura" value={`${altura} cm`} />
-              )}
-              {peso && (
-                <DataItem label="Peso" value={`${peso} kg`} />
-              )}
-              {manequim.length > 0 && (
-                <DataItem label="Manequim" value={manequim.join(', ')} />
-              )}
-              {calcado && (
-                <DataItem label="Calçado" value={calcado} />
-              )}
-              {corPele !== '-' && (
-                <DataItem label="Cor da Pele" value={corPele} />
-              )}
-              {corCabelo !== '-' && (
-                <DataItem label="Cor do Cabelo" value={corCabelo} />
-              )}
-              {tipoCabelo !== '-' && (
-                <DataItem label="Tipo de Cabelo" value={tipoCabelo} />
-              )}
-              {corOlhos !== '-' && (
-                <DataItem label="Cor dos Olhos" value={corOlhos} />
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Dados físicos ainda não preenchidos
-            </p>
+        {/* Quick Actions */}
+        <div className="flex gap-2 mt-4">
+          {phone && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 h-11 gap-2 bg-background/80"
+                onClick={() => window.open(`tel:${phone}`, '_self')}
+              >
+                <Phone className="h-4 w-4 text-primary" />
+                <span className="text-sm">Ligar</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 h-11 gap-2 bg-background/80"
+                onClick={() => window.open(`https://wa.me/${formatPhoneForWhatsApp(phone)}`, '_blank')}
+              >
+                <MessageCircle className="h-4 w-4 text-success" />
+                <span className="text-sm">WhatsApp</span>
+              </Button>
+            </>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Tipo de Modelo (destaque) */}
-      {tipoModelo.length > 0 && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              Tipo de Modelo
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {tipoModelo.map((tipo, index) => (
-                <Badge key={index} variant="default" className="text-sm">
-                  {tipo}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Habilidades e Características */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
-            Habilidades e Características
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {hasSkillsData ? (
-            <div className="space-y-4">
-              {habilidades.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Habilidades</p>
-                  <div className="flex flex-wrap gap-2">
-                    {habilidades.map((hab, index) => (
-                      <Badge key={index} variant="secondary">{hab}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {cursos.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Cursos</p>
-                  <div className="flex flex-wrap gap-2">
-                    {cursos.map((curso, index) => (
-                      <Badge key={index} variant="outline">{curso}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {caracteristicas.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Características</p>
-                  <div className="flex flex-wrap gap-2">
-                    {caracteristicas.map((carac, index) => (
-                      <Badge key={index} variant="outline">{carac}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Habilidades ainda não preenchidas
-            </p>
+          {instagramLink && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 h-11 gap-2 bg-background/80"
+              onClick={() => {
+                const username = getInstagramUsername(instagramLink);
+                window.open(`https://instagram.com/${username}`, '_blank');
+              }}
+            >
+              <Instagram className="h-4 w-4 text-pink-500" />
+              <span className="text-sm">Instagram</span>
+            </Button>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Redes Sociais */}
-      {hasSocialMedia && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Instagram className="h-4 w-4" />
-              Redes Sociais
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              {instagramLink && (
-                <SocialMediaItem 
-                  icon={<Instagram className="h-4 w-4" />}
-                  label="Instagram"
-                  link={instagramLink}
-                  followers={instagramSeguidores}
-                  baseUrl="https://instagram.com/"
-                />
-              )}
-              {tiktokLink && (
-                <SocialMediaItem 
-                  icon={<span className="text-xs font-bold">TT</span>}
-                  label="TikTok"
-                  link={tiktokLink}
-                  followers={tiktokSeguidores}
-                  baseUrl="https://tiktok.com/@"
-                />
-              )}
-              {facebookLink && (
-                <SocialMediaItem 
-                  icon={<Facebook className="h-4 w-4" />}
-                  label="Facebook"
-                  link={facebookLink}
-                  followers={facebookSeguidores}
-                  baseUrl="https://facebook.com/"
-                />
-              )}
-              {youtubeLink && (
-                <SocialMediaItem 
-                  icon={<Youtube className="h-4 w-4" />}
-                  label="YouTube"
-                  link={youtubeLink}
-                  followers={youtubeSeguidores}
-                  baseUrl="https://youtube.com/@"
-                />
-              )}
+      {/* ==================== QUICK STATS ==================== */}
+      <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        {altura && (
+          <QuickStatCard icon={<Ruler className="h-4 w-4" />} label="Altura" value={`${altura}cm`} />
+        )}
+        {manequim.length > 0 && (
+          <QuickStatCard icon={<User className="h-4 w-4" />} label="Manequim" value={manequim[0]} />
+        )}
+        {calcado && (
+          <QuickStatCard icon={<Footprints className="h-4 w-4" />} label="Calçado" value={calcado} />
+        )}
+        {peso && (
+          <QuickStatCard icon={<Scale className="h-4 w-4" />} label="Peso" value={`${peso}kg`} />
+        )}
+        {corPele !== '-' && (
+          <QuickStatCard icon={<Palette className="h-4 w-4" />} label="Pele" value={corPele} />
+        )}
+        {corOlhos !== '-' && (
+          <QuickStatCard icon={<Eye className="h-4 w-4" />} label="Olhos" value={corOlhos} />
+        )}
+      </div>
+
+      {/* ==================== ACCORDION SECTIONS ==================== */}
+      <Accordion type="multiple" defaultValue={['personal']} className="space-y-2">
+        
+        {/* Personal Data */}
+        <AccordionItem value="personal" className="border rounded-xl px-4 bg-card">
+          <AccordionTrigger className="hover:no-underline py-3">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="h-4 w-4 text-primary" />
+              </div>
+              <span className="font-medium">Dados Pessoais</span>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="grid grid-cols-2 gap-3 pt-1 pb-2">
+              {birthDate && <DataItem label="Nascimento" value={birthDate} />}
+              {sexo !== '-' && <DataItem label="Sexo" value={sexo} />}
+              {cpf && <DataItem label="CPF" value={cpf} />}
+              {phone && <DataItem label="Telefone" value={phone} />}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Guardian */}
+        {(nomeResponsavel || estadoCivil !== '-') && (
+          <AccordionItem value="guardian" className="border rounded-xl px-4 bg-card">
+            <AccordionTrigger className="hover:no-underline py-3">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-blue-500" />
+                </div>
+                <span className="font-medium">Responsável</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="grid grid-cols-2 gap-3 pt-1 pb-2">
+                {nomeResponsavel && <DataItem label="Nome" value={nomeResponsavel} />}
+                {estadoCivil !== '-' && <DataItem label="Estado Civil" value={estadoCivil} />}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {/* Address */}
+        {hasAddress && (
+          <AccordionItem value="address" className="border rounded-xl px-4 bg-card">
+            <AccordionTrigger className="hover:no-underline py-3">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <MapPin className="h-4 w-4 text-green-500" />
+                </div>
+                <span className="font-medium">Endereço</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-2 pt-1 pb-2">
+                {enderecoCompleto && (
+                  <p className="text-sm text-foreground">{enderecoCompleto}</p>
+                )}
+                {cep && (
+                  <p className="text-xs text-muted-foreground">CEP: {cep}</p>
+                )}
+                {enderecoCompleto && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 h-9 gap-2"
+                    onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(enderecoCompleto)}`, '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Ver no Mapa
+                  </Button>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {/* Physical Details */}
+        {hasPhysicalData && (
+          <AccordionItem value="physical" className="border rounded-xl px-4 bg-card">
+            <AccordionTrigger className="hover:no-underline py-3">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center">
+                  <Ruler className="h-4 w-4 text-orange-500" />
+                </div>
+                <span className="font-medium">Dados Físicos</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="grid grid-cols-2 gap-3 pt-1 pb-2">
+                {altura && <DataItem label="Altura" value={`${altura} cm`} />}
+                {peso && <DataItem label="Peso" value={`${peso} kg`} />}
+                {manequim.length > 0 && <DataItem label="Manequim" value={manequim.join(', ')} />}
+                {calcado && <DataItem label="Calçado" value={calcado} />}
+                {corPele !== '-' && <DataItem label="Cor da Pele" value={corPele} />}
+                {corCabelo !== '-' && <DataItem label="Cor Cabelo" value={corCabelo} />}
+                {tipoCabelo !== '-' && <DataItem label="Tipo Cabelo" value={tipoCabelo} />}
+                {corOlhos !== '-' && <DataItem label="Cor Olhos" value={corOlhos} />}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {/* Skills */}
+        {hasSkillsData && (
+          <AccordionItem value="skills" className="border rounded-xl px-4 bg-card">
+            <AccordionTrigger className="hover:no-underline py-3">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-purple-500" />
+                </div>
+                <span className="font-medium">Habilidades</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-3 pt-1 pb-2">
+                {habilidades.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5">Habilidades</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {habilidades.map((h, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">{h}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {cursos.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5">Cursos</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {cursos.map((c, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">{c}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {caracteristicas.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5">Características</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {caracteristicas.map((c, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">{c}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {/* Social Media */}
+        {hasSocialMedia && (
+          <AccordionItem value="social" className="border rounded-xl px-4 bg-card">
+            <AccordionTrigger className="hover:no-underline py-3">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-pink-500/10 flex items-center justify-center">
+                  <Instagram className="h-4 w-4 text-pink-500" />
+                </div>
+                <span className="font-medium">Redes Sociais</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="grid grid-cols-2 gap-3 pt-1 pb-2">
+                {instagramLink && (
+                  <SocialItem
+                    icon={<Instagram className="h-4 w-4 text-pink-500" />}
+                    label="Instagram"
+                    link={instagramLink}
+                    followers={instagramSeguidores}
+                    baseUrl="https://instagram.com/"
+                  />
+                )}
+                {tiktokLink && (
+                  <SocialItem
+                    icon={<span className="text-xs font-bold">TT</span>}
+                    label="TikTok"
+                    link={tiktokLink}
+                    followers={tiktokSeguidores}
+                    baseUrl="https://tiktok.com/@"
+                  />
+                )}
+                {facebookLink && (
+                  <SocialItem
+                    icon={<Facebook className="h-4 w-4 text-blue-600" />}
+                    label="Facebook"
+                    link={facebookLink}
+                    followers={facebookSeguidores}
+                    baseUrl="https://facebook.com/"
+                  />
+                )}
+                {youtubeLink && (
+                  <SocialItem
+                    icon={<Youtube className="h-4 w-4 text-red-500" />}
+                    label="YouTube"
+                    link={youtubeLink}
+                    followers={youtubeSeguidores}
+                    baseUrl="https://youtube.com/@"
+                  />
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+      </Accordion>
     </div>
   );
 };
 
 // ========================================================================
-// COMPONENTES AUXILIARES
+// AUXILIARY COMPONENTS
 // ========================================================================
-interface DataItemProps {
-  label: string;
-  value: string | null;
-  icon?: React.ReactNode;
-}
+const QuickStatCard = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
+  <div className="flex-shrink-0 min-w-[100px] bg-card border rounded-xl p-3 text-center">
+    <div className="flex justify-center text-primary mb-1">{icon}</div>
+    <p className="text-lg font-bold text-foreground leading-tight">{value}</p>
+    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+  </div>
+);
 
-const DataItem = ({ label, value, icon }: DataItemProps) => {
+const DataItem = ({ label, value }: { label: string; value: string | null }) => {
   if (!value) return null;
-  
   return (
-    <div className="space-y-1">
-      <p className="text-xs text-muted-foreground flex items-center gap-1">
-        {icon}
-        {label}
-      </p>
-      <p className="text-sm font-medium">{value}</p>
+    <div>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+      <p className="text-sm font-medium text-foreground">{value}</p>
     </div>
   );
 };
 
-interface SocialMediaItemProps {
+interface SocialItemProps {
   icon: React.ReactNode;
   label: string;
   link: string;
@@ -630,31 +588,65 @@ interface SocialMediaItemProps {
   baseUrl: string;
 }
 
-const SocialMediaItem = ({ icon, label, link, followers, baseUrl }: SocialMediaItemProps) => {
-  // Limpar o link para obter apenas o username
+const SocialItem = ({ icon, label, link, followers, baseUrl }: SocialItemProps) => {
   let username = link;
   if (link.includes('/')) {
     const parts = link.split('/');
     username = parts[parts.length - 1] || parts[parts.length - 2] || link;
   }
   username = username.replace('@', '');
-
   const fullUrl = link.startsWith('http') ? link : `${baseUrl}${username}`;
 
   return (
-    <div className="space-y-1">
-      <a 
-        href={fullUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-sm text-primary hover:underline flex items-center gap-2"
-      >
-        {icon}
-        <span>@{username}</span>
-      </a>
-      {followers && (
-        <p className="text-xs text-muted-foreground">{followers} seguidores</p>
-      )}
-    </div>
+    <a
+      href={fullUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+    >
+      {icon}
+      <div className="min-w-0">
+        <p className="text-sm font-medium truncate">@{username}</p>
+        {followers && (
+          <p className="text-[10px] text-muted-foreground">{followers} seguidores</p>
+        )}
+      </div>
+    </a>
   );
 };
+
+const MobileLoadingSkeleton = () => (
+  <div className="space-y-4">
+    {/* Hero skeleton */}
+    <div className="rounded-2xl border p-5 space-y-4">
+      <div className="flex gap-4">
+        <Skeleton className="h-24 w-24 rounded-2xl" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-6 w-3/4" />
+          <Skeleton className="h-5 w-1/4" />
+          <div className="flex gap-2 mt-2">
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Skeleton className="h-11 flex-1 rounded-lg" />
+        <Skeleton className="h-11 flex-1 rounded-lg" />
+        <Skeleton className="h-11 flex-1 rounded-lg" />
+      </div>
+    </div>
+    
+    {/* Quick stats skeleton */}
+    <div className="flex gap-3 overflow-hidden">
+      {[1, 2, 3, 4].map(i => (
+        <Skeleton key={i} className="h-20 w-24 rounded-xl flex-shrink-0" />
+      ))}
+    </div>
+    
+    {/* Accordion skeletons */}
+    {[1, 2, 3].map(i => (
+      <Skeleton key={i} className="h-14 w-full rounded-xl" />
+    ))}
+  </div>
+);
