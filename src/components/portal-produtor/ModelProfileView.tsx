@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { User, Ruler, Instagram, Calendar, MapPin, Phone, Sparkles, Heart, Users, Facebook, Youtube, MessageCircle, ExternalLink, Scale, Footprints, Palette, Eye } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { User, Ruler, Instagram, Calendar, MapPin, Phone, Sparkles, Heart, Users, Facebook, Youtube, MessageCircle, ExternalLink, Scale, Footprints, Palette, Eye, Camera, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { getLeadPhotoUrl } from '@/lib/leadPhotoUtils';
 
 // ========================================================================
 // MAPEAMENTO DE CAMPOS DO BITRIX DEAL (igual ao /cadastro)
@@ -103,24 +106,71 @@ export const ModelProfileView = ({
     staleTime: 5 * 60 * 1000
   });
 
-  // Buscar dados do lead para fonte e scouter
+  // Buscar dados do lead para fonte, scouter e fotos
   const {
     data: leadData,
     isLoading: loadingLead
   } = useQuery({
-    queryKey: ['lead-source', leadId],
+    queryKey: ['lead-source-photos', leadId],
     queryFn: async () => {
       if (!leadId) return null;
       const {
         data,
         error
-      } = await supabase.from('leads').select('fonte_normalizada, scouter').eq('id', leadId).maybeSingle();
+      } = await supabase.from('leads').select('fonte_normalizada, scouter, photo_url, additional_photos').eq('id', leadId).maybeSingle();
       if (error) throw error;
       return data;
     },
     enabled: !!leadId,
     staleTime: 5 * 60 * 1000
   });
+
+  // State for photo gallery modal
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
+  // Extract all photos from lead
+  const getAllPhotos = (): string[] => {
+    const photos: string[] = [];
+    
+    // Add main photo
+    if (leadData?.photo_url) {
+      const mainPhoto = getLeadPhotoUrl(leadData.photo_url);
+      if (mainPhoto && !mainPhoto.includes('no-photo-placeholder')) {
+        photos.push(mainPhoto);
+      }
+    }
+    
+    // Add additional photos
+    if (leadData?.additional_photos) {
+      try {
+        const additionalRaw = leadData.additional_photos;
+        let additionalArray: string[] = [];
+        
+        if (typeof additionalRaw === 'string') {
+          const parsed = JSON.parse(additionalRaw);
+          if (Array.isArray(parsed)) {
+            additionalArray = parsed.filter(p => typeof p === 'string');
+          }
+        } else if (Array.isArray(additionalRaw)) {
+          additionalArray = additionalRaw.filter(p => typeof p === 'string');
+        }
+        
+        additionalArray.forEach(photo => {
+          if (photo && !photos.includes(photo)) {
+            photos.push(photo);
+          }
+        });
+      } catch {
+        // Ignore parsing errors
+      }
+    }
+    
+    return photos;
+  };
+
+  const allPhotos = getAllPhotos();
+  const mainPhotoUrl = allPhotos.length > 0 ? allPhotos[0] : null;
   const isLoading = loadingBitrix || loadingLead;
   if (!bitrixDealId && !leadId) {
     return <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -292,12 +342,39 @@ export const ModelProfileView = ({
         </div>
 
         <div className="flex items-start gap-4">
-          {/* Avatar */}
-          <Avatar className="h-24 w-24 rounded-2xl border-2 border-primary/30 shadow-lg">
-            <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 text-2xl font-bold text-primary">
-              {nomeModelo.split(' ').map(n => n[0]).slice(0, 2).join('')}
-            </AvatarFallback>
-          </Avatar>
+          {/* Avatar with photo */}
+          <div 
+            className="relative cursor-pointer group"
+            onClick={() => {
+              if (allPhotos.length > 0) {
+                setActivePhotoIndex(0);
+                setPhotoModalOpen(true);
+              }
+            }}
+          >
+            <Avatar className="h-24 w-24 rounded-2xl border-2 border-primary/30 shadow-lg">
+              {mainPhotoUrl && (
+                <AvatarImage 
+                  src={mainPhotoUrl} 
+                  alt={nomeModelo}
+                  className="rounded-2xl object-cover"
+                />
+              )}
+              <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 text-2xl font-bold text-primary">
+                {nomeModelo.split(' ').map(n => n[0]).slice(0, 2).join('')}
+              </AvatarFallback>
+            </Avatar>
+            {allPhotos.length > 1 && (
+              <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                {allPhotos.length}
+              </div>
+            )}
+            {allPhotos.length > 0 && (
+              <div className="absolute inset-0 bg-black/30 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Camera className="h-6 w-6 text-white" />
+              </div>
+            )}
+          </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0 pr-16">
@@ -330,6 +407,87 @@ export const ModelProfileView = ({
         {/* Quick Actions */}
         
       </div>
+
+      {/* ==================== PHOTO GALLERY (if multiple photos) ==================== */}
+      {allPhotos.length > 1 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <Camera className="h-4 w-4" />
+            Fotos ({allPhotos.length})
+          </h3>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {allPhotos.map((photo, index) => (
+              <div
+                key={index}
+                className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-primary transition-colors"
+                onClick={() => {
+                  setActivePhotoIndex(index);
+                  setPhotoModalOpen(true);
+                }}
+              >
+                <img
+                  src={photo}
+                  alt={`Foto ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== PHOTO MODAL ==================== */}
+      <Dialog open={photoModalOpen} onOpenChange={setPhotoModalOpen}>
+        <DialogContent className="max-w-4xl w-full p-0 bg-black/95 border-none">
+          <div className="relative w-full h-[80vh] flex items-center justify-center">
+            {/* Close button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2 z-10 text-white hover:bg-white/20"
+              onClick={() => setPhotoModalOpen(false)}
+            >
+              <X className="h-6 w-6" />
+            </Button>
+
+            {/* Navigation buttons */}
+            {allPhotos.length > 1 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute left-2 z-10 text-white hover:bg-white/20"
+                  onClick={() => setActivePhotoIndex(prev => prev === 0 ? allPhotos.length - 1 : prev - 1)}
+                >
+                  <ChevronLeft className="h-8 w-8" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2 z-10 text-white hover:bg-white/20"
+                  onClick={() => setActivePhotoIndex(prev => prev === allPhotos.length - 1 ? 0 : prev + 1)}
+                >
+                  <ChevronRight className="h-8 w-8" />
+                </Button>
+              </>
+            )}
+
+            {/* Image */}
+            <img
+              src={allPhotos[activePhotoIndex]}
+              alt={`Foto ${activePhotoIndex + 1}`}
+              className="max-w-full max-h-full object-contain"
+            />
+
+            {/* Counter */}
+            {allPhotos.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
+                {activePhotoIndex + 1} / {allPhotos.length}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ==================== QUICK STATS ==================== */}
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-3">
