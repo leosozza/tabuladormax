@@ -212,27 +212,30 @@ serve(async (req) => {
       }
     }
 
-    // 2. Processar fotos por ID (tentar crm.file.get primeiro, depois disk.file.get)
+    // 2. Processar fotos por ID usando disk.file.getExternalLink (gera URL pública temporária)
     for (const photoId of photoIdsToProcess) {
       try {
         console.log(`📡 Processando foto ${photoId}...`);
         
         let downloadUrl: string | null = null;
         
-        // 1. Tentar crm.file.get primeiro (para arquivos de campos CRM)
-        const crmFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.file.get?id=${photoId}`;
-        console.log(`📡 Tentando crm.file.get: ${crmFileUrl}`);
-        const crmResp = await fetch(crmFileUrl);
+        // 1. MELHOR MÉTODO: disk.file.getExternalLink - gera URL pública temporária
+        const externalLinkUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.getExternalLink?id=${photoId}`;
+        console.log(`📡 Tentando disk.file.getExternalLink: ${externalLinkUrl}`);
+        const extResp = await fetch(externalLinkUrl);
         
-        if (crmResp.ok) {
-          const crmJson = await crmResp.json();
-          downloadUrl = crmJson.result?.downloadUrl || crmJson.result?.DOWNLOAD_URL;
-          if (downloadUrl) {
-            console.log(`✅ crm.file.get retornou URL para foto ${photoId}`);
+        if (extResp.ok) {
+          const extJson = await extResp.json();
+          console.log(`📋 Resposta getExternalLink:`, JSON.stringify(extJson).slice(0, 300));
+          downloadUrl = extJson.result;
+          if (downloadUrl && typeof downloadUrl === 'string') {
+            console.log(`✅ disk.file.getExternalLink retornou URL pública para foto ${photoId}`);
+          } else {
+            downloadUrl = null;
           }
         }
         
-        // 2. Se crm.file.get não funcionou, tentar disk.file.get
+        // 2. Se getExternalLink não funcionou, tentar disk.file.get para obter DOWNLOAD_URL
         if (!downloadUrl) {
           const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}`;
           console.log(`📡 Fallback para disk.file.get: ${diskFileUrl}`);
@@ -240,6 +243,7 @@ serve(async (req) => {
           
           if (diskResp.ok) {
             const diskJson = await diskResp.json();
+            console.log(`📋 Resposta disk.file.get:`, JSON.stringify(diskJson).slice(0, 300));
             downloadUrl = diskJson.result?.DOWNLOAD_URL;
             if (downloadUrl) {
               console.log(`✅ disk.file.get retornou URL para foto ${photoId}`);
@@ -247,11 +251,19 @@ serve(async (req) => {
           }
         }
         
-        // 3. Se ainda não tem URL, tentar URL direta do CRM show_file.php
+        // 3. Último recurso: URL direta do REST API com download via /rest/
         if (!downloadUrl) {
-          // URL padrão para arquivos CRM quando temos apenas o fileId
-          downloadUrl = `https://${bitrixDomain}/bitrix/components/bitrix/crm.lead.show/show_file.php?auth=${bitrixToken}&ownerId=${leadId}&fieldName=UF_CRM_LEAD_1733231445171&dynamic=Y&fileId=${photoId}`;
-          console.log(`📡 Fallback para URL direta CRM: ${downloadUrl}`);
+          // Construir URL de download via REST API (não show_file.php que requer sessão)
+          downloadUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.download?id=${photoId}`;
+          console.log(`📡 Tentando disk.file.download: ${downloadUrl}`);
+          
+          // Verificar se esse método existe fazendo um HEAD request
+          const testResp = await fetch(downloadUrl, { method: 'HEAD' });
+          if (!testResp.ok) {
+            console.log(`⚠️ disk.file.download não disponível, tentando URL alternativa...`);
+            // Última tentativa: URL de download direto do módulo disk
+            downloadUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photoId}&download=true`;
+          }
         }
         
         if (!downloadUrl) {
@@ -277,27 +289,30 @@ serve(async (req) => {
       }
     }
 
-    // Processar fotos do campo antigo (podem ter downloadUrl direto ou precisar de crm.lead.productrow.list)
+    // Processar fotos do campo antigo (podem ter downloadUrl direto ou precisar de disk.file.getExternalLink)
     for (const photo of oldFieldPhotos || []) {
       try {
         console.log(`📡 Processando foto antiga ${photo.id}...`);
         
         let downloadUrl = photo.downloadUrl;
         
-        // Se não tem downloadUrl direto, tentar buscar via disk.file.get (último recurso)
+        // Se não tem downloadUrl direto, usar disk.file.getExternalLink
         if (!downloadUrl) {
-          // Tentar crm.file.get que funciona para anexos CRM
-          const crmFileUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.file.get?id=${photo.id}`;
-          console.log(`📡 Tentando crm.file.get: ${crmFileUrl}`);
-          const crmResp = await fetch(crmFileUrl);
+          // 1. MELHOR MÉTODO: disk.file.getExternalLink
+          const externalLinkUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.getExternalLink?id=${photo.id}`;
+          console.log(`📡 Tentando disk.file.getExternalLink: ${externalLinkUrl}`);
+          const extResp = await fetch(externalLinkUrl);
           
-          if (crmResp.ok) {
-            const crmJson = await crmResp.json();
-            downloadUrl = crmJson.result?.downloadUrl || crmJson.result?.DOWNLOAD_URL;
-            console.log(`✅ crm.file.get retornou:`, JSON.stringify(crmJson.result || {}).slice(0, 200));
+          if (extResp.ok) {
+            const extJson = await extResp.json();
+            console.log(`📋 Resposta getExternalLink (foto antiga):`, JSON.stringify(extJson).slice(0, 300));
+            if (extJson.result && typeof extJson.result === 'string') {
+              downloadUrl = extJson.result;
+              console.log(`✅ disk.file.getExternalLink retornou URL para foto antiga ${photo.id}`);
+            }
           }
           
-          // Se crm.file.get não funcionou, tentar disk.file.get
+          // 2. Fallback: disk.file.get
           if (!downloadUrl) {
             const diskFileUrl = `https://${bitrixDomain}/rest/${fileToken}/disk.file.get?id=${photo.id}`;
             const diskResp = await fetch(diskFileUrl);
