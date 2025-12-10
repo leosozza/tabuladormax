@@ -311,18 +311,9 @@ export const ModelProfileView = ({
         <div className="flex gap-2 mt-4">
           {phone && <>
               
-              <Button size="sm" variant="outline" className="flex-1 h-11 gap-2 bg-background/80" onClick={() => window.open(`https://wa.me/${formatPhoneForWhatsApp(phone)}`, '_blank')}>
-                <MessageCircle className="h-4 w-4 text-success" />
-                <span className="text-sm">WhatsApp</span>
-              </Button>
+              
             </>}
-          {instagramLink && <Button size="sm" variant="outline" className="flex-1 h-11 gap-2 bg-background/80" onClick={() => {
-          const username = getInstagramUsername(instagramLink);
-          window.open(`https://instagram.com/${username}`, '_blank');
-        }}>
-              <Instagram className="h-4 w-4 text-pink-500" />
-              <span className="text-sm">Instagram</span>
-            </Button>}
+          {instagramLink}
         </div>
       </div>
 
