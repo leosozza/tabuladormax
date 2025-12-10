@@ -11,11 +11,12 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { 
   Plus, Trash2, Save, CheckCircle, 
-  Calculator, CreditCard, Loader2
+  Calculator, CreditCard, Loader2, Package, Check
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Deal } from './ProducerDealsTab';
 import { Json } from '@/integrations/supabase/types';
+import { listProductsBySection, BitrixProduct } from '@/lib/bitrix';
 
 interface ProducerAgenciarFormProps {
   deal: Deal;
@@ -30,15 +31,29 @@ interface PaymentMethod {
   installments?: number;
 }
 
+// ID da seção "SERVIÇOS E PROJETOS" no Bitrix
+const SERVICES_SECTION_ID = 296;
+
 export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAgenciarFormProps) => {
   const queryClient = useQueryClient();
   
   // Form state
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [baseValue, setBaseValue] = useState<number>(deal.opportunity || 0);
   const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [notes, setNotes] = useState<string>('');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [status, setStatus] = useState<string>(deal.negotiation_status || 'inicial');
+
+  // Buscar produtos da seção SERVIÇOS E PROJETOS
+  const { data: products, isLoading: loadingProducts } = useQuery({
+    queryKey: ['bitrix-products-section', SERVICES_SECTION_ID],
+    queryFn: async () => {
+      const products = await listProductsBySection(SERVICES_SECTION_ID, 100);
+      return products.filter(p => p.ACTIVE !== 'N');
+    },
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+  });
 
   // Buscar negociação existente
   const { data: existingNegotiation, isLoading: loadingNegotiation } = useQuery({
@@ -54,6 +69,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
       
       if (data) {
         // Preencher form com dados existentes
+        setSelectedProductId(data.bitrix_product_id?.toString() || null);
         setBaseValue(data.base_value || deal.opportunity || 0);
         setDiscountPercent(data.discount_percentage || 0);
         setNotes(data.notes || '');
@@ -66,6 +82,15 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
       return data;
     }
   });
+
+  // Produto selecionado
+  const selectedProduct = products?.find(p => p.ID === selectedProductId);
+
+  // Selecionar produto
+  const handleSelectProduct = (product: BitrixProduct) => {
+    setSelectedProductId(product.ID);
+    setBaseValue(product.PRICE);
+  };
 
   // Calcular valores
   const discountValue = (baseValue * discountPercent) / 100;
@@ -81,10 +106,12 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
       notes: string;
       payment_methods: PaymentMethod[];
       status: string;
+      bitrix_product_id: number | null;
     }) => {
       const negotiationData = {
         deal_id: deal.deal_id,
         bitrix_deal_id: deal.bitrix_deal_id,
+        bitrix_product_id: formData.bitrix_product_id,
         client_name: deal.client_name || 'Cliente',
         client_phone: deal.client_phone,
         title: deal.title,
@@ -128,7 +155,8 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
           negotiation_id: negotiationId,
           deal_id: deal.deal_id,
           status: formData.status,
-          bitrix_deal_id: deal.bitrix_deal_id
+          bitrix_deal_id: deal.bitrix_deal_id,
+          product_id: formData.bitrix_product_id
         });
 
         const { error: syncError } = await supabase.functions.invoke('sync-deal-to-bitrix', {
@@ -141,7 +169,6 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
         if (syncError) {
           console.error('Erro ao sincronizar com Bitrix:', syncError);
-          // Não bloqueia o salvamento, apenas loga o erro
         } else {
           console.log('Sincronização com Bitrix concluída');
         }
@@ -194,7 +221,8 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
       total_value: totalValue,
       notes,
       payment_methods: paymentMethods,
-      status
+      status,
+      bitrix_product_id: selectedProductId ? parseInt(selectedProductId) : null
     });
   };
 
@@ -212,7 +240,8 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
       total_value: totalValue,
       notes,
       payment_methods: paymentMethods,
-      status: 'realizado'
+      status: 'realizado',
+      bitrix_product_id: selectedProductId ? parseInt(selectedProductId) : null
     });
   };
 
@@ -228,6 +257,71 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
   return (
     <div className="space-y-4">
+
+      {/* Seleção de Serviço/Projeto */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Selecione o Serviço/Projeto
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingProducts ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Carregando serviços...</span>
+            </div>
+          ) : products && products.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {products.map((product) => (
+                <div
+                  key={product.ID}
+                  onClick={() => handleSelectProduct(product)}
+                  className={`
+                    relative p-4 border rounded-lg cursor-pointer transition-all
+                    ${selectedProductId === product.ID 
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary' 
+                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                    }
+                  `}
+                >
+                  {selectedProductId === product.ID && (
+                    <div className="absolute top-2 right-2">
+                      <Check className="h-4 w-4 text-primary" />
+                    </div>
+                  )}
+                  <p className="font-medium text-sm pr-6">{product.NAME}</p>
+                  <p className="text-lg font-bold text-primary mt-1">
+                    {new Intl.NumberFormat('pt-BR', { 
+                      style: 'currency', 
+                      currency: 'BRL' 
+                    }).format(product.PRICE)}
+                  </p>
+                  {product.DESCRIPTION && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                      {product.DESCRIPTION}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhum serviço/projeto disponível
+            </p>
+          )}
+
+          {selectedProduct && (
+            <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
+              <p className="text-sm font-medium">Selecionado: {selectedProduct.NAME}</p>
+              <p className="text-xs text-muted-foreground">
+                Valor base preenchido automaticamente
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Valores */}
       <Card>
