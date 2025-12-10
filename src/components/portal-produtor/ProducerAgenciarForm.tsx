@@ -70,20 +70,62 @@ const parseProductFeatures = (description: string | undefined): string[] => {
   
   // Separar por linhas, vírgulas ou ponto e vírgula
   const lines = description
-    .split(/[\n\r,;•●\-]+/)
+    .split(/[\n\r;•●]+/)
     .map(line => line.trim())
     .filter(line => line.length > 2);
   
   return lines;
 };
 
-// Verificar se um produto tem uma feature (comparação case-insensitive)
-const productHasFeature = (product: BitrixProduct, feature: string): boolean => {
-  const features = parseProductFeatures(product.DESCRIPTION);
-  return features.some(f => 
-    f.toLowerCase().includes(feature.toLowerCase()) ||
-    feature.toLowerCase().includes(f.toLowerCase())
-  );
+// Extrair valor numérico ou nível de uma feature
+const extractFeatureValue = (featureText: string): { baseName: string; value: string | number | null } => {
+  // Padrões para detectar quantidades: "10 Fotos Digitais", "2 Pencard"
+  const quantityMatch = featureText.match(/^(\d+)\s+(.+)$/);
+  if (quantityMatch) {
+    return { baseName: quantityMatch[2].trim(), value: parseInt(quantityMatch[1]) };
+  }
+  
+  // Padrões para níveis: "Plataforma Prada: Básico", "Plataforma Prada - Total"
+  const levelMatch = featureText.match(/^(.+?)[\s]*[:–-][\s]*(Inicial|Básico|Basico|Total|Premium|VIP|Completo)$/i);
+  if (levelMatch) {
+    return { baseName: levelMatch[1].trim(), value: levelMatch[2].trim() };
+  }
+  
+  return { baseName: featureText, value: null };
+};
+
+// Normalizar nome da feature para comparação (remove números e níveis)
+const normalizeFeatureName = (name: string): string => {
+  return name
+    .toLowerCase()
+    .replace(/^\d+\s+/, '') // Remove números no início
+    .replace(/[\s]*[:–-][\s]*(inicial|básico|basico|total|premium|vip|completo)$/i, '') // Remove níveis no final
+    .trim();
+};
+
+// Agrupar features de todos os produtos
+const groupProductFeatures = (products: BitrixProduct[]): Map<string, { displayName: string; values: Map<string, string | number | boolean> }> => {
+  const featureMap = new Map<string, { displayName: string; values: Map<string, string | number | boolean> }>();
+  
+  products.forEach(product => {
+    const features = parseProductFeatures(product.DESCRIPTION);
+    features.forEach(feature => {
+      const { baseName, value } = extractFeatureValue(feature);
+      const normalizedName = normalizeFeatureName(baseName);
+      
+      if (!featureMap.has(normalizedName)) {
+        featureMap.set(normalizedName, { 
+          displayName: baseName.charAt(0).toUpperCase() + baseName.slice(1), 
+          values: new Map() 
+        });
+      }
+      
+      const entry = featureMap.get(normalizedName)!;
+      entry.values.set(product.ID, value !== null ? value : true);
+    });
+  });
+  
+  return featureMap;
 };
 
 export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAgenciarFormProps) => {
@@ -488,10 +530,9 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
                 );
               }
 
-              // Extrair todas as features únicas de todos os produtos
-              const allFeatures = [...new Set(
-                productsForComparison.flatMap(p => parseProductFeatures(p.DESCRIPTION))
-              )].filter(f => f.length > 0);
+              // Agrupar features de todos os produtos com seus valores
+              const featureMap = groupProductFeatures(productsForComparison);
+              const featureEntries = Array.from(featureMap.entries());
 
               return (
                 <div 
@@ -516,24 +557,34 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
                     </div>
                   ))}
                   
-                  {/* Linhas de features extraídas das descrições */}
-                  {allFeatures.map((feature, fIdx) => (
+                  {/* Linhas de features com quantidades e níveis */}
+                  {featureEntries.map(([normalizedName, featureData], fIdx) => (
                     <>
                       <div key={`feature-${fIdx}`} className="p-3 border-b bg-muted/10">
-                        <p className="font-medium text-sm">{feature}</p>
+                        <p className="font-medium text-sm">{featureData.displayName}</p>
                       </div>
-                      {productsForComparison.map((product) => (
-                        <div 
-                          key={`feature-${fIdx}-${product.ID}`} 
-                          className="flex items-center justify-center p-3 border-b"
-                        >
-                          {productHasFeature(product, feature) ? (
-                            <Check className="h-5 w-5 text-primary" />
-                          ) : (
-                            <X className="h-5 w-5 text-muted-foreground/30" />
-                          )}
-                        </div>
-                      ))}
+                      {productsForComparison.map((product) => {
+                        const productValue = featureData.values.get(product.ID);
+                        
+                        return (
+                          <div 
+                            key={`feature-${fIdx}-${product.ID}`} 
+                            className="flex items-center justify-center p-3 border-b text-center"
+                          >
+                            {productValue === undefined ? (
+                              <X className="h-5 w-5 text-muted-foreground/30" />
+                            ) : productValue === true ? (
+                              <Check className="h-5 w-5 text-primary" />
+                            ) : typeof productValue === 'number' ? (
+                              <span className="font-bold text-lg text-primary">{productValue}</span>
+                            ) : (
+                              <Badge variant="outline" className="text-xs font-medium">
+                                {productValue}
+                              </Badge>
+                            )}
+                          </div>
+                        );
+                      })}
                     </>
                   ))}
                   
