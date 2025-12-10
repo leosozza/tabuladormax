@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, User, Handshake } from 'lucide-react';
+import { User, Handshake } from 'lucide-react';
 import { Deal } from './ProducerDealsTab';
 import { ModelProfileView } from './ModelProfileView';
 import { ProducerAgenciarForm } from './ProducerAgenciarForm';
@@ -44,14 +42,6 @@ export const DealDetailView = ({
   const [activeTab, setActiveTab] = useState<'perfil' | 'agenciar'>('perfil');
   const statusInfo = STATUS_LABELS[deal.negotiation_status || 'inicial'] || STATUS_LABELS['inicial'];
   return <div className="flex flex-col min-h-[calc(100vh-200px)]">
-      {/* Header com botão voltar */}
-      <div className="flex items-center gap-3 mb-4">
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h2 className="text-lg font-semibold">Detalhes do Deal</h2>
-      </div>
-
       {/* Tabs maiores para mobile */}
       <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'perfil' | 'agenciar')} className="flex-1 flex flex-col">
         <TabsList className="grid w-full grid-cols-2 h-14 p-1 mt-3">
