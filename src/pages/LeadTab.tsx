@@ -35,6 +35,7 @@ import { useLeadAnalysis } from "@/hooks/useLeadAnalysis";
 import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
 import { useBitrixEnums } from '@/hooks/useBitrixEnums';
 import { LeadSearchProgress } from "@/components/telemarketing/LeadSearchProgress";
+import { LeadPhotoGallery } from "@/components/shared/LeadPhotoGallery";
 
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, unknown>;
@@ -305,6 +306,26 @@ const LeadTab = () => {
       return data || [];
     },
     staleTime: 10 * 60 * 1000
+  });
+
+  // Buscar fotos do lead do Supabase
+  const currentBitrixId = chatwootData?.bitrix_id ? Number(chatwootData.bitrix_id) : null;
+  const {
+    data: leadPhotoData
+  } = useQuery({
+    queryKey: ['lead-photos', currentBitrixId],
+    queryFn: async () => {
+      if (!currentBitrixId) return null;
+      const { data, error } = await supabase
+        .from('leads')
+        .select('photo_url, additional_photos')
+        .eq('id', currentBitrixId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!currentBitrixId,
+    staleTime: 5 * 60 * 1000
   });
 
   // Preparar requests de enum para resolver
@@ -2157,17 +2178,20 @@ const LeadTab = () => {
               </Button>}
           </div>
             
-          {/* Foto do perfil */}
-          <div className="relative w-full flex justify-center pointer-events-none">
+          {/* Foto do perfil com galeria */}
+          <div className="relative w-full flex flex-col items-center pointer-events-none">
             {loadingProfile && <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg z-10 pointer-events-auto">
                 <Loader2 className="w-8 h-8 animate-spin" />
               </div>}
-            <img src={getProfilePhotoUrl()} alt={chatwootData?.name || 'Lead'} className="rounded-lg w-32 h-32 md:w-40 md:h-40 border-4 border-green-500 shadow-lg object-cover pointer-events-auto" onError={e => {
-              const target = e.target as HTMLImageElement;
-              if (target.src !== noPhotoPlaceholder) {
-                target.src = noPhotoPlaceholder;
-              }
-            }} />
+            <div className="pointer-events-auto">
+              <LeadPhotoGallery
+                photoUrl={leadPhotoData?.photo_url}
+                additionalPhotos={leadPhotoData?.additional_photos}
+                fallbackPhoto={chatwootData?.thumbnail}
+                altText={chatwootData?.name || 'Lead'}
+                size="md"
+              />
+            </div>
           </div>
 
           {!editMode ? <>
