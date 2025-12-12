@@ -349,20 +349,20 @@ const LeadTab = () => {
     staleTime: 10 * 60 * 1000
   });
 
-  // Helper para traduzir valor de enum
-  const translateEnumValue = (value: unknown, fieldId: string): string => {
-    if (!value || !enumFieldsData) return '-';
-    const strValue = String(value);
-    const field = enumFieldsData.find(f => f.field_id === fieldId);
-    if (!field?.list_items || !Array.isArray(field.list_items)) return strValue;
-    const item = (field.list_items as Array<{ ID: string; VALUE: string }>).find(i => i.ID === strValue);
-    return item?.VALUE || strValue;
-  };
-
   // Extract lead profile stats from raw Bitrix data
   const leadStatsFromRaw = useMemo(() => {
     if (!leadProfileData?.raw) return null;
     const raw = leadProfileData.raw as Record<string, unknown>;
+    
+    // Helper para traduzir valor de enum - DENTRO do useMemo para garantir closure correta
+    const translateEnumValue = (value: unknown, fieldId: string): string => {
+      if (!value || !enumFieldsData) return '-';
+      const strValue = String(value);
+      const field = enumFieldsData.find(f => f.field_id === fieldId);
+      if (!field?.list_items || !Array.isArray(field.list_items)) return strValue;
+      const item = (field.list_items as Array<{ ID: string; VALUE: string }>).find(i => i.ID === strValue);
+      return item?.VALUE || strValue;
+    };
     
     // Bitrix field mappings - IDs corretos do Bitrix
     const dataNascimento = raw['UF_CRM_6748E09939008_DATE_NASCIMENTO'] || 
