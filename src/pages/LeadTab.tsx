@@ -329,6 +329,36 @@ const LeadTab = () => {
     staleTime: 5 * 60 * 1000
   });
 
+  // Query para buscar list_items dos campos de enum do Bitrix
+  const { data: enumFieldsData } = useQuery({
+    queryKey: ['bitrix-enum-fields-telemarketing'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bitrix_fields_cache')
+        .select('field_id, list_items')
+        .in('field_id', [
+          'UF_CRM_690CA5863827D',    // Cor da Pele
+          'UF_CRM_6753068A5BE7C',    // Cor dos Olhos
+          'UF_CRM_690CA586192FB',    // Manequim
+          'UF_CRM_6753068A64AB0',    // Tipo de Cabelo
+          'UF_CRM_DEAL_1750166749133' // Cor do Cabelo
+        ]);
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 10 * 60 * 1000
+  });
+
+  // Helper para traduzir valor de enum
+  const translateEnumValue = (value: unknown, fieldId: string): string => {
+    if (!value || !enumFieldsData) return '-';
+    const strValue = String(value);
+    const field = enumFieldsData.find(f => f.field_id === fieldId);
+    if (!field?.list_items || !Array.isArray(field.list_items)) return strValue;
+    const item = (field.list_items as Array<{ ID: string; VALUE: string }>).find(i => i.ID === strValue);
+    return item?.VALUE || strValue;
+  };
+
   // Extract lead profile stats from raw Bitrix data
   const leadStatsFromRaw = useMemo(() => {
     if (!leadProfileData?.raw) return null;
@@ -340,20 +370,27 @@ const LeadTab = () => {
     const altura = raw['UF_CRM_6753068A7DEC9'] as string | undefined;
     const peso = raw['UF_CRM_6753068A86FE0'] as string | undefined;
     const calcado = raw['UF_CRM_6753068A765FD'] as string | undefined;
-    const manequim = raw['UF_CRM_690CA586192FB'];
-    const corPele = raw['UF_CRM_690CA5863827D'] as string | undefined;
-    const corOlhos = raw['UF_CRM_6753068A5BE7C'] as string | undefined;
+    const manequimRaw = raw['UF_CRM_690CA586192FB'];
+    const corPeleRaw = raw['UF_CRM_690CA5863827D'] as string | undefined;
+    const corOlhosRaw = raw['UF_CRM_6753068A5BE7C'] as string | undefined;
+    const tipoCabeloRaw = raw['UF_CRM_6753068A64AB0'] as string | undefined;
+    const corCabeloRaw = raw['UF_CRM_DEAL_1750166749133'] as string | undefined;
+    
+    // Traduzir valores de enum
+    const manequimValue = Array.isArray(manequimRaw) ? manequimRaw[0] : manequimRaw;
     
     return {
       dataNascimento,
       altura,
       peso,
       calcado,
-      manequim: Array.isArray(manequim) ? manequim[0] : manequim,
-      corPele,
-      corOlhos,
+      manequim: translateEnumValue(manequimValue, 'UF_CRM_690CA586192FB'),
+      corPele: translateEnumValue(corPeleRaw, 'UF_CRM_690CA5863827D'),
+      corOlhos: translateEnumValue(corOlhosRaw, 'UF_CRM_6753068A5BE7C'),
+      tipoCabelo: translateEnumValue(tipoCabeloRaw, 'UF_CRM_6753068A64AB0'),
+      corCabelo: translateEnumValue(corCabeloRaw, 'UF_CRM_DEAL_1750166749133'),
     };
-  }, [leadProfileData?.raw]);
+  }, [leadProfileData?.raw, enumFieldsData]);
 
   // Calculate age from birth date
   const leadAgeInfo = useMemo(() => {
@@ -2241,11 +2278,13 @@ const LeadTab = () => {
           <LeadProfileStats
             ageInfo={leadAgeInfo}
             altura={leadStatsFromRaw?.altura}
-            manequim={leadStatsFromRaw?.manequim as string}
+            manequim={leadStatsFromRaw?.manequim}
             calcado={leadStatsFromRaw?.calcado}
             peso={leadStatsFromRaw?.peso}
             corPele={leadStatsFromRaw?.corPele}
             corOlhos={leadStatsFromRaw?.corOlhos}
+            tipoCabelo={leadStatsFromRaw?.tipoCabelo}
+            corCabelo={leadStatsFromRaw?.corCabelo}
             className="w-full"
           />
 
