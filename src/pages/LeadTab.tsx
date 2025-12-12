@@ -36,6 +36,7 @@ import { useLeadColumnConfig } from "@/hooks/useLeadColumnConfig";
 import { useBitrixEnums } from '@/hooks/useBitrixEnums';
 import { LeadSearchProgress } from "@/components/telemarketing/LeadSearchProgress";
 import { LeadPhotoGallery } from "@/components/shared/LeadPhotoGallery";
+import { LeadProfileStats, calculateAgeWithUnit } from "@/components/shared/LeadProfileStats";
 
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, unknown>;
@@ -311,14 +312,14 @@ const LeadTab = () => {
   // Buscar fotos do lead do Supabase
   const currentBitrixId = chatwootData?.bitrix_id ? Number(chatwootData.bitrix_id) : null;
   const {
-    data: leadPhotoData
+    data: leadProfileData
   } = useQuery({
-    queryKey: ['lead-photos', currentBitrixId],
+    queryKey: ['lead-profile-data', currentBitrixId],
     queryFn: async () => {
       if (!currentBitrixId) return null;
       const { data, error } = await supabase
         .from('leads')
-        .select('photo_url, additional_photos')
+        .select('photo_url, additional_photos, age, raw')
         .eq('id', currentBitrixId)
         .maybeSingle();
       if (error) throw error;
@@ -327,6 +328,48 @@ const LeadTab = () => {
     enabled: !!currentBitrixId,
     staleTime: 5 * 60 * 1000
   });
+
+  // Extract lead profile stats from raw Bitrix data
+  const leadStatsFromRaw = useMemo(() => {
+    if (!leadProfileData?.raw) return null;
+    const raw = leadProfileData.raw as Record<string, unknown>;
+    
+    // Bitrix field mappings (same as ModelProfileView)
+    const dataNascimento = raw['UF_CRM_6748E09939008_DATE_NASCIMENTO'] || 
+                           raw['UF_CRM_1762533440587'] as string | undefined;
+    const altura = raw['UF_CRM_6753068A7DEC9'] as string | undefined;
+    const peso = raw['UF_CRM_6753068A86FE0'] as string | undefined;
+    const calcado = raw['UF_CRM_6753068A765FD'] as string | undefined;
+    const manequim = raw['UF_CRM_690CA586192FB'];
+    const corPele = raw['UF_CRM_690CA5863827D'] as string | undefined;
+    const corOlhos = raw['UF_CRM_6753068A5BE7C'] as string | undefined;
+    
+    return {
+      dataNascimento,
+      altura,
+      peso,
+      calcado,
+      manequim: Array.isArray(manequim) ? manequim[0] : manequim,
+      corPele,
+      corOlhos,
+    };
+  }, [leadProfileData?.raw]);
+
+  // Calculate age from birth date
+  const leadAgeInfo = useMemo(() => {
+    if (leadProfileData?.age) {
+      // If we have age in the database, check if it's in months (< 24) or years
+      const age = Number(leadProfileData.age);
+      if (age < 24) {
+        return { value: age, unit: 'meses' as const };
+      }
+      return { value: Math.floor(age / 12), unit: 'anos' as const };
+    }
+    if (leadStatsFromRaw?.dataNascimento) {
+      return calculateAgeWithUnit(leadStatsFromRaw.dataNascimento as string);
+    }
+    return null;
+  }, [leadProfileData?.age, leadStatsFromRaw?.dataNascimento]);
 
   // Preparar requests de enum para resolver
   const enumRequests = useMemo(() => {
@@ -2185,14 +2228,26 @@ const LeadTab = () => {
               </div>}
             <div className="pointer-events-auto">
               <LeadPhotoGallery
-                photoUrl={leadPhotoData?.photo_url}
-                additionalPhotos={leadPhotoData?.additional_photos}
+                photoUrl={leadProfileData?.photo_url}
+                additionalPhotos={leadProfileData?.additional_photos}
                 fallbackPhoto={chatwootData?.thumbnail}
                 altText={chatwootData?.name || 'Lead'}
                 size="md"
               />
             </div>
           </div>
+
+          {/* Quick Stats Grid */}
+          <LeadProfileStats
+            ageInfo={leadAgeInfo}
+            altura={leadStatsFromRaw?.altura}
+            manequim={leadStatsFromRaw?.manequim as string}
+            calcado={leadStatsFromRaw?.calcado}
+            peso={leadStatsFromRaw?.peso}
+            corPele={leadStatsFromRaw?.corPele}
+            corOlhos={leadStatsFromRaw?.corOlhos}
+            className="w-full"
+          />
 
           {!editMode ? <>
               <h2 className="text-lg md:text-2xl font-bold text-center w-full">{(profile as any).name || 'Lead sem nome'}</h2>

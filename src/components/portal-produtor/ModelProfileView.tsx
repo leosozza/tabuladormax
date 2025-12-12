@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { User, Ruler, Instagram, Calendar, MapPin, Phone, Sparkles, Heart, Users, Facebook, Youtube, MessageCircle, ExternalLink, Scale, Footprints, Palette, Eye, Camera, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { LeadProfileStats } from '@/components/shared/LeadProfileStats';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -490,21 +491,15 @@ export const ModelProfileView = ({
       </Dialog>
 
       {/* ==================== QUICK STATS ==================== */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-3">
-        {ageInfo && ageInfo.value > 0 && (
-          <div className="flex-shrink-0 min-w-[100px] bg-card border rounded-xl p-3 text-center">
-            <div className="flex justify-center text-primary mb-1"><Calendar className="h-4 w-4" /></div>
-            <p className="text-2xl font-bold text-foreground leading-tight">{ageInfo.value}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{ageInfo.unit}</p>
-          </div>
-        )}
-        {altura && <QuickStatCard icon={<Ruler className="h-4 w-4" />} label="Altura" value={`${altura}cm`} />}
-        {manequim.length > 0 && <QuickStatCard icon={<User className="h-4 w-4" />} label="Manequim" value={manequim[0]} />}
-        {calcado && <QuickStatCard icon={<Footprints className="h-4 w-4" />} label="Calçado" value={calcado} />}
-        {peso && <QuickStatCard icon={<Scale className="h-4 w-4" />} label="Peso" value={`${peso}kg`} />}
-        {corPele !== '-' && <QuickStatCard icon={<Palette className="h-4 w-4" />} label="Pele" value={corPele} />}
-        {corOlhos !== '-' && <QuickStatCard icon={<Eye className="h-4 w-4" />} label="Olhos" value={corOlhos} />}
-      </div>
+      <LeadProfileStats
+        ageInfo={ageInfo}
+        altura={altura}
+        manequim={manequim.length > 0 ? manequim[0] : undefined}
+        calcado={calcado}
+        peso={peso}
+        corPele={corPele}
+        corOlhos={corOlhos}
+      />
 
       {/* ==================== ACCORDION SECTIONS ==================== */}
       <Accordion type="multiple" defaultValue={['personal']} className="space-y-2">
@@ -653,19 +648,6 @@ export const ModelProfileView = ({
 // ========================================================================
 // AUXILIARY COMPONENTS
 // ========================================================================
-const QuickStatCard = ({
-  icon,
-  label,
-  value
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) => <div className="flex-shrink-0 min-w-[100px] bg-card border rounded-xl p-3 text-center">
-    <div className="flex justify-center text-primary mb-1">{icon}</div>
-    <p className="text-lg font-bold text-foreground leading-tight">{value}</p>
-    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
-  </div>;
 const DataItem = ({
   label,
   value
