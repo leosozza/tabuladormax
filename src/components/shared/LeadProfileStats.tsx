@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Calendar, Ruler, User, Footprints, Scale, Palette, Eye } from 'lucide-react';
+import { Calendar, Ruler, User, Footprints, Scale, Palette, Eye, Sparkles } from 'lucide-react';
 
 interface QuickStatCardProps {
   icon: ReactNode;
@@ -28,6 +28,8 @@ export interface LeadProfileStatsProps {
   peso?: string | number | null;
   corPele?: string | null;
   corOlhos?: string | null;
+  tipoCabelo?: string | null;
+  corCabelo?: string | null;
   className?: string;
 }
 
@@ -43,16 +45,19 @@ export const LeadProfileStats = ({
   peso,
   corPele,
   corOlhos,
+  tipoCabelo,
+  corCabelo,
   className = '',
 }: LeadProfileStatsProps) => {
   // Check if we have any data to show
   const hasAnyData = ageInfo?.value || altura || manequim || calcado || peso || 
-    (corPele && corPele !== '-') || (corOlhos && corOlhos !== '-');
+    (corPele && corPele !== '-') || (corOlhos && corOlhos !== '-') ||
+    (tipoCabelo && tipoCabelo !== '-') || (corCabelo && corCabelo !== '-');
 
   if (!hasAnyData) return null;
 
   return (
-    <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-3 ${className}`}>
+    <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-9 gap-2 sm:gap-3 ${className}`}>
       {ageInfo && ageInfo.value > 0 && (
         <div className="flex-shrink-0 min-w-[80px] bg-card border rounded-xl p-2 sm:p-3 text-center">
           <div className="flex justify-center text-primary mb-1">
@@ -69,7 +74,7 @@ export const LeadProfileStats = ({
           value={`${altura}cm`} 
         />
       )}
-      {manequim && (
+      {manequim && manequim !== '-' && (
         <QuickStatCard 
           icon={<User className="h-4 w-4" />} 
           label="Manequim" 
@@ -102,6 +107,20 @@ export const LeadProfileStats = ({
           icon={<Eye className="h-4 w-4" />} 
           label="Olhos" 
           value={corOlhos} 
+        />
+      )}
+      {tipoCabelo && tipoCabelo !== '-' && (
+        <QuickStatCard 
+          icon={<Sparkles className="h-4 w-4" />} 
+          label="Tipo Cabelo" 
+          value={tipoCabelo} 
+        />
+      )}
+      {corCabelo && corCabelo !== '-' && (
+        <QuickStatCard 
+          icon={<Palette className="h-4 w-4" />} 
+          label="Cor Cabelo" 
+          value={corCabelo} 
         />
       )}
     </div>
