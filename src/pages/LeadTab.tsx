@@ -337,11 +337,11 @@ const LeadTab = () => {
         .from('bitrix_fields_cache')
         .select('field_id, list_items')
         .in('field_id', [
-          'UF_CRM_690CA5863827D',    // Cor da Pele
-          'UF_CRM_6753068A5BE7C',    // Cor dos Olhos
-          'UF_CRM_690CA586192FB',    // Manequim
-          'UF_CRM_6753068A64AB0',    // Tipo de Cabelo
-          'UF_CRM_DEAL_1750166749133' // Cor do Cabelo
+          'UF_CRM_1762283877',    // Cor da Pele
+          'UF_CRM_1733485183850', // Cor dos Olhos
+          'UF_CRM_1762283056',    // Manequim
+          'UF_CRM_1733485270151', // Tipo de Cabelo
+          'UF_CRM_1762283650'     // Cor do Cabelo
         ]);
       if (error) throw error;
       return data;
@@ -364,17 +364,17 @@ const LeadTab = () => {
     if (!leadProfileData?.raw) return null;
     const raw = leadProfileData.raw as Record<string, unknown>;
     
-    // Bitrix field mappings (same as ModelProfileView)
+    // Bitrix field mappings - IDs corretos do Bitrix
     const dataNascimento = raw['UF_CRM_6748E09939008_DATE_NASCIMENTO'] || 
                            raw['UF_CRM_1762533440587'] as string | undefined;
-    const altura = raw['UF_CRM_6753068A7DEC9'] as string | undefined;
-    const peso = raw['UF_CRM_6753068A86FE0'] as string | undefined;
-    const calcado = raw['UF_CRM_6753068A765FD'] as string | undefined;
-    const manequimRaw = raw['UF_CRM_690CA586192FB'];
-    const corPeleRaw = raw['UF_CRM_690CA5863827D'] as string | undefined;
-    const corOlhosRaw = raw['UF_CRM_6753068A5BE7C'] as string | undefined;
-    const tipoCabeloRaw = raw['UF_CRM_6753068A64AB0'] as string | undefined;
-    const corCabeloRaw = raw['UF_CRM_DEAL_1750166749133'] as string | undefined;
+    const altura = raw['UF_CRM_1733485575'] as string | undefined;
+    const peso = raw['UF_CRM_1733485977896'] as string | undefined;
+    const calcado = raw['UF_CRM_1733485454702'] as string | undefined;
+    const manequimRaw = raw['UF_CRM_1762283056'];
+    const corPeleRaw = raw['UF_CRM_1762283877'] as string | undefined;
+    const corOlhosRaw = raw['UF_CRM_1733485183850'] as string | undefined;
+    const tipoCabeloRaw = raw['UF_CRM_1733485270151'] as string | undefined;
+    const corCabeloRaw = raw['UF_CRM_1762283650'] as string | undefined;
     
     // Traduzir valores de enum
     const manequimValue = Array.isArray(manequimRaw) ? manequimRaw[0] : manequimRaw;
@@ -384,11 +384,11 @@ const LeadTab = () => {
       altura,
       peso,
       calcado,
-      manequim: translateEnumValue(manequimValue, 'UF_CRM_690CA586192FB'),
-      corPele: translateEnumValue(corPeleRaw, 'UF_CRM_690CA5863827D'),
-      corOlhos: translateEnumValue(corOlhosRaw, 'UF_CRM_6753068A5BE7C'),
-      tipoCabelo: translateEnumValue(tipoCabeloRaw, 'UF_CRM_6753068A64AB0'),
-      corCabelo: translateEnumValue(corCabeloRaw, 'UF_CRM_DEAL_1750166749133'),
+      manequim: translateEnumValue(manequimValue, 'UF_CRM_1762283056'),
+      corPele: translateEnumValue(corPeleRaw, 'UF_CRM_1762283877'),
+      corOlhos: translateEnumValue(corOlhosRaw, 'UF_CRM_1733485183850'),
+      tipoCabelo: translateEnumValue(tipoCabeloRaw, 'UF_CRM_1733485270151'),
+      corCabelo: translateEnumValue(corCabeloRaw, 'UF_CRM_1762283650'),
     };
   }, [leadProfileData?.raw, enumFieldsData]);
 
