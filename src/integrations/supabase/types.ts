@@ -3500,6 +3500,7 @@ export type Database = {
           com_foto: number
           compareceram: number
           confirmados: number
+          duplicados: number
           pendentes: number
           reagendar: number
           total_leads: number
