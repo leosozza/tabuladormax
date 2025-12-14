@@ -56,15 +56,16 @@ export function ScouterLeadsModal({
   const [duplicateStatus, setDuplicateStatus] = useState<Map<number, { has_duplicate: boolean; is_duplicate_deleted: boolean }>>(new Map());
   const [checkProgress, setCheckProgress] = useState<DuplicateCheckProgress>({ phase: 'idle', progress: 0, message: '' });
 
-  // Carregar leads de forma RÁPIDA (sem verificar duplicados)
+  // Carregar leads filtrados por tipo de card
   const { data: leads, isLoading } = useQuery({
-    queryKey: ['scouter-leads-simple', scouterName, dateFrom, dateTo, projectId],
+    queryKey: ['scouter-leads-simple', scouterName, dateFrom, dateTo, projectId, filterType],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_leads_simple', {
         p_scouter_name: scouterName,
         p_date_from: dateFrom?.toISOString() || null,
         p_date_to: dateTo?.toISOString() || null,
         p_project_id: projectId || null,
+        p_filter_type: filterType,
       });
 
       if (error) throw error;

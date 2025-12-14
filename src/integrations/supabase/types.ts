@@ -3435,23 +3435,43 @@ export type Database = {
               nome_modelo: string
             }[]
           }
-      get_scouter_leads_simple: {
-        Args: {
-          p_date_from?: string
-          p_date_to?: string
-          p_project_id?: string
-          p_scouter_name: string
-        }
-        Returns: {
-          address: string
-          celular: string
-          commercial_project_id: string
-          criado: string
-          etapa_lead: string
-          lead_id: number
-          nome_modelo: string
-        }[]
-      }
+      get_scouter_leads_simple:
+        | {
+            Args: {
+              p_date_from?: string
+              p_date_to?: string
+              p_filter_type?: string
+              p_project_id?: string
+              p_scouter_name: string
+            }
+            Returns: {
+              address: string
+              celular: string
+              commercial_project_id: string
+              criado: string
+              etapa_lead: string
+              lead_id: number
+              nome_modelo: string
+              photo_url: string
+            }[]
+          }
+        | {
+            Args: {
+              p_date_from?: string
+              p_date_to?: string
+              p_project_id?: string
+              p_scouter_name: string
+            }
+            Returns: {
+              address: string
+              celular: string
+              commercial_project_id: string
+              criado: string
+              etapa_lead: string
+              lead_id: number
+              nome_modelo: string
+            }[]
+          }
       get_scouter_location_stats: { Args: never; Returns: Json }
       get_scouter_performance_data: {
         Args: {
