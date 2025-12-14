@@ -222,8 +222,8 @@ export function ScouterLeadsModal({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Botão Verificar Duplicados + Progresso */}
-        {leads && leads.length > 0 && (
+        {/* Botão Verificar Duplicados + Progresso - APENAS para Total de Leads */}
+        {leads && leads.length > 0 && filterType === 'all' && (
           <div className="flex flex-col gap-2 py-2 border-b border-border">
             <div className="flex items-center gap-3">
               <Button
