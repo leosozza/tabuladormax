@@ -120,7 +120,6 @@ serve(async (req) => {
             try {
               const photoData = item.ufCrm32_1739220520381;
               console.log(`📸 Processando foto para Scouter ${item.id} (${item.title})`);
-              console.log(`  📦 Dados da foto:`, JSON.stringify(photoData));
               
               // Usar urlMachine diretamente (já vem autenticada)
               const fileUrl = photoData.urlMachine;
@@ -156,25 +155,6 @@ serve(async (req) => {
                   
                   photoUrl = publicUrl;
                   console.log(`  ✅ Foto salva: ${photoUrl}`);
-                  
-                  // Atualizar tabela scouters (pelo bitrix_id)
-                  const { error: scouterUpdateError } = await supabase
-                    .from('scouters')
-                    .update({
-                      photo_url: photoUrl,
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq('bitrix_id', item.id);
-                  
-                  if (scouterUpdateError) {
-                    console.error(
-                      `  ⚠️ Erro ao atualizar tabela scouters: ${scouterUpdateError.message}`,
-                    );
-                  } else {
-                    console.log(
-                      `  ✅ Tabela scouters atualizada (bitrix_id: ${item.id})`,
-                    );
-                  }
                 }
               }
             } catch (photoError) {
@@ -182,23 +162,42 @@ serve(async (req) => {
             }
           }
           
-          // Processar chave de acesso para Scouters
-          if (entityType.id === 1096 && item.ufCrm32_1739219729812) {
-            const accessKey = String(item.ufCrm32_1739219729812);
-            console.log(`🔑 Chave de acesso do Scouter ${item.id} (${item.title}): ${accessKey}`);
+          // UPSERT para Scouters - cria novos ou atualiza existentes automaticamente
+          if (entityType.id === 1096) {
+            const accessKey = item.ufCrm32_1739219729812 
+              ? String(item.ufCrm32_1739219729812) 
+              : null;
             
-            const { error: accessKeyError } = await supabase
+            console.log(`👤 Sincronizando Scouter ${item.id} (${item.title}) - chave: ${accessKey || 'sem chave'}`);
+            
+            // Preparar dados para upsert
+            const scouterData: Record<string, unknown> = {
+              bitrix_id: item.id,
+              name: (item.title || `Scouter ${item.id}`).trim(),
+              status: 'ativo',
+              updated_at: new Date().toISOString(),
+            };
+            
+            // Adicionar access_key se existir
+            if (accessKey) {
+              scouterData.access_key = accessKey;
+            }
+            
+            // Adicionar photo_url se existir
+            if (photoUrl) {
+              scouterData.photo_url = photoUrl;
+            }
+            
+            const { error: scouterError } = await supabase
               .from('scouters')
-              .update({
-                access_key: accessKey,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('bitrix_id', item.id);
+              .upsert(scouterData, {
+                onConflict: 'bitrix_id'
+              });
             
-            if (accessKeyError) {
-              console.error(`  ⚠️ Erro ao atualizar access_key: ${accessKeyError.message}`);
+            if (scouterError) {
+              console.error(`  ⚠️ Erro ao upsert scouter ${item.id}: ${scouterError.message}`);
             } else {
-              console.log(`  ✅ Chave de acesso salva para scouter ${item.title}`);
+              console.log(`  ✅ Scouter ${item.title} sincronizado com sucesso`);
             }
           }
           
