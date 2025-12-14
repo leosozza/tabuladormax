@@ -1762,6 +1762,7 @@ export type Database = {
           nome_modelo: string | null
           nome_responsavel_legal: string | null
           op_telemarketing: string | null
+          phone_normalized: string | null
           photo_url: string | null
           presenca_confirmada: boolean | null
           projeto_comercial: string | null
@@ -1827,6 +1828,7 @@ export type Database = {
           nome_modelo?: string | null
           nome_responsavel_legal?: string | null
           op_telemarketing?: string | null
+          phone_normalized?: string | null
           photo_url?: string | null
           presenca_confirmada?: boolean | null
           projeto_comercial?: string | null
@@ -1892,6 +1894,7 @@ export type Database = {
           nome_modelo?: string | null
           nome_responsavel_legal?: string | null
           op_telemarketing?: string | null
+          phone_normalized?: string | null
           photo_url?: string | null
           presenca_confirmada?: boolean | null
           projeto_comercial?: string | null
@@ -3472,6 +3475,24 @@ export type Database = {
               nome_modelo: string
             }[]
           }
+        | {
+            Args: {
+              p_date_from?: string
+              p_date_to?: string
+              p_filter_type?: string
+              p_project_id?: string
+              p_scouter_name: string
+            }
+            Returns: {
+              address: string
+              celular: string
+              commercial_project_id: string
+              criado: string
+              etapa_lead: string
+              lead_id: number
+              nome_modelo: string
+            }[]
+          }
       get_scouter_location_stats: { Args: never; Returns: Json }
       get_scouter_performance_data: {
         Args: {
@@ -3619,6 +3640,14 @@ export type Database = {
         Returns: Json
       }
       normalize_fonte: { Args: { raw_fonte: string }; Returns: string }
+      normalize_phone_number: {
+        Args: { celular: string; raw_phone: Json }
+        Returns: string
+      }
+      populate_phone_normalized_batch: {
+        Args: { p_batch_size?: number }
+        Returns: Json
+      }
       recalculate_fonte_batch: { Args: never; Returns: Json }
       recalculate_fonte_single_batch: {
         Args: { p_batch_size?: number }
