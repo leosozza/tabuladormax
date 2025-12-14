@@ -7,7 +7,8 @@ import {
   Calendar, 
   RefreshCw, 
   UserCheck, 
-  Clock 
+  Clock,
+  Copy
 } from 'lucide-react';
 
 interface Stats {
@@ -18,6 +19,7 @@ interface Stats {
   reagendar: number;
   compareceram: number;
   pendentes: number;
+  duplicados: number;
 }
 
 interface ScouterStatsCardsProps {
@@ -29,8 +31,8 @@ interface ScouterStatsCardsProps {
 export const ScouterStatsCards = ({ stats, isLoading, onCardClick }: ScouterStatsCardsProps) => {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        {Array.from({ length: 7 }).map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+        {Array.from({ length: 8 }).map((_, i) => (
           <Card key={i}>
             <CardHeader className="pb-2">
               <Skeleton className="h-4 w-20" />
@@ -109,10 +111,18 @@ export const ScouterStatsCards = ({ stats, isLoading, onCardClick }: ScouterStat
       bgColor: 'bg-red-500/10',
       filterType: 'pendentes'
     },
+    { 
+      title: 'Duplicados', 
+      value: stats.duplicados, 
+      icon: Copy, 
+      color: 'text-rose-500',
+      bgColor: 'bg-rose-500/10',
+      filterType: 'duplicados'
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
       {cards.map((card) => (
         <Card 
           key={card.title} 
