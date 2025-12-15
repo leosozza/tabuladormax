@@ -21,37 +21,74 @@ const PortalTelemarketingDashboard = () => {
 
   // Inicialização SÍNCRONA - lê do localStorage no primeiro render
   const context = (() => {
+    const prefix = '[TM][Dashboard]';
+    console.groupCollapsed(`${prefix} init`, {
+      path: location.pathname,
+      search: location.search,
+      href: typeof window !== 'undefined' ? window.location.href : undefined,
+      referrer: typeof document !== 'undefined' ? document.referrer : undefined,
+    });
+
+    let result: TelemarketingContext | null = null;
+
     try {
+      const keys = Object.keys(localStorage);
+      console.log(`${prefix} localStorage keys`, keys);
+
       const savedContext = localStorage.getItem('telemarketing_context');
+      console.log(`${prefix} telemarketing_context raw`, savedContext);
+
       if (savedContext) {
-        return JSON.parse(savedContext) as TelemarketingContext;
+        result = JSON.parse(savedContext) as TelemarketingContext;
+        console.log(`${prefix} telemarketing_context parsed`, result);
+        return result;
       }
 
       const savedOperator = localStorage.getItem('telemarketing_operator');
+      console.log(`${prefix} telemarketing_operator raw`, savedOperator);
+
       if (savedOperator) {
         const operator = JSON.parse(savedOperator) as StoredTelemarketingOperator;
+        console.log(`${prefix} telemarketing_operator parsed`, operator);
+
         const ctx: TelemarketingContext = {
           bitrix_id: operator.bitrix_id,
           cargo: operator.cargo,
           name: operator.operator_name,
         };
+
         // Salvar contexto para próximos acessos
         localStorage.setItem('telemarketing_context', JSON.stringify(ctx));
-        return ctx;
+        console.log(`${prefix} context persisted`, ctx);
+
+        result = ctx;
+        return result;
       }
 
-      return null;
+      console.warn(`${prefix} no session data found`);
+      result = null;
+      return result;
     } catch (e) {
-      console.error('Erro ao recuperar contexto:', e);
-      localStorage.removeItem('telemarketing_context');
-      localStorage.removeItem('telemarketing_operator');
-      return null;
+      console.error(`${prefix} error reading session`, e);
+      try {
+        localStorage.removeItem('telemarketing_context');
+        localStorage.removeItem('telemarketing_operator');
+        console.warn(`${prefix} cleared corrupted localStorage keys`);
+      } catch (clearErr) {
+        console.error(`${prefix} error clearing localStorage`, clearErr);
+      }
+      result = null;
+      return result;
+    } finally {
+      console.log(`${prefix} final context`, result);
+      console.groupEnd();
     }
   })();
 
   // Se não tem contexto, redireciona para login com deep-link
   if (!context) {
     const redirectTarget = `${location.pathname}${location.search}`;
+    console.warn('[TM][Dashboard] redirecting to login', { redirectTarget });
     return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }
 
