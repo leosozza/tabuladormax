@@ -76,8 +76,8 @@ serve(async (req) => {
             stageFilter = '&filter[stageId]=DT1096_210:NEW';
             extraFields = '&select[]=ufCrm32_1739220520381&select[]=ufCrm32_1739219729812';
           } else if (entityType.id === 1144) {
-            // Telemarketing: campos de chave de acesso e cargo
-            extraFields = '&select[]=ufCrm50Chavetele&select[]=ufCrm50Cargo';
+            // Telemarketing: campos de chave de acesso, cargo e FOTO
+            extraFields = '&select[]=ufCrm50Chavetele&select[]=ufCrm50Cargo&select[]=ufCrm50Fototele';
           } else if (entityType.id === 1156) {
             // Produtores: campo UF_CRM_54_CHAVE para chave de acesso
             extraFields = '&select[]=ufCrm54Chave';
@@ -204,6 +204,61 @@ serve(async (req) => {
             }
           }
           
+          // Processar foto para Telemarketing usando urlMachine
+          if (entityType.id === 1144) {
+            // Tentar múltiplas variações do nome do campo de foto
+            const photoData = 
+              item.ufCrm50Fototele || 
+              item.ufCrm50_Fototele ||
+              item['UF_CRM_50_FOTOTELE'] ||
+              item.ufCrm_50_Fototele ||
+              null;
+            
+            if (photoData?.urlMachine) {
+              try {
+                console.log(`📸 Processando foto para Telemarketing ${item.id} (${item.title})`);
+                
+                const fileUrl = photoData.urlMachine;
+                console.log(`  ⬇️ Baixando foto via urlMachine`);
+                
+                const imageResp = await fetch(fileUrl);
+                if (!imageResp.ok) {
+                  console.error(
+                    `  ❌ Erro HTTP ${imageResp.status} ao baixar foto do Telemarketing ${item.id}`,
+                  );
+                } else {
+                  const imageBlob = await imageResp.blob();
+                  console.log(`  📦 Foto baixada: ${imageBlob.size} bytes`);
+                  
+                  // Fazer upload para Supabase Storage
+                  const fileName = `telemarketing-${item.id}-${Date.now()}.jpg`;
+                  const { error: uploadError } = await supabase.storage
+                    .from('telemarketing-photos')
+                    .upload(fileName, imageBlob, {
+                      contentType: 'image/jpeg',
+                      upsert: true,
+                    });
+                  
+                  if (uploadError) {
+                    console.error(
+                      `  ❌ Erro ao fazer upload da foto: ${uploadError.message}`,
+                    );
+                  } else {
+                    // Obter URL pública
+                    const {
+                      data: { publicUrl },
+                    } = supabase.storage.from('telemarketing-photos').getPublicUrl(fileName);
+                    
+                    photoUrl = publicUrl;
+                    console.log(`  ✅ Foto telemarketing salva: ${photoUrl}`);
+                  }
+                }
+              } catch (photoError) {
+                console.error(`  ❌ Erro ao processar foto do Telemarketing ${item.id}:`, photoError);
+              }
+            }
+          }
+          
           // Processar Telemarketing - criar/atualizar na tabela telemarketing_operators
           if (entityType.id === 1144) {
             console.log(`📞 Telemarketing ${item.id} (${item.title}) - Keys:`, Object.keys(item));
@@ -223,7 +278,7 @@ serve(async (req) => {
               item.ufCrm_50_Cargo ||
               'agente';
             
-            console.log(`  🔑 Chave: ${accessKey || 'SEM CHAVE'} | Cargo: ${cargo}`);
+            console.log(`  🔑 Chave: ${accessKey || 'SEM CHAVE'} | Cargo: ${cargo} | Foto: ${photoUrl ? 'SIM' : 'NÃO'}`);
             
             const { error: teleError } = await supabase
               .from('telemarketing_operators')
@@ -232,6 +287,7 @@ serve(async (req) => {
                 name: (item.title || `Operador ${item.id}`).trim(),
                 access_key: accessKey,
                 cargo: String(cargo),
+                photo_url: photoUrl,
                 status: 'ativo',
                 updated_at: new Date().toISOString(),
               }, {
