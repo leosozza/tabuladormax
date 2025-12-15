@@ -76,10 +76,10 @@
           });
         }
         
-        // 3. Limpar localStorage (exceto auth)
+        // 3. Limpar localStorage (exceto auth e telemarketing)
         try {
           Object.keys(localStorage).forEach(function(key) {
-            if (!key.includes('supabase') && !key.includes('auth')) {
+            if (!key.includes('supabase') && !key.includes('auth') && !key.includes('telemarketing')) {
               localStorage.removeItem(key);
             }
           });
