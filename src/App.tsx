@@ -72,6 +72,8 @@ import PortalProdutor from "./pages/PortalProdutor";
 
 // Portal Telemarketing (público)
 import PortalTelemarketing from "./pages/PortalTelemarketing";
+import PortalTelemarketingTabulador from "./pages/portal-telemarketing/PortalTelemarketingTabulador";
+import PortalTelemarketingDashboard from "./pages/portal-telemarketing/PortalTelemarketingDashboard";
 
 // Hub Panels
 import HubPanels from "./pages/HubPanels";
@@ -106,6 +108,8 @@ const App = () => (
           <Route path="/portal-scouter" element={<PortalScouter />} />
           <Route path="/portal-produtor" element={<PortalProdutor />} />
           <Route path="/portal-telemarketing" element={<PortalTelemarketing />} />
+          <Route path="/portal-telemarketing/tabulador" element={<PortalTelemarketingTabulador />} />
+          <Route path="/portal-telemarketing/dashboard" element={<PortalTelemarketingDashboard />} />
 
           {/* Rotas PROTEGIDAS - com sidebar persistente */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
