@@ -16,9 +16,9 @@ const PortalTelemarketingTabulador = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Validar sessão do telemarketing
-    const savedContext = sessionStorage.getItem('telemarketing_context');
-    const savedOperator = sessionStorage.getItem('telemarketing_operator');
+    // Validar sessão do telemarketing (usando localStorage para persistência)
+    const savedContext = localStorage.getItem('telemarketing_context');
+    const savedOperator = localStorage.getItem('telemarketing_operator');
     
     if (!savedContext && !savedOperator) {
       // Sem sessão válida, redirecionar para login
