@@ -2950,6 +2950,62 @@ export type Database = {
         }
         Relationships: []
       }
+      telemarketing_operators: {
+        Row: {
+          access_key: string | null
+          bitrix_id: number
+          cargo: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          last_activity_at: string | null
+          name: string
+          phone: string | null
+          photo_url: string | null
+          status: string | null
+          supervisor_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          access_key?: string | null
+          bitrix_id: number
+          cargo?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          last_activity_at?: string | null
+          name: string
+          phone?: string | null
+          photo_url?: string | null
+          status?: string | null
+          supervisor_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          access_key?: string | null
+          bitrix_id?: number
+          cargo?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          last_activity_at?: string | null
+          name?: string
+          phone?: string | null
+          photo_url?: string | null
+          status?: string | null
+          supervisor_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telemarketing_operators_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "telemarketing_operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unified_field_config: {
         Row: {
           bitrix_field: string | null
@@ -3671,6 +3727,16 @@ export type Database = {
           scouter_id: string
           scouter_name: string
           scouter_photo: string
+        }[]
+      }
+      validate_telemarketing_access_key: {
+        Args: { p_access_key: string }
+        Returns: {
+          bitrix_id: number
+          cargo: string
+          operator_id: string
+          operator_name: string
+          operator_photo: string
         }[]
       }
     }

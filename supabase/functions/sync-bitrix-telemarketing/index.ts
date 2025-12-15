@@ -16,8 +16,8 @@ serve(async (req) => {
   try {
     console.log('🔄 Sincronizando lista de telemarketing do Bitrix24...');
 
-    // URL do webhook do Bitrix24 para buscar telemarketing
-    const bitrixUrl = 'https://maxsystem.bitrix24.com.br/rest/9/85e3cex48z1zc0qp/crm.item.list.json?entityTypeId=1144&select[]=title&select[]=id&start=-1';
+    // URL do webhook do Bitrix24 para buscar telemarketing com campos extras
+    const bitrixUrl = 'https://maxsystem.bitrix24.com.br/rest/9/85e3cex48z1zc0qp/crm.item.list.json?entityTypeId=1144&select[]=title&select[]=id&select[]=UF_CRM_50_CHAVETELE&select[]=UF_CRM_50_CARGO&start=-1';
 
     // Buscar dados do Bitrix24
     const response = await fetch(bitrixUrl);
@@ -39,7 +39,31 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Salvar no config_kv para cache
+    // Processar cada item e fazer upsert na tabela telemarketing_operators
+    const operatorsToUpsert = data.result.items.map((item: any) => ({
+      bitrix_id: item.id,
+      name: item.title,
+      access_key: item.UF_CRM_50_CHAVETELE || null,
+      cargo: item.UF_CRM_50_CARGO || 'agente',
+      updated_at: new Date().toISOString()
+    }));
+
+    // Upsert em batch na tabela telemarketing_operators
+    const { error: upsertError, data: upsertedData } = await supabase
+      .from('telemarketing_operators')
+      .upsert(operatorsToUpsert, {
+        onConflict: 'bitrix_id',
+        ignoreDuplicates: false
+      })
+      .select();
+
+    if (upsertError) {
+      console.error('⚠️ Erro ao fazer upsert de operadores:', upsertError);
+    } else {
+      console.log(`✅ ${upsertedData?.length || 0} operadores atualizados na tabela telemarketing_operators`);
+    }
+
+    // Salvar no config_kv para cache (compatibilidade)
     const { error: cacheError } = await supabase
       .from('config_kv')
       .upsert({
@@ -52,14 +76,14 @@ serve(async (req) => {
 
     if (cacheError) {
       console.error('⚠️ Erro ao cachear lista:', cacheError);
-      // Não bloquear resposta por erro de cache
     }
 
     return new Response(
       JSON.stringify({ 
         success: true,
         count: data.result.items.length,
-        items: data.result.items
+        items: data.result.items,
+        operators_updated: upsertedData?.length || 0
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
