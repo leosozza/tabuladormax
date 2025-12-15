@@ -8,14 +8,29 @@ interface ScouterData {
   photo: string | null;
 }
 
+const STORAGE_KEY = 'scouter_session';
+
 const PortalScouter = () => {
-  const [scouterData, setScouterData] = useState<ScouterData | null>(null);
+  const [scouterData, setScouterData] = useState<ScouterData | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved) as ScouterData;
+      }
+      return null;
+    } catch (e) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+  });
 
   const handleAccessGranted = (data: ScouterData) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     setScouterData(data);
   };
 
   const handleLogout = () => {
+    localStorage.removeItem(STORAGE_KEY);
     setScouterData(null);
   };
 

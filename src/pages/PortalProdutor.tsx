@@ -8,14 +8,29 @@ interface ProducerData {
   photo: string | null;
 }
 
+const STORAGE_KEY = 'producer_session';
+
 const PortalProdutor = () => {
-  const [producerData, setProducerData] = useState<ProducerData | null>(null);
+  const [producerData, setProducerData] = useState<ProducerData | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved) as ProducerData;
+      }
+      return null;
+    } catch (e) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+  });
 
   const handleAccessGranted = (data: ProducerData) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     setProducerData(data);
   };
 
   const handleLogout = () => {
+    localStorage.removeItem(STORAGE_KEY);
     setProducerData(null);
   };
 
