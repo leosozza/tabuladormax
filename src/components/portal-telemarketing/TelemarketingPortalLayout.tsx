@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { 
   Headset, 
@@ -9,7 +8,8 @@ import {
   Phone, 
   BarChart3, 
   Users,
-  User
+  User,
+  MessageSquare
 } from 'lucide-react';
 import { TelemarketingOperatorData } from './TelemarketingAccessKeyForm';
 
@@ -36,12 +36,19 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
           <div className="flex items-center justify-between">
             {/* Área do perfil - lado esquerdo */}
             <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16 border-4 border-primary/20 shadow-lg ring-2 ring-primary/10">
-                <AvatarImage src={operatorData.operator_photo || undefined} className="object-cover" />
-                <AvatarFallback className="text-xl font-bold bg-primary/10 text-primary">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative w-12 h-16 rounded-md border-2 border-primary/20 shadow-lg ring-2 ring-primary/10 overflow-hidden bg-primary/10 flex-shrink-0">
+                {operatorData.operator_photo ? (
+                  <img 
+                    src={operatorData.operator_photo} 
+                    alt={operatorData.operator_name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-sm font-bold text-primary">{initials}</span>
+                  </div>
+                )}
+              </div>
               
               <div className="flex flex-col">
                 <h1 className="font-bold text-lg">Olá, {operatorData.operator_name.split(' ')[0]}!</h1>
@@ -132,6 +139,34 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                 }}
               >
                 Ver Dashboard
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer group">
+            <CardHeader>
+              <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center mb-2 group-hover:bg-green-500/20 transition-colors">
+                <MessageSquare className="w-6 h-6 text-green-500" />
+              </div>
+              <CardTitle>WhatsApp</CardTitle>
+              <CardDescription>
+                Conversas dos seus leads
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                variant="outline"
+                className="w-full border-green-500/30 text-green-600 hover:bg-green-500/10"
+                onClick={() => {
+                  localStorage.setItem('telemarketing_context', JSON.stringify({
+                    bitrix_id: operatorData.bitrix_id,
+                    cargo: operatorData.cargo,
+                    name: operatorData.operator_name
+                  }));
+                  navigate('/portal-telemarketing/whatsapp');
+                }}
+              >
+                Acessar WhatsApp
               </Button>
             </CardContent>
           </Card>

@@ -13,6 +13,7 @@ type StoredTelemarketingOperator = {
   bitrix_id: number;
   cargo: string;
   operator_name: string;
+  operator_photo?: string | null;
 };
 
 const PortalTelemarketingDashboard = () => {
@@ -92,6 +93,27 @@ const PortalTelemarketingDashboard = () => {
     return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }
 
+  // Obter foto do operador do localStorage
+  const operatorPhoto = (() => {
+    try {
+      const savedOperator = localStorage.getItem('telemarketing_operator');
+      if (savedOperator) {
+        const operator = JSON.parse(savedOperator) as StoredTelemarketingOperator;
+        return operator.operator_photo || null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const initials = context.name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header compacto */}
@@ -105,8 +127,23 @@ const PortalTelemarketingDashboard = () => {
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
+        
+        {/* Foto retangular 3x4 */}
+        <div className="relative w-9 h-12 rounded-md border-2 border-primary/20 shadow overflow-hidden bg-primary/10 flex-shrink-0">
+          {operatorPhoto ? (
+            <img 
+              src={operatorPhoto} 
+              alt={context.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="text-xs font-bold text-primary">{initials}</span>
+            </div>
+          )}
+        </div>
+        
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Headset className="w-4 h-4" />
           <span>{context.name || 'Operador'}</span>
           <span className="text-xs bg-muted px-2 py-0.5 rounded">
             {context.cargo === 'supervisor' ? 'Supervisor' : 'Agente'}
