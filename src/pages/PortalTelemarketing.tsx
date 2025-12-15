@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { TelemarketingAccessKeyForm, TelemarketingOperatorData } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { TelemarketingPortalLayout } from '@/components/portal-telemarketing/TelemarketingPortalLayout';
+import { supabase } from '@/integrations/supabase/client';
 
 const STORAGE_KEY = 'telemarketing_operator';
 const CONTEXT_KEY = 'telemarketing_context';
@@ -103,6 +104,39 @@ const PortalTelemarketing = () => {
 
     console.groupEnd();
   }, [operatorData, redirectTo, navigate]);
+
+  // Refresh automático da foto do operador
+  useEffect(() => {
+    const refreshOperatorPhoto = async () => {
+      if (!operatorData) return;
+      
+      const prefix = '[TM][Portal]';
+      
+      try {
+        const { data, error } = await supabase
+          .from('telemarketing_operators')
+          .select('photo_url')
+          .eq('bitrix_id', operatorData.bitrix_id)
+          .single();
+        
+        if (error) {
+          console.error(`${prefix} error fetching photo:`, error);
+          return;
+        }
+        
+        if (data?.photo_url && data.photo_url !== operatorData.operator_photo) {
+          console.log(`${prefix} updating operator photo from DB`);
+          const updatedData = { ...operatorData, operator_photo: data.photo_url };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
+          setOperatorData(updatedData);
+        }
+      } catch (e) {
+        console.error(`${prefix} error refreshing photo:`, e);
+      }
+    };
+    
+    refreshOperatorPhoto();
+  }, [operatorData?.bitrix_id]);
 
   const handleAccessGranted = (data: TelemarketingOperatorData) => {
     const prefix = '[TM][Portal]';

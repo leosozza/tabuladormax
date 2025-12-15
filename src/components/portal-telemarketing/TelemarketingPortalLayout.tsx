@@ -31,29 +31,22 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Headset className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="font-semibold">Portal do Telemarketing</h1>
-              <p className="text-sm text-muted-foreground">
-                {isSupervisor ? 'Supervisão' : 'Operador'}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={operatorData.operator_photo || undefined} />
-                <AvatarFallback>{initials}</AvatarFallback>
+      <header className="border-b bg-card sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            {/* Área do perfil - lado esquerdo */}
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16 border-4 border-primary/20 shadow-lg ring-2 ring-primary/10">
+                <AvatarImage src={operatorData.operator_photo || undefined} className="object-cover" />
+                <AvatarFallback className="text-xl font-bold bg-primary/10 text-primary">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
-              <div className="hidden sm:block">
-                <p className="font-medium text-sm">{operatorData.operator_name}</p>
-                <Badge variant={isSupervisor ? 'default' : 'secondary'} className="text-xs">
+              
+              <div className="flex flex-col">
+                <h1 className="font-bold text-lg">Olá, {operatorData.operator_name.split(' ')[0]}!</h1>
+                <p className="text-sm text-muted-foreground">Portal do Telemarketing</p>
+                <Badge variant={isSupervisor ? 'default' : 'secondary'} className="text-xs w-fit mt-1">
                   {isSupervisor ? (
                     <><Users className="w-3 h-3 mr-1" /> Supervisor</>
                   ) : (
@@ -62,6 +55,8 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                 </Badge>
               </div>
             </div>
+
+            {/* Botão logout - lado direito */}
             <Button variant="ghost" size="icon" onClick={onLogout} title="Sair">
               <LogOut className="w-5 h-5" />
             </Button>
@@ -72,9 +67,6 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold">
-            Olá, {operatorData.operator_name.split(' ')[0]}!
-          </h2>
           <p className="text-muted-foreground">
             {isSupervisor 
               ? 'Você tem acesso aos dados de todos os agentes da sua equipe.'
