@@ -2399,7 +2399,7 @@ const LeadTab = () => {
 
               <div className="flex flex-col gap-2 w-full mt-2 md:mt-4">
                 <div className="flex gap-2 w-full">
-                  <Button variant="secondary" onClick={() => navigate('/dashboard')} className="flex-1 gap-2 text-xs md:text-sm">
+                  <Button variant="secondary" onClick={() => navigate('/portal-telemarketing/dashboard')} className="flex-1 gap-2 text-xs md:text-sm">
                     <BarChart3 className="w-3 h-3 md:w-4 md:h-4" />
                     <span className="hidden xs:inline">Dashboard</span>
                   </Button>
