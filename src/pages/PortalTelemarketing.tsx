@@ -26,6 +26,12 @@ const PortalTelemarketing = () => {
 
   const handleAccessGranted = (data: TelemarketingOperatorData) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    // Salvar contexto também para acesso direto às sub-rotas
+    localStorage.setItem(CONTEXT_KEY, JSON.stringify({
+      bitrix_id: data.bitrix_id,
+      cargo: data.cargo,
+      name: data.operator_name
+    }));
     setOperatorData(data);
   };
 
