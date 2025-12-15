@@ -99,8 +99,8 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
               <Button 
                 className="w-full" 
                 onClick={() => {
-                  // Salvar contexto do operador antes de navegar
-                  sessionStorage.setItem('telemarketing_context', JSON.stringify({
+                  // Salvar contexto do operador antes de navegar (localStorage para persistência)
+                  localStorage.setItem('telemarketing_context', JSON.stringify({
                     bitrix_id: operatorData.bitrix_id,
                     cargo: operatorData.cargo,
                     name: operatorData.operator_name
@@ -131,7 +131,7 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                 variant="secondary"
                 className="w-full"
                 onClick={() => {
-                  sessionStorage.setItem('telemarketing_context', JSON.stringify({
+                  localStorage.setItem('telemarketing_context', JSON.stringify({
                     bitrix_id: operatorData.bitrix_id,
                     cargo: operatorData.cargo,
                     name: operatorData.operator_name
