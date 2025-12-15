@@ -11,30 +11,44 @@ const PortalTelemarketing = () => {
   const location = useLocation();
   const redirectTo = new URLSearchParams(location.search).get('redirect');
 
-  const [operatorData, setOperatorData] = useState<TelemarketingOperatorData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Recuperar sessão salva (localStorage persiste após fechar navegador)
-  useEffect(() => {
+  const [operatorData, setOperatorData] = useState<TelemarketingOperatorData | null>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setOperatorData(parsed);
+    if (!saved) return null;
 
-        // Se existe deep-link, redirecionar direto após restaurar a sessão
-        if (redirectTo) {
-          navigate(redirectTo, { replace: true });
-          return;
-        }
-      } catch (e) {
-        console.error('Erro ao recuperar sessão:', e);
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(CONTEXT_KEY);
-      }
+    try {
+      return JSON.parse(saved) as TelemarketingOperatorData;
+    } catch (e) {
+      console.error('Erro ao recuperar sessão:', e);
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(CONTEXT_KEY);
+      return null;
     }
-    setIsLoading(false);
-  }, [navigate, redirectTo]);
+  });
+
+  // Pós-restauração: garantir contexto e aplicar deep-link
+  useEffect(() => {
+    if (!operatorData) return;
+
+    try {
+      const ctx = localStorage.getItem(CONTEXT_KEY);
+      if (!ctx) {
+        localStorage.setItem(
+          CONTEXT_KEY,
+          JSON.stringify({
+            bitrix_id: operatorData.bitrix_id,
+            cargo: operatorData.cargo,
+            name: operatorData.operator_name,
+          })
+        );
+      }
+    } catch (e) {
+      console.error('Erro ao salvar contexto:', e);
+    }
+
+    if (redirectTo) {
+      navigate(redirectTo, { replace: true });
+    }
+  }, [operatorData, redirectTo, navigate]);
 
   const handleAccessGranted = (data: TelemarketingOperatorData) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -58,13 +72,6 @@ const PortalTelemarketing = () => {
     setOperatorData(null);
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Carregando...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
