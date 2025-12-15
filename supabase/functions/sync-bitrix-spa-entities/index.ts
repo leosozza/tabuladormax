@@ -75,6 +75,9 @@ serve(async (req) => {
             // Scouters: apenas ativos + campos de foto e chave de acesso
             stageFilter = '&filter[stageId]=DT1096_210:NEW';
             extraFields = '&select[]=ufCrm32_1739220520381&select[]=ufCrm32_1739219729812';
+          } else if (entityType.id === 1144) {
+            // Telemarketing: campos de chave de acesso e cargo
+            extraFields = '&select[]=ufCrm50Chavetele&select[]=ufCrm50Cargo';
           } else if (entityType.id === 1156) {
             // Produtores: campo UF_CRM_54_CHAVE para chave de acesso
             extraFields = '&select[]=ufCrm54Chave';
@@ -198,6 +201,47 @@ serve(async (req) => {
               console.error(`  ⚠️ Erro ao upsert scouter ${item.id}: ${scouterError.message}`);
             } else {
               console.log(`  ✅ Scouter ${item.title} sincronizado com sucesso`);
+            }
+          }
+          
+          // Processar Telemarketing - criar/atualizar na tabela telemarketing_operators
+          if (entityType.id === 1144) {
+            console.log(`📞 Telemarketing ${item.id} (${item.title}) - Keys:`, Object.keys(item));
+            
+            // Tentar múltiplas variações do nome dos campos
+            const accessKey = 
+              item.ufCrm50Chavetele || 
+              item.ufCrm50_Chavetele ||
+              item['UF_CRM_50_CHAVETELE'] ||
+              item.ufCrm_50_Chavetele ||
+              null;
+            
+            const cargo = 
+              item.ufCrm50Cargo || 
+              item.ufCrm50_Cargo ||
+              item['UF_CRM_50_CARGO'] ||
+              item.ufCrm_50_Cargo ||
+              'agente';
+            
+            console.log(`  🔑 Chave: ${accessKey || 'SEM CHAVE'} | Cargo: ${cargo}`);
+            
+            const { error: teleError } = await supabase
+              .from('telemarketing_operators')
+              .upsert({
+                bitrix_id: item.id,
+                name: (item.title || `Operador ${item.id}`).trim(),
+                access_key: accessKey,
+                cargo: String(cargo),
+                status: 'ativo',
+                updated_at: new Date().toISOString(),
+              }, {
+                onConflict: 'bitrix_id'
+              });
+            
+            if (teleError) {
+              console.error(`  ⚠️ Erro ao salvar telemarketing: ${teleError.message}`);
+            } else {
+              console.log(`  ✅ Telemarketing ${item.title} salvo com chave: ${accessKey}`);
             }
           }
           
