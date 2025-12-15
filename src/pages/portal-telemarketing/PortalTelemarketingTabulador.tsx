@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import LeadTab from '@/pages/LeadTab';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Headset } from 'lucide-react';
@@ -19,53 +18,41 @@ type StoredTelemarketingOperator = {
 const PortalTelemarketingTabulador = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [context, setContext] = useState<TelemarketingContext | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const savedContext = localStorage.getItem('telemarketing_context');
-    const savedOperator = localStorage.getItem('telemarketing_operator');
-
-    const redirectTarget = `${location.pathname}${location.search}`;
-
-    if (!savedContext && !savedOperator) {
-      navigate(`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`, { replace: true });
-      return;
-    }
-
+  // Inicialização SÍNCRONA - lê do localStorage no primeiro render
+  const context = (() => {
     try {
-      let parsedContext: TelemarketingContext | null = null;
-
+      const savedContext = localStorage.getItem('telemarketing_context');
       if (savedContext) {
-        parsedContext = JSON.parse(savedContext);
-      } else if (savedOperator) {
+        return JSON.parse(savedContext) as TelemarketingContext;
+      }
+
+      const savedOperator = localStorage.getItem('telemarketing_operator');
+      if (savedOperator) {
         const operator = JSON.parse(savedOperator) as StoredTelemarketingOperator;
-        parsedContext = {
+        const ctx: TelemarketingContext = {
           bitrix_id: operator.bitrix_id,
           cargo: operator.cargo,
           name: operator.operator_name,
         };
-        localStorage.setItem('telemarketing_context', JSON.stringify(parsedContext));
+        // Salvar contexto para próximos acessos
+        localStorage.setItem('telemarketing_context', JSON.stringify(ctx));
+        return ctx;
       }
 
-      setContext(parsedContext);
+      return null;
     } catch (e) {
       console.error('Erro ao recuperar contexto:', e);
       localStorage.removeItem('telemarketing_context');
       localStorage.removeItem('telemarketing_operator');
-      navigate(`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`, { replace: true });
-      return;
+      return null;
     }
+  })();
 
-    setIsLoading(false);
-  }, [navigate, location.pathname, location.search]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Carregando...</div>
-      </div>
-    );
+  // Se não tem contexto, redireciona para login com deep-link
+  if (!context) {
+    const redirectTarget = `${location.pathname}${location.search}`;
+    return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }
 
   return (
@@ -83,9 +70,9 @@ const PortalTelemarketingTabulador = () => {
         </Button>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Headset className="w-4 h-4" />
-          <span>{context?.name || 'Operador'}</span>
+          <span>{context.name || 'Operador'}</span>
           <span className="text-xs bg-muted px-2 py-0.5 rounded">
-            {context?.cargo === 'supervisor' ? 'Supervisor' : 'Agente'}
+            {context.cargo === 'supervisor' ? 'Supervisor' : 'Agente'}
           </span>
         </div>
       </header>
