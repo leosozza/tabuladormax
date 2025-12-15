@@ -70,6 +70,9 @@ import PortalScouter from "./pages/PortalScouter";
 // Portal Produtor (público)
 import PortalProdutor from "./pages/PortalProdutor";
 
+// Portal Telemarketing (público)
+import PortalTelemarketing from "./pages/PortalTelemarketing";
+
 // Hub Panels
 import HubPanels from "./pages/HubPanels";
 import "@/styles/hub.css";
@@ -102,6 +105,7 @@ const App = () => (
           <Route path="/precadastro/sucesso" element={<PreCadastroSucesso />} />
           <Route path="/portal-scouter" element={<PortalScouter />} />
           <Route path="/portal-produtor" element={<PortalProdutor />} />
+          <Route path="/portal-telemarketing" element={<PortalTelemarketing />} />
 
           {/* Rotas PROTEGIDAS - com sidebar persistente */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
