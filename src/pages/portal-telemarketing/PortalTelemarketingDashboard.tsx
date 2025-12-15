@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Dashboard from '@/pages/Dashboard';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Headset } from 'lucide-react';
@@ -10,33 +10,55 @@ interface TelemarketingContext {
   name: string;
 }
 
+type StoredTelemarketingOperator = {
+  bitrix_id: number;
+  cargo: string;
+  operator_name: string;
+};
+
 const PortalTelemarketingDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [context, setContext] = useState<TelemarketingContext | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Validar sessão do telemarketing (usando localStorage para persistência)
     const savedContext = localStorage.getItem('telemarketing_context');
     const savedOperator = localStorage.getItem('telemarketing_operator');
-    
+
+    const redirectTarget = `${location.pathname}${location.search}`;
+
     if (!savedContext && !savedOperator) {
-      // Sem sessão válida, redirecionar para login
-      navigate('/portal-telemarketing');
+      navigate(`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`, { replace: true });
       return;
     }
 
     try {
-      const parsed = savedContext ? JSON.parse(savedContext) : null;
-      setContext(parsed);
+      let parsedContext: TelemarketingContext | null = null;
+
+      if (savedContext) {
+        parsedContext = JSON.parse(savedContext);
+      } else if (savedOperator) {
+        const operator = JSON.parse(savedOperator) as StoredTelemarketingOperator;
+        parsedContext = {
+          bitrix_id: operator.bitrix_id,
+          cargo: operator.cargo,
+          name: operator.operator_name,
+        };
+        localStorage.setItem('telemarketing_context', JSON.stringify(parsedContext));
+      }
+
+      setContext(parsedContext);
     } catch (e) {
       console.error('Erro ao recuperar contexto:', e);
-      navigate('/portal-telemarketing');
+      localStorage.removeItem('telemarketing_context');
+      localStorage.removeItem('telemarketing_operator');
+      navigate(`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`, { replace: true });
       return;
     }
-    
+
     setIsLoading(false);
-  }, [navigate]);
+  }, [navigate, location.pathname, location.search]);
 
   if (isLoading) {
     return (
