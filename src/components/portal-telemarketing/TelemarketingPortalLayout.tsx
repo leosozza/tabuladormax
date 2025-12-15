@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -19,6 +19,7 @@ interface TelemarketingPortalLayoutProps {
 }
 
 export const TelemarketingPortalLayout = ({ operatorData, onLogout }: TelemarketingPortalLayoutProps) => {
+  const navigate = useNavigate();
   const isSupervisor = operatorData.cargo === 'supervisor';
   const initials = operatorData.operator_name
     .split(' ')
@@ -104,7 +105,7 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                     cargo: operatorData.cargo,
                     name: operatorData.operator_name
                   }));
-                  window.location.href = '/telemarketing';
+                  navigate('/portal-telemarketing/tabulador');
                 }}
               >
                 Acessar Tabulador
@@ -135,7 +136,7 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                     cargo: operatorData.cargo,
                     name: operatorData.operator_name
                   }));
-                  window.location.href = '/dashboard';
+                  navigate('/portal-telemarketing/dashboard');
                 }}
               >
                 Ver Dashboard
