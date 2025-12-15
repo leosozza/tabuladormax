@@ -225,6 +225,8 @@ const LeadTab = () => {
   const [searchModal, setSearchModal] = useState(false);
   const [searchId, setSearchId] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchType, setSearchType] = useState<'id' | 'phone'>('id');
+  const [phoneSearchResults, setPhoneSearchResults] = useState<any[]>([]);
   const [showHelp, setShowHelp] = useState(false);
   const [selectedButton, setSelectedButton] = useState<ButtonConfig | null>(null);
   const [subButtonModal, setSubButtonModal] = useState(false);
@@ -1152,6 +1154,74 @@ const LeadTab = () => {
     } finally {
       setSearchLoading(false);
     }
+  };
+
+  // Busca por telefone
+  const loadLeadByPhone = async (phoneInput: string) => {
+    if (!phoneInput || !phoneInput.trim()) {
+      toast.error("Digite um telefone válido");
+      return;
+    }
+    
+    setSearchLoading(true);
+    setPhoneSearchResults([]);
+    
+    try {
+      // Normalizar telefone (remover tudo que não é número e +55)
+      const normalized = phoneInput.replace(/\D/g, '').replace(/^55/, '');
+      
+      if (normalized.length < 8) {
+        toast.error("Telefone deve ter pelo menos 8 dígitos");
+        setSearchLoading(false);
+        return;
+      }
+      
+      // Buscar na tabela leads por celular, telefone_trabalho ou telefone_casa
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select('id, name, celular, telefone_trabalho, telefone_casa, photo_url, etapa')
+        .or(`celular.ilike.%${normalized}%,telefone_trabalho.ilike.%${normalized}%,telefone_casa.ilike.%${normalized}%,phone_normalized.ilike.%${normalized}%`)
+        .limit(10);
+      
+      if (error) {
+        console.error("Erro ao buscar por telefone:", error);
+        toast.error("Erro ao buscar leads");
+        return;
+      }
+      
+      if (!leads || leads.length === 0) {
+        toast.error("Nenhum lead encontrado com este telefone");
+        return;
+      }
+      
+      if (leads.length === 1) {
+        // Apenas 1 resultado - carregar automaticamente
+        await loadLeadById(String(leads[0].id));
+        return;
+      }
+      
+      // Múltiplos resultados - exibir lista para seleção
+      setPhoneSearchResults(leads);
+      toast.info(`${leads.length} leads encontrados. Selecione um.`);
+    } catch (error: any) {
+      console.error("Erro ao buscar por telefone:", error);
+      toast.error("Erro ao buscar leads");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleSearchSubmit = () => {
+    if (searchType === 'id') {
+      loadLeadById(searchId);
+    } else {
+      loadLeadByPhone(searchId);
+    }
+  };
+
+  const selectPhoneSearchResult = async (lead: any) => {
+    setPhoneSearchResults([]);
+    await loadLeadById(String(lead.id));
   };
   useEffect(() => {
     const initialize = async () => {
@@ -2837,33 +2907,102 @@ const LeadTab = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Busca por ID */}
-      <Dialog open={searchModal} onOpenChange={setSearchModal}>
+      {/* Modal de Busca por ID ou Telefone */}
+      <Dialog open={searchModal} onOpenChange={(open) => {
+        setSearchModal(open);
+        if (!open) {
+          setPhoneSearchResults([]);
+          setSearchType('id');
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Buscar Lead por ID do Bitrix</DialogTitle>
+            <DialogTitle>Buscar Lead</DialogTitle>
             <DialogDescription>
-              Digite o ID do lead no Bitrix para carregar suas informações
+              Busque pelo ID do Bitrix ou número de telefone
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="bitrix-id">ID do Bitrix</Label>
-              <Input id="bitrix-id" type="text" placeholder="Ex: 12345" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={e => {
-                if (e.key === 'Enter' && !searchLoading) {
-                  loadLeadById(searchId);
-                }
-              }} disabled={searchLoading} />
+            {/* Toggle tipo de busca */}
+            <div className="flex gap-2">
+              <Button 
+                variant={searchType === 'id' ? 'default' : 'outline'}
+                onClick={() => { setSearchType('id'); setPhoneSearchResults([]); setSearchId(''); }}
+                className="flex-1"
+                size="sm"
+              >
+                🆔 Por ID Bitrix
+              </Button>
+              <Button 
+                variant={searchType === 'phone' ? 'default' : 'outline'}
+                onClick={() => { setSearchType('phone'); setPhoneSearchResults([]); setSearchId(''); }}
+                className="flex-1"
+                size="sm"
+              >
+                📞 Por Telefone
+              </Button>
             </div>
+            
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="search-input">
+                {searchType === 'id' ? 'ID do Bitrix' : 'Número de Telefone'}
+              </Label>
+              <Input 
+                id="search-input" 
+                type="text" 
+                placeholder={searchType === 'id' ? 'Ex: 12345' : 'Ex: 11999999999'} 
+                value={searchId} 
+                onChange={e => setSearchId(e.target.value)} 
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !searchLoading) {
+                    handleSearchSubmit();
+                  }
+                }} 
+                disabled={searchLoading} 
+              />
+            </div>
+            
+            {/* Lista de resultados quando busca por telefone retorna múltiplos */}
+            {phoneSearchResults.length > 0 && (
+              <div className="border rounded-lg max-h-60 overflow-y-auto">
+                <div className="p-2 bg-muted text-sm font-medium border-b">
+                  {phoneSearchResults.length} leads encontrados - Selecione um:
+                </div>
+                {phoneSearchResults.map((lead) => (
+                  <div 
+                    key={lead.id}
+                    onClick={() => selectPhoneSearchResult(lead)}
+                    className="p-3 hover:bg-accent cursor-pointer border-b last:border-b-0 flex items-center gap-3"
+                  >
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={lead.photo_url || ''} />
+                      <AvatarFallback>{lead.name?.charAt(0) || '?'}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{lead.name || 'Sem nome'}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        ID: {lead.id} • {lead.celular || lead.telefone_trabalho || lead.telefone_casa}
+                      </p>
+                    </div>
+                    {lead.etapa && (
+                      <Badge variant="secondary" className="text-xs">
+                        {lead.etapa}
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => {
               setSearchModal(false);
               setSearchId("");
+              setPhoneSearchResults([]);
             }} disabled={searchLoading} className="w-full sm:w-auto">
               Cancelar
             </Button>
-            <Button onClick={() => loadLeadById(searchId)} disabled={searchLoading || !searchId.trim()} className="w-full sm:w-auto">
+            <Button onClick={handleSearchSubmit} disabled={searchLoading || !searchId.trim()} className="w-full sm:w-auto">
               {searchLoading ? <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Buscando...
