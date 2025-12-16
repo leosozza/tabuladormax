@@ -153,8 +153,8 @@ export function WhatsAppInput({
     setUploading(true);
     
     try {
-      const ext = audioBlob.type.includes('ogg') ? 'ogg' : audioBlob.type.includes('mp4') ? 'm4a' : 'ogg';
-      const url = await uploadMedia(audioBlob, `audio.${ext}`);
+      // audioBlob já vem em MP3 do hook useAudioRecorder
+      const url = await uploadMedia(audioBlob, `audio_${Date.now()}.mp3`);
       if (url) {
         await onSendMedia(url, 'audio');
         clearRecording();
