@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Send, RefreshCw, MessageSquare, ArrowLeft, Lock, Check, CheckCheck, Clock } from 'lucide-react';
+import { RefreshCw, MessageSquare, ArrowLeft, Lock, Check, CheckCheck, Clock } from 'lucide-react';
 import { useWhatsAppMessages, WhatsAppMessage } from '@/hooks/useWhatsAppMessages';
 import { TemplateSelector } from './TemplateSelector';
 import { WindowIndicator } from './WindowIndicator';
+import { ChatInput, MediaType } from './ChatInput';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,7 +74,6 @@ export function ChatPanel({
   onBack,
   windowStatus: propWindowStatus
 }: ChatPanelProps) {
-  const [messageInput, setMessageInput] = useState('');
   const [activeTab, setActiveTab] = useState('messages');
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -93,6 +92,7 @@ export function ChatPanel({
     isInCooldown,
     fetchMessages,
     sendMessage,
+    sendMedia,
     sendTemplate,
     markAsRead
   } = useWhatsAppMessages({ bitrixId, phoneNumber, conversationId });
@@ -180,44 +180,56 @@ export function ChatPanel({
     }
   }, [isWindowOpen, activeTab]);
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (content: string) => {
     // Proteção contra múltiplos cliques/envios
     if (isSendingRef.current) {
       console.log('[ChatPanelGupshup] handleSendMessage blocked - already sending');
-      return;
+      return false;
     }
-    if (!messageInput.trim() || !isWindowOpen || sending || inCooldown) {
+    if (!content.trim() || !isWindowOpen || sending || inCooldown) {
       console.log('[ChatPanelGupshup] handleSendMessage blocked', { 
-        hasMessage: !!messageInput.trim(), 
+        hasMessage: !!content.trim(), 
         isWindowOpen, 
         sending,
         inCooldown 
       });
-      return;
+      return false;
     }
     
     isSendingRef.current = true;
     console.log('[ChatPanelGupshup] handleSendMessage starting');
     
     try {
-      const success = await sendMessage(messageInput);
-      if (success) {
-        setMessageInput('');
-      }
+      const success = await sendMessage(content);
+      return success;
     } finally {
       isSendingRef.current = false;
       console.log('[ChatPanelGupshup] handleSendMessage finished');
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      handleSendMessage();
+  const handleSendMedia = async (
+    mediaUrl: string, 
+    mediaType: MediaType, 
+    caption?: string, 
+    filename?: string
+  ) => {
+    if (isSendingRef.current || !isWindowOpen || sending || inCooldown) {
+      console.log('[ChatPanelGupshup] handleSendMedia blocked');
+      return false;
+    }
+    
+    isSendingRef.current = true;
+    console.log('[ChatPanelGupshup] handleSendMedia starting', { mediaType });
+    
+    try {
+      const success = await sendMedia(mediaUrl, mediaType, caption, filename);
+      return success;
+    } finally {
+      isSendingRef.current = false;
+      console.log('[ChatPanelGupshup] handleSendMedia finished');
     }
   };
-
-  const handleSendTemplateWrapper = async (params: { templateId: string; variables: string[] }) => {
     // Proteção contra múltiplos envios
     if (isSendingRef.current || inCooldown) {
       console.log('[ChatPanelGupshup] handleSendTemplate blocked', { isSending: isSendingRef.current, inCooldown });
@@ -364,39 +376,20 @@ export function ChatPanel({
           </div>
 
           {/* Área de input - FIXA no rodapé */}
-          <div className="flex-shrink-0 border-t p-3 bg-card space-y-2">
+          <div className="shrink-0 border-t p-3 bg-card space-y-2">
             {/* Cooldown Timer */}
             {inCooldown && (
               <CooldownTimer getCooldownRemaining={getCooldownRemaining} />
             )}
             
             {isWindowOpen ? (
-              <>
-                <div className="flex gap-2 items-end">
-                  <Textarea
-                    placeholder={inCooldown ? "Aguardando cooldown..." : "Digite sua mensagem... (Ctrl+Enter para enviar)"}
-                    value={messageInput}
-                    onChange={e => setMessageInput(e.target.value)}
-                    onKeyDown={handleKeyPress}
-                    disabled={sending || inCooldown}
-                    className={`min-h-[60px] max-h-[120px] resize-none ${inCooldown ? 'opacity-50' : ''}`}
-                    rows={2}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={sending || !messageInput.trim() || inCooldown}
-                    size="icon"
-                    className="flex-shrink-0"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
-                {!inCooldown && (
-                  <p className="text-xs text-muted-foreground">
-                    <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> para enviar
-                  </p>
-                )}
-              </>
+              <ChatInput
+                onSendText={handleSendMessage}
+                onSendMedia={handleSendMedia}
+                disabled={sending}
+                isWindowOpen={isWindowOpen}
+                inCooldown={inCooldown}
+              />
             ) : (
               <div className="text-center py-3 bg-red-500/5 rounded-lg border border-red-500/20">
                 <Lock className="w-6 h-6 mx-auto mb-1 text-red-500" />
