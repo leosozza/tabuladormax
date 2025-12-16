@@ -52,6 +52,7 @@ export function ChatPanelGupshup({
   const [activeTab, setActiveTab] = useState('messages');
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const hasMarkedAsReadRef = useRef(false);
 
   const {
     messages,
@@ -117,15 +118,18 @@ export function ChatPanelGupshup({
     }
   }, [messages]);
 
-  // Marcar mensagens como lidas quando o painel estiver visível
+  // Marcar mensagens como lidas quando o painel estiver visível (apenas uma vez por sessão)
   useEffect(() => {
+    if (hasMarkedAsReadRef.current) return;
+    
     const unreadInboundMessages = messages.filter(
       msg => msg.direction === 'inbound' && msg.status !== 'read'
     );
     if (unreadInboundMessages.length > 0) {
+      hasMarkedAsReadRef.current = true;
       markAsRead(unreadInboundMessages.map(m => m.id));
     }
-  }, [messages, markAsRead]);
+  }, [messages]); // Removido markAsRead das dependências para evitar loop
 
   // Se janela fechada, ir automaticamente para templates
   useEffect(() => {
