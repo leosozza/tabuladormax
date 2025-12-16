@@ -230,6 +230,8 @@ export function ChatPanel({
       console.log('[ChatPanelGupshup] handleSendMedia finished');
     }
   };
+
+  const handleSendTemplateWrapper = async (params: Parameters<typeof sendTemplate>[0]): Promise<boolean> => {
     // Proteção contra múltiplos envios
     if (isSendingRef.current || inCooldown) {
       console.log('[ChatPanelGupshup] handleSendTemplate blocked', { isSending: isSendingRef.current, inCooldown });
