@@ -727,6 +727,8 @@ const LeadTab = () => {
           let contactData = {
             bitrix_id: bitrixId,
             name: supabaseLead.name || '',
+            nome_modelo: supabaseLead.nome_modelo || supabaseLead.name || '',
+            projeto_comercial: supabaseLead.projeto_comercial || '',
             phone_number: supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa || '',
             thumbnail: supabaseLead.photo_url || '',
             custom_attributes: {
@@ -1800,7 +1802,24 @@ const LeadTab = () => {
     }
 
     // Guardar o valor selecionado para exibir nas mensagens (disponível em todo o escopo da função)
-    const selectedValueDisplay = subButton?.subValue || button.value || scheduledDate || "";
+    // Priorizar scheduledDate para agendamentos
+    const selectedValueDisplay = scheduledDate || subButton?.subValue || button.value || "";
+    
+    // Função para formatar mensagem de sucesso específica por tipo de ação
+    const formatSuccessMessage = (leadId: number): string => {
+      if (button.action_type === 'schedule' && scheduledDate) {
+        const formattedDate = new Date(scheduledDate + 'T12:00:00').toLocaleDateString('pt-BR');
+        const leadName = (chatwootData as any)?.nome_modelo || chatwootData?.name || '';
+        const projeto = (chatwootData as any)?.projeto_comercial || '';
+        return `✅ ${button.label}\n\n` +
+               `👤 ${leadName}\n` +
+               `📅 Data: ${formattedDate}\n` +
+               `⏰ Horário: ${scheduledTime || 'Não informado'}\n` +
+               `📍 Projeto: ${projeto || 'Não definido'}`;
+      }
+      // Para outras ações, usar o label do botão
+      return `✅ ${button.label}\n\nLead ${leadId} atualizado com sucesso!`;
+    };
     try {
       const webhookUrl = subButton?.subWebhook || button.webhook_url;
       const field = subButton?.subField || button.field;
@@ -1911,13 +1930,13 @@ const LeadTab = () => {
             toast.warning("Dados salvos localmente, mas houve erro ao sincronizar com Bitrix");
           } else {
             // Exibir resposta de sucesso
-            const successMessage = syncData ? `Valor selecionado: ${selectedValueDisplay}\n\nSucesso! Dados sincronizados via Supabase → Bitrix. Lead ${bitrixId}.` : `Valor selecionado: ${selectedValueDisplay}\n\nDados sincronizados com sucesso!`;
+            const successMessage = formatSuccessMessage(bitrixId);
             setBitrixResponseMessage(successMessage);
             setBitrixResponseModal(true);
           }
         } else {
           // Sem webhook, apenas salvo localmente
-          setBitrixResponseMessage(`Valor selecionado: ${selectedValueDisplay}\n\nDados salvos localmente no Supabase. Lead ${bitrixId}.`);
+          setBitrixResponseMessage(formatSuccessMessage(bitrixId));
           setBitrixResponseModal(true);
         }
       } else {
@@ -2027,7 +2046,7 @@ const LeadTab = () => {
           console.log('✅ Bitrix atualizado com sucesso!');
 
           // Salvar resposta do Bitrix para exibir ao usuário
-          const successMessage = responseData.result ? `Valor selecionado: ${selectedValueDisplay}\n\nSucesso! Lead ${bitrixId} atualizado no Bitrix.${responseData.result.ID ? ` ID: ${responseData.result.ID}` : ''}` : `Valor selecionado: ${selectedValueDisplay}\n\nLead atualizado com sucesso no Bitrix!`;
+          const successMessage = formatSuccessMessage(bitrixId);
           setBitrixResponseMessage(successMessage);
           setBitrixResponseModal(true);
         }
