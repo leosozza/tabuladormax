@@ -24,7 +24,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { extractBitrixOpenLineData, extractConversationFromOpenLine, saveChatwootContact, type BitrixOpenLineData, getLead, type BitrixLead, getLeadFields, type BitrixField } from "@/lib/bitrix";
 import { getTelemarketingId } from "@/handlers/tabular";
 import { BitrixChatModal } from "@/components/bitrix/BitrixChatModal";
-import { ChatPanel } from "@/components/gupshup/ChatPanel";
+import { WhatsAppModal } from "@/components/whatsapp";
 import { BUTTON_CATEGORIES, categoryOrder, ensureButtonLayout, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
@@ -3114,16 +3114,13 @@ const LeadTab = () => {
       })()} contactName={chatwootData?.name || 'Lead'} />
 
       {/* Modal WhatsApp Gupshup */}
-      <Dialog open={whatsappGupshupOpen} onOpenChange={setWhatsappGupshupOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] h-[85vh] max-h-[calc(100vh-2rem)] p-0 !flex !flex-col overflow-hidden gap-0">
-          <ChatPanel
-            bitrixId={chatwootData?.bitrix_id || String(profile['ID Bitrix'] || '')}
-            phoneNumber={String(profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number || '')}
-            contactName={chatwootData?.name || String(profile['Nome'] || profile['Nome Modelo'] || 'Lead')}
-            onBack={() => setWhatsappGupshupOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      <WhatsAppModal
+        open={whatsappGupshupOpen}
+        onClose={() => setWhatsappGupshupOpen(false)}
+        bitrixId={chatwootData?.bitrix_id || String(profile['ID Bitrix'] || '')}
+        phoneNumber={String(profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number || '')}
+        contactName={chatwootData?.name || String(profile['Nome'] || profile['Nome Modelo'] || 'Lead')}
+      />
       </main>
     </div>;
 };
