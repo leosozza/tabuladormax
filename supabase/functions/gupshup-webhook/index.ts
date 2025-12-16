@@ -286,7 +286,15 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
   const statusType = payload.type;
   const destination = payload.destination?.replace(/\D/g, '') || '';
 
-  // 🛡️ Verificar loop de status updates
+  // 🛡️ IGNORAR EVENTOS ENQUEUED COMPLETAMENTE
+  // Gupshup envia muitos eventos enqueued quando há problemas de rate limit
+  // do WhatsApp Business, causando loops no sistema
+  if (statusType === 'enqueued') {
+    console.log(`⏭️ Ignorando evento enqueued para ${destination} - não processado`);
+    return;
+  }
+
+  // 🛡️ Verificar loop de status updates (apenas para outros tipos)
   if (destination) {
     const { blocked, loopDetected } = await checkForLoop(supabase, destination, `status_${statusType}`);
     if (blocked) {
@@ -306,7 +314,6 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
     'delivered': 'delivered',
     'read': 'read',
     'failed': 'failed',
-    'enqueued': 'enqueued',
   };
 
   const updateData: any = {
