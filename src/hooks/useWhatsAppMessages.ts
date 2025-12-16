@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Log helper para diagnóstico
+const logDebug = (action: string, data?: any) => {
+  console.log(`[WhatsApp] ${new Date().toISOString()} - ${action}`, data || '');
+};
+
 export interface WhatsAppMessage {
   id: string;
   phone_number: string;
@@ -33,8 +38,10 @@ interface UseWhatsAppMessagesOptions {
   conversationId?: number;
 }
 
-// Debounce time to prevent spam
-const SEND_DEBOUNCE_MS = 2000;
+// Debounce time to prevent spam (aumentado para 3 segundos)
+const SEND_DEBOUNCE_MS = 3000;
+// Limite máximo de envios por sessão
+const MAX_SENDS_PER_SESSION = 50;
 
 export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   const { bitrixId, phoneNumber, conversationId } = options;
@@ -42,6 +49,18 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const lastSendTimeRef = useRef<number>(0);
+  const sendCountRef = useRef<number>(0);
+  const mountedRef = useRef<boolean>(true);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    mountedRef.current = true;
+    logDebug('Hook mounted', { bitrixId, phoneNumber, conversationId });
+    return () => {
+      mountedRef.current = false;
+      logDebug('Hook unmounted');
+    };
+  }, []);
 
   const fetchMessages = useCallback(async () => {
     if (!bitrixId && !phoneNumber && !conversationId) return;
@@ -80,26 +99,41 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   }, [bitrixId, phoneNumber, conversationId]);
 
   const sendMessage = async (content: string): Promise<boolean> => {
+    logDebug('sendMessage called', { content: content.substring(0, 50), phoneNumber });
+    
     if (!phoneNumber || !content.trim()) {
+      logDebug('sendMessage rejected: missing data');
       toast.error('Telefone e mensagem são obrigatórios');
       return false;
     }
 
     // Anti-spam: verificar tempo desde último envio
     const now = Date.now();
-    if (now - lastSendTimeRef.current < SEND_DEBOUNCE_MS) {
+    const timeSinceLastSend = now - lastSendTimeRef.current;
+    if (timeSinceLastSend < SEND_DEBOUNCE_MS) {
+      logDebug('sendMessage rejected: debounce', { timeSinceLastSend, required: SEND_DEBOUNCE_MS });
       toast.warning('Aguarde antes de enviar outra mensagem');
       return false;
     }
 
     // Verificar se já está enviando
     if (sending) {
+      logDebug('sendMessage rejected: already sending');
       toast.warning('Aguarde o envio anterior terminar');
       return false;
     }
 
+    // Limite de envios por sessão
+    if (sendCountRef.current >= MAX_SENDS_PER_SESSION) {
+      logDebug('sendMessage rejected: session limit reached', { count: sendCountRef.current });
+      toast.error('Limite de mensagens por sessão atingido. Recarregue a página.');
+      return false;
+    }
+
     lastSendTimeRef.current = now;
+    sendCountRef.current += 1;
     setSending(true);
+    logDebug('sendMessage starting', { sendCount: sendCountRef.current });
     
     try {
       const { data, error } = await supabase.functions.invoke('gupshup-send-message', {
@@ -158,26 +192,41 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   };
 
   const sendTemplate = async (templateParams: TemplateParams): Promise<boolean> => {
+    logDebug('sendTemplate called', { templateId: templateParams.templateId });
+    
     if (!phoneNumber) {
+      logDebug('sendTemplate rejected: missing phone');
       toast.error('Telefone é obrigatório');
       return false;
     }
 
     // Anti-spam: verificar tempo desde último envio
     const now = Date.now();
-    if (now - lastSendTimeRef.current < SEND_DEBOUNCE_MS) {
+    const timeSinceLastSend = now - lastSendTimeRef.current;
+    if (timeSinceLastSend < SEND_DEBOUNCE_MS) {
+      logDebug('sendTemplate rejected: debounce', { timeSinceLastSend });
       toast.warning('Aguarde antes de enviar outro template');
       return false;
     }
 
     // Verificar se já está enviando
     if (sending) {
+      logDebug('sendTemplate rejected: already sending');
       toast.warning('Aguarde o envio anterior terminar');
       return false;
     }
 
+    // Limite de envios por sessão
+    if (sendCountRef.current >= MAX_SENDS_PER_SESSION) {
+      logDebug('sendTemplate rejected: session limit reached');
+      toast.error('Limite de mensagens por sessão atingido. Recarregue a página.');
+      return false;
+    }
+
     lastSendTimeRef.current = now;
+    sendCountRef.current += 1;
     setSending(true);
+    logDebug('sendTemplate starting', { sendCount: sendCountRef.current });
     
     try {
       const { data, error } = await supabase.functions.invoke('gupshup-send-message', {

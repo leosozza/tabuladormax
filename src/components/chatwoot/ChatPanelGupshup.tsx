@@ -53,6 +53,10 @@ export function ChatPanelGupshup({
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const hasMarkedAsReadRef = useRef(false);
+  const isSendingRef = useRef(false); // Proteção extra contra envios duplicados
+
+  // Log de diagnóstico
+  console.log('[ChatPanelGupshup] Render', { bitrixId, phoneNumber, conversationId });
 
   const {
     messages,
@@ -168,10 +172,27 @@ export function ChatPanelGupshup({
   }, [isWindowOpen, activeTab]);
 
   const handleSendMessage = async () => {
-    if (!messageInput.trim() || !isWindowOpen) return;
-    const success = await sendMessage(messageInput);
-    if (success) {
-      setMessageInput('');
+    // Proteção contra múltiplos cliques/envios
+    if (isSendingRef.current) {
+      console.log('[ChatPanelGupshup] handleSendMessage blocked - already sending');
+      return;
+    }
+    if (!messageInput.trim() || !isWindowOpen || sending) {
+      console.log('[ChatPanelGupshup] handleSendMessage blocked', { hasMessage: !!messageInput.trim(), isWindowOpen, sending });
+      return;
+    }
+    
+    isSendingRef.current = true;
+    console.log('[ChatPanelGupshup] handleSendMessage starting');
+    
+    try {
+      const success = await sendMessage(messageInput);
+      if (success) {
+        setMessageInput('');
+      }
+    } finally {
+      isSendingRef.current = false;
+      console.log('[ChatPanelGupshup] handleSendMessage finished');
     }
   };
 
@@ -183,7 +204,21 @@ export function ChatPanelGupshup({
   };
 
   const handleSendTemplateWrapper = async (params: { templateId: string; variables: string[] }) => {
-    return sendTemplate(params);
+    // Proteção contra múltiplos envios
+    if (isSendingRef.current) {
+      console.log('[ChatPanelGupshup] handleSendTemplate blocked - already sending');
+      return false;
+    }
+    
+    isSendingRef.current = true;
+    console.log('[ChatPanelGupshup] handleSendTemplate starting', { templateId: params.templateId });
+    
+    try {
+      return await sendTemplate(params);
+    } finally {
+      isSendingRef.current = false;
+      console.log('[ChatPanelGupshup] handleSendTemplate finished');
+    }
   };
 
   if (!bitrixId && !phoneNumber && !conversationId) {
