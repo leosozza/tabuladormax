@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Send, RefreshCw, MessageSquare, ArrowLeft, Lock, Check, CheckCheck, Clock } from 'lucide-react';
 import { useWhatsAppMessages, WhatsAppMessage } from '@/hooks/useWhatsAppMessages';
@@ -251,7 +250,7 @@ export function ChatPanel({
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background">
+    <div className="flex flex-col h-full flex-1 min-h-0 bg-background">
       {/* Header */}
       <div className="border-b p-4 bg-card">
         <div className="flex items-center justify-between">
@@ -286,7 +285,7 @@ export function ChatPanel({
       <WindowIndicator status={windowStatus} variant="banner" />
 
       {/* Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="border-b px-4">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="messages">Mensagens</TabsTrigger>
@@ -297,70 +296,70 @@ export function ChatPanel({
           </TabsList>
         </div>
 
-        <TabsContent value="messages" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden data-[state=active]:flex">
-          <div className="flex-1 overflow-y-auto p-4">
+        <TabsContent value="messages" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=active]:flex">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4">
             <div className="space-y-4 pb-4" ref={scrollRef}>
-                {loading && messages.length === 0 ? (
-                  <div className="flex justify-center py-8">
-                    <div className="text-muted-foreground">Carregando mensagens...</div>
-                  </div>
-                ) : messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <MessageSquare className="w-12 h-12 text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">Nenhuma mensagem ainda</p>
-                  </div>
-                ) : (
-                  messages.map(msg => (
-                    <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                        msg.direction === 'outbound' 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'bg-muted'
-                      }`}>
-                        {/* Sender info */}
-                        <div className="text-sm font-medium mb-1 flex items-center gap-2">
-                          {msg.sender_name || (msg.direction === 'outbound' ? 'Você' : 'Cliente')}
-                          {msg.sent_by && msg.direction === 'outbound' && (
-                            <span className="text-xs opacity-70">
-                              ({msg.sent_by === 'bitrix' ? 'Bitrix' : msg.sent_by === 'tabulador' ? 'TabuladorMax' : 'Operador'})
-                            </span>
+              {loading && messages.length === 0 ? (
+                <div className="flex justify-center py-8">
+                  <div className="text-muted-foreground">Carregando mensagens...</div>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <MessageSquare className="w-12 h-12 text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">Nenhuma mensagem ainda</p>
+                </div>
+              ) : (
+                messages.map((msg) => (
+                  <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                      msg.direction === 'outbound'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                    }`}>
+                      {/* Sender info */}
+                      <div className="text-sm font-medium mb-1 flex items-center gap-2">
+                        {msg.sender_name || (msg.direction === 'outbound' ? 'Você' : 'Cliente')}
+                        {msg.sent_by && msg.direction === 'outbound' && (
+                          <span className="text-xs opacity-70">
+                            ({msg.sent_by === 'bitrix' ? 'Bitrix' : msg.sent_by === 'tabulador' ? 'TabuladorMax' : 'Operador'})
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Template badge */}
+                      {msg.message_type === 'template' && msg.template_name && (
+                        <div className="text-xs bg-background/20 rounded px-2 py-0.5 mb-1 inline-block">
+                          📋 Template: {msg.template_name}
+                        </div>
+                      )}
+
+                      {/* Content */}
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+
+                      {/* Media */}
+                      {msg.media_url && (
+                        <div className="mt-2">
+                          {msg.media_type === 'image' ? (
+                            <img src={msg.media_url} alt="Imagem" className="max-w-full rounded" />
+                          ) : msg.media_type === 'audio' ? (
+                            <audio controls src={msg.media_url} className="max-w-full" />
+                          ) : (
+                            <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="text-xs underline">
+                              📎 {msg.media_type || 'Arquivo'}
+                            </a>
                           )}
                         </div>
+                      )}
 
-                        {/* Template badge */}
-                        {msg.message_type === 'template' && msg.template_name && (
-                          <div className="text-xs bg-background/20 rounded px-2 py-0.5 mb-1 inline-block">
-                            📋 Template: {msg.template_name}
-                          </div>
-                        )}
-
-                        {/* Content */}
-                        <div className="whitespace-pre-wrap">{msg.content}</div>
-
-                        {/* Media */}
-                        {msg.media_url && (
-                          <div className="mt-2">
-                            {msg.media_type === 'image' ? (
-                              <img src={msg.media_url} alt="Imagem" className="max-w-full rounded" />
-                            ) : msg.media_type === 'audio' ? (
-                              <audio controls src={msg.media_url} className="max-w-full" />
-                            ) : (
-                              <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="text-xs underline">
-                                📎 {msg.media_type || 'Arquivo'}
-                              </a>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Timestamp and status */}
-                        <div className="flex items-center gap-1 text-xs opacity-70 mt-1">
-                          {format(new Date(msg.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}
-                          {msg.direction === 'outbound' && <MessageStatus status={msg.status} />}
-                        </div>
+                      {/* Timestamp and status */}
+                      <div className="flex items-center gap-1 text-xs opacity-70 mt-1">
+                        {format(new Date(msg.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                        {msg.direction === 'outbound' && <MessageStatus status={msg.status} />}
                       </div>
                     </div>
-                  ))
-                )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
