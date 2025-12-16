@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Image, Paperclip, Mic, Square, X, Loader2, Plus } from 'lucide-react';
@@ -51,9 +51,11 @@ export function WhatsAppInput({
   const [mediaPreview, setMediaPreview] = useState<MediaPreview | null>(null);
   const [uploading, setUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [autoSendAfterStop, setAutoSendAfterStop] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const sendingRef = useRef(false);
 
   const {
     isRecording,
@@ -66,11 +68,32 @@ export function WhatsAppInput({
     error: recordingError
   } = useAudioRecorder();
 
+  // Create audio URL only once per blob
+  const audioUrl = useMemo(() => {
+    if (audioBlob) return URL.createObjectURL(audioBlob);
+    return null;
+  }, [audioBlob]);
+
+  // Cleanup audio URL
+  useEffect(() => {
+    return () => {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+    };
+  }, [audioUrl]);
+
   useEffect(() => {
     if (recordingError) {
       toast.error(recordingError);
     }
   }, [recordingError]);
+
+  // Auto-send after stopping recording
+  useEffect(() => {
+    if (autoSendAfterStop && audioBlob && !sendingRef.current) {
+      setAutoSendAfterStop(false);
+      handleSendAudio();
+    }
+  }, [autoSendAfterStop, audioBlob]);
 
   const uploadMedia = useCallback(async (file: File | Blob, filename: string): Promise<string | null> => {
     try {
@@ -122,20 +145,36 @@ export function WhatsAppInput({
     clearRecording();
   }, [mediaPreview, clearRecording]);
 
-  const handleSend = async () => {
-    if (disabled || uploading || isSending) return;
-
+  const handleSendAudio = async () => {
+    if (!audioBlob || sendingRef.current) return;
+    
+    sendingRef.current = true;
     setIsSending(true);
+    setUploading(true);
+    
+    try {
+      const ext = audioBlob.type.includes('ogg') ? 'ogg' : audioBlob.type.includes('mp4') ? 'm4a' : 'ogg';
+      const url = await uploadMedia(audioBlob, `audio.${ext}`);
+      if (url) {
+        await onSendMedia(url, 'audio');
+        clearRecording();
+      }
+    } finally {
+      setUploading(false);
+      setIsSending(false);
+      sendingRef.current = false;
+    }
+  };
+
+  const handleSend = async () => {
+    if (disabled || uploading || sendingRef.current) return;
+
+    sendingRef.current = true;
+    setIsSending(true);
+    
     try {
       if (audioBlob) {
-        setUploading(true);
-        const ext = audioBlob.type.includes('ogg') ? 'ogg' : audioBlob.type.includes('mp4') ? 'm4a' : 'ogg';
-        const url = await uploadMedia(audioBlob, `audio.${ext}`);
-        if (url) {
-          await onSendMedia(url, 'audio');
-          clearRecording();
-        }
-        setUploading(false);
+        await handleSendAudio();
         return;
       }
 
@@ -159,6 +198,7 @@ export function WhatsAppInput({
       }
     } finally {
       setIsSending(false);
+      sendingRef.current = false;
     }
   };
 
@@ -169,13 +209,15 @@ export function WhatsAppInput({
     }
   };
 
-  const toggleRecording = async () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      clearMedia();
-      await startRecording();
-    }
+  const handleStopAndSend = () => {
+    if (!isRecording) return;
+    stopRecording();
+    setAutoSendAfterStop(true);
+  };
+
+  const handleCancelRecording = () => {
+    cancelRecording();
+    setAutoSendAfterStop(false);
   };
 
   const isDisabled = disabled || uploading || inCooldown || isSending;
@@ -213,8 +255,8 @@ export function WhatsAppInput({
         </div>
       )}
 
-      {/* Audio Preview */}
-      {audioBlob && !mediaPreview && (
+      {/* Audio Preview - only show when NOT recording and has audioBlob */}
+      {audioBlob && !mediaPreview && !isRecording && (
         <div className="relative bg-muted rounded-lg p-3">
           <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={clearRecording}>
             <X className="h-4 w-4" />
@@ -223,26 +265,54 @@ export function WhatsAppInput({
             <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
               <Mic className="h-5 w-5 text-primary" />
             </div>
-            <audio controls src={URL.createObjectURL(audioBlob)} className="flex-1 h-8" />
+            {audioUrl && <audio controls src={audioUrl} className="flex-1 h-8" />}
           </div>
         </div>
       )}
 
-      {/* Recording indicator */}
+      {/* Recording controls - 3 clear buttons */}
       {isRecording && (
-        <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2">
-          <div className="h-3 w-3 bg-red-500 rounded-full animate-pulse" />
-          <span className="text-sm font-medium text-red-600 dark:text-red-400">
-            Gravando... {formatTime(recordingTime)}
+        <div className="flex items-center gap-3 bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+          <div className="h-3 w-3 bg-destructive rounded-full animate-pulse" />
+          <span className="text-sm font-medium text-destructive">
+            {formatTime(recordingTime)}
           </span>
+          
           <div className="flex-1" />
-          <Button variant="ghost" size="sm" onClick={cancelRecording} className="text-red-600 hover:text-red-700 h-7">
+          
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleCancelRecording}
+            className="h-8 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-1" />
             Cancelar
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={stopRecording}
+            className="h-8"
+          >
+            <Square className="h-4 w-4 mr-1" />
+            Parar
+          </Button>
+          
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={handleStopAndSend}
+            className="h-8"
+          >
+            <Send className="h-4 w-4 mr-1" />
+            Enviar
           </Button>
         </div>
       )}
 
-      {/* Main input row */}
+      {/* Main input row - hide mic button during recording */}
       <div className="flex gap-1.5 items-end">
         <Popover>
           <PopoverTrigger asChild>
@@ -272,17 +342,20 @@ export function WhatsAppInput({
           rows={1}
         />
 
-        <Button
-          variant={isRecording ? "destructive" : "ghost"}
-          size="icon"
-          onClick={toggleRecording}
-          disabled={isDisabled || !isWindowOpen}
-          className="h-9 w-9 shrink-0"
-        >
-          {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-        </Button>
+        {/* Mic button - only show when NOT recording */}
+        {!isRecording && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={startRecording}
+            disabled={isDisabled || !isWindowOpen}
+            className="h-9 w-9 shrink-0"
+          >
+            <Mic className="h-4 w-4" />
+          </Button>
+        )}
 
-        <Button onClick={handleSend} disabled={!canSend} size="icon" className="h-9 w-9 shrink-0">
+        <Button onClick={handleSend} disabled={!canSend || isRecording} size="icon" className="h-9 w-9 shrink-0">
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </div>
