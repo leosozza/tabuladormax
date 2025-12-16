@@ -313,7 +313,7 @@ serve(async (req) => {
                 if (!existingMapping) {
                   console.log(`  🆕 Criando usuário TabuladorMax para ${item.title}...`);
                   
-                  const email = `${accessKey}@tele.maxfama.com.br`;
+                  const email = `tele-${item.id}@maxfama.com.br`;
                   const password = String(accessKey);
                   const operatorName = (item.title || `Operador ${item.id}`).trim();
                   const isSupervisor = String(cargo) === '10620';
