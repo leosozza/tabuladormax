@@ -66,6 +66,16 @@ const Index = () => {
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Detectar se estamos no contexto do portal telemarketing
+  const isPortalTelemarketing = (() => {
+    try {
+      const ctx = localStorage.getItem('telemarketing_context');
+      return ctx !== null;
+    } catch {
+      return false;
+    }
+  })();
+  
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAllUsers, setShowAllUsers] = useState(false);
@@ -437,7 +447,7 @@ const Index = () => {
             <div className="flex flex-wrap gap-2 items-center">
               <Button
                 variant="outline"
-                onClick={() => navigate('/telemarketing')}
+                onClick={() => navigate(isPortalTelemarketing ? '/portal-telemarketing/tabulador' : '/telemarketing')}
                 className="gap-2"
               >
                 <Phone className="w-4 h-4" />
@@ -461,7 +471,7 @@ const Index = () => {
             <div className="flex gap-2">
               <Button 
                 variant="secondary" 
-                onClick={() => navigate('/telemarketing')} 
+                onClick={() => navigate(isPortalTelemarketing ? '/portal-telemarketing/tabulador' : '/telemarketing')} 
                 className="gap-2"
               >
                 <Phone className="w-4 h-4" />
@@ -469,7 +479,9 @@ const Index = () => {
               </Button>
               <Button 
                 variant="secondary" 
-                onClick={() => navigate('/whatsapp', { state: { from: 'telemarketing' } })} 
+                onClick={() => navigate(isPortalTelemarketing ? '/portal-telemarketing/whatsapp' : '/whatsapp', 
+                  isPortalTelemarketing ? undefined : { state: { from: 'telemarketing' } }
+                )} 
                 className="gap-2"
               >
                 <MessageSquare className="w-4 h-4" />

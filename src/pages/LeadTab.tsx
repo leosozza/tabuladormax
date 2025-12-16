@@ -2414,11 +2414,11 @@ const LeadTab = () => {
                         <Settings className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                         Configurar Campos
                       </Button>
-                      <Button variant="outline" onClick={() => navigate('/config')} className="w-full text-xs md:text-sm">
+                      <Button variant="outline" onClick={() => navigate('/admin/config')} className="w-full text-xs md:text-sm">
                         <Settings className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                         Configurar Botões
                       </Button>
-                      <Button variant="outline" onClick={() => navigate('/logs')} className="w-full text-xs md:text-sm">
+                      <Button variant="outline" onClick={() => navigate('/admin/logs')} className="w-full text-xs md:text-sm">
                         <Settings className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                         Ver Logs
                       </Button>
