@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, MessageSquare, Search, Loader2, User } from 'lucide-react';
 import { useTelemarketingConversations, TelemarketingConversation } from '@/hooks/useTelemarketingConversations';
 import { useState } from 'react';
-import { ChatPanel } from '@/components/chatwoot/ChatPanel';
+import { ChatPanelGupshup } from '@/components/chatwoot/ChatPanelGupshup';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -147,18 +147,18 @@ const PortalTelemarketingWhatsApp = () => {
             ) : (
               conversations.map((conv) => (
                 <div
-                  key={conv.conversation_id}
+                  key={conv.lead_id}
                   onClick={() => setSelectedConversation(conv)}
                   className={`p-3 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
-                    selectedConversation?.conversation_id === conv.conversation_id ? 'bg-muted' : ''
+                    selectedConversation?.lead_id === conv.lead_id ? 'bg-muted' : ''
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     {/* Avatar */}
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {conv.photo_url || conv.thumbnail ? (
+                      {conv.photo_url ? (
                         <img 
-                          src={conv.photo_url || conv.thumbnail || ''} 
+                          src={conv.photo_url} 
                           alt={conv.lead_name}
                           className="w-full h-full object-cover"
                         />
@@ -177,9 +177,16 @@ const PortalTelemarketingWhatsApp = () => {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {conv.phone_number || 'Sem telefone'}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground truncate flex-1">
+                          {conv.last_message_preview || conv.phone_number || 'Sem telefone'}
+                        </p>
+                        {conv.unread_count > 0 && (
+                          <Badge variant="default" className="ml-2 h-5 min-w-5 text-xs">
+                            {conv.unread_count}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -196,10 +203,11 @@ const PortalTelemarketingWhatsApp = () => {
         {/* Chat Panel */}
         <div className="flex-1 flex flex-col">
           {selectedConversation ? (
-            <ChatPanel
-              conversationId={selectedConversation.conversation_id}
+            <ChatPanelGupshup
+              bitrixId={selectedConversation.bitrix_id}
+              phoneNumber={selectedConversation.phone_number}
               contactName={selectedConversation.lead_name}
-              windowStatus={selectedConversation.windowStatus}
+              onBack={() => setSelectedConversation(null)}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
