@@ -51,9 +51,54 @@ serve(async (req) => {
     // Get Gupshup credentials
     const gupshupApiKey = Deno.env.get('GUPSHUP_API_KEY');
     const gupshupAppId = Deno.env.get('GUPSHUP_APP_ID');
+    const gupshupSourceNumber = Deno.env.get('GUPSHUP_SOURCE_NUMBER');
 
     if (!gupshupApiKey || !gupshupAppId) {
       throw new Error('GUPSHUP_API_KEY ou GUPSHUP_APP_ID não configurados');
+    }
+
+    // Check if this is a test_connection request
+    let body: { action?: string } = {};
+    try {
+      body = await req.json();
+    } catch {
+      // No body or invalid JSON, proceed with sync
+    }
+
+    if (body.action === 'test_connection') {
+      console.log('🔍 Testando conexão com Gupshup...');
+      
+      // Test API connection by fetching templates (lightweight call)
+      const testUrl = `https://api.gupshup.io/wa/app/${gupshupAppId}/template`;
+      const testResponse = await fetch(testUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': gupshupApiKey,
+          'accept': 'application/json',
+        },
+      });
+
+      if (testResponse.ok) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            connected: true,
+            sourceNumber: gupshupSourceNumber || null,
+            message: 'Conexão com Gupshup estabelecida'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
+        const errorText = await testResponse.text();
+        return new Response(
+          JSON.stringify({
+            success: false,
+            connected: false,
+            error: `API retornou status ${testResponse.status}: ${errorText}`
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     console.log('🔄 Sincronizando templates do Gupshup...');
