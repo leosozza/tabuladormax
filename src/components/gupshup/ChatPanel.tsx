@@ -364,8 +364,8 @@ export function ChatPanel({
             </div>
           </ScrollArea>
 
-          {/* Área de input */}
-          <div className="border-t p-4 bg-card space-y-3">
+          {/* Área de input - FIXA no rodapé */}
+          <div className="flex-shrink-0 border-t p-4 bg-card space-y-3">
             {/* Cooldown Timer */}
             {inCooldown && (
               <CooldownTimer getCooldownRemaining={getCooldownRemaining} />
