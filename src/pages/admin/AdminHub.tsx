@@ -96,6 +96,13 @@ const adminOptions = [
     color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   },
   {
+    path: '/admin/gupshup-integration',
+    icon: Smartphone,
+    title: 'Integração Gupshup',
+    description: 'Configurar WhatsApp via Gupshup',
+    color: 'bg-green-500/10 text-green-600 dark:text-green-400',
+  },
+  {
     path: '/admin/stage-mappings',
     icon: Settings,
     title: 'Mapeamento de Stages',
