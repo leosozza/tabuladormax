@@ -59,7 +59,8 @@ export function ChatPanelGupshup({
     sending,
     fetchMessages,
     sendMessage,
-    sendTemplate
+    sendTemplate,
+    markAsRead
   } = useWhatsAppMessages({ bitrixId, phoneNumber, conversationId });
 
   // Buscar status da janela
@@ -115,6 +116,16 @@ export function ChatPanelGupshup({
       }
     }
   }, [messages]);
+
+  // Marcar mensagens como lidas quando o painel estiver visível
+  useEffect(() => {
+    const unreadInboundMessages = messages.filter(
+      msg => msg.direction === 'inbound' && msg.status !== 'read'
+    );
+    if (unreadInboundMessages.length > 0) {
+      markAsRead(unreadInboundMessages.map(m => m.id));
+    }
+  }, [messages, markAsRead]);
 
   // Se janela fechada, ir automaticamente para templates
   useEffect(() => {

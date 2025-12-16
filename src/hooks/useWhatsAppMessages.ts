@@ -231,6 +231,49 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     };
   }, [bitrixId, phoneNumber, conversationId]);
 
+  // Marcar mensagens como lidas
+  const markAsRead = useCallback(async (messageIds?: string[]) => {
+    if (!bitrixId && !phoneNumber && !conversationId) return;
+
+    try {
+      // Marcar localmente primeiro (otimístico)
+      setMessages(prev => 
+        prev.map(msg => {
+          if (msg.direction === 'inbound' && msg.status !== 'read') {
+            if (!messageIds || messageIds.includes(msg.id)) {
+              return { ...msg, status: 'read' as const, read_at: new Date().toISOString() };
+            }
+          }
+          return msg;
+        })
+      );
+
+      // Atualizar no banco
+      let query = supabase
+        .from('whatsapp_messages')
+        .update({ status: 'read', read_at: new Date().toISOString() })
+        .eq('direction', 'inbound')
+        .neq('status', 'read');
+
+      if (messageIds && messageIds.length > 0) {
+        query = query.in('id', messageIds);
+      } else if (bitrixId) {
+        query = query.eq('bitrix_id', bitrixId);
+      } else if (conversationId) {
+        query = query.eq('conversation_id', conversationId);
+      } else if (phoneNumber) {
+        query = query.eq('phone_number', phoneNumber.replace(/\D/g, ''));
+      }
+
+      const { error } = await query;
+      if (error) {
+        console.error('Erro ao marcar mensagens como lidas:', error);
+      }
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  }, [bitrixId, phoneNumber, conversationId]);
+
   return {
     messages,
     loading,
@@ -238,5 +281,6 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     fetchMessages,
     sendMessage,
     sendTemplate,
+    markAsRead,
   };
 };
