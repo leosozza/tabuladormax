@@ -1,5 +1,5 @@
 // ============================================
-// Gupshup Send Message - Envia mensagens de texto
+// Gupshup Send Message - Com Rate Limiting Anti-Loop
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.74.0';
@@ -16,6 +16,7 @@ interface SendMessageRequest {
   bitrix_id?: string;
   conversation_id?: number;
   sender_name?: string;
+  source?: string;
 }
 
 interface SendTemplateRequest {
@@ -25,6 +26,18 @@ interface SendTemplateRequest {
   bitrix_id?: string;
   conversation_id?: number;
   sender_name?: string;
+  source?: string;
+}
+
+// Função para gerar hash simples do conteúdo
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16);
 }
 
 Deno.serve(async (req) => {
@@ -48,7 +61,7 @@ Deno.serve(async (req) => {
     });
 
     const body = await req.json();
-    const { action = 'send_message' } = body;
+    const { action = 'send_message', source = 'tabulador' } = body;
 
     // Obter usuário autenticado
     const authHeader = req.headers.get('Authorization');
@@ -67,9 +80,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'send_template') {
-      return await handleSendTemplate(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName);
+      return await handleSendTemplate(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
     } else {
-      return await handleSendMessage(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName);
+      return await handleSendMessage(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
     }
 
   } catch (error) {
@@ -82,13 +95,77 @@ Deno.serve(async (req) => {
   }
 });
 
+// ============================================
+// Verificação de Rate Limiting
+// ============================================
+async function checkRateLimit(
+  supabase: any,
+  phoneNumber: string,
+  messageContent: string,
+  source: string
+): Promise<{ blocked: boolean; reason?: string; alertType?: string; count?: number; rateLimitInfo?: any }> {
+  const messageHash = simpleHash(messageContent);
+  const contentPreview = messageContent.substring(0, 100);
+
+  try {
+    const { data: rateLimitResult, error: rateLimitError } = await supabase
+      .rpc('check_message_rate_limit', {
+        p_phone_number: phoneNumber,
+        p_message_hash: messageHash,
+        p_content_preview: contentPreview,
+        p_source: source
+      });
+
+    if (rateLimitError) {
+      console.error('❌ Erro ao verificar rate limit:', rateLimitError);
+      // Continuar mesmo com erro no rate limit (fail open)
+      return { blocked: false };
+    }
+
+    if (rateLimitResult?.blocked) {
+      console.warn(`🚫 Mensagem bloqueada por rate limit: ${rateLimitResult.reason}`);
+      
+      // Registrar mensagem bloqueada
+      await supabase.from('message_rate_limits').insert({
+        phone_number: phoneNumber,
+        message_hash: messageHash,
+        content_preview: contentPreview,
+        source: source,
+        blocked: true,
+        block_reason: rateLimitResult.reason
+      });
+
+      return {
+        blocked: true,
+        reason: rateLimitResult.reason,
+        alertType: rateLimitResult.alert_type,
+        count: rateLimitResult.count
+      };
+    }
+
+    console.log(`✅ Rate limit OK: ${rateLimitResult?.minute_count || 0}/5 min, ${rateLimitResult?.hour_count || 0}/30 hora`);
+    
+    return {
+      blocked: false,
+      rateLimitInfo: {
+        minuteCount: rateLimitResult?.minute_count || 0,
+        hourCount: rateLimitResult?.hour_count || 0
+      }
+    };
+  } catch (err) {
+    console.error('❌ Erro ao verificar rate limit (catch):', err);
+    return { blocked: false };
+  }
+}
+
 async function handleSendMessage(
   supabase: any,
   body: SendMessageRequest,
   apiKey: string,
   sourceNumber: string,
   appName: string,
-  senderName: string
+  senderName: string,
+  source: string
 ) {
   const { phone_number, message, bitrix_id, conversation_id } = body;
 
@@ -103,6 +180,23 @@ async function handleSendMessage(
   const normalizedPhone = phone_number.replace(/\D/g, '');
   
   console.log(`📤 Enviando mensagem para ${normalizedPhone}`);
+
+  // ============================================
+  // RATE LIMITING CHECK
+  // ============================================
+  const rateLimitCheck = await checkRateLimit(supabase, normalizedPhone, message, source);
+  
+  if (rateLimitCheck.blocked) {
+    return new Response(
+      JSON.stringify({
+        error: rateLimitCheck.reason,
+        blocked: true,
+        alertType: rateLimitCheck.alertType,
+        count: rateLimitCheck.count
+      }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 
   // Enviar via Gupshup (session message)
   const gupshupUrl = 'https://api.gupshup.io/wa/api/v1/msg';
@@ -141,7 +235,7 @@ async function handleSendMessage(
         status: 'sent',
         sent_by: 'tabulador',
         sender_name: senderName,
-        metadata: responseData,
+        metadata: { ...responseData, source },
       });
 
     if (insertError) {
@@ -166,7 +260,8 @@ async function handleSendMessage(
       JSON.stringify({
         success: true,
         messageId: responseData.messageId,
-        message: 'Mensagem enviada com sucesso'
+        message: 'Mensagem enviada com sucesso',
+        rateLimitInfo: rateLimitCheck.rateLimitInfo
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -181,7 +276,8 @@ async function handleSendTemplate(
   apiKey: string,
   sourceNumber: string,
   appName: string,
-  senderName: string
+  senderName: string,
+  source: string
 ) {
   const { phone_number, template_id, variables = [], bitrix_id, conversation_id } = body;
 
@@ -210,6 +306,24 @@ async function handleSendTemplate(
   const normalizedPhone = phone_number.replace(/\D/g, '');
   
   console.log(`📤 Enviando template ${template.element_name} para ${normalizedPhone}`);
+
+  // ============================================
+  // RATE LIMITING CHECK
+  // ============================================
+  const messageContent = `template:${template.element_name}:${variables.join(',')}`;
+  const rateLimitCheck = await checkRateLimit(supabase, normalizedPhone, messageContent, source);
+  
+  if (rateLimitCheck.blocked) {
+    return new Response(
+      JSON.stringify({
+        error: rateLimitCheck.reason,
+        blocked: true,
+        alertType: rateLimitCheck.alertType,
+        count: rateLimitCheck.count
+      }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 
   // Enviar via Gupshup (template message)
   const gupshupUrl = 'https://api.gupshup.io/wa/api/v1/template/msg';
@@ -258,7 +372,7 @@ async function handleSendTemplate(
         status: 'sent',
         sent_by: 'tabulador',
         sender_name: senderName,
-        metadata: { ...responseData, template, variables },
+        metadata: { ...responseData, template, variables, source },
       });
 
     if (insertError) {
@@ -283,7 +397,8 @@ async function handleSendTemplate(
       JSON.stringify({
         success: true,
         messageId: responseData.messageId,
-        message: 'Template enviado com sucesso'
+        message: 'Template enviado com sucesso',
+        rateLimitInfo: rateLimitCheck.rateLimitInfo
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

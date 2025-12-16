@@ -656,6 +656,39 @@ export type Database = {
         }
         Relationships: []
       }
+      blocked_numbers: {
+        Row: {
+          blocked_by: string | null
+          blocked_until: string | null
+          created_at: string | null
+          id: string
+          phone_number: string
+          reason: string
+          unblocked_at: string | null
+          unblocked_by: string | null
+        }
+        Insert: {
+          blocked_by?: string | null
+          blocked_until?: string | null
+          created_at?: string | null
+          id?: string
+          phone_number: string
+          reason: string
+          unblocked_at?: string | null
+          unblocked_by?: string | null
+        }
+        Update: {
+          blocked_by?: string | null
+          blocked_until?: string | null
+          created_at?: string | null
+          id?: string
+          phone_number?: string
+          reason?: string
+          unblocked_at?: string | null
+          unblocked_by?: string | null
+        }
+        Relationships: []
+      }
       bulk_message_logs: {
         Row: {
           completed_at: string | null
@@ -1936,6 +1969,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      loop_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          message_count: number | null
+          phone_number: string
+          resolved: boolean | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string | null
+          time_window_seconds: number | null
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          message_count?: number | null
+          phone_number: string
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string | null
+          time_window_seconds?: number | null
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          message_count?: number | null
+          phone_number?: string
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string | null
+          time_window_seconds?: number | null
+        }
+        Relationships: []
+      }
+      message_rate_limits: {
+        Row: {
+          block_reason: string | null
+          blocked: boolean | null
+          content_preview: string | null
+          created_at: string | null
+          id: string
+          message_hash: string | null
+          phone_number: string
+          sent_at: string | null
+          source: string | null
+        }
+        Insert: {
+          block_reason?: string | null
+          blocked?: boolean | null
+          content_preview?: string | null
+          created_at?: string | null
+          id?: string
+          message_hash?: string | null
+          phone_number: string
+          sent_at?: string | null
+          source?: string | null
+        }
+        Update: {
+          block_reason?: string | null
+          blocked?: boolean | null
+          content_preview?: string | null
+          created_at?: string | null
+          id?: string
+          message_hash?: string | null
+          phone_number?: string
+          sent_at?: string | null
+          source?: string | null
+        }
+        Relationships: []
       }
       negotiation_history: {
         Row: {
@@ -3256,9 +3367,19 @@ export type Database = {
           lead_id: number
         }[]
       }
+      check_message_rate_limit: {
+        Args: {
+          p_content_preview?: string
+          p_message_hash?: string
+          p_phone_number: string
+          p_source?: string
+        }
+        Returns: Json
+      }
       clean_corrupted_fonte: { Args: never; Returns: Json }
       clean_old_lead_search_cache: { Args: never; Returns: undefined }
       cleanup_expired_scouter_sessions: { Args: never; Returns: number }
+      cleanup_old_rate_limits: { Args: never; Returns: number }
       cleanup_scouter_location_history: { Args: never; Returns: number }
       count_leads_to_reprocess: {
         Args: {
@@ -3516,6 +3637,7 @@ export type Database = {
         }
         Returns: Json
       }
+      get_rate_limit_stats: { Args: never; Returns: Json }
       get_retroactive_payment_preview: {
         Args: {
           p_cutoff_date: string
@@ -3788,6 +3910,10 @@ export type Database = {
           key_id: string
           key_prefix: string
         }[]
+      }
+      unblock_phone_number: {
+        Args: { p_phone_number: string; p_user_id?: string }
+        Returns: boolean
       }
       validate_api_key: {
         Args: { p_key: string; p_required_scope?: string }

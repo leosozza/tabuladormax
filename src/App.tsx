@@ -43,6 +43,7 @@ import ApiDocumentation from './pages/admin/ApiDocumentation';
 import ApiKeyManagement from './pages/admin/ApiKeyManagement';
 import SpaSync from './pages/admin/SpaSync';
 import GupshupIntegration from './pages/admin/GupshupIntegration';
+import LoopMonitor from './pages/admin/LoopMonitor';
 
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
@@ -163,6 +164,7 @@ const App = () => (
             <Route path="/admin/api-keys" element={<ProtectedRoute requireAdmin><ApiKeyManagement /></ProtectedRoute>} />
             <Route path="/admin/spa-sync" element={<ProtectedRoute requireManager><SpaSync /></ProtectedRoute>} />
             <Route path="/admin/gupshup-integration" element={<ProtectedRoute requireManager><GupshupIntegration /></ProtectedRoute>} />
+            <Route path="/admin/loop-monitor" element={<ProtectedRoute requireManager><LoopMonitor /></ProtectedRoute>} />
 
             {/* Agenciamento */}
             <Route path="/agenciamento" element={<Agenciamento />} />
