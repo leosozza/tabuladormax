@@ -26,7 +26,6 @@ import { getLead, type BitrixLead, getLeadFields, type BitrixField } from "@/lib
 import { getTelemarketingId } from "@/handlers/tabular";
 import { ChatModal } from "@/components/chatwoot/ChatModal";
 import { BitrixChatModal } from "@/components/bitrix/BitrixChatModal";
-import { UnifiedChatModal } from "@/components/unified/UnifiedChatModal";
 import { ChatPanelGupshup } from "@/components/chatwoot/ChatPanelGupshup";
 import { BUTTON_CATEGORIES, categoryOrder, ensureButtonLayout, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
@@ -266,7 +265,6 @@ const LeadTab = () => {
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [chatModalOpen, setChatModalOpen] = useState(false);
   const [bitrixChatModal, setBitrixChatModal] = useState(false);
-  const [unifiedChatOpen, setUnifiedChatOpen] = useState(false);
   const [whatsappGupshupOpen, setWhatsappGupshupOpen] = useState(false);
   const [bitrixOpenLineData, setBitrixOpenLineData] = useState<BitrixOpenLineData | null>(null);
   const [searchSteps, setSearchSteps] = useState<Array<{
@@ -3182,11 +3180,6 @@ const LeadTab = () => {
         const searchParams = new URLSearchParams(location.search);
         return searchParams.get('id') || searchParams.get('lead') || '';
       })()} contactName={chatwootData?.name || 'Lead'} />
-
-      <UnifiedChatModal open={unifiedChatOpen} onOpenChange={setUnifiedChatOpen} bitrixSessionId={bitrixOpenLineData?.sessionId || null} bitrixChatId={bitrixOpenLineData?.chatId || null} bitrixLeadId={(() => {
-        const searchParams = new URLSearchParams(location.search);
-        return searchParams.get('id') || searchParams.get('lead') || '';
-      })()} chatwootConversationId={chatwootData?.conversation_id || null} contactName={chatwootData?.name || 'Lead'} />
 
       {/* Modal WhatsApp Gupshup */}
       <Dialog open={whatsappGupshupOpen} onOpenChange={setWhatsappGupshupOpen}>
