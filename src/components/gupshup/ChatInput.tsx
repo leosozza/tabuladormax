@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Image, Paperclip, Mic, Square, X, Loader2 } from 'lucide-react';
@@ -123,48 +123,67 @@ export function ChatInput({
     clearRecording();
   }, [mediaPreview, clearRecording]);
 
+  // Estado para prevenir double-click
+  const [isSending, setIsSending] = useState(false);
+
+  // Mostrar erro de gravação apenas uma vez
+  useEffect(() => {
+    if (recordingError) {
+      toast.error(recordingError);
+    }
+  }, [recordingError]);
+
   // Handle send
   const handleSend = async () => {
-    if (disabled || uploading) return;
+    if (disabled || uploading || isSending) return;
 
-    // Send audio recording
-    if (audioBlob) {
-      setUploading(true);
-      try {
-        const url = await uploadMedia(audioBlob, 'audio.webm');
-        if (url) {
-          await onSendMedia(url, 'audio');
-          clearRecording();
+    setIsSending(true);
+    try {
+      // Send audio recording
+      if (audioBlob) {
+        setUploading(true);
+        try {
+          // Determinar extensão baseada no tipo do blob
+          const extension = audioBlob.type.includes('ogg') ? 'ogg' : 
+                            audioBlob.type.includes('mp4') ? 'm4a' : 
+                            audioBlob.type.includes('webm') ? 'ogg' : 'audio';
+          const url = await uploadMedia(audioBlob, `audio.${extension}`);
+          if (url) {
+            await onSendMedia(url, 'audio');
+            clearRecording();
+          }
+        } finally {
+          setUploading(false);
         }
-      } finally {
-        setUploading(false);
+        return;
       }
-      return;
-    }
 
-    // Send media with optional caption
-    if (mediaPreview) {
-      setUploading(true);
-      try {
-        const url = await uploadMedia(mediaPreview.file, mediaPreview.file.name);
-        if (url) {
-          const caption = messageInput.trim() || undefined;
-          await onSendMedia(url, mediaPreview.type, caption, mediaPreview.file.name);
-          clearMedia();
+      // Send media with optional caption
+      if (mediaPreview) {
+        setUploading(true);
+        try {
+          const url = await uploadMedia(mediaPreview.file, mediaPreview.file.name);
+          if (url) {
+            const caption = messageInput.trim() || undefined;
+            await onSendMedia(url, mediaPreview.type, caption, mediaPreview.file.name);
+            clearMedia();
+            setMessageInput('');
+          }
+        } finally {
+          setUploading(false);
+        }
+        return;
+      }
+
+      // Send text message
+      if (messageInput.trim()) {
+        const success = await onSendText(messageInput);
+        if (success !== false) {
           setMessageInput('');
         }
-      } finally {
-        setUploading(false);
       }
-      return;
-    }
-
-    // Send text message
-    if (messageInput.trim()) {
-      const success = await onSendText(messageInput);
-      if (success !== false) {
-        setMessageInput('');
-      }
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -185,12 +204,7 @@ export function ChatInput({
     }
   };
 
-  // Render recording error
-  if (recordingError) {
-    toast.error(recordingError);
-  }
-
-  const isDisabled = disabled || uploading || inCooldown;
+  const isDisabled = disabled || uploading || inCooldown || isSending;
   const canSend = !isDisabled && (messageInput.trim() || mediaPreview || audioBlob);
 
   return (
