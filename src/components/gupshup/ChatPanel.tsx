@@ -297,75 +297,77 @@ export function ChatPanel({
           </TabsList>
         </div>
 
-        <TabsContent value="messages" className="relative flex-1 mt-0 overflow-hidden data-[state=active]:block">
-          <ScrollArea className="absolute inset-0 bottom-[200px] p-4">
-            <div className="space-y-4" ref={scrollRef}>
-              {loading && messages.length === 0 ? (
-                <div className="flex justify-center py-8">
-                  <div className="text-muted-foreground">Carregando mensagens...</div>
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <MessageSquare className="w-12 h-12 text-muted-foreground mb-2" />
-                  <p className="text-muted-foreground">Nenhuma mensagem ainda</p>
-                </div>
-              ) : (
-                messages.map(msg => (
-                  <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                      msg.direction === 'outbound' 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted'
-                    }`}>
-                      {/* Sender info */}
-                      <div className="text-sm font-medium mb-1 flex items-center gap-2">
-                        {msg.sender_name || (msg.direction === 'outbound' ? 'Você' : 'Cliente')}
-                        {msg.sent_by && msg.direction === 'outbound' && (
-                          <span className="text-xs opacity-70">
-                            ({msg.sent_by === 'bitrix' ? 'Bitrix' : msg.sent_by === 'tabulador' ? 'TabuladorMax' : 'Operador'})
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Template badge */}
-                      {msg.message_type === 'template' && msg.template_name && (
-                        <div className="text-xs bg-background/20 rounded px-2 py-0.5 mb-1 inline-block">
-                          📋 Template: {msg.template_name}
-                        </div>
-                      )}
-
-                      {/* Content */}
-                      <div className="whitespace-pre-wrap">{msg.content}</div>
-
-                      {/* Media */}
-                      {msg.media_url && (
-                        <div className="mt-2">
-                          {msg.media_type === 'image' ? (
-                            <img src={msg.media_url} alt="Imagem" className="max-w-full rounded" />
-                          ) : msg.media_type === 'audio' ? (
-                            <audio controls src={msg.media_url} className="max-w-full" />
-                          ) : (
-                            <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="text-xs underline">
-                              📎 {msg.media_type || 'Arquivo'}
-                            </a>
+        <TabsContent value="messages" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden data-[state=active]:flex">
+          <div className="relative flex-1 min-h-0">
+            <ScrollArea className="absolute inset-0 p-4">
+              <div className="space-y-4 pb-4" ref={scrollRef}>
+                {loading && messages.length === 0 ? (
+                  <div className="flex justify-center py-8">
+                    <div className="text-muted-foreground">Carregando mensagens...</div>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <MessageSquare className="w-12 h-12 text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">Nenhuma mensagem ainda</p>
+                  </div>
+                ) : (
+                  messages.map(msg => (
+                    <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                        msg.direction === 'outbound' 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-muted'
+                      }`}>
+                        {/* Sender info */}
+                        <div className="text-sm font-medium mb-1 flex items-center gap-2">
+                          {msg.sender_name || (msg.direction === 'outbound' ? 'Você' : 'Cliente')}
+                          {msg.sent_by && msg.direction === 'outbound' && (
+                            <span className="text-xs opacity-70">
+                              ({msg.sent_by === 'bitrix' ? 'Bitrix' : msg.sent_by === 'tabulador' ? 'TabuladorMax' : 'Operador'})
+                            </span>
                           )}
                         </div>
-                      )}
 
-                      {/* Timestamp and status */}
-                      <div className="flex items-center gap-1 text-xs opacity-70 mt-1">
-                        {format(new Date(msg.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}
-                        {msg.direction === 'outbound' && <MessageStatus status={msg.status} />}
+                        {/* Template badge */}
+                        {msg.message_type === 'template' && msg.template_name && (
+                          <div className="text-xs bg-background/20 rounded px-2 py-0.5 mb-1 inline-block">
+                            📋 Template: {msg.template_name}
+                          </div>
+                        )}
+
+                        {/* Content */}
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+
+                        {/* Media */}
+                        {msg.media_url && (
+                          <div className="mt-2">
+                            {msg.media_type === 'image' ? (
+                              <img src={msg.media_url} alt="Imagem" className="max-w-full rounded" />
+                            ) : msg.media_type === 'audio' ? (
+                              <audio controls src={msg.media_url} className="max-w-full" />
+                            ) : (
+                              <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="text-xs underline">
+                                📎 {msg.media_type || 'Arquivo'}
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Timestamp and status */}
+                        <div className="flex items-center gap-1 text-xs opacity-70 mt-1">
+                          {format(new Date(msg.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                          {msg.direction === 'outbound' && <MessageStatus status={msg.status} />}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </div>
 
-          {/* Área de input - FIXA no rodapé com posição absoluta */}
-          <div className="absolute bottom-0 left-0 right-0 border-t p-4 bg-card space-y-3">
+          {/* Área de input - FIXA no rodapé */}
+          <div className="flex-shrink-0 border-t p-3 bg-card space-y-2">
             {/* Cooldown Timer */}
             {inCooldown && (
               <CooldownTimer getCooldownRemaining={getCooldownRemaining} />
@@ -380,8 +382,8 @@ export function ChatPanel({
                     onChange={e => setMessageInput(e.target.value)}
                     onKeyDown={handleKeyPress}
                     disabled={sending || inCooldown}
-                    className={`min-h-[80px] max-h-[160px] resize-none ${inCooldown ? 'opacity-50' : ''}`}
-                    rows={3}
+                    className={`min-h-[60px] max-h-[120px] resize-none ${inCooldown ? 'opacity-50' : ''}`}
+                    rows={2}
                   />
                   <Button
                     onClick={handleSendMessage}
@@ -394,18 +396,18 @@ export function ChatPanel({
                 </div>
                 {!inCooldown && (
                   <p className="text-xs text-muted-foreground">
-                    Pressione <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> para enviar
+                    <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> para enviar
                   </p>
                 )}
               </>
             ) : (
-              <div className="text-center py-4 bg-red-500/5 rounded-lg border border-red-500/20">
-                <Lock className="w-8 h-8 mx-auto mb-2 text-red-500" />
+              <div className="text-center py-3 bg-red-500/5 rounded-lg border border-red-500/20">
+                <Lock className="w-6 h-6 mx-auto mb-1 text-red-500" />
                 <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">
                   Janela de 24h expirada
                 </p>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Para iniciar uma conversa, você precisa enviar um template aprovado
+                <p className="text-xs text-muted-foreground mb-2">
+                  Envie um template para iniciar
                 </p>
                 <Button variant="default" size="sm" onClick={() => setActiveTab('templates')}>
                   Ir para Templates
