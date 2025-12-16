@@ -1,11 +1,15 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Image, Paperclip, Mic, Square, X, Loader2 } from 'lucide-react';
+import { Send, Image, Paperclip, Mic, Square, X, Loader2, Plus } from 'lucide-react';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 export type MediaType = 'image' | 'video' | 'audio' | 'document';
 
 interface MediaPreview {
@@ -306,73 +310,91 @@ export function ChatInput({
         </div>
       )}
 
-      {/* Main input area */}
-      <div className="flex gap-2 items-end">
-        {/* Action buttons */}
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => imageInputRef.current?.click()}
-            disabled={isDisabled || isRecording || !isWindowOpen}
-            title="Enviar foto/vídeo"
-            className="h-10 w-10"
-          >
-            <Image className="h-5 w-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isDisabled || isRecording || !isWindowOpen}
-            title="Enviar arquivo"
-            className="h-10 w-10"
-          >
-            <Paperclip className="h-5 w-5" />
-          </Button>
-          <Button
-            variant={isRecording ? "destructive" : "ghost"}
-            size="icon"
-            onClick={toggleRecording}
-            disabled={isDisabled || !isWindowOpen}
-            title={isRecording ? "Parar gravação" : "Gravar áudio"}
-            className="h-10 w-10"
-          >
-            {isRecording ? (
-              <Square className="h-5 w-5" />
-            ) : (
-              <Mic className="h-5 w-5" />
-            )}
-          </Button>
-        </div>
+      {/* Main input area - Compact layout */}
+      <div className="flex gap-1.5 items-end">
+        {/* Menu de anexos */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={isDisabled || isRecording || !isWindowOpen}
+              className="h-9 w-9 shrink-0"
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" className="w-auto p-2">
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  imageInputRef.current?.click();
+                }}
+                className="h-9 w-9"
+                title="Foto/Vídeo"
+              >
+                <Image className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  fileInputRef.current?.click();
+                }}
+                className="h-9 w-9"
+                title="Arquivo"
+              >
+                <Paperclip className="h-5 w-5" />
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
 
         {/* Text input */}
         <Textarea
           placeholder={
             inCooldown 
-              ? "Aguardando cooldown..." 
+              ? "Aguardando..." 
               : isRecording 
-              ? "Gravando áudio..."
+              ? "Gravando..."
               : mediaPreview 
-              ? "Adicione uma legenda (opcional)..."
-              : "Digite sua mensagem... (Ctrl+Enter)"
+              ? "Legenda (opcional)"
+              : "Mensagem..."
           }
           value={messageInput}
           onChange={(e) => setMessageInput(e.target.value)}
           onKeyDown={handleKeyPress}
           disabled={isDisabled || isRecording}
-          className={`min-h-[40px] max-h-[120px] resize-none flex-1 ${
+          className={`min-h-[36px] max-h-[100px] resize-none flex-1 py-2 text-sm ${
             isDisabled ? 'opacity-50' : ''
           }`}
           rows={1}
         />
+
+        {/* Mic button - sempre visível */}
+        <Button
+          variant={isRecording ? "destructive" : "ghost"}
+          size="icon"
+          onClick={toggleRecording}
+          disabled={isDisabled || !isWindowOpen}
+          title={isRecording ? "Parar" : "Gravar"}
+          className="h-9 w-9 shrink-0"
+        >
+          {isRecording ? (
+            <Square className="h-4 w-4" />
+          ) : (
+            <Mic className="h-4 w-4" />
+          )}
+        </Button>
 
         {/* Send button */}
         <Button
           onClick={handleSend}
           disabled={!canSend}
           size="icon"
-          className="h-10 w-10 shrink-0"
+          className="h-9 w-9 shrink-0"
         >
           {uploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -381,13 +403,6 @@ export function ChatInput({
           )}
         </Button>
       </div>
-
-      {/* Helper text */}
-      {!inCooldown && !isRecording && isWindowOpen && (
-        <p className="text-xs text-muted-foreground">
-          <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> para enviar
-        </p>
-      )}
     </div>
   );
 }
