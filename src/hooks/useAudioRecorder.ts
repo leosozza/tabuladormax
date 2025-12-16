@@ -67,8 +67,15 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeType });
-        setAudioBlob(blob);
+        const originalBlob = new Blob(chunksRef.current, { type: mimeType });
+        
+        // Converter WebM/Opus para OGG/Opus (WhatsApp aceita OGG com opus)
+        let finalBlob = originalBlob;
+        if (mimeType.includes('webm') && mimeType.includes('opus')) {
+          finalBlob = new Blob(chunksRef.current, { type: 'audio/ogg; codecs=opus' });
+        }
+        
+        setAudioBlob(finalBlob);
         stopTimer();
         
         // Limpar stream
