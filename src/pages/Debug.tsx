@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { extractChatwootData, extractAssigneeData, saveChatwootContact } from "@/lib/chatwoot";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Debug() {
@@ -10,85 +9,39 @@ export default function Debug() {
   const [debugLog, setDebugLog] = useState<string[]>([]);
 
   useEffect(() => {
-    console.log("🎧 Listener de mensagens do Chatwoot ativado no Debug");
+    console.log("🎧 Listener de mensagens do Debug ativado");
     
-    const processChatwootData = async (eventData: any) => {
+    const processEventData = async (eventData: any) => {
       try {
         console.log("📦 eventData completo:", eventData);
-        setDebugLog(prev => [...prev, `Has conversation: ${!!eventData?.conversation}`]);
+        setDebugLog(prev => [...prev, `Evento recebido: ${JSON.stringify(eventData).substring(0, 100)}...`]);
 
-        // 1. Tentar auto-login via assignee
-        const assigneeData = extractAssigneeData(eventData);
-        if (assigneeData) {
-          console.log("🔐 Tentando auto-login com assignee:", assigneeData.email);
-          setDebugLog(prev => [...prev, `Auto-login: ${assigneeData.email}`]);
+        // Extrair dados do evento
+        const contact = eventData?.data?.contact || eventData?.conversation?.meta?.sender;
+        const bitrixId = contact?.custom_attributes?.idbitrix;
+        
+        if (bitrixId) {
+          console.log("✅ ID Bitrix encontrado:", bitrixId);
+          setDebugLog(prev => [...prev, `ID Bitrix encontrado: ${bitrixId}`]);
           
-          try {
-            const { data: loginData, error: loginError } = await supabase.functions.invoke('chatwoot-auth', {
-              body: assigneeData
-            });
-
-            if (loginError) throw loginError;
-
-            if (loginData?.session) {
-              console.log("✅ Auto-login retornou sessão - aplicando...");
-              
-              // Aplicar a sessão recebida
-              const { error: setSessionError } = await supabase.auth.setSession({
-                access_token: loginData.session.access_token,
-                refresh_token: loginData.session.refresh_token
-              });
-
-              if (setSessionError) {
-                console.error("❌ Erro ao aplicar sessão:", setSessionError);
-                setDebugLog(prev => [...prev, `Erro ao aplicar sessão: ${setSessionError.message}`]);
-              } else {
-                console.log("✅ Sessão aplicada! Usuário:", loginData.user);
-                setDebugLog(prev => [...prev, `Auto-login OK: ${loginData.user.email} (${loginData.user.role})`]);
-              }
-            } else {
-              console.warn("⚠️ Auto-login não retornou sessão");
-              setDebugLog(prev => [...prev, "Auto-login falhou: sessão não retornada"]);
-            }
-          } catch (loginError) {
-            console.error("❌ Erro no auto-login:", loginError);
-            setDebugLog(prev => [...prev, `Erro auto-login: ${loginError}`]);
-          }
-        }
-
-        // 2. Processar dados do contato
-        if (eventData?.conversation?.meta?.sender || eventData?.data?.contact) {
-          const contactData = extractChatwootData(eventData);
-          console.log("👤 Dados extraídos:", contactData);
+          // Registrar log do evento
+          await supabase.from('actions_log').insert([{
+            lead_id: Number(bitrixId),
+            action_label: 'Evento Debug',
+            payload: {
+              source: 'debug_page',
+              timestamp: new Date().toISOString()
+            } as any,
+            status: 'OK',
+          }]);
           
-          if (contactData && contactData.bitrix_id) {
-            console.log("💾 Salvando contato:", contactData.bitrix_id);
-            setDebugLog(prev => [...prev, `ID Bitrix encontrado: ${contactData.bitrix_id}`]);
-            
-            await saveChatwootContact(contactData);
-            
-            // Registrar log do evento
-            await supabase.from('actions_log').insert([{
-              lead_id: Number(contactData.bitrix_id),
-              action_label: 'Evento Chatwoot - Debug',
-              payload: {
-                conversation_id: contactData.conversation_id,
-                contact_id: contactData.contact_id
-              } as any,
-              status: 'OK',
-            }]);
-            
-            console.log("✅ Dados processados - redirecionando para /lead");
-            setDebugLog(prev => [...prev, "Navegando para /lead"]);
-            
-            navigate('/lead');
-          } else {
-            console.log("⚠️ Nenhum idbitrix encontrado");
-            setDebugLog(prev => [...prev, "Nenhum idbitrix nos dados"]);
-          }
+          console.log("✅ Dados processados - redirecionando para /lead");
+          setDebugLog(prev => [...prev, "Navegando para /lead"]);
+          
+          navigate('/lead');
         } else {
-          console.log("ℹ️ Dados sem conversation.meta.sender");
-          setDebugLog(prev => [...prev, "Sem conversation.meta.sender"]);
+          console.log("⚠️ Nenhum idbitrix encontrado");
+          setDebugLog(prev => [...prev, "Nenhum idbitrix nos dados"]);
         }
       } catch (error) {
         console.error("❌ Erro ao processar evento:", error);
@@ -100,18 +53,18 @@ export default function Debug() {
     if ((window as any)._CHATWOOT_DATA_) {
       console.log("✅ [Debug] Dados pré-carregados encontrados!");
       setDebugLog(prev => [...prev, "Dados pré-carregados encontrados"]);
-      processChatwootData((window as any)._CHATWOOT_DATA_);
+      processEventData((window as any)._CHATWOOT_DATA_);
     }
 
     // 2. Escutar evento customizado
-    const handleChatwootReady = (event: Event) => {
-      console.log("✅ [Debug] Evento chatwoot-data-ready recebido!");
+    const handleDataReady = (event: Event) => {
+      console.log("✅ [Debug] Evento data-ready recebido!");
       setDebugLog(prev => [...prev, "Evento customizado recebido"]);
       const customEvent = event as CustomEvent;
-      processChatwootData(customEvent.detail);
+      processEventData(customEvent.detail);
     };
     
-    window.addEventListener('chatwoot-data-ready', handleChatwootReady);
+    window.addEventListener('chatwoot-data-ready', handleDataReady);
 
     // 3. Listener de postMessage (fallback)
     const handleMessage = async (event: MessageEvent) => {
@@ -140,7 +93,7 @@ export default function Debug() {
           console.log("✅ Dados diretos (objeto)");
         }
 
-        await processChatwootData(eventData);
+        await processEventData(eventData);
       } catch (error) {
         console.error("❌ Erro ao processar evento:", error);
         setDebugLog(prev => [...prev, `Erro: ${error}`]);
@@ -152,7 +105,7 @@ export default function Debug() {
     
     return () => {
       console.log("🔌 Listeners removidos do Debug");
-      window.removeEventListener('chatwoot-data-ready', handleChatwootReady);
+      window.removeEventListener('chatwoot-data-ready', handleDataReady);
       window.removeEventListener("message", handleMessage);
     };
   }, [navigate]);
@@ -172,7 +125,7 @@ export default function Debug() {
         </div>
         
         <p className="text-muted-foreground mb-4">
-          Esta página monitora mensagens do Chatwoot em tempo real
+          Esta página monitora eventos em tempo real
         </p>
         
         {/* Debug info */}
@@ -199,7 +152,7 @@ export default function Debug() {
           <p className="text-xs font-semibold mb-2">💡 Como funciona:</p>
           <p className="text-xs text-muted-foreground">
             Esta página está escutando eventos via <code className="bg-muted px-1 rounded">window.postMessage</code>.
-            Quando o Chatwoot enviar dados com <code className="bg-muted px-1 rounded">conversation.meta.sender.custom_attributes.idbitrix</code>,
+            Quando um evento com <code className="bg-muted px-1 rounded">custom_attributes.idbitrix</code> for recebido,
             você será redirecionado automaticamente para a página do lead.
           </p>
         </div>

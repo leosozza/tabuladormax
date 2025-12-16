@@ -30,7 +30,7 @@ interface ButtonConfig {
 
 /**
  * Creates a Flow from a button configuration
- * Converts button actions into proper connector steps (Bitrix, Supabase, Chatwoot)
+ * Converts button actions into proper connector steps (Bitrix, Supabase)
  */
 export function createFlowFromButton(buttonConfig: ButtonConfig): Flow {
   const steps: FlowStep[] = [];
@@ -48,28 +48,12 @@ export function createFlowFromButton(buttonConfig: ButtonConfig): Flow {
       value: buttonConfig.value,
       field_type: buttonConfig.field_type || 'string',
       additional_fields: buttonConfig.additional_fields || [],
-      lead_id: '{{leadId}}' // Placeholder
+      lead_id: '{{leadId}}'
     }
   };
   steps.push(bitrixStep);
   
-  // 2️⃣ Se transfer_conversation = true, adicionar ChatwootConnector
-  if (buttonConfig.transfer_conversation) {
-    const chatwootStep: FlowStep = {
-      id: `chatwoot-${buttonConfig.id}`,
-      type: 'chatwoot_connector',
-      nome: 'Transferir Conversa',
-      descricao: 'Transfere a conversa para outro agente',
-      config: {
-        action: 'transfer_conversation',
-        conversation_id: '{{conversationId}}',
-        agent_id: '{{targetAgentId}}'
-      }
-    };
-    steps.push(chatwootStep);
-  }
-  
-  // 3️⃣ Se sync_target = 'supabase', adicionar SupabaseConnector
+  // 2️⃣ Se sync_target = 'supabase', adicionar SupabaseConnector
   if (buttonConfig.sync_target === 'supabase') {
     const supabaseStep: FlowStep = {
       id: `supabase-${buttonConfig.id}`,
@@ -90,7 +74,7 @@ export function createFlowFromButton(buttonConfig: ButtonConfig): Flow {
     steps.push(supabaseStep);
   }
   
-  // 4️⃣ Adicionar sub-buttons como steps separados
+  // 3️⃣ Adicionar sub-buttons como steps separados
   if (buttonConfig.sub_buttons && buttonConfig.sub_buttons.length > 0) {
     buttonConfig.sub_buttons.forEach((subButton, index) => {
       const subStep: FlowStep = {
@@ -109,28 +93,12 @@ export function createFlowFromButton(buttonConfig: ButtonConfig): Flow {
         }
       };
       steps.push(subStep);
-      
-      // Se sub-button tem transfer_conversation, adicionar Chatwoot step
-      if (subButton.transfer_conversation) {
-        const chatwootSubStep: FlowStep = {
-          id: `chatwoot-sub-${buttonConfig.id}-${index}`,
-          type: 'chatwoot_connector',
-          nome: `Transferir Conversa: ${subButton.subLabel}`,
-          descricao: 'Transfere conversa após executar sub-ação',
-          config: {
-            action: 'transfer_conversation',
-            conversation_id: '{{conversationId}}',
-            agent_id: '{{targetAgentId}}'
-          }
-        };
-        steps.push(chatwootSubStep);
-      }
     });
   }
 
-  // Create Flow object (without id, as it's a new/temporary flow)
+  // Create Flow object
   const flow: Flow = {
-    id: '', // Empty for new flows
+    id: '',
     nome: `Flow: ${buttonConfig.label}`,
     descricao: buttonConfig.description || `Automação gerada do botão ${buttonConfig.label}`,
     steps,

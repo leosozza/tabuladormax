@@ -19,7 +19,6 @@ import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from '
 import { StartNode } from './nodes/StartNode';
 import { BitrixConnectorNode } from './nodes/BitrixConnectorNode';
 import { SupabaseConnectorNode } from './nodes/SupabaseConnectorNode';
-import { ChatwootConnectorNode } from './nodes/ChatwootConnectorNode';
 import { N8NConnectorNode } from './nodes/N8NConnectorNode';
 import { TabularNode } from './nodes/TabularNode';
 import { HttpCallNode } from './nodes/HttpCallNode';
@@ -36,10 +35,9 @@ import type { FlowStep, FlowStepType } from '@/types/flow';
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
-  bitrix_connector: BitrixConnectorNode,     // ✅ NOVO
-  supabase_connector: SupabaseConnectorNode, // ✅ NOVO
-  chatwoot_connector: ChatwootConnectorNode, // ✅ NOVO
-  n8n_connector: N8NConnectorNode,           // ✅ NOVO
+  bitrix_connector: BitrixConnectorNode,
+  supabase_connector: SupabaseConnectorNode,
+  n8n_connector: N8NConnectorNode,
   tabular: TabularNode,
   http_call: HttpCallNode,
   wait: WaitNode,
@@ -57,29 +55,24 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   
-  // Auto-hide panels on mobile/tablet, show on desktop
   const [showNodePalette, setShowNodePalette] = useState(true);
   const [showVariables, setShowVariables] = useState(true);
 
-  // Detect screen size and auto-hide panels on smaller screens
   useEffect(() => {
     const handleResize = () => {
       const isMobile = window.innerWidth < 768;
       const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
       
       if (isMobile) {
-        // Hide both panels on mobile
         setShowNodePalette(false);
         setShowVariables(false);
       } else if (isTablet) {
-        // Hide variables panel on tablet
         setShowNodePalette(true);
         setShowVariables(false);
       }
-      // Desktop keeps both panels visible by default
     };
 
-    handleResize(); // Initial check
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -101,7 +94,6 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
     deleteNode,
   } = useFlowBuilder(initialNodes, initialEdges);
 
-  // Sync changes back to parent
   useEffect(() => {
     const newSteps = convertNodesToSteps(nodes, edges);
     onChange(newSteps);
@@ -161,10 +153,9 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
             nodeColor={(node) => {
               switch (node.type) {
                 case 'start': return '#3b82f6';
-                case 'bitrix_connector': return '#f97316';      // ✅ NOVO - Laranja
-                case 'supabase_connector': return '#3b82f6';   // ✅ NOVO - Azul
-                case 'chatwoot_connector': return '#10b981';   // ✅ NOVO - Verde
-                case 'n8n_connector': return '#a855f7';        // ✅ NOVO - Roxo
+                case 'bitrix_connector': return '#f97316';
+                case 'supabase_connector': return '#3b82f6';
+                case 'n8n_connector': return '#a855f7';
                 case 'tabular': return '#60a5fa';
                 case 'http_call': return '#a855f7';
                 case 'wait': return '#f59e0b';

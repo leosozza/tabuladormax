@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Bug, Users } from "lucide-react";
-import { extractChatwootData, extractAssigneeData, saveChatwootContact } from "@/lib/chatwoot";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Home() {
@@ -18,7 +17,7 @@ export default function Home() {
         console.log("✅ Usuário autenticado - redirecionando para /lead");
         navigate('/lead');
       } else {
-        console.log("ℹ️ Usuário não autenticado - aguardando login Chatwoot");
+        console.log("ℹ️ Usuário não autenticado - aguardando login");
         setIsCheckingAuth(false);
       }
     };
@@ -26,94 +25,33 @@ export default function Home() {
     checkAuth();
   }, [navigate]);
 
-  // Listener para auto-login via Chatwoot
+  // Listener para eventos de login externo
   useEffect(() => {
-    console.log("🎧 Listener de mensagens do Chatwoot ativado na Home");
+    console.log("🎧 Listener de eventos ativado na Home");
     
-    const processChatwootData = async (eventData: any) => {
+    const processEventData = async (eventData: any) => {
       try {
         console.log("📦 eventData completo:", eventData);
 
-        // Tentar auto-login via assignee
-        const assigneeData = extractAssigneeData(eventData);
-        if (assigneeData) {
-          console.log("🔐 Tentando auto-login com assignee:", assigneeData.email);
+        // Extrair dados do evento
+        const contact = eventData?.data?.contact || eventData?.conversation?.meta?.sender;
+        const bitrixId = contact?.custom_attributes?.idbitrix;
+        
+        if (bitrixId) {
+          console.log("✅ ID Bitrix encontrado:", bitrixId);
           
-          try {
-            const { data: loginData, error: loginError } = await supabase.functions.invoke('chatwoot-auth', {
-              body: assigneeData
-            });
-
-            if (loginError) throw loginError;
-
-            console.log("🔐 Resposta da edge function:", {
-              success: loginData?.success,
-              hasSession: !!loginData?.session,
-              hasAccessToken: !!loginData?.session?.access_token,
-              hasRefreshToken: !!loginData?.session?.refresh_token,
-              userMetadata: loginData?.session?.user?.user_metadata,
-              user: loginData?.user
-            });
-
-            if (loginData?.session) {
-              console.log("✅ Auto-login retornou sessão - aplicando...");
-              
-              // Aplicar a sessão recebida
-              const { error: setSessionError } = await supabase.auth.setSession({
-                access_token: loginData.session.access_token,
-                refresh_token: loginData.session.refresh_token
-              });
-
-              if (setSessionError) {
-                console.error("❌ Erro ao aplicar sessão:", setSessionError);
-                throw setSessionError;
-              } else {
-                console.log("✅ Sessão aplicada com sucesso!");
-                console.log("👤 User metadata disponível:", loginData.session.user.user_metadata);
-                
-                // Atualizar perfil com display_name do Chatwoot
-                if (loginData.session.user.user_metadata?.display_name) {
-                  const { error: profileError } = await supabase
-                    .from('profiles')
-                    .update({
-                      display_name: loginData.session.user.user_metadata.display_name
-                    })
-                    .eq('id', loginData.session.user.id);
-                  
-                  if (profileError) {
-                    console.error('⚠️ Erro ao atualizar display_name no perfil:', profileError);
-                  } else {
-                    console.log('✅ Display name atualizado no perfil');
-                  }
-                }
-                
-                console.log("✅ Redirecionando para /lead");
-                // Processar dados do contato antes de redirecionar
-                if (eventData?.conversation?.meta?.sender || eventData?.data?.contact) {
-                  const contactData = extractChatwootData(eventData);
-                  
-                  if (contactData && contactData.bitrix_id) {
-                    console.log("💾 Salvando contato:", contactData.bitrix_id);
-                    await saveChatwootContact(contactData);
-                    
-                    await supabase.from('actions_log').insert([{
-                      lead_id: Number(contactData.bitrix_id),
-                      action_label: 'Auto-login Chatwoot',
-                      payload: {
-                        conversation_id: contactData.conversation_id,
-                        contact_id: contactData.contact_id
-                      } as any,
-                      status: 'OK',
-                    }]);
-                  }
-                }
-                
-                navigate('/lead');
-              }
-            }
-          } catch (loginError) {
-            console.error("❌ Erro no auto-login:", loginError);
-          }
+          // Registrar log
+          await supabase.from('actions_log').insert([{
+            lead_id: Number(bitrixId),
+            action_label: 'Evento Home',
+            payload: {
+              source: 'home_page',
+              timestamp: new Date().toISOString()
+            } as any,
+            status: 'OK',
+          }]);
+          
+          navigate('/lead');
         }
       } catch (error) {
         console.error("❌ Erro ao processar evento:", error);
@@ -123,17 +61,17 @@ export default function Home() {
     // 1. Verificar se já existem dados pré-carregados
     if ((window as any)._CHATWOOT_DATA_) {
       console.log("✅ [Home] Dados pré-carregados encontrados!");
-      processChatwootData((window as any)._CHATWOOT_DATA_);
+      processEventData((window as any)._CHATWOOT_DATA_);
     }
 
     // 2. Escutar evento customizado
-    const handleChatwootReady = (event: Event) => {
-      console.log("✅ [Home] Evento chatwoot-data-ready recebido!");
+    const handleDataReady = (event: Event) => {
+      console.log("✅ [Home] Evento data-ready recebido!");
       const customEvent = event as CustomEvent;
-      processChatwootData(customEvent.detail);
+      processEventData(customEvent.detail);
     };
     
-    window.addEventListener('chatwoot-data-ready', handleChatwootReady);
+    window.addEventListener('chatwoot-data-ready', handleDataReady);
 
     // 3. Listener de postMessage (fallback)
     const handleMessage = async (event: MessageEvent) => {
@@ -157,7 +95,7 @@ export default function Home() {
           eventData = event.data;
         }
 
-        await processChatwootData(eventData);
+        await processEventData(eventData);
       } catch (error) {
         console.error("❌ Erro ao processar evento:", error);
       }
@@ -168,7 +106,7 @@ export default function Home() {
     
     return () => {
       console.log("🔌 Listeners removidos da Home");
-      window.removeEventListener('chatwoot-data-ready', handleChatwootReady);
+      window.removeEventListener('chatwoot-data-ready', handleDataReady);
       window.removeEventListener("message", handleMessage);
     };
   }, [navigate]);
@@ -188,10 +126,10 @@ export default function Home() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="text-center max-w-2xl w-full">
         <h1 className="text-2xl font-semibold text-foreground mb-2">
-          Aguardando login via Chatwoot...
+          TabuladorMax
         </h1>
         <p className="text-muted-foreground mb-6">
-          Abra uma conversa no Chatwoot para fazer login automaticamente
+          Faça login para acessar o sistema
         </p>
         
         <div className="flex justify-center gap-4">
@@ -215,10 +153,10 @@ export default function Home() {
         </div>
         
         <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg text-left">
-          <p className="text-xs font-semibold mb-2">💡 Como funciona:</p>
+          <p className="text-xs font-semibold mb-2">💡 Integração Gupshup:</p>
           <p className="text-xs text-muted-foreground">
-            Esta aplicação faz login automaticamente quando você abre uma conversa no Chatwoot.
-            Após o login, você será redirecionado para a página do lead.
+            O sistema utiliza Gupshup para envio de mensagens WhatsApp.
+            Acesse o Tabulador para gerenciar conversas com leads.
           </p>
         </div>
       </div>

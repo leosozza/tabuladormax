@@ -9,7 +9,6 @@ export type FlowStepType =
   | 'tabular' 
   | 'bitrix_connector'
   | 'supabase_connector'
-  | 'chatwoot_connector'
   | 'n8n_connector'
   | 'http_call' 
   | 'wait'
@@ -59,7 +58,7 @@ export interface FlowStepBitrixConnector extends FlowStepBase {
     value: string;
     field_type?: string;
     additional_fields?: Array<{ field: string; value: string }>;
-    lead_id?: string; // Placeholder like {{leadId}}
+    lead_id?: string;
   };
 }
 
@@ -73,19 +72,6 @@ export interface FlowStepSupabaseConnector extends FlowStepBase {
     table: 'leads' | 'chatwoot_contacts' | string;
     filters?: Record<string, unknown>;
     data?: Record<string, unknown>;
-  };
-}
-
-/**
- * Chatwoot Connector - chat operations
- */
-export interface FlowStepChatwootConnector extends FlowStepBase {
-  type: 'chatwoot_connector';
-  config: {
-    action: 'send_message' | 'assign_agent' | 'close_conversation' | 'transfer_conversation';
-    conversation_id?: string;
-    message?: string;
-    agent_id?: string;
   };
 }
 
@@ -125,7 +111,7 @@ export interface FlowStepWait extends FlowStepBase {
 }
 
 /**
- * Send Message step - sends message to Chatwoot
+ * Send Message step - sends message
  */
 export interface FlowStepSendMessage extends FlowStepBase {
   type: 'send_message';
@@ -217,7 +203,6 @@ export type FlowStep =
   | FlowStepTabular 
   | FlowStepBitrixConnector
   | FlowStepSupabaseConnector
-  | FlowStepChatwootConnector
   | FlowStepN8NConnector
   | FlowStepHttpCall 
   | FlowStepWait

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, MessageSquare, Search, Loader2, User } from 'lucide-react';
 import { useTelemarketingConversations, TelemarketingConversation } from '@/hooks/useTelemarketingConversations';
 import { useState } from 'react';
-import { ChatPanelGupshup } from '@/components/chatwoot/ChatPanelGupshup';
+import { ChatPanel } from '@/components/gupshup/ChatPanel';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -203,7 +203,7 @@ const PortalTelemarketingWhatsApp = () => {
         {/* Chat Panel */}
         <div className="flex-1 flex flex-col">
           {selectedConversation ? (
-            <ChatPanelGupshup
+            <ChatPanel
               bitrixId={selectedConversation.bitrix_id}
               phoneNumber={selectedConversation.phone_number}
               contactName={selectedConversation.lead_name}
