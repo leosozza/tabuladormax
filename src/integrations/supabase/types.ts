@@ -3721,6 +3721,18 @@ export type Database = {
           commercial_project_id: string
         }[]
       }
+      get_whatsapp_conversation_stats: {
+        Args: { p_bitrix_ids?: string[]; p_phone_numbers?: string[] }
+        Returns: {
+          identifier: string
+          identifier_type: string
+          last_inbound_at: string
+          last_message_at: string
+          last_outbound_at: string
+          total_messages: number
+          unread_messages: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

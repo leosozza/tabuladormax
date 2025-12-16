@@ -105,8 +105,9 @@ export const TemplateSelector = ({ onSendTemplate, disabled }: TemplateSelectorP
   const handleSend = async () => {
     if (!selectedTemplate || !allVariablesFilled()) return;
 
+    // CORREÇÃO: Enviar o ID interno do Supabase, não o template_id do Gupshup
     const success = await onSendTemplate({
-      templateId: selectedTemplate.template_id,
+      templateId: selectedTemplate.id,
       variables,
     });
 
