@@ -40,6 +40,55 @@ function simpleHash(str: string): string {
   return Math.abs(hash).toString(16);
 }
 
+// Normalização consistente (evita enviar +15... como se fosse +1...)
+function normalizeDestinationPhone(phone: string): string {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+
+  // Já tem DDI Brasil
+  if (digits.startsWith('55')) return digits;
+
+  // Provável celular BR: DDD(2) + 9 + 8 dígitos = 11 (ex: 15 9xxxx xxxx)
+  if (digits.length === 11 && digits[2] === '9') return `55${digits}`;
+
+  // Mantém como está (outros países / formatos)
+  return digits;
+}
+
+async function checkBlockedNumber(
+  supabase: any,
+  phoneNumber: string
+): Promise<{ blocked: boolean; reason?: string }> {
+  try {
+    const { data, error } = await supabase
+      .from('blocked_numbers')
+      .select('blocked_until, unblocked_at, reason')
+      .eq('phone_number', phoneNumber)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('❌ Erro ao consultar bloqueio:', error);
+      return { blocked: false };
+    }
+
+    if (!data) return { blocked: false };
+
+    const isUnblocked = !!data.unblocked_at;
+    const isExpired = data.blocked_until ? new Date(data.blocked_until) <= new Date() : false;
+
+    if (!isUnblocked && !isExpired) {
+      return { blocked: true, reason: data.reason || 'Número bloqueado' };
+    }
+
+    return { blocked: false };
+  } catch (err) {
+    console.error('❌ Erro no checkBlockedNumber:', err);
+    return { blocked: false };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -177,8 +226,24 @@ async function handleSendMessage(
   }
 
   // Normalizar telefone
-  const normalizedPhone = phone_number.replace(/\D/g, '');
-  
+  const normalizedPhone = normalizeDestinationPhone(phone_number);
+  if (!normalizedPhone) {
+    return new Response(
+      JSON.stringify({ error: 'phone_number inválido' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // 🛑 Bloqueio explícito (corta loops mesmo se o rate-limit falhar)
+  const blockCheck = await checkBlockedNumber(supabase, normalizedPhone);
+  if (blockCheck.blocked) {
+    console.warn(`🚫 Envio bloqueado (blocked_numbers) para ${normalizedPhone}: ${blockCheck.reason}`);
+    return new Response(
+      JSON.stringify({ error: blockCheck.reason, blocked: true }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   console.log(`📤 Enviando mensagem para ${normalizedPhone}`);
 
   // ============================================
@@ -303,8 +368,24 @@ async function handleSendTemplate(
   }
 
   // Normalizar telefone
-  const normalizedPhone = phone_number.replace(/\D/g, '');
-  
+  const normalizedPhone = normalizeDestinationPhone(phone_number);
+  if (!normalizedPhone) {
+    return new Response(
+      JSON.stringify({ error: 'phone_number inválido' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // 🛑 Bloqueio explícito (corta loops mesmo se o rate-limit falhar)
+  const blockCheck = await checkBlockedNumber(supabase, normalizedPhone);
+  if (blockCheck.blocked) {
+    console.warn(`🚫 Template bloqueado (blocked_numbers) para ${normalizedPhone}: ${blockCheck.reason}`);
+    return new Response(
+      JSON.stringify({ error: blockCheck.reason, blocked: true }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   console.log(`📤 Enviando template ${template.element_name} para ${normalizedPhone}`);
 
   // ============================================

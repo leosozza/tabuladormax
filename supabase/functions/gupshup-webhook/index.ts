@@ -16,6 +16,15 @@ const LOOP_DETECTION_WINDOW_SECONDS = 60;
 const LOOP_DETECTION_THRESHOLD = 20;
 const AUTO_BLOCK_THRESHOLD = 60; // Auto-block after 60 events/minute
 
+// Normalização consistente (evita tratar 15... como +1...)
+function normalizePhone(phone: string): string {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('55')) return digits;
+  if (digits.length === 11 && digits[2] === '9') return `55${digits}`;
+  return digits;
+}
+
 interface GupshupMessagePayload {
   id: string;
   source: string;
@@ -152,14 +161,17 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent) {
   const payload = event.payload as GupshupMessagePayload;
   
   // Extrair telefone do cliente
-  const phoneNumber = payload.source || payload.sender?.phone;
-  if (!phoneNumber) {
+  const phoneNumberRaw = payload.source || payload.sender?.phone;
+  if (!phoneNumberRaw) {
     console.error('❌ Telefone não encontrado no payload');
     return;
   }
 
-  // Normalizar telefone (remover +)
-  const normalizedPhone = phoneNumber.replace(/\D/g, '');
+  const normalizedPhone = normalizePhone(phoneNumberRaw);
+  if (!normalizedPhone) {
+    console.error('❌ Telefone normalizado inválido:', phoneNumberRaw);
+    return;
+  }
 
   // 🛡️ Verificar loop antes de processar
   const { blocked } = await checkForLoop(supabase, normalizedPhone, 'inbound');
@@ -284,7 +296,7 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
 
   const messageId = payload.gsId || payload.id;
   const statusType = payload.type;
-  const destination = payload.destination?.replace(/\D/g, '') || '';
+  const destination = normalizePhone(payload.destination || '');
 
   // 🛡️ IGNORAR EVENTOS ENQUEUED COMPLETAMENTE
   // Gupshup envia muitos eventos enqueued quando há problemas de rate limit
