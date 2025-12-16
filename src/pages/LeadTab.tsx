@@ -3115,7 +3115,7 @@ const LeadTab = () => {
 
       {/* Modal WhatsApp Gupshup */}
       <Dialog open={whatsappGupshupOpen} onOpenChange={setWhatsappGupshupOpen}>
-        <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden">
+        <DialogContent className="max-w-4xl w-[95vw] h-[85vh] max-h-[calc(100vh-2rem)] p-0 flex flex-col overflow-hidden">
           <ChatPanel
             bitrixId={chatwootData?.bitrix_id || String(profile['ID Bitrix'] || '')}
             phoneNumber={String(profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number || '')}
