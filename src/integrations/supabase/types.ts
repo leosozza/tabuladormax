@@ -3078,6 +3078,7 @@ export type Database = {
           access_key: string | null
           bitrix_id: number
           cargo: string | null
+          commercial_project_id: string | null
           created_at: string | null
           email: string | null
           id: string
@@ -3093,6 +3094,7 @@ export type Database = {
           access_key?: string | null
           bitrix_id: number
           cargo?: string | null
+          commercial_project_id?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
@@ -3108,6 +3110,7 @@ export type Database = {
           access_key?: string | null
           bitrix_id?: number
           cargo?: string | null
+          commercial_project_id?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
@@ -3120,6 +3123,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "telemarketing_operators_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "telemarketing_operators_supervisor_id_fkey"
             columns: ["supervisor_id"]
@@ -3973,6 +3983,7 @@ export type Database = {
         Returns: {
           bitrix_id: number
           cargo: string
+          commercial_project_id: string
           operator_id: string
           operator_name: string
           operator_photo: string

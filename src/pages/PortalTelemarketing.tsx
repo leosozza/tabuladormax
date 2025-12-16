@@ -89,6 +89,7 @@ const PortalTelemarketing = () => {
           bitrix_id: operatorData.bitrix_id,
           cargo: operatorData.cargo,
           name: operatorData.operator_name,
+          commercial_project_id: operatorData.commercial_project_id,
         };
         localStorage.setItem(CONTEXT_KEY, JSON.stringify(newCtx));
         console.log(`${prefix} ${CONTEXT_KEY} persisted`, newCtx);
@@ -157,6 +158,7 @@ const PortalTelemarketing = () => {
         bitrix_id: data.bitrix_id,
         cargo: data.cargo,
         name: data.operator_name,
+        commercial_project_id: data.commercial_project_id,
       })
     );
 

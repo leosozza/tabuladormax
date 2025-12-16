@@ -12,6 +12,7 @@ export interface TelemarketingOperatorData {
   operator_photo: string | null;
   bitrix_id: number;
   cargo: string;
+  commercial_project_id: string | null;
 }
 
 interface TelemarketingAccessKeyFormProps {
