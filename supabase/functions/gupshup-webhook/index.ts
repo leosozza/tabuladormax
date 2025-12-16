@@ -1,5 +1,6 @@
 // ============================================
 // Gupshup Webhook - Recebe mensagens e status
+// Com detecção de loops de sistemas externos
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.74.0';
@@ -9,6 +10,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
+
+// Rate limit settings
+const LOOP_DETECTION_WINDOW_SECONDS = 60;
+const LOOP_DETECTION_THRESHOLD = 20;
+const AUTO_BLOCK_THRESHOLD = 60; // Auto-block after 60 events/minute
 
 interface GupshupMessagePayload {
   id: string;
@@ -96,6 +102,52 @@ Deno.serve(async (req) => {
   }
 });
 
+// ============================================
+// Loop Detection Helper
+// ============================================
+async function checkForLoop(supabase: any, phoneNumber: string, eventType: string): Promise<{ blocked: boolean; loopDetected: boolean }> {
+  try {
+    const { data, error } = await supabase.rpc('detect_webhook_loop', {
+      p_phone_number: phoneNumber,
+      p_event_type: eventType,
+      p_time_window_seconds: LOOP_DETECTION_WINDOW_SECONDS,
+      p_threshold: LOOP_DETECTION_THRESHOLD
+    });
+
+    if (error) {
+      console.error('❌ Erro ao verificar loop:', error);
+      return { blocked: false, loopDetected: false };
+    }
+
+    if (data?.blocked) {
+      console.log(`🚫 Número ${phoneNumber} já está bloqueado`);
+      return { blocked: true, loopDetected: false };
+    }
+
+    if (data?.loop_detected) {
+      console.warn(`⚠️ LOOP DETECTADO para ${phoneNumber}: ${data.count} eventos em ${LOOP_DETECTION_WINDOW_SECONDS}s`);
+      
+      // Auto-block if threshold is very high
+      if (data.should_block || data.count >= AUTO_BLOCK_THRESHOLD) {
+        console.error(`🔴 AUTO-BLOQUEIO ATIVADO para ${phoneNumber}: ${data.count} eventos`);
+        await supabase.rpc('emergency_block_number', {
+          p_phone_number: phoneNumber,
+          p_reason: `Loop automático detectado: ${data.count} eventos em ${LOOP_DETECTION_WINDOW_SECONDS}s`,
+          p_duration_hours: 24
+        });
+        return { blocked: true, loopDetected: true };
+      }
+      
+      return { blocked: false, loopDetected: true };
+    }
+
+    return { blocked: false, loopDetected: false };
+  } catch (err) {
+    console.error('❌ Erro na detecção de loop:', err);
+    return { blocked: false, loopDetected: false };
+  }
+}
+
 async function handleInboundMessage(supabase: any, event: GupshupEvent) {
   const payload = event.payload as GupshupMessagePayload;
   
@@ -108,6 +160,13 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent) {
 
   // Normalizar telefone (remover +)
   const normalizedPhone = phoneNumber.replace(/\D/g, '');
+
+  // 🛡️ Verificar loop antes de processar
+  const { blocked } = await checkForLoop(supabase, normalizedPhone, 'inbound');
+  if (blocked) {
+    console.log(`🚫 Ignorando mensagem de número bloqueado: ${normalizedPhone}`);
+    return;
+  }
 
   console.log(`📱 Mensagem recebida de ${normalizedPhone}`);
 
@@ -225,6 +284,19 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
 
   const messageId = payload.gsId || payload.id;
   const statusType = payload.type;
+  const destination = payload.destination?.replace(/\D/g, '') || '';
+
+  // 🛡️ Verificar loop de status updates
+  if (destination) {
+    const { blocked, loopDetected } = await checkForLoop(supabase, destination, `status_${statusType}`);
+    if (blocked) {
+      console.log(`🚫 Ignorando status update de número bloqueado: ${destination}`);
+      return;
+    }
+    if (loopDetected) {
+      console.warn(`⚠️ Loop de status updates detectado para ${destination}, mas continuando processamento`);
+    }
+  }
 
   console.log(`📊 Status update: ${statusType} para mensagem ${messageId}`);
 

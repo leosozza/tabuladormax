@@ -3389,6 +3389,23 @@ export type Database = {
         }
         Returns: number
       }
+      detect_webhook_loop: {
+        Args: {
+          p_event_type: string
+          p_phone_number: string
+          p_threshold?: number
+          p_time_window_seconds?: number
+        }
+        Returns: Json
+      }
+      emergency_block_number: {
+        Args: {
+          p_duration_hours?: number
+          p_phone_number: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
       fix_scouter_names: {
         Args: never
         Returns: {
@@ -3815,6 +3832,15 @@ export type Database = {
           column_name: string
           data_type: string
           is_nullable: string
+        }[]
+      }
+      get_top_active_numbers: {
+        Args: { p_limit?: number }
+        Returns: {
+          event_count: number
+          last_event: string
+          phone_number: string
+          sources: string[]
         }[]
       }
       get_top_scouters: {
