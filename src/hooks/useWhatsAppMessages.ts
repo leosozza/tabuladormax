@@ -148,12 +148,23 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
 
       if (error) {
         console.error('Erro ao enviar mensagem:', error);
+        // Check for rate limit error (429)
+        const errorContext = (error as any)?.context;
+        if (errorContext?.error?.includes('Limite') || errorContext?.blocked) {
+          toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
+          return false;
+        }
         toast.error('Erro ao enviar mensagem');
         return false;
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
+        // Check for rate limit in response data
+        if (data.blocked || data.error?.includes('Limite')) {
+          toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
+          return false;
+        }
         toast.error(data.error);
         return false;
       }
@@ -182,9 +193,14 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       setMessages(prev => [...prev, newMessage]);
       toast.success('Mensagem enviada');
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
-      toast.error('Erro ao enviar mensagem');
+      // Check for rate limit in catch block
+      if (error?.message?.includes('429') || error?.message?.includes('Limite')) {
+        toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
+      } else {
+        toast.error('Erro ao enviar mensagem');
+      }
       return false;
     } finally {
       setSending(false);
@@ -242,12 +258,23 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
 
       if (error) {
         console.error('Erro ao enviar template:', error);
+        // Check for rate limit error (429)
+        const errorContext = (error as any)?.context;
+        if (errorContext?.error?.includes('Limite') || errorContext?.blocked) {
+          toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
+          return false;
+        }
         toast.error('Erro ao enviar template');
         return false;
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
+        // Check for rate limit in response data
+        if (data.blocked || data.error?.includes('Limite')) {
+          toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
+          return false;
+        }
         toast.error(data.error);
         return false;
       }
@@ -255,9 +282,14 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       toast.success('Template enviado');
       await fetchMessages(); // Atualizar para mostrar o template
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending template:', error);
-      toast.error('Erro ao enviar template');
+      // Check for rate limit in catch block
+      if (error?.message?.includes('429') || error?.message?.includes('Limite')) {
+        toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
+      } else {
+        toast.error('Erro ao enviar template');
+      }
       return false;
     } finally {
       setSending(false);
