@@ -212,7 +212,7 @@ export function ChatPanel({
   }
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex flex-col h-full min-h-0 bg-background">
       {/* Header */}
       <div className="border-b p-4 bg-card">
         <div className="flex items-center justify-between">
@@ -258,8 +258,8 @@ export function ChatPanel({
           </TabsList>
         </div>
 
-        <TabsContent value="messages" className="flex-1 flex-col min-h-0 mt-0 data-[state=active]:flex">
-          <ScrollArea className="flex-1 p-4">
+        <TabsContent value="messages" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden data-[state=active]:flex">
+          <ScrollArea className="flex-1 min-h-0 p-4">
             <div className="space-y-4" ref={scrollRef}>
               {loading && messages.length === 0 ? (
                 <div className="flex justify-center py-8">
@@ -369,7 +369,7 @@ export function ChatPanel({
           </div>
         </TabsContent>
 
-        <TabsContent value="templates" className="flex-1 flex-col min-h-0 mt-0 data-[state=active]:flex">
+        <TabsContent value="templates" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden data-[state=active]:flex">
           <TemplateSelector onSendTemplate={handleSendTemplateWrapper} disabled={sending} />
         </TabsContent>
       </Tabs>
