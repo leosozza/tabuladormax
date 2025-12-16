@@ -447,6 +447,154 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     }
   };
 
+  const sendMedia = async (
+    mediaUrl: string, 
+    mediaType: 'image' | 'video' | 'audio' | 'document',
+    caption?: string,
+    filename?: string
+  ): Promise<boolean> => {
+    logDebug('sendMedia called', { mediaType, mediaUrl: mediaUrl.substring(0, 50) });
+    
+    if (!phoneNumber) {
+      logDebug('sendMedia rejected: missing phone');
+      toast.error('Telefone é obrigatório');
+      return false;
+    }
+
+    // Verificar cooldown por rate limit
+    if (isInCooldown()) {
+      const waitSeconds = getCooldownRemaining();
+      logDebug('sendMedia rejected: in cooldown', { waitSeconds });
+      toast.warning(`Aguarde ${waitSeconds}s antes de enviar`);
+      return false;
+    }
+
+    // Anti-spam: verificar tempo desde último envio
+    const now = Date.now();
+    const timeSinceLastSend = now - lastSendTimeRef.current;
+    if (timeSinceLastSend < SEND_DEBOUNCE_MS) {
+      logDebug('sendMedia rejected: debounce', { timeSinceLastSend });
+      toast.warning('Aguarde antes de enviar outra mídia');
+      return false;
+    }
+
+    // Verificar se já está enviando
+    if (sending) {
+      logDebug('sendMedia rejected: already sending');
+      toast.warning('Aguarde o envio anterior terminar');
+      return false;
+    }
+
+    // Limite de envios por sessão
+    if (sendCountRef.current >= MAX_SENDS_PER_SESSION) {
+      logDebug('sendMedia rejected: session limit reached');
+      toast.error('Limite de mensagens por sessão atingido. Recarregue a página.');
+      return false;
+    }
+
+    // Lock cross-tab
+    if (!acquireSendLock(phoneNumber)) {
+      logDebug('sendMedia rejected: cross-tab lock');
+      toast.warning('Envio em andamento em outra aba');
+      return false;
+    }
+
+    lastSendTimeRef.current = now;
+    sendCountRef.current += 1;
+    setSending(true);
+    logDebug('sendMedia starting', { sendCount: sendCountRef.current });
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('gupshup-send-message', {
+        body: {
+          action: 'send_media',
+          phone_number: phoneNumber,
+          media_type: mediaType,
+          media_url: mediaUrl,
+          caption: caption,
+          filename: filename,
+          bitrix_id: bitrixId,
+          conversation_id: conversationId,
+        },
+      });
+
+      if (!mountedRef.current) {
+        logDebug('sendMedia aborted: component unmounted');
+        return false;
+      }
+
+      if (error) {
+        console.error('Erro ao enviar mídia:', error);
+        releaseSendLock();
+        
+        const errorMessage = error?.message || '';
+        const errorContext = (error as any)?.context;
+        
+        if (errorMessage.includes('401') || errorMessage.includes('Não autorizado')) {
+          return handleSendError(error, 'auth_error');
+        }
+        if (errorContext?.error?.includes('Limite') || errorContext?.blocked || errorMessage.includes('429')) {
+          return handleSendError(error, 'rate_limit');
+        }
+        
+        return handleSendError(error, 'unknown_error');
+      }
+
+      if (data?.error) {
+        console.error('Erro da API:', data.error);
+        releaseSendLock();
+        
+        if (data.blocked || data.error?.includes('Limite') || data.error?.includes('401')) {
+          return handleSendError(data.error, 'api_error');
+        }
+        
+        toast.error(data.error);
+        return false;
+      }
+
+      // Sucesso!
+      consecutiveFailsRef.current = 0;
+      releaseSendLock();
+
+      // Adicionar mensagem otimisticamente
+      const newMessage: WhatsAppMessage = {
+        id: crypto.randomUUID(),
+        phone_number: phoneNumber.replace(/\D/g, ''),
+        bitrix_id: bitrixId || null,
+        conversation_id: conversationId || null,
+        gupshup_message_id: data?.messageId || null,
+        direction: 'outbound',
+        message_type: mediaType,
+        content: caption || `[${mediaType}]`,
+        template_name: null,
+        status: 'sent',
+        sent_by: 'tabulador',
+        sender_name: 'Você',
+        media_url: mediaUrl,
+        media_type: mediaType,
+        created_at: new Date().toISOString(),
+        delivered_at: null,
+        read_at: null,
+      };
+
+      setMessages(prev => [...prev, newMessage]);
+      toast.success('Mídia enviada');
+      return true;
+    } catch (error: any) {
+      console.error('Error sending media:', error);
+      releaseSendLock();
+      
+      if (error?.name === 'AbortError') {
+        logDebug('sendMedia aborted');
+        return false;
+      }
+      
+      return handleSendError(error, 'catch_error');
+    } finally {
+      setSending(false);
+    }
+  };
+
   // Buscar mensagens iniciais
   useEffect(() => {
     fetchMessages();
@@ -549,6 +697,7 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     isInCooldown,
     fetchMessages,
     sendMessage,
+    sendMedia,
     sendTemplate,
     markAsRead,
   };

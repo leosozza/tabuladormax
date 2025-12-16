@@ -29,6 +29,17 @@ interface SendTemplateRequest {
   source?: string;
 }
 
+interface SendMediaRequest {
+  phone_number: string;
+  media_type: 'image' | 'video' | 'audio' | 'document';
+  media_url: string;
+  caption?: string;
+  filename?: string;
+  bitrix_id?: string;
+  conversation_id?: number;
+  source?: string;
+}
+
 // Função para gerar hash simples do conteúdo
 function simpleHash(str: string): string {
   let hash = 0;
@@ -143,6 +154,8 @@ Deno.serve(async (req) => {
 
     if (action === 'send_template') {
       return await handleSendTemplate(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
+    } else if (action === 'send_media') {
+      return await handleSendMedia(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
     } else {
       return await handleSendMessage(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
     }
@@ -345,6 +358,180 @@ async function handleSendMessage(
     );
   } else {
     throw new Error(responseData.message || 'Erro ao enviar mensagem');
+  }
+}
+
+// ============================================
+// SEND MEDIA (Image, Video, Audio, Document)
+// ============================================
+async function handleSendMedia(
+  supabase: any,
+  body: SendMediaRequest,
+  apiKey: string,
+  sourceNumber: string,
+  appName: string,
+  senderName: string,
+  source: string
+) {
+  const { phone_number, media_type, media_url, caption, filename, bitrix_id, conversation_id } = body;
+
+  if (!phone_number || !media_type || !media_url) {
+    return new Response(
+      JSON.stringify({ error: 'phone_number, media_type e media_url são obrigatórios' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Normalizar telefone
+  const normalizedPhone = normalizeDestinationPhone(phone_number);
+  if (!normalizedPhone) {
+    return new Response(
+      JSON.stringify({ error: 'phone_number inválido' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // 🛑 Bloqueio explícito
+  const blockCheck = await checkBlockedNumber(supabase, normalizedPhone);
+  if (blockCheck.blocked) {
+    console.warn(`🚫 Envio bloqueado (blocked_numbers) para ${normalizedPhone}: ${blockCheck.reason}`);
+    return new Response(
+      JSON.stringify({ error: blockCheck.reason, blocked: true }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  console.log(`📤 Enviando ${media_type} para ${normalizedPhone}`);
+
+  // Rate limit check
+  const rateLimitCheck = await checkRateLimit(supabase, normalizedPhone, `media:${media_type}:${media_url}`, source);
+  
+  if (rateLimitCheck.blocked) {
+    return new Response(
+      JSON.stringify({
+        error: rateLimitCheck.reason,
+        blocked: true,
+        alertType: rateLimitCheck.alertType,
+        count: rateLimitCheck.count
+      }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Build Gupshup message payload based on media type
+  let messagePayload: any;
+
+  switch (media_type) {
+    case 'image':
+      messagePayload = {
+        type: 'image',
+        originalUrl: media_url,
+        previewUrl: media_url,
+        caption: caption || ''
+      };
+      break;
+    case 'video':
+      messagePayload = {
+        type: 'video',
+        url: media_url,
+        caption: caption || ''
+      };
+      break;
+    case 'audio':
+      messagePayload = {
+        type: 'audio',
+        url: media_url
+      };
+      break;
+    case 'document':
+      messagePayload = {
+        type: 'file',
+        url: media_url,
+        filename: filename || 'documento'
+      };
+      break;
+    default:
+      return new Response(
+        JSON.stringify({ error: 'media_type inválido. Use: image, video, audio ou document' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+  }
+
+  // Enviar via Gupshup
+  const gupshupUrl = 'https://api.gupshup.io/wa/api/v1/msg';
+  
+  const formData = new URLSearchParams();
+  formData.append('channel', 'whatsapp');
+  formData.append('source', sourceNumber);
+  formData.append('destination', normalizedPhone);
+  formData.append('message', JSON.stringify(messagePayload));
+  formData.append('src.name', appName);
+
+  const response = await fetch(gupshupUrl, {
+    method: 'POST',
+    headers: {
+      'apikey': apiKey,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: formData.toString(),
+  });
+
+  const responseData = await response.json();
+  console.log('📨 Gupshup media response:', responseData);
+
+  if (responseData.status === 'submitted' || response.ok) {
+    // Salvar mensagem no banco
+    const { error: insertError } = await supabase
+      .from('whatsapp_messages')
+      .insert({
+        phone_number: normalizedPhone,
+        bitrix_id: bitrix_id,
+        conversation_id: conversation_id,
+        gupshup_message_id: responseData.messageId,
+        direction: 'outbound',
+        message_type: media_type,
+        content: caption || `[${media_type}]`,
+        media_url: media_url,
+        media_type: media_type,
+        status: 'sent',
+        sent_by: 'tabulador',
+        sender_name: senderName,
+        metadata: { ...responseData, source, filename },
+      });
+
+    if (insertError) {
+      console.error('❌ Erro ao salvar mensagem de mídia:', insertError);
+    }
+
+    // Atualizar last_message no chatwoot_contacts
+    if (bitrix_id) {
+      const previewText = caption 
+        ? `📎 ${caption.substring(0, 80)}` 
+        : `📎 ${media_type === 'image' ? 'Imagem' : media_type === 'video' ? 'Vídeo' : media_type === 'audio' ? 'Áudio' : 'Documento'}`;
+      
+      await supabase
+        .from('chatwoot_contacts')
+        .update({
+          last_message_at: new Date().toISOString(),
+          last_message_preview: previewText,
+          last_message_direction: 'outbound',
+        })
+        .eq('bitrix_id', bitrix_id);
+    }
+
+    console.log(`✅ Mídia enviada com sucesso`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        messageId: responseData.messageId,
+        message: 'Mídia enviada com sucesso',
+        rateLimitInfo: rateLimitCheck.rateLimitInfo
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } else {
+    throw new Error(responseData.message || 'Erro ao enviar mídia');
   }
 }
 
