@@ -2030,8 +2030,12 @@ const LeadTab = () => {
 
           // Verificar se há mensagens de erro mesmo com result: true
           if (responseData.error) {
-            console.error('❌ Erro do Bitrix:', responseData.error_description || responseData.error);
-            const errorMessage = `Valor selecionado: ${selectedValueDisplay}\n\nErro do Bitrix: ${responseData.error_description || responseData.error}`;
+            // Extrair mensagem de erro legível (pode ser string ou objeto)
+            const errorDetail = responseData.error_description 
+              || (typeof responseData.error === 'string' ? responseData.error : JSON.stringify(responseData.error, null, 2));
+            console.error('❌ Erro do Bitrix:', errorDetail);
+            console.error('❌ Resposta completa:', JSON.stringify(responseData, null, 2));
+            const errorMessage = `Valor selecionado: ${selectedValueDisplay}\n\nErro do Bitrix: ${errorDetail}`;
             setBitrixResponseMessage(errorMessage);
             setBitrixResponseModal(true);
             throw new Error(errorMessage);
@@ -2185,9 +2189,27 @@ const LeadTab = () => {
       setSelectedButton(null);
     } catch (error) {
       console.error('Erro ao executar ação:', error);
+      console.error('Tipo do erro:', typeof error);
+      console.error('Erro serializado:', JSON.stringify(error, Object.getOwnPropertyNames(error as object), 2));
+
+      // Helper para extrair mensagem legível de qualquer tipo de erro
+      const getErrorMessage = (err: unknown): string => {
+        if (err instanceof Error) return err.message;
+        if (typeof err === 'string') return err;
+        if (typeof err === 'object' && err !== null) {
+          const errObj = err as Record<string, unknown>;
+          // Tentar propriedades comuns de erro
+          if (typeof errObj.message === 'string') return errObj.message;
+          if (typeof errObj.error === 'string') return errObj.error;
+          if (typeof errObj.error_description === 'string') return errObj.error_description;
+          // Fallback: serializar objeto
+          return JSON.stringify(err, null, 2);
+        }
+        return String(err);
+      };
 
       // Exibir mensagem de erro no modal
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg = getErrorMessage(error);
       // Se a mensagem já contém "Valor selecionado:", não adicionar novamente
       const finalErrorMsg = errorMsg.includes('Valor selecionado:') ? errorMsg : `Valor selecionado: ${selectedValueDisplay}\n\nErro: ${errorMsg}`;
       setBitrixResponseMessage(finalErrorMsg);
@@ -2199,10 +2221,10 @@ const LeadTab = () => {
         lead_id: Number(chatwootData.bitrix_id),
         action_label: button.label,
         payload: {
-          error: String(error)
+          error: errorMsg
         } as any,
         status: 'ERROR',
-        error: String(error)
+        error: errorMsg
       }]);
       if (logError) {
         console.warn('Erro ao registrar log de erro:', logError);
