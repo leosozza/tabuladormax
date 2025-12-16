@@ -8,10 +8,10 @@ interface QuickStatCardProps {
 }
 
 const QuickStatCard = ({ icon, label, value }: QuickStatCardProps) => (
-  <div className="flex-shrink-0 w-[calc(33.333%-0.5rem)] sm:w-auto sm:min-w-[80px] bg-card border rounded-xl p-2 sm:p-3 text-center">
-    <div className="flex justify-center text-primary mb-1">{icon}</div>
-    <p className="text-base sm:text-lg font-bold text-foreground leading-tight truncate">{value}</p>
-    <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide truncate">{label}</p>
+  <div className="flex-shrink-0 w-[70px] sm:w-[80px] bg-card border rounded-lg sm:rounded-xl p-1.5 sm:p-2 text-center">
+    <div className="flex justify-center text-primary mb-0.5">{icon}</div>
+    <p className="text-sm sm:text-base font-bold text-foreground leading-tight truncate">{value}</p>
+    <p className="text-[8px] sm:text-[9px] text-muted-foreground uppercase tracking-wide truncate">{label}</p>
   </div>
 );
 
@@ -57,14 +57,14 @@ export const LeadProfileStats = ({
   if (!hasAnyData) return null;
 
   return (
-    <div className={`flex flex-wrap gap-2 sm:gap-3 ${className}`}>
+    <div className={`flex flex-wrap justify-start gap-1.5 sm:gap-2 ${className}`}>
       {ageInfo && ageInfo.value > 0 && (
-        <div className="flex-shrink-0 w-[calc(33.333%-0.5rem)] sm:w-auto sm:min-w-[80px] bg-card border rounded-xl p-2 sm:p-3 text-center">
-          <div className="flex justify-center text-primary mb-1">
+        <div className="flex-shrink-0 w-[70px] sm:w-[80px] bg-card border rounded-lg sm:rounded-xl p-1.5 sm:p-2 text-center">
+          <div className="flex justify-center text-primary mb-0.5">
             <Calendar className="h-4 w-4" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-foreground leading-tight">{ageInfo.value}</p>
-          <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide">{ageInfo.unit}</p>
+          <p className="text-base sm:text-lg font-bold text-foreground leading-tight">{ageInfo.value}</p>
+          <p className="text-[8px] sm:text-[9px] text-muted-foreground uppercase tracking-wide">{ageInfo.unit}</p>
         </div>
       )}
       {altura && (
