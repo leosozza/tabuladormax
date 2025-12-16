@@ -1,100 +1,16 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, BarChart3, Headset, List, LayoutGrid } from 'lucide-react';
+import { BarChart3, Headset, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MainLayout } from '@/components/layouts/MainLayout';
-import { ConversationList } from '@/components/chatwoot/ConversationList';
-import { ConversationsKanban } from '@/components/chatwoot/ConversationsKanban';
-import { ChatPanel } from '@/components/chatwoot/ChatPanel';
-import { BulkTemplateModal } from '@/components/chatwoot/BulkTemplateModal';
-import { useAgentConversations } from '@/hooks/useAgentConversations';
-import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  Dialog,
-  DialogContent,
-} from '@/components/ui/dialog';
-
-type ViewMode = 'list' | 'kanban';
 
 export default function WhatsApp() {
-  const isMobile = useIsMobile();
   const navigate = useNavigate();
-  const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
-  const [showChatInMobile, setShowChatInMobile] = useState(false);
-  const [chatModalOpen, setChatModalOpen] = useState(false);
-  const [bulkModalOpen, setBulkModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const saved = localStorage.getItem('whatsapp-view-mode');
-    return (saved as ViewMode) || 'list';
-  });
-  
-  const {
-    conversations,
-    isLoading,
-    refetch,
-    searchQuery,
-    setSearchQuery,
-    selectedConversations,
-    toggleSelection,
-    toggleSelectAll,
-    allSelected,
-    clearSelection,
-  } = useAgentConversations();
-
-  useEffect(() => {
-    localStorage.setItem('whatsapp-view-mode', viewMode);
-  }, [viewMode]);
-
-  const activeConversation = conversations.find(
-    c => c.conversation_id === activeConversationId
-  );
-
-  const selectedConversationsList = conversations.filter(c =>
-    selectedConversations.includes(c.conversation_id)
-  );
-
-  const handleBulkSendSuccess = () => {
-    clearSelection();
-  };
-
-  const handleSelectConversation = (id: number) => {
-    setActiveConversationId(id);
-    if (isMobile) {
-      setShowChatInMobile(true);
-    } else if (viewMode === 'kanban') {
-      setChatModalOpen(true);
-    }
-  };
-
-  const handleCloseChatModal = () => {
-    setChatModalOpen(false);
-  };
-
-  const handleBackToList = () => {
-    setShowChatInMobile(false);
-  };
-
-  const showList = !isMobile || !showChatInMobile;
-  const showChat = !isMobile || showChatInMobile;
-
-  // Props compartilhadas para ConversationList e ConversationsKanban
-  const sharedConversationProps = {
-    conversations,
-    isLoading,
-    refetch,
-    searchQuery,
-    setSearchQuery,
-    selectedConversations,
-    toggleSelection,
-    toggleSelectAll,
-    allSelected,
-  };
 
   return (
     <TooltipProvider>
@@ -103,49 +19,6 @@ export default function WhatsApp() {
         subtitle="Gerencie suas conversas"
         actions={
           <div className="flex items-center gap-2">
-            {/* Botão de Enviar Template - aparece apenas quando há seleção */}
-            {selectedConversations.length > 0 && (
-              <Button
-                onClick={() => setBulkModalOpen(true)}
-                size={isMobile ? "sm" : "default"}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                {isMobile ? selectedConversations.length : `Enviar Template (${selectedConversations.length})`}
-              </Button>
-            )}
-
-            {/* View Mode Toggle */}
-            {!isMobile && (
-              <div className="flex items-center border rounded-md">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={viewMode === 'list' ? 'default' : 'ghost'}
-                      size="icon"
-                      className="h-8 w-8 rounded-r-none"
-                      onClick={() => setViewMode('list')}
-                    >
-                      <List className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Lista</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                      size="icon"
-                      className="h-8 w-8 rounded-l-none"
-                      onClick={() => setViewMode('kanban')}
-                    >
-                      <LayoutGrid className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Kanban</TooltipContent>
-                </Tooltip>
-              </div>
-            )}
-
             {/* Botões de navegação */}
             <div className="flex items-center border rounded-md">
               <Tooltip>
@@ -168,56 +41,20 @@ export default function WhatsApp() {
           </div>
         }
       >
-        <div className={`flex gap-2 ${isMobile ? 'h-[calc(100vh-10rem)]' : 'h-[calc(100vh-9rem)]'}`}>
-          {/* Lista ou Kanban de Conversas */}
-          {showList && (
-            <div className={isMobile ? "w-full" : viewMode === 'kanban' ? "flex-1" : "w-96 flex-shrink-0"}>
-              {viewMode === 'list' ? (
-                <ConversationList
-                  onSelectConversation={handleSelectConversation}
-                  activeConversationId={activeConversationId}
-                  {...sharedConversationProps}
-                />
-              ) : (
-                <ConversationsKanban
-                  onSelectConversation={handleSelectConversation}
-                  activeConversationId={activeConversationId}
-                  {...sharedConversationProps}
-                />
-              )}
-            </div>
-          )}
-
-          {/* Painel de Chat - apenas no modo lista */}
-          {showChat && viewMode === 'list' && (
-            <div className={`border rounded-lg overflow-hidden flex flex-col ${isMobile ? 'w-full' : 'flex-1'}`}>
-              <ChatPanel
-                conversationId={activeConversationId}
-                contactName={activeConversation?.lead_name || 'Selecione uma conversa'}
-                onBack={isMobile ? handleBackToList : undefined}
-              />
-            </div>
-          )}
+        <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
+          <div className="text-center max-w-md">
+            <MessageSquare className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-xl font-semibold mb-2">WhatsApp via Gupshup</h2>
+            <p className="text-muted-foreground mb-4">
+              O chat WhatsApp está disponível diretamente no Tabulador. 
+              Acesse o lead desejado e utilize o painel de WhatsApp integrado.
+            </p>
+            <Button onClick={() => navigate('/telemarketing')}>
+              <Headset className="w-4 h-4 mr-2" />
+              Ir para Tabulador
+            </Button>
+          </div>
         </div>
-
-        {/* Modal de Chat - modo Kanban */}
-        <Dialog open={chatModalOpen} onOpenChange={setChatModalOpen}>
-          <DialogContent className="max-w-3xl h-[80vh] p-0 gap-0">
-            <ChatPanel
-              conversationId={activeConversationId}
-              contactName={activeConversation?.lead_name || 'Conversa'}
-              onBack={handleCloseChatModal}
-            />
-          </DialogContent>
-        </Dialog>
-
-        {/* Modal de Envio em Lote */}
-        <BulkTemplateModal
-          open={bulkModalOpen}
-          onOpenChange={setBulkModalOpen}
-          selectedConversations={selectedConversationsList}
-          onSuccess={handleBulkSendSuccess}
-        />
       </MainLayout>
     </TooltipProvider>
   );
