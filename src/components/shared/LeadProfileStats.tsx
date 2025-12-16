@@ -8,10 +8,10 @@ interface QuickStatCardProps {
 }
 
 const QuickStatCard = ({ icon, label, value }: QuickStatCardProps) => (
-  <div className="flex-shrink-0 min-w-[80px] bg-card border rounded-xl p-2 sm:p-3 text-center">
+  <div className="flex-shrink-0 w-[calc(33.333%-0.5rem)] sm:w-auto sm:min-w-[80px] bg-card border rounded-xl p-2 sm:p-3 text-center">
     <div className="flex justify-center text-primary mb-1">{icon}</div>
-    <p className="text-base sm:text-lg font-bold text-foreground leading-tight">{value}</p>
-    <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+    <p className="text-base sm:text-lg font-bold text-foreground leading-tight truncate">{value}</p>
+    <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide truncate">{label}</p>
   </div>
 );
 
@@ -57,9 +57,9 @@ export const LeadProfileStats = ({
   if (!hasAnyData) return null;
 
   return (
-    <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-9 gap-2 sm:gap-3 ${className}`}>
+    <div className={`flex flex-wrap gap-2 sm:gap-3 ${className}`}>
       {ageInfo && ageInfo.value > 0 && (
-        <div className="flex-shrink-0 min-w-[80px] bg-card border rounded-xl p-2 sm:p-3 text-center">
+        <div className="flex-shrink-0 w-[calc(33.333%-0.5rem)] sm:w-auto sm:min-w-[80px] bg-card border rounded-xl p-2 sm:p-3 text-center">
           <div className="flex justify-center text-primary mb-1">
             <Calendar className="h-4 w-4" />
           </div>
