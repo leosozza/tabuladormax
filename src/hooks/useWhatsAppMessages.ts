@@ -38,19 +38,54 @@ interface UseWhatsAppMessagesOptions {
   conversationId?: number;
 }
 
-// Debounce time to prevent spam (aumentado para 3 segundos)
+// Debounce time to prevent spam
 const SEND_DEBOUNCE_MS = 3000;
 // Limite máximo de envios por sessão
 const MAX_SENDS_PER_SESSION = 50;
+// Cooldown inicial após erro (60 segundos)
+const INITIAL_COOLDOWN_MS = 60000;
+// Cooldown máximo (5 minutos)
+const MAX_COOLDOWN_MS = 300000;
+// Key para lock cross-tab
+const SEND_LOCK_KEY = 'whatsapp_send_lock';
+
+// Helper para verificar lock cross-tab
+const acquireSendLock = (phoneNumber: string): boolean => {
+  const lockData = localStorage.getItem(SEND_LOCK_KEY);
+  const now = Date.now();
+  
+  if (lockData) {
+    try {
+      const lock = JSON.parse(lockData);
+      // Lock expira em 10 segundos
+      if (lock.phone === phoneNumber && now - lock.timestamp < 10000) {
+        logDebug('Cross-tab lock active', { phone: phoneNumber });
+        return false;
+      }
+    } catch {}
+  }
+  
+  // Adquirir lock
+  localStorage.setItem(SEND_LOCK_KEY, JSON.stringify({ phone: phoneNumber, timestamp: now }));
+  return true;
+};
+
+const releaseSendLock = () => {
+  localStorage.removeItem(SEND_LOCK_KEY);
+};
 
 export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   const { bitrixId, phoneNumber, conversationId } = options;
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [rateLimitedUntil, setRateLimitedUntil] = useState<number>(0);
+  
   const lastSendTimeRef = useRef<number>(0);
   const sendCountRef = useRef<number>(0);
   const mountedRef = useRef<boolean>(true);
+  const consecutiveFailsRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -58,9 +93,28 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     logDebug('Hook mounted', { bitrixId, phoneNumber, conversationId });
     return () => {
       mountedRef.current = false;
+      // Cancelar requisições pendentes
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      releaseSendLock();
       logDebug('Hook unmounted');
     };
   }, []);
+
+  // Calcular tempo restante de cooldown
+  const getCooldownRemaining = useCallback(() => {
+    const now = Date.now();
+    if (rateLimitedUntil > now) {
+      return Math.ceil((rateLimitedUntil - now) / 1000);
+    }
+    return 0;
+  }, [rateLimitedUntil]);
+
+  // Verificar se está em cooldown
+  const isInCooldown = useCallback(() => {
+    return Date.now() < rateLimitedUntil;
+  }, [rateLimitedUntil]);
 
   const fetchMessages = useCallback(async () => {
     if (!bitrixId && !phoneNumber && !conversationId) return;
@@ -98,12 +152,48 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     }
   }, [bitrixId, phoneNumber, conversationId]);
 
+  // Handler de erro com cooldown
+  const handleSendError = useCallback((error: any, context: string) => {
+    consecutiveFailsRef.current += 1;
+    
+    // Calcular cooldown com backoff exponencial
+    const cooldownMs = Math.min(
+      INITIAL_COOLDOWN_MS * Math.pow(1.5, consecutiveFailsRef.current - 1),
+      MAX_COOLDOWN_MS
+    );
+    const cooldownUntil = Date.now() + cooldownMs;
+    const cooldownSeconds = Math.ceil(cooldownMs / 1000);
+    
+    setRateLimitedUntil(cooldownUntil);
+    
+    logDebug('Send error - applying cooldown', { 
+      context, 
+      consecutiveFails: consecutiveFailsRef.current,
+      cooldownSeconds,
+      error: error?.message || error 
+    });
+    
+    toast.error(`⚠️ Erro ao enviar. Aguarde ${cooldownSeconds}s antes de tentar novamente.`, {
+      duration: 10000,
+    });
+    
+    return false;
+  }, []);
+
   const sendMessage = async (content: string): Promise<boolean> => {
     logDebug('sendMessage called', { content: content.substring(0, 50), phoneNumber });
     
     if (!phoneNumber || !content.trim()) {
       logDebug('sendMessage rejected: missing data');
       toast.error('Telefone e mensagem são obrigatórios');
+      return false;
+    }
+
+    // Verificar cooldown por rate limit
+    if (isInCooldown()) {
+      const waitSeconds = getCooldownRemaining();
+      logDebug('sendMessage rejected: in cooldown', { waitSeconds });
+      toast.warning(`Aguarde ${waitSeconds}s antes de enviar`);
       return false;
     }
 
@@ -130,10 +220,20 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
+    // Lock cross-tab
+    if (!acquireSendLock(phoneNumber)) {
+      logDebug('sendMessage rejected: cross-tab lock');
+      toast.warning('Envio em andamento em outra aba');
+      return false;
+    }
+
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
     setSending(true);
     logDebug('sendMessage starting', { sendCount: sendCountRef.current });
+    
+    // Criar AbortController para cancelamento
+    abortControllerRef.current = new AbortController();
     
     try {
       const { data, error } = await supabase.functions.invoke('gupshup-send-message', {
@@ -146,28 +246,45 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         },
       });
 
+      // Verificar se foi desmontado durante a requisição
+      if (!mountedRef.current) {
+        logDebug('sendMessage aborted: component unmounted');
+        return false;
+      }
+
       if (error) {
         console.error('Erro ao enviar mensagem:', error);
-        // Check for rate limit error (429)
+        releaseSendLock();
+        
+        // Check for auth error (401) or rate limit (429)
+        const errorMessage = error?.message || '';
         const errorContext = (error as any)?.context;
-        if (errorContext?.error?.includes('Limite') || errorContext?.blocked) {
-          toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
-          return false;
+        
+        if (errorMessage.includes('401') || errorMessage.includes('Não autorizado')) {
+          return handleSendError(error, 'auth_error');
         }
-        toast.error('Erro ao enviar mensagem');
-        return false;
+        if (errorContext?.error?.includes('Limite') || errorContext?.blocked || errorMessage.includes('429')) {
+          return handleSendError(error, 'rate_limit');
+        }
+        
+        return handleSendError(error, 'unknown_error');
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
-        // Check for rate limit in response data
-        if (data.blocked || data.error?.includes('Limite')) {
-          toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
-          return false;
+        releaseSendLock();
+        
+        if (data.blocked || data.error?.includes('Limite') || data.error?.includes('401')) {
+          return handleSendError(data.error, 'api_error');
         }
+        
         toast.error(data.error);
         return false;
       }
+
+      // Sucesso! Reset contador de falhas
+      consecutiveFailsRef.current = 0;
+      releaseSendLock();
 
       // Adicionar mensagem otimisticamente
       const newMessage: WhatsAppMessage = {
@@ -195,15 +312,18 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return true;
     } catch (error: any) {
       console.error('Error sending message:', error);
-      // Check for rate limit in catch block
-      if (error?.message?.includes('429') || error?.message?.includes('Limite')) {
-        toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
-      } else {
-        toast.error('Erro ao enviar mensagem');
+      releaseSendLock();
+      
+      // Verificar se foi abortado
+      if (error?.name === 'AbortError') {
+        logDebug('sendMessage aborted');
+        return false;
       }
-      return false;
+      
+      return handleSendError(error, 'catch_error');
     } finally {
       setSending(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -213,6 +333,14 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     if (!phoneNumber) {
       logDebug('sendTemplate rejected: missing phone');
       toast.error('Telefone é obrigatório');
+      return false;
+    }
+
+    // Verificar cooldown por rate limit
+    if (isInCooldown()) {
+      const waitSeconds = getCooldownRemaining();
+      logDebug('sendTemplate rejected: in cooldown', { waitSeconds });
+      toast.warning(`Aguarde ${waitSeconds}s antes de enviar`);
       return false;
     }
 
@@ -239,6 +367,13 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
+    // Lock cross-tab
+    if (!acquireSendLock(phoneNumber)) {
+      logDebug('sendTemplate rejected: cross-tab lock');
+      toast.warning('Envio em andamento em outra aba');
+      return false;
+    }
+
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
     setSending(true);
@@ -256,41 +391,57 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         },
       });
 
+      if (!mountedRef.current) {
+        logDebug('sendTemplate aborted: component unmounted');
+        return false;
+      }
+
       if (error) {
         console.error('Erro ao enviar template:', error);
-        // Check for rate limit error (429)
+        releaseSendLock();
+        
+        const errorMessage = error?.message || '';
         const errorContext = (error as any)?.context;
-        if (errorContext?.error?.includes('Limite') || errorContext?.blocked) {
-          toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
-          return false;
+        
+        if (errorMessage.includes('401') || errorMessage.includes('Não autorizado')) {
+          return handleSendError(error, 'auth_error');
         }
-        toast.error('Erro ao enviar template');
-        return false;
+        if (errorContext?.error?.includes('Limite') || errorContext?.blocked || errorMessage.includes('429')) {
+          return handleSendError(error, 'rate_limit');
+        }
+        
+        return handleSendError(error, 'unknown_error');
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
-        // Check for rate limit in response data
-        if (data.blocked || data.error?.includes('Limite')) {
-          toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
-          return false;
+        releaseSendLock();
+        
+        if (data.blocked || data.error?.includes('Limite') || data.error?.includes('401')) {
+          return handleSendError(data.error, 'api_error');
         }
+        
         toast.error(data.error);
         return false;
       }
 
+      // Sucesso!
+      consecutiveFailsRef.current = 0;
+      releaseSendLock();
+      
       toast.success('Template enviado');
-      await fetchMessages(); // Atualizar para mostrar o template
+      await fetchMessages();
       return true;
     } catch (error: any) {
       console.error('Error sending template:', error);
-      // Check for rate limit in catch block
-      if (error?.message?.includes('429') || error?.message?.includes('Limite')) {
-        toast.error('⚠️ Limite de mensagens atingido. Aguarde alguns segundos.');
-      } else {
-        toast.error('Erro ao enviar template');
+      releaseSendLock();
+      
+      if (error?.name === 'AbortError') {
+        logDebug('sendTemplate aborted');
+        return false;
       }
-      return false;
+      
+      return handleSendError(error, 'catch_error');
     } finally {
       setSending(false);
     }
@@ -393,6 +544,9 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     messages,
     loading,
     sending,
+    rateLimitedUntil,
+    getCooldownRemaining,
+    isInCooldown,
     fetchMessages,
     sendMessage,
     sendTemplate,
