@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -33,11 +33,15 @@ interface UseWhatsAppMessagesOptions {
   conversationId?: number;
 }
 
+// Debounce time to prevent spam
+const SEND_DEBOUNCE_MS = 2000;
+
 export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   const { bitrixId, phoneNumber, conversationId } = options;
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const lastSendTimeRef = useRef<number>(0);
 
   const fetchMessages = useCallback(async () => {
     if (!bitrixId && !phoneNumber && !conversationId) return;
@@ -81,7 +85,22 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
+    // Anti-spam: verificar tempo desde último envio
+    const now = Date.now();
+    if (now - lastSendTimeRef.current < SEND_DEBOUNCE_MS) {
+      toast.warning('Aguarde antes de enviar outra mensagem');
+      return false;
+    }
+
+    // Verificar se já está enviando
+    if (sending) {
+      toast.warning('Aguarde o envio anterior terminar');
+      return false;
+    }
+
+    lastSendTimeRef.current = now;
     setSending(true);
+    
     try {
       const { data, error } = await supabase.functions.invoke('gupshup-send-message', {
         body: {
@@ -144,7 +163,22 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
+    // Anti-spam: verificar tempo desde último envio
+    const now = Date.now();
+    if (now - lastSendTimeRef.current < SEND_DEBOUNCE_MS) {
+      toast.warning('Aguarde antes de enviar outro template');
+      return false;
+    }
+
+    // Verificar se já está enviando
+    if (sending) {
+      toast.warning('Aguarde o envio anterior terminar');
+      return false;
+    }
+
+    lastSendTimeRef.current = now;
     setSending(true);
+    
     try {
       const { data, error } = await supabase.functions.invoke('gupshup-send-message', {
         body: {
