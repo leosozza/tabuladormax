@@ -21,12 +21,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { saveChatwootContact, extractChatwootData, extractBitrixOpenLineData, extractChatwootIdsFromBitrix, extractConversationFromOpenLine, type ChatwootEventData, type BitrixOpenLineData } from "@/lib/chatwoot";
-import { getLead, type BitrixLead, getLeadFields, type BitrixField } from "@/lib/bitrix";
+import { extractBitrixOpenLineData, extractConversationFromOpenLine, saveChatwootContact, type BitrixOpenLineData, getLead, type BitrixLead, getLeadFields, type BitrixField } from "@/lib/bitrix";
 import { getTelemarketingId } from "@/handlers/tabular";
-import { ChatModal } from "@/components/chatwoot/ChatModal";
 import { BitrixChatModal } from "@/components/bitrix/BitrixChatModal";
-import { ChatPanelGupshup } from "@/components/chatwoot/ChatPanelGupshup";
+import { ChatPanel } from "@/components/gupshup/ChatPanel";
 import { BUTTON_CATEGORIES, categoryOrder, ensureButtonLayout, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
@@ -817,73 +815,8 @@ const LeadTab = () => {
               conversationId = null;
             }
           }
-          // === ESTRATÉGIA 3: IDs do Chatwoot armazenados no Bitrix ===
-          else if (supabaseLead.raw) {
-            const chatwootIds = extractChatwootIdsFromBitrix(supabaseLead.raw);
-            if (chatwootIds?.conversation_id) {
-              updateStep(chatwootStepIndex, 'loading', `Buscando conversa #${chatwootIds.conversation_id} (extraída do Bitrix)...`);
-              const start = Date.now();
-              try {
-                const {
-                  data,
-                  error
-                } = await supabase.functions.invoke('chatwoot-get-conversation', {
-                  body: {
-                    conversation_id: chatwootIds.conversation_id
-                  }
-                });
-                if (data && !error) {
-                  // Salvar no Supabase
-                  await supabase.from('leads').update({
-                    conversation_id: data.conversation_id,
-                    contact_id: data.contact_id
-                  }).eq('id', Number(bitrixId));
-                  contactData = {
-                    ...contactData,
-                    ...data
-                  };
-                  updateStep(chatwootStepIndex, 'success', `✅ Conversa #${data.conversation_id} encontrada (Bitrix → Chatwoot)`, Date.now() - start);
-                  conversationId = data.conversation_id;
-                  source = 'bitrix custom fields';
-                } else {
-                  console.warn('⚠️ Conversa não encontrada com ID do Bitrix, tentando próxima estratégia');
-                }
-              } catch (error) {
-                console.warn('⚠️ Erro ao buscar com ID do Bitrix, tentando próxima estratégia');
-              }
-            } else if (chatwootIds?.contact_id) {
-              updateStep(chatwootStepIndex, 'loading', `Buscando por contact_id #${chatwootIds.contact_id}...`);
-              const start = Date.now();
-              try {
-                const {
-                  data,
-                  error
-                } = await supabase.functions.invoke('chatwoot-get-conversation', {
-                  body: {
-                    contact_id: chatwootIds.contact_id
-                  }
-                });
-                if (data && !error) {
-                  // Salvar no Supabase
-                  await supabase.from('leads').update({
-                    conversation_id: data.conversation_id,
-                    contact_id: data.contact_id
-                  }).eq('id', Number(bitrixId));
-                  contactData = {
-                    ...contactData,
-                    ...data
-                  };
-                  updateStep(chatwootStepIndex, 'success', `✅ Conversa encontrada por contact_id (Bitrix)`, Date.now() - start);
-                  conversationId = data.conversation_id;
-                  source = 'bitrix contact_id';
-                } else {
-                  console.warn('⚠️ Conversa não encontrada com contact_id, tentando próxima estratégia');
-                }
-              } catch (error) {
-                console.warn('⚠️ Erro ao buscar com contact_id, tentando próxima estratégia');
-              }
-            }
-          }
+          // === ESTRATÉGIA 3-5: Removidas - Chatwoot integration deprecated ===
+          // Pular diretamente para busca por Gupshup
 
           // === ESTRATÉGIA 4: Buscar por telefone no Chatwoot ===
           if (!conversationId) {
@@ -928,7 +861,8 @@ const LeadTab = () => {
           if (!conversationId && supabaseLead.raw) {
             updateStep(chatwootStepIndex, 'loading', 'Buscando no OpenLine (Bitrix IM)...');
             const chatwootStart = Date.now();
-            conversationId = extractConversationFromOpenLine(supabaseLead.raw);
+            const openLineData = extractBitrixOpenLineData(supabaseLead.raw);
+            conversationId = extractConversationFromOpenLine(openLineData);
             if (conversationId) {
               source = 'bitrix openline';
               updateStep(chatwootStepIndex, 'loading', `ID encontrado no OpenLine (${conversationId}), buscando detalhes...`);
@@ -3108,9 +3042,7 @@ const LeadTab = () => {
         </DialogContent>
       </Dialog>
 
-      <ChatModal open={chatModalOpen} onOpenChange={setChatModalOpen} conversationId={chatwootData?.conversation_id || null} contactName={chatwootData?.name || profile['Nome'] || 'Lead'} />
-      
-      <BitrixChatModal open={bitrixChatModal} onOpenChange={setBitrixChatModal} sessionId={bitrixOpenLineData?.sessionId || null} chatId={bitrixOpenLineData?.chatId || null} leadId={chatwootData?.bitrix_id || ''} contactName={chatwootData?.name || profile['Nome'] || 'Lead'} />
+      <BitrixChatModal open={bitrixChatModal} onOpenChange={setBitrixChatModal} sessionId={bitrixOpenLineData?.sessionId ? Number(bitrixOpenLineData.sessionId) : null} chatId={bitrixOpenLineData?.chatId || null} leadId={chatwootData?.bitrix_id || ''} contactName={chatwootData?.name || profile['Nome'] || 'Lead'} />
       
       {/* Progresso de Busca */}
       {showSearchProgress && <LeadSearchProgress steps={searchSteps} onClose={() => setShowSearchProgress(false)} />}
@@ -3176,7 +3108,7 @@ const LeadTab = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>}
-      <BitrixChatModal open={bitrixChatModal} onOpenChange={setBitrixChatModal} sessionId={bitrixOpenLineData?.sessionId || null} chatId={bitrixOpenLineData?.chatId || null} leadId={(() => {
+      <BitrixChatModal open={bitrixChatModal} onOpenChange={setBitrixChatModal} sessionId={bitrixOpenLineData?.sessionId ? Number(bitrixOpenLineData.sessionId) : null} chatId={bitrixOpenLineData?.chatId || null} leadId={(() => {
         const searchParams = new URLSearchParams(location.search);
         return searchParams.get('id') || searchParams.get('lead') || '';
       })()} contactName={chatwootData?.name || 'Lead'} />
@@ -3184,7 +3116,7 @@ const LeadTab = () => {
       {/* Modal WhatsApp Gupshup */}
       <Dialog open={whatsappGupshupOpen} onOpenChange={setWhatsappGupshupOpen}>
         <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden">
-          <ChatPanelGupshup
+          <ChatPanel
             bitrixId={chatwootData?.bitrix_id || String(profile['ID Bitrix'] || '')}
             phoneNumber={String(profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number || '')}
             contactName={chatwootData?.name || String(profile['Nome'] || profile['Nome Modelo'] || 'Lead')}

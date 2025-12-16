@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Send, RefreshCw, MessageSquare, ArrowLeft, Lock, Check, CheckCheck } from 'lucide-react';
 import { useWhatsAppMessages, WhatsAppMessage } from '@/hooks/useWhatsAppMessages';
 import { TemplateSelector } from './TemplateSelector';
-import { LabelManager } from './LabelManager';
 import { WindowIndicator } from './WindowIndicator';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -15,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { calculateWindowStatus, WindowStatus } from '@/lib/whatsappWindow';
 
-interface ChatPanelGupshupProps {
+interface ChatPanelProps {
   bitrixId?: string;
   phoneNumber?: string;
   conversationId?: number;
@@ -40,14 +39,14 @@ function MessageStatus({ status }: { status: WhatsAppMessage['status'] }) {
   }
 }
 
-export function ChatPanelGupshup({
+export function ChatPanel({
   bitrixId,
   phoneNumber,
   conversationId,
   contactName,
   onBack,
   windowStatus: propWindowStatus
-}: ChatPanelGupshupProps) {
+}: ChatPanelProps) {
   const [messageInput, setMessageInput] = useState('');
   const [activeTab, setActiveTab] = useState('messages');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -254,8 +253,7 @@ export function ChatPanelGupshup({
             </div>
           </div>
           <div className="flex items-center gap-1">
-            {leadId && <LabelManager conversationId={conversationId || 0} />}
-            <Button 
+            <Button
               variant="ghost" 
               size="icon" 
               onClick={() => { fetchMessages(); refetchWindowStatus(); }} 

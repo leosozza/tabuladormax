@@ -423,3 +423,55 @@ export async function getProductRows(entityType: 'deal' | 'lead', entityId: stri
     throw new BitrixError('Não foi possível buscar produtos do pedido');
   }
 }
+
+// ============================================
+// Bitrix OpenLine Data Types and Functions
+// ============================================
+
+export interface BitrixOpenLineData {
+  sessionId?: string | null;
+  chatId?: string | null;
+  lineId?: string | null;
+  conversationId?: number | null;
+}
+
+/**
+ * Extrai dados da OpenLine do Bitrix de um lead
+ */
+export function extractBitrixOpenLineData(raw: any): BitrixOpenLineData | null {
+  if (!raw) return null;
+  
+  // Tentar extrair de diferentes campos do Bitrix
+  const openLineField = raw.UF_CRM_OPENLINE || raw.UF_OPENLINE || raw.OPENLINE_DATA;
+  
+  if (!openLineField) return null;
+  
+  try {
+    const data = typeof openLineField === 'string' ? JSON.parse(openLineField) : openLineField;
+    return {
+      sessionId: data.sessionId || data.session_id || null,
+      chatId: data.chatId || data.chat_id || null,
+      lineId: data.lineId || data.line_id || null,
+      conversationId: data.conversationId || data.conversation_id || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extrai ID de conversa de dados OpenLine
+ */
+export function extractConversationFromOpenLine(openLineData: BitrixOpenLineData | null): number | null {
+  if (!openLineData) return null;
+  return openLineData.conversationId || null;
+}
+
+/**
+ * Salvar dados de contato (stub - mantém compatibilidade)
+ * @deprecated Esta função foi removida junto com a integração Chatwoot
+ */
+export async function saveChatwootContact(_contactData: any): Promise<void> {
+  // Stub - não faz nada, apenas mantém compatibilidade
+  console.log('[saveChatwootContact] Deprecated - Chatwoot integration removed');
+}

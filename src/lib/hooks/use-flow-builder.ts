@@ -90,7 +90,6 @@ function getDefaultLabel(type: FlowStepType): string {
     tabular: 'Tabulação',
     bitrix_connector: 'Bitrix',
     supabase_connector: 'Supabase',
-    chatwoot_connector: 'Chatwoot',
     n8n_connector: 'N8N',
     http_call: 'HTTP Request',
     wait: 'Aguardar',
@@ -129,11 +128,6 @@ function getDefaultConfig(type: FlowStepType): unknown {
       table: 'leads',
       filters: { id: '{{leadId}}' },
       data: {}
-    },
-    chatwoot_connector: {
-      action: 'send_message',
-      conversation_id: '{{conversationId}}',
-      message: ''
     },
     n8n_connector: {
       webhook_url: '',

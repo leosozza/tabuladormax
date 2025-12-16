@@ -37,12 +37,6 @@ const nodeTypes = [
     icon: Database,
   },
   {
-    type: 'chatwoot_connector' as const,
-    label: 'Chatwoot',
-    description: 'Ações de chat',
-    icon: MessageSquare,
-  },
-  {
     type: 'n8n_connector' as const,
     label: 'N8N',
     description: 'Webhook externo',

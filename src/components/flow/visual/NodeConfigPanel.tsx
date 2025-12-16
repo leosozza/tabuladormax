@@ -19,7 +19,6 @@ import type {
   FlowStepTabular,
   FlowStepBitrixConnector,
   FlowStepSupabaseConnector,
-  FlowStepChatwootConnector,
   FlowStepN8NConnector,
   FlowStepHttpCall, 
   FlowStepWait,
@@ -110,11 +109,6 @@ export function NodeConfigPanel({ selectedNode, onUpdate, onDelete }: NodeConfig
               {/* Supabase Connector */}
               {step.type === 'supabase_connector' && (
                 <SupabaseConnectorConfig step={step as FlowStepSupabaseConnector} updateConfig={updateConfig} />
-              )}
-
-              {/* Chatwoot Connector */}
-              {step.type === 'chatwoot_connector' && (
-                <ChatwootConnectorConfig step={step as FlowStepChatwootConnector} updateConfig={updateConfig} />
               )}
 
               {/* N8N Connector */}
@@ -632,38 +626,6 @@ function SupabaseConnectorConfig({ step, updateConfig }: { step: FlowStepSupabas
           className="text-sm"
         />
       </div>
-    </div>
-  );
-}
-
-// Chatwoot Connector Config
-function ChatwootConnectorConfig({ step, updateConfig }: { step: FlowStepChatwootConnector; updateConfig: (key: string, value: any) => void }) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <Label className="text-xs">Ação *</Label>
-        <Select value={step.config.action} onValueChange={(val) => updateConfig('action', val)}>
-          <SelectTrigger className="text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="send_message">Enviar Mensagem</SelectItem>
-            <SelectItem value="assign_agent">Atribuir Agente</SelectItem>
-            <SelectItem value="transfer_conversation">Transferir Conversa</SelectItem>
-            <SelectItem value="close_conversation">Fechar Conversa</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      {step.config.conversation_id !== undefined && (
-        <div>
-          <Label className="text-xs">Conversation ID</Label>
-          <Input
-            value={step.config.conversation_id}
-            onChange={(e) => updateConfig('conversation_id', e.target.value)}
-            className="text-sm"
-          />
-        </div>
-      )}
     </div>
   );
 }

@@ -16,13 +16,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { useGupshupTemplates } from '@/hooks/useGupshupTemplates';
 import { useBulkTemplateSend } from '@/hooks/useBulkTemplateSend';
-import { AgentConversation } from '@/hooks/useAgentConversations';
 import { supabase } from '@/integrations/supabase/client';
+
+// Tipo local para conversas selecionadas
+interface SelectedConversation {
+  conversation_id: number;
+  lead_name: string;
+  thumbnail?: string | null;
+}
 
 interface BulkTemplateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  selectedConversations: AgentConversation[];
+  selectedConversations: SelectedConversation[];
   onSuccess: () => void;
 }
 
