@@ -112,21 +112,34 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action = 'send_message', source = 'tabulador' } = body;
 
-    // Obter usuário autenticado
+    // 🔐 Exigir usuário autenticado (evita envios automáticos externos/loops)
     const authHeader = req.headers.get('Authorization');
-    let senderName = 'Operador';
-    
-    if (authHeader) {
-      const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('display_name')
-          .eq('id', user.id)
-          .single();
-        senderName = profile?.display_name || user.email?.split('@')[0] || 'Operador';
-      }
+    if (!authHeader) {
+      console.warn('🚫 Requisição sem Authorization bloqueada (gupshup-send-message)');
+      return new Response(
+        JSON.stringify({ error: 'Não autorizado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      console.warn('🚫 Token inválido bloqueado (gupshup-send-message)', { userError: userError?.message });
+      return new Response(
+        JSON.stringify({ error: 'Não autorizado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    let senderName = user.email?.split('@')[0] || 'Operador';
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    senderName = profile?.display_name || senderName;
 
     if (action === 'send_template') {
       return await handleSendTemplate(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
