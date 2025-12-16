@@ -64,28 +64,57 @@ export function ChatPanelGupshup({
     markAsRead
   } = useWhatsAppMessages({ bitrixId, phoneNumber, conversationId });
 
-  // Buscar status da janela
-  const { data: conversationData } = useQuery({
+  // Buscar status da janela - verificar tanto chatwoot_contacts quanto mensagens reais
+  const { data: conversationData, refetch: refetchWindowStatus } = useQuery({
     queryKey: ['conversation-window-data', bitrixId, phoneNumber, conversationId],
     queryFn: async () => {
-      if (!bitrixId && !conversationId) return null;
+      if (!bitrixId && !conversationId && !phoneNumber) return null;
 
-      // Buscar o contato
-      let query = supabase.from('chatwoot_contacts').select('bitrix_id, last_customer_message_at');
-      
-      if (bitrixId) {
-        query = query.eq('bitrix_id', bitrixId);
-      } else if (conversationId) {
-        query = query.eq('conversation_id', conversationId);
+      let lastCustomerMessageAt: string | null = null;
+      let leadId: number | null = null;
+
+      // 1. Buscar do chatwoot_contacts
+      if (bitrixId || conversationId) {
+        let query = supabase.from('chatwoot_contacts').select('bitrix_id, last_customer_message_at');
+        
+        if (bitrixId) {
+          query = query.eq('bitrix_id', bitrixId);
+        } else if (conversationId) {
+          query = query.eq('conversation_id', conversationId);
+        }
+
+        const { data: contact } = await query.maybeSingle();
+        if (contact?.bitrix_id) {
+          leadId = parseInt(contact.bitrix_id);
+        }
+        if (contact?.last_customer_message_at) {
+          lastCustomerMessageAt = contact.last_customer_message_at;
+        }
       }
 
-      const { data: contact } = await query.maybeSingle();
-      const leadId = contact?.bitrix_id ? parseInt(contact.bitrix_id) : null;
-      const windowStatus = calculateWindowStatus(contact?.last_customer_message_at || null);
+      // 2. Verificar mensagens reais (mais recente ganha)
+      const { data: lastInboundMessage } = await supabase
+        .from('whatsapp_messages')
+        .select('created_at')
+        .eq('direction', 'inbound')
+        .or(`bitrix_id.eq.${bitrixId || ''},phone_number.eq.${phoneNumber || ''}`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastInboundMessage?.created_at) {
+        // Usar a data mais recente entre chatwoot_contacts e mensagens reais
+        if (!lastCustomerMessageAt || new Date(lastInboundMessage.created_at) > new Date(lastCustomerMessageAt)) {
+          lastCustomerMessageAt = lastInboundMessage.created_at;
+        }
+      }
+
+      const windowStatus = calculateWindowStatus(lastCustomerMessageAt);
       
-      return { leadId, windowStatus };
+      return { leadId, windowStatus, lastCustomerMessageAt };
     },
-    enabled: !!(bitrixId || conversationId)
+    enabled: !!(bitrixId || conversationId || phoneNumber),
+    refetchInterval: 60000, // Atualizar a cada 1 minuto
   });
 
   const leadId = conversationData?.leadId;
@@ -191,7 +220,13 @@ export function ChatPanelGupshup({
           </div>
           <div className="flex items-center gap-1">
             {leadId && <LabelManager conversationId={conversationId || 0} />}
-            <Button variant="ghost" size="icon" onClick={fetchMessages} disabled={loading} title="Atualizar">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => { fetchMessages(); refetchWindowStatus(); }} 
+              disabled={loading} 
+              title="Atualizar mensagens e status da janela"
+            >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
