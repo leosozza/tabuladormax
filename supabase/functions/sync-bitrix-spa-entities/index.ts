@@ -299,6 +299,124 @@ serve(async (req) => {
             } else {
               console.log(`  ✅ Telemarketing ${item.title} salvo com chave: ${accessKey}`);
             }
+            
+            // ========== CRIAR USUÁRIO NO TABULADORMAX AUTOMATICAMENTE ==========
+            if (accessKey) {
+              try {
+                // Verificar se já existe usuário no TabuladorMax com esse bitrix_id
+                const { data: existingMapping } = await supabase
+                  .from('agent_telemarketing_mapping')
+                  .select('id, tabuladormax_user_id')
+                  .eq('bitrix_telemarketing_id', item.id)
+                  .maybeSingle();
+                
+                if (!existingMapping) {
+                  console.log(`  🆕 Criando usuário TabuladorMax para ${item.title}...`);
+                  
+                  const email = `${accessKey}@tele.maxfama.com.br`;
+                  const password = String(accessKey);
+                  const operatorName = (item.title || `Operador ${item.id}`).trim();
+                  const isSupervisor = String(cargo) === '10620';
+                  const roleName = isSupervisor ? 'supervisor' : 'agent';
+                  
+                  // Criar usuário no Supabase Auth
+                  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                    email,
+                    password,
+                    email_confirm: true,
+                    user_metadata: {
+                      display_name: operatorName,
+                      bitrix_telemarketing_id: item.id
+                    }
+                  });
+                  
+                  if (authError) {
+                    console.error(`  ❌ Erro ao criar usuário auth: ${authError.message}`);
+                  } else if (authData?.user) {
+                    const userId = authData.user.id;
+                    console.log(`  ✅ Usuário auth criado: ${userId}`);
+                    
+                    // Criar profile
+                    const { error: profileError } = await supabase
+                      .from('profiles')
+                      .upsert({
+                        id: userId,
+                        display_name: operatorName,
+                        email: email,
+                        updated_at: new Date().toISOString()
+                      }, { onConflict: 'id' });
+                    
+                    if (profileError) {
+                      console.error(`  ⚠️ Erro ao criar profile: ${profileError.message}`);
+                    }
+                    
+                    // Criar user_role
+                    const { error: roleError } = await supabase
+                      .from('user_roles')
+                      .insert({
+                        user_id: userId,
+                        role: roleName
+                      });
+                    
+                    if (roleError && !roleError.message.includes('duplicate')) {
+                      console.error(`  ⚠️ Erro ao criar role: ${roleError.message}`);
+                    }
+                    
+                    // Buscar departamento telemarketing
+                    const { data: deptData } = await supabase
+                      .from('departments')
+                      .select('id')
+                      .eq('code', 'telemarketing')
+                      .single();
+                    
+                    if (deptData) {
+                      // Criar user_department
+                      const { error: deptError } = await supabase
+                        .from('user_departments')
+                        .insert({
+                          user_id: userId,
+                          department_id: deptData.id
+                        });
+                      
+                      if (deptError && !deptError.message.includes('duplicate')) {
+                        console.error(`  ⚠️ Erro ao criar departamento: ${deptError.message}`);
+                      }
+                    }
+                    
+                    // Buscar commercial_project_id do operador (se já foi associado)
+                    const { data: operatorData } = await supabase
+                      .from('telemarketing_operators')
+                      .select('commercial_project_id')
+                      .eq('bitrix_id', item.id)
+                      .single();
+                    
+                    // Criar agent_telemarketing_mapping
+                    const { error: mappingError } = await supabase
+                      .from('agent_telemarketing_mapping')
+                      .insert({
+                        tabuladormax_user_id: userId,
+                        bitrix_telemarketing_id: item.id,
+                        bitrix_telemarketing_name: operatorName,
+                        commercial_project_id: operatorData?.commercial_project_id || null
+                      });
+                    
+                    if (mappingError) {
+                      console.error(`  ⚠️ Erro ao criar mapping: ${mappingError.message}`);
+                    } else {
+                      console.log(`  🎉 Usuário TabuladorMax criado com sucesso!`);
+                      console.log(`     📧 Email: ${email}`);
+                      console.log(`     🔐 Senha: ${password}`);
+                      console.log(`     👤 Role: ${roleName}`);
+                    }
+                  }
+                } else {
+                  console.log(`  ℹ️ Usuário TabuladorMax já existe para ${item.title}`);
+                }
+              } catch (tabuladorError) {
+                console.error(`  ❌ Erro ao criar usuário TabuladorMax:`, tabuladorError);
+              }
+            }
+            // ========== FIM CRIAÇÃO USUÁRIO TABULADORMAX ==========
           }
           
           // Processar Produtores - criar/atualizar na tabela producers
