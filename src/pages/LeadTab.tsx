@@ -219,6 +219,21 @@ const LeadTab = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
+  
+  // Detectar se estamos no contexto do portal telemarketing
+  const portalContext = useMemo(() => {
+    try {
+      const ctx = localStorage.getItem('telemarketing_context');
+      if (ctx) {
+        return JSON.parse(ctx) as { bitrix_id: number; cargo: string; name: string };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const isPortalTelemarketing = portalContext !== null;
+  
   const [profile, setProfile] = useState<DynamicProfile>(emptyProfile);
   const [buttons, setButtons] = useState<ButtonConfig[]>([]);
   const [editMode, setEditMode] = useState(false);
@@ -469,6 +484,15 @@ const LeadTab = () => {
   } = useBitrixEnums(enumRequests);
   const checkUserRole = async () => {
     try {
+      // Se estiver no portal telemarketing, usar cargo do contexto
+      if (isPortalTelemarketing && portalContext) {
+        setCurrentUserId(`portal_${portalContext.bitrix_id}`);
+        setIsManager(portalContext.cargo === 'supervisor');
+        console.log(`📋 Contexto Portal: bitrix_id=${portalContext.bitrix_id}, cargo=${portalContext.cargo}`);
+        return;
+      }
+
+      // Fluxo normal com Supabase Auth
       const {
         data: {
           user
@@ -1771,7 +1795,7 @@ const LeadTab = () => {
   };
   const executeAction = async (button: ButtonConfig, subButton?: SubButton, scheduledDate?: string, scheduledTime?: string) => {
     if (!chatwootData) {
-      toast.error("Nenhum dado do Chatwoot disponível");
+      toast.error("Nenhum lead selecionado. Busque um lead primeiro.");
       return;
     }
 
@@ -1784,11 +1808,17 @@ const LeadTab = () => {
       const syncTarget = button.sync_target || 'bitrix';
       const bitrixId = Number(chatwootData.bitrix_id);
 
-      // Buscar ID do telemarketing do usuário atual para substituição de placeholders
-      const telemarketingId = await getTelemarketingId({
-        userId: currentUserId
-      });
-      console.log(`📋 Telemarketing ID do usuário atual: ${telemarketingId}`);
+      // Buscar ID do telemarketing - priorizar contexto do portal
+      let telemarketingId: number;
+      if (isPortalTelemarketing && portalContext) {
+        telemarketingId = portalContext.bitrix_id;
+        console.log(`📋 Telemarketing ID do portal: ${telemarketingId}`);
+      } else {
+        telemarketingId = await getTelemarketingId({
+          userId: currentUserId
+        });
+        console.log(`📋 Telemarketing ID do usuário: ${telemarketingId}`);
+      }
 
       // Função para processar placeholders dinâmicos
       // Inclui substituição do placeholder {{telemarketing}} pelo ID numérico
@@ -2042,64 +2072,70 @@ const LeadTab = () => {
       const shouldTransfer = Boolean(button.transfer_conversation) || Boolean(subButton?.transfer_conversation);
       console.log('🔄 shouldTransfer (após Boolean()) =', shouldTransfer);
       if (shouldTransfer) {
-        console.log('🔄 Iniciando transferência de conversa...');
-        let conversationId = chatwootData?.conversation_id;
-        console.log('📍 conversation_id inicial:', conversationId, '(tipo:', typeof conversationId, ')');
-
-        // Se não tiver conversation_id, buscar do banco
-        if (!conversationId || conversationId === 0) {
-          console.log('🔍 Buscando conversation_id do banco de dados...');
-          const {
-            data: savedContact,
-            error: fetchError
-          } = await supabase.from('chatwoot_contacts').select('conversation_id').eq('bitrix_id', String(bitrixId)).order('updated_at', {
-            ascending: false
-          }).limit(1).maybeSingle();
-          if (fetchError) {
-            console.error('❌ Erro ao buscar conversation_id:', fetchError);
-          } else if (savedContact?.conversation_id) {
-            conversationId = savedContact.conversation_id;
-            console.log('✅ conversation_id recuperado do banco:', conversationId);
-          }
-        }
-        if (!conversationId || conversationId === 0) {
-          console.warn('⚠️ Nenhuma conversa ativa encontrada para este lead');
-          toast.warning('Nenhuma conversa ativa encontrada. A transferência requer uma conversa aberta no Chatwoot.');
+        // Se estiver no portal, não tem como transferir via Supabase Auth
+        if (isPortalTelemarketing) {
+          console.log('⚠️ Transferência de conversa não disponível no portal');
+          toast.info('Transferência automática não disponível no portal. Use o painel do Chatwoot.');
         } else {
-          try {
+          console.log('🔄 Iniciando transferência de conversa...');
+          let conversationId = chatwootData?.conversation_id;
+          console.log('📍 conversation_id inicial:', conversationId, '(tipo:', typeof conversationId, ')');
+
+          // Se não tiver conversation_id, buscar do banco
+          if (!conversationId || conversationId === 0) {
+            console.log('🔍 Buscando conversation_id do banco de dados...');
             const {
-              data: {
-                user
-              }
-            } = await supabase.auth.getUser();
-            if (!user) {
-              throw new Error('Usuário não autenticado');
+              data: savedContact,
+              error: fetchError
+            } = await supabase.from('chatwoot_contacts').select('conversation_id').eq('bitrix_id', String(bitrixId)).order('updated_at', {
+              ascending: false
+            }).limit(1).maybeSingle();
+            if (fetchError) {
+              console.error('❌ Erro ao buscar conversation_id:', fetchError);
+            } else if (savedContact?.conversation_id) {
+              conversationId = savedContact.conversation_id;
+              console.log('✅ conversation_id recuperado do banco:', conversationId);
             }
-            console.log('📞 Transferindo conversa:', {
-              conversation_id: conversationId,
-              operator_user_id: user.id,
-              lead_id: bitrixId
-            });
-            const {
-              data: transferData,
-              error: transferError
-            } = await supabase.functions.invoke('chatwoot-transfer', {
-              body: {
+          }
+          if (!conversationId || conversationId === 0) {
+            console.warn('⚠️ Nenhuma conversa ativa encontrada para este lead');
+            toast.warning('Nenhuma conversa ativa encontrada. A transferência requer uma conversa aberta no Chatwoot.');
+          } else {
+            try {
+              const {
+                data: {
+                  user
+                }
+              } = await supabase.auth.getUser();
+              if (!user) {
+                throw new Error('Usuário não autenticado');
+              }
+              console.log('📞 Transferindo conversa:', {
                 conversation_id: conversationId,
                 operator_user_id: user.id,
                 lead_id: bitrixId
+              });
+              const {
+                data: transferData,
+                error: transferError
+              } = await supabase.functions.invoke('chatwoot-transfer', {
+                body: {
+                  conversation_id: conversationId,
+                  operator_user_id: user.id,
+                  lead_id: bitrixId
+                }
+              });
+              if (transferError) {
+                console.error('❌ Erro ao transferir conversa:', transferError);
+                toast.error('Erro ao transferir conversa: ' + transferError.message);
+              } else {
+                console.log('✅ Conversa transferida com sucesso:', transferData);
+                toast.success(`Conversa transferida para você!`);
               }
-            });
-            if (transferError) {
-              console.error('❌ Erro ao transferir conversa:', transferError);
-              toast.error('Erro ao transferir conversa: ' + transferError.message);
-            } else {
-              console.log('✅ Conversa transferida com sucesso:', transferData);
-              toast.success(`Conversa transferida para você!`);
+            } catch (error) {
+              console.error('❌ Erro ao transferir conversa:', error);
+              toast.error('Erro ao transferir conversa');
             }
-          } catch (error) {
-            console.error('❌ Erro ao transferir conversa:', error);
-            toast.error('Erro ao transferir conversa');
           }
         }
       }
@@ -2409,7 +2445,7 @@ const LeadTab = () => {
                   </Button>
                 </div>
                 
-                  {isManager && <div className="flex flex-col gap-2 w-full">
+                  {isManager && !isPortalTelemarketing && <div className="flex flex-col gap-2 w-full">
                       <Button variant="outline" onClick={() => setShowFieldMappingModal(true)} className="w-full text-xs md:text-sm">
                         <Settings className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                         Configurar Campos
