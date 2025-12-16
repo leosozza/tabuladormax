@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Send, RefreshCw, MessageSquare, ArrowLeft, Lock, Check, CheckCheck } from 'lucide-react';
+import { Send, RefreshCw, MessageSquare, ArrowLeft, Lock, Check, CheckCheck, Clock } from 'lucide-react';
 import { useWhatsAppMessages, WhatsAppMessage } from '@/hooks/useWhatsAppMessages';
 import { TemplateSelector } from './TemplateSelector';
 import { WindowIndicator } from './WindowIndicator';
@@ -39,6 +39,34 @@ function MessageStatus({ status }: { status: WhatsAppMessage['status'] }) {
   }
 }
 
+// Componente de countdown para rate limit
+function CooldownTimer({ getCooldownRemaining }: { getCooldownRemaining: () => number }) {
+  const [remaining, setRemaining] = useState(getCooldownRemaining());
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newRemaining = getCooldownRemaining();
+      setRemaining(newRemaining);
+      if (newRemaining <= 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [getCooldownRemaining]);
+  
+  if (remaining <= 0) return null;
+  
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-700 dark:text-amber-400">
+      <Clock className="w-4 h-4 animate-pulse" />
+      <span className="text-sm font-medium">
+        Aguarde {remaining}s para enviar novamente
+      </span>
+    </div>
+  );
+}
+
 export function ChatPanel({
   bitrixId,
   phoneNumber,
@@ -52,7 +80,7 @@ export function ChatPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const hasMarkedAsReadRef = useRef(false);
-  const isSendingRef = useRef(false); // Proteção extra contra envios duplicados
+  const isSendingRef = useRef(false);
 
   // Log de diagnóstico
   console.log('[ChatPanelGupshup] Render', { bitrixId, phoneNumber, conversationId });
@@ -61,6 +89,9 @@ export function ChatPanel({
     messages,
     loading,
     sending,
+    rateLimitedUntil,
+    getCooldownRemaining,
+    isInCooldown,
     fetchMessages,
     sendMessage,
     sendTemplate,
@@ -100,6 +131,9 @@ export function ChatPanel({
   // Usar o status da janela do Gupshup ou fallback para props/default
   const windowStatus = propWindowStatus || gupshupWindowStatus || calculateWindowStatus(null);
   const isWindowOpen = windowStatus.isOpen;
+  
+  // Verificar se está em cooldown
+  const inCooldown = isInCooldown();
 
   const handleOpenInTelemarketing = () => {
     if (leadId) {
@@ -138,7 +172,7 @@ export function ChatPanel({
       hasMarkedAsReadRef.current = true;
       markAsRead(unreadInboundMessages.map(m => m.id));
     }
-  }, [messages]); // Removido markAsRead das dependências para evitar loop
+  }, [messages]);
 
   // Se janela fechada, ir automaticamente para templates
   useEffect(() => {
@@ -153,8 +187,13 @@ export function ChatPanel({
       console.log('[ChatPanelGupshup] handleSendMessage blocked - already sending');
       return;
     }
-    if (!messageInput.trim() || !isWindowOpen || sending) {
-      console.log('[ChatPanelGupshup] handleSendMessage blocked', { hasMessage: !!messageInput.trim(), isWindowOpen, sending });
+    if (!messageInput.trim() || !isWindowOpen || sending || inCooldown) {
+      console.log('[ChatPanelGupshup] handleSendMessage blocked', { 
+        hasMessage: !!messageInput.trim(), 
+        isWindowOpen, 
+        sending,
+        inCooldown 
+      });
       return;
     }
     
@@ -181,8 +220,8 @@ export function ChatPanel({
 
   const handleSendTemplateWrapper = async (params: { templateId: string; variables: string[] }) => {
     // Proteção contra múltiplos envios
-    if (isSendingRef.current) {
-      console.log('[ChatPanelGupshup] handleSendTemplate blocked - already sending');
+    if (isSendingRef.current || inCooldown) {
+      console.log('[ChatPanelGupshup] handleSendTemplate blocked', { isSending: isSendingRef.current, inCooldown });
       return false;
     }
     
@@ -326,31 +365,38 @@ export function ChatPanel({
           </ScrollArea>
 
           {/* Área de input */}
-          <div className="border-t p-4 bg-card">
+          <div className="border-t p-4 bg-card space-y-3">
+            {/* Cooldown Timer */}
+            {inCooldown && (
+              <CooldownTimer getCooldownRemaining={getCooldownRemaining} />
+            )}
+            
             {isWindowOpen ? (
               <>
                 <div className="flex gap-2 items-end">
                   <Textarea
-                    placeholder="Digite sua mensagem... (Ctrl+Enter para enviar)"
+                    placeholder={inCooldown ? "Aguardando cooldown..." : "Digite sua mensagem... (Ctrl+Enter para enviar)"}
                     value={messageInput}
                     onChange={e => setMessageInput(e.target.value)}
                     onKeyDown={handleKeyPress}
-                    disabled={sending}
-                    className="min-h-[80px] max-h-[160px] resize-none"
+                    disabled={sending || inCooldown}
+                    className={`min-h-[80px] max-h-[160px] resize-none ${inCooldown ? 'opacity-50' : ''}`}
                     rows={3}
                   />
                   <Button
                     onClick={handleSendMessage}
-                    disabled={sending || !messageInput.trim()}
+                    disabled={sending || !messageInput.trim() || inCooldown}
                     size="icon"
                     className="flex-shrink-0"
                   >
                     <Send className="w-4 h-4" />
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Pressione <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> para enviar
-                </p>
+                {!inCooldown && (
+                  <p className="text-xs text-muted-foreground">
+                    Pressione <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> para enviar
+                  </p>
+                )}
               </>
             ) : (
               <div className="text-center py-4 bg-red-500/5 rounded-lg border border-red-500/20">
@@ -370,7 +416,12 @@ export function ChatPanel({
         </TabsContent>
 
         <TabsContent value="templates" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden data-[state=active]:flex">
-          <TemplateSelector onSendTemplate={handleSendTemplateWrapper} disabled={sending} />
+          {inCooldown && (
+            <div className="px-4 pt-4">
+              <CooldownTimer getCooldownRemaining={getCooldownRemaining} />
+            </div>
+          )}
+          <TemplateSelector onSendTemplate={handleSendTemplateWrapper} disabled={sending || inCooldown} />
         </TabsContent>
       </Tabs>
     </div>
