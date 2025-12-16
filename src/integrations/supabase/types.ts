@@ -832,6 +832,7 @@ export type Database = {
           bitrix_id: string
           contact_id: number | null
           conversation_id: number | null
+          conversation_status: string | null
           created_at: string
           custom_attributes: Json | null
           email: string | null
@@ -839,12 +840,15 @@ export type Database = {
           last_activity_at: number | null
           last_customer_message_at: string | null
           last_message_at: string | null
+          last_message_direction: string | null
+          last_message_preview: string | null
           last_sync_at: string | null
           name: string | null
           phone_number: string | null
           sync_source: string | null
           sync_status: string | null
           thumbnail: string | null
+          unread_count: number | null
           updated_at: string
         }
         Insert: {
@@ -852,6 +856,7 @@ export type Database = {
           bitrix_id: string
           contact_id?: number | null
           conversation_id?: number | null
+          conversation_status?: string | null
           created_at?: string
           custom_attributes?: Json | null
           email?: string | null
@@ -859,12 +864,15 @@ export type Database = {
           last_activity_at?: number | null
           last_customer_message_at?: string | null
           last_message_at?: string | null
+          last_message_direction?: string | null
+          last_message_preview?: string | null
           last_sync_at?: string | null
           name?: string | null
           phone_number?: string | null
           sync_source?: string | null
           sync_status?: string | null
           thumbnail?: string | null
+          unread_count?: number | null
           updated_at?: string
         }
         Update: {
@@ -872,6 +880,7 @@ export type Database = {
           bitrix_id?: string
           contact_id?: number | null
           conversation_id?: number | null
+          conversation_status?: string | null
           created_at?: string
           custom_attributes?: Json | null
           email?: string | null
@@ -879,12 +888,15 @@ export type Database = {
           last_activity_at?: number | null
           last_customer_message_at?: string | null
           last_message_at?: string | null
+          last_message_direction?: string | null
+          last_message_preview?: string | null
           last_sync_at?: string | null
           name?: string | null
           phone_number?: string | null
           sync_source?: string | null
           sync_status?: string | null
           thumbnail?: string | null
+          unread_count?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -3126,6 +3138,69 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_messages: {
+        Row: {
+          bitrix_id: string | null
+          content: string | null
+          conversation_id: number | null
+          created_at: string | null
+          delivered_at: string | null
+          direction: string
+          gupshup_message_id: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          message_type: string
+          metadata: Json | null
+          phone_number: string
+          read_at: string | null
+          sender_name: string | null
+          sent_by: string | null
+          status: string | null
+          template_name: string | null
+        }
+        Insert: {
+          bitrix_id?: string | null
+          content?: string | null
+          conversation_id?: number | null
+          created_at?: string | null
+          delivered_at?: string | null
+          direction: string
+          gupshup_message_id?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message_type?: string
+          metadata?: Json | null
+          phone_number: string
+          read_at?: string | null
+          sender_name?: string | null
+          sent_by?: string | null
+          status?: string | null
+          template_name?: string | null
+        }
+        Update: {
+          bitrix_id?: string | null
+          content?: string | null
+          conversation_id?: number | null
+          created_at?: string | null
+          delivered_at?: string | null
+          direction?: string
+          gupshup_message_id?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message_type?: string
+          metadata?: Json | null
+          phone_number?: string
+          read_at?: string | null
+          sender_name?: string | null
+          sent_by?: string | null
+          status?: string | null
+          template_name?: string | null
         }
         Relationships: []
       }

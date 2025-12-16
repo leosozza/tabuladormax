@@ -209,3 +209,12 @@ verify_jwt = false
 
 [functions.sync-deals-from-bitrix]
 verify_jwt = false
+
+[functions.gupshup-webhook]
+verify_jwt = false
+
+[functions.gupshup-send-message]
+verify_jwt = false
+
+[functions.delete-whatsapp-history]
+verify_jwt = true
