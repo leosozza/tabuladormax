@@ -218,3 +218,24 @@ verify_jwt = false
 
 [functions.delete-whatsapp-history]
 verify_jwt = true
+
+[functions.bitrix-get-lead]
+verify_jwt = false
+
+[functions.create-supervisor-user]
+verify_jwt = true
+
+[functions.diagnostics]
+verify_jwt = true
+
+[functions.discover-bitrix-stages]
+verify_jwt = false
+
+[functions.fetch-scouters-realtime-location]
+verify_jwt = false
+
+[functions.normalize-etapa]
+verify_jwt = false
+
+[functions.sync-scouters-status]
+verify_jwt = false
