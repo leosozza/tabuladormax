@@ -297,8 +297,8 @@ export function ChatPanel({
           </TabsList>
         </div>
 
-        <TabsContent value="messages" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden data-[state=active]:flex">
-          <ScrollArea className="flex-1 min-h-0 p-4">
+        <TabsContent value="messages" className="relative flex-1 mt-0 overflow-hidden data-[state=active]:block">
+          <ScrollArea className="absolute inset-0 bottom-[200px] p-4">
             <div className="space-y-4" ref={scrollRef}>
               {loading && messages.length === 0 ? (
                 <div className="flex justify-center py-8">
@@ -364,8 +364,8 @@ export function ChatPanel({
             </div>
           </ScrollArea>
 
-          {/* Área de input - FIXA no rodapé */}
-          <div className="flex-shrink-0 border-t p-4 bg-card space-y-3">
+          {/* Área de input - FIXA no rodapé com posição absoluta */}
+          <div className="absolute bottom-0 left-0 right-0 border-t p-4 bg-card space-y-3">
             {/* Cooldown Timer */}
             {inCooldown && (
               <CooldownTimer getCooldownRemaining={getCooldownRemaining} />
