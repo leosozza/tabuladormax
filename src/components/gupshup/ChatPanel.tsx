@@ -384,28 +384,31 @@ export function ChatPanel({
               <CooldownTimer getCooldownRemaining={getCooldownRemaining} />
             )}
             
-            {isWindowOpen ? (
-              <ChatInput
-                onSendText={handleSendMessage}
-                onSendMedia={handleSendMedia}
-                disabled={sending}
-                isWindowOpen={isWindowOpen}
-                inCooldown={inCooldown}
-              />
-            ) : (
-              <div className="text-center py-3 bg-red-500/5 rounded-lg border border-red-500/20">
-                <Lock className="w-6 h-6 mx-auto mb-1 text-red-500" />
-                <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">
-                  Janela de 24h expirada
+            {/* Aviso de janela fechada */}
+            {!isWindowOpen && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-700 dark:text-amber-400">
+                <Lock className="w-4 h-4 shrink-0" />
+                <p className="text-sm flex-1">
+                  Janela de 24h expirada. Use um{' '}
+                  <button 
+                    className="underline font-medium hover:text-amber-600 dark:hover:text-amber-300" 
+                    onClick={() => setActiveTab('templates')}
+                  >
+                    Template
+                  </button>{' '}
+                  para iniciar a conversa.
                 </p>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Envie um template para iniciar
-                </p>
-                <Button variant="default" size="sm" onClick={() => setActiveTab('templates')}>
-                  Ir para Templates
-                </Button>
               </div>
             )}
+
+            {/* ChatInput sempre visível */}
+            <ChatInput
+              onSendText={handleSendMessage}
+              onSendMedia={handleSendMedia}
+              disabled={sending || !isWindowOpen}
+              isWindowOpen={isWindowOpen}
+              inCooldown={inCooldown}
+            />
           </div>
         </TabsContent>
 
