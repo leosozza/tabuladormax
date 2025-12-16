@@ -1,5 +1,8 @@
 project_id = "gkvvtfqfggddzotxltxf"
 
+[functions.gupshup-check-window]
+verify_jwt = false
+
 [functions.generate-bpmn-flow]
 verify_jwt = false
 

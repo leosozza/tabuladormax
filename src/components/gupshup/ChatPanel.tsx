@@ -11,7 +11,7 @@ import { WindowIndicator } from './WindowIndicator';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useGupshupWindowStatus } from '@/hooks/useGupshupWindowStatus';
 import { calculateWindowStatus, WindowStatus } from '@/lib/whatsappWindow';
 
 interface ChatPanelProps {
@@ -67,61 +67,38 @@ export function ChatPanel({
     markAsRead
   } = useWhatsAppMessages({ bitrixId, phoneNumber, conversationId });
 
-  // Buscar status da janela - verificar tanto chatwoot_contacts quanto mensagens reais
-  const { data: conversationData, refetch: refetchWindowStatus } = useQuery({
-    queryKey: ['conversation-window-data', bitrixId, phoneNumber, conversationId],
-    queryFn: async () => {
-      if (!bitrixId && !conversationId && !phoneNumber) return null;
-
-      let lastCustomerMessageAt: string | null = null;
-      let leadId: number | null = null;
-
-      // 1. Buscar do chatwoot_contacts
-      if (bitrixId || conversationId) {
-        let query = supabase.from('chatwoot_contacts').select('bitrix_id, last_customer_message_at');
-        
-        if (bitrixId) {
-          query = query.eq('bitrix_id', bitrixId);
-        } else if (conversationId) {
-          query = query.eq('conversation_id', conversationId);
-        }
-
-        const { data: contact } = await query.maybeSingle();
-        if (contact?.bitrix_id) {
-          leadId = parseInt(contact.bitrix_id);
-        }
-        if (contact?.last_customer_message_at) {
-          lastCustomerMessageAt = contact.last_customer_message_at;
-        }
-      }
-
-      // 2. Verificar mensagens reais (mais recente ganha)
-      const { data: lastInboundMessage } = await supabase
-        .from('whatsapp_messages')
-        .select('created_at')
-        .eq('direction', 'inbound')
-        .or(`bitrix_id.eq.${bitrixId || ''},phone_number.eq.${phoneNumber || ''}`)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (lastInboundMessage?.created_at) {
-        // Usar a data mais recente entre chatwoot_contacts e mensagens reais
-        if (!lastCustomerMessageAt || new Date(lastInboundMessage.created_at) > new Date(lastCustomerMessageAt)) {
-          lastCustomerMessageAt = lastInboundMessage.created_at;
-        }
-      }
-
-      const windowStatus = calculateWindowStatus(lastCustomerMessageAt);
-      
-      return { leadId, windowStatus, lastCustomerMessageAt };
-    },
-    enabled: !!(bitrixId || conversationId || phoneNumber),
-    refetchInterval: 60000, // Atualizar a cada 1 minuto
+  // Buscar status da janela APENAS via dados do Gupshup webhook
+  const { 
+    data: gupshupWindowStatus, 
+    refetch: refetchWindowStatus 
+  } = useGupshupWindowStatus({
+    phoneNumber,
+    bitrixId,
+    enabled: !!(bitrixId || phoneNumber)
   });
 
-  const leadId = conversationData?.leadId;
-  const windowStatus = propWindowStatus || conversationData?.windowStatus || calculateWindowStatus(null);
+  // Buscar leadId do chatwoot_contacts (apenas para navegação)
+  const [leadId, setLeadId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!bitrixId && !conversationId) return;
+    
+    const fetchLeadId = async () => {
+      let query = supabase.from('chatwoot_contacts').select('bitrix_id');
+      if (bitrixId) {
+        query = query.eq('bitrix_id', bitrixId);
+      } else if (conversationId) {
+        query = query.eq('conversation_id', conversationId);
+      }
+      const { data: contact } = await query.maybeSingle();
+      if (contact?.bitrix_id) {
+        setLeadId(parseInt(contact.bitrix_id));
+      }
+    };
+    fetchLeadId();
+  }, [bitrixId, conversationId]);
+
+  // Usar o status da janela do Gupshup ou fallback para props/default
+  const windowStatus = propWindowStatus || gupshupWindowStatus || calculateWindowStatus(null);
   const isWindowOpen = windowStatus.isOpen;
 
   const handleOpenInTelemarketing = () => {
