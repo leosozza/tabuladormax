@@ -2,7 +2,7 @@ import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, MessageSquare, Search, Loader2, User } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Search, Loader2, User, Users } from 'lucide-react';
 import { useTelemarketingConversations, TelemarketingConversation } from '@/hooks/useTelemarketingConversations';
 import { useState } from 'react';
 import { WhatsAppChatContainer } from '@/components/whatsapp';
@@ -13,6 +13,7 @@ interface TelemarketingContext {
   bitrix_id: number;
   cargo: string;
   name: string;
+  commercial_project_id?: string;
 }
 
 type StoredTelemarketingOperator = {
@@ -20,7 +21,10 @@ type StoredTelemarketingOperator = {
   cargo: string;
   operator_name: string;
   operator_photo?: string | null;
+  commercial_project_id?: string;
 };
+
+const SUPERVISOR_CARGO = '10620';
 
 const PortalTelemarketingWhatsApp = () => {
   const navigate = useNavigate();
@@ -34,8 +38,14 @@ const PortalTelemarketingWhatsApp = () => {
       if (savedContext) {
         const ctx = JSON.parse(savedContext) as TelemarketingContext;
         const savedOperator = localStorage.getItem('telemarketing_operator');
-        const photo = savedOperator ? (JSON.parse(savedOperator) as StoredTelemarketingOperator).operator_photo : null;
-        return { context: ctx, operatorPhoto: photo || null };
+        const operatorData = savedOperator ? JSON.parse(savedOperator) as StoredTelemarketingOperator : null;
+        return { 
+          context: {
+            ...ctx,
+            commercial_project_id: operatorData?.commercial_project_id || ctx.commercial_project_id,
+          }, 
+          operatorPhoto: operatorData?.operator_photo || null 
+        };
       }
 
       const savedOperator = localStorage.getItem('telemarketing_operator');
@@ -46,6 +56,7 @@ const PortalTelemarketingWhatsApp = () => {
             bitrix_id: operator.bitrix_id,
             cargo: operator.cargo,
             name: operator.operator_name,
+            commercial_project_id: operator.commercial_project_id,
           },
           operatorPhoto: operator.operator_photo || null,
         };
@@ -57,13 +68,18 @@ const PortalTelemarketingWhatsApp = () => {
   };
 
   const { context, operatorPhoto } = getContext();
+  const isSupervisor = context?.cargo === SUPERVISOR_CARGO;
 
   const {
     conversations,
     isLoading,
     searchQuery,
     setSearchQuery,
-  } = useTelemarketingConversations(context?.bitrix_id || 0);
+  } = useTelemarketingConversations({
+    bitrixTelemarketingId: context?.bitrix_id || 0,
+    cargo: context?.cargo,
+    commercialProjectId: context?.commercial_project_id,
+  });
 
   // Redireciona se não tem contexto
   if (!context) {
@@ -113,6 +129,12 @@ const PortalTelemarketingWhatsApp = () => {
             <MessageSquare className="w-3 h-3 mr-1" />
             WhatsApp
           </Badge>
+          {isSupervisor && (
+            <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600 border-purple-500/20">
+              <Users className="w-3 h-3 mr-1" />
+              Supervisor
+            </Badge>
+          )}
         </div>
       </header>
 
@@ -178,9 +200,16 @@ const PortalTelemarketingWhatsApp = () => {
                         )}
                       </div>
                       <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground truncate flex-1">
-                          {conv.last_message_preview || conv.phone_number || 'Sem telefone'}
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground truncate">
+                            {conv.last_message_preview || conv.phone_number || 'Sem telefone'}
+                          </p>
+                          {isSupervisor && conv.telemarketing_name && (
+                            <p className="text-[10px] text-purple-500 truncate">
+                              Agente: {conv.telemarketing_name}
+                            </p>
+                          )}
+                        </div>
                         {conv.unread_count > 0 && (
                           <Badge variant="default" className="ml-2 h-5 min-w-5 text-xs">
                             {conv.unread_count}

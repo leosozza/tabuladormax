@@ -15,36 +15,84 @@ export interface TelemarketingConversation {
   last_message_preview: string | null;
   unread_count: number;
   windowStatus: WindowStatus;
+  telemarketing_name?: string;
 }
 
-export function useTelemarketingConversations(bitrixTelemarketingId: number) {
+interface UseTelemarketingConversationsOptions {
+  bitrixTelemarketingId: number;
+  cargo?: string;
+  commercialProjectId?: string;
+}
+
+const SUPERVISOR_CARGO = '10620';
+
+export function useTelemarketingConversations(
+  bitrixTelemarketingIdOrOptions: number | UseTelemarketingConversationsOptions
+) {
+  // Suporta chamada legada (apenas number) ou nova (objeto)
+  const options: UseTelemarketingConversationsOptions = 
+    typeof bitrixTelemarketingIdOrOptions === 'number'
+      ? { bitrixTelemarketingId: bitrixTelemarketingIdOrOptions }
+      : bitrixTelemarketingIdOrOptions;
+
+  const { bitrixTelemarketingId, cargo, commercialProjectId } = options;
+  const isSupervisor = cargo === SUPERVISOR_CARGO;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedConversations, setSelectedConversations] = useState<number[]>([]);
 
   const { data: conversations = [], isLoading, refetch } = useQuery({
-    queryKey: ['telemarketing-conversations', bitrixTelemarketingId],
+    queryKey: ['telemarketing-conversations', bitrixTelemarketingId, cargo, commercialProjectId],
     queryFn: async () => {
       if (!bitrixTelemarketingId) return [];
 
-      // Buscar leads vinculados ao telemarketing com telefone
-      const { data: leads, error: leadsError } = await supabase
-        .from('leads')
-        .select(`
-          id,
-          name,
-          nome_modelo,
-          photo_url,
-          celular,
-          telefone_casa,
-          telefone_trabalho,
-          bitrix_telemarketing_id,
-          telemarketing
-        `)
-        .eq('bitrix_telemarketing_id', bitrixTelemarketingId)
-        .order('updated_at', { ascending: false });
+      let leads: any[] = [];
 
-      if (leadsError) throw leadsError;
-      if (!leads || leads.length === 0) return [];
+      if (isSupervisor && commercialProjectId) {
+        // SUPERVISOR: Buscar todos os leads do projeto comercial
+        const { data: projectLeads, error: projectError } = await supabase
+          .from('leads')
+          .select(`
+            id,
+            name,
+            nome_modelo,
+            photo_url,
+            celular,
+            telefone_casa,
+            telefone_trabalho,
+            bitrix_telemarketing_id,
+            telemarketing
+          `)
+          .eq('commercial_project_id', commercialProjectId)
+          .not('bitrix_telemarketing_id', 'is', null)
+          .order('updated_at', { ascending: false })
+          .limit(500);
+
+        if (projectError) throw projectError;
+        leads = projectLeads || [];
+      } else {
+        // AGENTE: Buscar apenas leads vinculados ao telemarketing específico
+        const { data: agentLeads, error: leadsError } = await supabase
+          .from('leads')
+          .select(`
+            id,
+            name,
+            nome_modelo,
+            photo_url,
+            celular,
+            telefone_casa,
+            telefone_trabalho,
+            bitrix_telemarketing_id,
+            telemarketing
+          `)
+          .eq('bitrix_telemarketing_id', bitrixTelemarketingId)
+          .order('updated_at', { ascending: false });
+
+        if (leadsError) throw leadsError;
+        leads = agentLeads || [];
+      }
+
+      if (leads.length === 0) return [];
 
       // Coletar todos os telefones dos leads (normalizados)
       const phoneToLeadMap: Record<string, typeof leads[0]> = {};
@@ -52,7 +100,6 @@ export function useTelemarketingConversations(bitrixTelemarketingId: number) {
         const phones = [lead.celular, lead.telefone_casa, lead.telefone_trabalho].filter(Boolean);
         phones.forEach(phone => {
           if (phone) {
-            // Normalizar telefone (remover caracteres não numéricos)
             const normalizedPhone = phone.replace(/\D/g, '');
             if (normalizedPhone.length >= 10) {
               phoneToLeadMap[normalizedPhone] = lead;
@@ -65,7 +112,6 @@ export function useTelemarketingConversations(bitrixTelemarketingId: number) {
       if (phoneNumbers.length === 0) return [];
 
       // Buscar estatísticas de mensagens para cada telefone
-      // Usando query para buscar última mensagem e última mensagem do cliente
       const { data: messagesData, error: messagesError } = await supabase
         .from('whatsapp_messages')
         .select('phone_number, direction, content, created_at, status')
@@ -94,7 +140,7 @@ export function useTelemarketingConversations(bitrixTelemarketingId: number) {
         });
 
         Object.entries(groupedByPhone).forEach(([phone, messages]) => {
-          const lastMessage = messages[0]; // Já ordenado por created_at DESC
+          const lastMessage = messages[0];
           const lastCustomerMessage = messages.find(m => m.direction === 'inbound');
           const unreadCount = messages.filter(m => 
             m.direction === 'inbound' && m.status !== 'read'
@@ -113,7 +159,6 @@ export function useTelemarketingConversations(bitrixTelemarketingId: number) {
       const conversationsMap: Record<number, TelemarketingConversation> = {};
       
       leads.forEach(lead => {
-        // Encontrar o telefone principal do lead que tem mensagens
         const leadPhones = [lead.celular, lead.telefone_casa, lead.telefone_trabalho]
           .filter(Boolean)
           .map(p => p?.replace(/\D/g, '') || '');
@@ -121,7 +166,6 @@ export function useTelemarketingConversations(bitrixTelemarketingId: number) {
         const phoneWithMessages = leadPhones.find(p => messageStats[p]);
         const primaryPhone = phoneWithMessages || leadPhones[0] || '';
         
-        // Só incluir se tiver telefone
         if (primaryPhone) {
           const stats = messageStats[primaryPhone] || {
             last_message_at: null,
@@ -144,6 +188,7 @@ export function useTelemarketingConversations(bitrixTelemarketingId: number) {
             last_message_preview: stats.last_message_preview,
             unread_count: stats.unread_count,
             windowStatus,
+            telemarketing_name: lead.telemarketing || undefined,
           };
         }
       });
@@ -163,7 +208,8 @@ export function useTelemarketingConversations(bitrixTelemarketingId: number) {
   // Filtrar conversas por busca
   const filteredConversations = conversations.filter(conv =>
     (conv.lead_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (conv.phone_number || '').includes(searchQuery)
+    (conv.phone_number || '').includes(searchQuery) ||
+    (conv.telemarketing_name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const toggleSelection = (leadId: number) => {
@@ -186,7 +232,7 @@ export function useTelemarketingConversations(bitrixTelemarketingId: number) {
     setSelectedConversations([]);
   };
 
-  // Subscribe to realtime updates na tabela whatsapp_messages
+  // Subscribe to realtime updates
   useEffect(() => {
     if (!bitrixTelemarketingId) return;
 
@@ -221,5 +267,6 @@ export function useTelemarketingConversations(bitrixTelemarketingId: number) {
     toggleSelectAll,
     clearSelection,
     allSelected: selectedConversations.length === filteredConversations.length && filteredConversations.length > 0,
+    isSupervisor,
   };
 }
