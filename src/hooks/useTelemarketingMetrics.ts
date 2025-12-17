@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, format } from 'date-fns';
-import { getEtapaStyle } from '@/lib/etapaColors';
+import { resolveTabulacaoLabel } from '@/lib/tabulacaoMapping';
 
 export type PeriodFilter = 'today' | 'week' | 'month';
 
@@ -115,7 +115,7 @@ export function useTelemarketingMetrics(
       const leadsDetails: LeadDetail[] = leadsData.map(lead => {
         const opId = lead.bitrix_telemarketing_id;
         const opName = opId ? (operatorNameMap.get(opId) || `Operador ${opId}`) : 'Não atribuído';
-        const statusStyle = getEtapaStyle(lead.status_tabulacao);
+        const statusLabel = resolveTabulacaoLabel(lead.status_tabulacao);
         
         return {
           id: lead.id,
@@ -123,7 +123,7 @@ export function useTelemarketingMetrics(
           operatorId: opId,
           operatorName: opName,
           status: lead.status_tabulacao || 'Sem status',
-          statusLabel: statusStyle.label || lead.status_tabulacao || 'Sem status',
+          statusLabel,
           dataAgendamento: lead.data_agendamento,
           fichaConfirmada: lead.ficha_confirmada === true,
         };
@@ -157,28 +157,22 @@ export function useTelemarketingMetrics(
         .slice(0, 10);
 
       // Status distribution with friendly labels
-      const statusMap = new Map<string, { count: number; label: string }>();
+      const statusMap = new Map<string, number>();
       leadsData.forEach(lead => {
-        const rawStatus = lead.status_tabulacao || 'Sem status';
-        const statusStyle = getEtapaStyle(rawStatus);
-        const label = statusStyle.label || rawStatus;
-        
-        const current = statusMap.get(label) || { count: 0, label };
-        current.count++;
-        statusMap.set(label, current);
+        const label = resolveTabulacaoLabel(lead.status_tabulacao);
+        statusMap.set(label, (statusMap.get(label) || 0) + 1);
       });
 
       const statusDistribution = Array.from(statusMap.entries())
-        .map(([status, data]) => ({ status, count: data.count }))
+        .map(([status, count]) => ({ status, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 8);
 
       // Tabulacao groups for KPI detail
       const tabulacaoMap = new Map<string, { rawStatus: string; count: number }>();
       leadsData.forEach(lead => {
-        const rawStatus = lead.status_tabulacao || 'Sem status';
-        const statusStyle = getEtapaStyle(rawStatus);
-        const label = statusStyle.label || rawStatus;
+        const rawStatus = lead.status_tabulacao || '';
+        const label = resolveTabulacaoLabel(rawStatus);
         
         const current = tabulacaoMap.get(label) || { rawStatus, count: 0 };
         current.count++;
