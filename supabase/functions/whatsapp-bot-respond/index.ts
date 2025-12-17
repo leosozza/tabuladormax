@@ -66,7 +66,7 @@ const PERSONALITY_PROMPTS: Record<string, string> = {
 
 // Executar ferramenta do agente
 async function executeAgentTool(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   tool: AgentTool,
   args: Record<string, unknown>,
   context: { lead_id?: number; phone_number?: string; bitrix_id?: string; project_id: string }
@@ -85,7 +85,6 @@ async function executeAgentTool(
         const method = (tool.config.method as string) || 'POST';
         const headers = (tool.config.headers as Record<string, string>) || {};
         
-        // Substituir placeholders
         const body = JSON.stringify({
           ...args,
           lead_id: context.lead_id,
@@ -161,19 +160,19 @@ async function executeAgentTool(
         if (operation === 'select') {
           let selectQuery = supabase.from(table).select(tool.config.select as string || '*');
           Object.entries(filters).forEach(([key, value]) => {
-            selectQuery = selectQuery.eq(key, value as string);
+            selectQuery = selectQuery.eq(key, value);
           });
           const { data, error: dbError } = await selectQuery.limit(10);
           if (dbError) throw dbError;
           result = data;
         } else if (operation === 'insert') {
-          const { data, error: dbError } = await supabase.from(table).insert(args.data as Record<string, string>).select();
+          const { data, error: dbError } = await supabase.from(table).insert(args.data).select();
           if (dbError) throw dbError;
           result = data;
         } else if (operation === 'update') {
-          let updateQuery = supabase.from(table).update(args.data as Record<string, string>);
+          let updateQuery = supabase.from(table).update(args.data);
           Object.entries(filters).forEach(([key, value]) => {
-            updateQuery = updateQuery.eq(key, value as string);
+            updateQuery = updateQuery.eq(key, value);
           });
           const { data, error: dbError } = await updateQuery.select();
           if (dbError) throw dbError;
@@ -221,7 +220,6 @@ async function executeAgentTool(
       }
 
       case 'send_template': {
-        // Apenas marca para enviar template - o webhook principal vai processar
         result = {
           template_id: args.template_id,
           variables: args.variables || {},
@@ -241,13 +239,13 @@ async function executeAgentTool(
 
   const executionTime = Date.now() - startTime;
 
-  // Logar execução (ignorar erros de log)
+  // Logar execução
   try {
     await supabase.from('bot_tool_execution_logs').insert({
       tool_id: tool.id,
       tool_name: tool.name,
-      input_params: args as Record<string, string>,
-      output_result: result as Record<string, string>,
+      input_params: args,
+      output_result: result,
       status: success ? 'success' : 'error',
       error_message: error || null,
       execution_time_ms: executionTime,
@@ -261,7 +259,7 @@ async function executeAgentTool(
 
 // Obter API key para o provider
 async function getApiKey(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   provider: string,
   secretName?: string | null
 ): Promise<string | null> {
@@ -270,12 +268,10 @@ async function getApiKey(
   }
 
   if (secretName) {
-    // Buscar secret do vault (se configurado)
     const secretValue = Deno.env.get(secretName);
     if (secretValue) return secretValue;
   }
 
-  // Tentar buscar por nome padrão
   const defaultSecretNames: Record<string, string> = {
     'openai': 'OPENAI_API_KEY',
     'groq': 'GROQ_API_KEY',
@@ -290,6 +286,157 @@ async function getApiKey(
   }
 
   return null;
+}
+
+// Transcrever áudio usando Whisper via Lovable AI
+async function transcribeAudio(audioUrl: string): Promise<string | null> {
+  try {
+    console.log('[transcribeAudio] Transcribing audio:', audioUrl);
+    
+    // Baixar o áudio
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      console.error('[transcribeAudio] Failed to download audio');
+      return null;
+    }
+    
+    const audioBlob = await audioResponse.blob();
+    const audioBuffer = await audioBlob.arrayBuffer();
+    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+    
+    // Usar Lovable AI para transcrição
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'whisper-1',
+        audio: base64Audio,
+        language: 'pt',
+      }),
+    });
+
+    if (!response.ok) {
+      // Fallback: usar Gemini para descrever que é um áudio
+      console.log('[transcribeAudio] Whisper not available, returning placeholder');
+      return null;
+    }
+
+    const result = await response.json();
+    return result.text || null;
+  } catch (error) {
+    console.error('[transcribeAudio] Error:', error);
+    return null;
+  }
+}
+
+// Analisar imagem usando modelo de visão
+async function analyzeImage(
+  imageUrl: string, 
+  apiKey: string, 
+  provider: AIProvider,
+  model: string
+): Promise<string | null> {
+  try {
+    console.log('[analyzeImage] Analyzing image:', imageUrl);
+    
+    // Verificar se o modelo suporta visão
+    const visionModels = [
+      'google/gemini-2.5-flash',
+      'google/gemini-2.5-pro',
+      'google/gemini-3-pro-preview',
+      'gpt-4o',
+      'gpt-4o-mini',
+      'gpt-4-turbo',
+      'claude-3-opus',
+      'claude-3-sonnet',
+      'claude-3-haiku',
+    ];
+    
+    const supportsVision = visionModels.some(m => model.includes(m.split('/').pop()!));
+    if (!supportsVision && provider.name !== 'lovable') {
+      console.log('[analyzeImage] Model does not support vision');
+      return null;
+    }
+
+    const isAnthropic = provider.name === 'anthropic';
+    let url: string;
+    let headers: Record<string, string>;
+    let body: Record<string, unknown>;
+
+    if (isAnthropic) {
+      url = `${provider.base_url}/messages`;
+      headers = {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+      };
+      body = {
+        model,
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'url', url: imageUrl },
+            },
+            {
+              type: 'text',
+              text: 'Descreva brevemente esta imagem em português. Seja conciso (máximo 2 frases).',
+            },
+          ],
+        }],
+      };
+    } else {
+      url = `${provider.base_url}/chat/completions`;
+      headers = {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      };
+      body = {
+        model,
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: { url: imageUrl },
+            },
+            {
+              type: 'text',
+              text: 'Descreva brevemente esta imagem em português. Seja conciso (máximo 2 frases).',
+            },
+          ],
+        }],
+      };
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      console.error('[analyzeImage] Vision API error:', await response.text());
+      return null;
+    }
+
+    const data = await response.json();
+    
+    if (isAnthropic) {
+      return data.content?.find((c: { type: string }) => c.type === 'text')?.text || null;
+    } else {
+      return data.choices?.[0]?.message?.content || null;
+    }
+  } catch (error) {
+    console.error('[analyzeImage] Error:', error);
+    return null;
+  }
 }
 
 // Chamar AI provider
@@ -424,14 +571,24 @@ serve(async (req) => {
       bitrix_id,
       lead_id,
       conversation_history,
+      media_url,
+      media_type,
       is_test = false 
     } = await req.json();
 
-    console.log('[whatsapp-bot-respond] Request:', { message, project_id, is_test });
+    console.log('[whatsapp-bot-respond] Request:', { message, project_id, media_type, is_test });
 
-    if (!message || !project_id) {
+    if (!project_id) {
       return new Response(
-        JSON.stringify({ error: 'message and project_id are required' }),
+        JSON.stringify({ error: 'project_id is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verificar se há conteúdo (texto, áudio ou imagem)
+    if (!message && !media_url) {
+      return new Response(
+        JSON.stringify({ error: 'message or media_url is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -454,8 +611,8 @@ serve(async (req) => {
     }
 
     // Verificar se deve transferir por palavra-chave
-    const lowerMessage = message.toLowerCase();
-    const shouldTransfer = botConfig.transfer_keywords?.some(
+    const lowerMessage = (message || '').toLowerCase();
+    const shouldTransfer = lowerMessage && botConfig.transfer_keywords?.some(
       (keyword: string) => lowerMessage.includes(keyword.toLowerCase())
     );
 
@@ -493,6 +650,53 @@ serve(async (req) => {
         JSON.stringify({ should_respond: true, response: botConfig.fallback_message, reason: 'api_key_missing' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // ============================================
+    // PROCESSAMENTO DE ÁUDIO E IMAGEM
+    // ============================================
+    let processedMessage = message || '';
+    let mediaDescription = '';
+
+    if (media_url && media_type) {
+      console.log(`[whatsapp-bot-respond] Processing media: ${media_type}`);
+      
+      if (media_type === 'audio') {
+        // Transcrever áudio
+        const transcription = await transcribeAudio(media_url);
+        if (transcription) {
+          mediaDescription = `[Áudio transcrito]: "${transcription}"`;
+          processedMessage = transcription;
+          console.log('[whatsapp-bot-respond] Audio transcribed:', transcription.substring(0, 100));
+        } else {
+          mediaDescription = '[O cliente enviou um áudio que não pôde ser transcrito. Pergunte educadamente o que ele disse.]';
+        }
+      } else if (media_type === 'image') {
+        // Analisar imagem
+        const model = botConfig.ai_model || provider.default_model || provider.models?.[0]?.id;
+        const imageAnalysis = await analyzeImage(media_url, apiKey!, provider as AIProvider, model);
+        if (imageAnalysis) {
+          mediaDescription = `[O cliente enviou uma imagem. Descrição: ${imageAnalysis}]`;
+          console.log('[whatsapp-bot-respond] Image analyzed:', imageAnalysis.substring(0, 100));
+        } else {
+          mediaDescription = '[O cliente enviou uma imagem. Responda de forma apropriada e pergunte sobre a imagem se necessário.]';
+        }
+        // Combinar com caption se houver
+        if (message) {
+          processedMessage = `${message} ${mediaDescription}`;
+        } else {
+          processedMessage = mediaDescription;
+        }
+      } else if (media_type === 'video') {
+        mediaDescription = '[O cliente enviou um vídeo. Reconheça que recebeu e pergunte se há algo específico que ele gostaria de saber.]';
+        processedMessage = message ? `${message} ${mediaDescription}` : mediaDescription;
+      } else if (media_type === 'document') {
+        mediaDescription = '[O cliente enviou um documento. Informe que recebeu e pergunte como pode ajudar.]';
+        processedMessage = message ? `${message} ${mediaDescription}` : mediaDescription;
+      } else if (media_type === 'sticker') {
+        mediaDescription = '[O cliente enviou um sticker/figurinha.]';
+        processedMessage = mediaDescription;
+      }
     }
 
     // Buscar ferramentas do agente (se habilitado)
@@ -571,6 +775,8 @@ REGRAS IMPORTANTES:
 4. Nunca invente informações sobre produtos ou preços
 5. Colete informações relevantes quando apropriado (nome, interesse, etc)
 6. Use no máximo 2-3 parágrafos curtos por resposta
+7. Se receber áudio transcrito, responda naturalmente ao conteúdo
+8. Se receber imagem, comente sobre ela de forma contextual
 
 CONTEXTO: Esta é uma conversa por WhatsApp com um potencial cliente.`;
 
@@ -578,7 +784,7 @@ CONTEXTO: Esta é uma conversa por WhatsApp com um potencial cliente.`;
     const messages = [
       { role: 'system', content: systemPrompt },
       ...(conversation_history || []),
-      { role: 'user', content: message }
+      { role: 'user', content: processedMessage }
     ];
 
     console.log('[whatsapp-bot-respond] Calling AI provider:', providerName);

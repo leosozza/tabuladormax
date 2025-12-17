@@ -254,10 +254,12 @@ async function processBotResponse(
   botConfig: BotConfig,
   leadId: number | null,
   conversationId: number | null,
-  bitrixTelemarketingId: number | null
+  bitrixTelemarketingId: number | null,
+  mediaUrl?: string,
+  mediaType?: string
 ): Promise<{ responded: boolean; transferred: boolean; response?: string }> {
   try {
-    console.log(`🤖 Processando mensagem com bot para ${phoneNumber}`);
+    console.log(`🤖 Processando mensagem com bot para ${phoneNumber}`, { mediaType });
 
     // Chamar edge function do bot
     const response = await fetch(`${supabaseUrl}/functions/v1/whatsapp-bot-respond`, {
@@ -272,6 +274,8 @@ async function processBotResponse(
         project_id: botConfig.commercial_project_id,
         lead_id: leadId,
         conversation_id: conversationId,
+        media_url: mediaUrl,
+        media_type: mediaType,
       }),
     });
 
@@ -294,12 +298,12 @@ async function processBotResponse(
           bitrixTelemarketingId,
           'bot_transfer',
           '🤖 Bot transferiu conversa',
-          `${result.transfer_reason || 'Cliente precisa de atendimento humano'}. Última mensagem: "${message.substring(0, 100)}"`,
+          `${result.transfer_reason || 'Cliente precisa de atendimento humano'}. Última mensagem: "${message?.substring(0, 100) || mediaType || 'mídia'}"`,
           leadId,
           phoneNumber,
           conversationId,
           botConfig.commercial_project_id,
-          { transfer_reason: result.transfer_reason, original_message: message }
+          { transfer_reason: result.transfer_reason, original_message: message, media_type: mediaType }
         );
       }
 
@@ -325,7 +329,13 @@ async function processBotResponse(
             content: result.response,
             status: 'sent',
             sender_name: botConfig.bot_name || 'Bot IA',
-            metadata: { bot_response: true, bot_name: botConfig.bot_name },
+            metadata: { 
+              bot_response: true, 
+              bot_name: botConfig.bot_name,
+              original_media_type: mediaType,
+              ai_provider: result.ai_provider,
+              ai_model: result.ai_model,
+            },
           });
 
         console.log(`✅ Bot respondeu: "${result.response.substring(0, 50)}..."`);
@@ -482,8 +492,9 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
     if (botConfig) {
       console.log(`🤖 Bot ativo para projeto ${commercialProjectId}`);
 
-      // Processar com o bot (apenas mensagens de texto por enquanto)
-      if (messageType === 'text' && content) {
+      // Processar com o bot (agora suporta texto, áudio, imagem, etc.)
+      const supportedTypes = ['text', 'audio', 'image', 'video', 'document'];
+      if (supportedTypes.includes(messageType)) {
         const botResult = await processBotResponse(
           supabase,
           supabaseUrl,
@@ -493,7 +504,9 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
           botConfig,
           lead?.id || null,
           conversationId,
-          bitrixTelemarketingId
+          bitrixTelemarketingId,
+          mediaUrl || undefined,
+          mediaType || undefined
         );
 
         // Se o bot respondeu, não criar notificação de nova mensagem
