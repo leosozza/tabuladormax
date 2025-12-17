@@ -43,6 +43,27 @@ export interface StatusDistributionItem {
   count: number;
 }
 
+export interface AgendamentoPorDataReport {
+  data: string;
+  dataFormatada: string;
+  total: number;
+  leads: {
+    id: number;
+    name: string;
+    scouter: string | null;
+    telemarketing: string | null;
+  }[];
+}
+
+export interface ComparecimentoDetailReport {
+  id: number;
+  name: string;
+  scouter: string | null;
+  telemarketing: string | null;
+  agendadoEm: string | null;
+  dataComparecimento: string;
+}
+
 export interface TelemarketingReportData {
   period: string;
   periodLabel: string;
@@ -57,6 +78,8 @@ export interface TelemarketingReportData {
   timeline?: TimelineItem[];
   statusDistribution?: StatusDistributionItem[];
   createdBy?: number;
+  agendamentosPorData?: AgendamentoPorDataReport[];
+  comparecimentosDetail?: ComparecimentoDetailReport[];
 }
 
 function generateShortCode(): string {

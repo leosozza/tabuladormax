@@ -1,18 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2, FileText, Users, Calendar, TrendingUp, AlertCircle, Trophy, CheckCircle } from 'lucide-react';
+import { Loader2, FileText, Users, Calendar, TrendingUp, AlertCircle, Trophy, CheckCircle, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getReportByShortCode, TelemarketingReportData } from '@/services/telemarketingReportService';
 import { ApexBarChart } from '@/components/dashboard/charts/ApexBarChart';
 import { ApexHorizontalBarChart } from '@/components/dashboard/charts/ApexHorizontalBarChart';
 import { ApexLineChart } from '@/components/dashboard/charts/ApexLineChart';
+import { AgendamentosPorDataModal } from '@/components/portal-telemarketing/AgendamentosPorDataModal';
+import { ComparecimentosDetailModal } from '@/components/portal-telemarketing/ComparecimentosDetailModal';
 
 export default function TelemarketingReportPublic() {
   const { shortCode } = useParams<{ shortCode: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<TelemarketingReportData | null>(null);
+  
+  // Modal states
+  const [agendamentosModalOpen, setAgendamentosModalOpen] = useState(false);
+  const [comparecimentosModalOpen, setComparecimentosModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadReport() {
@@ -78,50 +84,79 @@ export default function TelemarketingReportPublic() {
     { name: 'Agendados', data: report.timeline?.map(t => t.agendados) || [] },
   ];
 
+  // Check if drill-down data is available
+  const hasAgendamentosDetail = (report.agendamentosPorData?.length || 0) > 0;
+  const hasComparecimentosDetail = (report.comparecimentosDetail?.length || 0) > 0;
+
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background py-4 sm:py-8 px-3 sm:px-4">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2">
-            <FileText className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold">Relatório de Telemarketing</h1>
+            <FileText className="w-6 sm:w-8 h-6 sm:h-8 text-primary" />
+            <h1 className="text-xl sm:text-2xl font-bold">Relatório de Telemarketing</h1>
           </div>
-          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground flex-wrap">
             <span className="flex items-center gap-1">
-              <Calendar className="w-4 h-4" />
+              <Calendar className="w-3 sm:w-4 h-3 sm:h-4" />
               {report.date}
             </span>
-            <span className="bg-primary/10 text-primary px-2 py-1 rounded">
+            <span className="bg-primary/10 text-primary px-2 py-1 rounded text-xs">
               {report.periodLabel}
             </span>
           </div>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
+          {/* Total de Leads - não clicável */}
           <Card>
             <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-primary">{report.totalLeads}</p>
-              <p className="text-xs text-muted-foreground">Total de Leads</p>
+              <p className="text-xl sm:text-2xl font-bold text-primary">{report.totalLeads}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Total de Leads</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-green-500">{report.agendamentos}</p>
-              <p className="text-xs text-muted-foreground">Agendamentos</p>
+          
+          {/* Agendamentos - clicável */}
+          <Card 
+            className={hasAgendamentosDetail ? "cursor-pointer hover:ring-2 hover:ring-green-500/50 transition-all active:scale-[0.98]" : ""}
+            onClick={() => hasAgendamentosDetail && setAgendamentosModalOpen(true)}
+          >
+            <CardContent className="pt-4 text-center relative">
+              <p className="text-xl sm:text-2xl font-bold text-green-500">{report.agendamentos}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Agendamentos</p>
+              {hasAgendamentosDetail && (
+                <div className="flex items-center justify-center gap-1 mt-1 text-[9px] sm:text-[10px] text-green-500/70">
+                  <span>Ver detalhes</span>
+                  <ChevronRight className="w-3 h-3" />
+                </div>
+              )}
             </CardContent>
           </Card>
-          <Card>
+          
+          {/* Comparecidos - clicável */}
+          <Card 
+            className={hasComparecimentosDetail ? "cursor-pointer hover:ring-2 hover:ring-teal-500/50 transition-all active:scale-[0.98]" : ""}
+            onClick={() => hasComparecimentosDetail && setComparecimentosModalOpen(true)}
+          >
             <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-teal-500">{report.comparecimentos || 0}</p>
-              <p className="text-xs text-muted-foreground">Comparecidos</p>
+              <p className="text-xl sm:text-2xl font-bold text-teal-500">{report.comparecimentos || 0}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Comparecidos</p>
+              {hasComparecimentosDetail && (
+                <div className="flex items-center justify-center gap-1 mt-1 text-[9px] sm:text-[10px] text-teal-500/70">
+                  <span>Ver detalhes</span>
+                  <ChevronRight className="w-3 h-3" />
+                </div>
+              )}
             </CardContent>
           </Card>
+          
+          {/* Taxa de Conversão - não clicável */}
           <Card>
             <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-amber-500">{report.taxaConversao.toFixed(1)}%</p>
-              <p className="text-xs text-muted-foreground">Taxa de Conversão</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-500">{report.taxaConversao.toFixed(1)}%</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Taxa de Conversão</p>
             </CardContent>
           </Card>
         </div>
@@ -162,20 +197,20 @@ export default function TelemarketingReportPublic() {
         {/* Operator Performance Table */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
               <Users className="w-4 h-4" />
               Performance por Operador
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <Table>
+          <CardContent className="overflow-x-auto">
+            <Table className="text-xs sm:text-sm">
               <TableHeader>
                 <TableRow>
                   <TableHead>Operador</TableHead>
                   <TableHead className="text-center">Leads</TableHead>
                   <TableHead className="text-center">Agendados</TableHead>
-                  <TableHead className="text-center">Scouter</TableHead>
-                  <TableHead className="text-center">Meta</TableHead>
+                  <TableHead className="text-center hidden sm:table-cell">Scouter</TableHead>
+                  <TableHead className="text-center hidden sm:table-cell">Meta</TableHead>
                   <TableHead className="text-center">Taxa</TableHead>
                 </TableRow>
               </TableHeader>
@@ -186,14 +221,14 @@ export default function TelemarketingReportPublic() {
                   return (
                     <TableRow key={op.name}>
                       <TableCell className="font-medium">
-                        {medal} {op.name}
+                        {medal} {op.name.split(' ')[0]}
                       </TableCell>
                       <TableCell className="text-center">{op.leads}</TableCell>
                       <TableCell className="text-center text-green-600 font-medium">
                         {op.agendamentos}
                       </TableCell>
-                      <TableCell className="text-center text-teal-600">{op.leadsScouter || 0}</TableCell>
-                      <TableCell className="text-center text-purple-600">{op.leadsMeta || 0}</TableCell>
+                      <TableCell className="text-center text-teal-600 hidden sm:table-cell">{op.leadsScouter || 0}</TableCell>
+                      <TableCell className="text-center text-purple-600 hidden sm:table-cell">{op.leadsMeta || 0}</TableCell>
                       <TableCell className="text-center">{taxa}%</TableCell>
                     </TableRow>
                   );
@@ -207,18 +242,18 @@ export default function TelemarketingReportPublic() {
         {report.scouterPerformance && report.scouterPerformance.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-teal-500" />
                 Top 5 Scouters (por Agendamentos)
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <Table>
+            <CardContent className="overflow-x-auto">
+              <Table className="text-xs sm:text-sm">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Scouter</TableHead>
                     <TableHead className="text-center">Agendamentos</TableHead>
-                    <TableHead className="text-center">Leads</TableHead>
+                    <TableHead className="text-center hidden sm:table-cell">Leads</TableHead>
                     <TableHead className="text-center">Conversão</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -229,7 +264,7 @@ export default function TelemarketingReportPublic() {
                       <TableRow key={scouter.name}>
                         <TableCell className="font-medium">{medal} {scouter.name}</TableCell>
                         <TableCell className="text-center text-teal-600 font-bold">{scouter.agendamentos}</TableCell>
-                        <TableCell className="text-center">{scouter.totalLeads}</TableCell>
+                        <TableCell className="text-center hidden sm:table-cell">{scouter.totalLeads}</TableCell>
                         <TableCell className="text-center">{scouter.taxaConversao.toFixed(1)}%</TableCell>
                       </TableRow>
                     );
@@ -243,17 +278,17 @@ export default function TelemarketingReportPublic() {
         {/* Tabulacao Distribution */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
               Distribuição de Tabulações
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <Table>
+          <CardContent className="overflow-x-auto">
+            <Table className="text-xs sm:text-sm">
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-center">Quantidade</TableHead>
+                  <TableHead className="text-center">Qtd</TableHead>
                   <TableHead className="text-center">%</TableHead>
                 </TableRow>
               </TableHeader>
@@ -271,10 +306,25 @@ export default function TelemarketingReportPublic() {
         </Card>
 
         {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-[10px] sm:text-xs text-muted-foreground">
           Relatório gerado automaticamente pelo sistema de Telemarketing
         </p>
       </div>
+
+      {/* Modais */}
+      <AgendamentosPorDataModal
+        open={agendamentosModalOpen}
+        onOpenChange={setAgendamentosModalOpen}
+        agendamentos={report.agendamentosPorData || []}
+        totalAgendamentos={report.agendamentos}
+      />
+
+      <ComparecimentosDetailModal
+        open={comparecimentosModalOpen}
+        onOpenChange={setComparecimentosModalOpen}
+        comparecimentos={report.comparecimentosDetail || []}
+        totalComparecimentos={report.comparecimentos || 0}
+      />
     </div>
   );
 }
