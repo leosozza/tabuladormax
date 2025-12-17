@@ -55,6 +55,7 @@ export interface AgendamentoPorData {
     name: string;
     scouter: string | null;
     telemarketing: string | null;
+    fonte: string;
   }[];
 }
 
@@ -65,6 +66,7 @@ export interface ComparecimentoDetail {
   telemarketing: string | null;
   agendadoEm: string | null;
   dataComparecimento: string;
+  fonte: string;
 }
 
 interface TelemarketingMetrics {
@@ -162,7 +164,7 @@ export function useTelemarketingMetrics(
       // Uses contains filter to check UF_CRM_1746816298253 = '1' (presença confirmada)
       let comparecimentosQuery = supabase
         .from('leads')
-        .select('id, name, nome_modelo, scouter, telemarketing, bitrix_telemarketing_id, raw')
+        .select('id, name, nome_modelo, scouter, telemarketing, bitrix_telemarketing_id, fonte_normalizada, raw')
         .gte('date_modify', startStr)
         .lte('date_modify', endStr)
         .contains('raw', { UF_CRM_1746816298253: '1' });
@@ -199,7 +201,7 @@ export function useTelemarketingMetrics(
       const taxaConversao = totalLeads > 0 ? (agendamentos / totalLeads) * 100 : 0;
 
       // Calculate agendamentos por data (UF_CRM_1740763672 = target date)
-      const agendamentosPorDataMap = new Map<string, { leads: { id: number; name: string; scouter: string | null; telemarketing: string | null; }[] }>();
+      const agendamentosPorDataMap = new Map<string, { leads: { id: number; name: string; scouter: string | null; telemarketing: string | null; fonte: string; }[] }>();
       agendadosList.forEach(lead => {
         const targetDate = getRawField(lead.raw, 'UF_CRM_1740763672');
         if (!targetDate) return;
@@ -219,6 +221,7 @@ export function useTelemarketingMetrics(
           name: lead.nome_modelo || lead.name || 'Sem nome',
           scouter: lead.scouter || null,
           telemarketing: lead.telemarketing || operatorNameMap.get(lead.bitrix_telemarketing_id!) || null,
+          fonte: lead.fonte_normalizada || 'Não informada',
         });
         agendamentosPorDataMap.set(dateKey, current);
       });
@@ -268,6 +271,7 @@ export function useTelemarketingMetrics(
           telemarketing: lead.telemarketing || operatorNameMap.get(lead.bitrix_telemarketing_id!) || null,
           agendadoEm: getRawField(lead.raw, 'UF_CRM_AGEND_EM'),
           dataComparecimento: getRawField(lead.raw, 'UF_CRM_DATACOMPARECEU') || '',
+          fonte: lead.fonte_normalizada || 'Não informada',
         })),
       };
 
