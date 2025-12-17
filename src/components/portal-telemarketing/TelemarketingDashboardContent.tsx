@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Phone, Calendar, TrendingUp, Trophy, Loader2, Share2, FileDown, Link as LinkIcon, Users, CheckCircle } from 'lucide-react';
+import { Phone, Calendar, TrendingUp, Trophy, Loader2, Share2, FileDown, Link as LinkIcon, Users, CheckCircle, Bot } from 'lucide-react';
 import { ApexBarChart } from '@/components/dashboard/charts/ApexBarChart';
 import { ApexHorizontalBarChart } from '@/components/dashboard/charts/ApexHorizontalBarChart';
 import { ApexLineChart } from '@/components/dashboard/charts/ApexLineChart';
@@ -15,13 +15,15 @@ import { LeadsDetailModal, KpiType } from './LeadsDetailModal';
 import { ShareReportModal } from './ShareReportModal';
 import { AgendamentosPorDataModal } from './AgendamentosPorDataModal';
 import { ComparecimentosDetailModal } from './ComparecimentosDetailModal';
+import { TelemarketingAIAnalysisModal } from './TelemarketingAIAnalysisModal';
+import { useTelemarketingAIAnalysis } from '@/hooks/useTelemarketingAIAnalysis';
 import { 
   generateTelemarketingReportPDF, 
   createShareableReport,
   TelemarketingReportData 
 } from '@/services/telemarketingReportService';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface TelemarketingDashboardContentProps {
@@ -45,8 +47,18 @@ export function TelemarketingDashboardContent({
   const [isExporting, setIsExporting] = useState(false);
   const [agendamentosModalOpen, setAgendamentosModalOpen] = useState(false);
   const [comparecimentosModalOpen, setComparecimentosModalOpen] = useState(false);
+  const [aiAnalysisOpen, setAiAnalysisOpen] = useState(false);
   
   const isSupervisor = operatorCargo === SUPERVISOR_CARGO;
+  
+  // AI Analysis hook
+  const { 
+    isLoading: isAnalysisLoading, 
+    analysis, 
+    error: analysisError, 
+    generateAnalysis, 
+    clearAnalysis 
+  } = useTelemarketingAIAnalysis();
   
   // Supervisors can filter by specific operator or see all
   // Agents only see their own data
@@ -55,6 +67,21 @@ export function TelemarketingDashboardContent({
     : operatorBitrixId;
   
   const { data: metrics, isLoading, error } = useTelemarketingMetrics(period, filterOperatorId);
+
+  // Helper to get date range for AI analysis
+  const getDateRange = () => {
+    const now = new Date();
+    switch (period) {
+      case 'today':
+        return { start: startOfDay(now), end: endOfDay(now) };
+      case 'week':
+        return { start: startOfWeek(now, { locale: ptBR }), end: endOfWeek(now, { locale: ptBR }) };
+      case 'month':
+        return { start: startOfMonth(now), end: endOfMonth(now) };
+      default:
+        return { start: startOfDay(now), end: endOfDay(now) };
+    }
+  };
 
   const handleKpiClick = (type: KpiType, title: string, status?: string) => {
     setModalType(type);
@@ -160,6 +187,49 @@ export function TelemarketingDashboardContent({
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleOpenAIAnalysis = () => {
+    if (!metrics) return;
+    
+    const { start, end } = getDateRange();
+    setAiAnalysisOpen(true);
+    
+    generateAnalysis(
+      period,
+      getPeriodLabel(),
+      {
+        totalLeads: metrics.totalLeads,
+        agendamentos: metrics.agendamentos,
+        comparecimentos: metrics.comparecimentos?.total || 0,
+        taxaConversao: metrics.taxaConversao,
+        operatorPerformance: metrics.operatorPerformance.map(op => ({
+          name: op.name,
+          leads: op.leads,
+          agendamentos: op.agendamentos,
+          confirmadas: op.confirmadas,
+          leadsScouter: op.leadsScouter,
+          leadsMeta: op.leadsMeta,
+        })),
+        scouterPerformance: metrics.scouterPerformance.map(s => ({
+          name: s.name,
+          total: s.totalLeads,
+          agendados: s.agendamentos,
+          confirmados: Math.round(s.agendamentos * (s.taxaConversao / 100)),
+        })),
+        tabulacaoDistribution: (metrics.tabulacaoGroups || []).map(t => ({
+          label: t.label,
+          count: t.count,
+        })),
+      },
+      start,
+      end
+    );
+  };
+
+  const handleCloseAIAnalysis = () => {
+    setAiAnalysisOpen(false);
+    clearAnalysis();
   };
 
   if (isLoading) {
@@ -293,6 +363,20 @@ export function TelemarketingDashboardContent({
               <SelectItem value="month">Este Mês</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* AI Analysis Button - Only for Supervisors */}
+          {isSupervisor && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleOpenAIAnalysis}
+              disabled={!metrics || metrics.totalLeads === 0}
+              className="gap-2"
+            >
+              <Bot className="w-4 h-4" />
+              <span className="hidden sm:inline">Análise IA</span>
+            </Button>
+          )}
 
           {/* Export Menu - Only for Supervisors */}
           {isSupervisor && (
@@ -542,6 +626,16 @@ export function TelemarketingDashboardContent({
         onOpenChange={setComparecimentosModalOpen}
         comparecimentos={metrics?.comparecimentos?.leads || []}
         totalComparecimentos={metrics?.comparecimentos?.total || 0}
+      />
+
+      {/* AI Analysis Modal */}
+      <TelemarketingAIAnalysisModal
+        open={aiAnalysisOpen}
+        onClose={handleCloseAIAnalysis}
+        analysis={analysis}
+        isLoading={isAnalysisLoading}
+        error={analysisError}
+        periodLabel={getPeriodLabel()}
       />
     </div>
   );
