@@ -2,7 +2,7 @@
 // Flow Builder Component - Create and Edit Flows with Visual Editor
 // ============================================
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Node } from "reactflow";
 import { Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,21 +25,25 @@ interface FlowBuilderProps {
 }
 
 export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderProps) {
-  const [nome, setNome] = useState(flow?.nome || "");
-  const [descricao, setDescricao] = useState(flow?.descricao || "");
-  const [steps, setSteps] = useState<FlowStep[]>(flow?.steps || []);
+  const [nome, setNome] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [steps, setSteps] = useState<FlowStep[]>([]);
   const [saving, setSaving] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
-  // Reset form when flow changes or dialog opens
-  const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen) {
+  // Sync state when dialog opens or flow changes
+  useEffect(() => {
+    if (open) {
       setNome(flow?.nome || "");
       setDescricao(flow?.descricao || "");
       setSteps(flow?.steps || []);
       setSelectedNode(null);
-    } else {
-      // Reset form when closing
+    }
+  }, [open, flow]);
+
+  // Reset form when closing
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
       setNome("");
       setDescricao("");
       setSteps([]);
