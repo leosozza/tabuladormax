@@ -78,7 +78,15 @@ export function TelemarketingDashboardContent({
       agendamentos: metrics?.agendamentos || 0,
       fichasConfirmadas: metrics?.fichasConfirmadas || 0,
       taxaConversao: metrics?.taxaConversao || 0,
-      operatorPerformance: metrics?.operatorPerformance || [],
+      operatorPerformance: (metrics?.operatorPerformance || []).map(op => ({
+        name: op.name,
+        leads: op.leads,
+        agendamentos: op.agendamentos,
+        confirmadas: op.confirmadas,
+        leadsScouter: op.leadsScouter,
+        leadsMeta: op.leadsMeta,
+      })),
+      scouterPerformance: metrics?.scouterPerformance || [],
       tabulacaoDistribution: (metrics?.tabulacaoGroups || []).map(tab => ({
         label: tab.label,
         count: tab.count,

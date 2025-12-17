@@ -9,6 +9,15 @@ export interface OperatorPerformance {
   leads: number;
   agendamentos: number;
   confirmadas: number;
+  leadsScouter: number;
+  leadsMeta: number;
+}
+
+export interface ScouterPerformance {
+  name: string;
+  agendamentos: number;
+  totalLeads: number;
+  taxaConversao: number;
 }
 
 export interface TabulacaoItem {
@@ -26,6 +35,7 @@ export interface TelemarketingReportData {
   fichasConfirmadas: number;
   taxaConversao: number;
   operatorPerformance: OperatorPerformance[];
+  scouterPerformance: ScouterPerformance[];
   tabulacaoDistribution: TabulacaoItem[];
   createdBy?: number;
 }
@@ -84,22 +94,26 @@ export function generateTelemarketingReportPDF(data: TelemarketingReportData): v
       `${medal}${op.name}`,
       op.leads.toString(),
       op.agendamentos.toString(),
+      (op.leadsScouter || 0).toString(),
+      (op.leadsMeta || 0).toString(),
       `${taxa}%`
     ];
   });
   
   autoTable(doc, {
     startY: 90,
-    head: [['Operador', 'Leads', 'Agendados', 'Taxa']],
+    head: [['Operador', 'Leads', 'Agendados', 'Scouter', 'Meta', 'Taxa']],
     body: operatorRows,
     theme: 'striped',
     headStyles: { fillColor: [59, 130, 246], textColor: 255 },
     styles: { fontSize: 9 },
     columnStyles: {
-      0: { cellWidth: 80 },
-      1: { cellWidth: 30, halign: 'center' },
-      2: { cellWidth: 30, halign: 'center' },
-      3: { cellWidth: 30, halign: 'center' },
+      0: { cellWidth: 60 },
+      1: { cellWidth: 25, halign: 'center' },
+      2: { cellWidth: 25, halign: 'center' },
+      3: { cellWidth: 25, halign: 'center' },
+      4: { cellWidth: 25, halign: 'center' },
+      5: { cellWidth: 25, halign: 'center' },
     },
   });
   
@@ -129,6 +143,41 @@ export function generateTelemarketingReportPDF(data: TelemarketingReportData): v
       2: { cellWidth: 30, halign: 'center' },
     },
   });
+  
+  // Top 5 Scouters Section
+  if (data.scouterPerformance && data.scouterPerformance.length > 0) {
+    const scouterY = (doc as any).lastAutoTable.finalY || 150;
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0);
+    doc.text('TOP 5 SCOUTERS (POR AGENDAMENTOS)', 14, scouterY + 15);
+    
+    const scouterRows = data.scouterPerformance.map((s, idx) => {
+      const medal = idx === 0 ? '🥇 ' : idx === 1 ? '🥈 ' : idx === 2 ? '🥉 ' : '';
+      return [
+        `${medal}${s.name}`,
+        s.agendamentos.toString(),
+        s.totalLeads.toString(),
+        `${s.taxaConversao.toFixed(1)}%`
+      ];
+    });
+    
+    autoTable(doc, {
+      startY: scouterY + 20,
+      head: [['Scouter', 'Agendamentos', 'Leads', 'Conversão']],
+      body: scouterRows,
+      theme: 'striped',
+      headStyles: { fillColor: [20, 184, 166], textColor: 255 },
+      styles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 80 },
+        1: { cellWidth: 35, halign: 'center' },
+        2: { cellWidth: 35, halign: 'center' },
+        3: { cellWidth: 30, halign: 'center' },
+      },
+    });
+  }
   
   // Footer
   const pageHeight = doc.internal.pageSize.getHeight();

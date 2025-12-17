@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2, FileText, Users, Calendar, TrendingUp, AlertCircle } from 'lucide-react';
+import { Loader2, FileText, Users, Calendar, TrendingUp, AlertCircle, Trophy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getReportByShortCode, TelemarketingReportData } from '@/services/telemarketingReportService';
@@ -122,6 +122,8 @@ export default function TelemarketingReportPublic() {
                   <TableHead>Operador</TableHead>
                   <TableHead className="text-center">Leads</TableHead>
                   <TableHead className="text-center">Agendados</TableHead>
+                  <TableHead className="text-center">Scouter</TableHead>
+                  <TableHead className="text-center">Meta</TableHead>
                   <TableHead className="text-center">Taxa</TableHead>
                 </TableRow>
               </TableHeader>
@@ -138,6 +140,8 @@ export default function TelemarketingReportPublic() {
                       <TableCell className="text-center text-green-600 font-medium">
                         {op.agendamentos}
                       </TableCell>
+                      <TableCell className="text-center text-teal-600">{op.leadsScouter || 0}</TableCell>
+                      <TableCell className="text-center text-purple-600">{op.leadsMeta || 0}</TableCell>
                       <TableCell className="text-center">{taxa}%</TableCell>
                     </TableRow>
                   );
@@ -146,6 +150,43 @@ export default function TelemarketingReportPublic() {
             </Table>
           </CardContent>
         </Card>
+
+        {/* Top 5 Scouters */}
+        {report.scouterPerformance && report.scouterPerformance.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-teal-500" />
+                Top 5 Scouters (por Agendamentos)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Scouter</TableHead>
+                    <TableHead className="text-center">Agendamentos</TableHead>
+                    <TableHead className="text-center">Leads</TableHead>
+                    <TableHead className="text-center">Conversão</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {report.scouterPerformance.map((scouter, idx) => {
+                    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
+                    return (
+                      <TableRow key={scouter.name}>
+                        <TableCell className="font-medium">{medal} {scouter.name}</TableCell>
+                        <TableCell className="text-center text-teal-600 font-bold">{scouter.agendamentos}</TableCell>
+                        <TableCell className="text-center">{scouter.totalLeads}</TableCell>
+                        <TableCell className="text-center">{scouter.taxaConversao.toFixed(1)}%</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Tabulacao Distribution */}
         <Card>
