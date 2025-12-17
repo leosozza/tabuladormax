@@ -76,7 +76,6 @@ export function TelemarketingDashboardContent({
       date: format(new Date(), "dd/MM/yyyy", { locale: ptBR }),
       totalLeads,
       agendamentos: metrics?.agendamentos || 0,
-      fichasConfirmadas: metrics?.fichasConfirmadas || 0,
       taxaConversao: metrics?.taxaConversao || 0,
       operatorPerformance: (metrics?.operatorPerformance || []).map(op => ({
         name: op.name,
