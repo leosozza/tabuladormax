@@ -81,22 +81,37 @@ export function LeadsDetailModal({
                   <TableHead className="w-20">ID</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Telemarketing</TableHead>
+                  <TableHead>Fonte</TableHead>
+                  <TableHead>Scouter</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredLeads.map((lead) => {
                   const statusStyle = getEtapaStyle(lead.status);
+                  const isScouter = lead.fonte === 'Scouter - Fichas';
+                  const isMeta = lead.fonte === 'Meta';
                   return (
                     <TableRow key={lead.id}>
                       <TableCell className="font-mono text-xs">
                         {lead.id}
                       </TableCell>
-                      <TableCell className="font-medium max-w-[150px] truncate">
+                      <TableCell className="font-medium max-w-[120px] truncate">
                         {lead.name}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[120px] truncate">
+                      <TableCell className="text-sm text-muted-foreground max-w-[100px] truncate">
                         {lead.operatorName}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="secondary" 
+                          className={`text-xs ${isScouter ? 'bg-teal-500/20 text-teal-700 dark:text-teal-400' : isMeta ? 'bg-blue-500/20 text-blue-700 dark:text-blue-400' : 'bg-muted text-muted-foreground'}`}
+                        >
+                          {isScouter ? 'Scouter' : isMeta ? 'Meta' : lead.fonte}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm max-w-[100px] truncate">
+                        {lead.scouter || '-'}
                       </TableCell>
                       <TableCell>
                         <Badge 

@@ -369,6 +369,8 @@ export function TelemarketingDashboardContent({
                   <TableHead>Operador</TableHead>
                   <TableHead className="text-center">Agendamentos</TableHead>
                   <TableHead className="text-center">Leads</TableHead>
+                  <TableHead className="text-center">Scouter</TableHead>
+                  <TableHead className="text-center">Meta</TableHead>
                   <TableHead className="text-center">Conversão</TableHead>
                 </TableRow>
               </TableHeader>
@@ -386,6 +388,8 @@ export function TelemarketingDashboardContent({
                       <TableCell className="font-medium">{op.name}</TableCell>
                       <TableCell className="text-center text-orange-600 font-bold">{op.agendamentos}</TableCell>
                       <TableCell className="text-center">{op.leads}</TableCell>
+                      <TableCell className="text-center text-teal-600 dark:text-teal-400">{op.leadsScouter}</TableCell>
+                      <TableCell className="text-center text-blue-600 dark:text-blue-400">{op.leadsMeta}</TableCell>
                       <TableCell className="text-center">{taxa}%</TableCell>
                     </TableRow>
                   );
