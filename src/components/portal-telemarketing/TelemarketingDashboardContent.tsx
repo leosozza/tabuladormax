@@ -400,6 +400,47 @@ export function TelemarketingDashboardContent({
         </Card>
       )}
 
+      {/* Top 5 Scouters - Only for Supervisors */}
+      {isSupervisor && metrics?.scouterPerformance && metrics.scouterPerformance.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Trophy className="w-5 h-5 text-teal-500" />
+              Top 5 Scouters (por Agendamentos)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead>Scouter</TableHead>
+                  <TableHead className="text-center">Agendamentos</TableHead>
+                  <TableHead className="text-center">Leads</TableHead>
+                  <TableHead className="text-center">Conversão</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {metrics.scouterPerformance.map((scouter, index) => (
+                  <TableRow key={scouter.name}>
+                    <TableCell>
+                      {index === 0 && <Badge className="bg-yellow-500">🥇</Badge>}
+                      {index === 1 && <Badge className="bg-gray-400">🥈</Badge>}
+                      {index === 2 && <Badge className="bg-orange-600">🥉</Badge>}
+                      {index > 2 && <span className="text-muted-foreground">{index + 1}</span>}
+                    </TableCell>
+                    <TableCell className="font-medium">{scouter.name}</TableCell>
+                    <TableCell className="text-center text-teal-600 dark:text-teal-400 font-bold">{scouter.agendamentos}</TableCell>
+                    <TableCell className="text-center">{scouter.totalLeads}</TableCell>
+                    <TableCell className="text-center">{scouter.taxaConversao.toFixed(1)}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Empty state */}
       {metrics?.totalLeads === 0 && (
         <Card className="p-8 text-center">

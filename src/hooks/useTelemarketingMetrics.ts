@@ -39,6 +39,13 @@ export interface OperatorInfo {
   name: string;
 }
 
+export interface ScouterPerformance {
+  name: string;
+  agendamentos: number;
+  totalLeads: number;
+  taxaConversao: number;
+}
+
 interface TelemarketingMetrics {
   totalLeads: number;
   fichasConfirmadas: number;
@@ -53,6 +60,7 @@ interface TelemarketingMetrics {
     leadsScouter: number;
     leadsMeta: number;
   }[];
+  scouterPerformance: ScouterPerformance[];
   statusDistribution: {
     status: string;
     count: number;
@@ -270,12 +278,34 @@ export function useTelemarketingMetrics(
         }
       }
 
+      // Top 5 Scouters por agendamentos
+      const scouterMap = new Map<string, { leads: number; agendamentos: number }>();
+      leadsData.forEach(lead => {
+        if (lead.fonte_normalizada === 'Scouter - Fichas' && lead.scouter) {
+          const current = scouterMap.get(lead.scouter) || { leads: 0, agendamentos: 0 };
+          current.leads++;
+          if (isAgendado(lead.status_tabulacao)) current.agendamentos++;
+          scouterMap.set(lead.scouter, current);
+        }
+      });
+
+      const scouterPerformance: ScouterPerformance[] = Array.from(scouterMap.entries())
+        .map(([name, data]) => ({
+          name,
+          agendamentos: data.agendamentos,
+          totalLeads: data.leads,
+          taxaConversao: data.leads > 0 ? (data.agendamentos / data.leads) * 100 : 0,
+        }))
+        .sort((a, b) => b.agendamentos - a.agendamentos)
+        .slice(0, 5);
+
       return {
         totalLeads,
         fichasConfirmadas,
         agendamentos,
         taxaConversao,
         operatorPerformance,
+        scouterPerformance,
         statusDistribution,
         timeline,
         leadsDetails,
