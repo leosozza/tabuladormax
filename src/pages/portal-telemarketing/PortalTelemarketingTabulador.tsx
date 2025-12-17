@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import LeadTab from '@/pages/LeadTab';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Headset, Settings } from 'lucide-react';
 import { ScriptViewer } from '@/components/telemarketing/ScriptViewer';
 import { ScriptManager } from '@/components/telemarketing/ScriptManager';
@@ -10,6 +11,8 @@ import { NotificationSettings } from '@/components/telemarketing/NotificationSet
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeNotifications, useBrowserNotification } from '@/hooks/useTelemarketingNotifications';
+import { useOperatorRanking } from '@/hooks/useOperatorRanking';
+import UserMenu from '@/components/UserMenu';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -94,6 +97,9 @@ const PortalTelemarketingTabulador = () => {
     }
   })();
 
+  // Hook de ranking
+  const { position: rankingPosition, total: totalAgendados } = useOperatorRanking(context?.bitrix_id || null);
+
   // Ativar notificações em tempo real
   useRealtimeNotifications(context?.bitrix_id || null);
 
@@ -146,15 +152,15 @@ const PortalTelemarketingTabulador = () => {
     // Navegar para o lead/conversa quando clicar na notificação
     if (notification.lead_id) {
       console.log('Navigating to lead:', notification.lead_id);
-      // Aqui você pode implementar a navegação para o lead específico
     }
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header compacto - apenas se tiver contexto de operador */}
+      {/* Header unificado em uma única linha */}
       {context && (
-        <header className="border-b bg-card px-4 py-2 flex items-center gap-3">
+        <header className="sticky top-0 z-50 border-b bg-card px-4 py-2 flex items-center gap-3">
+          {/* Voltar */}
           <Button 
             variant="ghost" 
             size="sm"
@@ -164,28 +170,34 @@ const PortalTelemarketingTabulador = () => {
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </Button>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Headset className="w-4 h-4" />
-            <span>{context.name || 'Operador'}</span>
-            <span className="text-xs bg-muted px-2 py-0.5 rounded">
+          
+          {/* Nome e Cargo */}
+          <div className="flex items-center gap-2 text-sm">
+            <Headset className="w-4 h-4 text-muted-foreground" />
+            <span className="font-medium">{context.name || 'Operador'}</span>
+            <Badge variant="outline" className="text-xs">
               {context.cargo === 'supervisor' ? 'Supervisor' : 'Agente'}
-            </span>
+            </Badge>
           </div>
           
-          <div className="ml-auto flex items-center gap-2">
-            {/* Centro de Notificações */}
+          {/* Centro: Badge de Ranking */}
+          <div className="flex-1 flex justify-center">
+            {rankingPosition > 0 && (
+              <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                🏆 {rankingPosition}° colocado ({totalAgendados} agendados)
+              </Badge>
+            )}
+          </div>
+          
+          {/* Direita: Notificações, Script, UserMenu */}
+          <div className="flex items-center gap-2">
             <NotificationCenter 
               bitrixTelemarketingId={context.bitrix_id}
               onNotificationClick={handleNotificationClick}
             />
-            
-            {/* Configurações de Notificação */}
             <NotificationSettings />
-            
-            {/* Script Viewer - disponível para todos */}
             <ScriptViewer projectId={projectId} />
             
-            {/* Script Manager - apenas supervisores */}
             {isSupervisor && projectId && (
               <Dialog>
                 <DialogTrigger asChild>
@@ -202,6 +214,8 @@ const PortalTelemarketingTabulador = () => {
                 </DialogContent>
               </Dialog>
             )}
+            
+            <UserMenu showNameAndRole={false} />
           </div>
         </header>
       )}
