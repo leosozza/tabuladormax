@@ -29,8 +29,13 @@ import type {
   FlowStepUpdateContact,
   FlowStepAddLabel,
   FlowStepAssignAgent,
-  FlowStepAssignTeam
+  FlowStepAssignTeam,
+  FlowStepBitrixGetField,
+  FlowStepGupshupSendText,
+  FlowStepGupshupSendImage,
+  FlowStepGupshupSendButtons
 } from '@/types/flow';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface NodeConfigPanelProps {
   selectedNode: Node | null;
@@ -165,6 +170,26 @@ export function NodeConfigPanel({ selectedNode, onUpdate, onDelete }: NodeConfig
               {/* Assign Team */}
               {step.type === 'assign_team' && (
                 <AssignTeamConfig step={step as FlowStepAssignTeam} updateConfig={updateConfig} />
+              )}
+
+              {/* Bitrix Get Field */}
+              {step.type === 'bitrix_get_field' && (
+                <BitrixGetFieldConfig step={step as FlowStepBitrixGetField} updateConfig={updateConfig} />
+              )}
+
+              {/* Gupshup Send Text */}
+              {step.type === 'gupshup_send_text' && (
+                <GupshupSendTextConfig step={step as FlowStepGupshupSendText} updateConfig={updateConfig} />
+              )}
+
+              {/* Gupshup Send Image */}
+              {step.type === 'gupshup_send_image' && (
+                <GupshupSendImageConfig step={step as FlowStepGupshupSendImage} updateConfig={updateConfig} />
+              )}
+
+              {/* Gupshup Send Buttons */}
+              {step.type === 'gupshup_send_buttons' && (
+                <GupshupSendButtonsConfig step={step as FlowStepGupshupSendButtons} updateConfig={updateConfig} />
               )}
             </div>
           </div>
@@ -740,6 +765,159 @@ function AssignTeamConfig({ step, updateConfig }: { step: FlowStepAssignTeam; up
           placeholder="456"
           className="text-sm"
         />
+      </div>
+    </div>
+  );
+}
+
+function BitrixGetFieldConfig({ step, updateConfig }: { step: FlowStepBitrixGetField; updateConfig: (key: string, value: any) => void }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">Nome do Campo Bitrix *</Label>
+        <Input
+          value={step.config.field_name || ''}
+          onChange={(e) => updateConfig('field_name', e.target.value)}
+          placeholder="UF_CRM_1762971213"
+          className="text-sm"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          ID do campo no Bitrix (ex: UF_CRM_...)
+        </p>
+      </div>
+      <div>
+        <Label className="text-xs">Variável de Saída *</Label>
+        <Input
+          value={step.config.output_variable || ''}
+          onChange={(e) => updateConfig('output_variable', e.target.value)}
+          placeholder="credencial_url"
+          className="text-sm"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Nome da variável para usar em steps seguintes: {'{{credencial_url}}'}
+        </p>
+      </div>
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="is_file"
+          checked={step.config.is_file || false}
+          onCheckedChange={(checked) => updateConfig('is_file', checked)}
+        />
+        <Label htmlFor="is_file" className="text-xs">
+          É um arquivo (converter ID → URL pública)
+        </Label>
+      </div>
+    </div>
+  );
+}
+
+function GupshupSendTextConfig({ step, updateConfig }: { step: FlowStepGupshupSendText; updateConfig: (key: string, value: any) => void }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">Mensagem *</Label>
+        <Textarea
+          value={step.config.message || ''}
+          onChange={(e) => updateConfig('message', e.target.value)}
+          placeholder="Olá {{name}}! Sua credencial está pronta."
+          rows={4}
+          className="text-sm"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Suporta variáveis: {'{{name}}, {{phone}}, {{credencial_url}}'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function GupshupSendImageConfig({ step, updateConfig }: { step: FlowStepGupshupSendImage; updateConfig: (key: string, value: any) => void }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">URL da Imagem *</Label>
+        <Input
+          value={step.config.image_url || ''}
+          onChange={(e) => updateConfig('image_url', e.target.value)}
+          placeholder="{{credencial_url}} ou https://..."
+          className="text-sm"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          URL direta da imagem ou variável: {'{{credencial_url}}'}
+        </p>
+      </div>
+      <div>
+        <Label className="text-xs">Legenda (opcional)</Label>
+        <Input
+          value={step.config.caption || ''}
+          onChange={(e) => updateConfig('caption', e.target.value)}
+          placeholder="Sua credencial"
+          className="text-sm"
+        />
+      </div>
+    </div>
+  );
+}
+
+function GupshupSendButtonsConfig({ step, updateConfig }: { step: FlowStepGupshupSendButtons; updateConfig: (key: string, value: any) => void }) {
+  const buttons = step.config.buttons || [];
+
+  const addButton = () => {
+    const newButtons = [...buttons, { id: `btn_${buttons.length + 1}`, title: '' }];
+    updateConfig('buttons', newButtons);
+  };
+
+  const updateButton = (index: number, field: string, value: string) => {
+    const newButtons = [...buttons];
+    newButtons[index] = { ...newButtons[index], [field]: value };
+    updateConfig('buttons', newButtons);
+  };
+
+  const removeButton = (index: number) => {
+    updateConfig('buttons', buttons.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">Mensagem *</Label>
+        <Textarea
+          value={step.config.message || ''}
+          onChange={(e) => updateConfig('message', e.target.value)}
+          placeholder="Escolha uma opção:"
+          rows={3}
+          className="text-sm"
+        />
+      </div>
+      <div>
+        <Label className="text-xs">Botões (máx. 3)</Label>
+        {buttons.map((button, index) => (
+          <Card key={index} className="p-2 mt-2">
+            <div className="flex gap-2 items-center">
+              <Input
+                value={button.id}
+                onChange={(e) => updateButton(index, 'id', e.target.value)}
+                placeholder="ID"
+                className="text-sm w-24"
+              />
+              <Input
+                value={button.title}
+                onChange={(e) => updateButton(index, 'title', e.target.value)}
+                placeholder="Texto do botão"
+                className="text-sm flex-1"
+              />
+              <Button variant="ghost" size="sm" onClick={() => removeButton(index)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </Card>
+        ))}
+        {buttons.length < 3 && (
+          <Button variant="outline" size="sm" className="mt-2 w-full" onClick={addButton}>
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar Botão
+          </Button>
+        )}
       </div>
     </div>
   );
