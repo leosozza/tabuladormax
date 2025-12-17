@@ -1,8 +1,8 @@
 import { useNavigate, Navigate, useLocation } from 'react-router-dom';
-import Dashboard from '@/pages/Dashboard';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
+import { TelemarketingDashboardContent } from '@/components/portal-telemarketing/TelemarketingDashboardContent';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -23,74 +23,35 @@ const PortalTelemarketingDashboard = () => {
 
   // Inicialização SÍNCRONA - lê do localStorage no primeiro render
   const context = (() => {
-    const prefix = '[TM][Dashboard]';
-    console.groupCollapsed(`${prefix} init`, {
-      path: location.pathname,
-      search: location.search,
-      href: typeof window !== 'undefined' ? window.location.href : undefined,
-      referrer: typeof document !== 'undefined' ? document.referrer : undefined,
-    });
-
-    let result: TelemarketingContext | null = null;
-
     try {
-      const keys = Object.keys(localStorage);
-      console.log(`${prefix} localStorage keys`, keys);
-
       const savedContext = localStorage.getItem('telemarketing_context');
-      console.log(`${prefix} telemarketing_context raw`, savedContext);
-
       if (savedContext) {
-        result = JSON.parse(savedContext) as TelemarketingContext;
-        console.log(`${prefix} telemarketing_context parsed`, result);
-        return result;
+        return JSON.parse(savedContext) as TelemarketingContext;
       }
 
       const savedOperator = localStorage.getItem('telemarketing_operator');
-      console.log(`${prefix} telemarketing_operator raw`, savedOperator);
-
       if (savedOperator) {
         const operator = JSON.parse(savedOperator) as StoredTelemarketingOperator;
-        console.log(`${prefix} telemarketing_operator parsed`, operator);
-
         const ctx: TelemarketingContext = {
           bitrix_id: operator.bitrix_id,
           cargo: operator.cargo,
           name: operator.operator_name,
         };
-
-        // Salvar contexto para próximos acessos
         localStorage.setItem('telemarketing_context', JSON.stringify(ctx));
-        console.log(`${prefix} context persisted`, ctx);
-
-        result = ctx;
-        return result;
+        return ctx;
       }
 
-      console.warn(`${prefix} no session data found`);
-      result = null;
-      return result;
-    } catch (e) {
-      console.error(`${prefix} error reading session`, e);
-      try {
-        localStorage.removeItem('telemarketing_context');
-        localStorage.removeItem('telemarketing_operator');
-        console.warn(`${prefix} cleared corrupted localStorage keys`);
-      } catch (clearErr) {
-        console.error(`${prefix} error clearing localStorage`, clearErr);
-      }
-      result = null;
-      return result;
-    } finally {
-      console.log(`${prefix} final context`, result);
-      console.groupEnd();
+      return null;
+    } catch {
+      localStorage.removeItem('telemarketing_context');
+      localStorage.removeItem('telemarketing_operator');
+      return null;
     }
   })();
 
-  // Se não tem contexto, redireciona para login com deep-link
+  // Se não tem contexto, redireciona para login
   if (!context) {
     const redirectTarget = `${location.pathname}${location.search}`;
-    console.warn('[TM][Dashboard] redirecting to login', { redirectTarget });
     return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }
 
@@ -116,9 +77,9 @@ const PortalTelemarketingDashboard = () => {
     .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen flex flex-col bg-background">
       {/* Header compacto */}
-      <header className="border-b bg-card px-4 py-2 flex items-center gap-3">
+      <header className="border-b bg-card px-4 py-2 flex items-center gap-3 flex-shrink-0">
         <Button 
           variant="ghost" 
           size="sm"
@@ -152,9 +113,12 @@ const PortalTelemarketingDashboard = () => {
         </div>
       </header>
 
-      {/* Renderizar Dashboard */}
-      <div className="flex-1">
-        <Dashboard />
+      {/* Dashboard Content */}
+      <div className="flex-1 overflow-auto">
+        <TelemarketingDashboardContent 
+          operatorBitrixId={context.bitrix_id}
+          operatorCargo={context.cargo}
+        />
       </div>
     </div>
   );
