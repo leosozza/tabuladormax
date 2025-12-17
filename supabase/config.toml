@@ -266,3 +266,6 @@ verify_jwt = false
 
 [functions.bitrix-template-webhook]
 verify_jwt = false
+
+[functions.register-external-message]
+verify_jwt = false
