@@ -254,6 +254,78 @@ export type Database = {
           },
         ]
       }
+      ai_training_suggestions: {
+        Row: {
+          commercial_project_id: string | null
+          confidence_score: number | null
+          created_at: string
+          created_instruction_id: string | null
+          frequency_count: number | null
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sample_questions: Json | null
+          source_data: Json | null
+          source_type: string | null
+          status: string | null
+          suggested_category: string | null
+          suggested_content: string
+          suggested_title: string
+          updated_at: string
+        }
+        Insert: {
+          commercial_project_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          created_instruction_id?: string | null
+          frequency_count?: number | null
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sample_questions?: Json | null
+          source_data?: Json | null
+          source_type?: string | null
+          status?: string | null
+          suggested_category?: string | null
+          suggested_content: string
+          suggested_title: string
+          updated_at?: string
+        }
+        Update: {
+          commercial_project_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          created_instruction_id?: string | null
+          frequency_count?: number | null
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sample_questions?: Json | null
+          source_data?: Json | null
+          source_type?: string | null
+          status?: string | null
+          suggested_category?: string | null
+          suggested_content?: string
+          suggested_title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_training_suggestions_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_training_suggestions_created_instruction_id_fkey"
+            columns: ["created_instruction_id"]
+            isOneToOne: false
+            referencedRelation: "ai_training_instructions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_key_usage_logs: {
         Row: {
           api_key_id: string | null
@@ -1144,6 +1216,62 @@ export type Database = {
           value?: Json | null
         }
         Relationships: []
+      }
+      conversation_analysis_jobs: {
+        Row: {
+          analysis_results: Json | null
+          commercial_project_id: string | null
+          completed_at: string | null
+          conversations_analyzed: number | null
+          created_at: string
+          created_by: string | null
+          date_range_end: string | null
+          date_range_start: string | null
+          error_message: string | null
+          id: string
+          started_at: string | null
+          status: string | null
+          suggestions_generated: number | null
+        }
+        Insert: {
+          analysis_results?: Json | null
+          commercial_project_id?: string | null
+          completed_at?: string | null
+          conversations_analyzed?: number | null
+          created_at?: string
+          created_by?: string | null
+          date_range_end?: string | null
+          date_range_start?: string | null
+          error_message?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string | null
+          suggestions_generated?: number | null
+        }
+        Update: {
+          analysis_results?: Json | null
+          commercial_project_id?: string | null
+          completed_at?: string | null
+          conversations_analyzed?: number | null
+          created_at?: string
+          created_by?: string | null
+          date_range_end?: string | null
+          date_range_start?: string | null
+          error_message?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string | null
+          suggestions_generated?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_analysis_jobs_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversation_label_assignments: {
         Row: {

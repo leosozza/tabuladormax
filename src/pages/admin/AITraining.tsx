@@ -4,7 +4,8 @@ import { DocumentUpload } from '@/components/admin/DocumentUpload';
 import { InstructionForm } from '@/components/admin/InstructionForm';
 import { TrainingList } from '@/components/admin/TrainingList';
 import { ContextPreview } from '@/components/admin/ContextPreview';
-import { Brain, Upload, FileText, List, Eye } from 'lucide-react';
+import { ConversationAnalysis } from '@/components/admin/ConversationAnalysis';
+import { Brain, Upload, FileText, List, Eye, Sparkles } from 'lucide-react';
 
 export default function AITraining() {
   return (
@@ -32,7 +33,7 @@ export default function AITraining() {
 
         {/* Tabs */}
         <Tabs defaultValue="upload" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="upload" className="flex items-center gap-2">
               <Upload className="w-4 h-4" />
               <span className="hidden sm:inline">Upload</span>
@@ -44,6 +45,10 @@ export default function AITraining() {
             <TabsTrigger value="manage" className="flex items-center gap-2">
               <List className="w-4 h-4" />
               <span className="hidden sm:inline">Gerenciar</span>
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Análise</span>
             </TabsTrigger>
             <TabsTrigger value="preview" className="flex items-center gap-2">
               <Eye className="w-4 h-4" />
@@ -88,6 +93,19 @@ export default function AITraining() {
               </p>
             </div>
             <TrainingList />
+          </TabsContent>
+
+          <TabsContent value="analysis" className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Análise Inteligente de Conversas
+              </h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                O sistema analisa automaticamente as conversas do bot e sugere novas instruções
+                de treinamento baseado em padrões identificados e perguntas frequentes.
+              </p>
+            </div>
+            <ConversationAnalysis />
           </TabsContent>
 
           <TabsContent value="preview" className="space-y-4">
