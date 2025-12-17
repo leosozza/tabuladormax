@@ -158,14 +158,30 @@ export function useTelemarketingMetrics(
         query = query.eq('bitrix_telemarketing_id', operatorId);
       }
 
-      const { data: leads, error } = await query;
+      // Separate query for comparecimentos - includes ALL leads (even without operator)
+      // because comparecidos might not have bitrix_telemarketing_id assigned
+      let comparecimentosQuery = supabase
+        .from('leads')
+        .select('id, name, nome_modelo, scouter, telemarketing, bitrix_telemarketing_id, raw')
+        .gte('date_modify', startStr)
+        .lte('date_modify', endStr);
 
-      if (error) {
-        console.error('Error fetching metrics:', error);
-        throw error;
+      if (operatorId) {
+        comparecimentosQuery = comparecimentosQuery.eq('bitrix_telemarketing_id', operatorId);
       }
 
-      const leadsData = leads || [];
+      const [leadsResult, comparecimentosResult] = await Promise.all([
+        query,
+        comparecimentosQuery
+      ]);
+
+      if (leadsResult.error) {
+        console.error('Error fetching metrics:', leadsResult.error);
+        throw leadsResult.error;
+      }
+
+      const leadsData = leadsResult.data || [];
+      const allLeadsForComparecimentos = comparecimentosResult.data || [];
 
       // Calculate metrics
       const totalLeads = leadsData.length;
@@ -225,7 +241,8 @@ export function useTelemarketingMetrics(
 
       // Calculate comparecimentos (UF_CRM_1746816298253 = '1' means attended)
       // Use UF_CRM_DATACOMPARECEU for the attendance date
-      const comparecimentosLeads = leadsData.filter(lead => {
+      // Uses allLeadsForComparecimentos which includes leads without bitrix_telemarketing_id
+      const comparecimentosLeads = allLeadsForComparecimentos.filter(lead => {
         const presencaConfirmada = getRawField(lead.raw, 'UF_CRM_1746816298253');
         if (presencaConfirmada !== '1') return false;
         
