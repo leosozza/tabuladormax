@@ -16,6 +16,7 @@ export interface TelemarketingConversation {
   unread_count: number;
   windowStatus: WindowStatus;
   telemarketing_name?: string;
+  conversation_id?: number;
 }
 
 interface UseTelemarketingConversationsOptions {
@@ -61,7 +62,8 @@ export function useTelemarketingConversations(
             telefone_casa,
             telefone_trabalho,
             bitrix_telemarketing_id,
-            telemarketing
+            telemarketing,
+            conversation_id
           `)
           .eq('commercial_project_id', commercialProjectId)
           .not('bitrix_telemarketing_id', 'is', null)
@@ -83,7 +85,8 @@ export function useTelemarketingConversations(
             telefone_casa,
             telefone_trabalho,
             bitrix_telemarketing_id,
-            telemarketing
+            telemarketing,
+            conversation_id
           `)
           .eq('bitrix_telemarketing_id', bitrixTelemarketingId)
           .order('updated_at', { ascending: false });
@@ -189,6 +192,7 @@ export function useTelemarketingConversations(
             unread_count: stats.unread_count,
             windowStatus,
             telemarketing_name: lead.telemarketing || undefined,
+            conversation_id: lead.conversation_id || undefined,
           };
         }
       });

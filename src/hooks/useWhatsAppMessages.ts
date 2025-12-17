@@ -77,9 +77,12 @@ const releaseSendLock = () => {
 export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   const { bitrixId, phoneNumber, conversationId } = options;
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
+  const [bitrixMessages, setBitrixMessages] = useState<WhatsAppMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingBitrix, setLoadingBitrix] = useState(false);
   const [sending, setSending] = useState(false);
   const [rateLimitedUntil, setRateLimitedUntil] = useState<number>(0);
+  const [usingBitrixFallback, setUsingBitrixFallback] = useState(false);
   
   const lastSendTimeRef = useRef<number>(0);
   const sendCountRef = useRef<number>(0);
@@ -116,10 +119,66 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     return Date.now() < rateLimitedUntil;
   }, [rateLimitedUntil]);
 
+  // Buscar mensagens do Bitrix via sessionId
+  const fetchBitrixMessages = useCallback(async (sessionId: number) => {
+    if (!sessionId) return;
+    
+    setLoadingBitrix(true);
+    logDebug('Fetching messages from Bitrix', { sessionId });
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('bitrix-openline-messages', {
+        body: {
+          action: 'fetch',
+          sessionId: sessionId,
+        },
+      });
+
+      if (error) {
+        console.error('Erro ao buscar mensagens do Bitrix:', error);
+        return;
+      }
+
+      if (data?.messages && Array.isArray(data.messages)) {
+        // Converter mensagens do Bitrix para formato WhatsApp
+        const convertedMessages: WhatsAppMessage[] = data.messages.map((msg: any) => ({
+          id: `bitrix-${msg.id}`,
+          phone_number: phoneNumber?.replace(/\D/g, '') || '',
+          bitrix_id: bitrixId || null,
+          conversation_id: sessionId,
+          gupshup_message_id: null,
+          direction: msg.message_type === 'incoming' ? 'inbound' : 'outbound',
+          message_type: 'text',
+          content: msg.content,
+          template_name: null,
+          status: 'delivered' as const,
+          sent_by: msg.message_type === 'incoming' ? null : 'bitrix',
+          sender_name: msg.sender?.name || (msg.message_type === 'incoming' ? 'Cliente' : 'Agente'),
+          media_url: null,
+          media_type: null,
+          created_at: new Date(msg.created_at * 1000).toISOString(),
+          delivered_at: null,
+          read_at: null,
+        }));
+
+        setBitrixMessages(convertedMessages);
+        setUsingBitrixFallback(true);
+        logDebug('Bitrix messages loaded', { count: convertedMessages.length });
+      }
+    } catch (error) {
+      console.error('Error fetching Bitrix messages:', error);
+    } finally {
+      setLoadingBitrix(false);
+    }
+  }, [bitrixId, phoneNumber]);
+
   const fetchMessages = useCallback(async () => {
     if (!bitrixId && !phoneNumber && !conversationId) return;
 
     setLoading(true);
+    setUsingBitrixFallback(false);
+    setBitrixMessages([]);
+    
     try {
       let query = supabase
         .from('whatsapp_messages')
@@ -143,14 +202,21 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         return;
       }
 
-      setMessages((data || []) as WhatsAppMessage[]);
+      const supabaseMessages = (data || []) as WhatsAppMessage[];
+      setMessages(supabaseMessages);
+      
+      // Se não há mensagens no Supabase mas temos conversationId, buscar do Bitrix
+      if (supabaseMessages.length === 0 && conversationId) {
+        logDebug('No Supabase messages, trying Bitrix fallback', { conversationId });
+        await fetchBitrixMessages(conversationId);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast.error('Erro ao carregar mensagens');
     } finally {
       setLoading(false);
     }
-  }, [bitrixId, phoneNumber, conversationId]);
+  }, [bitrixId, phoneNumber, conversationId, fetchBitrixMessages]);
 
   // Handler de erro com cooldown
   const handleSendError = useCallback((error: any, context: string) => {
@@ -688,9 +754,12 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     }
   }, [bitrixId, phoneNumber, conversationId]);
 
+  // Combinar mensagens: Supabase tem prioridade, fallback para Bitrix
+  const allMessages = messages.length > 0 ? messages : bitrixMessages;
+
   return {
-    messages,
-    loading,
+    messages: allMessages,
+    loading: loading || loadingBitrix,
     sending,
     rateLimitedUntil,
     getCooldownRemaining,
@@ -700,5 +769,6 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     sendMedia,
     sendTemplate,
     markAsRead,
+    usingBitrixFallback,
   };
 };

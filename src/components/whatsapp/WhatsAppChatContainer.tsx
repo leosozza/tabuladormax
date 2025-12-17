@@ -44,7 +44,8 @@ export function WhatsAppChatContainer({
     sendMessage,
     sendMedia,
     sendTemplate,
-    markAsRead
+    markAsRead,
+    usingBitrixFallback
   } = useWhatsAppMessages({ bitrixId, phoneNumber, conversationId });
 
   const { data: gupshupWindowStatus, refetch: refetchWindowStatus } = useGupshupWindowStatus({
@@ -186,7 +187,7 @@ export function WhatsAppChatContainer({
         >
           {/* Message list - scrollable area */}
           <div className="flex-1 overflow-y-auto">
-            <WhatsAppMessageList messages={messages} loading={loading} />
+            <WhatsAppMessageList messages={messages} loading={loading} usingBitrixFallback={usingBitrixFallback} />
           </div>
 
           {/* Closed window warning */}
