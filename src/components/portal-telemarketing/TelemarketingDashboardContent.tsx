@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Phone, Calendar, TrendingUp, Trophy, Loader2 } from 'lucide-react';
 import { ApexBarChart } from '@/components/dashboard/charts/ApexBarChart';
-import { ApexDonutChart } from '@/components/dashboard/charts/ApexDonutChart';
+import { ApexHorizontalBarChart } from '@/components/dashboard/charts/ApexHorizontalBarChart';
 import { ApexLineChart } from '@/components/dashboard/charts/ApexLineChart';
 import { useTelemarketingMetrics, PeriodFilter } from '@/hooks/useTelemarketingMetrics';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -197,11 +197,11 @@ export function TelemarketingDashboardContent({
           />
         )}
 
-        {/* Donut Chart - Status Distribution */}
+        {/* Horizontal Bar Chart - Status Distribution */}
         {donutLabels.length > 0 && (
-          <ApexDonutChart
+          <ApexHorizontalBarChart
             title="Distribuição de Status"
-            labels={donutLabels}
+            categories={donutLabels}
             series={donutSeries}
             height={300}
           />
