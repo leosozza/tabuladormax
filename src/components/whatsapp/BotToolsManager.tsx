@@ -20,6 +20,7 @@ import {
   useUpdateAgentTool, 
   useDeleteAgentTool,
   TOOL_TEMPLATES,
+  BITRIX_API_METHODS,
   type AgentTool 
 } from '@/hooks/useAIProviders';
 import { toast } from 'sonner';
@@ -30,10 +31,11 @@ interface BotToolsManagerProps {
   onAvailableToolsChange: (tools: string[]) => void;
 }
 
-const TOOL_TYPE_CONFIG = {
+const TOOL_TYPE_CONFIG: Record<string, { icon: typeof Webhook; label: string; color: string }> = {
   webhook: { icon: Webhook, label: 'Webhook', color: 'bg-blue-500' },
   bitrix_update: { icon: Database, label: 'Bitrix Update', color: 'bg-orange-500' },
   bitrix_get: { icon: Database, label: 'Bitrix Get', color: 'bg-orange-500' },
+  bitrix_api: { icon: Database, label: 'Bitrix API', color: 'bg-amber-500' },
   supabase_query: { icon: Database, label: 'Supabase', color: 'bg-green-500' },
   n8n_workflow: { icon: Workflow, label: 'n8n', color: 'bg-purple-500' },
   send_template: { icon: MessageSquare, label: 'Template', color: 'bg-cyan-500' },
@@ -268,9 +270,10 @@ export function BotToolsManager({ projectId, availableTools, onAvailableToolsCha
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="bitrix_api">🔥 Bitrix API (Novo)</SelectItem>
                           <SelectItem value="webhook">Webhook Externo</SelectItem>
-                          <SelectItem value="bitrix_update">Atualizar Bitrix</SelectItem>
-                          <SelectItem value="bitrix_get">Buscar do Bitrix</SelectItem>
+                          <SelectItem value="bitrix_update">Atualizar Bitrix (Legado)</SelectItem>
+                          <SelectItem value="bitrix_get">Buscar do Bitrix (Legado)</SelectItem>
                           <SelectItem value="supabase_query">Consulta Supabase</SelectItem>
                           <SelectItem value="n8n_workflow">Workflow n8n</SelectItem>
                           <SelectItem value="transfer_human">Transferir para Humano</SelectItem>
@@ -322,6 +325,82 @@ export function BotToolsManager({ projectId, availableTools, onAvailableToolsCha
                                     </Select>
                                   </div>
                                 )}
+                              </>
+                            )}
+
+                            {formData.tool_type === 'bitrix_api' && (
+                              <>
+                                <div className="space-y-2">
+                                  <Label>Método da API Bitrix</Label>
+                                  <Select
+                                    value={(formData.config.method as string) || ''}
+                                    onValueChange={(value) => setFormData(prev => ({
+                                      ...prev,
+                                      config: { ...prev.config, method: value },
+                                    }))}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Selecione um método" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Object.entries(
+                                        BITRIX_API_METHODS.reduce((acc, m) => {
+                                          if (!acc[m.category]) acc[m.category] = [];
+                                          acc[m.category].push(m);
+                                          return acc;
+                                        }, {} as Record<string, typeof BITRIX_API_METHODS>)
+                                      ).map(([category, methods]) => (
+                                        <div key={category}>
+                                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">
+                                            {category}
+                                          </div>
+                                          {methods.map((m) => (
+                                            <SelectItem key={m.value} value={m.value}>
+                                              {m.label}
+                                            </SelectItem>
+                                          ))}
+                                        </div>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>URL Base do Bitrix (opcional)</Label>
+                                  <Input
+                                    value={(formData.config.base_url as string) || ''}
+                                    onChange={(e) => setFormData(prev => ({
+                                      ...prev,
+                                      config: { ...prev.config, base_url: e.target.value },
+                                    }))}
+                                    placeholder="https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr"
+                                  />
+                                  <p className="text-xs text-muted-foreground">
+                                    Deixe vazio para usar URL padrão do sistema
+                                  </p>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Parâmetros Fixos (JSON)</Label>
+                                  <Textarea
+                                    value={JSON.stringify(formData.config.params || {}, null, 2)}
+                                    onChange={(e) => {
+                                      try {
+                                        const parsed = JSON.parse(e.target.value);
+                                        setFormData(prev => ({
+                                          ...prev,
+                                          config: { ...prev.config, params: parsed },
+                                        }));
+                                      } catch {
+                                        // Ignorar JSON inválido durante digitação
+                                      }
+                                    }}
+                                    rows={3}
+                                    className="font-mono text-xs"
+                                    placeholder='{"type": "user", "ownerId": 1}'
+                                  />
+                                  <p className="text-xs text-muted-foreground">
+                                    Parâmetros que sempre serão enviados. Ex: tipo, ID do responsável
+                                  </p>
+                                </div>
                               </>
                             )}
 

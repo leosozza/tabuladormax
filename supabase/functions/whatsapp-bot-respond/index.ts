@@ -152,6 +152,65 @@ async function executeAgentTool(
         break;
       }
 
+      case 'bitrix_api': {
+        // Novo tipo genérico para qualquer endpoint Bitrix
+        const baseUrl = (tool.config.base_url as string) || 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr';
+        const method = tool.config.method as string;
+        
+        if (!method) {
+          throw new Error('Método da API Bitrix não configurado');
+        }
+
+        // Combinar parâmetros fixos (config.params) + dinâmicos (args) + contexto
+        const fixedParams = (tool.config.params as Record<string, unknown>) || {};
+        
+        // Preparar parâmetros baseados no método
+        let params: Record<string, unknown> = {
+          ...fixedParams,
+          ...args,
+        };
+
+        // Injetar contexto automaticamente para métodos de CRM
+        if (method.startsWith('crm.lead') && context.lead_id && !params.id && !params.ID) {
+          params.id = context.lead_id;
+        }
+        if (method.startsWith('crm.activity') && context.lead_id) {
+          if (!params.OWNER_ID) params.OWNER_ID = context.lead_id;
+          if (!params.OWNER_TYPE_ID) params.OWNER_TYPE_ID = 1; // 1 = Lead
+        }
+
+        // Tratamento especial para busca de produto por nome
+        if (method === 'crm.product.list' && args.nome) {
+          params = {
+            ...params,
+            filter: { '%NAME': args.nome },
+            select: ['ID', 'NAME', 'DESCRIPTION', 'PRICE', 'CURRENCY_ID', 'ACTIVE'],
+          };
+          delete params.nome;
+        }
+
+        console.log(`[executeAgentTool] Calling Bitrix API: ${baseUrl}/${method}`, params);
+
+        const response = await fetch(`${baseUrl}/${method}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params),
+        });
+
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(`Bitrix API error: ${data.error_description || data.error}`);
+        }
+
+        result = data.result || data;
+        success = response.ok && !data.error;
+
+        // Log adicional para debug
+        console.log(`[executeAgentTool] Bitrix API result:`, JSON.stringify(result).substring(0, 500));
+        break;
+      }
+
       case 'supabase_query': {
         const table = tool.config.table as string;
         const operation = (tool.config.operation as string) || 'select';
