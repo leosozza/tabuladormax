@@ -22,6 +22,11 @@ export interface TabulacaoGroup {
   count: number;
 }
 
+export interface OperatorInfo {
+  bitrix_id: number;
+  name: string;
+}
+
 interface TelemarketingMetrics {
   totalLeads: number;
   fichasConfirmadas: number;
@@ -29,6 +34,7 @@ interface TelemarketingMetrics {
   taxaConversao: number;
   operatorPerformance: {
     name: string;
+    bitrix_id?: number;
     leads: number;
     confirmadas: number;
     agendamentos: number;
@@ -45,6 +51,8 @@ interface TelemarketingMetrics {
   // New: Lead details for modal
   leadsDetails: LeadDetail[];
   tabulacaoGroups: TabulacaoGroup[];
+  // List of available operators for filtering
+  availableOperators: OperatorInfo[];
 }
 
 function getDateRange(period: PeriodFilter): { start: Date; end: Date } {
@@ -129,21 +137,23 @@ export function useTelemarketingMetrics(
         };
       });
 
-      // Group by operator using friendly names
-      const operatorMap = new Map<string, { leads: number; confirmadas: number; agendamentos: number }>();
+      // Group by operator using friendly names and track bitrix_id
+      const operatorMap = new Map<number, { name: string; leads: number; confirmadas: number; agendamentos: number }>();
       leadsData.forEach(lead => {
         const opId = lead.bitrix_telemarketing_id;
-        const opName = opId ? (operatorNameMap.get(opId) || `Operador ${opId}`) : 'Não atribuído';
-        const current = operatorMap.get(opName) || { leads: 0, confirmadas: 0, agendamentos: 0 };
+        if (!opId) return; // Skip leads without operator
+        
+        const opName = operatorNameMap.get(opId) || `Operador ${opId}`;
+        const current = operatorMap.get(opId) || { name: opName, leads: 0, confirmadas: 0, agendamentos: 0 };
         current.leads++;
         if (lead.ficha_confirmada) current.confirmadas++;
         if (lead.data_agendamento) current.agendamentos++;
-        operatorMap.set(opName, current);
+        operatorMap.set(opId, current);
       });
 
       // Sort by agendamentos first, then conversion rate
       const operatorPerformance = Array.from(operatorMap.entries())
-        .map(([name, data]) => ({ name, ...data }))
+        .map(([bitrix_id, data]) => ({ bitrix_id, ...data }))
         .sort((a, b) => {
           // First sort by agendamentos
           if (b.agendamentos !== a.agendamentos) {
@@ -155,6 +165,12 @@ export function useTelemarketingMetrics(
           return taxaB - taxaA;
         })
         .slice(0, 10);
+      
+      // Build available operators list from the operators table
+      const availableOperators: OperatorInfo[] = (operators || [])
+        .filter(op => op.bitrix_id && op.name)
+        .map(op => ({ bitrix_id: op.bitrix_id!, name: op.name! }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
       // Status distribution with friendly labels
       const statusMap = new Map<string, number>();
@@ -237,6 +253,7 @@ export function useTelemarketingMetrics(
         timeline,
         leadsDetails,
         tabulacaoGroups,
+        availableOperators,
       };
     },
     refetchInterval: 60000, // Refresh every minute
