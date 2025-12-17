@@ -49,6 +49,13 @@ export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
           </div>
         )}
 
+        {/* Button reply badge */}
+        {message.message_type === 'button_reply' && (
+          <div className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded px-2 py-0.5 mb-1 inline-flex items-center gap-1">
+            👆 Clicou no botão:
+          </div>
+        )}
+
         {/* Content */}
         <div className="whitespace-pre-wrap">{message.content}</div>
 
