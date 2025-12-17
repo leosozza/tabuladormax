@@ -8,7 +8,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   ArrowLeft, 
   Users, 
-  FileText, 
   Bot, 
   GraduationCap, 
   Play,
@@ -17,7 +16,7 @@ import {
   Hash
 } from 'lucide-react';
 import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
-import { useAllGupshupTemplates } from '@/hooks/useGupshupTemplates';
+
 import { BotConfig } from '@/components/whatsapp/BotConfig';
 import { BotTraining } from '@/components/whatsapp/BotTraining';
 import { BotPlayground } from '@/components/whatsapp/BotPlayground';
@@ -46,7 +45,7 @@ const PortalTelemarketingEquipe = () => {
   const { data: teamData, isLoading: loadingTeam } = useSupervisorTeam(
     context?.commercial_project_id || null
   );
-  const { data: templates, isLoading: loadingTemplates } = useAllGupshupTemplates();
+  
 
   if (!context) {
     return null;
@@ -80,14 +79,10 @@ const PortalTelemarketingEquipe = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-5 w-full mb-6">
+          <TabsList className="grid grid-cols-4 w-full mb-6">
             <TabsTrigger value="agentes" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Agentes</span>
-            </TabsTrigger>
-            <TabsTrigger value="templates" className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Templates</span>
             </TabsTrigger>
             <TabsTrigger value="bot" className="flex items-center gap-2">
               <Bot className="w-4 h-4" />
@@ -155,66 +150,6 @@ const PortalTelemarketingEquipe = () => {
                             </div>
                           </div>
                           <Badge variant="outline">Ativo</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab: Templates */}
-          <TabsContent value="templates">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Templates WhatsApp
-                </CardTitle>
-                <CardDescription>
-                  Gerencie os templates disponíveis para sua equipe
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingTemplates ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Carregando templates...
-                  </div>
-                ) : templates?.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhum template encontrado.
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[400px]">
-                    <div className="space-y-3">
-                      {templates?.map((template) => (
-                        <div 
-                          key={template.id}
-                          className="p-4 rounded-lg border bg-card"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <p className="font-medium">{template.display_name}</p>
-                              <p className="text-sm text-muted-foreground">{template.element_name}</p>
-                            </div>
-                            <Badge 
-                              variant={template.status === 'APPROVED' ? 'default' : 'secondary'}
-                            >
-                              {template.status}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
-                            {template.template_body}
-                          </p>
-                          <div className="flex items-center gap-2 mt-3">
-                            <Badge variant="outline" className="text-xs">
-                              {template.category}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {template.language_code}
-                            </Badge>
-                          </div>
                         </div>
                       ))}
                     </div>
