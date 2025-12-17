@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
         lead_id: leadId,
         status: 'running',
         logs: [],
-        executado_por: userId
+        executed_by: userId
       }])
       .select()
       .single();
@@ -278,7 +278,7 @@ Deno.serve(async (req) => {
         status: finalStatus,
         logs: logs,
         resultado: resultado,
-        finalizado_em: new Date().toISOString()
+        completed_at: new Date().toISOString()
       })
       .eq('id', runId);
 
