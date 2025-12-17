@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useHotkeys } from "@/hooks/useHotkeys";
@@ -281,6 +282,7 @@ const LeadTab = () => {
   const [showSearchProgress, setShowSearchProgress] = useState(false);
   const [showDebugModal, setShowDebugModal] = useState(false);
   const [debugHistory, setDebugHistory] = useState<any[]>([]);
+  const [showShortcutsConfig, setShowShortcutsConfig] = useState(false);
 
   // Query para field mappings
   const {
@@ -2622,6 +2624,19 @@ const LeadTab = () => {
                   </Button>
                 </div>}
               
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" title="Configurações" className="h-8 w-8 md:h-10 md:w-10">
+                    <Settings className="w-3 h-3 md:w-4 md:h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-popover">
+                  <DropdownMenuItem onClick={() => setShowShortcutsConfig(true)}>
+                    ⌨️ Configurar Atalhos
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
               <Button variant="outline" onClick={() => setShowHelp(!showHelp)} size="icon" title="Atalhos" className="h-8 w-8 md:h-10 md:w-10">
                 <HelpCircle className="w-3 h-3 md:w-4 md:h-4" />
               </Button>
@@ -3200,6 +3215,111 @@ const LeadTab = () => {
         const searchParams = new URLSearchParams(location.search);
         return searchParams.get('id') || searchParams.get('lead') || '';
       })()} contactName={chatwootData?.name || 'Lead'} />
+
+      {/* Modal Configuração de Atalhos */}
+      <Dialog open={showShortcutsConfig} onOpenChange={setShowShortcutsConfig}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>⌨️ Configurar Atalhos</DialogTitle>
+            <DialogDescription>
+              Configure os atalhos de teclado para os botões de ação
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1 max-h-[60vh]">
+            <div className="space-y-4 p-4">
+              {BUTTON_CATEGORIES.map(category => {
+                const categoryButtons = buttons.filter(btn => btn.category === category.id);
+                if (categoryButtons.length === 0) return null;
+                
+                return (
+                  <div key={category.id}>
+                    <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      {category.label}
+                    </h4>
+                    <div className="space-y-2">
+                      {categoryButtons.map(btn => (
+                        <div 
+                          key={btn.id} 
+                          className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div 
+                              className="w-4 h-4 rounded" 
+                              style={{ backgroundColor: btn.color }}
+                            />
+                            <span className="text-sm font-medium">{btn.label}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              placeholder="Ex: 1, A, F1"
+                              className="w-24 h-8 text-center text-sm"
+                              value={btn.hotkey || ''}
+                              onChange={(e) => {
+                                const newHotkey = e.target.value.toUpperCase().trim();
+                                setButtons(prev => prev.map(b => 
+                                  b.id === btn.id 
+                                    ? { ...b, hotkey: newHotkey || null }
+                                    : b
+                                ));
+                              }}
+                              onBlur={async () => {
+                                // Salvar no banco
+                                const { error } = await supabase
+                                  .from('button_config')
+                                  .update({ hotkey: btn.hotkey })
+                                  .eq('id', btn.id);
+                                
+                                if (error) {
+                                  toast.error('Erro ao salvar atalho');
+                                  console.error(error);
+                                }
+                              }}
+                            />
+                            {btn.hotkey && (
+                              <Badge variant="secondary" className="text-yellow-600">
+                                {btn.hotkey}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter className="flex-row gap-2 sm:justify-between">
+            <Button 
+              variant="outline" 
+              onClick={async () => {
+                // Resetar todos os atalhos para padrão
+                const { error } = await supabase
+                  .from('button_config')
+                  .update({ hotkey: null })
+                  .neq('id', '');
+                
+                if (error) {
+                  toast.error('Erro ao resetar atalhos');
+                } else {
+                  setButtons(prev => prev.map(b => ({ ...b, hotkey: null })));
+                  toast.success('Atalhos resetados');
+                }
+              }}
+            >
+              Resetar Padrão
+            </Button>
+            <Button onClick={() => {
+              setShowShortcutsConfig(false);
+              toast.success('Atalhos salvos');
+            }}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal WhatsApp Gupshup */}
       <WhatsAppModal
