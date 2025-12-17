@@ -21,6 +21,8 @@ import {
   Loader2,
   FileText,
   Key,
+  Bot,
+  GraduationCap,
 } from 'lucide-react';
 import { ResyncDateClosedButton } from '@/components/admin/ResyncDateClosedButton';
 
@@ -136,6 +138,20 @@ const adminOptions = [
     title: 'API Keys',
     description: 'Gerenciar chaves de acesso à API',
     color: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
+  },
+  {
+    path: '/admin/whatsapp-bot',
+    icon: Bot,
+    title: 'Bot WhatsApp',
+    description: 'Configurar atendimento automatizado por IA',
+    color: 'bg-green-500/10 text-green-600 dark:text-green-400',
+  },
+  {
+    path: '/admin/ai-training',
+    icon: GraduationCap,
+    title: 'Treinamento IA',
+    description: 'Treinar e configurar o agente de IA',
+    color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
   },
 ];
 
