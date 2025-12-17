@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Phone, CheckCircle, Calendar, TrendingUp, Trophy, Loader2 } from 'lucide-react';
+import { Phone, Calendar, TrendingUp, Trophy, Loader2 } from 'lucide-react';
 import { ApexBarChart } from '@/components/dashboard/charts/ApexBarChart';
 import { ApexDonutChart } from '@/components/dashboard/charts/ApexDonutChart';
 import { ApexLineChart } from '@/components/dashboard/charts/ApexLineChart';
@@ -67,14 +67,6 @@ export function TelemarketingDashboardContent({
       type: 'leads' as KpiType,
     },
     {
-      title: 'Fichas Confirmadas',
-      value: metrics?.fichasConfirmadas || 0,
-      icon: CheckCircle,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
-      type: 'confirmadas' as KpiType,
-    },
-    {
       title: 'Agendamentos',
       value: metrics?.agendamentos || 0,
       icon: Calendar,
@@ -103,8 +95,8 @@ export function TelemarketingDashboardContent({
       data: metrics?.operatorPerformance.map(op => op.agendamentos) || [],
     },
     {
-      name: 'Confirmadas',
-      data: metrics?.operatorPerformance.map(op => op.confirmadas) || [],
+      name: 'Leads',
+      data: metrics?.operatorPerformance.map(op => op.leads) || [],
     },
   ];
 
@@ -165,20 +157,29 @@ export function TelemarketingDashboardContent({
         ))}
       </div>
 
-      {/* Tabulação Cards - Clickable */}
+      {/* Tabulação Cards - Clickable (igual aos KPIs principais) */}
       {metrics?.tabulacaoGroups && metrics.tabulacaoGroups.length > 0 && (
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3">Por Tabulação</h3>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {metrics.tabulacaoGroups.slice(0, 8).map((tab) => (
-              <Badge
+              <Card 
                 key={tab.label}
-                variant="secondary"
-                className="cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all px-3 py-1.5"
+                className="cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
                 onClick={() => handleKpiClick('tabulacao', tab.label, tab.label)}
               >
-                {tab.label}: {tab.count}
-              </Badge>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-muted">
+                      <Phone className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">{tab.count}</p>
+                      <p className="text-xs text-muted-foreground truncate max-w-[120px]" title={tab.label}>{tab.label}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
@@ -233,14 +234,13 @@ export function TelemarketingDashboardContent({
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Operador</TableHead>
                   <TableHead className="text-center">Agendamentos</TableHead>
-                  <TableHead className="text-center">Confirmadas</TableHead>
                   <TableHead className="text-center">Leads</TableHead>
                   <TableHead className="text-center">Conversão</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {metrics.operatorPerformance.map((op, index) => {
-                  const taxa = op.leads > 0 ? ((op.confirmadas / op.leads) * 100).toFixed(1) : '0.0';
+                  const taxa = op.leads > 0 ? ((op.agendamentos / op.leads) * 100).toFixed(1) : '0.0';
                   return (
                     <TableRow key={op.name}>
                       <TableCell>
@@ -251,7 +251,6 @@ export function TelemarketingDashboardContent({
                       </TableCell>
                       <TableCell className="font-medium">{op.name}</TableCell>
                       <TableCell className="text-center text-orange-600 font-bold">{op.agendamentos}</TableCell>
-                      <TableCell className="text-center text-green-600 font-medium">{op.confirmadas}</TableCell>
                       <TableCell className="text-center">{op.leads}</TableCell>
                       <TableCell className="text-center">{taxa}%</TableCell>
                     </TableRow>

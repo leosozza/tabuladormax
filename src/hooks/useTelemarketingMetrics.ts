@@ -109,7 +109,7 @@ export function useTelemarketingMetrics(
       const totalLeads = leadsData.length;
       const fichasConfirmadas = leadsData.filter(l => l.ficha_confirmada === true).length;
       const agendamentos = leadsData.filter(l => l.data_agendamento).length;
-      const taxaConversao = totalLeads > 0 ? (fichasConfirmadas / totalLeads) * 100 : 0;
+      const taxaConversao = totalLeads > 0 ? (agendamentos / totalLeads) * 100 : 0;
 
       // Build leads details for modal
       const leadsDetails: LeadDetail[] = leadsData.map(lead => {
