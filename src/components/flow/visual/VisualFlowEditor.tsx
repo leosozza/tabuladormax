@@ -44,6 +44,11 @@ const nodeTypes: NodeTypes = {
   custom: CustomNode,
   send_message: SendMessageNode,
   condition: ConditionNode,
+  // New WhatsApp/Gupshup nodes
+  bitrix_get_field: CustomNode,
+  gupshup_send_text: CustomNode,
+  gupshup_send_image: CustomNode,
+  gupshup_send_buttons: CustomNode,
 };
 
 interface VisualFlowEditorProps {
@@ -77,9 +82,6 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  const initialNodes = convertStepsToNodes(initialSteps);
-  const initialEdges = convertStepsToEdges(initialSteps);
-
   const {
     nodes,
     edges,
@@ -92,8 +94,19 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
     addNode,
     updateNodeData,
     deleteNode,
-  } = useFlowBuilder(initialNodes, initialEdges);
+    setNodes,
+    setEdges,
+  } = useFlowBuilder([], []);
 
+  // Sync nodes/edges when initialSteps changes (e.g., editing a flow)
+  useEffect(() => {
+    const newNodes = convertStepsToNodes(initialSteps);
+    const newEdges = convertStepsToEdges(initialSteps);
+    setNodes(newNodes);
+    setEdges(newEdges);
+  }, [initialSteps, setNodes, setEdges]);
+
+  // Notify parent when nodes/edges change
   useEffect(() => {
     const newSteps = convertNodesToSteps(nodes, edges);
     onChange(newSteps);

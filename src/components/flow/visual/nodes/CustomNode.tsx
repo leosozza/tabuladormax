@@ -26,6 +26,11 @@ const nodeIcons = {
   add_label: Tag,
   assign_agent: UserPlus,
   assign_team: Users,
+  // New types
+  bitrix_get_field: Globe,
+  gupshup_send_text: MessageSquare,
+  gupshup_send_image: MessageSquare,
+  gupshup_send_buttons: MessageSquare,
 };
 
 const nodeLabels = {
@@ -37,6 +42,11 @@ const nodeLabels = {
   add_label: 'Adicionar Label',
   assign_agent: 'Atribuir Agente',
   assign_team: 'Atribuir Time',
+  // New types
+  bitrix_get_field: 'Buscar Campo Bitrix',
+  gupshup_send_text: 'WhatsApp: Texto',
+  gupshup_send_image: 'WhatsApp: Imagem',
+  gupshup_send_buttons: 'WhatsApp: Botões',
 };
 
 export function CustomNode({ data, selected }: NodeProps) {
@@ -100,6 +110,15 @@ function getNodeDescription(data: any): string {
       return config.agentId ? `Agent: ${config.agentId}` : 'Selecione agente';
     case 'assign_team':
       return config.teamId ? `Team: ${config.teamId}` : 'Selecione time';
+    // New types
+    case 'bitrix_get_field':
+      return config.field_name ? `Campo: ${config.field_name}` : 'Configure campo';
+    case 'gupshup_send_text':
+      return config.text ? `"${config.text.substring(0, 25)}..."` : 'Configure texto';
+    case 'gupshup_send_image':
+      return config.caption ? `"${config.caption.substring(0, 25)}..."` : 'Imagem';
+    case 'gupshup_send_buttons':
+      return config.buttons?.length > 0 ? `${config.buttons.length} botão(ões)` : 'Configure botões';
     default:
       return '';
   }
