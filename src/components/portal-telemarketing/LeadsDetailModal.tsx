@@ -50,7 +50,7 @@ export function LeadsDetailModal({
       case 'confirmadas':
         return lead.fichaConfirmada;
       case 'agendados':
-        return !!lead.dataAgendamento;
+        return lead.isAgendado;
       case 'tabulacao':
         return filterStatus ? lead.statusLabel === filterStatus : true;
       default:
