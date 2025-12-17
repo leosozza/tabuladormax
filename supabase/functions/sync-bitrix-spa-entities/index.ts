@@ -316,7 +316,7 @@ serve(async (req) => {
                   const email = `tele-${item.id}@maxfama.com.br`;
                   const password = String(accessKey);
                   const operatorName = (item.title || `Operador ${item.id}`).trim();
-                  const isSupervisor = String(cargo) === '10620';
+                  const isSupervisor = Number(cargo) === 10620 || String(cargo) === '10620';
                   const roleName = isSupervisor ? 'supervisor' : 'agent';
                   
                   // Criar usuário no Supabase Auth
