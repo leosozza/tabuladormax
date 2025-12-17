@@ -21,10 +21,48 @@ Deno.serve(async (req) => {
   console.log('📥 Webhook bitrix-template recebido');
 
   try {
-    const body: BitrixTemplateWebhook = await req.json();
-    const { phone_number, template_name, variables = [], bitrix_id, conversation_id } = body;
+    let phone_number: string = '';
+    let template_name: string = '';
+    let variables: string[] = [];
+    let bitrix_id: string | undefined;
+    let conversation_id: number | undefined;
 
-    console.log('📋 Dados recebidos:', JSON.stringify({ phone_number, template_name, variables, bitrix_id, conversation_id }));
+    // Aceitar GET (query params) ou POST (JSON body)
+    if (req.method === 'GET') {
+      const url = new URL(req.url);
+      phone_number = url.searchParams.get('phone_number') || '';
+      template_name = url.searchParams.get('template_name') || '';
+      bitrix_id = url.searchParams.get('bitrix_id') || undefined;
+      
+      // Variáveis podem vir como: variables=Var1,Var2,Var3
+      const varsParam = url.searchParams.get('variables');
+      if (varsParam) {
+        variables = varsParam.split(',').map(v => v.trim());
+      }
+      
+      // Ou como var1=X&var2=Y&var3=Z (até 10 variáveis)
+      for (let i = 1; i <= 10; i++) {
+        const varValue = url.searchParams.get(`var${i}`);
+        if (varValue && !varsParam) {
+          variables.push(varValue);
+        }
+      }
+      
+      const convId = url.searchParams.get('conversation_id');
+      if (convId) conversation_id = parseInt(convId, 10);
+      
+      console.log('📋 Parâmetros GET:', JSON.stringify({ phone_number, template_name, variables, bitrix_id, conversation_id }));
+    } else {
+      // POST com JSON body (mantém compatibilidade)
+      const body: BitrixTemplateWebhook = await req.json();
+      phone_number = body.phone_number;
+      template_name = body.template_name;
+      variables = body.variables || [];
+      bitrix_id = body.bitrix_id;
+      conversation_id = body.conversation_id;
+      
+      console.log('📋 Dados POST:', JSON.stringify({ phone_number, template_name, variables, bitrix_id, conversation_id }));
+    }
 
     // Validações
     if (!phone_number || !template_name) {
