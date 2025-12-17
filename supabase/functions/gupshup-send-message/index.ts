@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action = 'send_message', source = 'tabulador' } = body;
 
-    // 🔐 Exigir usuário autenticado (evita envios automáticos externos/loops)
+    // 🔐 Verificar autenticação (usuário ou chamada interna)
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.warn('🚫 Requisição sem Authorization bloqueada (gupshup-send-message)');
@@ -134,23 +134,37 @@ Deno.serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
-      console.warn('🚫 Token inválido bloqueado (gupshup-send-message)', { userError: userError?.message });
-      return new Response(
-        JSON.stringify({ error: 'Não autorizado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    
+    // Verificar se é chamada interna (service key) - reutiliza variável do escopo externo
+    // Verificar se é chamada interna (service key)
+    const isInternalCall = token === supabaseServiceKey;
+    
+    let senderName = 'Sistema';
+    
+    if (isInternalCall) {
+      // ✅ Chamada interna autorizada (flows-executor, webhooks, etc)
+      console.log(`🔑 Chamada interna autorizada (source: ${source})`);
+      senderName = body.sender_name || 'Flow Automático';
+    } else {
+      // Verificar usuário autenticado
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+      if (userError || !user) {
+        console.warn('🚫 Token inválido bloqueado (gupshup-send-message)', { userError: userError?.message });
+        return new Response(
+          JSON.stringify({ error: 'Não autorizado' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      senderName = user.email?.split('@')[0] || 'Operador';
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      senderName = profile?.display_name || senderName;
     }
-
-    let senderName = user.email?.split('@')[0] || 'Operador';
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('display_name')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    senderName = profile?.display_name || senderName;
 
     if (action === 'send_template') {
       return await handleSendTemplate(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
