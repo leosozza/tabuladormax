@@ -677,6 +677,11 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
     originalMediaUrl = payload.payload?.url || '';
     content = '[Sticker]';
     mediaType = 'sticker';
+  } else if (payload.type === 'quick_reply' || payload.type === 'button_reply') {
+    // Cliente clicou em botão de template
+    messageType = 'button_reply';
+    content = (payload.payload as any)?.text || (payload.payload as any)?.postbackText || '[Botão clicado]';
+    console.log(`👆 Cliente clicou no botão: "${content}"`);
   }
 
   // Download e upload de mídia para Supabase Storage
