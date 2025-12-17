@@ -43,24 +43,47 @@ serve(async (req) => {
     }
 
     // Buscar última mensagem inbound APENAS da tabela whatsapp_messages
-    // Essas mensagens são registradas pelo gupshup-webhook
-    let query = supabase
-      .from('whatsapp_messages')
-      .select('created_at, phone_number, bitrix_id')
-      .eq('direction', 'inbound')
-      .order('created_at', { ascending: false })
-      .limit(1);
+    // PRIORIZAR busca por phone_number (mais confiável que bitrix_id)
+    let lastMessage = null;
+    let error = null;
 
-    // Construir filtro OR manualmente
-    if (phone_number && bitrix_id) {
-      query = query.or(`phone_number.eq.${phone_number},bitrix_id.eq.${bitrix_id}`);
-    } else if (phone_number) {
-      query = query.eq('phone_number', phone_number);
-    } else if (bitrix_id) {
-      query = query.eq('bitrix_id', bitrix_id);
+    // 1. Primeiro tentar por phone_number (mais preciso)
+    if (phone_number) {
+      const normalizedPhone = phone_number.replace(/\D/g, '');
+      const { data, error: phoneError } = await supabase
+        .from('whatsapp_messages')
+        .select('created_at, phone_number, bitrix_id')
+        .eq('direction', 'inbound')
+        .eq('phone_number', normalizedPhone)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (!phoneError && data) {
+        lastMessage = data;
+        console.log(`[gupshup-check-window] Found by phone_number: ${normalizedPhone}`);
+      } else if (phoneError) {
+        console.error('[gupshup-check-window] Phone query error:', phoneError);
+      }
     }
 
-    const { data: lastMessage, error } = await query.maybeSingle();
+    // 2. Se não encontrou por telefone e temos bitrix_id, usar como fallback
+    if (!lastMessage && bitrix_id) {
+      const { data, error: bitrixError } = await supabase
+        .from('whatsapp_messages')
+        .select('created_at, phone_number, bitrix_id')
+        .eq('direction', 'inbound')
+        .eq('bitrix_id', bitrix_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (!bitrixError && data) {
+        lastMessage = data;
+        console.log(`[gupshup-check-window] Found by bitrix_id fallback: ${bitrix_id}`);
+      }
+      error = bitrixError;
+    }
 
     if (error) {
       console.error('[gupshup-check-window] Query error:', error);
