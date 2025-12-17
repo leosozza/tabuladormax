@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, format } from 'date-fns';
+import { startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { resolveTabulacaoLabel } from '@/lib/tabulacaoMapping';
+import type { Json } from '@/integrations/supabase/types';
 
 // Verifica se lead está na etapa de Agendados
 function isAgendado(etapa: string | null): boolean {
@@ -43,10 +45,37 @@ export interface ScouterPerformance {
   taxaConversao: number;
 }
 
+// New interfaces for agendamentos por data and comparecimentos
+export interface AgendamentoPorData {
+  data: string;
+  dataFormatada: string;
+  total: number;
+  leads: {
+    id: number;
+    name: string;
+    scouter: string | null;
+    telemarketing: string | null;
+  }[];
+}
+
+export interface ComparecimentoDetail {
+  id: number;
+  name: string;
+  scouter: string | null;
+  telemarketing: string | null;
+  agendadoEm: string | null;
+  dataComparecimento: string;
+}
+
 interface TelemarketingMetrics {
   totalLeads: number;
   agendamentos: number;
   taxaConversao: number;
+  agendamentosPorData: AgendamentoPorData[];
+  comparecimentos: {
+    total: number;
+    leads: ComparecimentoDetail[];
+  };
   operatorPerformance: {
     name: string;
     bitrix_id?: number;
@@ -66,11 +95,17 @@ interface TelemarketingMetrics {
     leads: number;
     agendados: number;
   }[];
-  // New: Lead details for modal
   leadsDetails: LeadDetail[];
   tabulacaoGroups: TabulacaoGroup[];
-  // List of available operators for filtering
   availableOperators: OperatorInfo[];
+}
+
+// Helper to extract field from raw JSON
+function getRawField(raw: Json | null, field: string): string | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const value = (raw as Record<string, Json | undefined>)[field];
+  if (typeof value === 'string') return value;
+  return null;
 }
 
 function getDateRange(period: PeriodFilter): { start: Date; end: Date } {
@@ -111,9 +146,10 @@ export function useTelemarketingMetrics(
       });
 
       // Build base query - busca leads modificados no período
+      // Includes raw for UF_CRM fields and date_closed for comparecimentos
       let query = supabase
         .from('leads')
-        .select('id, name, op_telemarketing, bitrix_telemarketing_id, ficha_confirmada, data_confirmacao_ficha, data_agendamento, data_criacao_agendamento, status_tabulacao, etapa, date_modify, nome_modelo, scouter, fonte_normalizada')
+        .select('id, name, op_telemarketing, bitrix_telemarketing_id, ficha_confirmada, data_confirmacao_ficha, data_agendamento, data_criacao_agendamento, status_tabulacao, etapa, date_modify, date_closed, nome_modelo, scouter, fonte_normalizada, telemarketing, raw')
         .gte('date_modify', startStr)
         .lte('date_modify', endStr)
         .not('bitrix_telemarketing_id', 'is', null);
@@ -135,14 +171,81 @@ export function useTelemarketingMetrics(
       const totalLeads = leadsData.length;
       
       // Agendamentos: leads com etapa UC_QWPO2W e data_criacao_agendamento no período
-      const agendamentos = leadsData.filter(l => {
+      const agendadosList = leadsData.filter(l => {
         if (!isAgendado(l.etapa)) return false;
         if (!l.data_criacao_agendamento) return false;
         const dataAgendamento = new Date(l.data_criacao_agendamento);
         return dataAgendamento >= start && dataAgendamento <= end;
-      }).length;
+      });
+      const agendamentos = agendadosList.length;
       
       const taxaConversao = totalLeads > 0 ? (agendamentos / totalLeads) * 100 : 0;
+
+      // Calculate agendamentos por data (UF_CRM_1740763672 = target date)
+      const agendamentosPorDataMap = new Map<string, { leads: { id: number; name: string; scouter: string | null; telemarketing: string | null; }[] }>();
+      agendadosList.forEach(lead => {
+        const targetDate = getRawField(lead.raw, 'UF_CRM_1740763672');
+        if (!targetDate) return;
+        
+        // Parse date - format is like "2025-12-18T03:00:00+03:00"
+        let dateKey: string;
+        try {
+          const parsed = parseISO(targetDate);
+          dateKey = format(parsed, 'yyyy-MM-dd');
+        } catch {
+          dateKey = targetDate.split('T')[0] || targetDate;
+        }
+        
+        const current = agendamentosPorDataMap.get(dateKey) || { leads: [] };
+        current.leads.push({
+          id: lead.id,
+          name: lead.nome_modelo || lead.name || 'Sem nome',
+          scouter: lead.scouter || null,
+          telemarketing: lead.telemarketing || operatorNameMap.get(lead.bitrix_telemarketing_id!) || null,
+        });
+        agendamentosPorDataMap.set(dateKey, current);
+      });
+
+      const agendamentosPorData: AgendamentoPorData[] = Array.from(agendamentosPorDataMap.entries())
+        .map(([data, { leads }]) => {
+          let dataFormatada: string;
+          try {
+            dataFormatada = format(parseISO(data), "dd/MM/yyyy", { locale: ptBR });
+          } catch {
+            dataFormatada = data;
+          }
+          return {
+            data,
+            dataFormatada,
+            total: leads.length,
+            leads,
+          };
+        })
+        .sort((a, b) => a.data.localeCompare(b.data));
+
+      // Calculate comparecimentos (UF_CRM_1746816298253 = '1' means attended)
+      // Consider date_closed within the period
+      const comparecimentosLeads = leadsData.filter(lead => {
+        const presencaConfirmada = getRawField(lead.raw, 'UF_CRM_1746816298253');
+        if (presencaConfirmada !== '1') return false;
+        
+        // Check if date_closed is within the period
+        if (!lead.date_closed) return false;
+        const dateClosed = new Date(lead.date_closed);
+        return dateClosed >= start && dateClosed <= end;
+      });
+
+      const comparecimentos = {
+        total: comparecimentosLeads.length,
+        leads: comparecimentosLeads.map(lead => ({
+          id: lead.id,
+          name: lead.nome_modelo || lead.name || 'Sem nome',
+          scouter: lead.scouter || null,
+          telemarketing: lead.telemarketing || operatorNameMap.get(lead.bitrix_telemarketing_id!) || null,
+          agendadoEm: getRawField(lead.raw, 'UF_CRM_AGEND_EM'),
+          dataComparecimento: lead.date_closed!,
+        })),
+      };
 
       // Build leads details for modal
       const leadsDetails: LeadDetail[] = leadsData.map(lead => {
@@ -327,6 +430,8 @@ export function useTelemarketingMetrics(
         totalLeads,
         agendamentos,
         taxaConversao,
+        agendamentosPorData,
+        comparecimentos,
         operatorPerformance,
         scouterPerformance,
         statusDistribution,

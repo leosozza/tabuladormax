@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Phone, Calendar, TrendingUp, Trophy, Loader2, Share2, FileDown, Link as LinkIcon, Users } from 'lucide-react';
+import { Phone, Calendar, TrendingUp, Trophy, Loader2, Share2, FileDown, Link as LinkIcon, Users, CheckCircle } from 'lucide-react';
 import { ApexBarChart } from '@/components/dashboard/charts/ApexBarChart';
 import { ApexHorizontalBarChart } from '@/components/dashboard/charts/ApexHorizontalBarChart';
 import { ApexLineChart } from '@/components/dashboard/charts/ApexLineChart';
@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { SUPERVISOR_CARGO } from './TelemarketingAccessKeyForm';
 import { LeadsDetailModal, KpiType } from './LeadsDetailModal';
 import { ShareReportModal } from './ShareReportModal';
+import { AgendamentosPorDataModal } from './AgendamentosPorDataModal';
+import { ComparecimentosDetailModal } from './ComparecimentosDetailModal';
 import { 
   generateTelemarketingReportPDF, 
   createShareableReport,
@@ -41,6 +43,8 @@ export function TelemarketingDashboardContent({
   const [shareUrl, setShareUrl] = useState('');
   const [shareExpiresAt, setShareExpiresAt] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [agendamentosModalOpen, setAgendamentosModalOpen] = useState(false);
+  const [comparecimentosModalOpen, setComparecimentosModalOpen] = useState(false);
   
   const isSupervisor = operatorCargo === SUPERVISOR_CARGO;
   
@@ -76,6 +80,7 @@ export function TelemarketingDashboardContent({
       date: format(new Date(), "dd/MM/yyyy", { locale: ptBR }),
       totalLeads,
       agendamentos: metrics?.agendamentos || 0,
+      comparecimentos: metrics?.comparecimentos?.total || 0,
       taxaConversao: metrics?.taxaConversao || 0,
       operatorPerformance: (metrics?.operatorPerformance || []).map(op => ({
         name: op.name,
@@ -155,14 +160,28 @@ export function TelemarketingDashboardContent({
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
       type: 'leads' as KpiType,
+      onClick: () => handleKpiClick('leads', 'Leads Trabalhados'),
     },
     {
       title: 'Agendados',
       value: metrics?.agendamentos || 0,
+      subtitle: metrics?.agendamentosPorData?.length ? 
+        metrics.agendamentosPorData.slice(0, 2).map(a => `${a.total} p/ ${a.dataFormatada.slice(0, 5)}`).join(' | ') 
+        : undefined,
       icon: Calendar,
       color: 'text-orange-500',
       bgColor: 'bg-orange-500/10',
-      type: 'agendados' as KpiType,
+      type: null, // Custom handler
+      onClick: () => setAgendamentosModalOpen(true),
+    },
+    {
+      title: 'Comparecidos',
+      value: metrics?.comparecimentos?.total || 0,
+      icon: CheckCircle,
+      color: 'text-green-500',
+      bgColor: 'bg-green-500/10',
+      type: null, // Custom handler
+      onClick: () => setComparecimentosModalOpen(true),
     },
     {
       title: 'Taxa de Conversão',
@@ -171,6 +190,7 @@ export function TelemarketingDashboardContent({
       color: 'text-purple-500',
       bgColor: 'bg-purple-500/10',
       type: null, // Not clickable
+      onClick: undefined,
     },
   ];
 
@@ -277,8 +297,8 @@ export function TelemarketingDashboardContent({
         {kpis.map((kpi) => (
           <Card 
             key={kpi.title} 
-            className={`relative overflow-hidden ${kpi.type ? 'cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all' : ''}`}
-            onClick={() => kpi.type && handleKpiClick(kpi.type, kpi.title)}
+            className={`relative overflow-hidden ${kpi.onClick ? 'cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all' : ''}`}
+            onClick={kpi.onClick}
           >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -288,6 +308,9 @@ export function TelemarketingDashboardContent({
                 <div>
                   <p className="text-2xl font-bold">{kpi.value}</p>
                   <p className="text-xs text-muted-foreground">{kpi.title}</p>
+                  {'subtitle' in kpi && kpi.subtitle && (
+                    <p className="text-[10px] text-muted-foreground/80 mt-0.5 truncate max-w-[140px]">{kpi.subtitle}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -473,6 +496,22 @@ export function TelemarketingDashboardContent({
         onOpenChange={setShareModalOpen}
         url={shareUrl}
         expiresAt={shareExpiresAt}
+      />
+
+      {/* Agendamentos por Data Modal */}
+      <AgendamentosPorDataModal
+        open={agendamentosModalOpen}
+        onOpenChange={setAgendamentosModalOpen}
+        agendamentos={metrics?.agendamentosPorData || []}
+        totalAgendamentos={metrics?.agendamentos || 0}
+      />
+
+      {/* Comparecimentos Modal */}
+      <ComparecimentosDetailModal
+        open={comparecimentosModalOpen}
+        onOpenChange={setComparecimentosModalOpen}
+        comparecimentos={metrics?.comparecimentos?.leads || []}
+        totalComparecimentos={metrics?.comparecimentos?.total || 0}
       />
     </div>
   );
