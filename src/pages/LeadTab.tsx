@@ -2321,35 +2321,6 @@ const LeadTab = () => {
     setScheduleModal(false);
   };
   return <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background border-b px-4 py-3">
-        <div className="flex items-center justify-between">
-          {/* Lado esquerdo: Nome (Cargo) - Email */}
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-semibold">
-              {portalContext?.name || 'Operador'}
-            </span>
-            <Badge variant="outline" className="text-xs">
-              {portalContext?.cargo === 'supervisor' ? 'Supervisor' : 'Agente'}
-            </Badge>
-            <span className="text-muted-foreground hidden sm:inline">-</span>
-            <span className="text-muted-foreground truncate max-w-[180px] hidden sm:inline">
-              {/* Email do operador */}
-            </span>
-          </div>
-          
-          {/* Centro: Badge de Ranking */}
-          {rankingPosition > 0 && (
-            <div className="flex-1 flex justify-center">
-              <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                🏆 {rankingPosition}° colocado ({totalAgendadosHoje} agendados)
-              </Badge>
-            </div>
-          )}
-          
-          {/* Lado direito: UserMenu simplificado */}
-          <UserMenu showNameAndRole={false} />
-        </div>
-      </header>
       <main className="p-4 md:p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <Card className="p-4 md:p-6 flex flex-col items-start gap-3 md:gap-4 h-fit relative">
