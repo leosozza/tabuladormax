@@ -25,7 +25,7 @@ import {
   TelemarketingReportData 
 } from '@/services/telemarketingReportService';
 import { toast } from 'sonner';
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
@@ -84,8 +84,13 @@ export function TelemarketingDashboardContent({
     switch (period) {
       case 'today':
         return { start: startOfDay(now), end: endOfDay(now) };
+      case 'yesterday':
+        const yesterday = subDays(now, 1);
+        return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
       case 'week':
         return { start: startOfWeek(now, { locale: ptBR }), end: endOfWeek(now, { locale: ptBR }) };
+      case 'last7days':
+        return { start: startOfDay(subDays(now, 6)), end: endOfDay(now) };
       case 'month':
         return { start: startOfMonth(now), end: endOfMonth(now) };
       case 'custom':
@@ -108,13 +113,15 @@ export function TelemarketingDashboardContent({
   const getPeriodLabel = () => {
     switch (period) {
       case 'today': return 'Hoje';
+      case 'yesterday': return 'Ontem';
       case 'week': return 'Esta Semana';
+      case 'last7days': return 'Últimos 7 dias';
       case 'month': return 'Este Mês';
       case 'custom': 
         if (customDateRange?.from && customDateRange?.to) {
           return `${format(customDateRange.from, 'dd/MM', { locale: ptBR })} - ${format(customDateRange.to, 'dd/MM', { locale: ptBR })}`;
         }
-        return 'Personalizado';
+        return 'Intervalo';
       default: return 'Hoje';
     }
   };
@@ -384,9 +391,11 @@ export function TelemarketingDashboardContent({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="today">Hoje</SelectItem>
+              <SelectItem value="yesterday">Ontem</SelectItem>
               <SelectItem value="week">Esta Semana</SelectItem>
+              <SelectItem value="last7days">Últimos 7 dias</SelectItem>
               <SelectItem value="month">Este Mês</SelectItem>
-              <SelectItem value="custom">Personalizado</SelectItem>
+              <SelectItem value="custom">Intervalo</SelectItem>
             </SelectContent>
           </Select>
 
