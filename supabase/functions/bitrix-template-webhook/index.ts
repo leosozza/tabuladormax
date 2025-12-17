@@ -53,15 +53,51 @@ Deno.serve(async (req) => {
       
       console.log('📋 Parâmetros GET:', JSON.stringify({ phone_number, template_name, variables, bitrix_id, conversation_id }));
     } else {
-      // POST com JSON body (mantém compatibilidade)
-      const body: BitrixTemplateWebhook = await req.json();
-      phone_number = body.phone_number;
-      template_name = body.template_name;
-      variables = body.variables || [];
-      bitrix_id = body.bitrix_id;
-      conversation_id = body.conversation_id;
+      // POST - verificar Content-Type para parsear corretamente
+      const contentType = req.headers.get('content-type') || '';
+      console.log('📋 Content-Type recebido:', contentType);
       
-      console.log('📋 Dados POST:', JSON.stringify({ phone_number, template_name, variables, bitrix_id, conversation_id }));
+      if (contentType.includes('application/json')) {
+        // JSON body
+        const body: BitrixTemplateWebhook = await req.json();
+        phone_number = body.phone_number;
+        template_name = body.template_name;
+        variables = body.variables || [];
+        bitrix_id = body.bitrix_id;
+        conversation_id = body.conversation_id;
+        
+        console.log('📋 Dados POST JSON:', JSON.stringify({ phone_number, template_name, variables, bitrix_id, conversation_id }));
+        
+      } else {
+        // Form-urlencoded ou texto plano (formato Bitrix)
+        const text = await req.text();
+        console.log('📋 Raw POST data:', text.substring(0, 500));
+        
+        const params = new URLSearchParams(text);
+        
+        phone_number = params.get('phone_number') || params.get('PHONE') || params.get('phone') || '';
+        template_name = params.get('template_name') || params.get('TEMPLATE') || params.get('template') || '';
+        bitrix_id = params.get('bitrix_id') || params.get('BITRIX_ID') || params.get('document_id') || undefined;
+        
+        // Variáveis: var1, var2, ... ou VARIABLE1, VARIABLE2, ...
+        for (let i = 1; i <= 10; i++) {
+          const varValue = params.get(`var${i}`) || params.get(`VARIABLE${i}`) || params.get(`VAR${i}`);
+          if (varValue) {
+            variables.push(varValue);
+          }
+        }
+        
+        // Ou variáveis como lista separada por vírgula
+        const varsParam = params.get('variables');
+        if (varsParam && variables.length === 0) {
+          variables = varsParam.split(',').map(v => v.trim());
+        }
+        
+        const convId = params.get('conversation_id');
+        if (convId) conversation_id = parseInt(convId, 10);
+        
+        console.log('📋 Dados POST Form:', JSON.stringify({ phone_number, template_name, variables, bitrix_id, conversation_id }));
+      }
     }
 
     // Validações
