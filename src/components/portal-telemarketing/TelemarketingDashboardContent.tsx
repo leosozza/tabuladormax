@@ -106,6 +106,25 @@ export function TelemarketingDashboardContent({
         count: s.count,
       })),
       createdBy: operatorBitrixId,
+      agendamentosPorData: (metrics?.agendamentosPorData || []).map(a => ({
+        data: a.data,
+        dataFormatada: a.dataFormatada,
+        total: a.total,
+        leads: a.leads.map(l => ({
+          id: l.id,
+          name: l.name,
+          scouter: l.scouter,
+          telemarketing: l.telemarketing,
+        })),
+      })),
+      comparecimentosDetail: (metrics?.comparecimentos?.leads || []).map(c => ({
+        id: c.id,
+        name: c.name,
+        scouter: c.scouter,
+        telemarketing: c.telemarketing,
+        agendadoEm: c.agendadoEm,
+        dataComparecimento: c.dataComparecimento,
+      })),
     };
   };
 
