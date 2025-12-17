@@ -115,6 +115,7 @@ export function TelemarketingDashboardContent({
           name: l.name,
           scouter: l.scouter,
           telemarketing: l.telemarketing,
+          fonte: l.fonte,
         })),
       })),
       comparecimentosDetail: (metrics?.comparecimentos?.leads || []).map(c => ({
@@ -124,6 +125,7 @@ export function TelemarketingDashboardContent({
         telemarketing: c.telemarketing,
         agendadoEm: c.agendadoEm,
         dataComparecimento: c.dataComparecimento,
+        fonte: c.fonte,
       })),
     };
   };

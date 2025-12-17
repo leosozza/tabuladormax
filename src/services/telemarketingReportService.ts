@@ -52,6 +52,7 @@ export interface AgendamentoPorDataReport {
     name: string;
     scouter: string | null;
     telemarketing: string | null;
+    fonte: string;
   }[];
 }
 
@@ -62,6 +63,7 @@ export interface ComparecimentoDetailReport {
   telemarketing: string | null;
   agendadoEm: string | null;
   dataComparecimento: string;
+  fonte: string;
 }
 
 export interface TelemarketingReportData {

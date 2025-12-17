@@ -14,6 +14,7 @@ export interface AgendamentoPorData {
     name: string;
     scouter: string | null;
     telemarketing: string | null;
+    fonte: string;
   }[];
 }
 
@@ -50,8 +51,14 @@ function ModalContent({ agendamentos }: { agendamentos: AgendamentoPorData[] }) 
           <AccordionContent>
             <div className="space-y-2">
               {item.leads.map((lead) => (
-                <div key={lead.id} className="p-3 border rounded-lg bg-muted/30">
-                  <div className="flex items-center gap-2">
+                <div key={lead.id} className="p-3 border rounded-lg bg-muted/30 relative">
+                  <Badge 
+                    variant="secondary" 
+                    className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                  >
+                    {lead.fonte}
+                  </Badge>
+                  <div className="flex items-center gap-2 pr-20">
                     <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <span className="font-medium text-sm truncate">{lead.name}</span>
                   </div>
