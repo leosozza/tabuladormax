@@ -158,13 +158,14 @@ export function useTelemarketingMetrics(
         query = query.eq('bitrix_telemarketing_id', operatorId);
       }
 
-      // Separate query for comparecimentos - includes ALL leads (even without operator)
-      // because comparecidos might not have bitrix_telemarketing_id assigned
+      // Separate query for comparecimentos - filter directly in DB for efficiency
+      // Uses contains filter to check UF_CRM_1746816298253 = '1' (presença confirmada)
       let comparecimentosQuery = supabase
         .from('leads')
         .select('id, name, nome_modelo, scouter, telemarketing, bitrix_telemarketing_id, raw')
         .gte('date_modify', startStr)
-        .lte('date_modify', endStr);
+        .lte('date_modify', endStr)
+        .contains('raw', { UF_CRM_1746816298253: '1' });
 
       if (operatorId) {
         comparecimentosQuery = comparecimentosQuery.eq('bitrix_telemarketing_id', operatorId);
