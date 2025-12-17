@@ -60,15 +60,17 @@ async function fetchLeadFromBitrix(leadId: number): Promise<any> {
 // ============================================
 async function searchBitrixByPhone(phone: string): Promise<any> {
   try {
-    const phoneSearch = phone.slice(-9); // Últimos 9 dígitos para busca mais flexível
-    console.log(`🔍 Buscando lead no Bitrix por telefone: ${phoneSearch}`);
+    // Normalizar telefone para comparação
+    const normalizedSearch = normalizePhone(phone);
+    const last9Digits = normalizedSearch.slice(-9);
+    console.log(`🔍 Buscando lead no Bitrix por telefone: ${normalizedSearch} (últimos 9: ${last9Digits})`);
 
     const url = `https://${BITRIX_DOMAIN}/rest/${BITRIX_USER_ID}/${BITRIX_WEBHOOK_TOKEN}/crm.lead.list`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        filter: { '%PHONE': phoneSearch },
+        filter: { '%PHONE': last9Digits },
         select: ['ID', 'NAME', 'TITLE', 'PARENT_ID_1144', 'PHONE', 'STATUS_ID', 'SOURCE_ID']
       })
     });
@@ -81,8 +83,21 @@ async function searchBitrixByPhone(phone: string): Promise<any> {
     }
 
     if (data.result && data.result.length > 0) {
-      console.log(`✅ Lead encontrado no Bitrix por telefone: ID ${data.result[0].ID} - ${data.result[0].TITLE || data.result[0].NAME}`);
-      return data.result[0];
+      // VALIDAR se o telefone do lead realmente corresponde ao telefone buscado
+      for (const lead of data.result) {
+        const phones = lead.PHONE || [];
+        for (const phoneObj of phones) {
+          const leadPhoneNormalized = normalizePhone(phoneObj.VALUE || '');
+          // Verificar se os últimos 9 dígitos coincidem
+          if (leadPhoneNormalized.slice(-9) === last9Digits) {
+            console.log(`✅ Lead encontrado e VALIDADO no Bitrix: ID ${lead.ID} - ${lead.TITLE || lead.NAME} (telefone: ${phoneObj.VALUE})`);
+            return lead;
+          }
+        }
+      }
+      
+      console.log(`⚠️ ${data.result.length} leads encontrados no Bitrix mas NENHUM com telefone correspondente ao ${normalizedSearch}`);
+      return null;
     }
 
     console.log('⚠️ Nenhum lead encontrado no Bitrix por telefone');
@@ -541,12 +556,37 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
   let commercialProjectId: string | null = null;
   let bitrixTelemarketingId: number | null = null;
 
-  // Buscar na tabela leads
+  // Buscar na tabela leads - PRIORIZAR phone_normalized exato
   let { data: lead } = await supabase
     .from('leads')
     .select('id, conversation_id, commercial_project_id, bitrix_telemarketing_id')
-    .or(`celular.ilike.%${normalizedPhone.slice(-9)}%,telefone_casa.ilike.%${normalizedPhone.slice(-9)}%,telefone_trabalho.ilike.%${normalizedPhone.slice(-9)}%`)
+    .eq('phone_normalized', normalizedPhone)
     .maybeSingle();
+
+  // Se não encontrou por phone_normalized exato, tentar busca mais ampla
+  if (!lead) {
+    const last9Digits = normalizedPhone.slice(-9);
+    const { data: leadByPartial } = await supabase
+      .from('leads')
+      .select('id, conversation_id, commercial_project_id, bitrix_telemarketing_id, phone_normalized, celular')
+      .or(`celular.ilike.%${last9Digits}%,telefone_casa.ilike.%${last9Digits}%,telefone_trabalho.ilike.%${last9Digits}%`)
+      .limit(10);
+    
+    // Validar os resultados - verificar se o telefone realmente corresponde
+    if (leadByPartial && leadByPartial.length > 0) {
+      for (const candidateLead of leadByPartial) {
+        const leadPhoneNorm = normalizePhone(candidateLead.phone_normalized || candidateLead.celular || '');
+        if (leadPhoneNorm.slice(-9) === last9Digits) {
+          lead = candidateLead;
+          console.log(`✅ Lead ${candidateLead.id} encontrado por busca parcial validada`);
+          break;
+        }
+      }
+      if (!lead && leadByPartial.length > 0) {
+        console.log(`⚠️ ${leadByPartial.length} leads encontrados mas nenhum com telefone validado para ${normalizedPhone}`);
+      }
+    }
+  }
 
   if (lead) {
     bitrixId = bitrixId || lead.id.toString();
