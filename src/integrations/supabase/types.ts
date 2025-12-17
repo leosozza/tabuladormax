@@ -2138,6 +2138,7 @@ export type Database = {
           name: string | null
           nome_modelo: string | null
           nome_responsavel_legal: string | null
+          observacoes_telemarketing: string | null
           op_telemarketing: string | null
           phone_normalized: string | null
           photo_url: string | null
@@ -2204,6 +2205,7 @@ export type Database = {
           name?: string | null
           nome_modelo?: string | null
           nome_responsavel_legal?: string | null
+          observacoes_telemarketing?: string | null
           op_telemarketing?: string | null
           phone_normalized?: string | null
           photo_url?: string | null
@@ -2270,6 +2272,7 @@ export type Database = {
           name?: string | null
           nome_modelo?: string | null
           nome_responsavel_legal?: string | null
+          observacoes_telemarketing?: string | null
           op_telemarketing?: string | null
           phone_normalized?: string | null
           photo_url?: string | null
