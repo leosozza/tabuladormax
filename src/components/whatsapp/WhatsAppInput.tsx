@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { QuickTextSelector } from './QuickTextSelector';
 
 export type MediaType = 'image' | 'video' | 'audio' | 'document';
 
@@ -25,6 +26,7 @@ interface WhatsAppInputProps {
   disabled?: boolean;
   isWindowOpen: boolean;
   inCooldown?: boolean;
+  projectId?: string;
 }
 
 function formatTime(seconds: number): string {
@@ -45,7 +47,8 @@ export function WhatsAppInput({
   onSendMedia,
   disabled,
   isWindowOpen,
-  inCooldown
+  inCooldown,
+  projectId
 }: WhatsAppInputProps) {
   const [messageInput, setMessageInput] = useState('');
   const [mediaPreview, setMediaPreview] = useState<MediaPreview | null>(null);
@@ -331,6 +334,12 @@ export function WhatsAppInput({
             </div>
           </PopoverContent>
         </Popover>
+
+        <QuickTextSelector
+          projectId={projectId}
+          onSelect={(text) => setMessageInput(text)}
+          disabled={isDisabled || isRecording || !isWindowOpen}
+        />
 
         <Textarea
           placeholder={inCooldown ? "Aguardando..." : isRecording ? "Gravando..." : mediaPreview ? "Legenda (opcional)" : "Mensagem..."}

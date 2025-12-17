@@ -238,6 +238,7 @@ const PortalTelemarketingWhatsApp = () => {
               contactName={selectedConversation.lead_name}
               onClose={() => setSelectedConversation(null)}
               variant="fullscreen"
+              commercialProjectId={context?.commercial_project_id}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
