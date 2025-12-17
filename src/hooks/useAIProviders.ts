@@ -27,7 +27,7 @@ export interface AgentTool {
   name: string;
   display_name: string;
   description: string;
-  tool_type: 'webhook' | 'bitrix_update' | 'bitrix_get' | 'supabase_query' | 'n8n_workflow' | 'send_template' | 'transfer_human';
+  tool_type: 'webhook' | 'bitrix_update' | 'bitrix_get' | 'bitrix_api' | 'supabase_query' | 'n8n_workflow' | 'send_template' | 'transfer_human';
   config: Record<string, unknown>;
   parameters_schema: Record<string, unknown>;
   is_active: boolean;
@@ -203,6 +203,204 @@ export function useToolExecutionLogs(conversationId?: string) {
 
 // Templates de ferramentas pré-configuradas
 export const TOOL_TEMPLATES = [
+  // ========== BITRIX API - Consultas e Ações ==========
+  {
+    name: 'verificar_disponibilidade',
+    display_name: 'Verificar Disponibilidade',
+    description: 'Verifica horários disponíveis na agenda do Bitrix para agendamento',
+    tool_type: 'bitrix_api' as const,
+    config: {
+      method: 'calendar.accessibility.get',
+      base_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr',
+    },
+    parameters_schema: {
+      type: 'object',
+      properties: {
+        from: { type: 'string', description: 'Data inicial (YYYY-MM-DD)' },
+        to: { type: 'string', description: 'Data final (YYYY-MM-DD)' },
+        users: { type: 'array', items: { type: 'number' }, description: 'IDs dos usuários' },
+      },
+      required: ['from', 'to'],
+    },
+  },
+  {
+    name: 'buscar_proximos_eventos',
+    display_name: 'Buscar Próximos Eventos',
+    description: 'Busca os próximos eventos/agendamentos da agenda',
+    tool_type: 'bitrix_api' as const,
+    config: {
+      method: 'calendar.event.get.nearest',
+      base_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr',
+      params: { type: 'user' },
+    },
+    parameters_schema: {
+      type: 'object',
+      properties: {
+        days: { type: 'number', description: 'Quantidade de dias para buscar (padrão: 7)' },
+        ownerId: { type: 'number', description: 'ID do responsável' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'criar_agendamento',
+    display_name: 'Criar Agendamento',
+    description: 'Cria um novo evento/agendamento na agenda do Bitrix',
+    tool_type: 'bitrix_api' as const,
+    config: {
+      method: 'calendar.event.add',
+      base_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr',
+      params: { type: 'user' },
+    },
+    parameters_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Título do evento' },
+        from: { type: 'string', description: 'Data/hora início (YYYY-MM-DD HH:mm:ss)' },
+        to: { type: 'string', description: 'Data/hora fim (YYYY-MM-DD HH:mm:ss)' },
+        description: { type: 'string', description: 'Descrição do evento' },
+        ownerId: { type: 'number', description: 'ID do responsável' },
+      },
+      required: ['name', 'from', 'to'],
+    },
+  },
+  {
+    name: 'listar_produtos',
+    display_name: 'Listar Produtos',
+    description: 'Lista produtos disponíveis no catálogo do Bitrix',
+    tool_type: 'bitrix_api' as const,
+    config: {
+      method: 'crm.product.list',
+      base_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr',
+    },
+    parameters_schema: {
+      type: 'object',
+      properties: {
+        filter: { 
+          type: 'object', 
+          description: 'Filtros (ex: {ACTIVE: Y, SECTION_ID: 1})' 
+        },
+        select: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Campos a retornar (ex: [ID, NAME, PRICE])',
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'buscar_produto',
+    display_name: 'Buscar Produto por Nome',
+    description: 'Busca um produto específico pelo nome no Bitrix',
+    tool_type: 'bitrix_api' as const,
+    config: {
+      method: 'crm.product.list',
+      base_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr',
+    },
+    parameters_schema: {
+      type: 'object',
+      properties: {
+        nome: { type: 'string', description: 'Nome ou parte do nome do produto' },
+      },
+      required: ['nome'],
+    },
+  },
+  {
+    name: 'buscar_deal',
+    display_name: 'Buscar Negócio/Deal',
+    description: 'Busca informações de um negócio/deal no CRM',
+    tool_type: 'bitrix_api' as const,
+    config: {
+      method: 'crm.deal.get',
+      base_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr',
+    },
+    parameters_schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'number', description: 'ID do negócio' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'listar_atividades',
+    display_name: 'Listar Atividades do Lead',
+    description: 'Lista histórico de atividades e interações do lead',
+    tool_type: 'bitrix_api' as const,
+    config: {
+      method: 'crm.activity.list',
+      base_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr',
+    },
+    parameters_schema: {
+      type: 'object',
+      properties: {
+        OWNER_TYPE_ID: { type: 'number', description: 'Tipo (1=Lead, 2=Deal, 3=Contact)' },
+        OWNER_ID: { type: 'number', description: 'ID do registro' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'criar_atividade',
+    display_name: 'Criar Atividade/Registro',
+    description: 'Registra uma nova atividade ou interação no CRM',
+    tool_type: 'bitrix_api' as const,
+    config: {
+      method: 'crm.activity.add',
+      base_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr',
+    },
+    parameters_schema: {
+      type: 'object',
+      properties: {
+        SUBJECT: { type: 'string', description: 'Assunto da atividade' },
+        DESCRIPTION: { type: 'string', description: 'Descrição detalhada' },
+        TYPE_ID: { type: 'number', description: 'Tipo (1=Email, 2=Call, 6=Task)' },
+        DIRECTION: { type: 'number', description: 'Direção (1=Entrada, 2=Saída)' },
+        OWNER_TYPE_ID: { type: 'number', description: 'Tipo do dono (1=Lead)' },
+        OWNER_ID: { type: 'number', description: 'ID do lead' },
+      },
+      required: ['SUBJECT', 'TYPE_ID'],
+    },
+  },
+  {
+    name: 'buscar_contato',
+    display_name: 'Buscar Contato',
+    description: 'Busca informações de um contato no CRM',
+    tool_type: 'bitrix_api' as const,
+    config: {
+      method: 'crm.contact.get',
+      base_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr',
+    },
+    parameters_schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'number', description: 'ID do contato' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'buscar_tarefas',
+    display_name: 'Buscar Tarefas',
+    description: 'Lista tarefas associadas a um lead ou usuário',
+    tool_type: 'bitrix_api' as const,
+    config: {
+      method: 'tasks.task.list',
+      base_url: 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr',
+    },
+    parameters_schema: {
+      type: 'object',
+      properties: {
+        filter: { 
+          type: 'object', 
+          description: 'Filtros (ex: {STATUS: 2, RESPONSIBLE_ID: 1})' 
+        },
+      },
+      required: [],
+    },
+  },
+  // ========== FERRAMENTAS LEGADAS ==========
   {
     name: 'update_lead_status',
     display_name: 'Atualizar Status do Lead',
@@ -303,4 +501,31 @@ export const TOOL_TEMPLATES = [
       required: ['action'],
     },
   },
+];
+
+// Métodos Bitrix disponíveis para autocomplete
+export const BITRIX_API_METHODS = [
+  { value: 'calendar.accessibility.get', label: 'Verificar Disponibilidade', category: 'Calendário' },
+  { value: 'calendar.event.get.nearest', label: 'Próximos Eventos', category: 'Calendário' },
+  { value: 'calendar.event.add', label: 'Criar Evento', category: 'Calendário' },
+  { value: 'calendar.event.update', label: 'Atualizar Evento', category: 'Calendário' },
+  { value: 'calendar.event.delete', label: 'Deletar Evento', category: 'Calendário' },
+  { value: 'calendar.resource.list', label: 'Listar Recursos', category: 'Calendário' },
+  { value: 'crm.lead.get', label: 'Buscar Lead', category: 'CRM' },
+  { value: 'crm.lead.list', label: 'Listar Leads', category: 'CRM' },
+  { value: 'crm.lead.update', label: 'Atualizar Lead', category: 'CRM' },
+  { value: 'crm.deal.get', label: 'Buscar Deal', category: 'CRM' },
+  { value: 'crm.deal.list', label: 'Listar Deals', category: 'CRM' },
+  { value: 'crm.contact.get', label: 'Buscar Contato', category: 'CRM' },
+  { value: 'crm.contact.list', label: 'Listar Contatos', category: 'CRM' },
+  { value: 'crm.product.get', label: 'Buscar Produto', category: 'CRM' },
+  { value: 'crm.product.list', label: 'Listar Produtos', category: 'CRM' },
+  { value: 'crm.activity.list', label: 'Listar Atividades', category: 'CRM' },
+  { value: 'crm.activity.add', label: 'Criar Atividade', category: 'CRM' },
+  { value: 'crm.activity.get', label: 'Buscar Atividade', category: 'CRM' },
+  { value: 'tasks.task.list', label: 'Listar Tarefas', category: 'Tarefas' },
+  { value: 'tasks.task.get', label: 'Buscar Tarefa', category: 'Tarefas' },
+  { value: 'tasks.task.add', label: 'Criar Tarefa', category: 'Tarefas' },
+  { value: 'user.get', label: 'Buscar Usuário', category: 'Usuários' },
+  { value: 'user.current', label: 'Usuário Atual', category: 'Usuários' },
 ];
