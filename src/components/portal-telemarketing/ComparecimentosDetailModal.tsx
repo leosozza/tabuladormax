@@ -1,9 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, User, Calendar, Phone } from 'lucide-react';
+import { CheckCircle, User, Calendar } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export interface ComparecimentoDetail {
   id: number;
@@ -31,79 +32,92 @@ function formatDate(dateStr: string | null): string {
   }
 }
 
+function ModalContent({ comparecimentos }: { comparecimentos: ComparecimentoDetail[] }) {
+  if (comparecimentos.length === 0) {
+    return (
+      <p className="text-muted-foreground text-center py-8">
+        Nenhum comparecimento encontrado no período
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {comparecimentos.map((item) => (
+        <div key={item.id} className="p-3 border rounded-lg bg-muted/30">
+          <div className="flex items-center gap-2">
+            <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <span className="font-medium text-sm truncate">{item.name}</span>
+          </div>
+          
+          <div className="mt-2 space-y-1 text-xs">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-green-600 border-green-600">
+                Compareceu: {formatDate(item.dataComparecimento)}
+              </Badge>
+            </div>
+            
+            {item.agendadoEm && (
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Calendar className="w-3 h-3" />
+                Agendado em: {formatDate(item.agendadoEm)}
+              </div>
+            )}
+            
+            <div className="flex flex-wrap gap-2 text-muted-foreground">
+              {item.scouter && (
+                <span className="text-teal-600 dark:text-teal-400">
+                  Scouter: {item.scouter}
+                </span>
+              )}
+              {item.telemarketing && (
+                <span>Telemarketing: {item.telemarketing}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ComparecimentosDetailModal({
   open,
   onOpenChange,
   comparecimentos,
   totalComparecimentos,
 }: ComparecimentosDetailModalProps) {
+  const isMobile = useIsMobile();
+
+  const title = (
+    <div className="flex items-center gap-2">
+      <CheckCircle className="w-5 h-5 text-green-500" />
+      Comparecimentos ({totalComparecimentos} total)
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="max-h-[85vh]">
+          <DrawerHeader className="text-left">
+            <DrawerTitle>{title}</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 overflow-y-auto">
+            <ModalContent comparecimentos={comparecimentos} />
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl w-[95vw] max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-green-500" />
-            Comparecimentos ({totalComparecimentos} total)
-          </DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-
-        {comparecimentos.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">
-            Nenhum comparecimento encontrado no período
-          </p>
-        ) : (
-          <Table className="text-xs sm:text-sm">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">Nome</TableHead>
-                <TableHead className="text-xs hidden sm:table-cell">Agendado Em</TableHead>
-                <TableHead className="text-xs">Compareceu Em</TableHead>
-                <TableHead className="text-xs hidden sm:table-cell">Scouter</TableHead>
-                <TableHead className="text-xs hidden sm:table-cell">Telemarketing</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {comparecimentos.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-1 sm:gap-2">
-                      <User className="w-3 sm:w-4 h-3 sm:h-4 text-muted-foreground flex-shrink-0" />
-                      <span className="truncate max-w-[100px] sm:max-w-none">{item.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      {formatDate(item.agendadoEm)}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-green-600 border-green-600 text-[10px] sm:text-xs">
-                      {formatDate(item.dataComparecimento)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {item.scouter ? (
-                      <span className="text-teal-600 dark:text-teal-400">{item.scouter}</span>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {item.telemarketing ? (
-                      <div className="flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        {item.telemarketing}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <ModalContent comparecimentos={comparecimentos} />
       </DialogContent>
     </Dialog>
   );
