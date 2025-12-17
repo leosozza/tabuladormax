@@ -135,6 +135,13 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
             }, { 
               onConflict: 'user_id' 
             });
+          
+          // Sincronizar tabuladormax_user_id no agent_telemarketing_mapping
+          console.log(`[TM] Syncing tabuladormax_user_id for bitrix_id=${operatorData.bitrix_id}`);
+          await supabase
+            .from('agent_telemarketing_mapping')
+            .update({ tabuladormax_user_id: user.id })
+            .eq('bitrix_telemarketing_id', operatorData.bitrix_id);
         }
       }
       
