@@ -44,6 +44,47 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_button_shortcuts: {
+        Row: {
+          bitrix_telemarketing_id: number
+          button_config_id: string | null
+          created_at: string | null
+          hotkey: string | null
+          id: string
+          is_visible: boolean | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          bitrix_telemarketing_id: number
+          button_config_id?: string | null
+          created_at?: string | null
+          hotkey?: string | null
+          id?: string
+          is_visible?: boolean | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          bitrix_telemarketing_id?: number
+          button_config_id?: string | null
+          created_at?: string | null
+          hotkey?: string | null
+          id?: string
+          is_visible?: boolean | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_button_shortcuts_button_config_id_fkey"
+            columns: ["button_config_id"]
+            isOneToOne: false
+            referencedRelation: "button_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_telemarketing_mapping: {
         Row: {
           bitrix_telemarketing_id: number
