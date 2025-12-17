@@ -3,13 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, format } from 'date-fns';
 import { resolveTabulacaoLabel } from '@/lib/tabulacaoMapping';
 
-// IDs de tabulação que representam agendamento
-const AGENDADO_STATUS_IDS = ['3620', '3644'];
-
-function isAgendado(statusTabulacao: string | null): boolean {
-  if (!statusTabulacao) return false;
-  const cleanId = statusTabulacao.replace(/[\[\]]/g, '').trim();
-  return AGENDADO_STATUS_IDS.includes(cleanId);
+// Verifica se lead está na etapa de Agendados
+function isAgendado(etapa: string | null): boolean {
+  if (!etapa) return false;
+  return etapa === 'UC_QWPO2W' || etapa === 'Agendados';
 }
 
 export type PeriodFilter = 'today' | 'week' | 'month';
@@ -114,10 +111,10 @@ export function useTelemarketingMetrics(
         }
       });
 
-      // Build base query
+      // Build base query - busca leads modificados no período
       let query = supabase
         .from('leads')
-        .select('id, name, op_telemarketing, bitrix_telemarketing_id, ficha_confirmada, data_confirmacao_ficha, data_agendamento, status_tabulacao, date_modify, nome_modelo, scouter, fonte_normalizada')
+        .select('id, name, op_telemarketing, bitrix_telemarketing_id, ficha_confirmada, data_confirmacao_ficha, data_agendamento, data_criacao_agendamento, status_tabulacao, etapa, date_modify, nome_modelo, scouter, fonte_normalizada')
         .gte('date_modify', startStr)
         .lte('date_modify', endStr)
         .not('bitrix_telemarketing_id', 'is', null);
@@ -138,7 +135,15 @@ export function useTelemarketingMetrics(
       // Calculate metrics
       const totalLeads = leadsData.length;
       const fichasConfirmadas = leadsData.filter(l => l.ficha_confirmada === true).length;
-      const agendamentos = leadsData.filter(l => isAgendado(l.status_tabulacao)).length;
+      
+      // Agendamentos: leads com etapa UC_QWPO2W e data_criacao_agendamento no período
+      const agendamentos = leadsData.filter(l => {
+        if (!isAgendado(l.etapa)) return false;
+        if (!l.data_criacao_agendamento) return false;
+        const dataAgendamento = new Date(l.data_criacao_agendamento);
+        return dataAgendamento >= start && dataAgendamento <= end;
+      }).length;
+      
       const taxaConversao = totalLeads > 0 ? (agendamentos / totalLeads) * 100 : 0;
 
       // Build leads details for modal
@@ -156,7 +161,7 @@ export function useTelemarketingMetrics(
           statusLabel,
           dataAgendamento: lead.data_agendamento,
           fichaConfirmada: lead.ficha_confirmada === true,
-          isAgendado: isAgendado(lead.status_tabulacao),
+          isAgendado: isAgendado(lead.etapa),
           fonte: lead.fonte_normalizada || 'Não informada',
           scouter: lead.fonte_normalizada === 'Scouter - Fichas' ? lead.scouter : null,
         };
@@ -172,7 +177,13 @@ export function useTelemarketingMetrics(
         const current = operatorMap.get(opId) || { name: opName, leads: 0, confirmadas: 0, agendamentos: 0, leadsScouter: 0, leadsMeta: 0 };
         current.leads++;
         if (lead.ficha_confirmada) current.confirmadas++;
-        if (isAgendado(lead.status_tabulacao)) current.agendamentos++;
+        // Conta agendamento se etapa é UC_QWPO2W e data_criacao_agendamento no período
+        if (isAgendado(lead.etapa) && lead.data_criacao_agendamento) {
+          const dataAgendamento = new Date(lead.data_criacao_agendamento);
+          if (dataAgendamento >= start && dataAgendamento <= end) {
+            current.agendamentos++;
+          }
+        }
         if (lead.fonte_normalizada === 'Scouter - Fichas') current.leadsScouter++;
         if (lead.fonte_normalizada === 'Meta') current.leadsMeta++;
         operatorMap.set(opId, current);
@@ -245,7 +256,12 @@ export function useTelemarketingMetrics(
             const hour = format(new Date(lead.date_modify), 'HH:00');
             const current = hourMap.get(hour) || { leads: 0, agendados: 0 };
             current.leads++;
-            if (isAgendado(lead.status_tabulacao)) current.agendados++;
+            if (isAgendado(lead.etapa) && lead.data_criacao_agendamento) {
+              const dataAgendamento = new Date(lead.data_criacao_agendamento);
+              if (dataAgendamento >= start && dataAgendamento <= end) {
+                current.agendados++;
+              }
+            }
             hourMap.set(hour, current);
           }
         });
@@ -264,7 +280,12 @@ export function useTelemarketingMetrics(
             const day = format(new Date(lead.date_modify), 'dd/MM');
             const current = dayMap.get(day) || { leads: 0, agendados: 0 };
             current.leads++;
-            if (isAgendado(lead.status_tabulacao)) current.agendados++;
+            if (isAgendado(lead.etapa) && lead.data_criacao_agendamento) {
+              const dataAgendamento = new Date(lead.data_criacao_agendamento);
+              if (dataAgendamento >= start && dataAgendamento <= end) {
+                current.agendados++;
+              }
+            }
             dayMap.set(day, current);
           }
         });
@@ -284,7 +305,12 @@ export function useTelemarketingMetrics(
         if (lead.fonte_normalizada === 'Scouter - Fichas' && lead.scouter) {
           const current = scouterMap.get(lead.scouter) || { leads: 0, agendamentos: 0 };
           current.leads++;
-          if (isAgendado(lead.status_tabulacao)) current.agendamentos++;
+          if (isAgendado(lead.etapa) && lead.data_criacao_agendamento) {
+            const dataAgendamento = new Date(lead.data_criacao_agendamento);
+            if (dataAgendamento >= start && dataAgendamento <= end) {
+              current.agendamentos++;
+            }
+          }
           scouterMap.set(lead.scouter, current);
         }
       });
