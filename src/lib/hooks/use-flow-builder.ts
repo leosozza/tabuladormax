@@ -89,11 +89,15 @@ function getDefaultLabel(type: FlowStepType): string {
   const labels: Record<FlowStepType, string> = {
     tabular: 'Tabulação',
     bitrix_connector: 'Bitrix',
+    bitrix_get_field: 'Buscar Campo Bitrix',
     supabase_connector: 'Supabase',
     n8n_connector: 'N8N',
     http_call: 'HTTP Request',
     wait: 'Aguardar',
     send_message: 'Enviar Mensagem',
+    gupshup_send_text: 'WhatsApp: Texto',
+    gupshup_send_image: 'WhatsApp: Imagem',
+    gupshup_send_buttons: 'WhatsApp: Botões',
     condition: 'Condição',
     schedule_message: 'Agendar Mensagem',
     update_contact: 'Atualizar Contato',
@@ -123,6 +127,11 @@ function getDefaultConfig(type: FlowStepType): unknown {
       additional_fields: [],
       lead_id: '{{leadId}}'
     },
+    bitrix_get_field: {
+      field_name: 'UF_CRM_CREDENCIAL',
+      output_variable: 'credencial_url',
+      is_file: true,
+    },
     supabase_connector: {
       action: 'update',
       table: 'leads',
@@ -151,6 +160,20 @@ function getDefaultConfig(type: FlowStepType): unknown {
       conversationId: '{{conversation.id}}',
       message: '',
       messageType: 'outgoing',
+    },
+    gupshup_send_text: {
+      message: 'Olá! {{lead.nome}}',
+    },
+    gupshup_send_image: {
+      image_url: '{{credencial_url}}',
+      caption: 'Sua credencial está pronta!',
+    },
+    gupshup_send_buttons: {
+      message: 'Escolha uma opção:',
+      buttons: [
+        { id: 'btn_1', title: 'Opção 1' },
+        { id: 'btn_2', title: 'Opção 2' },
+      ],
     },
     condition: {
       conditions: [],

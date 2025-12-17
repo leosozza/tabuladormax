@@ -44,6 +44,7 @@ import ApiKeyManagement from './pages/admin/ApiKeyManagement';
 import GupshupIntegration from './pages/admin/GupshupIntegration';
 import LoopMonitor from './pages/admin/LoopMonitor';
 import WhatsAppBot from './pages/admin/WhatsAppBot';
+import FlowBuilderAdmin from './pages/admin/FlowBuilderAdmin';
 
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
@@ -173,6 +174,7 @@ const App = () => (
             <Route path="/admin/gupshup-integration" element={<ProtectedRoute requireManager><GupshupIntegration /></ProtectedRoute>} />
             <Route path="/admin/loop-monitor" element={<ProtectedRoute requireManager><LoopMonitor /></ProtectedRoute>} />
             <Route path="/admin/whatsapp-bot" element={<ProtectedRoute requireAdmin><WhatsAppBot /></ProtectedRoute>} />
+            <Route path="/admin/flow-builder" element={<ProtectedRoute requireManager><FlowBuilderAdmin /></ProtectedRoute>} />
 
             {/* Agenciamento */}
             <Route path="/agenciamento" element={<Agenciamento />} />
