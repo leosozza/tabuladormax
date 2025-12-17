@@ -3,6 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, format } from 'date-fns';
 import { resolveTabulacaoLabel } from '@/lib/tabulacaoMapping';
 
+// IDs de tabulação que representam agendamento
+const AGENDADO_STATUS_IDS = ['3620', '3644'];
+
+function isAgendado(statusTabulacao: string | null): boolean {
+  if (!statusTabulacao) return false;
+  const cleanId = statusTabulacao.replace(/[\[\]]/g, '').trim();
+  return AGENDADO_STATUS_IDS.includes(cleanId);
+}
+
 export type PeriodFilter = 'today' | 'week' | 'month';
 
 export interface LeadDetail {
@@ -116,7 +125,7 @@ export function useTelemarketingMetrics(
       // Calculate metrics
       const totalLeads = leadsData.length;
       const fichasConfirmadas = leadsData.filter(l => l.ficha_confirmada === true).length;
-      const agendamentos = leadsData.filter(l => l.data_agendamento).length;
+      const agendamentos = leadsData.filter(l => isAgendado(l.status_tabulacao)).length;
       const taxaConversao = totalLeads > 0 ? (agendamentos / totalLeads) * 100 : 0;
 
       // Build leads details for modal
@@ -147,7 +156,7 @@ export function useTelemarketingMetrics(
         const current = operatorMap.get(opId) || { name: opName, leads: 0, confirmadas: 0, agendamentos: 0 };
         current.leads++;
         if (lead.ficha_confirmada) current.confirmadas++;
-        if (lead.data_agendamento) current.agendamentos++;
+        if (isAgendado(lead.status_tabulacao)) current.agendamentos++;
         operatorMap.set(opId, current);
       });
 
@@ -210,7 +219,7 @@ export function useTelemarketingMetrics(
             const hour = format(new Date(lead.date_modify), 'HH:00');
             const current = hourMap.get(hour) || { leads: 0, agendados: 0 };
             current.leads++;
-            if (lead.data_agendamento) current.agendados++;
+            if (isAgendado(lead.status_tabulacao)) current.agendados++;
             hourMap.set(hour, current);
           }
         });
@@ -229,7 +238,7 @@ export function useTelemarketingMetrics(
             const day = format(new Date(lead.date_modify), 'dd/MM');
             const current = dayMap.get(day) || { leads: 0, agendados: 0 };
             current.leads++;
-            if (lead.data_agendamento) current.agendados++;
+            if (isAgendado(lead.status_tabulacao)) current.agendados++;
             dayMap.set(day, current);
           }
         });
