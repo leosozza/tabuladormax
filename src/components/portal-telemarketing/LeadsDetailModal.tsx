@@ -2,7 +2,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Phone, CheckCircle, Calendar, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Phone, CheckCircle, Calendar, FileText, ClipboardList } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { getEtapaStyle } from '@/lib/etapaColors';
 import type { LeadDetail } from '@/hooks/useTelemarketingMetrics';
 
@@ -39,6 +41,7 @@ export function LeadsDetailModal({
   title,
   filterStatus 
 }: LeadsDetailModalProps) {
+  const navigate = useNavigate();
   const Icon = typeIcons[type];
   const iconColor = typeColors[type];
 
@@ -78,6 +81,7 @@ export function LeadsDetailModal({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10"></TableHead>
                   <TableHead className="w-20">ID</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Telemarketing</TableHead>
@@ -93,6 +97,17 @@ export function LeadsDetailModal({
                   const isMeta = lead.fonte === 'Meta';
                   return (
                     <TableRow key={lead.id}>
+                      <TableCell className="p-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => navigate(`/portal-telemarketing/tabulador?lead=${lead.id}`)}
+                          title="Abrir Tabulador"
+                        >
+                          <ClipboardList className="w-4 h-4 text-primary" />
+                        </Button>
+                      </TableCell>
                       <TableCell className="font-mono text-xs">
                         {lead.id}
                       </TableCell>
