@@ -263,3 +263,6 @@ verify_jwt = false
 
 [functions.whatsapp-ai-assist]
 verify_jwt = false
+
+[functions.bitrix-template-webhook]
+verify_jwt = false
