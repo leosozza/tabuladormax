@@ -1,4 +1,4 @@
-import { Bell, Volume2, VolumeX, Smartphone } from 'lucide-react';
+import { Bell, Volume2, VolumeX, BellOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -17,11 +17,14 @@ import {
   useNotificationSound 
 } from '@/hooks/useTelemarketingNotifications';
 import { Settings } from 'lucide-react';
+import { NotificationBlockedHelp } from './NotificationBlockedHelp';
+import { useState } from 'react';
 
 export const NotificationSettings = () => {
   const { settings, updateSettings } = useNotificationSettings();
   const { permission, requestPermission } = useBrowserNotification();
   const { playSound } = useNotificationSound();
+  const [isChecking, setIsChecking] = useState(false);
 
   const handleRequestPermission = async () => {
     const granted = await requestPermission();
@@ -32,6 +35,16 @@ export const NotificationSettings = () => {
 
   const handleTestSound = () => {
     playSound('new_message');
+  };
+
+  const handleCheckPermission = async () => {
+    setIsChecking(true);
+    // Force a permission check by requesting again
+    const granted = await requestPermission();
+    if (granted) {
+      updateSettings({ push_enabled: true });
+    }
+    setIsChecking(false);
   };
 
   return (
@@ -97,7 +110,11 @@ export const NotificationSettings = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Smartphone className="h-4 w-4" />
+                {permission === 'denied' ? (
+                  <BellOff className="h-4 w-4 text-destructive" />
+                ) : (
+                  <Bell className="h-4 w-4" />
+                )}
                 <Label htmlFor="push">Notificações do navegador</Label>
               </div>
               <Switch
@@ -115,9 +132,27 @@ export const NotificationSettings = () => {
             </div>
 
             {permission === 'denied' && (
-              <p className="text-xs text-destructive">
-                Notificações bloqueadas. Habilite nas configurações do navegador.
-              </p>
+              <div className="space-y-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                <p className="text-xs text-destructive font-medium">
+                  ⚠️ Notificações bloqueadas pelo navegador
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <NotificationBlockedHelp />
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleCheckPermission}
+                    disabled={isChecking}
+                    className="gap-1.5"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isChecking ? 'animate-spin' : ''}`} />
+                    Verificar agora
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Sons e alertas no app continuam funcionando normalmente.
+                </p>
+              </div>
             )}
 
             {permission === 'default' && (
