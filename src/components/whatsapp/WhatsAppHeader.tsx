@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { RefreshCw, X, ClipboardList } from 'lucide-react';
+import { RefreshCw, X, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface WhatsAppHeaderProps {
@@ -44,7 +44,7 @@ export function WhatsAppHeader({
             onClick={() => navigate(`/portal-telemarketing/tabulador?lead=${bitrixId}`)}
             title="Abrir Tabulador"
           >
-            <ClipboardList className="w-4 h-4" />
+            <Phone className="w-4 h-4" />
           </Button>
         )}
         {onRefresh && (
