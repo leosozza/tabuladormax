@@ -216,8 +216,8 @@ const adminCategories: Record<string, CategoryConfig> = {
       {
         path: '/admin/config',
         icon: Settings,
-        title: 'Configurações Gerais',
-        description: 'Configurações do sistema',
+        title: 'Configurações do Tabulador',
+        description: 'Configurações gerais do sistema',
         color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
       },
       {
