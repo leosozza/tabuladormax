@@ -51,6 +51,18 @@ export function useTelemarketingMetrics(
       const startStr = start.toISOString();
       const endStr = end.toISOString();
 
+      // Fetch operators to map ID -> Name
+      const { data: operators } = await supabase
+        .from('telemarketing_operators')
+        .select('bitrix_id, name');
+
+      const operatorNameMap = new Map<number, string>();
+      operators?.forEach(op => {
+        if (op.bitrix_id && op.name) {
+          operatorNameMap.set(op.bitrix_id, op.name);
+        }
+      });
+
       // Build base query
       let query = supabase
         .from('leads')
@@ -78,10 +90,11 @@ export function useTelemarketingMetrics(
       const agendamentos = leadsData.filter(l => l.data_agendamento).length;
       const taxaConversao = totalLeads > 0 ? (fichasConfirmadas / totalLeads) * 100 : 0;
 
-      // Group by operator
+      // Group by operator using friendly names
       const operatorMap = new Map<string, { leads: number; confirmadas: number; agendamentos: number }>();
       leadsData.forEach(lead => {
-        const opName = lead.op_telemarketing || 'Não atribuído';
+        const opId = lead.bitrix_telemarketing_id;
+        const opName = opId ? (operatorNameMap.get(opId) || `Operador ${opId}`) : 'Não atribuído';
         const current = operatorMap.get(opName) || { leads: 0, confirmadas: 0, agendamentos: 0 };
         current.leads++;
         if (lead.ficha_confirmada) current.confirmadas++;
