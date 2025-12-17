@@ -31,7 +31,7 @@ export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
     <div className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[70%] rounded-lg px-4 py-2 ${
         isBitrixAutomation
-          ? 'bg-amber-600 text-white'
+          ? 'bg-sky-500 text-white'
           : isOutbound
             ? 'bg-primary text-primary-foreground'
             : 'bg-muted'
