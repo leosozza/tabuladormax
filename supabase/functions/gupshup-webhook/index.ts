@@ -838,6 +838,61 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
     'failed': 'failed',
   };
 
+  // 🔍 Verificar se a mensagem já existe no banco
+  const { data: existingMessage } = await supabase
+    .from('whatsapp_messages')
+    .select('id')
+    .eq('gupshup_message_id', messageId)
+    .maybeSingle();
+
+  // 📝 Se NÃO existir e for um status válido, criar mensagem como "automação Bitrix"
+  if (!existingMessage && (statusType === 'sent' || statusType === 'delivered' || statusType === 'read')) {
+    console.log(`📝 Mensagem não encontrada, verificando se é automação Bitrix...`);
+    
+    // Buscar lead pelo telefone de destino (últimos 9 dígitos)
+    const phoneDigits = destination.replace(/\D/g, '').slice(-9);
+    const { data: lead } = await supabase
+      .from('leads')
+      .select('id, name, conversation_id')
+      .or(`celular.ilike.%${phoneDigits}%,telefone_casa.ilike.%${phoneDigits}%,phone_normalized.ilike.%${phoneDigits}%`)
+      .order('criado', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    // Criar mensagem como enviada por automação
+    const { error: insertError } = await supabase
+      .from('whatsapp_messages')
+      .insert({
+        phone_number: destination,
+        bitrix_id: lead?.id?.toString() || null,
+        conversation_id: lead?.conversation_id || null,
+        gupshup_message_id: messageId,
+        direction: 'outbound',
+        message_type: 'template',
+        content: '[📋 Template enviado via automação Bitrix]',
+        template_name: 'bitrix_automation',
+        status: statusMap[statusType] || statusType,
+        sent_by: 'bitrix_automation',
+        sender_name: 'Automação Bitrix',
+        delivered_at: statusType === 'delivered' || statusType === 'read' ? new Date().toISOString() : null,
+        read_at: statusType === 'read' ? new Date().toISOString() : null,
+        metadata: {
+          ...payload,
+          source: 'bitrix_automation',
+          note: 'Mensagem detectada via callback de status - enviada pela automação do Bitrix',
+          detected_at: new Date().toISOString()
+        }
+      });
+    
+    if (insertError) {
+      console.error('❌ Erro ao registrar mensagem de automação Bitrix:', insertError);
+    } else {
+      console.log(`✅ Mensagem de automação Bitrix registrada para ${destination} (lead: ${lead?.id || 'não encontrado'})`);
+    }
+    return;
+  }
+
+  // Se a mensagem existe, fazer update normal
   const updateData: any = {
     status: statusMap[statusType] || statusType,
     metadata: payload,
