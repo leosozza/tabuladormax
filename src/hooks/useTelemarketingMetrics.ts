@@ -24,6 +24,8 @@ export interface LeadDetail {
   dataAgendamento?: string;
   fichaConfirmada: boolean;
   isAgendado: boolean;
+  fonte: string;
+  scouter: string | null;
 }
 
 export interface TabulacaoGroup {
@@ -48,6 +50,8 @@ interface TelemarketingMetrics {
     leads: number;
     confirmadas: number;
     agendamentos: number;
+    leadsScouter: number;
+    leadsMeta: number;
   }[];
   statusDistribution: {
     status: string;
@@ -105,7 +109,7 @@ export function useTelemarketingMetrics(
       // Build base query
       let query = supabase
         .from('leads')
-        .select('id, name, op_telemarketing, bitrix_telemarketing_id, ficha_confirmada, data_confirmacao_ficha, data_agendamento, status_tabulacao, date_modify, nome_modelo')
+        .select('id, name, op_telemarketing, bitrix_telemarketing_id, ficha_confirmada, data_confirmacao_ficha, data_agendamento, status_tabulacao, date_modify, nome_modelo, scouter, fonte_normalizada')
         .gte('date_modify', startStr)
         .lte('date_modify', endStr)
         .not('bitrix_telemarketing_id', 'is', null);
@@ -145,20 +149,24 @@ export function useTelemarketingMetrics(
           dataAgendamento: lead.data_agendamento,
           fichaConfirmada: lead.ficha_confirmada === true,
           isAgendado: isAgendado(lead.status_tabulacao),
+          fonte: lead.fonte_normalizada || 'Não informada',
+          scouter: lead.fonte_normalizada === 'Scouter - Fichas' ? lead.scouter : null,
         };
       });
 
       // Group by operator using friendly names and track bitrix_id
-      const operatorMap = new Map<number, { name: string; leads: number; confirmadas: number; agendamentos: number }>();
+      const operatorMap = new Map<number, { name: string; leads: number; confirmadas: number; agendamentos: number; leadsScouter: number; leadsMeta: number }>();
       leadsData.forEach(lead => {
         const opId = lead.bitrix_telemarketing_id;
         if (!opId) return; // Skip leads without operator
         
         const opName = operatorNameMap.get(opId) || `Operador ${opId}`;
-        const current = operatorMap.get(opId) || { name: opName, leads: 0, confirmadas: 0, agendamentos: 0 };
+        const current = operatorMap.get(opId) || { name: opName, leads: 0, confirmadas: 0, agendamentos: 0, leadsScouter: 0, leadsMeta: 0 };
         current.leads++;
         if (lead.ficha_confirmada) current.confirmadas++;
         if (isAgendado(lead.status_tabulacao)) current.agendamentos++;
+        if (lead.fonte_normalizada === 'Scouter - Fichas') current.leadsScouter++;
+        if (lead.fonte_normalizada === 'Meta') current.leadsMeta++;
         operatorMap.set(opId, current);
       });
 
