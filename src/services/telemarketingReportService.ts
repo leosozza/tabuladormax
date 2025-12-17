@@ -26,12 +26,19 @@ export interface TabulacaoItem {
   percentage: string;
 }
 
+export interface ComparecimentoReportItem {
+  name: string;
+  scouter: string | null;
+  telemarketing: string | null;
+}
+
 export interface TelemarketingReportData {
   period: string;
   periodLabel: string;
   date: string;
   totalLeads: number;
   agendamentos: number;
+  comparecimentos?: number;
   taxaConversao: number;
   operatorPerformance: OperatorPerformance[];
   scouterPerformance: ScouterPerformance[];
@@ -78,7 +85,8 @@ export function generateTelemarketingReportPDF(data: TelemarketingReportData): v
   
   doc.text(`Total de Leads: ${data.totalLeads}`, col1, 62);
   doc.text(`Agendamentos: ${data.agendamentos}`, col2, 62);
-  doc.text(`Taxa de Conversão: ${data.taxaConversao.toFixed(1)}%`, col1, 68);
+  doc.text(`Comparecimentos: ${data.comparecimentos || 0}`, col1, 68);
+  doc.text(`Taxa de Conversão: ${data.taxaConversao.toFixed(1)}%`, col2, 68);
   
   // Operator Performance Table
   doc.setFontSize(12);
