@@ -213,6 +213,11 @@ export function WhatsAppChatContainer({
             isWindowOpen={isWindowOpen}
             inCooldown={inCooldown}
             projectId={commercialProjectId}
+            chatMessages={messages.map(m => ({
+              direction: m.direction,
+              content: m.content || '',
+              sender_name: m.sender_name,
+            }))}
           />
         </TabsContent>
 

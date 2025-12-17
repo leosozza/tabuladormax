@@ -93,6 +93,90 @@ async function searchBitrixByPhone(phone: string): Promise<any> {
   }
 }
 
+// ============================================
+// Download media do Gupshup e fazer upload para Supabase Storage
+// ============================================
+async function downloadAndUploadMedia(
+  supabase: any,
+  gupshupMediaUrl: string,
+  mediaType: string,
+  phoneNumber: string
+): Promise<string | null> {
+  try {
+    const GUPSHUP_API_KEY = Deno.env.get('GUPSHUP_API_KEY');
+    
+    if (!GUPSHUP_API_KEY || !gupshupMediaUrl) {
+      console.log('⚠️ Sem API key ou URL de mídia, mantendo URL original');
+      return null;
+    }
+
+    console.log(`📥 Baixando mídia do Gupshup: ${gupshupMediaUrl.substring(0, 50)}...`);
+
+    // Fazer request autenticado ao Gupshup para baixar a mídia
+    const response = await fetch(gupshupMediaUrl, {
+      headers: {
+        'apikey': GUPSHUP_API_KEY,
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`❌ Erro ao baixar mídia: ${response.status}`);
+      return null;
+    }
+
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    const blob = await response.blob();
+    
+    // Determinar extensão do arquivo
+    let extension = 'bin';
+    if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) extension = 'jpg';
+    else if (contentType.includes('image/png')) extension = 'png';
+    else if (contentType.includes('image/webp')) extension = 'webp';
+    else if (contentType.includes('audio/ogg') || contentType.includes('audio/opus')) extension = 'ogg';
+    else if (contentType.includes('audio/mpeg') || contentType.includes('audio/mp3')) extension = 'mp3';
+    else if (contentType.includes('video/mp4')) extension = 'mp4';
+    else if (contentType.includes('application/pdf')) extension = 'pdf';
+    else if (mediaType === 'image') extension = 'jpg';
+    else if (mediaType === 'audio') extension = 'ogg';
+    else if (mediaType === 'video') extension = 'mp4';
+    else if (mediaType === 'document') extension = 'pdf';
+    else if (mediaType === 'sticker') extension = 'webp';
+
+    // Criar nome único para o arquivo
+    const timestamp = Date.now();
+    const sanitizedPhone = phoneNumber.replace(/\D/g, '').slice(-9);
+    const filename = `${mediaType}_${sanitizedPhone}_${timestamp}.${extension}`;
+    const path = `inbound/${filename}`;
+
+    console.log(`📤 Fazendo upload para Storage: ${path}`);
+
+    // Upload para Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('whatsapp-media')
+      .upload(path, blob, {
+        contentType,
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) {
+      console.error('❌ Erro ao fazer upload para Storage:', error);
+      return null;
+    }
+
+    // Obter URL pública
+    const { data: { publicUrl } } = supabase.storage
+      .from('whatsapp-media')
+      .getPublicUrl(data.path);
+
+    console.log(`✅ Mídia salva no Storage: ${publicUrl.substring(0, 60)}...`);
+    return publicUrl;
+  } catch (error) {
+    console.error('❌ Erro ao processar mídia:', error);
+    return null;
+  }
+}
+
 interface GupshupMessagePayload {
   id: string;
   source: string;
@@ -564,34 +648,41 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
   let messageType = 'text';
   let mediaUrl = '';
   let mediaType = '';
+  let originalMediaUrl = '';
 
   if (payload.type === 'text') {
     content = payload.payload?.text || '';
   } else if (payload.type === 'image') {
     messageType = 'image';
-    mediaUrl = payload.payload?.url || '';
+    originalMediaUrl = payload.payload?.url || '';
     content = payload.payload?.caption || '[Imagem]';
     mediaType = 'image';
   } else if (payload.type === 'audio') {
     messageType = 'audio';
-    mediaUrl = payload.payload?.url || '';
+    originalMediaUrl = payload.payload?.url || '';
     content = '[Áudio]';
     mediaType = 'audio';
   } else if (payload.type === 'video') {
     messageType = 'video';
-    mediaUrl = payload.payload?.url || '';
+    originalMediaUrl = payload.payload?.url || '';
     content = payload.payload?.caption || '[Vídeo]';
     mediaType = 'video';
   } else if (payload.type === 'document') {
     messageType = 'document';
-    mediaUrl = payload.payload?.url || '';
+    originalMediaUrl = payload.payload?.url || '';
     content = '[Documento]';
     mediaType = 'document';
   } else if (payload.type === 'sticker') {
     messageType = 'sticker';
-    mediaUrl = payload.payload?.url || '';
+    originalMediaUrl = payload.payload?.url || '';
     content = '[Sticker]';
     mediaType = 'sticker';
+  }
+
+  // Download e upload de mídia para Supabase Storage
+  if (originalMediaUrl && mediaType) {
+    const uploadedUrl = await downloadAndUploadMedia(supabase, originalMediaUrl, mediaType, normalizedPhone);
+    mediaUrl = uploadedUrl || originalMediaUrl; // Fallback para URL original se falhar
   }
 
   // Inserir mensagem no banco
