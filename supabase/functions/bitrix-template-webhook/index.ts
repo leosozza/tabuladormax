@@ -165,6 +165,8 @@ interface RegisterMessageParams {
 }
 
 async function registerMessage(supabase: any, data: RegisterMessageParams) {
+  const now = new Date().toISOString();
+  
   const { error } = await supabase
     .from('whatsapp_messages')
     .insert({
@@ -175,13 +177,14 @@ async function registerMessage(supabase: any, data: RegisterMessageParams) {
       message_type: 'template',
       content: data.content,
       template_name: data.template_name,
-      status: 'sent',
+      status: 'pending', // Aguardando confirmação do Gupshup
       sent_by: 'bitrix',
       sender_name: 'Bitrix Automação',
       metadata: {
         source: 'bitrix_webhook',
         template_display_name: data.template_display_name,
-        variables: data.variables
+        variables: data.variables,
+        pending_since: now // Para matching no gupshup-webhook
       }
     });
 
@@ -189,6 +192,8 @@ async function registerMessage(supabase: any, data: RegisterMessageParams) {
     console.error('❌ Erro ao salvar mensagem:', error);
     throw error;
   }
+  
+  console.log(`⏳ Mensagem registrada com status 'pending' para ${data.phone_number}`);
 
   // Atualizar last_message no chatwoot_contacts
   if (data.bitrix_id) {

@@ -843,16 +843,71 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
     'failed': 'failed',
   };
 
-  // 🔍 Verificar se a mensagem já existe no banco
+  // 🔍 Verificar se a mensagem já existe no banco pelo gupshup_message_id
   const { data: existingMessage } = await supabase
     .from('whatsapp_messages')
     .select('id')
     .eq('gupshup_message_id', messageId)
     .maybeSingle();
 
-  // 📝 Se NÃO existir e for um status válido, criar mensagem como "automação Bitrix"
-  if (!existingMessage && (statusType === 'sent' || statusType === 'delivered' || statusType === 'read')) {
-    console.log(`📝 Mensagem não encontrada, verificando se é automação Bitrix...`);
+  // 📝 Se NÃO existir pelo messageId, tentar encontrar mensagem PENDENTE pelo telefone
+  if (!existingMessage && (statusType === 'sent' || statusType === 'delivered' || statusType === 'read' || statusType === 'failed')) {
+    console.log(`📝 Mensagem não encontrada por ID, buscando pendente por telefone: ${destination}`);
+    
+    // Buscar mensagem pendente criada nos últimos 5 minutos para este telefone
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    
+    const { data: pendingMessage } = await supabase
+      .from('whatsapp_messages')
+      .select('id, content, template_name, bitrix_id, conversation_id, metadata')
+      .eq('phone_number', destination)
+      .eq('direction', 'outbound')
+      .eq('status', 'pending')
+      .gte('created_at', fiveMinutesAgo)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (pendingMessage) {
+      // ✅ ENCONTROU! Atualizar a mensagem pendente com o status real e gupshup_message_id
+      console.log(`✅ Mensagem pendente encontrada (ID: ${pendingMessage.id}), atualizando com status: ${statusType}`);
+      
+      const updateData: any = {
+        gupshup_message_id: messageId,
+        status: statusMap[statusType] || statusType,
+        metadata: {
+          ...(pendingMessage.metadata || {}),
+          gupshup_callback: payload,
+          status_updated_at: new Date().toISOString()
+        }
+      };
+      
+      if (statusType === 'delivered' || statusType === 'read') {
+        updateData.delivered_at = new Date().toISOString();
+      }
+      if (statusType === 'read') {
+        updateData.read_at = new Date().toISOString();
+      }
+      if (statusType === 'failed') {
+        updateData.metadata.error_code = payload.payload?.code;
+        updateData.metadata.error_reason = payload.payload?.reason;
+      }
+      
+      const { error: updateError } = await supabase
+        .from('whatsapp_messages')
+        .update(updateData)
+        .eq('id', pendingMessage.id);
+      
+      if (updateError) {
+        console.error('❌ Erro ao atualizar mensagem pendente:', updateError);
+      } else {
+        console.log(`✅ Mensagem pendente atualizada: ${statusType} (template: ${pendingMessage.template_name})`);
+      }
+      return;
+    }
+    
+    // Se não encontrou mensagem pendente, criar como automação Bitrix (fallback)
+    console.log(`⚠️ Nenhuma mensagem pendente encontrada, criando como automação Bitrix...`);
     
     // Buscar lead pelo telefone de destino (últimos 9 dígitos)
     const phoneDigits = destination.replace(/\D/g, '').slice(-9);
@@ -883,8 +938,8 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
         read_at: statusType === 'read' ? new Date().toISOString() : null,
         metadata: {
           ...payload,
-          source: 'bitrix_automation',
-          note: 'Mensagem detectada via callback de status - enviada pela automação do Bitrix',
+          source: 'bitrix_automation_fallback',
+          note: 'Mensagem detectada via callback - nenhuma pendente encontrada',
           detected_at: new Date().toISOString()
         }
       });
