@@ -9,6 +9,7 @@ import { useTelemarketingMetrics, PeriodFilter } from '@/hooks/useTelemarketingM
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { SUPERVISOR_CARGO } from './TelemarketingAccessKeyForm';
+import { LeadsDetailModal, KpiType } from './LeadsDetailModal';
 
 interface TelemarketingDashboardContentProps {
   operatorBitrixId?: number;
@@ -20,12 +21,24 @@ export function TelemarketingDashboardContent({
   operatorCargo 
 }: TelemarketingDashboardContentProps) {
   const [period, setPeriod] = useState<PeriodFilter>('today');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<KpiType>('leads');
+  const [modalTitle, setModalTitle] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string | undefined>();
+  
   const isSupervisor = operatorCargo === SUPERVISOR_CARGO;
   
   // Supervisors see all, agents see only their data
   const filterOperatorId = isSupervisor ? undefined : operatorBitrixId;
   
   const { data: metrics, isLoading, error } = useTelemarketingMetrics(period, filterOperatorId);
+
+  const handleKpiClick = (type: KpiType, title: string, status?: string) => {
+    setModalType(type);
+    setModalTitle(title);
+    setFilterStatus(status);
+    setModalOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -51,6 +64,7 @@ export function TelemarketingDashboardContent({
       icon: Phone,
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
+      type: 'leads' as KpiType,
     },
     {
       title: 'Fichas Confirmadas',
@@ -58,6 +72,7 @@ export function TelemarketingDashboardContent({
       icon: CheckCircle,
       color: 'text-green-500',
       bgColor: 'bg-green-500/10',
+      type: 'confirmadas' as KpiType,
     },
     {
       title: 'Agendamentos',
@@ -65,6 +80,7 @@ export function TelemarketingDashboardContent({
       icon: Calendar,
       color: 'text-orange-500',
       bgColor: 'bg-orange-500/10',
+      type: 'agendados' as KpiType,
     },
     {
       title: 'Taxa de Conversão',
@@ -72,6 +88,7 @@ export function TelemarketingDashboardContent({
       icon: TrendingUp,
       color: 'text-purple-500',
       bgColor: 'bg-purple-500/10',
+      type: null, // Not clickable
     },
   ];
 
@@ -82,8 +99,8 @@ export function TelemarketingDashboardContent({
   
   const barChartSeries = [
     {
-      name: 'Leads',
-      data: metrics?.operatorPerformance.map(op => op.leads) || [],
+      name: 'Agendamentos',
+      data: metrics?.operatorPerformance.map(op => op.agendamentos) || [],
     },
     {
       name: 'Confirmadas',
@@ -101,8 +118,8 @@ export function TelemarketingDashboardContent({
       data: metrics?.timeline.map(t => t.leads) || [],
     },
     {
-      name: 'Confirmadas',
-      data: metrics?.timeline.map(t => t.confirmadas) || [],
+      name: 'Agendados',
+      data: metrics?.timeline.map(t => t.agendados) || [],
     },
   ];
 
@@ -125,10 +142,14 @@ export function TelemarketingDashboardContent({
         </Select>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards - Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {kpis.map((kpi) => (
-          <Card key={kpi.title} className="relative overflow-hidden">
+          <Card 
+            key={kpi.title} 
+            className={`relative overflow-hidden ${kpi.type ? 'cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all' : ''}`}
+            onClick={() => kpi.type && handleKpiClick(kpi.type, kpi.title)}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${kpi.bgColor}`}>
@@ -143,6 +164,25 @@ export function TelemarketingDashboardContent({
           </Card>
         ))}
       </div>
+
+      {/* Tabulação Cards - Clickable */}
+      {metrics?.tabulacaoGroups && metrics.tabulacaoGroups.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3">Por Tabulação</h3>
+          <div className="flex flex-wrap gap-2">
+            {metrics.tabulacaoGroups.slice(0, 8).map((tab) => (
+              <Badge
+                key={tab.label}
+                variant="secondary"
+                className="cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all px-3 py-1.5"
+                onClick={() => handleKpiClick('tabulacao', tab.label, tab.label)}
+              >
+                {tab.label}: {tab.count}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -183,7 +223,7 @@ export function TelemarketingDashboardContent({
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <Trophy className="w-5 h-5 text-yellow-500" />
-              Ranking de Operadores
+              Ranking de Operadores (por Agendamentos)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -192,10 +232,10 @@ export function TelemarketingDashboardContent({
                 <TableRow>
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Operador</TableHead>
-                  <TableHead className="text-center">Leads</TableHead>
-                  <TableHead className="text-center">Confirmadas</TableHead>
-                  <TableHead className="text-center">Taxa</TableHead>
                   <TableHead className="text-center">Agendamentos</TableHead>
+                  <TableHead className="text-center">Confirmadas</TableHead>
+                  <TableHead className="text-center">Leads</TableHead>
+                  <TableHead className="text-center">Conversão</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -210,10 +250,10 @@ export function TelemarketingDashboardContent({
                         {index > 2 && <span className="text-muted-foreground">{index + 1}</span>}
                       </TableCell>
                       <TableCell className="font-medium">{op.name}</TableCell>
-                      <TableCell className="text-center">{op.leads}</TableCell>
+                      <TableCell className="text-center text-orange-600 font-bold">{op.agendamentos}</TableCell>
                       <TableCell className="text-center text-green-600 font-medium">{op.confirmadas}</TableCell>
+                      <TableCell className="text-center">{op.leads}</TableCell>
                       <TableCell className="text-center">{taxa}%</TableCell>
-                      <TableCell className="text-center">{op.agendamentos}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -231,6 +271,16 @@ export function TelemarketingDashboardContent({
           </p>
         </Card>
       )}
+
+      {/* Leads Detail Modal */}
+      <LeadsDetailModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        leads={metrics?.leadsDetails || []}
+        type={modalType}
+        title={modalTitle}
+        filterStatus={filterStatus}
+      />
     </div>
   );
 }

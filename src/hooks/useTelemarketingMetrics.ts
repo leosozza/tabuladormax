@@ -1,8 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, format } from 'date-fns';
+import { getEtapaStyle } from '@/lib/etapaColors';
 
 export type PeriodFilter = 'today' | 'week' | 'month';
+
+export interface LeadDetail {
+  id: number;
+  name: string;
+  operatorId: number | null;
+  operatorName: string;
+  status: string;
+  statusLabel: string;
+  dataAgendamento?: string;
+  fichaConfirmada: boolean;
+}
+
+export interface TabulacaoGroup {
+  label: string;
+  rawStatus: string;
+  count: number;
+}
 
 interface TelemarketingMetrics {
   totalLeads: number;
@@ -22,8 +40,11 @@ interface TelemarketingMetrics {
   timeline: {
     date: string;
     leads: number;
-    confirmadas: number;
+    agendados: number;
   }[];
+  // New: Lead details for modal
+  leadsDetails: LeadDetail[];
+  tabulacaoGroups: TabulacaoGroup[];
 }
 
 function getDateRange(period: PeriodFilter): { start: Date; end: Date } {
@@ -66,7 +87,7 @@ export function useTelemarketingMetrics(
       // Build base query
       let query = supabase
         .from('leads')
-        .select('id, name, op_telemarketing, bitrix_telemarketing_id, ficha_confirmada, data_confirmacao_ficha, data_agendamento, status_tabulacao, date_modify')
+        .select('id, name, op_telemarketing, bitrix_telemarketing_id, ficha_confirmada, data_confirmacao_ficha, data_agendamento, status_tabulacao, date_modify, nome_modelo')
         .gte('date_modify', startStr)
         .lte('date_modify', endStr)
         .not('bitrix_telemarketing_id', 'is', null);
@@ -90,6 +111,24 @@ export function useTelemarketingMetrics(
       const agendamentos = leadsData.filter(l => l.data_agendamento).length;
       const taxaConversao = totalLeads > 0 ? (fichasConfirmadas / totalLeads) * 100 : 0;
 
+      // Build leads details for modal
+      const leadsDetails: LeadDetail[] = leadsData.map(lead => {
+        const opId = lead.bitrix_telemarketing_id;
+        const opName = opId ? (operatorNameMap.get(opId) || `Operador ${opId}`) : 'Não atribuído';
+        const statusStyle = getEtapaStyle(lead.status_tabulacao);
+        
+        return {
+          id: lead.id,
+          name: lead.nome_modelo || lead.name || 'Sem nome',
+          operatorId: opId,
+          operatorName: opName,
+          status: lead.status_tabulacao || 'Sem status',
+          statusLabel: statusStyle.label || lead.status_tabulacao || 'Sem status',
+          dataAgendamento: lead.data_agendamento,
+          fichaConfirmada: lead.ficha_confirmada === true,
+        };
+      });
+
       // Group by operator using friendly names
       const operatorMap = new Map<string, { leads: number; confirmadas: number; agendamentos: number }>();
       leadsData.forEach(lead => {
@@ -102,35 +141,66 @@ export function useTelemarketingMetrics(
         operatorMap.set(opName, current);
       });
 
+      // Sort by agendamentos first, then conversion rate
       const operatorPerformance = Array.from(operatorMap.entries())
         .map(([name, data]) => ({ name, ...data }))
-        .sort((a, b) => b.leads - a.leads)
+        .sort((a, b) => {
+          // First sort by agendamentos
+          if (b.agendamentos !== a.agendamentos) {
+            return b.agendamentos - a.agendamentos;
+          }
+          // Then by conversion rate
+          const taxaA = a.leads > 0 ? a.confirmadas / a.leads : 0;
+          const taxaB = b.leads > 0 ? b.confirmadas / b.leads : 0;
+          return taxaB - taxaA;
+        })
         .slice(0, 10);
 
-      // Status distribution
-      const statusMap = new Map<string, number>();
+      // Status distribution with friendly labels
+      const statusMap = new Map<string, { count: number; label: string }>();
       leadsData.forEach(lead => {
-        const status = lead.status_tabulacao || 'Sem status';
-        statusMap.set(status, (statusMap.get(status) || 0) + 1);
+        const rawStatus = lead.status_tabulacao || 'Sem status';
+        const statusStyle = getEtapaStyle(rawStatus);
+        const label = statusStyle.label || rawStatus;
+        
+        const current = statusMap.get(label) || { count: 0, label };
+        current.count++;
+        statusMap.set(label, current);
       });
 
       const statusDistribution = Array.from(statusMap.entries())
-        .map(([status, count]) => ({ status, count }))
+        .map(([status, data]) => ({ status, count: data.count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 8);
 
-      // Timeline (last 7 days for week/month, hourly for today)
-      const timeline: { date: string; leads: number; confirmadas: number }[] = [];
+      // Tabulacao groups for KPI detail
+      const tabulacaoMap = new Map<string, { rawStatus: string; count: number }>();
+      leadsData.forEach(lead => {
+        const rawStatus = lead.status_tabulacao || 'Sem status';
+        const statusStyle = getEtapaStyle(rawStatus);
+        const label = statusStyle.label || rawStatus;
+        
+        const current = tabulacaoMap.get(label) || { rawStatus, count: 0 };
+        current.count++;
+        tabulacaoMap.set(label, current);
+      });
+
+      const tabulacaoGroups: TabulacaoGroup[] = Array.from(tabulacaoMap.entries())
+        .map(([label, data]) => ({ label, rawStatus: data.rawStatus, count: data.count }))
+        .sort((a, b) => b.count - a.count);
+
+      // Timeline - now tracks agendados instead of confirmadas
+      const timeline: { date: string; leads: number; agendados: number }[] = [];
       
       if (period === 'today') {
         // Group by hour
-        const hourMap = new Map<string, { leads: number; confirmadas: number }>();
+        const hourMap = new Map<string, { leads: number; agendados: number }>();
         leadsData.forEach(lead => {
           if (lead.date_modify) {
             const hour = format(new Date(lead.date_modify), 'HH:00');
-            const current = hourMap.get(hour) || { leads: 0, confirmadas: 0 };
+            const current = hourMap.get(hour) || { leads: 0, agendados: 0 };
             current.leads++;
-            if (lead.ficha_confirmada) current.confirmadas++;
+            if (lead.data_agendamento) current.agendados++;
             hourMap.set(hour, current);
           }
         });
@@ -138,18 +208,18 @@ export function useTelemarketingMetrics(
         // Fill all hours
         for (let h = 8; h <= 20; h++) {
           const hour = `${h.toString().padStart(2, '0')}:00`;
-          const data = hourMap.get(hour) || { leads: 0, confirmadas: 0 };
+          const data = hourMap.get(hour) || { leads: 0, agendados: 0 };
           timeline.push({ date: hour, ...data });
         }
       } else {
         // Group by day
-        const dayMap = new Map<string, { leads: number; confirmadas: number }>();
+        const dayMap = new Map<string, { leads: number; agendados: number }>();
         leadsData.forEach(lead => {
           if (lead.date_modify) {
             const day = format(new Date(lead.date_modify), 'dd/MM');
-            const current = dayMap.get(day) || { leads: 0, confirmadas: 0 };
+            const current = dayMap.get(day) || { leads: 0, agendados: 0 };
             current.leads++;
-            if (lead.ficha_confirmada) current.confirmadas++;
+            if (lead.data_agendamento) current.agendados++;
             dayMap.set(day, current);
           }
         });
@@ -158,7 +228,7 @@ export function useTelemarketingMetrics(
         for (let i = 6; i >= 0; i--) {
           const date = subDays(new Date(), i);
           const dayStr = format(date, 'dd/MM');
-          const data = dayMap.get(dayStr) || { leads: 0, confirmadas: 0 };
+          const data = dayMap.get(dayStr) || { leads: 0, agendados: 0 };
           timeline.push({ date: dayStr, ...data });
         }
       }
@@ -171,6 +241,8 @@ export function useTelemarketingMetrics(
         operatorPerformance,
         statusDistribution,
         timeline,
+        leadsDetails,
+        tabulacaoGroups,
       };
     },
     refetchInterval: 60000, // Refresh every minute
