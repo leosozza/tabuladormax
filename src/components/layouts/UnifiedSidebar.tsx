@@ -67,10 +67,13 @@ const mainNavItems = [
 ];
 
 export function UnifiedSidebar() {
-  const { open } = useSidebar();
+  const { open, isMobile } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
   const { allowedRoutes, loading: loadingRoutes, isAdmin } = useAllowedRoutes();
+  
+  // No mobile, sempre mostrar texto quando o Sheet estiver aberto
+  const showText = isMobile ? true : open;
   
   // Auto-expandir submenu baseado na rota atual
   const [scouterOpen, setScouterOpen] = useState(
@@ -170,7 +173,7 @@ export function UnifiedSidebar() {
             className="text-xl font-bold px-4 py-6 flex items-center justify-between cursor-pointer hover:text-primary transition-colors"
             onClick={() => navigate('/home-choice')}
           >
-            {open && "Maxconnect"}
+            {showText && "Maxconnect"}
           </SidebarGroupLabel>
           
           <SidebarGroupContent>
@@ -201,8 +204,8 @@ export function UnifiedSidebar() {
                           <CollapsibleTrigger asChild>
                             <SidebarMenuButton tooltip={item.label}>
                               <item.icon className="h-4 w-4" />
-                              {open && <span>{item.label}</span>}
-                              {open && <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />}
+                              {showText && <span>{item.label}</span>}
+                              {showText && <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />}
                             </SidebarMenuButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
@@ -215,7 +218,7 @@ export function UnifiedSidebar() {
                                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                                     >
                                       {subItem.icon && <subItem.icon className="h-4 w-4" />}
-                                      {open && <span>{subItem.label}</span>}
+                                      {showText && <span>{subItem.label}</span>}
                                     </NavLink>
                                   </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>
@@ -236,7 +239,7 @@ export function UnifiedSidebar() {
                           activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                         >
                           <item.icon className="h-4 w-4" />
-                          {open && <span>{item.label}</span>}
+                          {showText && <span>{item.label}</span>}
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -250,22 +253,22 @@ export function UnifiedSidebar() {
         {/* User info and app download */}
         <div className="mt-auto p-4 space-y-3">
           {/* User info */}
-          <UserInfo open={open} />
+          <UserInfo open={showText} />
           
           {/* App download button */}
           {latestRelease && (
             <Button
               variant="ghost"
-              size={open ? "default" : "icon"}
+              size={showText ? "default" : "icon"}
               onClick={handleDownloadApp}
               className={cn(
                 "text-muted-foreground hover:text-foreground",
-                open ? "w-full justify-start" : "w-8 h-8 p-0 mx-auto"
+                showText ? "w-full justify-start" : "w-8 h-8 p-0 mx-auto"
               )}
               title="Baixar App Android"
             >
               <Smartphone className="h-4 w-4" />
-              {open && <span className="ml-2 text-xs">App Android v{latestRelease.version}</span>}
+              {showText && <span className="ml-2 text-xs">App Android v{latestRelease.version}</span>}
             </Button>
           )}
         </div>
