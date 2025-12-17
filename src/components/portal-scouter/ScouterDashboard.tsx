@@ -3,13 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { LogOut, RefreshCw, Trophy, Medal } from 'lucide-react';
+import { LogOut, RefreshCw, Trophy, Medal, Bot, FileText, Link2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ScouterStatsCards } from './ScouterStatsCards';
 import { ScouterFilters } from './ScouterFilters';
 import { PhotoUploadDialog } from './PhotoUploadDialog';
 import { ScouterLeadsModal } from './ScouterLeadsModal';
-import { startOfDay, endOfDay, startOfWeek, startOfMonth, subDays } from 'date-fns';
+import { AIAnalysisModal } from './AIAnalysisModal';
+import { useScouterAIAnalysis } from '@/hooks/useScouterAIAnalysis';
+import { startOfDay, endOfDay, startOfWeek, startOfMonth, subDays, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface ScouterDashboardProps {
   scouterData: {
@@ -35,6 +39,10 @@ export const ScouterDashboard = ({
   // State para o modal de leads
   const [leadsModalOpen, setLeadsModalOpen] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<{ type: string; label: string }>({ type: 'all', label: 'Total de Leads' });
+  
+  // State para análise de IA
+  const [aiAnalysisOpen, setAiAnalysisOpen] = useState(false);
+  const { generateAnalysis, isAnalyzing, analysisResult, clearAnalysis } = useScouterAIAnalysis();
 
   const getDateRange = () => {
     const now = new Date();
@@ -139,6 +147,36 @@ export const ScouterDashboard = ({
     return null;
   };
 
+  const getPeriodLabel = () => {
+    const labels: Record<DateRangePreset, string> = {
+      today: 'Hoje',
+      yesterday: 'Ontem',
+      week: 'Esta Semana',
+      last7days: 'Últimos 7 dias',
+      month: 'Este Mês',
+      custom: customDateRange.start && customDateRange.end 
+        ? `${format(customDateRange.start, 'dd/MM', { locale: ptBR })} - ${format(customDateRange.end, 'dd/MM', { locale: ptBR })}`
+        : 'Intervalo',
+    };
+    return labels[datePreset];
+  };
+
+  const handleOpenAIAnalysis = async () => {
+    setAiAnalysisOpen(true);
+    await generateAnalysis(scouterData.name, getPeriodLabel(), stats, ranking);
+  };
+
+  const handleCloseAIAnalysis = () => {
+    setAiAnalysisOpen(false);
+    clearAnalysis();
+  };
+
+  const handleGenerateLink = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url);
+    toast.success('Link copiado para a área de transferência!');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -210,16 +248,41 @@ export const ScouterDashboard = ({
           </Card>
         )}
 
-        {/* Filtros */}
-        <ScouterFilters 
-          datePreset={datePreset} 
-          onDatePresetChange={setDatePreset} 
-          customDateRange={customDateRange}
-          onCustomDateRangeChange={setCustomDateRange}
-          projectId={projectId} 
-          onProjectChange={setProjectId} 
-          projects={projects} 
-        />
+        {/* Filtros e Ações */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <ScouterFilters 
+            datePreset={datePreset} 
+            onDatePresetChange={setDatePreset} 
+            customDateRange={customDateRange}
+            onCustomDateRangeChange={setCustomDateRange}
+            projectId={projectId} 
+            onProjectChange={setProjectId} 
+            projects={projects} 
+          />
+          
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleOpenAIAnalysis}
+              disabled={isAnalyzing || !stats}
+              className="gap-2"
+            >
+              <Bot className="h-4 w-4" />
+              Análise IA
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateLink}
+              className="gap-2"
+            >
+              <Link2 className="h-4 w-4" />
+              Compartilhar
+            </Button>
+          </div>
+        </div>
 
         {/* Cards de Estatísticas */}
         <ScouterStatsCards 
@@ -237,6 +300,18 @@ export const ScouterDashboard = ({
         scouterName={scouterData.name} 
         currentPhoto={currentPhoto} 
         onPhotoUpdated={handlePhotoUpdated} 
+      />
+
+      {/* Modal de análise de IA */}
+      <AIAnalysisModal
+        isOpen={aiAnalysisOpen}
+        onClose={handleCloseAIAnalysis}
+        analysis={analysisResult?.analysis || null}
+        isLoading={isAnalyzing}
+        scouterName={scouterData.name}
+        periodLabel={getPeriodLabel()}
+        metrics={analysisResult?.metrics}
+        onGenerateLink={handleGenerateLink}
       />
 
       {/* Modal de leads */}
