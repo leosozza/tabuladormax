@@ -77,8 +77,8 @@ export function TelemarketingAIAnalysisModal({
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] p-0">
-        <DialogHeader className="p-6 pb-2">
+      <DialogContent className="max-w-3xl max-h-[90vh] p-0 flex flex-col">
+        <DialogHeader className="p-6 pb-2 flex-shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <span className="text-2xl">🤖</span>
@@ -91,7 +91,7 @@ export function TelemarketingAIAnalysisModal({
           <p className="text-sm text-muted-foreground">Período: {periodLabel}</p>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[calc(90vh-120px)]">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="p-6 pt-2 space-y-6">
             {isLoading && (
               <div className="flex flex-col items-center justify-center py-12">
