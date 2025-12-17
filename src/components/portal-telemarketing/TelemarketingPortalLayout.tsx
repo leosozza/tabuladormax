@@ -186,9 +186,17 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                 <Button 
                   variant="outline"
                   className="w-full"
-                  disabled
+                  onClick={() => {
+                    localStorage.setItem('telemarketing_context', JSON.stringify({
+                      bitrix_id: operatorData.bitrix_id,
+                      cargo: operatorData.cargo,
+                      name: operatorData.operator_name,
+                      commercial_project_id: operatorData.commercial_project_id
+                    }));
+                    navigate('/portal-telemarketing/equipe');
+                  }}
                 >
-                  Em breve
+                  Gerenciar Equipe
                 </Button>
               </CardContent>
             </Card>
