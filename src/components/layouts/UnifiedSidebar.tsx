@@ -1,4 +1,4 @@
-import { Home, Target, DollarSign, Shield, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText, Headset, BarChart3, ClipboardList, Workflow } from "lucide-react";
+import { Home, Target, DollarSign, Shield, Smartphone, Phone, ChevronDown, Users, MessageSquare, TrendingUp, MapPin, FileText, Headset, BarChart3, ClipboardList, Workflow, ExternalLink, Briefcase } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,16 @@ const mainNavItems = [
       { path: "/docs/processos", label: "Processos BPMN", icon: Workflow },
     ]
   },
+  { 
+    path: "/portais", 
+    label: "Portais", 
+    icon: ExternalLink,
+    subItems: [
+      { path: "/portal-scouter", label: "Portal Scouter", icon: Target },
+      { path: "/portal-telemarketing", label: "Portal Telemarketing", icon: Headset },
+      { path: "/portal-produtor", label: "Portal Produtor", icon: Briefcase },
+    ]
+  },
   { path: "/agenciamento", label: "Agenciamento", icon: DollarSign },
   { path: "/admin", label: "Administrativo", icon: Shield },
 ];
@@ -85,12 +95,16 @@ export function UnifiedSidebar() {
   const [planejamentoOpen, setPlanejamentoOpen] = useState(
     location.pathname.startsWith('/roadmap') || location.pathname.startsWith('/docs/processos')
   );
+  const [portaisOpen, setPortaisOpen] = useState(
+    location.pathname.startsWith('/portal-')
+  );
 
   // Atualizar estado quando a rota mudar
   useEffect(() => {
     setScouterOpen(location.pathname.startsWith('/scouter'));
     setTelemarketingOpen(location.pathname.startsWith('/telemarketing') || location.pathname.startsWith('/discador') || location.pathname === '/dashboard');
     setPlanejamentoOpen(location.pathname.startsWith('/roadmap') || location.pathname.startsWith('/docs/processos'));
+    setPortaisOpen(location.pathname.startsWith('/portal-'));
   }, [location.pathname]);
 
   // Função para verificar se tem acesso a uma rota
@@ -190,8 +204,9 @@ export function UnifiedSidebar() {
                     const isScouterMenu = item.path === '/scouter';
                     const isTelemarketingMenu = item.path === '/telemarketing';
                     const isPlanejamentoMenu = item.path === '/roadmap';
-                    const menuOpen = isScouterMenu ? scouterOpen : isTelemarketingMenu ? telemarketingOpen : isPlanejamentoMenu ? planejamentoOpen : false;
-                    const setMenuOpen = isScouterMenu ? setScouterOpen : isTelemarketingMenu ? setTelemarketingOpen : isPlanejamentoMenu ? setPlanejamentoOpen : () => {};
+                    const isPortaisMenu = item.path === '/portais';
+                    const menuOpen = isScouterMenu ? scouterOpen : isTelemarketingMenu ? telemarketingOpen : isPlanejamentoMenu ? planejamentoOpen : isPortaisMenu ? portaisOpen : false;
+                    const setMenuOpen = isScouterMenu ? setScouterOpen : isTelemarketingMenu ? setTelemarketingOpen : isPlanejamentoMenu ? setPlanejamentoOpen : isPortaisMenu ? setPortaisOpen : () => {};
                     
                     return (
                       <Collapsible
