@@ -1814,10 +1814,12 @@ const LeadTab = () => {
         const formattedDate = new Date(scheduledDate + 'T12:00:00').toLocaleDateString('pt-BR');
         const leadName = (chatwootData as any)?.nome_modelo || chatwootData?.name || '';
         const projeto = (chatwootData as any)?.projeto_comercial || '';
+        // Buscar label amigável do horário no timeOptions
+        const timeLabel = timeOptions.find(opt => opt.id === scheduledTime)?.name || scheduledTime || 'Não informado';
         return `✅ ${button.label}\n\n` +
                `👤 ${leadName}\n` +
                `📅 Data: ${formattedDate}\n` +
-               `⏰ Horário: ${scheduledTime || 'Não informado'}\n` +
+               `⏰ Horário: ${timeLabel}\n` +
                `📍 Projeto: ${projeto || 'Não definido'}`;
       }
       // Para outras ações, usar o label do botão
