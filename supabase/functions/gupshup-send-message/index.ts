@@ -156,6 +156,8 @@ Deno.serve(async (req) => {
       return await handleSendTemplate(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
     } else if (action === 'send_media') {
       return await handleSendMedia(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
+    } else if (action === 'send_interactive') {
+      return await handleSendInteractive(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
     } else {
       return await handleSendMessage(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
     }
@@ -685,5 +687,183 @@ async function handleSendTemplate(
     );
   } else {
     throw new Error(responseData.message || 'Erro ao enviar template');
+  }
+}
+
+// ============================================
+// SEND INTERACTIVE (Quick Reply Buttons)
+// ============================================
+interface SendInteractiveRequest {
+  phone_number: string;
+  message_text: string;
+  buttons: Array<{ id: string; title: string }>;
+  header?: string;
+  footer?: string;
+  bitrix_id?: string;
+  conversation_id?: number;
+  source?: string;
+}
+
+async function handleSendInteractive(
+  supabase: any,
+  body: SendInteractiveRequest,
+  apiKey: string,
+  sourceNumber: string,
+  appName: string,
+  senderName: string,
+  source: string
+) {
+  const { phone_number, message_text, buttons, header, footer, bitrix_id, conversation_id } = body;
+
+  if (!phone_number || !message_text || !buttons || buttons.length === 0) {
+    return new Response(
+      JSON.stringify({ error: 'phone_number, message_text e buttons são obrigatórios' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  if (buttons.length > 3) {
+    return new Response(
+      JSON.stringify({ error: 'Máximo de 3 botões permitidos por mensagem Quick Reply' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Normalizar telefone
+  const normalizedPhone = normalizeDestinationPhone(phone_number);
+  if (!normalizedPhone) {
+    return new Response(
+      JSON.stringify({ error: 'phone_number inválido' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // 🛑 Bloqueio explícito
+  const blockCheck = await checkBlockedNumber(supabase, normalizedPhone);
+  if (blockCheck.blocked) {
+    console.warn(`🚫 Envio bloqueado (blocked_numbers) para ${normalizedPhone}: ${blockCheck.reason}`);
+    return new Response(
+      JSON.stringify({ error: blockCheck.reason, blocked: true }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  console.log(`📤 Enviando mensagem interativa (${buttons.length} botões) para ${normalizedPhone}`);
+
+  // Rate limit check
+  const messageContent = `interactive:${message_text}:${buttons.map(b => b.title).join(',')}`;
+  const rateLimitCheck = await checkRateLimit(supabase, normalizedPhone, messageContent, source);
+  
+  if (rateLimitCheck.blocked) {
+    return new Response(
+      JSON.stringify({
+        error: rateLimitCheck.reason,
+        blocked: true,
+        alertType: rateLimitCheck.alertType,
+        count: rateLimitCheck.count
+      }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Montar payload Quick Reply do Gupshup
+  const messagePayload: any = {
+    type: 'quick_reply',
+    content: {
+      type: 'text',
+      text: message_text
+    },
+    options: buttons.map(btn => ({
+      type: 'text',
+      title: btn.title.substring(0, 20), // Limite de 20 caracteres por título
+      postbackText: btn.id || btn.title
+    }))
+  };
+
+  // Adicionar header se fornecido
+  if (header) {
+    messagePayload.content.header = header;
+  }
+
+  // Enviar via Gupshup
+  const gupshupUrl = 'https://api.gupshup.io/wa/api/v1/msg';
+  
+  const formData = new URLSearchParams();
+  formData.append('channel', 'whatsapp');
+  formData.append('source', sourceNumber);
+  formData.append('destination', normalizedPhone);
+  formData.append('message', JSON.stringify(messagePayload));
+  formData.append('src.name', appName);
+
+  const response = await fetch(gupshupUrl, {
+    method: 'POST',
+    headers: {
+      'apikey': apiKey,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: formData.toString(),
+  });
+
+  const responseData = await response.json();
+  console.log('📨 Gupshup interactive response:', responseData);
+
+  if (responseData.status === 'submitted' || response.ok) {
+    // Construir preview do conteúdo
+    const contentPreview = `${message_text}\n\n🔘 ${buttons.map(b => b.title).join(' | ')}`;
+
+    // Salvar mensagem no banco
+    const { error: insertError } = await supabase
+      .from('whatsapp_messages')
+      .insert({
+        phone_number: normalizedPhone,
+        bitrix_id: bitrix_id,
+        conversation_id: conversation_id,
+        gupshup_message_id: responseData.messageId,
+        direction: 'outbound',
+        message_type: 'interactive',
+        content: contentPreview,
+        status: 'sent',
+        sent_by: source || 'flow_executor',
+        sender_name: senderName,
+        metadata: { 
+          ...responseData, 
+          source, 
+          buttons,
+          message_text,
+          header,
+          footer,
+          interactive_type: 'quick_reply'
+        },
+      });
+
+    if (insertError) {
+      console.error('❌ Erro ao salvar mensagem interativa:', insertError);
+    }
+
+    // Atualizar last_message no chatwoot_contacts
+    if (bitrix_id) {
+      await supabase
+        .from('chatwoot_contacts')
+        .update({
+          last_message_at: new Date().toISOString(),
+          last_message_preview: `🔘 ${message_text.substring(0, 80)}...`,
+          last_message_direction: 'outbound',
+        })
+        .eq('bitrix_id', bitrix_id);
+    }
+
+    console.log(`✅ Mensagem interativa enviada com sucesso`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        messageId: responseData.messageId,
+        message: 'Mensagem interativa enviada com sucesso',
+        rateLimitInfo: rateLimitCheck.rateLimitInfo
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } else {
+    throw new Error(responseData.message || 'Erro ao enviar mensagem interativa');
   }
 }

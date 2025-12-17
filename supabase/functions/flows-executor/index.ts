@@ -13,7 +13,7 @@ const corsHeaders = {
 
 interface FlowStep {
   id: string;
-  type: 'tabular' | 'bitrix_connector' | 'supabase_connector' | 'chatwoot_connector' | 'n8n_connector' | 'http_call' | 'wait';
+  type: 'tabular' | 'bitrix_connector' | 'supabase_connector' | 'chatwoot_connector' | 'n8n_connector' | 'http_call' | 'wait' | 'bitrix_get_field' | 'gupshup_send_text' | 'gupshup_send_image' | 'gupshup_send_buttons';
   nome: string;
   config: any;
 }
@@ -184,6 +184,22 @@ Deno.serve(async (req) => {
             
             case 'wait':
               stepResult = await executeWaitStep(step);
+              break;
+            
+            case 'bitrix_get_field':
+              stepResult = await executeBitrixGetField(step, leadId, context, supabaseAdmin);
+              break;
+            
+            case 'gupshup_send_text':
+              stepResult = await executeGupshupSendText(step, leadId, context, supabaseAdmin, supabaseUrl, supabaseServiceKey);
+              break;
+            
+            case 'gupshup_send_image':
+              stepResult = await executeGupshupSendImage(step, leadId, context, supabaseAdmin, supabaseUrl, supabaseServiceKey);
+              break;
+            
+            case 'gupshup_send_buttons':
+              stepResult = await executeGupshupSendButtons(step, leadId, context, supabaseAdmin, supabaseUrl, supabaseServiceKey);
               break;
             
             default:
@@ -568,4 +584,283 @@ function replacePlaceholders(value: any, leadId: number | undefined, context: Re
     return result;
   }
   return value;
+}
+
+// ============================================
+// NOVOS STEP TYPES: Gupshup + Bitrix
+// ============================================
+
+// Bitrix Get Field - Busca campo do lead
+async function executeBitrixGetField(
+  step: FlowStep, 
+  leadId: number | undefined, 
+  context: Record<string, any>,
+  supabaseAdmin: any
+) {
+  if (!leadId) throw new Error('leadId é obrigatório para bitrix_get_field');
+  
+  const { bitrix_field, output_variable } = step.config;
+  
+  if (!bitrix_field || !output_variable) {
+    throw new Error('bitrix_field e output_variable são obrigatórios');
+  }
+  
+  console.log(`📥 Buscando campo ${bitrix_field} do lead ${leadId}...`);
+  
+  // Buscar lead no Supabase
+  const { data: lead, error } = await supabaseAdmin
+    .from('leads')
+    .select('raw')
+    .eq('id', leadId)
+    .single();
+  
+  if (error || !lead) {
+    throw new Error(`Lead ${leadId} não encontrado: ${error?.message || 'não existe'}`);
+  }
+  
+  // Extrair valor do campo do raw JSON
+  const fieldValue = lead.raw?.[bitrix_field];
+  
+  if (!fieldValue) {
+    console.warn(`⚠️ Campo ${bitrix_field} está vazio ou não existe no lead ${leadId}`);
+  }
+  
+  // Salvar no contexto para uso em steps seguintes
+  context[output_variable] = fieldValue || '';
+  
+  console.log(`✅ Campo ${bitrix_field} = "${fieldValue}" salvo em {{${output_variable}}}`);
+  
+  return { 
+    field: bitrix_field, 
+    value: fieldValue,
+    output_variable,
+    lead_id: leadId 
+  };
+}
+
+// Gupshup Send Text - Envia texto via WhatsApp
+async function executeGupshupSendText(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any,
+  supabaseUrl: string,
+  supabaseServiceKey: string
+) {
+  const { message, phone_number } = step.config;
+  
+  if (!message) {
+    throw new Error('message é obrigatório para gupshup_send_text');
+  }
+  
+  // Resolver placeholders no texto
+  const resolvedMessage = replacePlaceholders(message, leadId, context);
+  
+  // Obter telefone do lead se não informado
+  let targetPhone = phone_number;
+  if (!targetPhone && leadId) {
+    const { data: lead } = await supabaseAdmin
+      .from('leads')
+      .select('celular, telefone_casa, phone_normalized')
+      .eq('id', leadId)
+      .single();
+    
+    targetPhone = lead?.phone_normalized || lead?.celular || lead?.telefone_casa;
+  }
+  
+  // Também pode vir do contexto
+  if (!targetPhone && context.phone_number) {
+    targetPhone = context.phone_number;
+  }
+  
+  if (!targetPhone) {
+    throw new Error('Não foi possível determinar o telefone do destinatário');
+  }
+  
+  console.log(`📤 Enviando texto para ${targetPhone}: "${resolvedMessage.substring(0, 50)}..."`);
+  
+  // Chamar gupshup-send-message internamente
+  const response = await fetch(`${supabaseUrl}/functions/v1/gupshup-send-message`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${supabaseServiceKey}`
+    },
+    body: JSON.stringify({
+      action: 'send_message',
+      phone_number: targetPhone,
+      message: resolvedMessage,
+      bitrix_id: leadId?.toString(),
+      source: 'flow_executor'
+    })
+  });
+  
+  const result = await response.json();
+  
+  if (!response.ok || result.error) {
+    throw new Error(result.error || `Erro ao enviar mensagem: ${response.status}`);
+  }
+  
+  console.log(`✅ Mensagem enviada: ${result.messageId}`);
+  
+  return {
+    messageId: result.messageId,
+    phone: targetPhone,
+    message: resolvedMessage.substring(0, 100)
+  };
+}
+
+// Gupshup Send Image - Envia imagem via WhatsApp
+async function executeGupshupSendImage(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any,
+  supabaseUrl: string,
+  supabaseServiceKey: string
+) {
+  const { image_url, caption, phone_number } = step.config;
+  
+  if (!image_url) {
+    throw new Error('image_url é obrigatório para gupshup_send_image');
+  }
+  
+  // Resolver placeholders
+  const resolvedUrl = replacePlaceholders(image_url, leadId, context);
+  const resolvedCaption = caption ? replacePlaceholders(caption, leadId, context) : '';
+  
+  // Obter telefone
+  let targetPhone = phone_number;
+  if (!targetPhone && leadId) {
+    const { data: lead } = await supabaseAdmin
+      .from('leads')
+      .select('celular, telefone_casa, phone_normalized')
+      .eq('id', leadId)
+      .single();
+    
+    targetPhone = lead?.phone_normalized || lead?.celular || lead?.telefone_casa;
+  }
+  
+  if (!targetPhone && context.phone_number) {
+    targetPhone = context.phone_number;
+  }
+  
+  if (!targetPhone) {
+    throw new Error('Não foi possível determinar o telefone do destinatário');
+  }
+  
+  console.log(`📤 Enviando imagem para ${targetPhone}: ${resolvedUrl.substring(0, 50)}...`);
+  
+  // Chamar gupshup-send-message com action send_media
+  const response = await fetch(`${supabaseUrl}/functions/v1/gupshup-send-message`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${supabaseServiceKey}`
+    },
+    body: JSON.stringify({
+      action: 'send_media',
+      phone_number: targetPhone,
+      media_type: 'image',
+      media_url: resolvedUrl,
+      caption: resolvedCaption,
+      bitrix_id: leadId?.toString(),
+      source: 'flow_executor'
+    })
+  });
+  
+  const result = await response.json();
+  
+  if (!response.ok || result.error) {
+    throw new Error(result.error || `Erro ao enviar imagem: ${response.status}`);
+  }
+  
+  console.log(`✅ Imagem enviada: ${result.messageId}`);
+  
+  return {
+    messageId: result.messageId,
+    phone: targetPhone,
+    image_url: resolvedUrl.substring(0, 100),
+    caption: resolvedCaption.substring(0, 50)
+  };
+}
+
+// Gupshup Send Buttons - Envia mensagem com botões Quick Reply
+async function executeGupshupSendButtons(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any,
+  supabaseUrl: string,
+  supabaseServiceKey: string
+) {
+  const { message, buttons, phone_number, header, footer } = step.config;
+  
+  if (!message || !buttons || !Array.isArray(buttons) || buttons.length === 0) {
+    throw new Error('message e buttons são obrigatórios para gupshup_send_buttons');
+  }
+  
+  // Resolver placeholders
+  const resolvedMessage = replacePlaceholders(message, leadId, context);
+  const resolvedHeader = header ? replacePlaceholders(header, leadId, context) : undefined;
+  const resolvedFooter = footer ? replacePlaceholders(footer, leadId, context) : undefined;
+  
+  // Obter telefone
+  let targetPhone = phone_number;
+  if (!targetPhone && leadId) {
+    const { data: lead } = await supabaseAdmin
+      .from('leads')
+      .select('celular, telefone_casa, phone_normalized')
+      .eq('id', leadId)
+      .single();
+    
+    targetPhone = lead?.phone_normalized || lead?.celular || lead?.telefone_casa;
+  }
+  
+  if (!targetPhone && context.phone_number) {
+    targetPhone = context.phone_number;
+  }
+  
+  if (!targetPhone) {
+    throw new Error('Não foi possível determinar o telefone do destinatário');
+  }
+  
+  console.log(`📤 Enviando mensagem com ${buttons.length} botões para ${targetPhone}`);
+  
+  // Chamar gupshup-send-message com action send_interactive
+  const response = await fetch(`${supabaseUrl}/functions/v1/gupshup-send-message`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${supabaseServiceKey}`
+    },
+    body: JSON.stringify({
+      action: 'send_interactive',
+      phone_number: targetPhone,
+      message_text: resolvedMessage,
+      buttons: buttons.map((btn: any, index: number) => ({
+        id: btn.id || `btn_${index}`,
+        title: btn.title || btn.text || `Opção ${index + 1}`
+      })),
+      header: resolvedHeader,
+      footer: resolvedFooter,
+      bitrix_id: leadId?.toString(),
+      source: 'flow_executor'
+    })
+  });
+  
+  const result = await response.json();
+  
+  if (!response.ok || result.error) {
+    throw new Error(result.error || `Erro ao enviar botões: ${response.status}`);
+  }
+  
+  console.log(`✅ Mensagem com botões enviada: ${result.messageId}`);
+  
+  return {
+    messageId: result.messageId,
+    phone: targetPhone,
+    message: resolvedMessage.substring(0, 100),
+    buttons: buttons.map((b: any) => b.title || b.text)
+  };
 }
