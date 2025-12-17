@@ -153,6 +153,7 @@ export type Database = {
       ai_training_instructions: {
         Row: {
           category: string | null
+          commercial_project_id: string | null
           content: string | null
           created_at: string | null
           created_by: string | null
@@ -168,6 +169,7 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          commercial_project_id?: string | null
           content?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -183,6 +185,7 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          commercial_project_id?: string | null
           content?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -196,7 +199,15 @@ export type Database = {
           updated_at?: string | null
           usage_count?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_training_instructions_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       api_key_usage_logs: {
         Row: {
@@ -3373,6 +3384,180 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      whatsapp_bot_config: {
+        Row: {
+          auto_qualify: boolean | null
+          bot_name: string | null
+          collect_lead_data: boolean | null
+          commercial_project_id: string | null
+          created_at: string | null
+          created_by: string | null
+          fallback_message: string | null
+          id: string
+          is_enabled: boolean | null
+          max_messages_before_transfer: number | null
+          operating_hours: Json | null
+          personality: string | null
+          response_delay_ms: number | null
+          transfer_keywords: string[] | null
+          updated_at: string | null
+          welcome_message: string | null
+        }
+        Insert: {
+          auto_qualify?: boolean | null
+          bot_name?: string | null
+          collect_lead_data?: boolean | null
+          commercial_project_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fallback_message?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_messages_before_transfer?: number | null
+          operating_hours?: Json | null
+          personality?: string | null
+          response_delay_ms?: number | null
+          transfer_keywords?: string[] | null
+          updated_at?: string | null
+          welcome_message?: string | null
+        }
+        Update: {
+          auto_qualify?: boolean | null
+          bot_name?: string | null
+          collect_lead_data?: boolean | null
+          commercial_project_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fallback_message?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_messages_before_transfer?: number | null
+          operating_hours?: Json | null
+          personality?: string | null
+          response_delay_ms?: number | null
+          transfer_keywords?: string[] | null
+          updated_at?: string | null
+          welcome_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_bot_config_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: true
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_bot_conversations: {
+        Row: {
+          bitrix_id: string | null
+          bot_messages_count: number | null
+          commercial_project_id: string | null
+          conversation_id: number | null
+          created_at: string | null
+          ended_at: string | null
+          id: string
+          messages_count: number | null
+          metadata: Json | null
+          phone_number: string
+          resolved_by_bot: boolean | null
+          satisfaction_score: number | null
+          started_at: string | null
+          status: string | null
+          transferred_at: string | null
+          transferred_reason: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bitrix_id?: string | null
+          bot_messages_count?: number | null
+          commercial_project_id?: string | null
+          conversation_id?: number | null
+          created_at?: string | null
+          ended_at?: string | null
+          id?: string
+          messages_count?: number | null
+          metadata?: Json | null
+          phone_number: string
+          resolved_by_bot?: boolean | null
+          satisfaction_score?: number | null
+          started_at?: string | null
+          status?: string | null
+          transferred_at?: string | null
+          transferred_reason?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bitrix_id?: string | null
+          bot_messages_count?: number | null
+          commercial_project_id?: string | null
+          conversation_id?: number | null
+          created_at?: string | null
+          ended_at?: string | null
+          id?: string
+          messages_count?: number | null
+          metadata?: Json | null
+          phone_number?: string
+          resolved_by_bot?: boolean | null
+          satisfaction_score?: number | null
+          started_at?: string | null
+          status?: string | null
+          transferred_at?: string | null
+          transferred_reason?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_bot_conversations_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_bot_messages: {
+        Row: {
+          confidence_score: number | null
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          response_time_ms: number | null
+          role: string
+          tokens_used: number | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          response_time_ms?: number | null
+          role: string
+          tokens_used?: number | null
+        }
+        Update: {
+          confidence_score?: number | null
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          response_time_ms?: number | null
+          role?: string
+          tokens_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_bot_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_bot_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_messages: {
         Row: {
