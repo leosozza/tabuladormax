@@ -79,6 +79,9 @@ import PortalTelemarketingDashboard from "./pages/portal-telemarketing/PortalTel
 import PortalTelemarketingWhatsApp from "./pages/portal-telemarketing/PortalTelemarketingWhatsApp";
 import PortalTelemarketingEquipe from "./pages/portal-telemarketing/PortalTelemarketingEquipe";
 
+// Telemarketing Report Public Page
+import TelemarketingReportPublic from "./pages/TelemarketingReportPublic";
+
 // Hub Panels
 import HubPanels from "./pages/HubPanels";
 import "@/styles/hub.css";
@@ -116,6 +119,7 @@ const App = () => (
           <Route path="/portal-telemarketing/dashboard" element={<PortalTelemarketingDashboard />} />
           <Route path="/portal-telemarketing/whatsapp" element={<PortalTelemarketingWhatsApp />} />
           <Route path="/portal-telemarketing/equipe" element={<PortalTelemarketingEquipe />} />
+          <Route path="/relatorio/:shortCode" element={<TelemarketingReportPublic />} />
 
           {/* Rotas PROTEGIDAS - com sidebar persistente */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Phone, Calendar, TrendingUp, Trophy, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Phone, Calendar, TrendingUp, Trophy, Loader2, Share2, FileDown, Link as LinkIcon, Users } from 'lucide-react';
 import { ApexBarChart } from '@/components/dashboard/charts/ApexBarChart';
 import { ApexHorizontalBarChart } from '@/components/dashboard/charts/ApexHorizontalBarChart';
 import { ApexLineChart } from '@/components/dashboard/charts/ApexLineChart';
@@ -10,6 +12,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { SUPERVISOR_CARGO } from './TelemarketingAccessKeyForm';
 import { LeadsDetailModal, KpiType } from './LeadsDetailModal';
+import { ShareReportModal } from './ShareReportModal';
+import { 
+  generateTelemarketingReportPDF, 
+  createShareableReport,
+  TelemarketingReportData 
+} from '@/services/telemarketingReportService';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface TelemarketingDashboardContentProps {
   operatorBitrixId?: number;
@@ -21,15 +32,23 @@ export function TelemarketingDashboardContent({
   operatorCargo 
 }: TelemarketingDashboardContentProps) {
   const [period, setPeriod] = useState<PeriodFilter>('today');
+  const [selectedOperator, setSelectedOperator] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<KpiType>('leads');
   const [modalTitle, setModalTitle] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [shareExpiresAt, setShareExpiresAt] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
   
   const isSupervisor = operatorCargo === SUPERVISOR_CARGO;
   
-  // Supervisors see all, agents see only their data
-  const filterOperatorId = isSupervisor ? undefined : operatorBitrixId;
+  // Supervisors can filter by specific operator or see all
+  // Agents only see their own data
+  const filterOperatorId = isSupervisor 
+    ? (selectedOperator !== 'all' ? parseInt(selectedOperator) : undefined)
+    : operatorBitrixId;
   
   const { data: metrics, isLoading, error } = useTelemarketingMetrics(period, filterOperatorId);
 
@@ -38,6 +57,67 @@ export function TelemarketingDashboardContent({
     setModalTitle(title);
     setFilterStatus(status);
     setModalOpen(true);
+  };
+
+  const getPeriodLabel = () => {
+    switch (period) {
+      case 'today': return 'Hoje';
+      case 'week': return 'Esta Semana';
+      case 'month': return 'Este Mês';
+      default: return 'Hoje';
+    }
+  };
+
+  const prepareReportData = (): TelemarketingReportData => {
+    const totalLeads = metrics?.totalLeads || 0;
+    return {
+      period,
+      periodLabel: getPeriodLabel(),
+      date: format(new Date(), "dd/MM/yyyy", { locale: ptBR }),
+      totalLeads,
+      agendamentos: metrics?.agendamentos || 0,
+      fichasConfirmadas: metrics?.fichasConfirmadas || 0,
+      taxaConversao: metrics?.taxaConversao || 0,
+      operatorPerformance: metrics?.operatorPerformance || [],
+      tabulacaoDistribution: (metrics?.tabulacaoGroups || []).map(tab => ({
+        label: tab.label,
+        count: tab.count,
+        percentage: totalLeads > 0 ? `${((tab.count / totalLeads) * 100).toFixed(1)}%` : '0%',
+      })),
+      createdBy: operatorBitrixId,
+    };
+  };
+
+  const handleExportPDF = () => {
+    try {
+      const reportData = prepareReportData();
+      generateTelemarketingReportPDF(reportData);
+      toast.success('PDF gerado com sucesso!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Erro ao gerar PDF');
+    }
+  };
+
+  const handleGenerateLink = async () => {
+    setIsExporting(true);
+    try {
+      const reportData = prepareReportData();
+      const result = await createShareableReport(reportData);
+      
+      if (result.success && result.url) {
+        setShareUrl(result.url);
+        setShareExpiresAt(result.expiresAt || '');
+        setShareModalOpen(true);
+      } else {
+        toast.error(result.error || 'Erro ao gerar link');
+      }
+    } catch (error) {
+      console.error('Error generating link:', error);
+      toast.error('Erro ao gerar link compartilhável');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (isLoading) {
@@ -56,6 +136,9 @@ export function TelemarketingDashboardContent({
       </div>
     );
   }
+
+  // Get available operators from metrics
+  const availableOperators = metrics?.availableOperators || [];
 
   const kpis = [
     {
@@ -117,21 +200,69 @@ export function TelemarketingDashboardContent({
 
   return (
     <div className="p-4 space-y-6">
-      {/* Period Selector */}
-      <div className="flex items-center justify-between">
+      {/* Header with Filters and Export */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">
           {isSupervisor ? 'Dashboard da Equipe' : 'Meu Dashboard'}
         </h2>
-        <Select value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)}>
-          <SelectTrigger className="w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Hoje</SelectItem>
-            <SelectItem value="week">Esta Semana</SelectItem>
-            <SelectItem value="month">Este Mês</SelectItem>
-          </SelectContent>
-        </Select>
+        
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Operator Filter - Only for Supervisors */}
+          {isSupervisor && availableOperators.length > 0 && (
+            <Select value={selectedOperator} onValueChange={setSelectedOperator}>
+              <SelectTrigger className="w-48">
+                <Users className="w-4 h-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Operadores</SelectItem>
+                {availableOperators.map((op) => (
+                  <SelectItem key={op.bitrix_id} value={String(op.bitrix_id)}>
+                    {op.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {/* Period Filter */}
+          <Select value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)}>
+            <SelectTrigger className="w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Hoje</SelectItem>
+              <SelectItem value="week">Esta Semana</SelectItem>
+              <SelectItem value="month">Este Mês</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Export Menu - Only for Supervisors */}
+          {isSupervisor && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isExporting}>
+                  {isExporting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Share2 className="w-4 h-4 mr-2" />
+                  )}
+                  Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Baixar PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleGenerateLink}>
+                  <LinkIcon className="w-4 h-4 mr-2" />
+                  Gerar Link Compartilhável
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards - Clickable */}
@@ -279,6 +410,14 @@ export function TelemarketingDashboardContent({
         type={modalType}
         title={modalTitle}
         filterStatus={filterStatus}
+      />
+
+      {/* Share Report Modal */}
+      <ShareReportModal
+        open={shareModalOpen}
+        onOpenChange={setShareModalOpen}
+        url={shareUrl}
+        expiresAt={shareExpiresAt}
       />
     </div>
   );

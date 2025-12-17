@@ -3580,6 +3580,42 @@ export type Database = {
           },
         ]
       }
+      telemarketing_reports: {
+        Row: {
+          access_count: number | null
+          created_at: string | null
+          created_by: number | null
+          data: Json
+          expires_at: string | null
+          id: string
+          period: string
+          report_date: string
+          short_code: string
+        }
+        Insert: {
+          access_count?: number | null
+          created_at?: string | null
+          created_by?: number | null
+          data: Json
+          expires_at?: string | null
+          id?: string
+          period: string
+          report_date?: string
+          short_code: string
+        }
+        Update: {
+          access_count?: number | null
+          created_at?: string | null
+          created_by?: number | null
+          data?: Json
+          expires_at?: string | null
+          id?: string
+          period?: string
+          report_date?: string
+          short_code?: string
+        }
+        Relationships: []
+      }
       telemarketing_scripts: {
         Row: {
           ai_analysis: Json | null
