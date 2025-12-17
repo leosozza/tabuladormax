@@ -342,15 +342,34 @@ export async function runTabular(
           // await saveChatwootContact({ ...chatwootData, custom_attributes: updatedAttributes });
         }
 
-        // Update leads table
-      await supabase
-        .from('leads')
-        .upsert({ 
-          id: leadId, 
+        // Update leads table - ATRIBUIR LEAD AO TELEMARKETING QUE TABULOU
+        const telemarketingId = context.telemarketing;
+        const leadUpdateFields: any = {
+          id: leadId,
           [field]: value,
           sync_source: 'supabase',
           sync_status: 'synced'
-        }, { onConflict: 'id' });
+        };
+
+        // Adicionar telemarketing_id se disponível
+        if (telemarketingId) {
+          leadUpdateFields.bitrix_telemarketing_id = telemarketingId;
+          
+          // Buscar dados do mapping para obter nome e projeto comercial
+          const { data: mappingData } = await supabase
+            .from('agent_telemarketing_mapping')
+            .select('bitrix_telemarketing_name, commercial_project_id')
+            .eq('bitrix_telemarketing_id', telemarketingId)
+            .maybeSingle();
+
+          if (mappingData) {
+            leadUpdateFields.telemarketing = mappingData.bitrix_telemarketing_name;
+            leadUpdateFields.commercial_project_id = mappingData.commercial_project_id;
+          }
+        }
+
+        console.log('💾 Atualizando tabela leads com (incluindo telemarketing):', leadUpdateFields);
+        await supabase.from('leads').upsert(leadUpdateFields, { onConflict: 'id' });
 
         // ✅ FASE 2: Log da ação bem-sucedida
         await supabase.from('actions_log').insert({
@@ -367,10 +386,26 @@ export async function runTabular(
         };
       }
 
-      // No webhook, just local update
-      await supabase
-        .from('leads')
-        .upsert({ id: leadId, [field]: value }, { onConflict: 'id' });
+      // No webhook, just local update - também atribuir ao telemarketing
+      const telemarketingIdLocal = context.telemarketing;
+      const localUpdateFields: any = { id: leadId, [field]: value };
+      
+      if (telemarketingIdLocal) {
+        localUpdateFields.bitrix_telemarketing_id = telemarketingIdLocal;
+        
+        const { data: localMappingData } = await supabase
+          .from('agent_telemarketing_mapping')
+          .select('bitrix_telemarketing_name, commercial_project_id')
+          .eq('bitrix_telemarketing_id', telemarketingIdLocal)
+          .maybeSingle();
+
+        if (localMappingData) {
+          localUpdateFields.telemarketing = localMappingData.bitrix_telemarketing_name;
+          localUpdateFields.commercial_project_id = localMappingData.commercial_project_id;
+        }
+      }
+
+      await supabase.from('leads').upsert(localUpdateFields, { onConflict: 'id' });
 
       return {
         success: true,
