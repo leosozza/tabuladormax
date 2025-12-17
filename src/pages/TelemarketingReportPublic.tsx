@@ -80,7 +80,7 @@ export default function TelemarketingReportPublic() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-4 text-center">
               <p className="text-2xl font-bold text-primary">{report.totalLeads}</p>
@@ -91,12 +91,6 @@ export default function TelemarketingReportPublic() {
             <CardContent className="pt-4 text-center">
               <p className="text-2xl font-bold text-green-500">{report.agendamentos}</p>
               <p className="text-xs text-muted-foreground">Agendamentos</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-blue-500">{report.fichasConfirmadas}</p>
-              <p className="text-xs text-muted-foreground">Fichas Confirmadas</p>
             </CardContent>
           </Card>
           <Card>

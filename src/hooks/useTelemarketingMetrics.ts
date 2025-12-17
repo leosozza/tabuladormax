@@ -45,7 +45,6 @@ export interface ScouterPerformance {
 
 interface TelemarketingMetrics {
   totalLeads: number;
-  fichasConfirmadas: number;
   agendamentos: number;
   taxaConversao: number;
   operatorPerformance: {
@@ -134,7 +133,6 @@ export function useTelemarketingMetrics(
 
       // Calculate metrics
       const totalLeads = leadsData.length;
-      const fichasConfirmadas = leadsData.filter(l => l.ficha_confirmada === true).length;
       
       // Agendamentos: leads com etapa UC_QWPO2W e data_criacao_agendamento no período
       const agendamentos = leadsData.filter(l => {
@@ -327,7 +325,6 @@ export function useTelemarketingMetrics(
 
       return {
         totalLeads,
-        fichasConfirmadas,
         agendamentos,
         taxaConversao,
         operatorPerformance,
