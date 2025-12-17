@@ -14,6 +14,7 @@ import { useRealtimeNotifications, useBrowserNotification } from '@/hooks/useTel
 import { useOperatorRanking } from '@/hooks/useOperatorRanking';
 import UserMenu from '@/components/UserMenu';
 import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
+import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -190,8 +191,9 @@ const PortalTelemarketingTabulador = () => {
             )}
           </div>
           
-          {/* Direita: Notificações, Script, UserMenu */}
+          {/* Direita: Tema, Notificações, Script, UserMenu */}
           <div className="flex items-center gap-2">
+            <ThemeSelector />
             <NotificationCenter 
               bitrixTelemarketingId={context.bitrix_id}
               onNotificationClick={handleNotificationClick}

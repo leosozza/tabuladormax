@@ -136,6 +136,122 @@ All colors MUST be HSL.
     --chart-4: 142 71% 50%;
     --chart-5: 340 82% 58%;
   }
+
+  /* ========================================
+     TELEMARKETING PORTAL THEMES
+     ======================================== */
+
+  /* Tema Claro - Azul */
+  .theme-light-blue {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 32% 91%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 214 32% 91%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 60%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 262 83% 58%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 142 71% 45%;
+    --chart-5: 340 82% 52%;
+  }
+
+  /* Tema Claro - Roxo */
+  .theme-light-purple {
+    --background: 270 50% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 270 30% 92%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 270 30% 92%;
+    --muted-foreground: 270 10% 47%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 270 30% 90%;
+    --input: 270 30% 90%;
+    --ring: 262 83% 58%;
+    --chart-1: 262 83% 58%;
+    --chart-2: 217 91% 60%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 142 71% 45%;
+    --chart-5: 340 82% 52%;
+  }
+
+  /* Tema Escuro - Azul */
+  .theme-dark-blue {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+    --card: 217 50% 12%;
+    --card-foreground: 210 40% 98%;
+    --popover: 217 50% 12%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 65%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 217 40% 18%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 40% 18%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 91% 65%;
+    --accent-foreground: 222 47% 8%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 40% 20%;
+    --input: 217 40% 20%;
+    --ring: 217 91% 65%;
+    --chart-1: 217 91% 65%;
+    --chart-2: 262 83% 65%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 142 71% 50%;
+    --chart-5: 340 82% 58%;
+  }
+
+  /* Tema Escuro - Roxo */
+  .theme-dark-purple {
+    --background: 270 30% 8%;
+    --foreground: 270 20% 98%;
+    --card: 270 40% 12%;
+    --card-foreground: 270 20% 98%;
+    --popover: 270 40% 12%;
+    --popover-foreground: 270 20% 98%;
+    --primary: 262 83% 65%;
+    --primary-foreground: 270 30% 8%;
+    --secondary: 270 30% 18%;
+    --secondary-foreground: 270 20% 98%;
+    --muted: 270 30% 18%;
+    --muted-foreground: 270 15% 65%;
+    --accent: 262 83% 65%;
+    --accent-foreground: 270 30% 8%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 270 30% 20%;
+    --input: 270 30% 20%;
+    --ring: 262 83% 65%;
+    --chart-1: 262 83% 65%;
+    --chart-2: 217 91% 65%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 142 71% 50%;
+    --chart-5: 340 82% 58%;
+  }
 }
 
 @layer base {

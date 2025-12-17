@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { TelemarketingDashboardContent } from '@/components/portal-telemarketing/TelemarketingDashboardContent';
+import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -79,38 +80,41 @@ const PortalTelemarketingDashboard = () => {
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header compacto */}
-      <header className="border-b bg-card px-4 py-2 flex items-center gap-3 flex-shrink-0">
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={() => navigate('/portal-telemarketing')}
-          className="gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Voltar
-        </Button>
-        
-        {/* Foto retangular 3x4 */}
-        <div className="relative w-9 h-12 rounded-md border-2 border-primary/20 shadow overflow-hidden bg-primary/10 flex-shrink-0">
-          {operatorPhoto ? (
-            <img 
-              src={operatorPhoto} 
-              alt={context.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <span className="text-xs font-bold text-primary">{initials}</span>
-            </div>
-          )}
+      <header className="border-b bg-card px-4 py-2 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => navigate('/portal-telemarketing')}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </Button>
+          
+          {/* Foto retangular 3x4 */}
+          <div className="relative w-9 h-12 rounded-md border-2 border-primary/20 shadow overflow-hidden bg-primary/10 flex-shrink-0">
+            {operatorPhoto ? (
+              <img 
+                src={operatorPhoto} 
+                alt={context.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="text-xs font-bold text-primary">{initials}</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{context.name || 'Operador'}</span>
+            <span className="text-xs bg-muted px-2 py-0.5 rounded">
+              {context.cargo === SUPERVISOR_CARGO ? 'Supervisor' : 'Agente'}
+            </span>
+          </div>
         </div>
-        
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>{context.name || 'Operador'}</span>
-          <span className="text-xs bg-muted px-2 py-0.5 rounded">
-            {context.cargo === SUPERVISOR_CARGO ? 'Supervisor' : 'Agente'}
-          </span>
-        </div>
+        <ThemeSelector />
       </header>
 
       {/* Dashboard Content */}
