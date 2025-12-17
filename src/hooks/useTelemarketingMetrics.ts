@@ -11,7 +11,7 @@ function isAgendado(etapa: string | null): boolean {
   return etapa === 'UC_QWPO2W' || etapa === 'Agendados';
 }
 
-export type PeriodFilter = 'today' | 'week' | 'month' | 'custom';
+export type PeriodFilter = 'today' | 'yesterday' | 'week' | 'last7days' | 'month' | 'custom';
 
 export interface LeadDetail {
   id: number;
@@ -115,8 +115,13 @@ function getDateRange(period: PeriodFilter, customStart?: Date, customEnd?: Date
   switch (period) {
     case 'today':
       return { start: startOfDay(now), end: endOfDay(now) };
+    case 'yesterday':
+      const yesterday = subDays(now, 1);
+      return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
     case 'week':
       return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfDay(now) };
+    case 'last7days':
+      return { start: startOfDay(subDays(now, 6)), end: endOfDay(now) };
     case 'month':
       return { start: startOfMonth(now), end: endOfDay(now) };
     case 'custom':
