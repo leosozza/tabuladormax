@@ -145,14 +145,17 @@ Deno.serve(async (req) => {
 
     // PUT - Update existing flow
     if (req.method === 'PUT') {
-      if (!flowId || flowId === 'flows-api') {
+      const body: Partial<Flow> = await req.json();
+      
+      // Accept ID from URL path OR request body
+      const targetFlowId = (flowId && flowId !== 'flows-api') ? flowId : body.id;
+      
+      if (!targetFlowId) {
         return new Response(
           JSON.stringify({ error: 'Flow ID é obrigatório' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      const body: Partial<Flow> = await req.json();
 
       const updateData: any = {};
       if (body.nome !== undefined) updateData.nome = body.nome;
@@ -163,7 +166,7 @@ Deno.serve(async (req) => {
       const { data, error } = await supabaseAdmin
         .from('flows')
         .update(updateData)
-        .eq('id', flowId)
+        .eq('id', targetFlowId)
         .select()
         .single();
 

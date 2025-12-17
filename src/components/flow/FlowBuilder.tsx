@@ -106,9 +106,9 @@ export function FlowBuilder({ open, onOpenChange, flow, onSave }: FlowBuilderPro
       };
 
       if (flow?.id) {
-        // Update existing flow
+        // Update existing flow - include ID in body
         const { error } = await supabase.functions.invoke('flows-api', {
-          body: flowData,
+          body: { ...flowData, id: flow.id },
           method: 'PUT'
         });
 
