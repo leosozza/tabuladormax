@@ -1,7 +1,12 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import LeadTab from '@/pages/LeadTab';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Headset } from 'lucide-react';
+import { ArrowLeft, Headset, Settings } from 'lucide-react';
+import { ScriptViewer } from '@/components/telemarketing/ScriptViewer';
+import { ScriptManager } from '@/components/telemarketing/ScriptManager';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -18,6 +23,7 @@ type StoredTelemarketingOperator = {
 const PortalTelemarketingTabulador = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   // Inicialização SÍNCRONA - lê do localStorage no primeiro render
   const context = (() => {
@@ -85,12 +91,33 @@ const PortalTelemarketingTabulador = () => {
     }
   })();
 
+  // Fetch commercial_project_id for the operator
+  useEffect(() => {
+    if (!context?.bitrix_id) return;
+    
+    const fetchProjectId = async () => {
+      const { data } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('commercial_project_id')
+        .eq('bitrix_telemarketing_id', context.bitrix_id)
+        .maybeSingle();
+      
+      if (data?.commercial_project_id) {
+        setProjectId(data.commercial_project_id);
+      }
+    };
+    
+    fetchProjectId();
+  }, [context?.bitrix_id]);
+
   // Se não tem contexto, redireciona para login com deep-link
   if (!context) {
     const redirectTarget = `${location.pathname}${location.search}`;
     console.warn('[TM][Tabulador] redirecting to login', { redirectTarget });
     return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }
+
+  const isSupervisor = context.cargo === 'supervisor';
 
   return (
     <div className="min-h-screen bg-background">
@@ -111,6 +138,29 @@ const PortalTelemarketingTabulador = () => {
           <span className="text-xs bg-muted px-2 py-0.5 rounded">
             {context.cargo === 'supervisor' ? 'Supervisor' : 'Agente'}
           </span>
+        </div>
+        
+        <div className="ml-auto flex items-center gap-2">
+          {/* Script Viewer - disponível para todos */}
+          <ScriptViewer projectId={projectId} />
+          
+          {/* Script Manager - apenas supervisores */}
+          {isSupervisor && projectId && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Settings className="w-4 h-4" />
+                  Gerenciar Scripts
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Gerenciar Scripts de Atendimento</DialogTitle>
+                </DialogHeader>
+                <ScriptManager projectId={projectId} />
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </header>
 
