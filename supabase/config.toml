@@ -269,3 +269,6 @@ verify_jwt = false
 
 [functions.register-external-message]
 verify_jwt = false
+
+[functions.analyze-performance]
+verify_jwt = false
