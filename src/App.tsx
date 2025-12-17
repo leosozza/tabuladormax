@@ -37,11 +37,10 @@ import SyncErrors from "./pages/admin/SyncErrors";
 import FieldManagement from "./pages/admin/FieldManagement";
 import TemplateManagement from "./pages/admin/TemplateManagement";
 import AITraining from './pages/admin/AITraining';
-import StageMappings from './pages/admin/StageMappings';
+import BitrixSync from './pages/admin/BitrixSync';
 import AppReleases from './pages/admin/AppReleases';
 import ApiDocumentation from './pages/admin/ApiDocumentation';
 import ApiKeyManagement from './pages/admin/ApiKeyManagement';
-import SpaSync from './pages/admin/SpaSync';
 import GupshupIntegration from './pages/admin/GupshupIntegration';
 import LoopMonitor from './pages/admin/LoopMonitor';
 import WhatsAppBot from './pages/admin/WhatsAppBot';
@@ -159,11 +158,12 @@ const App = () => (
             <Route path="/admin/field-management" element={<ProtectedRoute requireManager><FieldManagement /></ProtectedRoute>} />
             <Route path="/admin/template-management" element={<ProtectedRoute requireManager><TemplateManagement /></ProtectedRoute>} />
             <Route path="/admin/ai-training" element={<ProtectedRoute requireAdmin><AITraining /></ProtectedRoute>} />
-            <Route path="/admin/stage-mappings" element={<ProtectedRoute requireManager><StageMappings /></ProtectedRoute>} />
+            <Route path="/admin/bitrix-sync" element={<ProtectedRoute requireManager><BitrixSync /></ProtectedRoute>} />
+            <Route path="/admin/spa-sync" element={<Navigate to="/admin/bitrix-sync" replace />} />
+            <Route path="/admin/stage-mappings" element={<Navigate to="/admin/bitrix-sync" replace />} />
             <Route path="/admin/app-releases" element={<ProtectedRoute requireAdmin><AppReleases /></ProtectedRoute>} />
             <Route path="/admin/api-docs" element={<ProtectedRoute requireAdmin><ApiDocumentation /></ProtectedRoute>} />
             <Route path="/admin/api-keys" element={<ProtectedRoute requireAdmin><ApiKeyManagement /></ProtectedRoute>} />
-            <Route path="/admin/spa-sync" element={<ProtectedRoute requireManager><SpaSync /></ProtectedRoute>} />
             <Route path="/admin/gupshup-integration" element={<ProtectedRoute requireManager><GupshupIntegration /></ProtectedRoute>} />
             <Route path="/admin/loop-monitor" element={<ProtectedRoute requireManager><LoopMonitor /></ProtectedRoute>} />
             <Route path="/admin/whatsapp-bot" element={<ProtectedRoute requireAdmin><WhatsAppBot /></ProtectedRoute>} />
