@@ -20,13 +20,14 @@ interface ScouterDashboardProps {
   onLogout: () => void;
 }
 
-export type DateRangePreset = 'today' | 'yesterday' | 'week' | 'month';
+export type DateRangePreset = 'today' | 'yesterday' | 'week' | 'last7days' | 'month' | 'custom';
 
 export const ScouterDashboard = ({
   scouterData,
   onLogout
 }: ScouterDashboardProps) => {
   const [datePreset, setDatePreset] = useState<DateRangePreset>('today');
+  const [customDateRange, setCustomDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
   const [projectId, setProjectId] = useState<string | null>(null);
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
   const [currentPhoto, setCurrentPhoto] = useState(scouterData.photo);
@@ -56,10 +57,20 @@ export const ScouterDashboard = ({
           }),
           end: endOfDay(now)
         };
+      case 'last7days':
+        return {
+          start: startOfDay(subDays(now, 6)),
+          end: endOfDay(now)
+        };
       case 'month':
         return {
           start: startOfMonth(now),
           end: endOfDay(now)
+        };
+      case 'custom':
+        return {
+          start: customDateRange.start ? startOfDay(customDateRange.start) : startOfDay(now),
+          end: customDateRange.end ? endOfDay(customDateRange.end) : endOfDay(now)
         };
     }
   };
@@ -203,6 +214,8 @@ export const ScouterDashboard = ({
         <ScouterFilters 
           datePreset={datePreset} 
           onDatePresetChange={setDatePreset} 
+          customDateRange={customDateRange}
+          onCustomDateRangeChange={setCustomDateRange}
           projectId={projectId} 
           onProjectChange={setProjectId} 
           projects={projects} 
