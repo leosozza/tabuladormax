@@ -13,7 +13,7 @@ const corsHeaders = {
 
 interface FlowStep {
   id: string;
-  type: 'tabular' | 'bitrix_connector' | 'supabase_connector' | 'chatwoot_connector' | 'n8n_connector' | 'http_call' | 'wait' | 'bitrix_get_field' | 'gupshup_send_text' | 'gupshup_send_image' | 'gupshup_send_buttons';
+  type: 'tabular' | 'bitrix_connector' | 'supabase_connector' | 'supabase_query' | 'chatwoot_connector' | 'n8n_connector' | 'http_call' | 'wait' | 'bitrix_get_field' | 'gupshup_send_text' | 'gupshup_send_image' | 'gupshup_send_buttons';
   nome: string;
   config: any;
 }
@@ -200,6 +200,10 @@ Deno.serve(async (req) => {
             
             case 'gupshup_send_buttons':
               stepResult = await executeGupshupSendButtons(step, leadId, context, supabaseAdmin, supabaseUrl, supabaseServiceKey);
+              break;
+            
+            case 'supabase_query':
+              stepResult = await executeSupabaseQuery(step, leadId, context, supabaseAdmin);
               break;
             
             default:
@@ -862,5 +866,65 @@ async function executeGupshupSendButtons(
     phone: targetPhone,
     message: resolvedMessage.substring(0, 100),
     buttons: buttons.map((b: any) => b.title || b.text)
+  };
+}
+
+// Supabase Query - Consulta dados do banco
+async function executeSupabaseQuery(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any
+) {
+  const { table, select, filter_field, filter_value, output_variable } = step.config;
+  
+  if (!table || !select) {
+    throw new Error('table e select são obrigatórios para supabase_query');
+  }
+  
+  // Resolver variáveis no filter_value (ex: {{phone_number}})
+  let resolvedFilterValue = filter_value;
+  if (filter_value && typeof filter_value === 'string' && filter_value.includes('{{')) {
+    const varName = filter_value.replace(/\{\{|\}\}/g, '').trim();
+    resolvedFilterValue = context[varName] || filter_value;
+  }
+  
+  console.log(`🔍 Supabase Query: SELECT ${select} FROM ${table} WHERE ${filter_field} = ${resolvedFilterValue}`);
+  
+  // Construir query
+  let query = supabaseAdmin.from(table).select(select);
+  
+  if (filter_field && resolvedFilterValue) {
+    query = query.eq(filter_field, resolvedFilterValue);
+  }
+  
+  const { data, error } = await query.maybeSingle();
+  
+  if (error) {
+    throw new Error(`Erro na query: ${error.message}`);
+  }
+  
+  console.log(`📊 Resultado da query:`, data);
+  
+  // Salvar resultado no contexto para steps seguintes
+  if (output_variable && data) {
+    // Se select é um único campo, pegar o valor direto
+    if (!select.includes(',') && data[select] !== undefined) {
+      context[output_variable] = data[select];
+      console.log(`💾 Variável ${output_variable} = ${data[select]}`);
+    } else {
+      // Se múltiplos campos, salvar o objeto inteiro
+      context[output_variable] = data;
+      console.log(`💾 Variável ${output_variable} =`, data);
+    }
+  }
+  
+  return {
+    table,
+    select,
+    filter_field,
+    filter_value: resolvedFilterValue,
+    data,
+    output_variable: output_variable ? { [output_variable]: context[output_variable] } : null
   };
 }
