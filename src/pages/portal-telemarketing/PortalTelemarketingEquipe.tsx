@@ -13,13 +13,15 @@ import {
   Play,
   User,
   Mail,
-  Hash
+  Hash,
+  Zap
 } from 'lucide-react';
 import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
 
 import { BotConfig } from '@/components/whatsapp/BotConfig';
 import { BotTraining } from '@/components/whatsapp/BotTraining';
 import { BotPlayground } from '@/components/whatsapp/BotPlayground';
+import { QuickTextManager } from '@/components/telemarketing/QuickTextManager';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -79,10 +81,14 @@ const PortalTelemarketingEquipe = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-4 w-full mb-6">
+          <TabsList className="grid grid-cols-5 w-full mb-6">
             <TabsTrigger value="agentes" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Agentes</span>
+            </TabsTrigger>
+            <TabsTrigger value="textos" className="flex items-center gap-2">
+              <Zap className="w-4 h-4" />
+              <span className="hidden sm:inline">Textos Rápidos</span>
             </TabsTrigger>
             <TabsTrigger value="bot" className="flex items-center gap-2">
               <Bot className="w-4 h-4" />
@@ -157,6 +163,19 @@ const PortalTelemarketingEquipe = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Tab: Textos Rápidos */}
+          <TabsContent value="textos">
+            {projectId ? (
+              <QuickTextManager projectId={projectId} />
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  Projeto comercial não identificado.
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Tab: Bot IA */}

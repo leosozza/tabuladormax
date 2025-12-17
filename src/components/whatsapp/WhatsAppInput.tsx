@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Image, Paperclip, Mic, Square, X, Loader2, Plus } from 'lucide-react';
+import { Send, Image, Paperclip, Mic, Square, X, Loader2, Plus, Sparkles, Wand2 } from 'lucide-react';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -11,6 +11,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { QuickTextSelector } from './QuickTextSelector';
+import { useWhatsAppAI } from '@/hooks/useWhatsAppAI';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export type MediaType = 'image' | 'video' | 'audio' | 'document';
 
@@ -20,6 +27,12 @@ interface MediaPreview {
   url: string;
 }
 
+interface ChatMessage {
+  direction: 'inbound' | 'outbound';
+  content: string;
+  sender_name?: string;
+}
+
 interface WhatsAppInputProps {
   onSendText: (message: string) => Promise<boolean | void>;
   onSendMedia: (mediaUrl: string, mediaType: MediaType, caption?: string, filename?: string) => Promise<boolean | void>;
@@ -27,6 +40,7 @@ interface WhatsAppInputProps {
   isWindowOpen: boolean;
   inCooldown?: boolean;
   projectId?: string;
+  chatMessages?: ChatMessage[];
 }
 
 function formatTime(seconds: number): string {
@@ -48,7 +62,8 @@ export function WhatsAppInput({
   disabled,
   isWindowOpen,
   inCooldown,
-  projectId
+  projectId,
+  chatMessages = []
 }: WhatsAppInputProps) {
   const [messageInput, setMessageInput] = useState('');
   const [mediaPreview, setMediaPreview] = useState<MediaPreview | null>(null);
@@ -59,6 +74,34 @@ export function WhatsAppInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false);
+
+  const { generateResponse, improveText, isGenerating, isImproving } = useWhatsAppAI();
+
+  const handleGenerateAI = async () => {
+    if (chatMessages.length === 0) {
+      toast.error('Nenhuma mensagem na conversa');
+      return;
+    }
+    
+    const response = await generateResponse(chatMessages);
+    if (response) {
+      setMessageInput(response);
+      toast.success('Resposta gerada!');
+    }
+  };
+
+  const handleImproveText = async () => {
+    if (!messageInput.trim()) {
+      toast.error('Digite algo para melhorar');
+      return;
+    }
+    
+    const improved = await improveText(messageInput);
+    if (improved) {
+      setMessageInput(improved);
+      toast.success('Texto melhorado!');
+    }
+  };
 
   const {
     isRecording,
@@ -340,6 +383,45 @@ export function WhatsAppInput({
           onSelect={(text) => setMessageInput(text)}
           disabled={isDisabled || isRecording || !isWindowOpen}
         />
+
+        {/* AI Buttons */}
+        <TooltipProvider>
+          {messageInput.trim() ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleImproveText}
+                  disabled={isDisabled || isRecording || !isWindowOpen || isImproving}
+                  className="h-9 w-9 shrink-0 text-purple-500 hover:text-purple-600 hover:bg-purple-500/10"
+                >
+                  {isImproving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Melhorar texto com IA</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleGenerateAI}
+                  disabled={isDisabled || isRecording || !isWindowOpen || isGenerating || chatMessages.length === 0}
+                  className="h-9 w-9 shrink-0 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
+                >
+                  {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Gerar resposta com IA</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </TooltipProvider>
 
         <Textarea
           placeholder={inCooldown ? "Aguardando..." : isRecording ? "Gravando..." : mediaPreview ? "Legenda (opcional)" : "Mensagem..."}

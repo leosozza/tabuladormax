@@ -260,3 +260,6 @@ verify_jwt = false
 
 [functions.improve-script]
 verify_jwt = false
+
+[functions.whatsapp-ai-assist]
+verify_jwt = false
