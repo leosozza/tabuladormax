@@ -1999,18 +1999,33 @@ const LeadTab = () => {
           custom_attributes: updatedAttributes
         });
 
-        // 3. Atualizar tabela leads - APENAS campos que existem na tabela
-        // Não tentar salvar campos customizados do Bitrix (UF_CRM_*) aqui
+        // 3. Atualizar tabela leads - ATRIBUIR LEAD AO TELEMARKETING QUE TABULOU
         const leadUpdateFields: any = {
-          id: Number(bitrixId)
+          id: Number(bitrixId),
+          // CRÍTICO: Atribuir lead ao telemarketing que tabulou
+          bitrix_telemarketing_id: telemarketingId,
+          sync_source: 'supabase',
+          sync_status: 'synced'
         };
+
+        // Buscar dados do mapping para obter nome e projeto comercial
+        const { data: mappingData } = await supabase
+          .from('agent_telemarketing_mapping')
+          .select('bitrix_telemarketing_name, commercial_project_id')
+          .eq('bitrix_telemarketing_id', telemarketingId)
+          .maybeSingle();
+
+        if (mappingData) {
+          leadUpdateFields.telemarketing = mappingData.bitrix_telemarketing_name;
+          leadUpdateFields.commercial_project_id = mappingData.commercial_project_id;
+        }
 
         // Adicionar apenas campos que existem na tabela leads
         const validLeadFields = ['name', 'age', 'address', 'photo_url', 'responsible', 'scouter'];
         if (validLeadFields.includes(field)) {
           leadUpdateFields[field] = value;
         }
-        console.log('💾 Atualizando tabela leads com:', leadUpdateFields);
+        console.log('💾 Atualizando tabela leads com (incluindo telemarketing):', leadUpdateFields);
         await supabase.from('leads').upsert([leadUpdateFields], {
           onConflict: 'id'
         });
