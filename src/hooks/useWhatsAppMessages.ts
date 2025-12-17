@@ -185,13 +185,14 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         .select('*')
         .order('created_at', { ascending: true });
 
-      if (bitrixId) {
+      // Prioritize phone_number as it's the most reliable identifier for linking messages
+      if (phoneNumber) {
+        const normalizedPhone = phoneNumber.replace(/\D/g, '');
+        query = query.eq('phone_number', normalizedPhone);
+      } else if (bitrixId) {
         query = query.eq('bitrix_id', bitrixId);
       } else if (conversationId) {
         query = query.eq('conversation_id', conversationId);
-      } else if (phoneNumber) {
-        const normalizedPhone = phoneNumber.replace(/\D/g, '');
-        query = query.eq('phone_number', normalizedPhone);
       }
 
       const { data, error } = await query;
