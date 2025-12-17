@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Plus, X } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { N8NWorkflowPicker } from './N8NWorkflowPicker';
 import type { 
   FlowStep, 
   FlowStepTabular,
@@ -630,30 +631,91 @@ function SupabaseConnectorConfig({ step, updateConfig }: { step: FlowStepSupabas
   );
 }
 
-// N8N Connector Config
+// N8N Connector Config with MCP support
 function N8NConnectorConfig({ step, updateConfig }: { step: FlowStepN8NConnector; updateConfig: (key: string, value: any) => void }) {
+  const mode = step.config.mode || 'webhook';
+
+  const handleModeChange = (newMode: string) => {
+    updateConfig('mode', newMode);
+    // Clear fields when switching modes
+    if (newMode === 'mcp') {
+      updateConfig('webhook_url', '');
+      updateConfig('method', 'POST');
+    } else {
+      updateConfig('workflow_id', '');
+      updateConfig('workflow_name', '');
+      updateConfig('workflow_inputs', {});
+    }
+  };
+
+  const handleWorkflowSelect = (workflow: { id: string; name: string; description?: string; triggerType?: string } | null) => {
+    if (workflow) {
+      updateConfig('workflow_id', workflow.id);
+      updateConfig('workflow_name', workflow.name);
+    } else {
+      updateConfig('workflow_id', '');
+      updateConfig('workflow_name', '');
+    }
+  };
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Mode Selection */}
       <div>
-        <Label className="text-xs">Método *</Label>
-        <Select value={step.config.method} onValueChange={(val) => updateConfig('method', val)}>
+        <Label className="text-xs">Modo de Conexão</Label>
+        <Select value={mode} onValueChange={handleModeChange}>
           <SelectTrigger className="text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="GET">GET</SelectItem>
-            <SelectItem value="POST">POST</SelectItem>
+            <SelectItem value="webhook">Webhook Manual</SelectItem>
+            <SelectItem value="mcp">Selecionar Workflow (MCP)</SelectItem>
           </SelectContent>
         </Select>
       </div>
-      <div>
-        <Label className="text-xs">Webhook URL *</Label>
-        <Input
-          value={step.config.webhook_url}
-          onChange={(e) => updateConfig('webhook_url', e.target.value)}
-          className="text-sm"
-        />
-      </div>
+
+      {mode === 'webhook' ? (
+        <>
+          {/* Webhook Mode */}
+          <div>
+            <Label className="text-xs">Método *</Label>
+            <Select value={step.config.method || 'POST'} onValueChange={(val) => updateConfig('method', val)}>
+              <SelectTrigger className="text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GET">GET</SelectItem>
+                <SelectItem value="POST">POST</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Webhook URL *</Label>
+            <Input
+              value={step.config.webhook_url || ''}
+              onChange={(e) => updateConfig('webhook_url', e.target.value)}
+              placeholder="https://n8n.example.com/webhook/..."
+              className="text-sm"
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          {/* MCP Mode - Workflow Picker */}
+          <div>
+            <Label className="text-xs mb-2 block">Workflow n8n</Label>
+            <N8NWorkflowPicker
+              selectedWorkflowId={step.config.workflow_id}
+              onSelect={handleWorkflowSelect}
+            />
+          </div>
+          {step.config.workflow_id && (
+            <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+              <strong>ID:</strong> {step.config.workflow_id}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
