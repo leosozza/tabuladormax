@@ -207,10 +207,36 @@ Deno.serve(async (req) => {
 });
 
 function normalizePhone(phone: string): string {
-  const digits = (phone || '').replace(/\D/g, '');
-  if (digits.startsWith('55')) return digits;
-  if (digits.length === 11 && digits[2] === '9') return `55${digits}`;
-  return digits;
+  // Se vier múltiplos telefones separados por vírgula, pegar o primeiro válido
+  const phones = (phone || '').split(',').map(p => p.trim());
+  
+  for (const p of phones) {
+    const digits = p.replace(/\D/g, '');
+    
+    // Telefone válido tem pelo menos 10 dígitos
+    if (digits.length >= 10 && digits.length <= 13) {
+      // Já tem código do país
+      if (digits.startsWith('55') && digits.length >= 12) {
+        return digits;
+      }
+      // Celular brasileiro (11 dígitos com 9 na posição correta)
+      if (digits.length === 11 && digits[2] === '9') {
+        return `55${digits}`;
+      }
+      // Fixo brasileiro (10 dígitos)
+      if (digits.length === 10) {
+        return `55${digits}`;
+      }
+    }
+  }
+  
+  // Fallback: pegar primeiro telefone e limitar a 13 dígitos
+  const fallbackDigits = (phone || '').replace(/\D/g, '');
+  const limited = fallbackDigits.substring(0, 13);
+  if (!limited.startsWith('55') && limited.length >= 10) {
+    return `55${limited.substring(0, 11)}`;
+  }
+  return limited;
 }
 
 interface RegisterMessageParams {
@@ -236,7 +262,7 @@ async function registerMessage(supabase: any, data: RegisterMessageParams) {
       message_type: 'template',
       content: data.content,
       template_name: data.template_name,
-      status: 'pending', // Aguardando confirmação do Gupshup
+      status: 'sent', // Status válido conforme constraint da tabela
       sent_by: 'bitrix',
       sender_name: 'Bitrix Automação',
       metadata: {
@@ -252,7 +278,7 @@ async function registerMessage(supabase: any, data: RegisterMessageParams) {
     throw error;
   }
   
-  console.log(`⏳ Mensagem registrada com status 'pending' para ${data.phone_number}`);
+  console.log(`✅ Mensagem registrada com status 'sent' para ${data.phone_number}`);
 
   // Atualizar last_message no chatwoot_contacts
   if (data.bitrix_id) {
