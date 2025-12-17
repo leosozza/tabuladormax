@@ -355,6 +355,7 @@ export function useTelemarketingMetrics(
       });
 
       const statusDistribution = Array.from(statusMap.entries())
+        .filter(([status]) => !status.toLowerCase().includes('agendado'))
         .map(([status, count]) => ({ status, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 8);
@@ -371,6 +372,7 @@ export function useTelemarketingMetrics(
       });
 
       const tabulacaoGroups: TabulacaoGroup[] = Array.from(tabulacaoMap.entries())
+        .filter(([label]) => !label.toLowerCase().includes('agendado'))
         .map(([label, data]) => ({ label, rawStatus: data.rawStatus, count: data.count }))
         .sort((a, b) => b.count - a.count);
 
