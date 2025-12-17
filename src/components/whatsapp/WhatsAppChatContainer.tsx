@@ -17,6 +17,7 @@ interface WhatsAppChatContainerProps {
   contactName: string;
   onClose?: () => void;
   variant?: 'modal' | 'fullscreen';
+  commercialProjectId?: string;
 }
 
 export function WhatsAppChatContainer({
@@ -25,7 +26,8 @@ export function WhatsAppChatContainer({
   conversationId,
   contactName,
   onClose,
-  variant = 'modal'
+  variant = 'modal',
+  commercialProjectId
 }: WhatsAppChatContainerProps) {
   const [activeTab, setActiveTab] = useState('messages');
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
@@ -214,6 +216,7 @@ export function WhatsAppChatContainer({
             disabled={sending || !isWindowOpen}
             isWindowOpen={isWindowOpen}
             inCooldown={inCooldown}
+            projectId={commercialProjectId}
           />
         </TabsContent>
 
