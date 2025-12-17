@@ -224,15 +224,21 @@ export function useTelemarketingMetrics(
         .sort((a, b) => a.data.localeCompare(b.data));
 
       // Calculate comparecimentos (UF_CRM_1746816298253 = '1' means attended)
-      // Consider date_closed within the period
+      // Use UF_CRM_DATACOMPARECEU for the attendance date
       const comparecimentosLeads = leadsData.filter(lead => {
         const presencaConfirmada = getRawField(lead.raw, 'UF_CRM_1746816298253');
         if (presencaConfirmada !== '1') return false;
         
-        // Check if date_closed is within the period
-        if (!lead.date_closed) return false;
-        const dateClosed = new Date(lead.date_closed);
-        return dateClosed >= start && dateClosed <= end;
+        // Check if UF_CRM_DATACOMPARECEU is within the period
+        const dataCompareceu = getRawField(lead.raw, 'UF_CRM_DATACOMPARECEU');
+        if (!dataCompareceu) return false;
+        
+        try {
+          const dateCompareceu = new Date(dataCompareceu);
+          return dateCompareceu >= start && dateCompareceu <= end;
+        } catch {
+          return false;
+        }
       });
 
       const comparecimentos = {
@@ -243,7 +249,7 @@ export function useTelemarketingMetrics(
           scouter: lead.scouter || null,
           telemarketing: lead.telemarketing || operatorNameMap.get(lead.bitrix_telemarketing_id!) || null,
           agendadoEm: getRawField(lead.raw, 'UF_CRM_AGEND_EM'),
-          dataComparecimento: lead.date_closed!,
+          dataComparecimento: getRawField(lead.raw, 'UF_CRM_DATACOMPARECEU') || '',
         })),
       };
 
