@@ -113,10 +113,10 @@ const adminCategories: Record<string, CategoryConfig> = {
         color: 'bg-red-500/10 text-red-600 dark:text-red-400',
       },
       {
-        path: '/admin/spa-sync',
+        path: '/admin/bitrix-sync',
         icon: RefreshCw,
-        title: 'Sincronizar SPAs',
-        description: 'Scouters, Telemarketing e Produtores',
+        title: 'Central Bitrix',
+        description: 'Sincronizar SPAs, mapeamentos e webhook',
         color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
       },
       {
@@ -226,13 +226,6 @@ const adminCategories: Record<string, CategoryConfig> = {
         title: 'Mapeamento de Agentes',
         description: 'Vincular agentes Bitrix e Chatwoot',
         color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
-      },
-      {
-        path: '/admin/stage-mappings',
-        icon: MapPin,
-        title: 'Mapeamento de Stages',
-        description: 'Sincronização de status scouters',
-        color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
       },
       {
         path: '/admin/field-management',
