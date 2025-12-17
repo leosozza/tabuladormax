@@ -27,6 +27,7 @@ import { BitrixChatModal } from "@/components/bitrix/BitrixChatModal";
 import { WhatsAppModal } from "@/components/whatsapp";
 import { BUTTON_CATEGORIES, categoryOrder, ensureButtonLayout, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { cn } from "@/lib/utils";
+import { getEtapaStyle } from "@/lib/etapaColors";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
 import { useQuery } from '@tanstack/react-query';
 import { useLeadAnalysis } from "@/hooks/useLeadAnalysis";
@@ -2451,11 +2452,14 @@ const LeadTab = () => {
                     {leadProfileData.fonte_normalizada}
                   </Badge>
                 )}
-                {leadProfileData?.etapa && (
-                  <Badge variant="outline" className="text-xs">
-                    📋 {leadProfileData.etapa}
-                  </Badge>
-                )}
+                {leadProfileData?.etapa && (() => {
+                  const etapaStyle = getEtapaStyle(leadProfileData.etapa);
+                  return (
+                    <Badge className={cn("text-xs", etapaStyle.bg, etapaStyle.text)}>
+                      📋 {etapaStyle.label}
+                    </Badge>
+                  );
+                })()}
               </div>
               <h2 className="text-lg md:text-2xl font-bold text-center w-full">{(profile as any).name || 'Lead sem nome'}</h2>
               <div className="w-full space-y-1 md:space-y-2 text-xs md:text-sm">{fieldMappings.filter(mapping => !mapping.is_profile_photo) // Não exibir o campo da foto na lista
