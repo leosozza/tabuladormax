@@ -245,3 +245,6 @@ verify_jwt = false
 
 [functions.analyze-script]
 verify_jwt = true
+
+[functions.whatsapp-bot-respond]
+verify_jwt = false
