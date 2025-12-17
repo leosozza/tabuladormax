@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -23,142 +23,287 @@ import {
   Key,
   Bot,
   GraduationCap,
+  Search,
+  AlertTriangle,
+  MonitorDot,
+  Workflow,
+  Plug,
+  Cpu,
+  ScrollText,
+  Gauge,
+  MapPin,
+  LucideIcon,
+  Repeat,
+  TestTube,
 } from 'lucide-react';
 import { ResyncDateClosedButton } from '@/components/admin/ResyncDateClosedButton';
+import { AdminCategorySection, AdminOption } from '@/components/admin/AdminCategorySection';
 
-const adminOptions = [
-  {
-    path: '/admin/dashboard',
-    icon: LayoutDashboard,
+interface CategoryConfig {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  color: string;
+  options: AdminOption[];
+}
+
+// Definição de todas as ferramentas administrativas organizadas por categoria
+const adminCategories: Record<string, CategoryConfig> = {
+  monitoring: {
     title: 'Monitoramento & Diagnósticos',
-    description: 'Monitoramento, diagnósticos e logs unificados',
+    description: 'Logs, métricas e diagnósticos do sistema',
+    icon: MonitorDot,
     color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+    options: [
+      {
+        path: '/admin/dashboard',
+        icon: LayoutDashboard,
+        title: 'Dashboard Unificado',
+        description: 'Visão geral de monitoramento e diagnósticos',
+        color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+      },
+      {
+        path: '/admin/monitoring',
+        icon: Gauge,
+        title: 'Performance & Métricas',
+        description: 'Métricas de desempenho do sistema',
+        color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      },
+      {
+        path: '/admin/logs',
+        icon: ScrollText,
+        title: 'Logs do Sistema',
+        description: 'Visualizar logs de atividades',
+        color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
+      },
+      {
+        path: '/admin/diagnostic',
+        icon: TestTube,
+        title: 'Diagnósticos',
+        description: 'Diagnóstico avançado de problemas',
+        color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+      },
+      {
+        path: '/admin/loop-monitor',
+        icon: Repeat,
+        title: 'Monitor de Loop',
+        description: 'Detectar loops de mensagens',
+        color: 'bg-red-500/10 text-red-600 dark:text-red-400',
+      },
+    ],
   },
-  {
-    path: '/admin/users',
-    icon: Users,
-    title: 'Usuários',
-    description: 'Gestão de usuários e equipes',
-    color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  },
-  {
-    path: '/admin/config',
-    icon: Settings,
-    title: 'Configurações',
-    description: 'Configurações do sistema',
-    color: 'bg-primary/10 text-primary',
-  },
-  {
-    path: '/admin/agent-mapping',
-    icon: UserCog,
-    title: 'Mapeamento',
-    description: 'Mapeamento de agentes',
-    color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
-  },
-  {
-    path: '/admin/permissions',
-    icon: Shield,
-    title: 'Permissões',
-    description: 'Controle de acesso',
-    color: 'bg-red-500/10 text-red-600 dark:text-red-400',
-  },
-  {
-    path: '/admin/sync-monitor',
+  sync: {
+    title: 'Sincronização & Dados',
+    description: 'Gerenciar sincronização e importação de dados',
     icon: Cloud,
-    title: 'Sincronização',
-    description: 'Central de sincronização',
     color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+    options: [
+      {
+        path: '/admin/sync-monitor',
+        icon: Cloud,
+        title: 'Central de Sincronização',
+        description: 'Monitorar e gerenciar sincronizações',
+        color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+      },
+      {
+        path: '/admin/sync-errors',
+        icon: AlertTriangle,
+        title: 'Erros de Sincronização',
+        description: 'Visualizar e corrigir erros de sync',
+        color: 'bg-red-500/10 text-red-600 dark:text-red-400',
+      },
+      {
+        path: '/admin/spa-sync',
+        icon: RefreshCw,
+        title: 'Sincronizar SPAs',
+        description: 'Scouters, Telemarketing e Produtores',
+        color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+      },
+      {
+        path: '/admin/lead-resync',
+        icon: Activity,
+        title: 'Resincronização Leads',
+        description: 'Atualizar leads do Bitrix',
+        color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+      },
+      {
+        path: '/admin/leads-reprocess',
+        icon: Database,
+        title: 'Re-processar Leads',
+        description: 'Re-processar leads do campo raw',
+        color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+      },
+      {
+        path: '/admin/csv-import',
+        icon: Upload,
+        title: 'Importação CSV',
+        description: 'Importar leads via arquivo CSV',
+        color: 'bg-green-500/10 text-green-600 dark:text-green-400',
+      },
+    ],
   },
-  {
-    path: '/admin/csv-import',
-    icon: Upload,
-    title: 'Importação CSV',
-    description: 'Importar leads via CSV',
-    color: 'bg-green-500/10 text-green-600 dark:text-green-400',
-  },
-  {
-    path: '/admin/lead-resync',
-    icon: Activity,
-    title: 'Resincronização Leads',
-    description: 'Atualizar leads do Bitrix',
-    color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
-  },
-  {
-    path: '/admin/leads-reprocess',
-    icon: Database,
-    title: 'Re-processar Leads',
-    description: 'Re-processar leads históricos do campo raw',
-    color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  },
-  {
-    path: '/admin/template-management',
-    icon: MessageSquare,
-    title: 'Templates WhatsApp',
-    description: 'Gerenciar templates Gupshup',
+  integrations: {
+    title: 'Integrações',
+    description: 'Conectar e configurar serviços externos',
+    icon: Plug,
     color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    options: [
+      {
+        path: '/admin/bitrix-integration',
+        icon: Database,
+        title: 'Integração Bitrix',
+        description: 'Configurar conexão com Bitrix24',
+        color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      },
+      {
+        path: '/admin/gupshup-integration',
+        icon: Smartphone,
+        title: 'Integração Gupshup',
+        description: 'Configurar WhatsApp via Gupshup',
+        color: 'bg-green-500/10 text-green-600 dark:text-green-400',
+      },
+      {
+        path: '/admin/template-management',
+        icon: MessageSquare,
+        title: 'Templates WhatsApp',
+        description: 'Gerenciar templates Gupshup',
+        color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      },
+      {
+        path: '/admin/flow-builder',
+        icon: Workflow,
+        title: 'Flow Builder',
+        description: 'Automações visuais e n8n',
+        color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+      },
+    ],
   },
-  {
-    path: '/admin/gupshup-integration',
-    icon: Smartphone,
-    title: 'Integração Gupshup',
-    description: 'Configurar WhatsApp via Gupshup',
-    color: 'bg-green-500/10 text-green-600 dark:text-green-400',
-  },
-  {
-    path: '/admin/stage-mappings',
-    icon: Settings,
-    title: 'Mapeamento de Stages',
-    description: 'Configurar sincronização de status dos scouters',
-    color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-  },
-  {
-    path: '/admin/spa-sync',
-    icon: RefreshCw,
-    title: 'Sincronizar SPAs',
-    description: 'Sincronizar Scouters, Telemarketing e Produtores',
-    color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
-  },
-  {
-    path: '/admin/app-releases',
-    icon: Smartphone,
-    title: 'App Android',
-    description: 'Gerenciar versões do aplicativo Android',
-    color: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
-  },
-  {
-    path: '/admin/api-docs',
-    icon: FileText,
-    title: 'Documentação API',
-    description: 'Referência completa da API REST',
-    color: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  },
-  {
-    path: '/admin/api-keys',
-    icon: Key,
-    title: 'API Keys',
-    description: 'Gerenciar chaves de acesso à API',
-    color: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
-  },
-  {
-    path: '/admin/whatsapp-bot',
-    icon: Bot,
-    title: 'Bot WhatsApp',
-    description: 'Configurar atendimento automatizado por IA',
-    color: 'bg-green-500/10 text-green-600 dark:text-green-400',
-  },
-  {
-    path: '/admin/ai-training',
-    icon: GraduationCap,
-    title: 'Treinamento IA',
-    description: 'Treinar e configurar o agente de IA',
+  ai: {
+    title: 'Inteligência Artificial',
+    description: 'Configurar e treinar agentes de IA',
+    icon: Cpu,
     color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+    options: [
+      {
+        path: '/admin/whatsapp-bot',
+        icon: Bot,
+        title: 'Bot WhatsApp',
+        description: 'Atendimento automatizado por IA',
+        color: 'bg-green-500/10 text-green-600 dark:text-green-400',
+      },
+      {
+        path: '/admin/ai-training',
+        icon: GraduationCap,
+        title: 'Treinamento IA',
+        description: 'Treinar e configurar o agente de IA',
+        color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+      },
+      {
+        path: '/admin/ai-playground',
+        icon: TestTube,
+        title: 'Playground IA',
+        description: 'Testar e experimentar modelos de IA',
+        color: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
+      },
+    ],
   },
-];
+  config: {
+    title: 'Configurações',
+    description: 'Configurações gerais e mapeamentos',
+    icon: Settings,
+    color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
+    options: [
+      {
+        path: '/admin/config',
+        icon: Settings,
+        title: 'Configurações Gerais',
+        description: 'Configurações do sistema',
+        color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
+      },
+      {
+        path: '/admin/agent-mapping',
+        icon: UserCog,
+        title: 'Mapeamento de Agentes',
+        description: 'Vincular agentes Bitrix e Chatwoot',
+        color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+      },
+      {
+        path: '/admin/stage-mappings',
+        icon: MapPin,
+        title: 'Mapeamento de Stages',
+        description: 'Sincronização de status scouters',
+        color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+      },
+      {
+        path: '/admin/field-management',
+        icon: Database,
+        title: 'Gestão de Campos',
+        description: 'Configurar campos e mapeamentos',
+        color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+      },
+      {
+        path: '/admin/permissions',
+        icon: Shield,
+        title: 'Permissões de Acesso',
+        description: 'Controle de acesso por perfil',
+        color: 'bg-red-500/10 text-red-600 dark:text-red-400',
+      },
+    ],
+  },
+  users: {
+    title: 'Gestão de Usuários',
+    description: 'Usuários, equipes e aplicativos',
+    icon: Users,
+    color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    options: [
+      {
+        path: '/admin/users',
+        icon: Users,
+        title: 'Usuários & Equipes',
+        description: 'Gestão de usuários do sistema',
+        color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      },
+      {
+        path: '/admin/app-releases',
+        icon: Smartphone,
+        title: 'App Android',
+        description: 'Gerenciar versões do app',
+        color: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
+      },
+    ],
+  },
+  developers: {
+    title: 'Desenvolvedores',
+    description: 'APIs e ferramentas para desenvolvedores',
+    icon: Key,
+    color: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
+    options: [
+      {
+        path: '/admin/api-keys',
+        icon: Key,
+        title: 'API Keys',
+        description: 'Gerenciar chaves de acesso',
+        color: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
+      },
+      {
+        path: '/admin/api-docs',
+        icon: FileText,
+        title: 'Documentação API',
+        description: 'Referência completa da API REST',
+        color: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+      },
+    ],
+  },
+};
+
+// Flatten all options for permission checking
+const allOptions = Object.values(adminCategories).flatMap((cat) => cat.options);
 
 export default function AdminHub() {
-  const [filteredOptions, setFilteredOptions] = useState<typeof adminOptions>([]);
+  const [allowedPaths, setAllowedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [syncingSpa, setSyncingSpa] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -167,28 +312,30 @@ export default function AdminHub() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          setFilteredOptions([]);
+          setAllowedPaths(new Set());
           return;
         }
 
         const permissionChecks = await Promise.all(
-          adminOptions.map(async (option) => {
+          allOptions.map(async (option) => {
             const { data: canAccess } = await supabase.rpc('can_access_route' as any, {
               _user_id: user.id,
               _route_path: option.path,
             });
-            return { option, canAccess: canAccess === true };
+            return { path: option.path, canAccess: canAccess === true };
           })
         );
 
-        const allowed = permissionChecks
-          .filter(({ canAccess }) => canAccess)
-          .map(({ option }) => option);
+        const allowed = new Set(
+          permissionChecks
+            .filter(({ canAccess }) => canAccess)
+            .map(({ path }) => path)
+        );
 
-        setFilteredOptions(allowed);
+        setAllowedPaths(allowed);
       } catch (error) {
         console.error('Erro ao verificar permissões:', error);
-        setFilteredOptions([]);
+        setAllowedPaths(new Set());
       } finally {
         setLoading(false);
       }
@@ -196,6 +343,31 @@ export default function AdminHub() {
 
     checkPermissions();
   }, []);
+
+  // Filter options based on permissions and search
+  const filteredCategories = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+
+    return Object.entries(adminCategories).map(([key, category]) => {
+      const filteredOptions = category.options.filter((option) => {
+        const hasPermission = allowedPaths.has(option.path);
+        const matchesSearch = !query || 
+          option.title.toLowerCase().includes(query) ||
+          option.description.toLowerCase().includes(query);
+        return hasPermission && matchesSearch;
+      });
+
+      return {
+        key,
+        ...category,
+        filteredOptions,
+        totalOptions: category.options.length,
+      };
+    }).filter((cat) => cat.filteredOptions.length > 0);
+  }, [allowedPaths, searchQuery]);
+
+  const totalAvailable = allowedPaths.size;
+  const totalFiltered = filteredCategories.reduce((acc, cat) => acc + cat.filteredOptions.length, 0);
 
   const handleSyncSpa = async () => {
     setSyncingSpa(true);
@@ -218,45 +390,56 @@ export default function AdminHub() {
 
   return (
     <AdminPageLayout 
-      title="Área Administrativa" 
-      description="Escolha a ferramenta administrativa que deseja acessar"
+      title="Central Administrativa" 
+      description="Todas as ferramentas administrativas organizadas por categoria"
     >
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar ferramenta..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {!loading && (
+          <p className="text-xs text-muted-foreground mt-2">
+            {searchQuery 
+              ? `${totalFiltered} ferramenta${totalFiltered !== 1 ? 's' : ''} encontrada${totalFiltered !== 1 ? 's' : ''}`
+              : `${totalAvailable} ferramenta${totalAvailable !== 1 ? 's' : ''} disponíve${totalAvailable !== 1 ? 'is' : 'l'}`
+            }
+          </p>
+        )}
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      ) : filteredOptions.length === 0 ? (
+      ) : filteredCategories.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          Nenhuma opção administrativa disponível para seu perfil.
+          {searchQuery 
+            ? 'Nenhuma ferramenta encontrada para sua busca.'
+            : 'Nenhuma opção administrativa disponível para seu perfil.'
+          }
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredOptions.map((option) => {
-            const Icon = option.icon;
-            return (
-              <Card
-                key={option.path}
-                className="cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-primary/50 group"
-                onClick={() => navigate(option.path)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-lg ${option.color} group-hover:scale-110 transition-transform`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base">{option.title}</CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <CardDescription className="text-xs">
-                    {option.description}
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            );
-          })}
+        <div className="space-y-4">
+          {filteredCategories.map((category) => (
+            <AdminCategorySection
+              key={category.key}
+              title={category.title}
+              description={category.description}
+              icon={category.icon}
+              color={category.color}
+              options={category.filteredOptions}
+              totalOptions={category.totalOptions}
+              onNavigate={navigate}
+              defaultExpanded={!searchQuery}
+            />
+          ))}
         </div>
       )}
 
