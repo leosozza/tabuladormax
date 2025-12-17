@@ -10,6 +10,7 @@ import UserMenu from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -283,6 +284,8 @@ const LeadTab = () => {
   const [showDebugModal, setShowDebugModal] = useState(false);
   const [debugHistory, setDebugHistory] = useState<any[]>([]);
   const [showShortcutsConfig, setShowShortcutsConfig] = useState(false);
+  const [observacaoTelemarketing, setObservacaoTelemarketing] = useState('');
+  const [savingObservacao, setSavingObservacao] = useState(false);
 
   // Query para field mappings
   const {
@@ -336,14 +339,15 @@ const LeadTab = () => {
   // Buscar fotos do lead do Supabase
   const currentBitrixId = chatwootData?.bitrix_id ? Number(chatwootData.bitrix_id) : null;
   const {
-    data: leadProfileData
+    data: leadProfileData,
+    refetch: refetchLeadProfile
   } = useQuery({
     queryKey: ['lead-profile-data', currentBitrixId],
     queryFn: async () => {
       if (!currentBitrixId) return null;
       const { data, error } = await supabase
         .from('leads')
-        .select('photo_url, additional_photos, age, raw, fonte_normalizada, etapa')
+        .select('photo_url, additional_photos, age, raw, fonte_normalizada, etapa, observacoes_telemarketing')
         .eq('id', currentBitrixId)
         .maybeSingle();
       if (error) throw error;
@@ -1252,6 +1256,60 @@ const LeadTab = () => {
       handleBeforeUnload(); // Também sincronizar ao desmontar componente
     };
   }, [chatwootData, profile, fieldMappings]);
+
+  // Carregar observação do telemarketing quando leadProfileData mudar
+  useEffect(() => {
+    if (leadProfileData?.observacoes_telemarketing) {
+      setObservacaoTelemarketing(leadProfileData.observacoes_telemarketing);
+    } else {
+      setObservacaoTelemarketing('');
+    }
+  }, [leadProfileData]);
+
+  // Função para salvar observação do telemarketing
+  const handleSaveObservacao = async () => {
+    if (!chatwootData?.bitrix_id) {
+      toast.error('Lead não identificado');
+      return;
+    }
+    
+    setSavingObservacao(true);
+    try {
+      const bitrixId = Number(chatwootData.bitrix_id);
+      
+      // 1. Salvar no Supabase
+      const { error: supabaseError } = await supabase
+        .from('leads')
+        .update({ observacoes_telemarketing: observacaoTelemarketing })
+        .eq('id', bitrixId);
+      
+      if (supabaseError) throw supabaseError;
+      
+      // 2. Sincronizar com Bitrix
+      const webhookUrl = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json";
+      const params = new URLSearchParams();
+      params.append('ID', String(bitrixId));
+      params.append('FIELDS[UF_CRM_1765991897]', observacaoTelemarketing);
+      
+      const response = await fetch(`${webhookUrl}?${params.toString()}`, { method: 'GET' });
+      const result = await response.json();
+      
+      if (result.error) {
+        console.warn('Bitrix sync warning:', result.error);
+        toast.warning('Salvo localmente, mas falhou sincronizar com Bitrix');
+      } else {
+        toast.success('Observação salva com sucesso!');
+      }
+      
+      // Refetch para atualizar cache
+      refetchLeadProfile();
+    } catch (error) {
+      console.error('Erro ao salvar observação:', error);
+      toast.error('Erro ao salvar observação');
+    } finally {
+      setSavingObservacao(false);
+    }
+  };
 
   // Listener do Chatwoot - NÃO depende de fieldMappings para evitar recriar toda hora
   useEffect(() => {
@@ -2436,6 +2494,30 @@ const LeadTab = () => {
             corCabelo={leadStatsFromRaw?.corCabelo}
             className="w-full"
           />
+
+          {/* Área de Observações do Telemarketing */}
+          {isPortalTelemarketing && chatwootData?.bitrix_id && (
+            <div className="w-full mt-3 p-3 border rounded-lg bg-muted/30">
+              <Label className="text-sm font-medium mb-2 block">
+                📝 Observações do Telemarketing
+              </Label>
+              <Textarea
+                value={observacaoTelemarketing}
+                onChange={(e) => setObservacaoTelemarketing(e.target.value)}
+                placeholder="Digite aqui as observações sobre o lead..."
+                className="min-h-[80px] resize-none text-sm"
+              />
+              <Button 
+                onClick={handleSaveObservacao}
+                className="mt-2 w-full"
+                size="sm"
+                disabled={savingObservacao}
+              >
+                {savingObservacao ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Salvar Observação
+              </Button>
+            </div>
+          )}
 
           {!editMode ? <>
               {/* Badges de Fonte e Última Tabulação */}
