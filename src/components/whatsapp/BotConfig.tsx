@@ -8,8 +8,11 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
-import { Bot, Save, X, Plus, Clock, MessageSquare, Zap } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Bot, Save, X, Plus, Clock, MessageSquare, Zap, Cpu, Settings } from 'lucide-react';
 import { useBotConfig, useUpsertBotConfig, PERSONALITY_OPTIONS } from '@/hooks/useWhatsAppBot';
+import { BotProviderConfig } from './BotProviderConfig';
+import { BotToolsManager } from './BotToolsManager';
 
 interface BotConfigProps {
   projectId: string;
@@ -37,6 +40,12 @@ export function BotConfig({ projectId, projectName }: BotConfigProps) {
     collect_lead_data: true,
     auto_qualify: true,
     is_enabled: false,
+    // Novos campos de AI Agent
+    ai_provider: 'lovable',
+    ai_model: 'google/gemini-2.5-flash',
+    api_key_secret_name: null as string | null,
+    tools_enabled: false,
+    available_tools: [] as string[],
   });
 
   const [newKeyword, setNewKeyword] = useState('');
@@ -60,6 +69,12 @@ export function BotConfig({ projectId, projectName }: BotConfigProps) {
         collect_lead_data: config.collect_lead_data ?? true,
         auto_qualify: config.auto_qualify ?? true,
         is_enabled: config.is_enabled || false,
+        // Novos campos
+        ai_provider: (config as any).ai_provider || 'lovable',
+        ai_model: (config as any).ai_model || 'google/gemini-2.5-flash',
+        api_key_secret_name: (config as any).api_key_secret_name || null,
+        tools_enabled: (config as any).tools_enabled || false,
+        available_tools: (config as any).available_tools || [],
       });
     }
   }, [config]);
@@ -146,229 +161,279 @@ export function BotConfig({ projectId, projectName }: BotConfigProps) {
         </CardHeader>
       </Card>
 
-      {/* Identidade do Bot */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
+      {/* Tabs de Configuração */}
+      <Tabs defaultValue="identity" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="identity" className="gap-2">
             <MessageSquare className="h-4 w-4" />
-            Identidade do Bot
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="bot_name">Nome do Bot</Label>
-              <Input
-                id="bot_name"
-                value={formData.bot_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, bot_name: e.target.value }))}
-                placeholder="Ex: Ana, MAX, Assistente"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="personality">Personalidade</Label>
-              <Select
-                value={formData.personality}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, personality: value as any }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERSONALITY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <span className="flex items-center gap-2">
-                        <span>{option.emoji}</span>
-                        <span>{option.label}</span>
-                        <span className="text-muted-foreground text-xs">- {option.description}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="welcome_message">Mensagem de Boas-vindas</Label>
-            <Textarea
-              id="welcome_message"
-              value={formData.welcome_message}
-              onChange={(e) => setFormData(prev => ({ ...prev, welcome_message: e.target.value }))}
-              placeholder="Primeira mensagem enviada ao cliente"
-              rows={2}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="fallback_message">Mensagem de Fallback</Label>
-            <Textarea
-              id="fallback_message"
-              value={formData.fallback_message}
-              onChange={(e) => setFormData(prev => ({ ...prev, fallback_message: e.target.value }))}
-              placeholder="Quando o bot não sabe responder"
-              rows={2}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Regras de Transferência */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
+            <span className="hidden sm:inline">Identidade</span>
+          </TabsTrigger>
+          <TabsTrigger value="rules" className="gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Regras</span>
+          </TabsTrigger>
+          <TabsTrigger value="provider" className="gap-2">
+            <Cpu className="h-4 w-4" />
+            <span className="hidden sm:inline">IA</span>
+          </TabsTrigger>
+          <TabsTrigger value="tools" className="gap-2">
             <Zap className="h-4 w-4" />
-            Regras de Transferência
-          </CardTitle>
-          <CardDescription>
-            Quando transferir automaticamente para um atendente humano
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Palavras-chave de Transferência</Label>
-            <div className="flex gap-2">
-              <Input
-                value={newKeyword}
-                onChange={(e) => setNewKeyword(e.target.value)}
-                placeholder="Adicionar palavra..."
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addKeyword())}
-              />
-              <Button type="button" variant="outline" size="icon" onClick={addKeyword}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {formData.transfer_keywords.map((keyword) => (
-                <Badge key={keyword} variant="secondary" className="gap-1">
-                  {keyword}
-                  <button onClick={() => removeKeyword(keyword)} className="ml-1 hover:text-destructive">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          </div>
+            <span className="hidden sm:inline">Ferramentas</span>
+          </TabsTrigger>
+        </TabsList>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Máximo de mensagens antes de transferir</Label>
-              <span className="text-sm font-medium">{formData.max_messages_before_transfer}</span>
-            </div>
-            <Slider
-              value={[formData.max_messages_before_transfer]}
-              onValueChange={([value]) => setFormData(prev => ({ ...prev, max_messages_before_transfer: value }))}
-              min={3}
-              max={30}
-              step={1}
-            />
-            <p className="text-xs text-muted-foreground">
-              Após {formData.max_messages_before_transfer} mensagens, transfere para atendente
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Tab: Identidade */}
+        <TabsContent value="identity" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Identidade do Bot
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="bot_name">Nome do Bot</Label>
+                  <Input
+                    id="bot_name"
+                    value={formData.bot_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, bot_name: e.target.value }))}
+                    placeholder="Ex: Ana, MAX, Assistente"
+                  />
+                </div>
 
-      {/* Horário de Funcionamento */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Horário de Funcionamento
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Início</Label>
-              <Input
-                type="time"
-                value={formData.operating_hours.start}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  operating_hours: { ...prev.operating_hours, start: e.target.value }
-                }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Fim</Label>
-              <Input
-                type="time"
-                value={formData.operating_hours.end}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  operating_hours: { ...prev.operating_hours, end: e.target.value }
-                }))}
-              />
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="personality">Personalidade</Label>
+                  <Select
+                    value={formData.personality}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, personality: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PERSONALITY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <span className="flex items-center gap-2">
+                            <span>{option.emoji}</span>
+                            <span>{option.label}</span>
+                            <span className="text-muted-foreground text-xs">- {option.description}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <Label>Dias de Funcionamento</Label>
-            <div className="flex flex-wrap gap-2">
-              {DAYS.map((day) => (
-                <Button
-                  key={day.value}
-                  type="button"
-                  variant={formData.operating_hours.workDays.includes(day.value) ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => toggleWorkDay(day.value)}
-                >
-                  {day.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              <div className="space-y-2">
+                <Label htmlFor="welcome_message">Mensagem de Boas-vindas</Label>
+                <Textarea
+                  id="welcome_message"
+                  value={formData.welcome_message}
+                  onChange={(e) => setFormData(prev => ({ ...prev, welcome_message: e.target.value }))}
+                  placeholder="Primeira mensagem enviada ao cliente"
+                  rows={2}
+                />
+              </div>
 
-      {/* Opções Avançadas */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Opções Avançadas</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Coletar dados do lead</Label>
-              <p className="text-xs text-muted-foreground">Bot tenta coletar nome, interesse, etc</p>
-            </div>
-            <Switch
-              checked={formData.collect_lead_data}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, collect_lead_data: checked }))}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="fallback_message">Mensagem de Fallback</Label>
+                <Textarea
+                  id="fallback_message"
+                  value={formData.fallback_message}
+                  onChange={(e) => setFormData(prev => ({ ...prev, fallback_message: e.target.value }))}
+                  placeholder="Quando o bot não sabe responder"
+                  rows={2}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Qualificação automática</Label>
-              <p className="text-xs text-muted-foreground">Identificar leads quentes automaticamente</p>
-            </div>
-            <Switch
-              checked={formData.auto_qualify}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, auto_qualify: checked }))}
-            />
-          </div>
+        {/* Tab: Regras */}
+        <TabsContent value="rules" className="space-y-6">
+          {/* Regras de Transferência */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Zap className="h-4 w-4" />
+                Regras de Transferência
+              </CardTitle>
+              <CardDescription>
+                Quando transferir automaticamente para um atendente humano
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Palavras-chave de Transferência</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newKeyword}
+                    onChange={(e) => setNewKeyword(e.target.value)}
+                    placeholder="Adicionar palavra..."
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addKeyword())}
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={addKeyword}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formData.transfer_keywords.map((keyword) => (
+                    <Badge key={keyword} variant="secondary" className="gap-1">
+                      {keyword}
+                      <button onClick={() => removeKeyword(keyword)} className="ml-1 hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Delay entre respostas</Label>
-              <span className="text-sm font-medium">{formData.response_delay_ms}ms</span>
-            </div>
-            <Slider
-              value={[formData.response_delay_ms]}
-              onValueChange={([value]) => setFormData(prev => ({ ...prev, response_delay_ms: value }))}
-              min={500}
-              max={5000}
-              step={100}
-            />
-            <p className="text-xs text-muted-foreground">
-              Simula digitação humana ({(formData.response_delay_ms / 1000).toFixed(1)}s)
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Máximo de mensagens antes de transferir</Label>
+                  <span className="text-sm font-medium">{formData.max_messages_before_transfer}</span>
+                </div>
+                <Slider
+                  value={[formData.max_messages_before_transfer]}
+                  onValueChange={([value]) => setFormData(prev => ({ ...prev, max_messages_before_transfer: value }))}
+                  min={3}
+                  max={30}
+                  step={1}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Após {formData.max_messages_before_transfer} mensagens, transfere para atendente
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Horário de Funcionamento */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Horário de Funcionamento
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Início</Label>
+                  <Input
+                    type="time"
+                    value={formData.operating_hours.start}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      operating_hours: { ...prev.operating_hours, start: e.target.value }
+                    }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fim</Label>
+                  <Input
+                    type="time"
+                    value={formData.operating_hours.end}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      operating_hours: { ...prev.operating_hours, end: e.target.value }
+                    }))}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Dias de Funcionamento</Label>
+                <div className="flex flex-wrap gap-2">
+                  {DAYS.map((day) => (
+                    <Button
+                      key={day.value}
+                      type="button"
+                      variant={formData.operating_hours.workDays.includes(day.value) ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => toggleWorkDay(day.value)}
+                    >
+                      {day.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Opções Avançadas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Opções Avançadas</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Coletar dados do lead</Label>
+                  <p className="text-xs text-muted-foreground">Bot tenta coletar nome, interesse, etc</p>
+                </div>
+                <Switch
+                  checked={formData.collect_lead_data}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, collect_lead_data: checked }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Qualificação automática</Label>
+                  <p className="text-xs text-muted-foreground">Identificar leads quentes automaticamente</p>
+                </div>
+                <Switch
+                  checked={formData.auto_qualify}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, auto_qualify: checked }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Delay entre respostas</Label>
+                  <span className="text-sm font-medium">{formData.response_delay_ms}ms</span>
+                </div>
+                <Slider
+                  value={[formData.response_delay_ms]}
+                  onValueChange={([value]) => setFormData(prev => ({ ...prev, response_delay_ms: value }))}
+                  min={500}
+                  max={5000}
+                  step={100}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Simula digitação humana ({(formData.response_delay_ms / 1000).toFixed(1)}s)
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Provedor de IA */}
+        <TabsContent value="provider">
+          <BotProviderConfig
+            provider={formData.ai_provider}
+            model={formData.ai_model}
+            apiKeySecretName={formData.api_key_secret_name}
+            toolsEnabled={formData.tools_enabled}
+            onProviderChange={(value) => setFormData(prev => ({ ...prev, ai_provider: value }))}
+            onModelChange={(value) => setFormData(prev => ({ ...prev, ai_model: value }))}
+            onApiKeySecretNameChange={(value) => setFormData(prev => ({ ...prev, api_key_secret_name: value }))}
+            onToolsEnabledChange={(value) => setFormData(prev => ({ ...prev, tools_enabled: value }))}
+          />
+        </TabsContent>
+
+        {/* Tab: Ferramentas */}
+        <TabsContent value="tools">
+          <BotToolsManager
+            projectId={projectId}
+            availableTools={formData.available_tools}
+            onAvailableToolsChange={(tools) => setFormData(prev => ({ ...prev, available_tools: tools }))}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Botão Salvar */}
       <div className="flex justify-end">
