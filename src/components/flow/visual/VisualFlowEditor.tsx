@@ -63,6 +63,11 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
   const [showNodePalette, setShowNodePalette] = useState(true);
   const [showVariables, setShowVariables] = useState(true);
 
+  // Evita ciclo destrutivo entre "sync initialSteps" e "emit onChange"
+  const isInitializingRef = useRef(true);
+  const lastAppliedStepsHashRef = useRef<string>("");
+  const lastEmittedStepsHashRef = useRef<string>("");
+
   useEffect(() => {
     const handleResize = () => {
       const isMobile = window.innerWidth < 768;
@@ -100,15 +105,46 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
 
   // Sync nodes/edges when initialSteps changes (e.g., editing a flow)
   useEffect(() => {
+    const incomingHash = JSON.stringify(initialSteps ?? []);
+
+    // Se o parent apenas "ecoou" o que emitimos, não re-aplica (evita loop)
+    if (incomingHash === lastEmittedStepsHashRef.current) {
+      lastAppliedStepsHashRef.current = incomingHash;
+      return;
+    }
+
+    // Se já aplicamos exatamente esse payload, não faz nada
+    if (incomingHash === lastAppliedStepsHashRef.current) return;
+
+    isInitializingRef.current = true;
+
     const newNodes = convertStepsToNodes(initialSteps);
     const newEdges = convertStepsToEdges(initialSteps);
+
     setNodes(newNodes);
     setEdges(newEdges);
+
+    lastAppliedStepsHashRef.current = incomingHash;
+    lastEmittedStepsHashRef.current = JSON.stringify(convertNodesToSteps(newNodes, newEdges));
+
+    const raf = requestAnimationFrame(() => {
+      isInitializingRef.current = false;
+    });
+
+    return () => cancelAnimationFrame(raf);
   }, [initialSteps, setNodes, setEdges]);
 
-  // Notify parent when nodes/edges change
+  // Notify parent when nodes/edges change (mas NÃO durante inicialização)
   useEffect(() => {
+    if (isInitializingRef.current) return;
+
     const newSteps = convertNodesToSteps(nodes, edges);
+    const newHash = JSON.stringify(newSteps);
+
+    // Só notifica se realmente mudou
+    if (newHash === lastEmittedStepsHashRef.current) return;
+
+    lastEmittedStepsHashRef.current = newHash;
     onChange(newSteps);
   }, [nodes, edges, onChange]);
 
