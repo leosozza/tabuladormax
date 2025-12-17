@@ -206,14 +206,10 @@ export function useTelemarketingMetrics(
         const targetDate = getRawField(lead.raw, 'UF_CRM_1740763672');
         if (!targetDate) return;
         
-        // Parse date - format is like "2025-12-18T03:00:00+03:00"
-        let dateKey: string;
-        try {
-          const parsed = parseISO(targetDate);
-          dateKey = format(parsed, 'yyyy-MM-dd');
-        } catch {
-          dateKey = targetDate.split('T')[0] || targetDate;
-        }
+        // Extrair apenas a data (YYYY-MM-DD) sem conversão de timezone
+        // O valor vem como "2025-12-18T03:00:00+03:00", pegamos apenas "2025-12-18"
+        const dateKey = targetDate.split('T')[0];
+        if (!dateKey || dateKey.length !== 10) return;
         
         const current = agendamentosPorDataMap.get(dateKey) || { leads: [] };
         current.leads.push({
