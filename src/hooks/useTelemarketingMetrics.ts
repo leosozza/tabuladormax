@@ -11,7 +11,7 @@ function isAgendado(etapa: string | null): boolean {
   return etapa === 'UC_QWPO2W' || etapa === 'Agendados';
 }
 
-export type PeriodFilter = 'today' | 'week' | 'month';
+export type PeriodFilter = 'today' | 'week' | 'month' | 'custom';
 
 export interface LeadDetail {
   id: number;
@@ -110,7 +110,7 @@ function getRawField(raw: Json | null, field: string): string | null {
   return null;
 }
 
-function getDateRange(period: PeriodFilter): { start: Date; end: Date } {
+function getDateRange(period: PeriodFilter, customStart?: Date, customEnd?: Date): { start: Date; end: Date } {
   const now = new Date();
   switch (period) {
     case 'today':
@@ -119,6 +119,11 @@ function getDateRange(period: PeriodFilter): { start: Date; end: Date } {
       return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfDay(now) };
     case 'month':
       return { start: startOfMonth(now), end: endOfDay(now) };
+    case 'custom':
+      return { 
+        start: customStart ? startOfDay(customStart) : startOfDay(now), 
+        end: customEnd ? endOfDay(customEnd) : endOfDay(now) 
+      };
     default:
       return { start: startOfDay(now), end: endOfDay(now) };
   }
@@ -126,12 +131,14 @@ function getDateRange(period: PeriodFilter): { start: Date; end: Date } {
 
 export function useTelemarketingMetrics(
   period: PeriodFilter = 'today',
-  operatorId?: number
+  operatorId?: number,
+  customStartDate?: Date,
+  customEndDate?: Date
 ) {
   return useQuery({
-    queryKey: ['telemarketing-metrics', period, operatorId],
+    queryKey: ['telemarketing-metrics', period, operatorId, customStartDate?.toISOString(), customEndDate?.toISOString()],
     queryFn: async (): Promise<TelemarketingMetrics> => {
-      const { start, end } = getDateRange(period);
+      const { start, end } = getDateRange(period, customStartDate, customEndDate);
       const startStr = start.toISOString();
       const endStr = end.toISOString();
 
