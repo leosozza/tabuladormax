@@ -1,7 +1,8 @@
 import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import Dashboard from '@/pages/Dashboard';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Headset } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -146,7 +147,7 @@ const PortalTelemarketingDashboard = () => {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>{context.name || 'Operador'}</span>
           <span className="text-xs bg-muted px-2 py-0.5 rounded">
-            {context.cargo === 'supervisor' ? 'Supervisor' : 'Agente'}
+            {context.cargo === SUPERVISOR_CARGO ? 'Supervisor' : 'Agente'}
           </span>
         </div>
       </header>
