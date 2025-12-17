@@ -177,10 +177,18 @@ export function useTelemarketingMetrics(
         })
         .slice(0, 10);
       
-      // Build available operators list from the operators table
-      const availableOperators: OperatorInfo[] = (operators || [])
-        .filter(op => op.bitrix_id && op.name)
-        .map(op => ({ bitrix_id: op.bitrix_id!, name: op.name! }))
+      // Build available operators list from leads that have activity in the period
+      const activeOperatorIds = new Set(
+        leadsData
+          .filter(l => l.bitrix_telemarketing_id)
+          .map(l => l.bitrix_telemarketing_id!)
+      );
+      
+      const availableOperators: OperatorInfo[] = Array.from(activeOperatorIds)
+        .map(bitrix_id => ({
+          bitrix_id,
+          name: operatorNameMap.get(bitrix_id) || `Operador ${bitrix_id}`
+        }))
         .sort((a, b) => a.name.localeCompare(b.name));
 
       // Status distribution with friendly labels
