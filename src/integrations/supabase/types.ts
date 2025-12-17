@@ -1753,6 +1753,130 @@ export type Database = {
         }
         Relationships: []
       }
+      flow_triggers: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          flow_id: string | null
+          id: string
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          flow_id?: string | null
+          id?: string
+          trigger_config?: Json
+          trigger_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          flow_id?: string | null
+          id?: string
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flow_triggers_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      flows: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          created_by: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          steps: Json
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          steps?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          steps?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      flows_runs: {
+        Row: {
+          completed_at: string | null
+          executed_by: string | null
+          flow_id: string | null
+          id: string
+          lead_id: number | null
+          logs: Json | null
+          phone_number: string | null
+          resultado: Json | null
+          started_at: string | null
+          status: string | null
+          trigger_type: string | null
+          trigger_value: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          executed_by?: string | null
+          flow_id?: string | null
+          id?: string
+          lead_id?: number | null
+          logs?: Json | null
+          phone_number?: string | null
+          resultado?: Json | null
+          started_at?: string | null
+          status?: string | null
+          trigger_type?: string | null
+          trigger_value?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          executed_by?: string | null
+          flow_id?: string | null
+          id?: string
+          lead_id?: number | null
+          logs?: Json | null
+          phone_number?: string | null
+          resultado?: Json | null
+          started_at?: string | null
+          status?: string | null
+          trigger_type?: string | null
+          trigger_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flows_runs_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gestao_scouter_field_mappings: {
         Row: {
           active: boolean | null

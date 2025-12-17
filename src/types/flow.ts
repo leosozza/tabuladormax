@@ -8,17 +8,43 @@
 export type FlowStepType = 
   | 'tabular' 
   | 'bitrix_connector'
+  | 'bitrix_get_field'
   | 'supabase_connector'
   | 'n8n_connector'
   | 'http_call' 
   | 'wait'
   | 'send_message'
+  | 'gupshup_send_text'
+  | 'gupshup_send_image'
+  | 'gupshup_send_buttons'
   | 'condition'
   | 'schedule_message'
   | 'update_contact'
   | 'add_label'
   | 'assign_agent'
   | 'assign_team';
+
+/**
+ * Trigger types for flows
+ */
+export type FlowTriggerType = 'button_click' | 'keyword' | 'webhook' | 'manual';
+
+/**
+ * Flow trigger definition
+ */
+export interface FlowTrigger {
+  id: string;
+  flow_id: string;
+  trigger_type: FlowTriggerType;
+  trigger_config: {
+    button_text?: string;
+    exact_match?: boolean;
+    keywords?: string[];
+    webhook_path?: string;
+  };
+  ativo: boolean;
+  created_at: string;
+}
 
 /**
  * Base flow step interface
@@ -206,14 +232,68 @@ export interface FlowStepAssignTeam extends FlowStepBase {
 /**
  * Union type for all flow steps
  */
+/**
+ * Bitrix Get Field - fetches field from Bitrix and stores in context
+ */
+export interface FlowStepBitrixGetField extends FlowStepBase {
+  type: 'bitrix_get_field';
+  config: {
+    field_name: string; // Campo no Bitrix (ex: 'UF_CRM_CREDENCIAL')
+    output_variable: string; // Nome da variável de saída (ex: 'credencial_url')
+    is_file?: boolean; // Se true, converte file ID para URL pública
+  };
+}
+
+/**
+ * Gupshup Send Text - sends text message via WhatsApp
+ */
+export interface FlowStepGupshupSendText extends FlowStepBase {
+  type: 'gupshup_send_text';
+  config: {
+    message: string; // Suporta {{variáveis}}
+  };
+}
+
+/**
+ * Gupshup Send Image - sends image via WhatsApp
+ */
+export interface FlowStepGupshupSendImage extends FlowStepBase {
+  type: 'gupshup_send_image';
+  config: {
+    image_url: string; // URL ou {{variável}}
+    caption?: string; // Legenda opcional
+  };
+}
+
+/**
+ * Gupshup Send Buttons - sends interactive message with quick reply buttons
+ */
+export interface FlowStepGupshupSendButtons extends FlowStepBase {
+  type: 'gupshup_send_buttons';
+  config: {
+    message: string;
+    buttons: Array<{
+      id: string;
+      title: string;
+    }>;
+  };
+}
+
+/**
+ * Union type for all flow steps
+ */
 export type FlowStep = 
   | FlowStepTabular 
   | FlowStepBitrixConnector
+  | FlowStepBitrixGetField
   | FlowStepSupabaseConnector
   | FlowStepN8NConnector
   | FlowStepHttpCall 
   | FlowStepWait
   | FlowStepSendMessage
+  | FlowStepGupshupSendText
+  | FlowStepGupshupSendImage
+  | FlowStepGupshupSendButtons
   | FlowStepCondition
   | FlowStepScheduleMessage
   | FlowStepUpdateContact
