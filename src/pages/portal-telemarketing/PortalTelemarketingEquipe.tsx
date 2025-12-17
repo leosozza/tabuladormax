@@ -22,6 +22,7 @@ import { BotConfig } from '@/components/whatsapp/BotConfig';
 import { BotTraining } from '@/components/whatsapp/BotTraining';
 import { BotPlayground } from '@/components/whatsapp/BotPlayground';
 import { QuickTextManager } from '@/components/telemarketing/QuickTextManager';
+import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -60,20 +61,23 @@ const PortalTelemarketingEquipe = () => {
       {/* Header */}
       <header className="border-b bg-card sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => navigate('/portal-telemarketing')}
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="font-bold text-lg">Gestão da Equipe</h1>
-              <p className="text-sm text-muted-foreground">
-                {teamData?.projectName || 'Carregando projeto...'}
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => navigate('/portal-telemarketing')}
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div>
+                <h1 className="font-bold text-lg">Gestão da Equipe</h1>
+                <p className="text-sm text-muted-foreground">
+                  {teamData?.projectName || 'Carregando projeto...'}
+                </p>
+              </div>
             </div>
+            <ThemeSelector />
           </div>
         </div>
       </header>

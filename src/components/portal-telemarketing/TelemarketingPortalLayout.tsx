@@ -12,6 +12,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { TelemarketingOperatorData, SUPERVISOR_CARGO } from './TelemarketingAccessKeyForm';
+import { ThemeSelector } from './ThemeSelector';
 
 interface TelemarketingPortalLayoutProps {
   operatorData: TelemarketingOperatorData;
@@ -63,10 +64,13 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
               </div>
             </div>
 
-            {/* Botão logout - lado direito */}
-            <Button variant="ghost" size="icon" onClick={onLogout} title="Sair">
-              <LogOut className="w-5 h-5" />
-            </Button>
+            {/* Botões - lado direito */}
+            <div className="flex items-center gap-1">
+              <ThemeSelector />
+              <Button variant="ghost" size="icon" onClick={onLogout} title="Sair">
+                <LogOut className="w-5 h-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>

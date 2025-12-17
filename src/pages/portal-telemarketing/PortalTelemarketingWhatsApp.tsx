@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { WhatsAppChatContainer } from '@/components/whatsapp';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -135,6 +136,7 @@ const PortalTelemarketingWhatsApp = () => {
               Supervisor
             </Badge>
           )}
+          <ThemeSelector />
         </div>
       </header>
 
