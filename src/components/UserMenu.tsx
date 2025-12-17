@@ -13,7 +13,11 @@ import {
 import { User, LogOut, Shield, Bug, Users, Network, Activity, FileText } from "lucide-react";
 import { toast } from "sonner";
 
-const UserMenu = () => {
+interface UserMenuProps {
+  showNameAndRole?: boolean;
+}
+
+const UserMenu = ({ showNameAndRole = true }: UserMenuProps) => {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState<string>("");
   const [userRole, setUserRole] = useState<string>("");
@@ -59,17 +63,19 @@ const UserMenu = () => {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex flex-col items-end text-right">
-        <span className="text-sm font-medium truncate max-w-[150px]">
-          {userMetadata?.display_name || userEmail}
-        </span>
-        {userRole && (
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <Shield className="h-3 w-3" />
-            {userRole.toUpperCase()}
+      {showNameAndRole && (
+        <div className="flex flex-col items-end text-right">
+          <span className="text-sm font-medium truncate max-w-[150px]">
+            {userMetadata?.display_name || userEmail}
           </span>
-        )}
-      </div>
+          {userRole && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Shield className="h-3 w-3" />
+              {userRole.toUpperCase()}
+            </span>
+          )}
+        </div>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="icon" className="min-w-[44px] min-h-[44px]">

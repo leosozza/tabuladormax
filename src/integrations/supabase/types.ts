@@ -4173,6 +4173,14 @@ export type Database = {
         }
         Returns: Json
       }
+      get_daily_agendados_ranking: {
+        Args: never
+        Returns: {
+          bitrix_telemarketing_id: number
+          operator_name: string
+          total: number
+        }[]
+      }
       get_general_stats: {
         Args: never
         Returns: {
