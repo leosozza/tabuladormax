@@ -23,6 +23,7 @@ export interface LeadDetail {
   statusLabel: string;
   dataAgendamento?: string;
   fichaConfirmada: boolean;
+  isAgendado: boolean;
 }
 
 export interface TabulacaoGroup {
@@ -143,6 +144,7 @@ export function useTelemarketingMetrics(
           statusLabel,
           dataAgendamento: lead.data_agendamento,
           fichaConfirmada: lead.ficha_confirmada === true,
+          isAgendado: isAgendado(lead.status_tabulacao),
         };
       });
 
