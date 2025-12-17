@@ -129,14 +129,18 @@ const PortalTelemarketingTabulador = () => {
     fetchProjectId();
   }, [context?.bitrix_id]);
 
-  // Se não tem contexto, redireciona para login com deep-link
-  if (!context) {
+  // Verificar se há lead_id na URL - se sim, permitir acesso público
+  const searchParams = new URLSearchParams(location.search);
+  const leadIdFromUrl = searchParams.get('lead') || searchParams.get('id');
+
+  // Se não tem contexto E não tem lead na URL, redirecionar para login
+  if (!context && !leadIdFromUrl) {
     const redirectTarget = `${location.pathname}${location.search}`;
     console.warn('[TM][Tabulador] redirecting to login', { redirectTarget });
     return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }
 
-  const isSupervisor = context.cargo === 'supervisor';
+  const isSupervisor = context?.cargo === 'supervisor';
 
   const handleNotificationClick = (notification: any) => {
     // Navegar para o lead/conversa quando clicar na notificação
@@ -148,57 +152,59 @@ const PortalTelemarketingTabulador = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header compacto */}
-      <header className="border-b bg-card px-4 py-2 flex items-center gap-3">
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={() => navigate('/portal-telemarketing')}
-          className="gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Voltar
-        </Button>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Headset className="w-4 h-4" />
-          <span>{context.name || 'Operador'}</span>
-          <span className="text-xs bg-muted px-2 py-0.5 rounded">
-            {context.cargo === 'supervisor' ? 'Supervisor' : 'Agente'}
-          </span>
-        </div>
-        
-        <div className="ml-auto flex items-center gap-2">
-          {/* Centro de Notificações */}
-          <NotificationCenter 
-            bitrixTelemarketingId={context.bitrix_id}
-            onNotificationClick={handleNotificationClick}
-          />
+      {/* Header compacto - apenas se tiver contexto de operador */}
+      {context && (
+        <header className="border-b bg-card px-4 py-2 flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => navigate('/portal-telemarketing')}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </Button>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Headset className="w-4 h-4" />
+            <span>{context.name || 'Operador'}</span>
+            <span className="text-xs bg-muted px-2 py-0.5 rounded">
+              {context.cargo === 'supervisor' ? 'Supervisor' : 'Agente'}
+            </span>
+          </div>
           
-          {/* Configurações de Notificação */}
-          <NotificationSettings />
-          
-          {/* Script Viewer - disponível para todos */}
-          <ScriptViewer projectId={projectId} />
-          
-          {/* Script Manager - apenas supervisores */}
-          {isSupervisor && projectId && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2">
-                  <Settings className="w-4 h-4" />
-                  Gerenciar Scripts
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Gerenciar Scripts de Atendimento</DialogTitle>
-                </DialogHeader>
-                <ScriptManager projectId={projectId} />
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
-      </header>
+          <div className="ml-auto flex items-center gap-2">
+            {/* Centro de Notificações */}
+            <NotificationCenter 
+              bitrixTelemarketingId={context.bitrix_id}
+              onNotificationClick={handleNotificationClick}
+            />
+            
+            {/* Configurações de Notificação */}
+            <NotificationSettings />
+            
+            {/* Script Viewer - disponível para todos */}
+            <ScriptViewer projectId={projectId} />
+            
+            {/* Script Manager - apenas supervisores */}
+            {isSupervisor && projectId && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    <Settings className="w-4 h-4" />
+                    Gerenciar Scripts
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Gerenciar Scripts de Atendimento</DialogTitle>
+                  </DialogHeader>
+                  <ScriptManager projectId={projectId} />
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        </header>
+      )}
 
       {/* Renderizar LeadTab */}
       <div className="flex-1">
