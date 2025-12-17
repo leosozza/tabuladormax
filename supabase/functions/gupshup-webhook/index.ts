@@ -1,6 +1,7 @@
 // ============================================
 // Gupshup Webhook - Recebe mensagens e status
 // Com detecção de loops e integração com Bot IA
+// + Vinculação automática de leads por telefone
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.74.0';
@@ -16,6 +17,11 @@ const LOOP_DETECTION_WINDOW_SECONDS = 60;
 const LOOP_DETECTION_THRESHOLD = 20;
 const AUTO_BLOCK_THRESHOLD = 60;
 
+// Bitrix configuration (com fallback para valores padrão)
+const BITRIX_DOMAIN = Deno.env.get('BITRIX_DOMAIN') || 'maxsystem.bitrix24.com.br';
+const BITRIX_WEBHOOK_TOKEN = Deno.env.get('BITRIX_WEBHOOK_TOKEN') || '338m945lx9ifjjnr';
+const BITRIX_USER_ID = Deno.env.get('BITRIX_USER_ID') || '7';
+
 // Normalização consistente
 function normalizePhone(phone: string): string {
   const digits = (phone || '').replace(/\D/g, '');
@@ -23,6 +29,68 @@ function normalizePhone(phone: string): string {
   if (digits.startsWith('55')) return digits;
   if (digits.length === 11 && digits[2] === '9') return `55${digits}`;
   return digits;
+}
+
+// ============================================
+// Buscar lead no Bitrix pelo ID
+// ============================================
+async function fetchLeadFromBitrix(leadId: number): Promise<any> {
+  try {
+    const url = `https://${BITRIX_DOMAIN}/rest/${BITRIX_USER_ID}/${BITRIX_WEBHOOK_TOKEN}/crm.lead.get?id=${leadId}`;
+    console.log(`🔍 Buscando lead ${leadId} no Bitrix...`);
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error('❌ Erro ao buscar lead no Bitrix:', data.error);
+      return null;
+    }
+    
+    console.log(`✅ Lead ${leadId} encontrado no Bitrix. PARENT_ID_1144: ${data.result?.PARENT_ID_1144}`);
+    return data.result;
+  } catch (error) {
+    console.error('❌ Erro ao buscar lead no Bitrix:', error);
+    return null;
+  }
+}
+
+// ============================================
+// Buscar lead no Bitrix pelo telefone
+// ============================================
+async function searchBitrixByPhone(phone: string): Promise<any> {
+  try {
+    const phoneSearch = phone.slice(-9); // Últimos 9 dígitos para busca mais flexível
+    console.log(`🔍 Buscando lead no Bitrix por telefone: ${phoneSearch}`);
+
+    const url = `https://${BITRIX_DOMAIN}/rest/${BITRIX_USER_ID}/${BITRIX_WEBHOOK_TOKEN}/crm.lead.list`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filter: { '%PHONE': phoneSearch },
+        select: ['ID', 'NAME', 'TITLE', 'PARENT_ID_1144', 'PHONE', 'STATUS_ID', 'SOURCE_ID']
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error('❌ Erro ao buscar por telefone no Bitrix:', data.error);
+      return null;
+    }
+
+    if (data.result && data.result.length > 0) {
+      console.log(`✅ Lead encontrado no Bitrix por telefone: ID ${data.result[0].ID} - ${data.result[0].TITLE || data.result[0].NAME}`);
+      return data.result[0];
+    }
+
+    console.log('⚠️ Nenhum lead encontrado no Bitrix por telefone');
+    return null;
+  } catch (error) {
+    console.error('❌ Erro ao buscar por telefone no Bitrix:', error);
+    return null;
+  }
 }
 
 interface GupshupMessagePayload {
@@ -390,7 +458,7 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
   let bitrixTelemarketingId: number | null = null;
 
   // Buscar na tabela leads
-  const { data: lead } = await supabase
+  let { data: lead } = await supabase
     .from('leads')
     .select('id, conversation_id, commercial_project_id, bitrix_telemarketing_id')
     .or(`celular.ilike.%${normalizedPhone.slice(-9)}%,telefone_casa.ilike.%${normalizedPhone.slice(-9)}%,telefone_trabalho.ilike.%${normalizedPhone.slice(-9)}%`)
@@ -401,6 +469,94 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
     conversationId = conversationId || lead.conversation_id;
     commercialProjectId = lead.commercial_project_id;
     bitrixTelemarketingId = lead.bitrix_telemarketing_id;
+
+    // ============================================
+    // VINCULAÇÃO AUTOMÁTICA: Se lead existe mas não tem agente vinculado
+    // ============================================
+    if (!bitrixTelemarketingId) {
+      console.log(`🔗 Lead ${lead.id} encontrado mas sem agente vinculado. Buscando no Bitrix...`);
+      
+      const bitrixLead = await fetchLeadFromBitrix(lead.id);
+      
+      if (bitrixLead?.PARENT_ID_1144) {
+        const newTelemarketingId = parseInt(bitrixLead.PARENT_ID_1144);
+        console.log(`✅ Vinculando lead ${lead.id} ao agente ${newTelemarketingId}`);
+        
+        // Atualizar lead no Supabase
+        await supabase
+          .from('leads')
+          .update({ 
+            bitrix_telemarketing_id: newTelemarketingId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', lead.id);
+        
+        bitrixTelemarketingId = newTelemarketingId;
+      }
+    }
+  } else {
+    // ============================================
+    // VINCULAÇÃO AUTOMÁTICA: Lead não existe no Supabase, buscar no Bitrix
+    // ============================================
+    console.log(`🔍 Lead não encontrado no Supabase. Buscando no Bitrix por telefone: ${normalizedPhone}`);
+    
+    const bitrixLead = await searchBitrixByPhone(normalizedPhone);
+    
+    if (bitrixLead) {
+      const bitrixLeadId = parseInt(bitrixLead.ID);
+      console.log(`✅ Lead encontrado no Bitrix: ${bitrixLeadId} - ${bitrixLead.TITLE || bitrixLead.NAME}`);
+      
+      // Verificar se já existe no Supabase pelo ID do Bitrix
+      const { data: existingLead } = await supabase
+        .from('leads')
+        .select('id, bitrix_telemarketing_id')
+        .eq('id', bitrixLeadId)
+        .maybeSingle();
+      
+      if (existingLead) {
+        // Lead existe, atualizar telefone e agente se necessário
+        lead = existingLead;
+        bitrixId = existingLead.id.toString();
+        
+        const updateData: any = {};
+        if (!existingLead.bitrix_telemarketing_id && bitrixLead.PARENT_ID_1144) {
+          updateData.bitrix_telemarketing_id = parseInt(bitrixLead.PARENT_ID_1144);
+          bitrixTelemarketingId = parseInt(bitrixLead.PARENT_ID_1144);
+        }
+        
+        if (Object.keys(updateData).length > 0) {
+          updateData.updated_at = new Date().toISOString();
+          await supabase.from('leads').update(updateData).eq('id', bitrixLeadId);
+          console.log(`✅ Lead ${bitrixLeadId} atualizado com agente ${bitrixTelemarketingId}`);
+        }
+      } else {
+        // Lead não existe no Supabase, criar
+        console.log(`📝 Criando lead ${bitrixLeadId} no Supabase...`);
+        
+        const newLead = {
+          id: bitrixLeadId,
+          name: bitrixLead.NAME || bitrixLead.TITLE || 'Sem nome',
+          celular: normalizedPhone,
+          phone_normalized: normalizedPhone,
+          bitrix_telemarketing_id: bitrixLead.PARENT_ID_1144 ? parseInt(bitrixLead.PARENT_ID_1144) : null,
+          etapa: bitrixLead.STATUS_ID,
+          fonte: bitrixLead.SOURCE_ID,
+          sync_source: 'gupshup_webhook',
+          last_sync_at: new Date().toISOString(),
+        };
+        
+        const { error: createError } = await supabase.from('leads').insert(newLead);
+        
+        if (!createError) {
+          lead = newLead as any;
+          bitrixId = bitrixLeadId.toString();
+          bitrixTelemarketingId = newLead.bitrix_telemarketing_id;
+          console.log(`✅ Lead ${bitrixLeadId} criado e vinculado ao agente ${bitrixTelemarketingId}`);
+        } else {
+          console.error(`❌ Erro ao criar lead: ${createError.message}`);
+        }
+      }
+    }
   }
 
   // Extrair conteúdo da mensagem
