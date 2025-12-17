@@ -150,6 +150,51 @@ export type Database = {
           },
         ]
       }
+      ai_providers: {
+        Row: {
+          base_url: string
+          created_at: string | null
+          default_model: string | null
+          display_name: string
+          id: string
+          is_active: boolean | null
+          is_free: boolean | null
+          models: Json
+          name: string
+          requires_api_key: boolean | null
+          supports_tools: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          base_url: string
+          created_at?: string | null
+          default_model?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          is_free?: boolean | null
+          models?: Json
+          name: string
+          requires_api_key?: boolean | null
+          supports_tools?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          base_url?: string
+          created_at?: string | null
+          default_model?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          is_free?: boolean | null
+          models?: Json
+          name?: string
+          requires_api_key?: boolean | null
+          supports_tools?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ai_training_instructions: {
         Row: {
           category: string | null
@@ -699,6 +744,113 @@ export type Database = {
           unblocked_by?: string | null
         }
         Relationships: []
+      }
+      bot_agent_tools: {
+        Row: {
+          commercial_project_id: string | null
+          config: Json
+          created_at: string | null
+          created_by: string | null
+          description: string
+          display_name: string
+          id: string
+          is_active: boolean | null
+          name: string
+          parameters_schema: Json
+          tool_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          commercial_project_id?: string | null
+          config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          parameters_schema?: Json
+          tool_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          commercial_project_id?: string | null
+          config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          parameters_schema?: Json
+          tool_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_agent_tools_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_tool_execution_logs: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          input_params: Json | null
+          output_result: Json | null
+          status: string | null
+          tool_id: string | null
+          tool_name: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          input_params?: Json | null
+          output_result?: Json | null
+          status?: string | null
+          tool_id?: string | null
+          tool_name: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          input_params?: Json | null
+          output_result?: Json | null
+          status?: string | null
+          tool_id?: string | null
+          tool_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_tool_execution_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_bot_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_tool_execution_logs_tool_id_fkey"
+            columns: ["tool_id"]
+            isOneToOne: false
+            referencedRelation: "bot_agent_tools"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bulk_message_logs: {
         Row: {
@@ -3443,7 +3595,11 @@ export type Database = {
       }
       whatsapp_bot_config: {
         Row: {
+          ai_model: string | null
+          ai_provider: string | null
+          api_key_secret_name: string | null
           auto_qualify: boolean | null
+          available_tools: string[] | null
           bot_name: string | null
           collect_lead_data: boolean | null
           commercial_project_id: string | null
@@ -3456,12 +3612,17 @@ export type Database = {
           operating_hours: Json | null
           personality: string | null
           response_delay_ms: number | null
+          tools_enabled: boolean | null
           transfer_keywords: string[] | null
           updated_at: string | null
           welcome_message: string | null
         }
         Insert: {
+          ai_model?: string | null
+          ai_provider?: string | null
+          api_key_secret_name?: string | null
           auto_qualify?: boolean | null
+          available_tools?: string[] | null
           bot_name?: string | null
           collect_lead_data?: boolean | null
           commercial_project_id?: string | null
@@ -3474,12 +3635,17 @@ export type Database = {
           operating_hours?: Json | null
           personality?: string | null
           response_delay_ms?: number | null
+          tools_enabled?: boolean | null
           transfer_keywords?: string[] | null
           updated_at?: string | null
           welcome_message?: string | null
         }
         Update: {
+          ai_model?: string | null
+          ai_provider?: string | null
+          api_key_secret_name?: string | null
           auto_qualify?: boolean | null
+          available_tools?: string[] | null
           bot_name?: string | null
           collect_lead_data?: boolean | null
           commercial_project_id?: string | null
@@ -3492,6 +3658,7 @@ export type Database = {
           operating_hours?: Json | null
           personality?: string | null
           response_delay_ms?: number | null
+          tools_enabled?: boolean | null
           transfer_keywords?: string[] | null
           updated_at?: string | null
           welcome_message?: string | null
