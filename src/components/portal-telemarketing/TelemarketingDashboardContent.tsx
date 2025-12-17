@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Phone, Calendar, TrendingUp, Trophy, Loader2, Share2, FileDown, Link as LinkIcon, Users, CheckCircle, Bot } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Phone, Calendar as CalendarIcon, TrendingUp, Trophy, Loader2, Share2, FileDown, Link as LinkIcon, Users, CheckCircle, Bot } from 'lucide-react';
 import { ApexBarChart } from '@/components/dashboard/charts/ApexBarChart';
 import { ApexHorizontalBarChart } from '@/components/dashboard/charts/ApexHorizontalBarChart';
 import { ApexLineChart } from '@/components/dashboard/charts/ApexLineChart';
@@ -25,6 +27,8 @@ import {
 import { toast } from 'sonner';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { DateRange } from 'react-day-picker';
 
 interface TelemarketingDashboardContentProps {
   operatorBitrixId?: number;
@@ -48,6 +52,8 @@ export function TelemarketingDashboardContent({
   const [agendamentosModalOpen, setAgendamentosModalOpen] = useState(false);
   const [comparecimentosModalOpen, setComparecimentosModalOpen] = useState(false);
   const [aiAnalysisOpen, setAiAnalysisOpen] = useState(false);
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   
   const isSupervisor = operatorCargo === SUPERVISOR_CARGO;
   
@@ -66,9 +72,13 @@ export function TelemarketingDashboardContent({
     ? (selectedOperator !== 'all' ? parseInt(selectedOperator) : undefined)
     : operatorBitrixId;
   
-  const { data: metrics, isLoading, error } = useTelemarketingMetrics(period, filterOperatorId);
+  const { data: metrics, isLoading, error } = useTelemarketingMetrics(
+    period, 
+    filterOperatorId,
+    period === 'custom' ? customDateRange?.from : undefined,
+    period === 'custom' ? customDateRange?.to : undefined
+  );
 
-  // Helper to get date range for AI analysis
   const getDateRange = () => {
     const now = new Date();
     switch (period) {
@@ -78,6 +88,11 @@ export function TelemarketingDashboardContent({
         return { start: startOfWeek(now, { locale: ptBR }), end: endOfWeek(now, { locale: ptBR }) };
       case 'month':
         return { start: startOfMonth(now), end: endOfMonth(now) };
+      case 'custom':
+        return { 
+          start: customDateRange?.from || startOfDay(now), 
+          end: customDateRange?.to || endOfDay(now) 
+        };
       default:
         return { start: startOfDay(now), end: endOfDay(now) };
     }
@@ -95,6 +110,11 @@ export function TelemarketingDashboardContent({
       case 'today': return 'Hoje';
       case 'week': return 'Esta Semana';
       case 'month': return 'Este Mês';
+      case 'custom': 
+        if (customDateRange?.from && customDateRange?.to) {
+          return `${format(customDateRange.from, 'dd/MM', { locale: ptBR })} - ${format(customDateRange.to, 'dd/MM', { locale: ptBR })}`;
+        }
+        return 'Personalizado';
       default: return 'Hoje';
     }
   };
@@ -353,16 +373,53 @@ export function TelemarketingDashboardContent({
           )}
 
           {/* Period Filter */}
-          <Select value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)}>
-            <SelectTrigger className="w-36">
+          <Select value={period} onValueChange={(v) => {
+            setPeriod(v as PeriodFilter);
+            if (v === 'custom') {
+              setDatePopoverOpen(true);
+            }
+          }}>
+            <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="today">Hoje</SelectItem>
               <SelectItem value="week">Esta Semana</SelectItem>
               <SelectItem value="month">Este Mês</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Custom Date Range Picker */}
+          {period === 'custom' && (
+            <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <CalendarIcon className="w-4 h-4" />
+                  {customDateRange?.from && customDateRange?.to 
+                    ? `${format(customDateRange.from, 'dd/MM', { locale: ptBR })} - ${format(customDateRange.to, 'dd/MM', { locale: ptBR })}`
+                    : 'Selecionar'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={customDateRange?.from}
+                  selected={customDateRange}
+                  onSelect={(range) => {
+                    setCustomDateRange(range);
+                    if (range?.from && range?.to) {
+                      setDatePopoverOpen(false);
+                    }
+                  }}
+                  numberOfMonths={1}
+                  locale={ptBR}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          )}
 
           {/* AI Analysis Button - Only for Supervisors */}
           {isSupervisor && (
