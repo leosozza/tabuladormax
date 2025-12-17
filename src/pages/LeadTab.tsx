@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw, MessageSquare, Sparkles } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw, MessageSquare, Sparkles, FileText } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import noPhotoPlaceholder from "@/assets/no-photo-placeholder.png";
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
@@ -286,6 +287,7 @@ const LeadTab = () => {
   const [showShortcutsConfig, setShowShortcutsConfig] = useState(false);
   const [observacaoTelemarketing, setObservacaoTelemarketing] = useState('');
   const [savingObservacao, setSavingObservacao] = useState(false);
+  const [observacoesExpanded, setObservacoesExpanded] = useState(false);
 
   // Query para field mappings
   const {
@@ -2495,29 +2497,6 @@ const LeadTab = () => {
             className="w-full"
           />
 
-          {/* Área de Observações do Telemarketing */}
-          {isPortalTelemarketing && chatwootData?.bitrix_id && (
-            <div className="w-full mt-3 p-3 border rounded-lg bg-muted/30">
-              <Label className="text-sm font-medium mb-2 block">
-                📝 Observações do Telemarketing
-              </Label>
-              <Textarea
-                value={observacaoTelemarketing}
-                onChange={(e) => setObservacaoTelemarketing(e.target.value)}
-                placeholder="Digite aqui as observações sobre o lead..."
-                className="min-h-[80px] resize-none text-sm"
-              />
-              <Button 
-                onClick={handleSaveObservacao}
-                className="mt-2 w-full"
-                size="sm"
-                disabled={savingObservacao}
-              >
-                {savingObservacao ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Salvar Observação
-              </Button>
-            </div>
-          )}
 
           {!editMode ? <>
               {/* Badges de Fonte e Última Tabulação */}
@@ -2582,6 +2561,56 @@ const LeadTab = () => {
                 })()}
                       </p>)}
               </div>
+
+              {/* Área de Observações do Telemarketing - Colapsável */}
+              {isPortalTelemarketing && chatwootData?.bitrix_id && (
+                <Collapsible 
+                  open={observacoesExpanded} 
+                  onOpenChange={setObservacoesExpanded}
+                  className="w-full mt-2"
+                >
+                  <CollapsibleTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-between text-xs"
+                    >
+                      <span className="flex items-center gap-2">
+                        <FileText className="w-3 h-3" />
+                        Observações do Telemarketing
+                        {observacaoTelemarketing && (
+                          <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                            Preenchido
+                          </Badge>
+                        )}
+                      </span>
+                      <ChevronDown className={cn(
+                        "h-4 w-4 transition-transform",
+                        observacoesExpanded && "rotate-180"
+                      )} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    <div className="p-3 border rounded-lg bg-muted/30">
+                      <Textarea
+                        value={observacaoTelemarketing}
+                        onChange={(e) => setObservacaoTelemarketing(e.target.value)}
+                        placeholder="Digite aqui as observações sobre o lead..."
+                        className="min-h-[60px] resize-none text-sm"
+                      />
+                      <Button 
+                        onClick={handleSaveObservacao}
+                        className="mt-2 w-full"
+                        size="sm"
+                        disabled={savingObservacao}
+                      >
+                        {savingObservacao ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Salvar Observação
+                      </Button>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
 
               <div className="flex flex-col gap-2 w-full mt-2 md:mt-4">
                 <div className="flex gap-2 w-full">
