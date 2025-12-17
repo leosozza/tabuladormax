@@ -76,14 +76,21 @@ export interface FlowStepSupabaseConnector extends FlowStepBase {
 }
 
 /**
- * N8N Connector - webhook integration
+ * N8N Connector - webhook integration or MCP workflow
  */
 export interface FlowStepN8NConnector extends FlowStepBase {
   type: 'n8n_connector';
   config: {
-    webhook_url: string;
-    method: 'GET' | 'POST';
+    // Mode: 'webhook' (manual) or 'mcp' (workflow selection)
+    mode?: 'webhook' | 'mcp';
+    // Webhook mode fields
+    webhook_url?: string;
+    method?: 'GET' | 'POST';
     payload?: Record<string, unknown>;
+    // MCP mode fields
+    workflow_id?: string;
+    workflow_name?: string;
+    workflow_inputs?: Record<string, unknown>;
   };
 }
 

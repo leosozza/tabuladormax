@@ -130,9 +130,13 @@ function getDefaultConfig(type: FlowStepType): unknown {
       data: {}
     },
     n8n_connector: {
+      mode: 'webhook',
       webhook_url: '',
       method: 'POST',
-      payload: {}
+      payload: {},
+      workflow_id: '',
+      workflow_name: '',
+      workflow_inputs: {}
     },
     http_call: {
       url: '',

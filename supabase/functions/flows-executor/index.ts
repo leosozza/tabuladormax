@@ -475,15 +475,75 @@ async function executeChatwootConnector(step: FlowStep, context: Record<string, 
   return { action, conversation_id };
 }
 
-// N8N Connector
+// N8N Connector - supports both webhook and MCP modes
 async function executeN8NConnector(step: FlowStep, leadId: number | undefined, context: Record<string, any>) {
-  const { webhook_url, method, payload } = step.config;
-  const response = await fetch(webhook_url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: method === 'POST' ? JSON.stringify({ leadId, ...payload }) : undefined
-  });
-  return await response.json();
+  const config = step.config;
+  const mode = config.mode || 'webhook';
+
+  console.log('🔌 N8N Connector:', { mode, workflowId: config.workflow_id, webhookUrl: config.webhook_url });
+
+  if (mode === 'mcp' && config.workflow_id) {
+    // Execute via MCP
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    // Prepare inputs with leadId and context
+    const workflowInputs = {
+      leadId,
+      ...context,
+      ...(config.workflow_inputs || {})
+    };
+
+    console.log('🎯 Executing n8n workflow via MCP:', { 
+      workflowId: config.workflow_id, 
+      workflowName: config.workflow_name,
+      inputs: workflowInputs 
+    });
+
+    // Call the n8n-mcp-proxy edge function
+    const response = await fetch(`${supabaseUrl}/functions/v1/n8n-mcp-proxy`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`
+      },
+      body: JSON.stringify({
+        action: 'execute-workflow',
+        workflowId: config.workflow_id,
+        inputs: workflowInputs
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`MCP workflow execution failed: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    return { 
+      mode: 'mcp', 
+      workflowId: config.workflow_id, 
+      workflowName: config.workflow_name,
+      result: result.result 
+    };
+
+  } else {
+    // Execute via webhook (legacy mode)
+    const { webhook_url, method, payload } = config;
+    
+    if (!webhook_url) {
+      throw new Error('webhook_url é obrigatório para n8n_connector em modo webhook');
+    }
+
+    const response = await fetch(webhook_url, {
+      method: method || 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: (method || 'POST') === 'POST' ? JSON.stringify({ leadId, ...payload }) : undefined
+    });
+    
+    const responseData = await response.json();
+    return { mode: 'webhook', webhookUrl: webhook_url, result: responseData };
+  }
 }
 
 // Helper to replace placeholders

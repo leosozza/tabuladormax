@@ -251,3 +251,6 @@ verify_jwt = false
 
 [functions.analyze-conversations]
 verify_jwt = true
+
+[functions.n8n-mcp-proxy]
+verify_jwt = true
