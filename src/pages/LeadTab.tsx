@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw, MessageSquare } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw, MessageSquare, Sparkles } from "lucide-react";
 import noPhotoPlaceholder from "@/assets/no-photo-placeholder.png";
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
@@ -340,7 +340,7 @@ const LeadTab = () => {
       if (!currentBitrixId) return null;
       const { data, error } = await supabase
         .from('leads')
-        .select('photo_url, additional_photos, age, raw')
+        .select('photo_url, additional_photos, age, raw, fonte_normalizada, etapa')
         .eq('id', currentBitrixId)
         .maybeSingle();
       if (error) throw error;
@@ -2331,12 +2331,63 @@ const LeadTab = () => {
             {!editMode && <Button onClick={() => setEditMode(true)} size="icon" variant="outline" disabled={loadingProfile} title="Editar Perfil" className="h-8 w-8 md:h-10 md:w-10">
                 <Edit className="w-3 h-3 md:w-4 md:h-4" />
               </Button>}
-            {profile['ID Bitrix'] && profile['ID Bitrix'] !== '—' && <Button variant="outline" size="icon" onClick={() => {
-              const bitrixId = profile['ID Bitrix'];
-              loadLeadById(String(bitrixId), false, true);
-            }} disabled={searchLoading} title="Atualizar do Bitrix" className="h-8 w-8 md:h-10 md:w-10">
-                <RefreshCw className={`w-3 h-3 md:w-4 md:h-4 ${searchLoading ? 'animate-spin' : ''}`} />
-              </Button>}
+            {profile['ID Bitrix'] && profile['ID Bitrix'] !== '—' && (
+              <>
+                <Button variant="outline" size="icon" onClick={() => {
+                  const bitrixId = profile['ID Bitrix'];
+                  loadLeadById(String(bitrixId), false, true);
+                }} disabled={searchLoading} title="Atualizar do Bitrix" className="h-8 w-8 md:h-10 md:w-10">
+                  <RefreshCw className={`w-3 h-3 md:w-4 md:h-4 ${searchLoading ? 'animate-spin' : ''}`} />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={async () => {
+                    const bitrixId = profile['ID Bitrix'];
+                    if (!bitrixId || bitrixId === '—') {
+                      toast.error("ID Bitrix não disponível");
+                      return;
+                    }
+                    toast.info("Buscando informações do Bitrix...");
+                    try {
+                      const { data, error } = await supabase.functions.invoke('bitrix-entity-get', {
+                        body: { entityType: 'lead', entityId: bitrixId }
+                      });
+                      if (error) throw error;
+                      if (!data?.success || !data?.dealData) {
+                        throw new Error("Não foi possível buscar dados do Bitrix");
+                      }
+                      const bitrixLead = data.dealData;
+                      const updates: Record<string, any> = {};
+                      if (bitrixLead.NAME) updates.name = bitrixLead.NAME;
+                      if (bitrixLead.PHONE?.[0]?.VALUE) updates.celular = bitrixLead.PHONE[0].VALUE;
+                      if (bitrixLead.SOURCE_ID) updates.fonte = bitrixLead.SOURCE_ID;
+                      if (bitrixLead.STATUS_ID) updates.etapa = bitrixLead.STATUS_ID;
+                      if (bitrixLead.ADDRESS) updates.local_abordagem = bitrixLead.ADDRESS;
+                      updates.raw = bitrixLead;
+                      updates.last_sync_at = new Date().toISOString();
+                      
+                      const { error: updateError } = await supabase
+                        .from('leads')
+                        .update(updates)
+                        .eq('id', Number(bitrixId));
+                      if (updateError) throw updateError;
+                      
+                      loadLeadById(String(bitrixId), false, true);
+                      toast.success("Informações enriquecidas!");
+                    } catch (error) {
+                      console.error('Erro ao enriquecer lead:', error);
+                      toast.error("Erro ao buscar informações");
+                    }
+                  }}
+                  disabled={searchLoading}
+                  title="Enriquecer Informações"
+                  className="h-8 w-8 md:h-10 md:w-10"
+                >
+                  <Sparkles className="w-3 h-3 md:w-4 md:h-4" />
+                </Button>
+              </>
+            )}
             {/* Botão WhatsApp Gupshup - único botão de chat */}
             {(chatwootData?.bitrix_id || profile['ID Bitrix']) && (profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number) && (
               <Button 
@@ -2384,6 +2435,28 @@ const LeadTab = () => {
           />
 
           {!editMode ? <>
+              {/* Badges de Fonte e Última Tabulação */}
+              <div className="flex flex-wrap gap-2 justify-center w-full">
+                {leadProfileData?.fonte_normalizada && (
+                  <Badge 
+                    className={cn(
+                      "text-xs",
+                      leadProfileData.fonte_normalizada === 'Meta' 
+                        ? "bg-pink-500 text-white hover:bg-pink-600" 
+                        : leadProfileData.fonte_normalizada === 'Scouter - Fichas'
+                          ? "bg-blue-500 text-white hover:bg-blue-600"
+                          : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {leadProfileData.fonte_normalizada}
+                  </Badge>
+                )}
+                {leadProfileData?.etapa && (
+                  <Badge variant="outline" className="text-xs">
+                    📋 {leadProfileData.etapa}
+                  </Badge>
+                )}
+              </div>
               <h2 className="text-lg md:text-2xl font-bold text-center w-full">{(profile as any).name || 'Lead sem nome'}</h2>
               <div className="w-full space-y-1 md:space-y-2 text-xs md:text-sm">{fieldMappings.filter(mapping => !mapping.is_profile_photo) // Não exibir o campo da foto na lista
               .map(mapping => <p key={mapping.profile_field}>
