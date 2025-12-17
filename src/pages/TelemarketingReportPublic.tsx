@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2, FileText, Users, Calendar, TrendingUp, AlertCircle, Trophy } from 'lucide-react';
+import { Loader2, FileText, Users, Calendar, TrendingUp, AlertCircle, Trophy, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getReportByShortCode, TelemarketingReportData } from '@/services/telemarketingReportService';
+import { ApexBarChart } from '@/components/dashboard/charts/ApexBarChart';
+import { ApexHorizontalBarChart } from '@/components/dashboard/charts/ApexHorizontalBarChart';
+import { ApexLineChart } from '@/components/dashboard/charts/ApexLineChart';
 
 export default function TelemarketingReportPublic() {
   const { shortCode } = useParams<{ shortCode: string }>();
@@ -59,9 +62,25 @@ export default function TelemarketingReportPublic() {
     );
   }
 
+  // Prepare chart data
+  const barChartCategories = report.operatorPerformance.map(op => op.name.split(' ')[0]);
+  const barChartSeries = [
+    { name: 'Agendamentos', data: report.operatorPerformance.map(op => op.agendamentos) },
+    { name: 'Leads', data: report.operatorPerformance.map(op => op.leads) },
+  ];
+
+  const statusCategories = report.statusDistribution?.map(s => s.status) || [];
+  const statusSeries = report.statusDistribution?.map(s => s.count) || [];
+
+  const lineCategories = report.timeline?.map(t => t.date) || [];
+  const lineSeries = [
+    { name: 'Leads', data: report.timeline?.map(t => t.leads) || [] },
+    { name: 'Agendados', data: report.timeline?.map(t => t.agendados) || [] },
+  ];
+
   return (
     <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2">
@@ -80,7 +99,7 @@ export default function TelemarketingReportPublic() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-4 text-center">
               <p className="text-2xl font-bold text-primary">{report.totalLeads}</p>
@@ -95,13 +114,52 @@ export default function TelemarketingReportPublic() {
           </Card>
           <Card>
             <CardContent className="pt-4 text-center">
+              <p className="text-2xl font-bold text-teal-500">{report.comparecimentos || 0}</p>
+              <p className="text-xs text-muted-foreground">Comparecidos</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 text-center">
               <p className="text-2xl font-bold text-amber-500">{report.taxaConversao.toFixed(1)}%</p>
               <p className="text-xs text-muted-foreground">Taxa de Conversão</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Operator Performance */}
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Performance por Operador */}
+          {barChartCategories.length > 0 && (
+            <ApexBarChart
+              title="Performance por Operador"
+              categories={barChartCategories}
+              series={barChartSeries}
+              height={300}
+            />
+          )}
+
+          {/* Distribuição de Status */}
+          {statusCategories.length > 0 && (
+            <ApexHorizontalBarChart
+              title="Distribuição de Status"
+              categories={statusCategories}
+              series={statusSeries}
+              height={300}
+            />
+          )}
+        </div>
+
+        {/* Timeline de Atividade */}
+        {lineCategories.length > 0 && (
+          <ApexLineChart
+            title={report.period === 'today' ? 'Atividade por Hora' : 'Atividade nos Últimos Dias'}
+            categories={lineCategories}
+            series={lineSeries}
+            height={280}
+          />
+        )}
+
+        {/* Operator Performance Table */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">

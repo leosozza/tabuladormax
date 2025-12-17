@@ -96,6 +96,15 @@ export function TelemarketingDashboardContent({
         count: tab.count,
         percentage: totalLeads > 0 ? `${((tab.count / totalLeads) * 100).toFixed(1)}%` : '0%',
       })),
+      timeline: (metrics?.timeline || []).map(t => ({
+        date: t.date,
+        leads: t.leads,
+        agendados: t.agendados,
+      })),
+      statusDistribution: (metrics?.statusDistribution || []).map(s => ({
+        status: s.status,
+        count: s.count,
+      })),
       createdBy: operatorBitrixId,
     };
   };
