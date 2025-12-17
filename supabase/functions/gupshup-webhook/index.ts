@@ -1,6 +1,6 @@
 // ============================================
 // Gupshup Webhook - Recebe mensagens e status
-// Com detecção de loops de sistemas externos
+// Com detecção de loops e integração com Bot IA
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.74.0';
@@ -14,9 +14,9 @@ const corsHeaders = {
 // Rate limit settings
 const LOOP_DETECTION_WINDOW_SECONDS = 60;
 const LOOP_DETECTION_THRESHOLD = 20;
-const AUTO_BLOCK_THRESHOLD = 60; // Auto-block after 60 events/minute
+const AUTO_BLOCK_THRESHOLD = 60;
 
-// Normalização consistente (evita tratar 15... como +1...)
+// Normalização consistente
 function normalizePhone(phone: string): string {
   const digits = (phone || '').replace(/\D/g, '');
   if (!digits) return '';
@@ -62,12 +62,22 @@ interface GupshupEvent {
   };
 }
 
+interface BotConfig {
+  is_enabled: boolean;
+  commercial_project_id: string;
+  bot_name: string;
+  personality: string;
+  welcome_message: string;
+  fallback_message: string;
+  transfer_keywords: string[];
+  max_messages_before_transfer: number;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Permitir GET para verificação do webhook
   if (req.method === 'GET') {
     return new Response('Webhook OK', { headers: corsHeaders });
   }
@@ -85,12 +95,9 @@ Deno.serve(async (req) => {
 
     const event: GupshupEvent = body;
 
-    // Processar diferentes tipos de eventos
     if (event.type === 'message') {
-      // Mensagem recebida do cliente (inbound)
-      await handleInboundMessage(supabase, event);
+      await handleInboundMessage(supabase, event, supabaseUrl, supabaseServiceKey);
     } else if (event.type === 'message-event') {
-      // Status de mensagem (sent, delivered, read, failed)
       await handleMessageEvent(supabase, event);
     } else if (event.type === 'user-event') {
       console.log('👤 User event recebido:', event);
@@ -136,7 +143,6 @@ async function checkForLoop(supabase: any, phoneNumber: string, eventType: strin
     if (data?.loop_detected) {
       console.warn(`⚠️ LOOP DETECTADO para ${phoneNumber}: ${data.count} eventos em ${LOOP_DETECTION_WINDOW_SECONDS}s`);
       
-      // Auto-block if threshold is very high
       if (data.should_block || data.count >= AUTO_BLOCK_THRESHOLD) {
         console.error(`🔴 AUTO-BLOQUEIO ATIVADO para ${phoneNumber}: ${data.count} eventos`);
         await supabase.rpc('emergency_block_number', {
@@ -157,10 +163,189 @@ async function checkForLoop(supabase: any, phoneNumber: string, eventType: strin
   }
 }
 
-async function handleInboundMessage(supabase: any, event: GupshupEvent) {
+// ============================================
+// Criar notificação para telemarketing
+// ============================================
+async function createNotification(
+  supabase: any,
+  bitrixTelemarketingId: number,
+  type: 'new_message' | 'bot_transfer' | 'urgent' | 'window_closing',
+  title: string,
+  message: string | null,
+  leadId: number | null,
+  phoneNumber: string | null,
+  conversationId: number | null,
+  commercialProjectId: string | null,
+  metadata: Record<string, unknown> = {}
+) {
+  try {
+    const { error } = await supabase
+      .from('telemarketing_notifications')
+      .insert({
+        bitrix_telemarketing_id: bitrixTelemarketingId,
+        commercial_project_id: commercialProjectId,
+        type,
+        title,
+        message,
+        lead_id: leadId,
+        phone_number: phoneNumber,
+        conversation_id: conversationId,
+        metadata,
+      });
+
+    if (error) {
+      console.error('❌ Erro ao criar notificação:', error);
+    } else {
+      console.log(`🔔 Notificação criada: ${type} para telemarketing ${bitrixTelemarketingId}`);
+    }
+  } catch (err) {
+    console.error('❌ Erro ao criar notificação:', err);
+  }
+}
+
+// ============================================
+// Enviar mensagem via Gupshup
+// ============================================
+async function sendGupshupMessage(phoneNumber: string, message: string) {
+  const GUPSHUP_API_KEY = Deno.env.get('GUPSHUP_API_KEY');
+  const GUPSHUP_APP_NAME = Deno.env.get('GUPSHUP_APP_NAME');
+  const GUPSHUP_SOURCE_NUMBER = Deno.env.get('GUPSHUP_SOURCE_NUMBER');
+
+  if (!GUPSHUP_API_KEY || !GUPSHUP_APP_NAME || !GUPSHUP_SOURCE_NUMBER) {
+    console.error('❌ Configurações do Gupshup não encontradas');
+    return null;
+  }
+
+  try {
+    const formData = new URLSearchParams();
+    formData.append('channel', 'whatsapp');
+    formData.append('source', GUPSHUP_SOURCE_NUMBER);
+    formData.append('destination', phoneNumber);
+    formData.append('src.name', GUPSHUP_APP_NAME);
+    formData.append('message', JSON.stringify({ type: 'text', text: message }));
+
+    const response = await fetch('https://api.gupshup.io/wa/api/v1/msg', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'apikey': GUPSHUP_API_KEY,
+      },
+      body: formData.toString(),
+    });
+
+    const result = await response.json();
+    console.log('📤 Resposta Gupshup:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Erro ao enviar mensagem Gupshup:', error);
+    return null;
+  }
+}
+
+// ============================================
+// Processar mensagem com Bot IA
+// ============================================
+async function processBotResponse(
+  supabase: any,
+  supabaseUrl: string,
+  supabaseServiceKey: string,
+  phoneNumber: string,
+  message: string,
+  botConfig: BotConfig,
+  leadId: number | null,
+  conversationId: number | null,
+  bitrixTelemarketingId: number | null
+): Promise<{ responded: boolean; transferred: boolean; response?: string }> {
+  try {
+    console.log(`🤖 Processando mensagem com bot para ${phoneNumber}`);
+
+    // Chamar edge function do bot
+    const response = await fetch(`${supabaseUrl}/functions/v1/whatsapp-bot-respond`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        message,
+        phone_number: phoneNumber,
+        project_id: botConfig.commercial_project_id,
+        lead_id: leadId,
+        conversation_id: conversationId,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('❌ Erro ao chamar bot:', await response.text());
+      return { responded: false, transferred: false };
+    }
+
+    const result = await response.json();
+    console.log('🤖 Resposta do bot:', result);
+
+    // Se o bot deve transferir para humano
+    if (result.should_transfer) {
+      console.log('🔄 Bot transferindo para humano');
+      
+      // Criar notificação de transferência
+      if (bitrixTelemarketingId) {
+        await createNotification(
+          supabase,
+          bitrixTelemarketingId,
+          'bot_transfer',
+          '🤖 Bot transferiu conversa',
+          `${result.transfer_reason || 'Cliente precisa de atendimento humano'}. Última mensagem: "${message.substring(0, 100)}"`,
+          leadId,
+          phoneNumber,
+          conversationId,
+          botConfig.commercial_project_id,
+          { transfer_reason: result.transfer_reason, original_message: message }
+        );
+      }
+
+      return { responded: false, transferred: true };
+    }
+
+    // Se o bot deve responder
+    if (result.should_respond && result.response) {
+      // Enviar resposta via Gupshup
+      const sendResult = await sendGupshupMessage(phoneNumber, result.response);
+      
+      if (sendResult?.status === 'submitted') {
+        // Salvar resposta do bot no banco
+        await supabase
+          .from('whatsapp_messages')
+          .insert({
+            phone_number: phoneNumber,
+            bitrix_id: leadId?.toString(),
+            conversation_id: conversationId,
+            gupshup_message_id: sendResult.messageId,
+            direction: 'outbound',
+            message_type: 'text',
+            content: result.response,
+            status: 'sent',
+            sender_name: botConfig.bot_name || 'Bot IA',
+            metadata: { bot_response: true, bot_name: botConfig.bot_name },
+          });
+
+        console.log(`✅ Bot respondeu: "${result.response.substring(0, 50)}..."`);
+        return { responded: true, transferred: false, response: result.response };
+      }
+    }
+
+    return { responded: false, transferred: false };
+  } catch (error) {
+    console.error('❌ Erro ao processar bot:', error);
+    return { responded: false, transferred: false };
+  }
+}
+
+// ============================================
+// Handle Inbound Message
+// ============================================
+async function handleInboundMessage(supabase: any, event: GupshupEvent, supabaseUrl: string, supabaseServiceKey: string) {
   const payload = event.payload as GupshupMessagePayload;
   
-  // Extrair telefone do cliente
   const phoneNumberRaw = payload.source || payload.sender?.phone;
   if (!phoneNumberRaw) {
     console.error('❌ Telefone não encontrado no payload');
@@ -182,28 +367,30 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent) {
 
   console.log(`📱 Mensagem recebida de ${normalizedPhone}`);
 
-  // Buscar bitrix_id pelo telefone
+  // Buscar informações do contato/lead
   const { data: contact } = await supabase
     .from('chatwoot_contacts')
     .select('bitrix_id, conversation_id')
     .or(`phone_number.eq.${normalizedPhone},phone_number.eq.+${normalizedPhone}`)
     .maybeSingle();
 
-  // Também buscar na tabela leads
   let bitrixId = contact?.bitrix_id;
   let conversationId = contact?.conversation_id;
+  let commercialProjectId: string | null = null;
+  let bitrixTelemarketingId: number | null = null;
 
-  if (!bitrixId) {
-    const { data: lead } = await supabase
-      .from('leads')
-      .select('id, conversation_id')
-      .or(`celular.ilike.%${normalizedPhone.slice(-9)}%,telefone_casa.ilike.%${normalizedPhone.slice(-9)}%,telefone_trabalho.ilike.%${normalizedPhone.slice(-9)}%`)
-      .maybeSingle();
+  // Buscar na tabela leads
+  const { data: lead } = await supabase
+    .from('leads')
+    .select('id, conversation_id, commercial_project_id, bitrix_telemarketing_id')
+    .or(`celular.ilike.%${normalizedPhone.slice(-9)}%,telefone_casa.ilike.%${normalizedPhone.slice(-9)}%,telefone_trabalho.ilike.%${normalizedPhone.slice(-9)}%`)
+    .maybeSingle();
 
-    if (lead) {
-      bitrixId = lead.id.toString();
-      conversationId = lead.conversation_id || conversationId;
-    }
+  if (lead) {
+    bitrixId = bitrixId || lead.id.toString();
+    conversationId = conversationId || lead.conversation_id;
+    commercialProjectId = lead.commercial_project_id;
+    bitrixTelemarketingId = lead.bitrix_telemarketing_id;
   }
 
   // Extrair conteúdo da mensagem
@@ -266,7 +453,7 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent) {
 
   console.log(`✅ Mensagem salva para ${bitrixId || normalizedPhone}`);
 
-  // Atualizar last_customer_message_at no chatwoot_contacts para janela 24h
+  // Atualizar chatwoot_contacts
   if (contact?.bitrix_id) {
     await supabase
       .from('chatwoot_contacts')
@@ -279,8 +466,74 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent) {
       })
       .eq('bitrix_id', contact.bitrix_id);
   }
+
+  // ============================================
+  // INTEGRAÇÃO COM BOT IA
+  // ============================================
+  if (commercialProjectId) {
+    // Verificar se o bot está ativo para este projeto
+    const { data: botConfig } = await supabase
+      .from('whatsapp_bot_config')
+      .select('*')
+      .eq('commercial_project_id', commercialProjectId)
+      .eq('is_enabled', true)
+      .maybeSingle();
+
+    if (botConfig) {
+      console.log(`🤖 Bot ativo para projeto ${commercialProjectId}`);
+
+      // Processar com o bot (apenas mensagens de texto por enquanto)
+      if (messageType === 'text' && content) {
+        const botResult = await processBotResponse(
+          supabase,
+          supabaseUrl,
+          supabaseServiceKey,
+          normalizedPhone,
+          content,
+          botConfig,
+          lead?.id || null,
+          conversationId,
+          bitrixTelemarketingId
+        );
+
+        // Se o bot respondeu, não criar notificação de nova mensagem
+        if (botResult.responded) {
+          console.log('✅ Bot respondeu automaticamente');
+          return;
+        }
+
+        // Se o bot transferiu, a notificação já foi criada
+        if (botResult.transferred) {
+          console.log('🔄 Bot transferiu para humano - notificação criada');
+          return;
+        }
+      }
+    }
+  }
+
+  // ============================================
+  // CRIAR NOTIFICAÇÃO PARA TELEMARKETING
+  // (se não foi tratado pelo bot)
+  // ============================================
+  if (bitrixTelemarketingId) {
+    await createNotification(
+      supabase,
+      bitrixTelemarketingId,
+      'new_message',
+      '💬 Nova mensagem recebida',
+      `${payload.sender?.name || normalizedPhone}: "${content.substring(0, 100)}"`,
+      lead?.id || null,
+      normalizedPhone,
+      conversationId,
+      commercialProjectId,
+      { message_type: messageType, has_media: !!mediaUrl }
+    );
+  }
 }
 
+// ============================================
+// Handle Message Event (status updates)
+// ============================================
 async function handleMessageEvent(supabase: any, event: GupshupEvent) {
   const payload = event.payload as {
     id: string;
@@ -299,14 +552,12 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
   const destination = normalizePhone(payload.destination || '');
 
   // 🛡️ IGNORAR EVENTOS ENQUEUED COMPLETAMENTE
-  // Gupshup envia muitos eventos enqueued quando há problemas de rate limit
-  // do WhatsApp Business, causando loops no sistema
   if (statusType === 'enqueued') {
-    console.log(`⏭️ Ignorando evento enqueued para ${destination} - não processado`);
+    console.log(`⏭️ Ignorando evento enqueued para ${destination}`);
     return;
   }
 
-  // 🛡️ Verificar loop de status updates (apenas para outros tipos)
+  // 🛡️ Verificar loop de status updates
   if (destination) {
     const { blocked, loopDetected } = await checkForLoop(supabase, destination, `status_${statusType}`);
     if (blocked) {
@@ -314,13 +565,12 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
       return;
     }
     if (loopDetected) {
-      console.warn(`⚠️ Loop de status updates detectado para ${destination}, mas continuando processamento`);
+      console.warn(`⚠️ Loop de status updates detectado para ${destination}`);
     }
   }
 
   console.log(`📊 Status update: ${statusType} para mensagem ${messageId}`);
 
-  // Mapear status
   const statusMap: Record<string, string> = {
     'sent': 'sent',
     'delivered': 'delivered',
@@ -333,14 +583,12 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
     metadata: payload,
   };
 
-  // Adicionar timestamps específicos
   if (statusType === 'delivered') {
     updateData.delivered_at = new Date().toISOString();
   } else if (statusType === 'read') {
     updateData.read_at = new Date().toISOString();
   }
 
-  // Atualizar mensagem pelo gupshup_message_id
   const { error } = await supabase
     .from('whatsapp_messages')
     .update(updateData)

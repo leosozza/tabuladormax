@@ -3084,6 +3084,62 @@ export type Database = {
         }
         Relationships: []
       }
+      telemarketing_notifications: {
+        Row: {
+          bitrix_telemarketing_id: number
+          commercial_project_id: string | null
+          conversation_id: number | null
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          lead_id: number | null
+          message: string | null
+          metadata: Json | null
+          phone_number: string | null
+          read_at: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          bitrix_telemarketing_id: number
+          commercial_project_id?: string | null
+          conversation_id?: number | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          lead_id?: number | null
+          message?: string | null
+          metadata?: Json | null
+          phone_number?: string | null
+          read_at?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          bitrix_telemarketing_id?: number
+          commercial_project_id?: string | null
+          conversation_id?: number | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          lead_id?: number | null
+          message?: string | null
+          metadata?: Json | null
+          phone_number?: string | null
+          read_at?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telemarketing_notifications_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       telemarketing_operators: {
         Row: {
           access_key: string | null

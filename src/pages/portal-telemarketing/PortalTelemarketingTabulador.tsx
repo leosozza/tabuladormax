@@ -5,8 +5,11 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Headset, Settings } from 'lucide-react';
 import { ScriptViewer } from '@/components/telemarketing/ScriptViewer';
 import { ScriptManager } from '@/components/telemarketing/ScriptManager';
+import { NotificationCenter } from '@/components/telemarketing/NotificationCenter';
+import { NotificationSettings } from '@/components/telemarketing/NotificationSettings';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
+import { useRealtimeNotifications, useBrowserNotification } from '@/hooks/useTelemarketingNotifications';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -91,6 +94,22 @@ const PortalTelemarketingTabulador = () => {
     }
   })();
 
+  // Ativar notificações em tempo real
+  useRealtimeNotifications(context?.bitrix_id || null);
+
+  // Solicitar permissão para notificações do navegador
+  const { requestPermission, permission } = useBrowserNotification();
+  
+  useEffect(() => {
+    if (context?.bitrix_id && permission === 'default') {
+      // Solicitar permissão após 2 segundos
+      const timer = setTimeout(() => {
+        requestPermission();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [context?.bitrix_id, permission, requestPermission]);
+
   // Fetch commercial_project_id for the operator
   useEffect(() => {
     if (!context?.bitrix_id) return;
@@ -119,6 +138,14 @@ const PortalTelemarketingTabulador = () => {
 
   const isSupervisor = context.cargo === 'supervisor';
 
+  const handleNotificationClick = (notification: any) => {
+    // Navegar para o lead/conversa quando clicar na notificação
+    if (notification.lead_id) {
+      console.log('Navigating to lead:', notification.lead_id);
+      // Aqui você pode implementar a navegação para o lead específico
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header compacto */}
@@ -141,6 +168,15 @@ const PortalTelemarketingTabulador = () => {
         </div>
         
         <div className="ml-auto flex items-center gap-2">
+          {/* Centro de Notificações */}
+          <NotificationCenter 
+            bitrixTelemarketingId={context.bitrix_id}
+            onNotificationClick={handleNotificationClick}
+          />
+          
+          {/* Configurações de Notificação */}
+          <NotificationSettings />
+          
           {/* Script Viewer - disponível para todos */}
           <ScriptViewer projectId={projectId} />
           
