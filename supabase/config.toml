@@ -49,7 +49,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.flows-executor]
-verify_jwt = true
+verify_jwt = false
 
 [functions.reset-user-password]
 verify_jwt = false

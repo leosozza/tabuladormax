@@ -682,6 +682,16 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
     messageType = 'button_reply';
     content = (payload.payload as any)?.text || (payload.payload as any)?.postbackText || '[Botão clicado]';
     console.log(`👆 Cliente clicou no botão: "${content}"`);
+    
+    // 🔄 VERIFICAR FLOW TRIGGERS
+    await checkAndExecuteFlowTrigger(supabase, supabaseUrl, supabaseServiceKey, {
+      triggerType: 'button_click',
+      buttonText: content,
+      phoneNumber: normalizedPhone,
+      leadId: lead?.id || null,
+      conversationId: conversationId,
+      commercialProjectId: commercialProjectId
+    });
   }
 
   // Download e upload de mídia para Supabase Storage
@@ -793,6 +803,130 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
       commercialProjectId,
       { message_type: messageType, has_media: !!mediaUrl }
     );
+  }
+}
+
+// ============================================
+// Handle Message Event (status updates)
+// ============================================
+// ============================================
+// Verificar e executar Flow Triggers
+// ============================================
+async function checkAndExecuteFlowTrigger(
+  supabase: any,
+  supabaseUrl: string,
+  supabaseServiceKey: string,
+  params: {
+    triggerType: 'button_click' | 'keyword';
+    buttonText?: string;
+    keyword?: string;
+    phoneNumber: string;
+    leadId: number | null;
+    conversationId: number | null;
+    commercialProjectId: string | null;
+  }
+) {
+  try {
+    console.log(`🔍 Verificando triggers para ${params.triggerType}: "${params.buttonText || params.keyword}"`);
+    
+    // Buscar triggers ativos
+    const { data: triggers, error } = await supabase
+      .from('flow_triggers')
+      .select('id, flow_id, trigger_config')
+      .eq('trigger_type', params.triggerType)
+      .eq('ativo', true);
+    
+    if (error) {
+      console.error('❌ Erro ao buscar triggers:', error);
+      return;
+    }
+    
+    if (!triggers || triggers.length === 0) {
+      console.log('ℹ️ Nenhum trigger ativo encontrado');
+      return;
+    }
+    
+    console.log(`📋 ${triggers.length} triggers encontrados para ${params.triggerType}`);
+    
+    for (const trigger of triggers) {
+      const config = trigger.trigger_config || {};
+      let matches = false;
+      
+      if (params.triggerType === 'button_click') {
+        const buttonText = (config.button_text || '').toLowerCase().trim();
+        const exactMatch = config.exact_match ?? false;
+        const inputText = (params.buttonText || '').toLowerCase().trim();
+        
+        matches = exactMatch 
+          ? inputText === buttonText
+          : inputText.includes(buttonText) || buttonText.includes(inputText);
+        
+        console.log(`🔎 Comparando "${inputText}" com "${buttonText}" (exact: ${exactMatch}) = ${matches}`);
+      } else if (params.triggerType === 'keyword') {
+        const keyword = (config.keyword || '').toLowerCase().trim();
+        const inputText = (params.keyword || '').toLowerCase().trim();
+        matches = inputText.includes(keyword);
+      }
+      
+      if (matches && params.leadId) {
+        console.log(`🚀 MATCH! Disparando flow ${trigger.flow_id} para lead ${params.leadId}`);
+        
+        // Criar registro do run antes de disparar
+        const { data: flowRun } = await supabase
+          .from('flows_runs')
+          .insert({
+            flow_id: trigger.flow_id,
+            lead_id: params.leadId,
+            phone_number: params.phoneNumber,
+            status: 'triggered',
+            trigger_type: params.triggerType,
+            trigger_value: params.buttonText || params.keyword,
+            logs: [{ 
+              timestamp: new Date().toISOString(), 
+              message: `Trigger acionado por: "${params.buttonText || params.keyword}"`,
+              level: 'info'
+            }]
+          })
+          .select('id')
+          .single();
+        
+        // Executar flow em background (não bloqueia o webhook)
+        fetch(`${supabaseUrl}/functions/v1/flows-executor`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`
+          },
+          body: JSON.stringify({
+            flowId: trigger.flow_id,
+            leadId: params.leadId,
+            context: {
+              phone_number: params.phoneNumber,
+              button_clicked: params.buttonText,
+              keyword_matched: params.keyword,
+              trigger_type: params.triggerType,
+              conversation_id: params.conversationId,
+              commercial_project_id: params.commercialProjectId,
+              triggered_at: new Date().toISOString()
+            }
+          })
+        }).then(async (res) => {
+          if (res.ok) {
+            const result = await res.json();
+            console.log(`✅ Flow ${trigger.flow_id} executado com sucesso:`, result.runId);
+          } else {
+            console.error(`❌ Erro ao executar flow ${trigger.flow_id}:`, await res.text());
+          }
+        }).catch(err => {
+          console.error(`❌ Erro ao disparar flow ${trigger.flow_id}:`, err);
+        });
+        
+        // Dispara apenas o primeiro flow que der match (evita múltiplos disparos)
+        break;
+      }
+    }
+  } catch (err) {
+    console.error('❌ Erro em checkAndExecuteFlowTrigger:', err);
   }
 }
 
