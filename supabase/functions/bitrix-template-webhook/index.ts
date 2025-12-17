@@ -19,6 +19,8 @@ Deno.serve(async (req) => {
   }
 
   console.log('📥 Webhook bitrix-template recebido');
+  console.log('📋 URL completa:', req.url);
+  console.log('📋 Método:', req.method);
 
   try {
     let phone_number: string = '';
@@ -27,41 +29,58 @@ Deno.serve(async (req) => {
     let bitrix_id: string | undefined;
     let conversation_id: number | undefined;
 
-    // Aceitar GET (query params) ou POST (JSON body)
-    if (req.method === 'GET') {
-      const url = new URL(req.url);
-      phone_number = url.searchParams.get('phone_number') || '';
-      template_name = url.searchParams.get('template_name') || '';
-      bitrix_id = url.searchParams.get('bitrix_id') || undefined;
-      
-      // Variáveis podem vir como: variables=Var1,Var2,Var3
-      const varsParam = url.searchParams.get('variables');
-      if (varsParam) {
-        variables = varsParam.split(',').map(v => v.trim());
+    // SEMPRE extrair query params da URL primeiro (funciona para GET e POST)
+    // Bitrix Webhook envia POST mas os dados vêm na URL, não no body
+    const url = new URL(req.url);
+    const urlPhone = url.searchParams.get('phone_number');
+    const urlTemplate = url.searchParams.get('template_name');
+    const urlBitrixId = url.searchParams.get('bitrix_id');
+    const urlConvId = url.searchParams.get('conversation_id');
+    
+    // Extrair variáveis da URL (var1, var2, ... até var10)
+    const urlVariables: string[] = [];
+    for (let i = 1; i <= 10; i++) {
+      const varValue = url.searchParams.get(`var${i}`);
+      if (varValue) {
+        // Decodificar caracteres especiais (espaços, vírgulas, etc.)
+        urlVariables.push(decodeURIComponent(varValue));
       }
+    }
+    
+    // Também aceitar formato variables=Var1,Var2,Var3
+    const urlVarsParam = url.searchParams.get('variables');
+    if (urlVarsParam && urlVariables.length === 0) {
+      urlVariables.push(...urlVarsParam.split(',').map(v => decodeURIComponent(v.trim())));
+    }
+    
+    console.log('📋 Query params da URL:', JSON.stringify({ 
+      phone: urlPhone, 
+      template: urlTemplate, 
+      bitrix_id: urlBitrixId,
+      vars_count: urlVariables.length,
+      vars: urlVariables
+    }));
+
+    // Se temos dados válidos na URL, usar eles (caso típico do Bitrix Webhook)
+    if (urlPhone && urlTemplate) {
+      phone_number = urlPhone;
+      template_name = urlTemplate;
+      variables = urlVariables;
+      bitrix_id = urlBitrixId || undefined;
+      if (urlConvId) conversation_id = parseInt(urlConvId, 10);
       
-      // Ou como var1=X&var2=Y&var3=Z (até 10 variáveis)
-      for (let i = 1; i <= 10; i++) {
-        const varValue = url.searchParams.get(`var${i}`);
-        if (varValue && !varsParam) {
-          variables.push(varValue);
-        }
-      }
-      
-      const convId = url.searchParams.get('conversation_id');
-      if (convId) conversation_id = parseInt(convId, 10);
-      
-      console.log('📋 Parâmetros GET:', JSON.stringify({ phone_number, template_name, variables, bitrix_id, conversation_id }));
-    } else {
-      // POST - verificar Content-Type para parsear corretamente
+      console.log('✅ Usando parâmetros da URL (modo Bitrix Webhook)');
+    } 
+    // Se não tem dados na URL e é POST, tentar extrair do body
+    else if (req.method === 'POST') {
       const contentType = req.headers.get('content-type') || '';
       console.log('📋 Content-Type recebido:', contentType);
       
       if (contentType.includes('application/json')) {
         // JSON body
         const body: BitrixTemplateWebhook = await req.json();
-        phone_number = body.phone_number;
-        template_name = body.template_name;
+        phone_number = body.phone_number || '';
+        template_name = body.template_name || '';
         variables = body.variables || [];
         bitrix_id = body.bitrix_id;
         conversation_id = body.conversation_id;
@@ -69,7 +88,7 @@ Deno.serve(async (req) => {
         console.log('📋 Dados POST JSON:', JSON.stringify({ phone_number, template_name, variables, bitrix_id, conversation_id }));
         
       } else {
-        // Form-urlencoded ou texto plano (formato Bitrix)
+        // Form-urlencoded ou texto plano
         const text = await req.text();
         console.log('📋 Raw POST data:', text.substring(0, 500));
         
@@ -77,20 +96,20 @@ Deno.serve(async (req) => {
         
         phone_number = params.get('phone_number') || params.get('PHONE') || params.get('phone') || '';
         template_name = params.get('template_name') || params.get('TEMPLATE') || params.get('template') || '';
-        bitrix_id = params.get('bitrix_id') || params.get('BITRIX_ID') || params.get('document_id') || undefined;
+        bitrix_id = params.get('bitrix_id') || params.get('BITRIX_ID') || undefined;
         
-        // Variáveis: var1, var2, ... ou VARIABLE1, VARIABLE2, ...
+        // Variáveis: var1, var2, ...
         for (let i = 1; i <= 10; i++) {
           const varValue = params.get(`var${i}`) || params.get(`VARIABLE${i}`) || params.get(`VAR${i}`);
           if (varValue) {
-            variables.push(varValue);
+            variables.push(decodeURIComponent(varValue));
           }
         }
         
         // Ou variáveis como lista separada por vírgula
         const varsParam = params.get('variables');
         if (varsParam && variables.length === 0) {
-          variables = varsParam.split(',').map(v => v.trim());
+          variables = varsParam.split(',').map(v => decodeURIComponent(v.trim()));
         }
         
         const convId = params.get('conversation_id');
@@ -98,6 +117,10 @@ Deno.serve(async (req) => {
         
         console.log('📋 Dados POST Form:', JSON.stringify({ phone_number, template_name, variables, bitrix_id, conversation_id }));
       }
+    } 
+    // GET sem dados na URL
+    else if (req.method === 'GET') {
+      console.log('⚠️ GET request sem parâmetros obrigatórios');
     }
 
     // Validações
