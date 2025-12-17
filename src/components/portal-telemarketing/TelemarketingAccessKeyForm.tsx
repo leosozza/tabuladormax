@@ -6,6 +6,10 @@ import { Headset, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Constantes de cargo do Bitrix
+export const SUPERVISOR_CARGO = '10620';
+export const AGENT_CARGO = '10618';
+
 export interface TelemarketingOperatorData {
   operator_id: string;
   operator_name: string;
@@ -14,6 +18,11 @@ export interface TelemarketingOperatorData {
   cargo: string;
   commercial_project_id: string | null;
 }
+
+// Mapeia cargo do Bitrix para role do sistema
+const mapCargoToRole = (cargo: string): 'supervisor' | 'agent' => {
+  return cargo === SUPERVISOR_CARGO ? 'supervisor' : 'agent';
+};
 
 interface TelemarketingAccessKeyFormProps {
   onAccessGranted: (operatorData: TelemarketingOperatorData) => void;
@@ -109,7 +118,25 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
       const operatorData = data[0] as TelemarketingOperatorData;
       
       // Perform Supabase Auth login/signup
-      await performSupabaseAuth(operatorData.bitrix_id, accessKey.trim());
+      const authSuccess = await performSupabaseAuth(operatorData.bitrix_id, accessKey.trim());
+      
+      // Sincronizar role do usuário baseado no cargo
+      if (authSuccess) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const targetRole = mapCargoToRole(operatorData.cargo);
+          console.log(`[TM] Syncing user role: cargo=${operatorData.cargo} -> role=${targetRole}`);
+          
+          await supabase
+            .from('user_roles')
+            .upsert({ 
+              user_id: user.id, 
+              role: targetRole 
+            }, { 
+              onConflict: 'user_id' 
+            });
+        }
+      }
       
       toast.success(`Bem-vindo(a), ${operatorData.operator_name}!`);
       onAccessGranted(operatorData);
