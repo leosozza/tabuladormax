@@ -32,6 +32,17 @@ export interface ComparecimentoReportItem {
   telemarketing: string | null;
 }
 
+export interface TimelineItem {
+  date: string;
+  leads: number;
+  agendados: number;
+}
+
+export interface StatusDistributionItem {
+  status: string;
+  count: number;
+}
+
 export interface TelemarketingReportData {
   period: string;
   periodLabel: string;
@@ -43,6 +54,8 @@ export interface TelemarketingReportData {
   operatorPerformance: OperatorPerformance[];
   scouterPerformance: ScouterPerformance[];
   tabulacaoDistribution: TabulacaoItem[];
+  timeline?: TimelineItem[];
+  statusDistribution?: StatusDistributionItem[];
   createdBy?: number;
 }
 
