@@ -64,6 +64,13 @@ All colors MUST be HSL.
     --shadow-md: 0 4px 6px -1px hsla(0, 0%, 0%, 0.1);
     --shadow-lg: 0 10px 15px -3px hsla(0, 0%, 0%, 0.1);
     --shadow-xl: 0 20px 25px -5px hsla(0, 0%, 0%, 0.1);
+
+    /* Chart colors - cores vibrantes para gráficos */
+    --chart-1: 173 80% 40%;
+    --chart-2: 262 83% 58%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 142 71% 45%;
+    --chart-5: 340 82% 52%;
   }
 
   .dark {
@@ -121,6 +128,13 @@ All colors MUST be HSL.
     --shadow-md: 0 4px 6px -1px hsla(0, 0%, 0%, 0.4);
     --shadow-lg: 0 10px 15px -3px hsla(0, 0%, 0%, 0.5);
     --shadow-xl: 0 20px 25px -5px hsla(0, 0%, 0%, 0.6);
+
+    /* Chart colors - dark mode */
+    --chart-1: 173 80% 45%;
+    --chart-2: 262 83% 65%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 142 71% 50%;
+    --chart-5: 340 82% 58%;
   }
 }
 
