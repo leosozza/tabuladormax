@@ -24,6 +24,61 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const performSupabaseAuth = async (bitrixId: number, accessKeyValue: string) => {
+    // Generate email based on bitrix_id
+    const email = `tele-${bitrixId}@maxfama.internal`;
+    const password = accessKeyValue;
+
+    // Try to sign in first
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInData?.session) {
+      console.log('Supabase auth: signed in successfully');
+      return true;
+    }
+
+    // If sign in fails, try to create the user
+    if (signInError?.message?.includes('Invalid login credentials')) {
+      console.log('User does not exist, creating...');
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/portal-telemarketing`,
+          data: {
+            bitrix_id: bitrixId,
+            role: 'telemarketing_operator'
+          }
+        }
+      });
+
+      if (signUpError) {
+        console.error('Error creating user:', signUpError);
+        // Continue anyway - the access key validation already passed
+        return false;
+      }
+
+      // Try to sign in again after signup
+      if (signUpData?.user) {
+        const { error: retrySignInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (!retrySignInError) {
+          console.log('Supabase auth: created and signed in successfully');
+          return true;
+        }
+      }
+    }
+
+    console.warn('Supabase auth failed, continuing with access key only');
+    return false;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -52,6 +107,10 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
       }
 
       const operatorData = data[0] as TelemarketingOperatorData;
+      
+      // Perform Supabase Auth login/signup
+      await performSupabaseAuth(operatorData.bitrix_id, accessKey.trim());
+      
       toast.success(`Bem-vindo(a), ${operatorData.operator_name}!`);
       onAccessGranted(operatorData);
     } catch (err) {

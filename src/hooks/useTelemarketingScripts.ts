@@ -153,3 +153,44 @@ export function useAnalyzeScript() {
     }
   });
 }
+
+export interface GenerateScriptParams {
+  category: string;
+  productService?: string;
+  targetAudience?: string;
+  tone?: string;
+  projectId?: string;
+}
+
+export function useGenerateScript() {
+  return useMutation({
+    mutationFn: async (params: GenerateScriptParams) => {
+      const { data, error } = await supabase.functions.invoke('generate-script', {
+        body: params
+      });
+      
+      if (error) throw error;
+      return data as { script: string; suggestedTitle: string; category: string };
+    }
+  });
+}
+
+export interface ImproveScriptParams {
+  scriptId?: string;
+  scriptContent?: string;
+  techniques: string[];
+  improvementType?: 'quick' | 'strategic';
+}
+
+export function useImproveScript() {
+  return useMutation({
+    mutationFn: async (params: ImproveScriptParams) => {
+      const { data, error } = await supabase.functions.invoke('improve-script', {
+        body: params
+      });
+      
+      if (error) throw error;
+      return data as { improvedScript: string; techniquesApplied: string[] };
+    }
+  });
+}

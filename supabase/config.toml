@@ -254,3 +254,9 @@ verify_jwt = true
 
 [functions.n8n-mcp-proxy]
 verify_jwt = true
+
+[functions.generate-script]
+verify_jwt = false
+
+[functions.improve-script]
+verify_jwt = false
