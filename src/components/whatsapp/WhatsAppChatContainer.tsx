@@ -85,12 +85,8 @@ export function WhatsAppChatContainer({
     }
   }, [messages, markAsRead]);
 
-  // Switch to templates when window is closed
-  useEffect(() => {
-    if (!isWindowOpen && activeTab === 'messages') {
-      setActiveTab('templates');
-    }
-  }, [isWindowOpen, activeTab]);
+  // Note: removed auto-switch to templates when window is closed
+  // Agent can now read messages even with window closed
 
   const handleRefresh = () => {
     fetchMessages();
