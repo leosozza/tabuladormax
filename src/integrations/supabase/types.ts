@@ -3139,6 +3139,65 @@ export type Database = {
           },
         ]
       }
+      telemarketing_scripts: {
+        Row: {
+          ai_analysis: Json | null
+          ai_analyzed_at: string | null
+          ai_score: number | null
+          category: string
+          commercial_project_id: string | null
+          content: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          priority: number | null
+          title: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          ai_analyzed_at?: string | null
+          ai_score?: number | null
+          category?: string
+          commercial_project_id?: string | null
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          title: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          ai_analysis?: Json | null
+          ai_analyzed_at?: string | null
+          ai_score?: number | null
+          category?: string
+          commercial_project_id?: string | null
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          title?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telemarketing_scripts_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unified_field_config: {
         Row: {
           bitrix_field: string | null
