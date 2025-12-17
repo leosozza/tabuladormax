@@ -25,12 +25,16 @@ function MessageStatus({ status }: { status: WhatsAppMessage['status'] }) {
 export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
   const isOutbound = message.direction === 'outbound';
 
+  const isBitrixAutomation = message.sent_by === 'bitrix';
+
   return (
     <div className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[70%] rounded-lg px-4 py-2 ${
-        isOutbound
-          ? 'bg-primary text-primary-foreground'
-          : 'bg-muted'
+        isBitrixAutomation
+          ? 'bg-amber-600 text-white'
+          : isOutbound
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-muted'
       }`}>
         {/* Sender info */}
         <div className="text-sm font-medium mb-1 flex items-center gap-2">
