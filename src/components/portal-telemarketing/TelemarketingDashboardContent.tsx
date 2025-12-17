@@ -150,7 +150,7 @@ export function TelemarketingDashboardContent({
       type: 'leads' as KpiType,
     },
     {
-      title: 'Agendamentos',
+      title: 'Agendados',
       value: metrics?.agendamentos || 0,
       icon: Calendar,
       color: 'text-orange-500',
@@ -293,7 +293,10 @@ export function TelemarketingDashboardContent({
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3">Por Tabulação</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {metrics.tabulacaoGroups.slice(0, 8).map((tab) => (
+            {metrics.tabulacaoGroups
+              .filter(tab => !tab.label.toLowerCase().includes('agendado'))
+              .slice(0, 8)
+              .map((tab) => (
               <Card 
                 key={tab.label}
                 className="cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
