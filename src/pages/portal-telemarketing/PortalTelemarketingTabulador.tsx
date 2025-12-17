@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeNotifications, useBrowserNotification } from '@/hooks/useTelemarketingNotifications';
 import { useOperatorRanking } from '@/hooks/useOperatorRanking';
 import UserMenu from '@/components/UserMenu';
+import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -146,7 +147,7 @@ const PortalTelemarketingTabulador = () => {
     return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }
 
-  const isSupervisor = context?.cargo === 'supervisor';
+  const isSupervisor = context?.cargo === SUPERVISOR_CARGO;
 
   const handleNotificationClick = (notification: any) => {
     // Navegar para o lead/conversa quando clicar na notificação
@@ -176,7 +177,7 @@ const PortalTelemarketingTabulador = () => {
             <Headset className="w-4 h-4 text-muted-foreground" />
             <span className="font-medium">{context.name || 'Operador'}</span>
             <Badge variant="outline" className="text-xs">
-              {context.cargo === 'supervisor' ? 'Supervisor' : 'Agente'}
+              {context.cargo === SUPERVISOR_CARGO ? 'Supervisor' : 'Agente'}
             </Badge>
           </div>
           
