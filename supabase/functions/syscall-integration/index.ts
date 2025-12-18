@@ -251,22 +251,28 @@ Deno.serve(async (req) => {
         const testStartTime = Date.now();
         const proxyUrl = Deno.env.get('SYSCALL_PROXY_URL');
         
+        // 1. Verificar se token está configurado
         if (!syscallConfig.api_token || syscallConfig.api_token.trim() === '') {
-          return new Response(
-            JSON.stringify({
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Token não configurado',
+            suggestion: 'Configure o token na página de configuração do Syscall.',
+            log: {
+              timestamp: new Date().toISOString(),
               success: false,
-              error: 'Token não configurado. Configure o token na página de configuração.',
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+              error: 'Token não configurado',
+            }
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
         try {
-          // 1. Testar health do proxy
+          // 2. Testar apenas health do proxy (sem tentar login com dados fictícios)
           console.log('[Test] Testando health do proxy...');
           const healthResponse = await fetch(`${proxyUrl}/api/health`, {
             signal: AbortSignal.timeout(10000)
           });
+          
+          const duration = Date.now() - testStartTime;
           
           if (!healthResponse.ok) {
             return new Response(JSON.stringify({
@@ -278,6 +284,7 @@ Deno.serve(async (req) => {
                 success: false,
                 url: `${proxyUrl}/api/health`,
                 method: 'GET',
+                duration_ms: duration,
                 status_code: healthResponse.status,
                 error: 'Health check falhou',
                 origin_ip: '72.61.51.225',
@@ -290,59 +297,22 @@ Deno.serve(async (req) => {
           const healthData = await healthResponse.json();
           console.log('[Test] ✅ Proxy health OK:', healthData);
 
-          // 2. Testar conexão com Syscall via proxy - usando endpoint correto /api/auth/login
-          console.log('[Test] Testando conexão com Syscall via proxy (IP: 72.61.51.225)...');
-          const testResponse = await callProxy(
-            `/api/auth/login?agente=test&ramal=9999&token=${syscallConfig.api_token}`,
-            'GET',
-            syscallConfig.api_token || ''
-          );
-
-          const duration = Date.now() - testStartTime;
-          const responseText = await testResponse.text();
-          let responseData;
-
-          try {
-            responseData = JSON.parse(responseText);
-          } catch {
-            responseData = { raw: responseText };
-          }
-
-          const log = {
-            timestamp: new Date().toISOString(),
-            success: testResponse.ok,
-            url: `${proxyUrl}/api/auth/login`,
-            method: 'GET',
-            duration_ms: duration,
-            status_code: testResponse.status,
-            response: responseData,
-            origin_ip: '72.61.51.225',
-          };
-
-          // Considerar sucesso mesmo com erros de validação (significa que o proxy e token funcionam)
-          const isTokenValid = testResponse.ok || testResponse.status === 400 || testResponse.status === 422;
-
-          if (!isTokenValid) {
-            return new Response(JSON.stringify({
-              success: false,
-              error: `Erro ${testResponse.status}: ${responseText}`,
-              suggestion: testResponse.status === 401 
-                ? 'Token inválido ou expirado. Verifique a configuração do token.'
-                : testResponse.status === 403
-                ? 'IP não autorizado. Verifique se o IP 72.61.51.225 foi liberado no Syscall.'
-                : 'Verifique a configuração da API do Syscall.',
-              log,
-            }), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-          }
-
-          console.log('[Test] ✅ Syscall via proxy OK (IP: 72.61.51.225)');
-
+          // Sucesso: proxy acessível e token configurado
           return new Response(JSON.stringify({
             success: true,
-            message: '✅ Conexão estabelecida com sucesso via proxy (IP: 72.61.51.225)',
-            log,
+            message: '✅ Proxy acessível e token configurado (IP: 72.61.51.225)',
+            note: 'Para testar login, use a função de login com agente e ramal válidos.',
+            log: {
+              timestamp: new Date().toISOString(),
+              success: true,
+              url: `${proxyUrl}/api/health`,
+              method: 'GET',
+              duration_ms: duration,
+              status_code: healthResponse.status,
+              response: healthData,
+              origin_ip: '72.61.51.225',
+              token_configured: true,
+            }
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
@@ -354,7 +324,7 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({
             success: false,
             error: error instanceof Error ? error.message : 'Erro desconhecido',
-            suggestion: 'Verifique a configuração do proxy e do Syscall',
+            suggestion: 'Verifique a configuração do proxy',
             log: {
               timestamp: new Date().toISOString(),
               success: false,
