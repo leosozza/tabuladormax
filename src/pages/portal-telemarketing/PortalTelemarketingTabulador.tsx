@@ -15,6 +15,7 @@ import { useOperatorRanking } from '@/hooks/useOperatorRanking';
 import UserMenu from '@/components/UserMenu';
 import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
+import MaxTalkWidget from '@/components/maxtalk/MaxTalkWidget';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -227,6 +228,9 @@ const PortalTelemarketingTabulador = () => {
       <div className="flex-1">
         <LeadTab />
       </div>
+
+      {/* Widget MaxTalk */}
+      <MaxTalkWidget />
     </div>
   );
 };
