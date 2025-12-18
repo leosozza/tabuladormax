@@ -9,7 +9,8 @@ import {
   BarChart3, 
   Users,
   User,
-  MessageSquare
+  MessageSquare,
+  MessageCircle
 } from 'lucide-react';
 import { TelemarketingOperatorData, SUPERVISOR_CARGO } from './TelemarketingAccessKeyForm';
 import { ThemeSelector } from './ThemeSelector';
@@ -171,6 +172,34 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                 }}
               >
                 Acessar WhatsApp
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer group">
+            <CardHeader>
+              <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-2 group-hover:bg-blue-500/20 transition-colors">
+                <MessageCircle className="w-6 h-6 text-blue-500" />
+              </div>
+              <CardTitle>MaxTalk</CardTitle>
+              <CardDescription>
+                Chat interno da equipe
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                variant="outline"
+                className="w-full border-blue-500/30 text-blue-600 hover:bg-blue-500/10"
+                onClick={() => {
+                  localStorage.setItem('telemarketing_context', JSON.stringify({
+                    bitrix_id: operatorData.bitrix_id,
+                    cargo: operatorData.cargo,
+                    name: operatorData.operator_name
+                  }));
+                  navigate('/portal-telemarketing/maxtalk');
+                }}
+              >
+                Acessar MaxTalk
               </Button>
             </CardContent>
           </Card>
