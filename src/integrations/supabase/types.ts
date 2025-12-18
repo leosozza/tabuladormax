@@ -4877,6 +4877,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_maxtalk_admin: {
+        Args: { conv_id: string; usr_id: string }
+        Returns: boolean
+      }
+      is_maxtalk_member: {
+        Args: { conv_id: string; usr_id: string }
+        Returns: boolean
+      }
       normalize_etapa: { Args: { raw_etapa: string }; Returns: string }
       normalize_etapa_single_batch: {
         Args: { p_batch_size?: number }
