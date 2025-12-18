@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Bell } from 'lucide-react';
+import { NotificationCenter } from '@/components/telemarketing/NotificationCenter';
 import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { TelemarketingDashboardContent } from '@/components/portal-telemarketing/TelemarketingDashboardContent';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
@@ -131,6 +132,24 @@ const PortalTelemarketingDashboard = () => {
     .substring(0, 2)
     .toUpperCase();
 
+  // Handler para clique em notificação
+  const handleNotificationClick = (notification: any) => {
+    // Se for notificação de cliente compareceu, mostrar celebração
+    if (notification.type === 'cliente_compareceu') {
+      setCelebration({
+        open: true,
+        clientName: notification.metadata?.nome_modelo || 'Cliente',
+        projectName: notification.metadata?.projeto || ''
+      });
+      return;
+    }
+    
+    // Para outros tipos, navegar para o tabulador com o lead
+    if (notification.lead_id) {
+      navigate(`/portal-telemarketing/tabulador?lead=${notification.lead_id}&openWhatsApp=true`);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header compacto */}
@@ -177,8 +196,13 @@ const PortalTelemarketingDashboard = () => {
             </Badge>
           )}
         </div>
-        
-        <ThemeSelector />
+        <div className="flex items-center gap-2">
+          <NotificationCenter 
+            bitrixTelemarketingId={context.bitrix_id}
+            onNotificationClick={handleNotificationClick}
+          />
+          <ThemeSelector />
+        </div>
       </header>
 
       {/* Dashboard Content */}
