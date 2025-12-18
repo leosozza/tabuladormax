@@ -17,6 +17,7 @@ interface MaxTalkCompactProps {
   messages: MaxTalkMessage[];
   messagesLoading: boolean;
   onSelectConversation: (id: string) => void;
+  onClearSelection: () => void;
   onSendMessage: (content: string) => Promise<boolean>;
   onNewChat: () => void;
 }
@@ -27,6 +28,7 @@ export default function MaxTalkCompact({
   messages,
   messagesLoading,
   onSelectConversation,
+  onClearSelection,
   onSendMessage,
   onNewChat,
 }: MaxTalkCompactProps) {
@@ -198,6 +200,15 @@ export default function MaxTalkCompact({
       <div className="flex-1 flex flex-col min-w-0">
         {/* Chat header */}
         <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/30">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={onClearSelection}
+            title="Voltar para conversas"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"

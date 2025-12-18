@@ -71,10 +71,21 @@ export default function MaxTalkWidget() {
   const widgetRef = useRef<HTMLDivElement>(null);
   const fabRef = useRef<HTMLButtonElement>(null);
 
-  const { conversations, createPrivateConversation, createGroupConversation, markAsRead } = useMaxTalkConversations();
+  const { conversations, createPrivateConversation, createGroupConversation, markAsRead, loading: conversationsLoading } = useMaxTalkConversations();
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [selectedConversationCache, setSelectedConversationCache] = useState<typeof conversations[0] | null>(null);
   
-  const selectedConversation = conversations.find(c => c.id === selectedConversationId) || null;
+  // Find conversation from list or use cached version during loading
+  const foundConversation = conversations.find(c => c.id === selectedConversationId);
+  const selectedConversation = foundConversation || (selectedConversationId ? selectedConversationCache : null);
+  
+  // Update cache when conversation is found
+  useEffect(() => {
+    if (foundConversation) {
+      setSelectedConversationCache(foundConversation);
+    }
+  }, [foundConversation]);
+  
   const { messages, loading: messagesLoading, sendMessage, sendMediaMessage, deleteMessage } = useMaxTalkMessages(selectedConversationId);
 
   // Calculate total unread
@@ -213,12 +224,21 @@ export default function MaxTalkWidget() {
   };
 
   const handleSelectConversation = (id: string) => {
+    const conv = conversations.find(c => c.id === id);
+    if (conv) {
+      setSelectedConversationCache(conv);
+    }
     setSelectedConversationId(id);
     markAsRead(id);
   };
 
   const handleSendMessage = async (content: string) => {
     return sendMessage(content);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedConversationId(null);
+    setSelectedConversationCache(null);
   };
 
   const handleNewChat = async () => {
@@ -321,6 +341,7 @@ export default function MaxTalkWidget() {
             messages={messages}
             messagesLoading={messagesLoading}
             onSelectConversation={handleSelectConversation}
+            onClearSelection={handleClearSelection}
             onSendMessage={handleSendMessage}
             onNewChat={handleNewChat}
           />
