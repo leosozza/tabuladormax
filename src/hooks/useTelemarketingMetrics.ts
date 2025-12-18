@@ -172,13 +172,15 @@ export function useTelemarketingMetrics(
         query = query.eq('bitrix_telemarketing_id', operatorId);
       }
 
-      // Query para comparecimentos - busca por UF_CRM_DATACOMPARECEU (data real de comparecimento)
-      // INDEPENDENTE de presença confirmada ou etapa atual
-      // Não filtramos por data aqui pois é um campo JSONB - filtramos no JavaScript
+      // Query para comparecimentos - busca leads que PODEM ter comparecido
+      // Filtro JSONB não funciona bem no Supabase JS, então buscamos por período amplo
+      // e filtramos por UF_CRM_DATACOMPARECEU no JavaScript
+      const comparecimentosStartStr = format(subDays(start, 60), 'yyyy-MM-dd');
       let comparecimentosQuery = supabase
         .from('leads')
         .select('id, name, nome_modelo, scouter, telemarketing, bitrix_telemarketing_id, fonte_normalizada, raw')
-        .not('raw->UF_CRM_DATACOMPARECEU', 'is', null);
+        .gte('date_modify', comparecimentosStartStr)
+        .lte('date_modify', endStr);
 
       if (operatorId) {
         comparecimentosQuery = comparecimentosQuery.eq('bitrix_telemarketing_id', operatorId);
@@ -263,12 +265,18 @@ export function useTelemarketingMetrics(
       // Calculate comparecimentos por UF_CRM_DATACOMPARECEU (data real de comparecimento)
       // INDEPENDENTE de presença confirmada (UF_CRM_1746816298253) ou etapa atual
       const comparecimentosLeads = allLeadsForComparecimentos.filter(lead => {
-        // Check if UF_CRM_DATACOMPARECEU is within the period
+        // Buscar UF_CRM_DATACOMPARECEU do campo raw
         const dataCompareceu = getRawField(lead.raw, 'UF_CRM_DATACOMPARECEU');
-        if (!dataCompareceu) return false;
+        
+        // Ignorar se não tiver data de comparecimento ou estiver vazio
+        if (!dataCompareceu || dataCompareceu === '') return false;
         
         try {
-          const dateCompareceu = new Date(dataCompareceu);
+          // Extrair apenas a data (ignorar timezone) - formato: "2025-12-17T03:00:00+03:00"
+          const datePart = dataCompareceu.split('T')[0];
+          const dateCompareceu = parseISO(datePart);
+          
+          // Verificar se está dentro do período
           return dateCompareceu >= start && dateCompareceu <= end;
         } catch {
           return false;
