@@ -4437,6 +4437,23 @@ export type Database = {
         }
         Returns: Json
       }
+      get_comparecidos_by_date: {
+        Args: {
+          p_end_date: string
+          p_operator_id?: number
+          p_start_date: string
+        }
+        Returns: {
+          bitrix_telemarketing_id: number
+          data_compareceu: string
+          fonte_normalizada: string
+          id: number
+          name: string
+          nome_modelo: string
+          scouter: string
+          telemarketing: string
+        }[]
+      }
       get_comparecidos_stats: {
         Args: {
           p_end_date: string
