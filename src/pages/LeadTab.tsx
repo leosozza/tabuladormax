@@ -165,7 +165,7 @@ const mapSupabaseLeadToProfile = (lead: any): DynamicProfile => {
     // ID Bitrix
     'responsible': lead.nome_responsavel_legal || '—',
     // Responsável Legal
-    'name': lead.nome_modelo || '—',
+    'nome_modelo': lead.nome_modelo || '—',
     // Nome do Modelo
     'age': lead.age?.toString() || '—',
     // Idade
@@ -2526,7 +2526,7 @@ const LeadTab = () => {
                   );
                 })()}
               </div>
-              <h2 className="text-lg md:text-2xl font-bold text-center w-full">{(profile as any).name || 'Lead sem nome'}</h2>
+              <h2 className="text-lg md:text-2xl font-bold text-center w-full">{(profile as any).nome_modelo || (profile as any).name || 'Lead sem nome'}</h2>
               <div className="w-full space-y-1 md:space-y-2 text-xs md:text-sm">{fieldMappings.filter(mapping => !mapping.is_profile_photo) // Não exibir o campo da foto na lista
               .map(mapping => <p key={mapping.profile_field}>
                       <strong>{mapping.display_name || mapping.profile_field}:</strong>{' '}
@@ -2539,6 +2539,7 @@ const LeadTab = () => {
                     'custom_1760116868521': 'etapa',
                     'custom_1760018636938': 'id',
                     'responsible': 'nome_responsavel_legal',
+                    'nome_modelo': 'nome_modelo',
                     'name': 'nome_modelo',
                     'age': 'age',
                     'scouter': 'scouter',
