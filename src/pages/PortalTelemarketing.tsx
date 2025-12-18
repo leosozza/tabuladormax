@@ -2,10 +2,39 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { TelemarketingAccessKeyForm, TelemarketingOperatorData } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { TelemarketingPortalLayout } from '@/components/portal-telemarketing/TelemarketingPortalLayout';
+import { CelebrationProvider } from '@/contexts/CelebrationContext';
+import { CelebrationOverlay } from '@/components/telemarketing/CelebrationOverlay';
+import { useCelebration } from '@/contexts/CelebrationContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const STORAGE_KEY = 'telemarketing_operator';
 const CONTEXT_KEY = 'telemarketing_context';
+
+// Componente interno que usa o contexto de celebração
+function PortalContent({ 
+  operatorData, 
+  onLogout 
+}: { 
+  operatorData: TelemarketingOperatorData; 
+  onLogout: () => void;
+}) {
+  const { celebration, closeCelebration } = useCelebration();
+
+  return (
+    <>
+      <TelemarketingPortalLayout
+        operatorData={operatorData}
+        onLogout={onLogout}
+      />
+      <CelebrationOverlay
+        open={celebration.open}
+        onClose={closeCelebration}
+        clientName={celebration.clientName}
+        projectName={celebration.projectName}
+      />
+    </>
+  );
+}
 
 const PortalTelemarketing = () => {
   const navigate = useNavigate();
@@ -188,10 +217,9 @@ const PortalTelemarketing = () => {
       {!operatorData ? (
         <TelemarketingAccessKeyForm onAccessGranted={handleAccessGranted} />
       ) : (
-        <TelemarketingPortalLayout
-          operatorData={operatorData}
-          onLogout={handleLogout}
-        />
+        <CelebrationProvider bitrixTelemarketingId={operatorData.bitrix_id}>
+          <PortalContent operatorData={operatorData} onLogout={handleLogout} />
+        </CelebrationProvider>
       )}
     </div>
   );
