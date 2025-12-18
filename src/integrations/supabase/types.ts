@@ -2471,6 +2471,125 @@ export type Database = {
         }
         Relationships: []
       }
+      maxtalk_conversation_members: {
+        Row: {
+          conversation_id: string | null
+          id: string
+          joined_at: string | null
+          last_read_at: string | null
+          role: string | null
+          user_id: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          id?: string
+          joined_at?: string | null
+          last_read_at?: string | null
+          role?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          id?: string
+          joined_at?: string | null
+          last_read_at?: string | null
+          role?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maxtalk_conversation_members_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "maxtalk_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maxtalk_conversations: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      maxtalk_messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          deleted_at: string | null
+          edited_at: string | null
+          id: string
+          media_url: string | null
+          message_type: string | null
+          reply_to_id: string | null
+          sender_id: string | null
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          media_url?: string | null
+          message_type?: string | null
+          reply_to_id?: string | null
+          sender_id?: string | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          media_url?: string | null
+          message_type?: string | null
+          reply_to_id?: string | null
+          sender_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maxtalk_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "maxtalk_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maxtalk_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "maxtalk_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_rate_limits: {
         Row: {
           block_reason: string | null
