@@ -185,9 +185,22 @@ export function useTelemarketingMetrics(
         comparecimentosQuery = comparecimentosQuery.eq('bitrix_telemarketing_id', operatorId);
       }
 
-      const [leadsResult, comparecimentosResult] = await Promise.all([
+      // Query SEPARADA para agendamentos - filtra por data_criacao_agendamento INDEPENDENTE de date_modify
+      // Isso garante que pegamos TODOS os leads agendados no período, mesmo que não tenham sido modificados
+      let agendadosQuery = supabase
+        .from('leads')
+        .select('id, name, nome_modelo, scouter, telemarketing, bitrix_telemarketing_id, fonte_normalizada, data_criacao_agendamento, data_agendamento, raw')
+        .gte('data_criacao_agendamento', startStr)
+        .lte('data_criacao_agendamento', endStr);
+
+      if (operatorId) {
+        agendadosQuery = agendadosQuery.eq('bitrix_telemarketing_id', operatorId);
+      }
+
+      const [leadsResult, comparecimentosResult, agendadosResult] = await Promise.all([
         query,
-        comparecimentosQuery
+        comparecimentosQuery,
+        agendadosQuery
       ]);
 
       if (leadsResult.error) {
@@ -197,16 +210,14 @@ export function useTelemarketingMetrics(
 
       const leadsData = leadsResult.data || [];
       const allLeadsForComparecimentos = comparecimentosResult.data || [];
+      const agendadosData = agendadosResult.data || [];
 
       // Calculate metrics
       const totalLeads = leadsData.length;
       
-      // Agendamentos: leads com data_criacao_agendamento no período (independente da etapa atual)
-      const agendadosList = leadsData.filter(l => {
-        if (!l.data_criacao_agendamento) return false;
-        const dataAgendamento = new Date(l.data_criacao_agendamento);
-        return dataAgendamento >= start && dataAgendamento <= end;
-      });
+      // Agendamentos: vem diretamente da query por data_criacao_agendamento
+      // INDEPENDENTE de date_modify ou etapa atual
+      const agendadosList = agendadosData;
       const agendamentos = agendadosList.length;
       
       const taxaConversao = totalLeads > 0 ? (agendamentos / totalLeads) * 100 : 0;
