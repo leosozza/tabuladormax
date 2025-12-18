@@ -8,14 +8,16 @@ import { ScriptViewer } from '@/components/telemarketing/ScriptViewer';
 import { ScriptManager } from '@/components/telemarketing/ScriptManager';
 import { NotificationCenter } from '@/components/telemarketing/NotificationCenter';
 import { NotificationSettings } from '@/components/telemarketing/NotificationSettings';
+import { CelebrationOverlay } from '@/components/telemarketing/CelebrationOverlay';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useRealtimeNotifications, useBrowserNotification } from '@/hooks/useTelemarketingNotifications';
+import { useRealtimeNotifications, useBrowserNotification, TelemarketingNotification } from '@/hooks/useTelemarketingNotifications';
 import { useOperatorRanking } from '@/hooks/useOperatorRanking';
 import UserMenu from '@/components/UserMenu';
 import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 import MaxTalkWidget from '@/components/maxtalk/MaxTalkWidget';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -32,7 +34,15 @@ type StoredTelemarketingOperator = {
 const PortalTelemarketingTabulador = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [projectId, setProjectId] = useState<string | null>(null);
+  
+  // Estado para celebração
+  const [celebration, setCelebration] = useState({
+    open: false,
+    clientName: '',
+    projectName: ''
+  });
 
   // Inicialização SÍNCRONA - lê do localStorage no primeiro render
   const context = (() => {
@@ -118,6 +128,41 @@ const PortalTelemarketingTabulador = () => {
       return () => clearTimeout(timer);
     }
   }, [context?.bitrix_id, permission, requestPermission]);
+
+  // Listener separado para celebração de cliente compareceu
+  useEffect(() => {
+    if (!context?.bitrix_id) return;
+
+    const channel = supabase
+      .channel(`celebration-${context.bitrix_id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'telemarketing_notifications',
+          filter: `bitrix_telemarketing_id=eq.${context.bitrix_id}`,
+        },
+        (payload) => {
+          const notification = payload.new as TelemarketingNotification;
+          
+          // Se for notificação de cliente compareceu, mostrar celebração
+          if (notification.type === 'cliente_compareceu') {
+            console.log('🎉 Cliente compareceu! Mostrando celebração:', notification);
+            setCelebration({
+              open: true,
+              clientName: (notification.metadata?.nome_modelo as string) || 'Cliente',
+              projectName: (notification.metadata?.projeto as string) || ''
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [context?.bitrix_id]);
 
   // Fetch commercial_project_id for the operator
   useEffect(() => {
@@ -232,6 +277,14 @@ const PortalTelemarketingTabulador = () => {
 
       {/* Widget MaxTalk */}
       <MaxTalkWidget />
+
+      {/* Overlay de Celebração */}
+      <CelebrationOverlay
+        open={celebration.open}
+        onClose={() => setCelebration(prev => ({ ...prev, open: false }))}
+        clientName={celebration.clientName}
+        projectName={celebration.projectName}
+      />
     </div>
   );
 };
