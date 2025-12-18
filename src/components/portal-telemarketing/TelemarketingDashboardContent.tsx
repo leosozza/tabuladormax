@@ -295,11 +295,14 @@ export function TelemarketingDashboardContent({
       subtitle: metrics?.agendamentosPorData?.length ? 
         metrics.agendamentosPorData.slice(0, 2).map(a => `${a.total} p/ ${a.dataFormatada.slice(0, 5)}`).join(' | ') 
         : undefined,
-      icon: Calendar,
+      icon: CalendarIcon,
       color: 'text-orange-500',
       bgColor: 'bg-orange-500/10',
       type: null, // Custom handler
-      onClick: () => setAgendamentosModalOpen(true),
+      onClick: () => {
+        console.log('[Agendados] Card clicked, opening modal');
+        setAgendamentosModalOpen(true);
+      },
     },
     {
       title: 'Comparecidos',
