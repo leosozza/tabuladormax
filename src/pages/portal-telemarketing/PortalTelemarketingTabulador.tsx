@@ -199,9 +199,18 @@ const PortalTelemarketingTabulador = () => {
   const isSupervisor = context?.cargo === SUPERVISOR_CARGO;
 
   const handleNotificationClick = (notification: any) => {
-    // Navegar para o lead/conversa quando clicar na notificação
+    // Se for notificação de cliente compareceu, mostrar celebração
+    if (notification.type === 'cliente_compareceu') {
+      setCelebration({
+        open: true,
+        clientName: notification.metadata?.nome_modelo || 'Cliente',
+        projectName: notification.metadata?.projeto || ''
+      });
+      return;
+    }
+    
+    // Para outros tipos, navegar para o lead/conversa
     if (notification.lead_id) {
-      // Adicionar parâmetro para abrir o WhatsApp automaticamente
       navigate(`/portal-telemarketing/tabulador?lead=${notification.lead_id}&openWhatsApp=true`);
     }
   };
