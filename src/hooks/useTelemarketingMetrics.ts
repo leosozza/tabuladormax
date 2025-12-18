@@ -373,48 +373,69 @@ export function useTelemarketingMetrics(
         .map(([label, data]) => ({ label, rawStatus: data.rawStatus, count: data.count }))
         .sort((a, b) => b.count - a.count);
 
-      // Timeline - now tracks agendados instead of confirmadas
+      // Timeline - agendados agrupados pelo horário de data_criacao_agendamento (UF_CRM_AGEND_EM)
+      // Converte UTC para São Paulo (UTC-3)
+      const convertToSaoPaulo = (dateStr: string): Date => {
+        const utcDate = new Date(dateStr);
+        return new Date(utcDate.getTime() - (3 * 60 * 60 * 1000));
+      };
+
       const timeline: { date: string; leads: number; agendados: number }[] = [];
       
       if (period === 'today') {
-        // Group by hour
-        const hourMap = new Map<string, { leads: number; agendados: number }>();
+        // Group by hour - usar data_criacao_agendamento para agendados
+        const hourMapLeads = new Map<string, number>();
+        const hourMapAgendados = new Map<string, number>();
+        
         leadsData.forEach(lead => {
+          // Para LEADS: usar date_modify (atividade no lead)
           if (lead.date_modify) {
-            const hour = format(new Date(lead.date_modify), 'HH:00');
-            const current = hourMap.get(hour) || { leads: 0, agendados: 0 };
-            current.leads++;
-            if (lead.data_criacao_agendamento) {
-              const dataAgendamento = new Date(lead.data_criacao_agendamento);
-              if (dataAgendamento >= start && dataAgendamento <= end) {
-                current.agendados++;
-              }
+            const spDate = convertToSaoPaulo(lead.date_modify);
+            const hour = format(spDate, 'HH:00');
+            hourMapLeads.set(hour, (hourMapLeads.get(hour) || 0) + 1);
+          }
+          
+          // Para AGENDADOS: usar data_criacao_agendamento (UF_CRM_AGEND_EM)
+          if (lead.data_criacao_agendamento) {
+            const dataAgendamento = new Date(lead.data_criacao_agendamento);
+            if (dataAgendamento >= start && dataAgendamento <= end) {
+              const spDate = convertToSaoPaulo(lead.data_criacao_agendamento);
+              const hour = format(spDate, 'HH:00');
+              hourMapAgendados.set(hour, (hourMapAgendados.get(hour) || 0) + 1);
             }
-            hourMap.set(hour, current);
           }
         });
         
-        // Fill all hours
+        // Fill all hours (08:00 a 20:00)
         for (let h = 8; h <= 20; h++) {
           const hour = `${h.toString().padStart(2, '0')}:00`;
-          const data = hourMap.get(hour) || { leads: 0, agendados: 0 };
-          timeline.push({ date: hour, ...data });
+          timeline.push({ 
+            date: hour, 
+            leads: hourMapLeads.get(hour) || 0,
+            agendados: hourMapAgendados.get(hour) || 0
+          });
         }
       } else {
         // Group by day
-        const dayMap = new Map<string, { leads: number; agendados: number }>();
+        const dayMapLeads = new Map<string, number>();
+        const dayMapAgendados = new Map<string, number>();
+        
         leadsData.forEach(lead => {
+          // Para LEADS: usar date_modify
           if (lead.date_modify) {
-            const day = format(new Date(lead.date_modify), 'dd/MM');
-            const current = dayMap.get(day) || { leads: 0, agendados: 0 };
-            current.leads++;
-            if (lead.data_criacao_agendamento) {
-              const dataAgendamento = new Date(lead.data_criacao_agendamento);
-              if (dataAgendamento >= start && dataAgendamento <= end) {
-                current.agendados++;
-              }
+            const spDate = convertToSaoPaulo(lead.date_modify);
+            const day = format(spDate, 'dd/MM');
+            dayMapLeads.set(day, (dayMapLeads.get(day) || 0) + 1);
+          }
+          
+          // Para AGENDADOS: usar data_criacao_agendamento
+          if (lead.data_criacao_agendamento) {
+            const dataAgendamento = new Date(lead.data_criacao_agendamento);
+            if (dataAgendamento >= start && dataAgendamento <= end) {
+              const spDate = convertToSaoPaulo(lead.data_criacao_agendamento);
+              const day = format(spDate, 'dd/MM');
+              dayMapAgendados.set(day, (dayMapAgendados.get(day) || 0) + 1);
             }
-            dayMap.set(day, current);
           }
         });
 
@@ -422,8 +443,11 @@ export function useTelemarketingMetrics(
         for (let i = 6; i >= 0; i--) {
           const date = subDays(new Date(), i);
           const dayStr = format(date, 'dd/MM');
-          const data = dayMap.get(dayStr) || { leads: 0, agendados: 0 };
-          timeline.push({ date: dayStr, ...data });
+          timeline.push({ 
+            date: dayStr, 
+            leads: dayMapLeads.get(dayStr) || 0,
+            agendados: dayMapAgendados.get(dayStr) || 0
+          });
         }
       }
 
