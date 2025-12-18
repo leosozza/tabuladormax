@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeNotifications, useBrowserNotification, TelemarketingNotification } from '@/hooks/useTelemarketingNotifications';
 import { useOperatorRanking } from '@/hooks/useOperatorRanking';
+import { useComparecimentosRanking } from '@/hooks/useComparecimentosRanking';
 import UserMenu from '@/components/UserMenu';
 import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
@@ -110,8 +111,9 @@ const PortalTelemarketingTabulador = () => {
     }
   })();
 
-  // Hook de ranking
+  // Hooks de ranking
   const { position: rankingPosition, total: totalAgendados } = useOperatorRanking(context?.bitrix_id || null);
+  const { position: comparecimentosPosition, total: totalComparecimentos } = useComparecimentosRanking(context?.bitrix_id || null, 'today');
 
   // Ativar notificações em tempo real
   useRealtimeNotifications(context?.bitrix_id || null);
@@ -229,11 +231,16 @@ const PortalTelemarketingTabulador = () => {
             </Badge>
           </div>
           
-          {/* Centro: Badge de Ranking */}
-          <div className="flex-1 flex justify-center">
+          {/* Centro: Badges de Ranking */}
+          <div className="flex-1 flex justify-center gap-2">
             {rankingPosition > 0 && (
               <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                🏆 {rankingPosition}° colocado ({totalAgendados} agendados)
+                🏆 {rankingPosition}° ({totalAgendados} agendados)
+              </Badge>
+            )}
+            {comparecimentosPosition > 0 && (
+              <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                🎉 {comparecimentosPosition}° ({totalComparecimentos} comparecidos)
               </Badge>
             )}
           </div>

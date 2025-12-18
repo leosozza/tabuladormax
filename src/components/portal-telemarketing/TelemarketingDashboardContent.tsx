@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Phone, Calendar as CalendarIcon, TrendingUp, Trophy, Loader2, Share2, FileDown, Link as LinkIcon, Users, CheckCircle, Bot } from 'lucide-react';
+import { Phone, Calendar as CalendarIcon, TrendingUp, Trophy, Loader2, Share2, FileDown, Link as LinkIcon, Users, CheckCircle, Bot, PartyPopper } from 'lucide-react';
 import { ApexBarChart } from '@/components/dashboard/charts/ApexBarChart';
 import { ApexHorizontalBarChart } from '@/components/dashboard/charts/ApexHorizontalBarChart';
 import { ApexLineChart } from '@/components/dashboard/charts/ApexLineChart';
@@ -19,6 +19,7 @@ import { AgendamentosPorDataModal } from './AgendamentosPorDataModal';
 import { ComparecimentosDetailModal } from './ComparecimentosDetailModal';
 import { TelemarketingAIAnalysisModal } from './TelemarketingAIAnalysisModal';
 import { useTelemarketingAIAnalysis } from '@/hooks/useTelemarketingAIAnalysis';
+import { useComparecimentosRanking, ComparecimentosPeriod } from '@/hooks/useComparecimentosRanking';
 import { 
   generateTelemarketingReportPDF, 
   createShareableReport,
@@ -54,6 +55,7 @@ export function TelemarketingDashboardContent({
   const [aiAnalysisOpen, setAiAnalysisOpen] = useState(false);
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+  const [comparecimentosPeriod, setComparecimentosPeriod] = useState<ComparecimentosPeriod>('today');
   
   const isSupervisor = operatorCargo === SUPERVISOR_CARGO;
   
@@ -77,6 +79,12 @@ export function TelemarketingDashboardContent({
     filterOperatorId,
     period === 'custom' ? customDateRange?.from : undefined,
     period === 'custom' ? customDateRange?.to : undefined
+  );
+
+  // Hook para ranking de comparecimentos (supervisores)
+  const { ranking: comparecimentosRanking, isLoading: isComparecimentosLoading } = useComparecimentosRanking(
+    operatorBitrixId || null,
+    comparecimentosPeriod
   );
 
   const getDateRange = () => {
@@ -609,6 +617,70 @@ export function TelemarketingDashboardContent({
                 })}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Ranking de Comparecimentos (only for supervisors) */}
+      {isSupervisor && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <PartyPopper className="w-5 h-5 text-green-500" />
+                Ranking de Comparecimentos
+              </CardTitle>
+              <Select value={comparecimentosPeriod} onValueChange={(v) => setComparecimentosPeriod(v as ComparecimentosPeriod)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Hoje</SelectItem>
+                  <SelectItem value="week">Semana</SelectItem>
+                  <SelectItem value="month">Mês</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isComparecimentosLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : comparecimentosRanking.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Nenhum comparecimento registrado no período</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Operador</TableHead>
+                    <TableHead className="text-center">Comparecimentos</TableHead>
+                    <TableHead className="text-center">% do Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {comparecimentosRanking.map((op, index) => {
+                    const totalComparecimentos = comparecimentosRanking.reduce((acc, curr) => acc + curr.total, 0);
+                    const percentage = totalComparecimentos > 0 ? ((op.total / totalComparecimentos) * 100).toFixed(1) : '0.0';
+                    return (
+                      <TableRow key={op.bitrix_telemarketing_id}>
+                        <TableCell>
+                          {index === 0 && <Badge className="bg-yellow-500">🥇</Badge>}
+                          {index === 1 && <Badge className="bg-gray-400">🥈</Badge>}
+                          {index === 2 && <Badge className="bg-orange-600">🥉</Badge>}
+                          {index > 2 && <span className="text-muted-foreground">{index + 1}</span>}
+                        </TableCell>
+                        <TableCell className="font-medium">{op.operator_name}</TableCell>
+                        <TableCell className="text-center text-green-600 font-bold">{op.total}</TableCell>
+                        <TableCell className="text-center">{percentage}%</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       )}

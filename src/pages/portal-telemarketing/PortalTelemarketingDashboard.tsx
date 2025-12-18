@@ -1,9 +1,15 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ArrowLeft } from 'lucide-react';
 import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { TelemarketingDashboardContent } from '@/components/portal-telemarketing/TelemarketingDashboardContent';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
+import { CelebrationOverlay } from '@/components/telemarketing/CelebrationOverlay';
+import { supabase } from '@/integrations/supabase/client';
+import { TelemarketingNotification } from '@/hooks/useTelemarketingNotifications';
+import { useComparecimentosRanking } from '@/hooks/useComparecimentosRanking';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -21,6 +27,13 @@ type StoredTelemarketingOperator = {
 const PortalTelemarketingDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Estado para celebração
+  const [celebration, setCelebration] = useState({
+    open: false,
+    clientName: '',
+    projectName: ''
+  });
 
   // Inicialização SÍNCRONA - lê do localStorage no primeiro render
   const context = (() => {
@@ -49,6 +62,47 @@ const PortalTelemarketingDashboard = () => {
       return null;
     }
   })();
+
+  // Hook de ranking de comparecimentos
+  const { position: comparecimentosPosition, total: totalComparecimentos } = useComparecimentosRanking(
+    context?.bitrix_id || null,
+    'today'
+  );
+
+  // Listener de realtime para celebração
+  useEffect(() => {
+    if (!context?.bitrix_id) return;
+
+    const channel = supabase
+      .channel(`dashboard-celebration-${context.bitrix_id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'telemarketing_notifications',
+          filter: `bitrix_telemarketing_id=eq.${context.bitrix_id}`,
+        },
+        (payload) => {
+          const notification = payload.new as TelemarketingNotification;
+          
+          // Se for notificação de cliente compareceu, mostrar celebração
+          if (notification.type === 'cliente_compareceu') {
+            console.log('🎉 [Dashboard] Cliente compareceu! Mostrando celebração:', notification);
+            setCelebration({
+              open: true,
+              clientName: (notification.metadata?.nome_modelo as string) || 'Cliente',
+              projectName: (notification.metadata?.projeto as string) || ''
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [context?.bitrix_id]);
 
   // Se não tem contexto, redireciona para login
   if (!context) {
@@ -114,6 +168,16 @@ const PortalTelemarketingDashboard = () => {
             </span>
           </div>
         </div>
+        
+        {/* Centro: Badge de Comparecimentos */}
+        <div className="flex-1 flex justify-center">
+          {comparecimentosPosition > 0 && (
+            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+              🎉 {comparecimentosPosition}° em comparecimentos ({totalComparecimentos} clientes)
+            </Badge>
+          )}
+        </div>
+        
         <ThemeSelector />
       </header>
 
@@ -124,6 +188,14 @@ const PortalTelemarketingDashboard = () => {
           operatorCargo={context.cargo}
         />
       </div>
+
+      {/* Overlay de Celebração */}
+      <CelebrationOverlay
+        open={celebration.open}
+        onClose={() => setCelebration(prev => ({ ...prev, open: false }))}
+        clientName={celebration.clientName}
+        projectName={celebration.projectName}
+      />
     </div>
   );
 };
