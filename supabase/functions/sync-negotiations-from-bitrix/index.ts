@@ -207,6 +207,13 @@ serve(async (req) => {
           .maybeSingle();
 
         if (existingNegotiationByBitrix) {
+          // SEMPRE atualizar o deal primeiro com o stage atual do Bitrix
+          await upsertDeal(supabase, deal, bitrixDealId, clientName, clientPhone, clientEmail);
+          
+          // Verificar se o status mudou
+          const oldStatus = existingNegotiationByBitrix.status;
+          const statusChanged = oldStatus !== negotiationStatus;
+          
           // Atualizar negociação existente (encontrada por bitrix_deal_id)
           const updateData: Record<string, any> = {
             status: negotiationStatus,
@@ -231,11 +238,12 @@ serve(async (req) => {
             results.errors++;
           } else {
             results.updated++;
-            console.log(`✅ Negociação atualizada: ${existingNegotiationByBitrix.id} (${existingNegotiationByBitrix.status} → ${negotiationStatus})`);
+            if (statusChanged) {
+              console.log(`✅ Negociação atualizada: ${existingNegotiationByBitrix.id} (${oldStatus} → ${negotiationStatus}) [stage: ${deal.STAGE_ID}]`);
+            } else {
+              console.log(`✅ Negociação mantida: ${existingNegotiationByBitrix.id} (status: ${negotiationStatus}) [stage: ${deal.STAGE_ID}]`);
+            }
           }
-
-          // Também atualizar/criar o deal se necessário
-          await upsertDeal(supabase, deal, bitrixDealId, clientName, clientPhone, clientEmail);
 
           results.details.push({
             bitrix_deal_id: deal.ID,
