@@ -1,7 +1,7 @@
 // Agenciamento (Negotiations) Main Page
-// Complete negotiation management interface
+// Complete negotiation management interface with Bitrix realtime sync
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,6 +37,7 @@ import {
   LayoutGrid,
   List as ListIcon,
   Kanban,
+  RefreshCw,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -65,6 +66,7 @@ import { AgenciamentoDashboard } from '@/components/agenciamento/AgenciamentoDas
 import { CommercialProjectSelector } from '@/components/CommercialProjectSelector';
 import { MainLayout } from '@/components/layouts/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
 
 type ViewMode = 'pipeline' | 'grid' | 'list';
 
@@ -77,8 +79,90 @@ export default function Agenciamento() {
   const [viewMode, setViewMode] = useState<ViewMode>('pipeline');
   const [commercialProjectId, setCommercialProjectId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'pipeline' | 'dashboard'>('pipeline');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const queryClient = useQueryClient();
+
+  // Realtime listener para atualizações do Bitrix
+  useEffect(() => {
+    console.log('📡 Configurando listener realtime para negotiations...');
+    
+    const channel = supabase
+      .channel('negotiations-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'negotiations'
+        },
+        (payload) => {
+          console.log('📥 Evento realtime recebido:', payload.eventType, payload);
+          
+          // Invalidar cache para recarregar dados
+          queryClient.invalidateQueries({ queryKey: ['negotiations'] });
+          
+          // Mostrar toast de atualização
+          if (payload.eventType === 'UPDATE') {
+            const newData = payload.new as any;
+            toast.info(`Negociação "${newData?.title || 'atualizada'}" sincronizada do Bitrix`, {
+              duration: 3000,
+            });
+          } else if (payload.eventType === 'INSERT') {
+            const newData = payload.new as any;
+            toast.success(`Nova negociação "${newData?.title || ''}" recebida do Bitrix`, {
+              duration: 3000,
+            });
+          } else if (payload.eventType === 'DELETE') {
+            toast.warning('Negociação removida', {
+              duration: 3000,
+            });
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Status do canal realtime:', status);
+      });
+
+    return () => {
+      console.log('📡 Removendo listener realtime...');
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  // Sync from Bitrix mutation
+  const syncFromBitrixMutation = useMutation({
+    mutationFn: async () => {
+      const response = await supabase.functions.invoke('sync-negotiations-from-bitrix', {
+        body: {
+          stage_ids: ['C1:UC_MKIQ0S', 'C1:NEW', 'C1:UC_O2KDK6'], // atendimento_produtor, inicial, ficha_preenchida
+          limit: 100,
+        }
+      });
+      
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+      
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['negotiations'] });
+      toast.success(`Sincronização concluída: ${data.created} criadas, ${data.updated} atualizadas`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Erro ao sincronizar do Bitrix');
+    },
+  });
+
+  const handleSyncFromBitrix = async () => {
+    setIsSyncing(true);
+    try {
+      await syncFromBitrixMutation.mutateAsync();
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Fetch negotiations
   const { data: negotiations = [], isLoading } = useQuery({
@@ -192,10 +276,20 @@ export default function Agenciamento() {
       title="Agenciamento"
       subtitle="Gerencie negociações comerciais"
       actions={
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Negociação
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleSyncFromBitrix}
+            disabled={isSyncing || syncFromBitrixMutation.isPending}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            Sincronizar do Bitrix
+          </Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nova Negociação
+          </Button>
+        </div>
       }
     >
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pipeline' | 'dashboard')} className="space-y-6">
