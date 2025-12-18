@@ -2,8 +2,9 @@
 // Complete type definitions for commercial negotiations
 
 export type NegotiationStatus =
-  | 'inicial'
   | 'ficha_preenchida'
+  | 'contrato_nao_fechado'
+  | 'analisar'
   | 'atendimento_produtor'
   | 'realizado'
   | 'nao_realizado';
@@ -247,16 +248,17 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   other: 'Outro',
 };
 
-// Status labels with colors
+// Status labels with colors (alinhado com Bitrix - Categoria 1 Pinheiros)
 export const NEGOTIATION_STATUS_CONFIG: Record<
   NegotiationStatus,
   { label: string; color: string; icon?: string }
 > = {
-  inicial: { label: 'Inicial', color: 'gray' },
   ficha_preenchida: { label: 'Ficha Preenchida', color: 'blue' },
+  contrato_nao_fechado: { label: 'Contrato não fechado', color: 'orange' },
+  analisar: { label: 'Analisar', color: 'purple' },
   atendimento_produtor: { label: 'Atendimento Produtor', color: 'amber' },
-  realizado: { label: 'Realizado', color: 'green' },
-  nao_realizado: { label: 'Não Realizado', color: 'red' },
+  realizado: { label: 'Negócios Fechados', color: 'green' },
+  nao_realizado: { label: 'Anulados', color: 'red' },
 };
 
 // Payment frequency labels

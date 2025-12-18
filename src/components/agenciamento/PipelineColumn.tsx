@@ -14,8 +14,9 @@ interface PipelineColumnProps {
 }
 
 const COLUMN_COLORS: Record<NegotiationStatus, { bg: string; border: string }> = {
-  inicial: { bg: 'bg-slate-50', border: 'border-slate-300' },
   ficha_preenchida: { bg: 'bg-blue-50', border: 'border-blue-300' },
+  contrato_nao_fechado: { bg: 'bg-orange-50', border: 'border-orange-300' },
+  analisar: { bg: 'bg-purple-50', border: 'border-purple-300' },
   atendimento_produtor: { bg: 'bg-amber-50', border: 'border-amber-300' },
   realizado: { bg: 'bg-green-50', border: 'border-green-300' },
   nao_realizado: { bg: 'bg-red-50', border: 'border-red-300' },

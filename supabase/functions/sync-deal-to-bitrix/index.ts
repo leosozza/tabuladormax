@@ -7,13 +7,14 @@ const corsHeaders = {
 
 const BITRIX_WEBHOOK_URL = 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr'
 
-// Map negotiation status to Bitrix deal stage
+// Map negotiation status to Bitrix deal stage (Categoria 1 - Pinheiros)
 const STATUS_TO_STAGE: Record<string, string> = {
-  inicial: 'NEW',
-  ficha_preenchida: 'PREPARATION',
-  atendimento_produtor: 'PREPAYMENT_INVOICE',
-  realizado: 'WON',
-  nao_realizado: 'LOSE',
+  ficha_preenchida: 'C1:NEW',
+  contrato_nao_fechado: 'C1:UC_3KJOIF',
+  analisar: 'C1:UC_0SXJB5',
+  atendimento_produtor: 'C1:UC_MKIQ0S',
+  realizado: 'C1:WON',
+  nao_realizado: 'C1:LOSE',
 }
 
 Deno.serve(async (req) => {

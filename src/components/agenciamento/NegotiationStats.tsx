@@ -14,8 +14,9 @@ export function NegotiationStats({ negotiations }: NegotiationStatsProps) {
   const stats = {
     total: negotiations.length,
     totalValue: negotiations.reduce((sum, n) => sum + n.total_value, 0),
-    inicial: negotiations.filter((n) => n.status === 'inicial').length,
     fichaPreenchida: negotiations.filter((n) => n.status === 'ficha_preenchida').length,
+    contratoNaoFechado: negotiations.filter((n) => n.status === 'contrato_nao_fechado').length,
+    analisar: negotiations.filter((n) => n.status === 'analisar').length,
     atendimentoProdutor: negotiations.filter((n) => n.status === 'atendimento_produtor').length,
     realizado: negotiations.filter((n) => n.status === 'realizado').length,
     naoRealizado: negotiations.filter((n) => n.status === 'nao_realizado').length,
@@ -39,10 +40,22 @@ export function NegotiationStats({ negotiations }: NegotiationStatsProps) {
       color: 'text-green-600',
     },
     {
-      title: 'Inicial',
-      value: stats.inicial,
+      title: 'Ficha Preenchida',
+      value: stats.fichaPreenchida,
       icon: Clock,
-      color: 'text-slate-600',
+      color: 'text-blue-600',
+    },
+    {
+      title: 'Contrato não fechado',
+      value: stats.contratoNaoFechado,
+      icon: Clock,
+      color: 'text-orange-600',
+    },
+    {
+      title: 'Analisar',
+      value: stats.analisar,
+      icon: Clock,
+      color: 'text-purple-600',
     },
     {
       title: 'Atendimento Produtor',
@@ -51,13 +64,13 @@ export function NegotiationStats({ negotiations }: NegotiationStatsProps) {
       color: 'text-amber-600',
     },
     {
-      title: 'Realizados',
+      title: 'Negócios Fechados',
       value: stats.realizado,
       icon: CheckCircle,
       color: 'text-green-600',
     },
     {
-      title: 'Não Realizados',
+      title: 'Anulados',
       value: stats.naoRealizado,
       icon: Clock,
       color: 'text-red-600',
@@ -65,7 +78,7 @@ export function NegotiationStats({ negotiations }: NegotiationStatsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
       {cards.map((card, index) => {
         const Icon = card.icon;
         return (

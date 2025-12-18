@@ -39,8 +39,9 @@ export function AgenciamentoDashboard({ negotiations }: AgenciamentoDashboardPro
   }, [negotiations]);
 
   const funnelStages: NegotiationStatus[] = [
-    'inicial',
     'ficha_preenchida',
+    'contrato_nao_fechado',
+    'analisar',
     'atendimento_produtor',
     'realizado',
   ];
@@ -154,8 +155,9 @@ export function AgenciamentoDashboard({ negotiations }: AgenciamentoDashboardPro
                     <div className="h-8 bg-muted rounded-md overflow-hidden">
                       <div
                         className={`h-full transition-all duration-500 flex items-center justify-center text-xs font-medium ${
-                          status === 'inicial' ? 'bg-slate-500' :
                           status === 'ficha_preenchida' ? 'bg-blue-500' :
+                          status === 'contrato_nao_fechado' ? 'bg-orange-500' :
+                          status === 'analisar' ? 'bg-purple-500' :
                           status === 'atendimento_produtor' ? 'bg-amber-500' :
                           'bg-green-500'
                         } text-white`}
@@ -192,8 +194,9 @@ export function AgenciamentoDashboard({ negotiations }: AgenciamentoDashboardPro
                     <div className="flex items-center gap-3">
                       <div
                         className={`p-2 rounded-full ${
-                          status === 'inicial' ? 'bg-slate-100 text-slate-600' :
                           status === 'ficha_preenchida' ? 'bg-blue-100 text-blue-600' :
+                          status === 'contrato_nao_fechado' ? 'bg-orange-100 text-orange-600' :
+                          status === 'analisar' ? 'bg-purple-100 text-purple-600' :
                           status === 'atendimento_produtor' ? 'bg-amber-100 text-amber-600' :
                           status === 'realizado' ? 'bg-green-100 text-green-600' :
                           'bg-red-100 text-red-600'

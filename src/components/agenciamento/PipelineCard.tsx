@@ -19,8 +19,9 @@ interface PipelineCardProps {
 }
 
 const STATUS_COLORS: Record<NegotiationStatus, string> = {
-  inicial: 'border-l-slate-500',
   ficha_preenchida: 'border-l-blue-500',
+  contrato_nao_fechado: 'border-l-orange-500',
+  analisar: 'border-l-purple-500',
   atendimento_produtor: 'border-l-amber-500',
   realizado: 'border-l-green-500',
   nao_realizado: 'border-l-red-500',
@@ -116,20 +117,29 @@ export function PipelineCard({ negotiation, onClick, onChangeStatus }: PipelineC
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();
-                  onChangeStatus('inicial');
-                }}
-                disabled={negotiation.status === 'inicial'}
-              >
-                Inicial
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
                   onChangeStatus('ficha_preenchida');
                 }}
                 disabled={negotiation.status === 'ficha_preenchida'}
               >
                 Ficha Preenchida
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChangeStatus('contrato_nao_fechado');
+                }}
+                disabled={negotiation.status === 'contrato_nao_fechado'}
+              >
+                Contrato não fechado
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChangeStatus('analisar');
+                }}
+                disabled={negotiation.status === 'analisar'}
+              >
+                Analisar
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={(e) => {
@@ -147,7 +157,7 @@ export function PipelineCard({ negotiation, onClick, onChangeStatus }: PipelineC
                 }}
                 disabled={negotiation.status === 'realizado'}
               >
-                Realizado
+                Negócios Fechados
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={(e) => {
@@ -156,7 +166,7 @@ export function PipelineCard({ negotiation, onClick, onChangeStatus }: PipelineC
                 }}
                 disabled={negotiation.status === 'nao_realizado'}
               >
-                Não Realizado
+                Anulados
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
