@@ -179,8 +179,8 @@ export function useTelemarketingMetrics(
       let comparecimentosQuery = supabase
         .from('leads')
         .select('id, name, nome_modelo, scouter, telemarketing, bitrix_telemarketing_id, fonte_normalizada, raw')
-        .gte('date_modify', comparecimentosStartStr)
-        .lte('date_modify', endStr);
+        .gte('date_modify', comparecimentosStartStr);
+      // Não aplicamos .lte('date_modify', endStr) pois o lead pode ser modificado após a data de comparecimento.
 
       if (operatorId) {
         comparecimentosQuery = comparecimentosQuery.eq('bitrix_telemarketing_id', operatorId);
