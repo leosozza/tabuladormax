@@ -134,14 +134,22 @@ export default function Agenciamento() {
 
   // Sync from Bitrix mutation
   const syncFromBitrixMutation = useMutation({
-    mutationFn: async (fullSync: boolean = false) => {
+    mutationFn: async (mode: 'recent' | 'full' | 'active_only') => {
+      let body: Record<string, any> = {};
+      
+      if (mode === 'full') {
+        body = { full_sync: true };
+      } else if (mode === 'active_only') {
+        body = { sync_active_only: true };
+      } else {
+        body = {
+          stage_ids: ['C1:UC_MKIQ0S', 'C1:NEW', 'C1:UC_O2KDK6'],
+          limit: 100,
+        };
+      }
+      
       const response = await supabase.functions.invoke('sync-negotiations-from-bitrix', {
-        body: fullSync 
-          ? { full_sync: true }
-          : {
-              stage_ids: ['C1:UC_MKIQ0S', 'C1:NEW', 'C1:UC_O2KDK6'],
-              limit: 100,
-            }
+        body
       });
       
       if (response.error) {
@@ -152,22 +160,31 @@ export default function Agenciamento() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['negotiations'] });
-      toast.success(`Sincronização concluída: ${data.created} criadas, ${data.updated} atualizadas`);
+      
+      if (data.mode === 'sync_active_only') {
+        toast.success(`Status atualizado: ${data.updated} alterados, ${data.unchanged} sem mudança`);
+      } else {
+        toast.success(`Sincronização concluída: ${data.created} criadas, ${data.updated} atualizadas`);
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Erro ao sincronizar do Bitrix');
     },
   });
 
-  const handleSyncFromBitrix = async (fullSync: boolean = false) => {
+  const handleSyncFromBitrix = async (mode: 'recent' | 'full' | 'active_only') => {
     setIsSyncing(true);
     try {
-      if (fullSync) {
+      if (mode === 'full') {
         toast.info('Iniciando sincronização COMPLETA... Isso pode levar alguns minutos.', {
           duration: 5000,
         });
+      } else if (mode === 'active_only') {
+        toast.info('Verificando status das negociações ativas no Bitrix...', {
+          duration: 3000,
+        });
       }
-      await syncFromBitrixMutation.mutateAsync(fullSync);
+      await syncFromBitrixMutation.mutateAsync(mode);
     } finally {
       setIsSyncing(false);
     }
@@ -298,12 +315,17 @@ export default function Agenciamento() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleSyncFromBitrix(false)}>
+              <DropdownMenuItem onClick={() => handleSyncFromBitrix('active_only')}>
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Sincronizar Recentes
+                Atualizar Status dos Ativos
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleSyncFromBitrix(true)}>
+              <DropdownMenuItem onClick={() => handleSyncFromBitrix('recent')}>
+                <Plus className="mr-2 h-4 w-4" />
+                Importar Novos do Bitrix
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleSyncFromBitrix('full')}>
                 <AlertCircle className="mr-2 h-4 w-4 text-amber-500" />
                 Sincronização COMPLETA
               </DropdownMenuItem>

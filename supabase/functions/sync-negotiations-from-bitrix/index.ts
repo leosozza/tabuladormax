@@ -37,6 +37,7 @@ interface SyncRequest {
   limit?: number;
   full_sync?: boolean;  // Sincroniza TODOS os deals da categoria
   sync_all?: boolean;   // Alias para full_sync (backwards compat)
+  sync_active_only?: boolean; // Modo inverso: busca negotiations ativas e verifica no Bitrix
 }
 
 interface BitrixDeal {
@@ -72,16 +73,9 @@ serve(async (req) => {
       status,
       limit: requestedLimit,
       full_sync = false,
-      sync_all = false 
+      sync_all = false,
+      sync_active_only = false
     } = body;
-
-    // full_sync ou sync_all ativa sincronização completa
-    const isFullSync = full_sync || sync_all;
-    
-    // Se full_sync, não limita. Caso contrário, usa limite (default 100)
-    const limit = isFullSync ? 999999 : (requestedLimit || 100);
-
-    console.log('📝 Parâmetros:', { stage_ids, status, limit, isFullSync });
 
     // Conectar ao Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -91,6 +85,144 @@ serve(async (req) => {
     // Configuração do Bitrix
     const bitrixDomain = 'maxsystem.bitrix24.com.br';
     const bitrixToken = Deno.env.get('BITRIX_REST_TOKEN') || '7/338m945lx9ifjjnr';
+
+    // ========== MODO SYNC_ACTIVE_ONLY ==========
+    // Busca negotiations locais com status ativo e verifica o stage atual no Bitrix
+    if (sync_active_only) {
+      console.log('🔄 [MODO SYNC_ACTIVE_ONLY] Buscando negotiations ativas locais...');
+      
+      const activeStatuses = ['inicial', 'ficha_preenchida', 'atendimento_produtor'];
+      
+      // Buscar todas as negotiations ativas que têm bitrix_deal_id
+      const { data: activeNegotiations, error: fetchError } = await supabase
+        .from('negotiations')
+        .select('id, bitrix_deal_id, status, title')
+        .in('status', activeStatuses)
+        .not('bitrix_deal_id', 'is', null);
+      
+      if (fetchError) {
+        throw new Error(`Erro ao buscar negotiations ativas: ${fetchError.message}`);
+      }
+
+      console.log(`📋 Encontradas ${activeNegotiations?.length || 0} negotiations ativas com bitrix_deal_id`);
+
+      const results = {
+        total: activeNegotiations?.length || 0,
+        updated: 0,
+        unchanged: 0,
+        errors: 0,
+        details: [] as any[],
+      };
+
+      // Para cada negotiation ativa, consultar o Bitrix
+      for (const neg of activeNegotiations || []) {
+        try {
+          // Consultar deal no Bitrix
+          const bitrixUrl = `https://${bitrixDomain}/rest/${bitrixToken}/crm.deal.get?ID=${neg.bitrix_deal_id}`;
+          const response = await fetch(bitrixUrl);
+          const data = await response.json();
+
+          if (!data.result) {
+            console.warn(`⚠️ Deal ${neg.bitrix_deal_id} não encontrado no Bitrix`);
+            results.errors++;
+            results.details.push({
+              negotiation_id: neg.id,
+              bitrix_deal_id: neg.bitrix_deal_id,
+              error: 'Deal não encontrado no Bitrix',
+            });
+            continue;
+          }
+
+          const deal = data.result;
+          const currentBitrixStage = deal.STAGE_ID;
+          const newStatus = BITRIX_STAGE_TO_STATUS[currentBitrixStage] || 'inicial';
+          const oldStatus = neg.status;
+
+          // Atualizar deal local com o stage atual
+          await supabase
+            .from('deals')
+            .update({
+              stage_id: currentBitrixStage,
+              date_modify: deal.DATE_MODIFY ? new Date(deal.DATE_MODIFY).toISOString() : null,
+              last_sync_at: new Date().toISOString(),
+            })
+            .eq('bitrix_deal_id', neg.bitrix_deal_id);
+
+          // Verificar se o status mudou
+          if (oldStatus !== newStatus) {
+            // Atualizar a negotiation
+            const { error: updateError } = await supabase
+              .from('negotiations')
+              .update({
+                status: newStatus,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', neg.id);
+
+            if (updateError) {
+              console.error(`❌ Erro ao atualizar negotiation ${neg.id}:`, updateError);
+              results.errors++;
+            } else {
+              results.updated++;
+              console.log(`✅ ${neg.title}: ${oldStatus} → ${newStatus} [stage: ${currentBitrixStage}]`);
+            }
+
+            results.details.push({
+              negotiation_id: neg.id,
+              bitrix_deal_id: neg.bitrix_deal_id,
+              title: neg.title,
+              old_status: oldStatus,
+              new_status: newStatus,
+              bitrix_stage: currentBitrixStage,
+              changed: true,
+            });
+          } else {
+            results.unchanged++;
+            console.log(`⏭️ ${neg.title}: mantido em ${oldStatus} [stage: ${currentBitrixStage}]`);
+            
+            results.details.push({
+              negotiation_id: neg.id,
+              bitrix_deal_id: neg.bitrix_deal_id,
+              title: neg.title,
+              status: oldStatus,
+              bitrix_stage: currentBitrixStage,
+              changed: false,
+            });
+          }
+        } catch (error) {
+          console.error(`❌ Erro ao processar negotiation ${neg.id}:`, error);
+          results.errors++;
+          results.details.push({
+            negotiation_id: neg.id,
+            bitrix_deal_id: neg.bitrix_deal_id,
+            error: String(error),
+          });
+        }
+      }
+
+      const processingTime = Date.now() - startTime;
+      console.log(`\n✅ [sync_active_only] Concluído em ${processingTime}ms`);
+      console.log(`📊 Resultados: ${results.updated} atualizados, ${results.unchanged} sem mudança, ${results.errors} erros`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          mode: 'sync_active_only',
+          ...results,
+          processingTime,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== MODO PADRÃO (buscar do Bitrix) ==========
+    // full_sync ou sync_all ativa sincronização completa
+    const isFullSync = full_sync || sync_all;
+    
+    // Se full_sync, não limita. Caso contrário, usa limite (default 100)
+    const limit = isFullSync ? 999999 : (requestedLimit || 100);
+
+    console.log('📝 Parâmetros:', { stage_ids, status, limit, isFullSync });
 
     // Buscar deals do Bitrix
     const deals: BitrixDeal[] = [];
