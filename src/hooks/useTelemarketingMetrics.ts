@@ -172,14 +172,13 @@ export function useTelemarketingMetrics(
         query = query.eq('bitrix_telemarketing_id', operatorId);
       }
 
-      // Separate query for comparecimentos - filter directly in DB for efficiency
-      // Uses contains filter to check UF_CRM_1746816298253 = '1' (presença confirmada)
+      // Query para comparecimentos - busca por UF_CRM_DATACOMPARECEU (data real de comparecimento)
+      // INDEPENDENTE de presença confirmada ou etapa atual
+      // Não filtramos por data aqui pois é um campo JSONB - filtramos no JavaScript
       let comparecimentosQuery = supabase
         .from('leads')
         .select('id, name, nome_modelo, scouter, telemarketing, bitrix_telemarketing_id, fonte_normalizada, raw')
-        .gte('date_modify', startStr)
-        .lte('date_modify', endStr)
-        .contains('raw', { UF_CRM_1746816298253: '1' });
+        .not('raw->UF_CRM_DATACOMPARECEU', 'is', null);
 
       if (operatorId) {
         comparecimentosQuery = comparecimentosQuery.eq('bitrix_telemarketing_id', operatorId);
@@ -261,13 +260,9 @@ export function useTelemarketingMetrics(
         })
         .sort((a, b) => a.data.localeCompare(b.data));
 
-      // Calculate comparecimentos (UF_CRM_1746816298253 = '1' means attended)
-      // Use UF_CRM_DATACOMPARECEU for the attendance date
-      // Uses allLeadsForComparecimentos which includes leads without bitrix_telemarketing_id
+      // Calculate comparecimentos por UF_CRM_DATACOMPARECEU (data real de comparecimento)
+      // INDEPENDENTE de presença confirmada (UF_CRM_1746816298253) ou etapa atual
       const comparecimentosLeads = allLeadsForComparecimentos.filter(lead => {
-        const presencaConfirmada = getRawField(lead.raw, 'UF_CRM_1746816298253');
-        if (presencaConfirmada !== '1') return false;
-        
         // Check if UF_CRM_DATACOMPARECEU is within the period
         const dataCompareceu = getRawField(lead.raw, 'UF_CRM_DATACOMPARECEU');
         if (!dataCompareceu) return false;
