@@ -289,6 +289,25 @@ const LeadTab = () => {
   const [savingObservacao, setSavingObservacao] = useState(false);
   const [observacoesExpanded, setObservacoesExpanded] = useState(false);
 
+  // Abrir WhatsApp automaticamente quando vier da notificação
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const shouldOpenWhatsApp = searchParams.get('openWhatsApp') === 'true';
+    
+    // Se deve abrir o WhatsApp e já tem dados do lead carregados
+    if (shouldOpenWhatsApp && chatwootData) {
+      // Abrir o modal
+      setWhatsappGupshupOpen(true);
+      
+      // Remover o parâmetro da URL para não reabrir no refresh
+      searchParams.delete('openWhatsApp');
+      const newUrl = searchParams.toString() 
+        ? `${location.pathname}?${searchParams.toString()}`
+        : location.pathname;
+      navigate(newUrl, { replace: true });
+    }
+  }, [chatwootData, location.search, location.pathname, navigate]);
+
   // Query para field mappings
   const {
     data: fieldMappings = [],
