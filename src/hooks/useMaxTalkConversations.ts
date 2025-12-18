@@ -143,66 +143,20 @@ export function useMaxTalkConversations() {
     }
   }, [user]);
 
-  // Create private conversation
+  // Create private conversation (using atomic RPC to avoid duplicates)
   const createPrivateConversation = async (otherUserId: string) => {
     if (!user) return null;
 
     try {
-      // Check if private conversation already exists
-      const { data: existingMembers } = await supabase
-        .from('maxtalk_conversation_members')
-        .select('conversation_id')
-        .eq('user_id', user.id);
+      const { data, error } = await supabase.rpc('get_or_create_private_conversation', {
+        p_user_id: user.id,
+        p_other_user_id: otherUserId
+      });
 
-      if (existingMembers) {
-        for (const member of existingMembers) {
-          const { data: otherExists } = await supabase
-            .from('maxtalk_conversation_members')
-            .select('conversation_id')
-            .eq('conversation_id', member.conversation_id)
-            .eq('user_id', otherUserId)
-            .single();
-
-          if (otherExists) {
-            // Check if it's a private conversation
-            const { data: conv } = await supabase
-              .from('maxtalk_conversations')
-              .select('*')
-              .eq('id', member.conversation_id)
-              .eq('type', 'private')
-              .single();
-
-            if (conv) {
-              return conv.id;
-            }
-          }
-        }
-      }
-
-      // Create new private conversation
-      const { data: newConv, error: convError } = await supabase
-        .from('maxtalk_conversations')
-        .insert({
-          type: 'private',
-          created_by: user.id
-        })
-        .select()
-        .single();
-
-      if (convError) throw convError;
-
-      // Add both members
-      const { error: membersError } = await supabase
-        .from('maxtalk_conversation_members')
-        .insert([
-          { conversation_id: newConv.id, user_id: user.id, role: 'admin' },
-          { conversation_id: newConv.id, user_id: otherUserId, role: 'member' }
-        ]);
-
-      if (membersError) throw membersError;
+      if (error) throw error;
 
       await fetchConversations();
-      return newConv.id;
+      return data; // UUID da conversa (existente ou nova)
     } catch (error) {
       console.error('Error creating private conversation:', error);
       toast.error('Erro ao criar conversa');
