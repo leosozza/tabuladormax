@@ -7,7 +7,7 @@ export interface TelemarketingNotification {
   id: string;
   bitrix_telemarketing_id: number;
   commercial_project_id: string | null;
-  type: 'new_message' | 'bot_transfer' | 'urgent' | 'window_closing';
+  type: 'new_message' | 'bot_transfer' | 'urgent' | 'window_closing' | 'cliente_compareceu';
   title: string;
   message: string | null;
   lead_id: number | null;
@@ -15,7 +15,11 @@ export interface TelemarketingNotification {
   conversation_id: number | null;
   is_read: boolean;
   read_at: string | null;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, unknown> & {
+    nome_modelo?: string;
+    projeto?: string;
+    data_agendamento?: string;
+  };
   created_at: string;
 }
 
@@ -158,6 +162,8 @@ export const useNotificationSound = () => {
         bot_transfer: 'data:audio/wav;base64,UklGRl9EAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YTtEAAD//wEAAQABAP//AQABAP//AQD//wEA//8BAP//AQD//wEAAQD//wEA//8BAAEA//8BAAEA//8BAAIAAQACAAIAAQACAAEAAQABAP//AQABAP//AQABAP//AQD//wEAAQD//wEA//8BAP//AQD//wEA//8BAAEA//8BAAEA//8BAAIAAQACAAIAAQACAAEAAQABAP//AQABAP//AQABAP//AQD//wEAAQD//wEA//8BAP//AQD//wEA//8BAAEA//8BAAEA//8BAAIA',
         urgent: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDdUVGBq0+dUVGBqvJlzWSQ8W4aes5hqR0BYe5u0qH9jUktpjq62pXFRQERwlrOyooJdUEdsmrKvmXZWS0Vsm7OvnXtbT0humrKsmXRTSEJmla+qkmlMPkBciaeicE8/OkpcgZqjdE0/OUZYfJSfcEg7N0NUeI6ZakMzMz9Qc4mUY0AwLjpLb4OQXzosKjZHaH2LWjYnJjJDYniFVDIkIy4+XHN/TiwfHik4VWp5RiYaGSQxT2NyPiEUFR8qRVtqNxwPEhsgPVJjLhgMDhcbNklZJxQJCxMXL0FQIQ8GCA8TJzlFGwsEBQsQHzE8FAgCAggNGCk0EQUBAgYKEyItDAMAAQQIDxokCAIAAQMGCxQdBQEAAQIECA8XAwAAAQEDBgsPAQAAAQECBAcLAQAAAQEBAwYIAQAAAQEBAgQGAQAAAQEBAgMEAQAAAQEBAQMDAQAAAQEBAQICAQAAAQEBAQEBAQAAAAEBAQEBAQAAAAEBAQEBAQAAAAEBAQEBAQAAAAEBAQEBAQAAAAAAAAEBAQAAAAAAAAEBAQ==',
         window_closing: 'data:audio/wav;base64,UklGRl9EAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YTtEAAD//wEAAQABAP//AQABAP//AQD//wEA//8BAP//AQD//wEAAQD//wEA//8BAAEA//8BAAEA//8BAAIAAQACAAIAAQACAAEAAQABAP//AQABAP//AQABAP//AQD//wEAAQD//wEA//8BAP//AQD//wEA//8BAAEA//8BAAEA//8BAAIAAQACAAIAAQACAAEAAQABAP//AQABAP//AQABAP//AQD//wEAAQD//wEA//8BAP//AQD//wEA//8BAAEA//8BAAEA//8BAAIA',
+        // Som de celebração/fanfarra para cliente compareceu
+        cliente_compareceu: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDdUVGBq0+dUVGBqvJlzWSQ8W4aes5hqR0BYe5u0qH9jUktpjq62pXFRQERwlrOyooJdUEdsmrKvmXZWS0Vsm7OvnXtbT0humrKsmXRTSEJmla+qkmlMPkBciaeicE8/OkpcgZqjdE0/OUZYfJSfcEg7N0NUeI6ZakMzMz9Qc4mUY0AwLjpLb4OQXzosKjZHaH2LWjYnJjJDYniFVDIkIy4+XHN/TiwfHik4VWp5RiYaGSQxT2NyPiEUFR8qRVtqNxwPEhsgPVJjLhgMDhcbNklZJxQJCxMXL0FQIQ8GCA8TJzlFGwsEBQsQHzE8FAgCAggNGCk0EQUBAgYKEyItDAMAAQQIDxokCAIAAQMGCxQdBQEAAQIECA8XAwAAAQEDBgsPAQAAAQECBAcLAQAAAQEBAwYIAQAAAQEBAgQGAQAAAQEBAgMEAQAAAQEBAQMDAQAAAQEBAQICAQAAAQEBAQEBAQAAAAEBAQEBAQAAAAEBAQEBAQAAAAEBAQEBAQAAAAEBAQEBAQAAAAAAAAEBAQAAAAAAAAEBAQ==',
       };
 
       audioRef.current.src = soundMap[type] || soundMap.new_message;
@@ -282,7 +288,7 @@ export const useCreateNotification = () => {
     mutationFn: async (notification: {
       bitrix_telemarketing_id: number;
       commercial_project_id?: string | null;
-      type: 'new_message' | 'bot_transfer' | 'urgent' | 'window_closing';
+      type: 'new_message' | 'bot_transfer' | 'urgent' | 'window_closing' | 'cliente_compareceu';
       title: string;
       message?: string | null;
       lead_id?: number | null;

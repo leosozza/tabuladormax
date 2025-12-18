@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Check, CheckCheck, MessageSquare, Bot, AlertTriangle, Clock, X } from 'lucide-react';
+import { Bell, Check, CheckCheck, MessageSquare, Bot, AlertTriangle, Clock, X, PartyPopper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -34,6 +34,8 @@ const getNotificationIcon = (type: TelemarketingNotification['type']) => {
       return <AlertTriangle className="h-4 w-4 text-destructive" />;
     case 'window_closing':
       return <Clock className="h-4 w-4 text-yellow-500" />;
+    case 'cliente_compareceu':
+      return <PartyPopper className="h-4 w-4 text-green-500" />;
     default:
       return <Bell className="h-4 w-4" />;
   }
@@ -49,6 +51,8 @@ const getNotificationBg = (type: TelemarketingNotification['type'], isRead: bool
       return 'bg-orange-500/10 border-l-2 border-l-orange-500';
     case 'new_message':
       return 'bg-primary/10 border-l-2 border-l-primary';
+    case 'cliente_compareceu':
+      return 'bg-green-500/10 border-l-2 border-l-green-500';
     default:
       return 'bg-muted/50';
   }
