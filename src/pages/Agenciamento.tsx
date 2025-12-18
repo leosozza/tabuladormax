@@ -38,6 +38,8 @@ import {
   List as ListIcon,
   Kanban,
   RefreshCw,
+  AlertCircle,
+  ChevronDown,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -132,12 +134,14 @@ export default function Agenciamento() {
 
   // Sync from Bitrix mutation
   const syncFromBitrixMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (fullSync: boolean = false) => {
       const response = await supabase.functions.invoke('sync-negotiations-from-bitrix', {
-        body: {
-          stage_ids: ['C1:UC_MKIQ0S', 'C1:NEW', 'C1:UC_O2KDK6'], // atendimento_produtor, inicial, ficha_preenchida
-          limit: 100,
-        }
+        body: fullSync 
+          ? { full_sync: true }
+          : {
+              stage_ids: ['C1:UC_MKIQ0S', 'C1:NEW', 'C1:UC_O2KDK6'],
+              limit: 100,
+            }
       });
       
       if (response.error) {
@@ -155,10 +159,15 @@ export default function Agenciamento() {
     },
   });
 
-  const handleSyncFromBitrix = async () => {
+  const handleSyncFromBitrix = async (fullSync: boolean = false) => {
     setIsSyncing(true);
     try {
-      await syncFromBitrixMutation.mutateAsync();
+      if (fullSync) {
+        toast.info('Iniciando sincronização COMPLETA... Isso pode levar alguns minutos.', {
+          duration: 5000,
+        });
+      }
+      await syncFromBitrixMutation.mutateAsync(fullSync);
     } finally {
       setIsSyncing(false);
     }
@@ -277,14 +286,29 @@ export default function Agenciamento() {
       subtitle="Gerencie negociações comerciais"
       actions={
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={handleSyncFromBitrix}
-            disabled={isSyncing || syncFromBitrixMutation.isPending}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-            Sincronizar do Bitrix
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline" 
+                disabled={isSyncing || syncFromBitrixMutation.isPending}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                Sincronizar do Bitrix
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleSyncFromBitrix(false)}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Sincronizar Recentes
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleSyncFromBitrix(true)}>
+                <AlertCircle className="mr-2 h-4 w-4 text-amber-500" />
+                Sincronização COMPLETA
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Nova Negociação

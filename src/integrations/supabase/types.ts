@@ -4906,6 +4906,10 @@ export type Database = {
         Args: { conv_id: string; usr_id: string }
         Returns: boolean
       }
+      map_bitrix_stage_to_status: {
+        Args: { stage_id: string }
+        Returns: string
+      }
       normalize_etapa: { Args: { raw_etapa: string }; Returns: string }
       normalize_etapa_single_batch: {
         Args: { p_batch_size?: number }

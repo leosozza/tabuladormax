@@ -32,10 +32,11 @@ const BITRIX_STAGE_TO_STATUS: Record<string, string> = {
 };
 
 interface SyncRequest {
-  stage_ids?: string[];  // Ex: ['C1:UC_MKIQ0S'] para atendimento_produtor
-  status?: string;       // Filtrar por status específico
+  stage_ids?: string[];
+  status?: string;
   limit?: number;
-  sync_all?: boolean;    // Sincronizar todos os deals da categoria
+  full_sync?: boolean;  // Sincroniza TODOS os deals da categoria
+  sync_all?: boolean;   // Alias para full_sync (backwards compat)
 }
 
 interface BitrixDeal {
@@ -67,13 +68,20 @@ serve(async (req) => {
   try {
     const body: SyncRequest = await req.json().catch(() => ({}));
     const { 
-      stage_ids = ['C1:UC_MKIQ0S'], // Default: atendimento_produtor
+      stage_ids = [],
       status,
-      limit = 100,
+      limit: requestedLimit,
+      full_sync = false,
       sync_all = false 
     } = body;
 
-    console.log('📝 Parâmetros:', { stage_ids, status, limit, sync_all });
+    // full_sync ou sync_all ativa sincronização completa
+    const isFullSync = full_sync || sync_all;
+    
+    // Se full_sync, não limita. Caso contrário, usa limite (default 100)
+    const limit = isFullSync ? 999999 : (requestedLimit || 100);
+
+    console.log('📝 Parâmetros:', { stage_ids, status, limit, isFullSync });
 
     // Conectar ao Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -94,12 +102,14 @@ serve(async (req) => {
       'CATEGORY_ID': 1, // Categoria Agenciamento
     };
 
-    if (!sync_all && stage_ids.length > 0) {
+    // Se não é full_sync e tem stage_ids específicos, aplica filtro
+    if (!isFullSync && stage_ids.length > 0) {
       filters['STAGE_ID'] = stage_ids;
     }
 
     console.log('🔍 Buscando deals do Bitrix com filtros:', filters);
 
+    // Paginação completa para buscar todos os deals
     while (deals.length < limit) {
       const filterParams = new URLSearchParams();
       filterParams.append('start', String(start));
@@ -149,13 +159,14 @@ serve(async (req) => {
       total: dealsToProcess.length,
       created: 0,
       updated: 0,
+      skipped: 0,
       errors: 0,
       details: [] as any[],
     };
 
     for (const deal of dealsToProcess) {
       try {
-        console.log(`\n🔄 Processando deal ${deal.ID}: ${deal.TITLE}`);
+        console.log(`\n🔄 Processando deal ${deal.ID}: ${deal.TITLE} (stage: ${deal.STAGE_ID})`);
 
         // Buscar dados do contato se houver
         let clientName = deal.TITLE || `Deal #${deal.ID}`;
@@ -184,14 +195,67 @@ serve(async (req) => {
           }
         }
 
-        // Verificar se já existe deal no Supabase
+        const bitrixDealId = parseInt(deal.ID);
+        const negotiationStatus = BITRIX_STAGE_TO_STATUS[deal.STAGE_ID] || 'inicial';
+        const baseValue = deal.OPPORTUNITY ? parseFloat(deal.OPPORTUNITY) : 0;
+
+        // VERIFICAR SE JÁ EXISTE NEGOTIATION POR bitrix_deal_id (evitar duplicatas)
+        const { data: existingNegotiationByBitrix } = await supabase
+          .from('negotiations')
+          .select('id, status, deal_id')
+          .eq('bitrix_deal_id', bitrixDealId)
+          .maybeSingle();
+
+        if (existingNegotiationByBitrix) {
+          // Atualizar negociação existente (encontrada por bitrix_deal_id)
+          const updateData: Record<string, any> = {
+            status: negotiationStatus,
+            client_name: clientName,
+            client_phone: clientPhone,
+            client_email: clientEmail,
+            updated_at: new Date().toISOString(),
+          };
+
+          if (baseValue > 0) {
+            updateData.base_value = baseValue;
+            updateData.total_value = baseValue;
+          }
+
+          const { error: updateNegError } = await supabase
+            .from('negotiations')
+            .update(updateData)
+            .eq('id', existingNegotiationByBitrix.id);
+
+          if (updateNegError) {
+            console.warn('⚠️ Erro ao atualizar negociação:', updateNegError);
+            results.errors++;
+          } else {
+            results.updated++;
+            console.log(`✅ Negociação atualizada: ${existingNegotiationByBitrix.id} (${existingNegotiationByBitrix.status} → ${negotiationStatus})`);
+          }
+
+          // Também atualizar/criar o deal se necessário
+          await upsertDeal(supabase, deal, bitrixDealId, clientName, clientPhone, clientEmail);
+
+          results.details.push({
+            bitrix_deal_id: deal.ID,
+            title: deal.TITLE,
+            status: negotiationStatus,
+            action: 'updated',
+            success: true,
+          });
+
+          continue;
+        }
+
+        // Se não existe negotiation por bitrix_deal_id, verificar/criar deal primeiro
+        let dealId: string;
+
         const { data: existingDeal } = await supabase
           .from('deals')
           .select('id')
-          .eq('bitrix_deal_id', parseInt(deal.ID))
+          .eq('bitrix_deal_id', bitrixDealId)
           .maybeSingle();
-
-        let dealId: string;
 
         if (existingDeal) {
           // Atualizar deal existente
@@ -219,7 +283,7 @@ serve(async (req) => {
         } else {
           // Criar novo deal
           const dealData = {
-            bitrix_deal_id: parseInt(deal.ID),
+            bitrix_deal_id: bitrixDealId,
             title: deal.TITLE || `Deal #${deal.ID}`,
             stage_id: deal.STAGE_ID,
             category_id: deal.CATEGORY_ID,
@@ -251,19 +315,17 @@ serve(async (req) => {
           console.log(`✅ Deal criado: ${dealId}`);
         }
 
-        // Verificar/criar negociação
-        const { data: existingNegotiation } = await supabase
+        // Verificar novamente se existe negociação por deal_id (caso raro)
+        const { data: existingNegByDeal } = await supabase
           .from('negotiations')
           .select('id, status')
           .eq('deal_id', dealId)
           .maybeSingle();
 
-        const negotiationStatus = BITRIX_STAGE_TO_STATUS[deal.STAGE_ID] || 'inicial';
-        const baseValue = deal.OPPORTUNITY ? parseFloat(deal.OPPORTUNITY) : 0;
-
-        if (existingNegotiation) {
-          // Atualizar negociação existente
+        if (existingNegByDeal) {
+          // Atualizar negociação existente (encontrada por deal_id)
           const updateData: Record<string, any> = {
+            bitrix_deal_id: bitrixDealId, // Garantir que bitrix_deal_id está preenchido
             status: negotiationStatus,
             client_name: clientName,
             client_phone: clientPhone,
@@ -271,7 +333,6 @@ serve(async (req) => {
             updated_at: new Date().toISOString(),
           };
 
-          // Só atualizar valor se mudou
           if (baseValue > 0) {
             updateData.base_value = baseValue;
             updateData.total_value = baseValue;
@@ -280,19 +341,20 @@ serve(async (req) => {
           const { error: updateNegError } = await supabase
             .from('negotiations')
             .update(updateData)
-            .eq('id', existingNegotiation.id);
+            .eq('id', existingNegByDeal.id);
 
           if (updateNegError) {
             console.warn('⚠️ Erro ao atualizar negociação:', updateNegError);
+            results.errors++;
           } else {
             results.updated++;
-            console.log(`✅ Negociação atualizada: ${existingNegotiation.id} (${existingNegotiation.status} → ${negotiationStatus})`);
+            console.log(`✅ Negociação atualizada (via deal_id): ${existingNegByDeal.id} (${existingNegByDeal.status} → ${negotiationStatus})`);
           }
         } else {
           // Criar nova negociação
           const negotiationData = {
             deal_id: dealId,
-            bitrix_deal_id: parseInt(deal.ID),
+            bitrix_deal_id: bitrixDealId,
             title: deal.TITLE || `Negociação #${deal.ID}`,
             client_name: clientName,
             client_phone: clientPhone,
@@ -324,6 +386,7 @@ serve(async (req) => {
           bitrix_deal_id: deal.ID,
           title: deal.TITLE,
           status: negotiationStatus,
+          action: existingNegByDeal ? 'updated' : 'created',
           success: true,
         });
 
@@ -341,7 +404,7 @@ serve(async (req) => {
 
     const processingTime = Date.now() - startTime;
     console.log(`\n✅ [sync-negotiations-from-bitrix] Sincronização concluída em ${processingTime}ms`);
-    console.log(`📊 Resultados: ${results.created} criadas, ${results.updated} atualizadas, ${results.errors} erros`);
+    console.log(`📊 Resultados: ${results.created} criadas, ${results.updated} atualizadas, ${results.skipped} puladas, ${results.errors} erros`);
 
     return new Response(
       JSON.stringify({
@@ -364,3 +427,54 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper function para upsert deal
+async function upsertDeal(
+  supabase: any,
+  deal: BitrixDeal, 
+  bitrixDealId: number,
+  clientName: string, 
+  clientPhone: string | null, 
+  clientEmail: string | null
+) {
+  const { data: existingDeal } = await supabase
+    .from('deals')
+    .select('id')
+    .eq('bitrix_deal_id', bitrixDealId)
+    .maybeSingle();
+
+  const dealData = {
+    title: deal.TITLE,
+    stage_id: deal.STAGE_ID,
+    category_id: deal.CATEGORY_ID,
+    opportunity: deal.OPPORTUNITY ? parseFloat(deal.OPPORTUNITY) : null,
+    client_name: clientName,
+    client_phone: clientPhone,
+    client_email: clientEmail,
+    date_modify: deal.DATE_MODIFY ? new Date(deal.DATE_MODIFY).toISOString() : null,
+    last_sync_at: new Date().toISOString(),
+    sync_status: 'synced',
+  };
+
+  if (existingDeal) {
+    await supabase
+      .from('deals')
+      .update(dealData)
+      .eq('id', existingDeal.id);
+  } else {
+    await supabase
+      .from('deals')
+      .insert({
+        bitrix_deal_id: bitrixDealId,
+        ...dealData,
+        currency_id: deal.CURRENCY_ID,
+        company_id: deal.COMPANY_ID ? parseInt(deal.COMPANY_ID) : null,
+        contact_id: deal.CONTACT_ID ? parseInt(deal.CONTACT_ID) : null,
+        bitrix_lead_id: deal.LEAD_ID ? parseInt(deal.LEAD_ID) : null,
+        assigned_by_id: deal.ASSIGNED_BY_ID ? parseInt(deal.ASSIGNED_BY_ID) : null,
+        created_date: deal.DATE_CREATE ? new Date(deal.DATE_CREATE).toISOString() : null,
+        close_date: deal.CLOSEDATE && deal.CLOSEDATE !== '' ? new Date(deal.CLOSEDATE).toISOString() : null,
+        raw: deal,
+      });
+  }
+}
