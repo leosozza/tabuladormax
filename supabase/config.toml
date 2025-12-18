@@ -278,3 +278,6 @@ verify_jwt = false
 
 [functions.sync-negotiations-from-bitrix]
 verify_jwt = false
+
+[functions.get-bitrix-stages]
+verify_jwt = false
