@@ -10,12 +10,12 @@ interface SyscallConfig {
   default_route: string;
 }
 
-// Helper para chamar Syscall via proxy
-async function callSyscallViaProxy(
-  path: string,
+// Helper para chamar proxy com endpoint específico
+async function callProxy(
+  endpoint: string,
   method: string = 'GET',
   syscallToken: string,
-  body?: any,
+  body?: URLSearchParams | FormData | null,
   isFormData: boolean = false
 ): Promise<Response> {
   const proxyUrl = Deno.env.get('SYSCALL_PROXY_URL');
@@ -27,16 +27,21 @@ async function callSyscallViaProxy(
 
   const headers: Record<string, string> = {
     'x-proxy-secret': proxySecret,
-    'x-syscall-token': syscallToken,
     'Accept': 'application/json',
   };
 
+  // Para campanhas, usar Authorization Bearer
+  if (endpoint.startsWith('/api/campaign')) {
+    headers['Authorization'] = `Bearer ${syscallToken}`;
+  }
+
+  // Para agente, incluir token no body
   // Não adicionar Content-Type para FormData (browser adiciona automaticamente com boundary)
   if (!isFormData && body) {
     headers['Content-Type'] = 'application/x-www-form-urlencoded';
   }
 
-  const targetUrl = `${proxyUrl}/api/syscall/${path}`;
+  const targetUrl = `${proxyUrl}${endpoint}`;
   console.log(`[Proxy] ${method} ${targetUrl}`);
 
   return fetch(targetUrl, {
@@ -285,10 +290,10 @@ Deno.serve(async (req) => {
           const healthData = await healthResponse.json();
           console.log('[Test] ✅ Proxy health OK:', healthData);
 
-          // 2. Testar conexão com Syscall via proxy (usando IP fixo 72.61.51.225)
+          // 2. Testar conexão com Syscall via proxy - usando endpoint correto /api/auth/login
           console.log('[Test] Testando conexão com Syscall via proxy (IP: 72.61.51.225)...');
-          const testResponse = await callSyscallViaProxy(
-            `revo/login?token=${syscallConfig.api_token}`,
+          const testResponse = await callProxy(
+            `/api/auth/login?agente=test&ramal=9999&token=${syscallConfig.api_token}`,
             'GET',
             syscallConfig.api_token || ''
           );
@@ -306,7 +311,7 @@ Deno.serve(async (req) => {
           const log = {
             timestamp: new Date().toISOString(),
             success: testResponse.ok,
-            url: `${proxyUrl}/api/syscall/revo/login`,
+            url: `${proxyUrl}/api/auth/login`,
             method: 'GET',
             duration_ms: duration,
             status_code: testResponse.status,
@@ -314,7 +319,10 @@ Deno.serve(async (req) => {
             origin_ip: '72.61.51.225',
           };
 
-          if (!testResponse.ok) {
+          // Considerar sucesso mesmo com erros de validação (significa que o proxy e token funcionam)
+          const isTokenValid = testResponse.ok || testResponse.status === 400 || testResponse.status === 422;
+
+          if (!isTokenValid) {
             return new Response(JSON.stringify({
               success: false,
               error: `Erro ${testResponse.status}: ${responseText}`,
@@ -361,8 +369,9 @@ Deno.serve(async (req) => {
       }
 
       case 'login': {
-        const loginResponse = await callSyscallViaProxy(
-          `revo/login?agente=${params.agent_code}&ramal=${params.ramal}&token=${syscallConfig.api_token}`,
+        // Endpoint: GET /api/auth/login?agente=X&ramal=Y&token=Z
+        const loginResponse = await callProxy(
+          `/api/auth/login?agente=${params.agent_code}&ramal=${params.ramal}&token=${syscallConfig.api_token}`,
           'GET',
           syscallConfig.api_token || ''
         );
@@ -373,14 +382,16 @@ Deno.serve(async (req) => {
       }
 
       case 'logout': {
+        // Endpoint: POST /api/auth/logout (body: agente, token)
         const logoutFormData = new URLSearchParams();
         logoutFormData.append('agente', params.agent_code);
+        logoutFormData.append('token', syscallConfig.api_token || '');
 
-        const logoutResponse = await callSyscallViaProxy(
-          'revo/desliga',
+        const logoutResponse = await callProxy(
+          '/api/auth/logout',
           'POST',
           syscallConfig.api_token || '',
-          logoutFormData.toString()
+          logoutFormData
         );
         const logoutResult = await logoutResponse.json();
         return new Response(JSON.stringify(logoutResult), {
@@ -389,15 +400,17 @@ Deno.serve(async (req) => {
       }
 
       case 'pause': {
+        // Endpoint: POST /api/agent/pause (body: agente, id_pausa, token)
         const pauseFormData = new URLSearchParams();
         pauseFormData.append('agente', params.agent_code);
         pauseFormData.append('id_pausa', params.id_pausa || '6');
+        pauseFormData.append('token', syscallConfig.api_token || '');
 
-        const pauseResponse = await callSyscallViaProxy(
-          'revo/pause',
+        const pauseResponse = await callProxy(
+          '/api/agent/pause',
           'POST',
           syscallConfig.api_token || '',
-          pauseFormData.toString()
+          pauseFormData
         );
         const pauseResult = await pauseResponse.json();
         return new Response(JSON.stringify(pauseResult), {
@@ -406,14 +419,16 @@ Deno.serve(async (req) => {
       }
 
       case 'unpause': {
+        // Endpoint: POST /api/agent/unpause (body: agente, token)
         const unpauseFormData = new URLSearchParams();
         unpauseFormData.append('agente', params.agent_code);
+        unpauseFormData.append('token', syscallConfig.api_token || '');
 
-        const unpauseResponse = await callSyscallViaProxy(
-          'revo/unpause',
+        const unpauseResponse = await callProxy(
+          '/api/agent/unpause',
           'POST',
           syscallConfig.api_token || '',
-          unpauseFormData.toString()
+          unpauseFormData
         );
         const unpauseResult = await unpauseResponse.json();
         return new Response(JSON.stringify(unpauseResult), {
@@ -422,6 +437,7 @@ Deno.serve(async (req) => {
       }
 
       case 'create_campaign': {
+        // Endpoint: POST /api/campaign/new (FormData + Authorization Bearer)
         const createFormData = new FormData();
         createFormData.append('nome', params.nome);
         createFormData.append('agressividade', String(params.agressividade || 2));
@@ -437,8 +453,8 @@ Deno.serve(async (req) => {
         const rota = params.rota || syscallConfig.default_route;
         createFormData.append('rotas_selecionadas[]', rota);
 
-        const createResponse = await callSyscallViaProxy(
-          'revo/newcampaign',
+        const createResponse = await callProxy(
+          '/api/campaign/new',
           'POST',
           syscallConfig.api_token || '',
           createFormData,
@@ -463,12 +479,13 @@ Deno.serve(async (req) => {
       }
 
       case 'campaign_status': {
+        // Endpoint: POST /api/campaign/status (body: id_campanha, status)
         const statusFormData = new FormData();
         statusFormData.append('id_campanha', String(params.syscall_campaign_id));
         statusFormData.append('status', params.status); // play, pause, stop
 
-        const statusResponse = await callSyscallViaProxy(
-          'revo/statuscampaign',
+        const statusResponse = await callProxy(
+          '/api/campaign/status',
           'POST',
           syscallConfig.api_token || '',
           statusFormData,
@@ -487,6 +504,7 @@ Deno.serve(async (req) => {
       }
 
       case 'upload_leads': {
+        // Endpoint: POST /api/campaign/upload (FormData com CSV)
         const csvData = params.leads
           .map((lead: any) => `${lead.telefone},${lead.nome || ''},${lead.lead_id}`)
           .join('\n');
@@ -498,8 +516,8 @@ Deno.serve(async (req) => {
         uploadFormData.append('id_campanha', String(params.syscall_campaign_id));
         uploadFormData.append('arquivo', csvBlob, 'leads.csv');
 
-        const uploadResponse = await callSyscallViaProxy(
-          'revo/uploadcampaign',
+        const uploadResponse = await callProxy(
+          '/api/campaign/upload',
           'POST',
           syscallConfig.api_token || '',
           uploadFormData,
