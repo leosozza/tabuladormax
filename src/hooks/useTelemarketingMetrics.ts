@@ -201,9 +201,8 @@ export function useTelemarketingMetrics(
       // Calculate metrics
       const totalLeads = leadsData.length;
       
-      // Agendamentos: leads com etapa UC_QWPO2W e data_criacao_agendamento no período
+      // Agendamentos: leads com data_criacao_agendamento no período (independente da etapa atual)
       const agendadosList = leadsData.filter(l => {
-        if (!isAgendado(l.etapa)) return false;
         if (!l.data_criacao_agendamento) return false;
         const dataAgendamento = new Date(l.data_criacao_agendamento);
         return dataAgendamento >= start && dataAgendamento <= end;
@@ -314,8 +313,8 @@ export function useTelemarketingMetrics(
         const current = operatorMap.get(opId) || { name: opName, leads: 0, confirmadas: 0, agendamentos: 0, leadsScouter: 0, leadsMeta: 0 };
         current.leads++;
         if (lead.ficha_confirmada) current.confirmadas++;
-        // Conta agendamento se etapa é UC_QWPO2W e data_criacao_agendamento no período
-        if (isAgendado(lead.etapa) && lead.data_criacao_agendamento) {
+        // Conta agendamento se data_criacao_agendamento no período (independente da etapa atual)
+        if (lead.data_criacao_agendamento) {
           const dataAgendamento = new Date(lead.data_criacao_agendamento);
           if (dataAgendamento >= start && dataAgendamento <= end) {
             current.agendamentos++;
@@ -395,7 +394,7 @@ export function useTelemarketingMetrics(
             const hour = format(new Date(lead.date_modify), 'HH:00');
             const current = hourMap.get(hour) || { leads: 0, agendados: 0 };
             current.leads++;
-            if (isAgendado(lead.etapa) && lead.data_criacao_agendamento) {
+            if (lead.data_criacao_agendamento) {
               const dataAgendamento = new Date(lead.data_criacao_agendamento);
               if (dataAgendamento >= start && dataAgendamento <= end) {
                 current.agendados++;
@@ -419,7 +418,7 @@ export function useTelemarketingMetrics(
             const day = format(new Date(lead.date_modify), 'dd/MM');
             const current = dayMap.get(day) || { leads: 0, agendados: 0 };
             current.leads++;
-            if (isAgendado(lead.etapa) && lead.data_criacao_agendamento) {
+            if (lead.data_criacao_agendamento) {
               const dataAgendamento = new Date(lead.data_criacao_agendamento);
               if (dataAgendamento >= start && dataAgendamento <= end) {
                 current.agendados++;
@@ -444,7 +443,7 @@ export function useTelemarketingMetrics(
         if (lead.fonte_normalizada === 'Scouter - Fichas' && lead.scouter) {
           const current = scouterMap.get(lead.scouter) || { leads: 0, agendamentos: 0 };
           current.leads++;
-          if (isAgendado(lead.etapa) && lead.data_criacao_agendamento) {
+          if (lead.data_criacao_agendamento) {
             const dataAgendamento = new Date(lead.data_criacao_agendamento);
             if (dataAgendamento >= start && dataAgendamento <= end) {
               current.agendamentos++;
