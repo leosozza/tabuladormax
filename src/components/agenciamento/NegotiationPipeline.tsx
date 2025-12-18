@@ -27,10 +27,11 @@ interface NegotiationPipelineProps {
   onCardClick: (negotiation: Negotiation) => void;
 }
 
-// Pipeline status order
+// Pipeline status order (alinhado com Bitrix - Categoria 1 Pinheiros)
 const PIPELINE_STATUSES: NegotiationStatus[] = [
-  'inicial',
   'ficha_preenchida',
+  'contrato_nao_fechado',
+  'analisar',
   'atendimento_produtor',
   'realizado',
   'nao_realizado',
@@ -60,8 +61,9 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
   // Group negotiations by status
   const negotiationsByStatus = useMemo(() => {
     const grouped: Record<NegotiationStatus, Negotiation[]> = {
-      inicial: [],
       ficha_preenchida: [],
+      contrato_nao_fechado: [],
+      analisar: [],
       atendimento_produtor: [],
       realizado: [],
       nao_realizado: [],

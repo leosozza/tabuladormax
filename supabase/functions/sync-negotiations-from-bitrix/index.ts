@@ -10,8 +10,18 @@ const corsHeaders = {
 };
 
 // Mapeamento de Stage do Bitrix → Status da Negociação
+// Alinhado EXATAMENTE com Bitrix - Categoria 1 (Pinheiros)
 const BITRIX_STAGE_TO_STATUS: Record<string, string> = {
-  'NEW': 'inicial',
+  // Categoria 1 - Pinheiros (EXATAMENTE como Bitrix)
+  'C1:NEW': 'ficha_preenchida',              // "Ficha Preenchida" (1 deal)
+  'C1:UC_3KJOIF': 'contrato_nao_fechado',    // "Contrato não fechado" (257 deals)
+  'C1:UC_0SXJB5': 'analisar',                // "Analisar" (846 deals)
+  'C1:UC_MKIQ0S': 'atendimento_produtor',    // "Atendimento Produtor"
+  'C1:WON': 'realizado',                     // "Negócios Fechados" (269 deals)
+  'C1:LOSE': 'nao_realizado',                // "Anulados"
+  
+  // Fallback para stages genéricos (outras categorias)
+  'NEW': 'ficha_preenchida',
   'PREPARATION': 'ficha_preenchida',
   'PREPAYMENT_INVOICE': 'atendimento_produtor',
   'EXECUTING': 'atendimento_produtor',
@@ -19,16 +29,6 @@ const BITRIX_STAGE_TO_STATUS: Record<string, string> = {
   'WON': 'realizado',
   'LOSE': 'nao_realizado',
   'APOLOGY': 'nao_realizado',
-  // Stages da categoria 1 (Agenciamento)
-  'C1:NEW': 'inicial',
-  'C1:UC_O2KDK6': 'ficha_preenchida',
-  'C1:UC_MKIQ0S': 'atendimento_produtor',
-  'C1:PREPARATION': 'ficha_preenchida',
-  'C1:PREPAYMENT_INVOICE': 'atendimento_produtor',
-  'C1:EXECUTING': 'atendimento_produtor',
-  'C1:FINAL_INVOICE': 'atendimento_produtor',
-  'C1:WON': 'realizado',
-  'C1:LOSE': 'nao_realizado',
 };
 
 interface SyncRequest {
