@@ -4606,6 +4606,10 @@ export type Database = {
           fonte_normalizada: string
         }[]
       }
+      get_or_create_private_conversation: {
+        Args: { p_other_user_id: string; p_user_id: string }
+        Returns: string
+      }
       get_photo_stats: {
         Args: {
           p_end_date: string

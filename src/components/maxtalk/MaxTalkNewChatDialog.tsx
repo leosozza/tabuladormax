@@ -35,6 +35,8 @@ export function MaxTalkNewChatDialog({
   const [search, setSearch] = useState('');
   const [groupName, setGroupName] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [creatingUserId, setCreatingUserId] = useState<string | null>(null);
 
   const filteredUsers = users.filter(u => 
     (u.display_name || u.email || '').toLowerCase().includes(search.toLowerCase())
@@ -66,9 +68,17 @@ export function MaxTalkNewChatDialog({
     }
   };
 
-  const handlePrivateChat = (userId: string) => {
-    onCreatePrivate(userId);
-    onClose();
+  const handlePrivateChat = async (userId: string) => {
+    if (creating) return; // Evita múltiplos cliques
+    setCreating(true);
+    setCreatingUserId(userId);
+    try {
+      await onCreatePrivate(userId);
+    } finally {
+      setCreating(false);
+      setCreatingUserId(null);
+      onClose();
+    }
   };
 
   return (
@@ -124,7 +134,12 @@ export function MaxTalkNewChatDialog({
                     <button
                       key={user.id}
                       onClick={() => handlePrivateChat(user.id)}
-                      className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors text-left"
+                      disabled={creating}
+                      className={cn(
+                        "w-full flex items-center gap-3 p-2 rounded-lg transition-colors text-left",
+                        creating ? "opacity-50 cursor-not-allowed" : "hover:bg-muted",
+                        creatingUserId === user.id && "bg-primary/10"
+                      )}
                     >
                       <Avatar className="w-10 h-10">
                         <AvatarImage src={user.avatar_url || undefined} />
@@ -132,12 +147,15 @@ export function MaxTalkNewChatDialog({
                           {getInitials(user.display_name || user.email || 'U')}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium">{user.display_name || 'Usuário'}</p>
                         {user.email && (
                           <p className="text-xs text-muted-foreground">{user.email}</p>
                         )}
                       </div>
+                      {creatingUserId === user.id && (
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      )}
                     </button>
                   ))}
                 </div>
