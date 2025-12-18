@@ -1,9 +1,12 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Star, TrendingUp, TrendingDown, Minus, Users, Target, MessageSquare, Lightbulb, X } from 'lucide-react';
+import { Loader2, Star, TrendingUp, TrendingDown, Minus, Users, Target, MessageSquare, Lightbulb, X, FileDown } from 'lucide-react';
 import { AIAnalysisResult } from '@/hooks/useTelemarketingAIAnalysis';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useRef, useState } from 'react';
+import { toast } from 'sonner';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 interface TelemarketingAIAnalysisModalProps {
   open: boolean;
@@ -22,6 +25,56 @@ export function TelemarketingAIAnalysisModal({
   error,
   periodLabel,
 }: TelemarketingAIAnalysisModalProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  const handleGeneratePDF = async () => {
+    if (!contentRef.current || !analysis) return;
+    
+    setIsGeneratingPDF(true);
+    try {
+      const element = contentRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      
+      let heightLeft = imgHeight * ratio;
+      let position = 0;
+      
+      // First page
+      pdf.addImage(imgData, 'PNG', imgX, position, imgWidth * ratio, imgHeight * ratio);
+      heightLeft -= pdfHeight;
+      
+      // Add more pages if needed
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight * ratio;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', imgX, position, imgWidth * ratio, imgHeight * ratio);
+        heightLeft -= pdfHeight;
+      }
+      
+      pdf.save(`analise-ia-telemarketing-${periodLabel.replace(/\s/g, '-')}.pdf`);
+      toast.success('PDF gerado com sucesso!');
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      toast.error('Erro ao gerar PDF');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const getRatingStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
@@ -77,22 +130,40 @@ export function TelemarketingAIAnalysisModal({
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] p-0 flex flex-col">
-        <DialogHeader className="p-6 pb-2 flex-shrink-0">
+      <DialogContent className="max-w-3xl h-[90vh] max-h-[90vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="p-4 sm:p-6 pb-2 flex-shrink-0 border-b">
           <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <span className="text-2xl">🤖</span>
-              Análise de IA - Visão Estratégica
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <span className="text-xl sm:text-2xl">🤖</span>
+              Análise de IA
             </DialogTitle>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-2">
+              {analysis && !isLoading && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleGeneratePDF}
+                  disabled={isGeneratingPDF}
+                  className="hidden sm:flex"
+                >
+                  {isGeneratingPDF ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <FileDown className="w-4 h-4 mr-2" />
+                  )}
+                  PDF
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" onClick={onClose}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
           <p className="text-sm text-muted-foreground">Período: {periodLabel}</p>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="p-6 pt-2 space-y-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          <div ref={contentRef} className="p-4 sm:p-6 pt-2 space-y-6 bg-background">
             {isLoading && (
               <div className="flex flex-col items-center justify-center py-12">
                 <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
@@ -301,7 +372,26 @@ export function TelemarketingAIAnalysisModal({
               </>
             )}
           </div>
-        </ScrollArea>
+        </div>
+
+        {/* Mobile PDF Button */}
+        {analysis && !isLoading && (
+          <div className="flex-shrink-0 p-4 border-t sm:hidden">
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleGeneratePDF}
+              disabled={isGeneratingPDF}
+            >
+              {isGeneratingPDF ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <FileDown className="w-4 h-4 mr-2" />
+              )}
+              Exportar PDF
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
