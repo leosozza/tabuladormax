@@ -2527,42 +2527,58 @@ const LeadTab = () => {
                 })()}
               </div>
               <h2 className="text-lg md:text-2xl font-bold text-center w-full">{(profile as any).nome_modelo || (profile as any).name || 'Lead sem nome'}</h2>
-              <div className="w-full space-y-1 md:space-y-2 text-xs md:text-sm">{fieldMappings.filter(mapping => !mapping.is_profile_photo) // Não exibir o campo da foto na lista
-              .map(mapping => <p key={mapping.profile_field}>
-                      <strong>{mapping.display_name || mapping.profile_field}:</strong>{' '}
-                      {(() => {
-                  const rawValue = (profile as any)[mapping.profile_field];
-                  if (!rawValue || rawValue === '—') return '—';
-
-                  // Mapeamento profile_field → supabase_field
-                  const profileToSupabaseMap: Record<string, string> = {
-                    'custom_1760116868521': 'etapa',
-                    'custom_1760018636938': 'id',
-                    'responsible': 'nome_responsavel_legal',
-                    'nome_modelo': 'nome_modelo',
-                    'name': 'nome_modelo',
-                    'age': 'age',
-                    'scouter': 'scouter',
-                    'custom_1759958661434': 'celular',
-                    'address': 'local_abordagem',
-                    'custom_1760109345668': 'date_modify',
-                    'custom_1760376794807': 'telemarketing'
-                  };
-                  const supabaseField = profileToSupabaseMap[mapping.profile_field];
-                  if (supabaseField && unifiedFieldMappings) {
-                    const unifiedMapping = unifiedFieldMappings.find(um => um.supabase_field === supabaseField);
-                    if (unifiedMapping && (unifiedMapping.bitrix_field_type === 'crm_status' || unifiedMapping.bitrix_field_type === 'enumeration')) {
-                      const resolution = getResolution(unifiedMapping.bitrix_field, rawValue);
-                      if (resolution) {
-                        return <span title={`${resolution.id} (${unifiedMapping.bitrix_field})`}>
+              <div className="w-full space-y-1 md:space-y-2 text-xs md:text-sm">
+                {fieldMappings.length > 0 ? (
+                  fieldMappings
+                    .filter(mapping => !mapping.is_profile_photo)
+                    .map(mapping => {
+                      // Mapeamento profile_field → supabase_field
+                      const profileToSupabaseMap: Record<string, string> = {
+                        'custom_1760116868521': 'etapa',
+                        'custom_1760018636938': 'id',
+                        'responsible': 'nome_responsavel_legal',
+                        'nome_modelo': 'nome_modelo',
+                        'name': 'nome_modelo',
+                        'age': 'age',
+                        'scouter': 'scouter',
+                        'custom_1759958661434': 'celular',
+                        'address': 'local_abordagem',
+                        'custom_1760109345668': 'date_modify',
+                        'custom_1760376794807': 'telemarketing'
+                      };
+                      
+                      const rawValue = (profile as any)[mapping.profile_field];
+                      
+                      const renderValue = () => {
+                        if (!rawValue || rawValue === '—') return '—';
+                        
+                        const supabaseField = profileToSupabaseMap[mapping.profile_field];
+                        if (supabaseField && unifiedFieldMappings) {
+                          const unifiedMapping = unifiedFieldMappings.find(um => um.supabase_field === supabaseField);
+                          if (unifiedMapping && (unifiedMapping.bitrix_field_type === 'crm_status' || unifiedMapping.bitrix_field_type === 'enumeration')) {
+                            const resolution = getResolution(unifiedMapping.bitrix_field, rawValue);
+                            if (resolution) {
+                              return (
+                                <span title={`${resolution.id} (${unifiedMapping.bitrix_field})`}>
                                   {resolution.label}
-                                </span>;
-                      }
-                    }
-                  }
-                  return String(rawValue);
-                })()}
-                      </p>)}
+                                </span>
+                              );
+                            }
+                          }
+                        }
+                        return String(rawValue);
+                      };
+                      
+                      return (
+                        <p key={mapping.profile_field}>
+                          <strong>{mapping.display_name || mapping.profile_field}:</strong>{' '}
+                          {renderValue()}
+                        </p>
+                      );
+                    })
+                ) : (
+                  <p className="text-muted-foreground italic">Carregando campos...</p>
+                )}
               </div>
 
               {/* Área de Observações do Telemarketing - Colapsável */}
