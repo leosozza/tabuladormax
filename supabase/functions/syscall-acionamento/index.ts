@@ -9,42 +9,37 @@ const PROXY_URL = Deno.env.get('SYSCALL_PROXY_URL');
 const PROXY_SECRET = Deno.env.get('SYSCALL_PROXY_SECRET');
 
 // Helper function to call Syscall API via proxy (fixed IP)
-async function callSyscallViaProxy(
+async function callProxy(
   endpoint: string,
   method: string,
   token: string,
-  body?: Record<string, unknown>
+  body?: URLSearchParams | FormData | null,
+  isFormData: boolean = false
 ): Promise<Response> {
   if (!PROXY_URL) {
     throw new Error('SYSCALL_PROXY_URL não configurado');
   }
 
-  const proxyEndpoint = `${PROXY_URL}/api/syscall/${endpoint}`;
+  const proxyEndpoint = `${PROXY_URL}${endpoint}`;
   console.log(`🔄 Chamando Syscall via proxy: ${method} ${proxyEndpoint}`);
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    'Accept': 'application/json',
   };
 
   if (PROXY_SECRET) {
-    headers['X-Proxy-Secret'] = PROXY_SECRET;
+    headers['x-proxy-secret'] = PROXY_SECRET;
   }
 
-  const requestBody: Record<string, unknown> = {
-    token,
-  };
-
-  if (body) {
-    requestBody.body = body;
+  // Não adicionar Content-Type para FormData
+  if (!isFormData && body) {
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
   }
 
   const response = await fetch(proxyEndpoint, {
-    method: 'POST', // Proxy always receives POST
+    method,
     headers,
-    body: JSON.stringify({
-      method,
-      ...requestBody,
-    }),
+    body: body || undefined,
   });
 
   console.log(`📥 Resposta do proxy: ${response.status} ${response.statusText}`);
@@ -72,27 +67,30 @@ Deno.serve(async (req) => {
       throw new Error('Configuração do Syscall não encontrada');
     }
 
-    // Enviar acionamento para Syscall VIA PROXY
+    // Enviar acionamento para Syscall VIA PROXY - endpoint correto: /api/call/acionamento
     console.log('📤 Enviando acionamento via proxy...');
-    const acionamentoResponse = await callSyscallViaProxy(
-      'revo/acionamento',
+    
+    const acionamentoFormData = new URLSearchParams();
+    acionamentoFormData.append('idligacao', call_id);
+    acionamentoFormData.append('acionamento', tabulacao);
+    acionamentoFormData.append('token', config.api_token);
+    
+    const acionamentoResponse = await callProxy(
+      '/api/call/acionamento',
       'POST',
       config.api_token,
-      {
-        idligacao: call_id,
-        acionamento: tabulacao,
-      }
+      acionamentoFormData
     );
 
     const acionamentoResult = await acionamentoResponse.json();
     console.log('✅ Acionamento enviado via proxy:', acionamentoResult);
 
-    // Baixar gravação VIA PROXY
+    // Baixar gravação VIA PROXY - endpoint correto: /api/audio?idligacao=X
     let recordingPath = null;
     try {
       console.log('🎙️ Baixando gravação via proxy...');
-      const audioResponse = await callSyscallViaProxy(
-        `revo/audio?idligacao=${call_id}`,
+      const audioResponse = await callProxy(
+        `/api/audio?idligacao=${call_id}&token=${config.api_token}`,
         'GET',
         config.api_token
       );
