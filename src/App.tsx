@@ -79,6 +79,7 @@ import PortalTelemarketingTabulador from "./pages/portal-telemarketing/PortalTel
 import PortalTelemarketingDashboard from "./pages/portal-telemarketing/PortalTelemarketingDashboard";
 import PortalTelemarketingWhatsApp from "./pages/portal-telemarketing/PortalTelemarketingWhatsApp";
 import PortalTelemarketingEquipe from "./pages/portal-telemarketing/PortalTelemarketingEquipe";
+import MaxTalk from "./pages/portal-telemarketing/MaxTalk";
 
 // Telemarketing Report Public Page
 import TelemarketingReportPublic from "./pages/TelemarketingReportPublic";
@@ -120,6 +121,7 @@ const App = () => (
           <Route path="/portal-telemarketing/dashboard" element={<PortalTelemarketingDashboard />} />
           <Route path="/portal-telemarketing/whatsapp" element={<PortalTelemarketingWhatsApp />} />
           <Route path="/portal-telemarketing/equipe" element={<PortalTelemarketingEquipe />} />
+          <Route path="/portal-telemarketing/maxtalk" element={<MaxTalk />} />
           <Route path="/relatorio/:shortCode" element={<TelemarketingReportPublic />} />
 
           {/* Rotas PROTEGIDAS - com sidebar persistente */}
