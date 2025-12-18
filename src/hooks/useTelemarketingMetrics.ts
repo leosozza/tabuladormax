@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, format, parseISO } from 'date-fns';
+import { startOfDay, endOfDay, subDays, addDays, startOfWeek, startOfMonth, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { resolveTabulacaoLabel } from '@/lib/tabulacaoMapping';
 import type { Json } from '@/integrations/supabase/types';
@@ -263,24 +263,22 @@ export function useTelemarketingMetrics(
         .sort((a, b) => a.data.localeCompare(b.data));
 
       // Calculate comparecimentos por UF_CRM_DATACOMPARECEU (data real de comparecimento)
-      // INDEPENDENTE de presença confirmada (UF_CRM_1746816298253) ou etapa atual
+      // INDEPENDENTE de presença confirmada ou etapa atual
+      // Gerar lista de datas no período no formato YYYY-MM-DD
+      const datasNoPeriodo: string[] = [];
+      let currentDate = new Date(start);
+      while (currentDate <= end) {
+        datasNoPeriodo.push(format(currentDate, 'yyyy-MM-dd'));
+        currentDate = addDays(currentDate, 1);
+      }
+
       const comparecimentosLeads = allLeadsForComparecimentos.filter(lead => {
-        // Buscar UF_CRM_DATACOMPARECEU do campo raw
         const dataCompareceu = getRawField(lead.raw, 'UF_CRM_DATACOMPARECEU');
-        
-        // Ignorar se não tiver data de comparecimento ou estiver vazio
         if (!dataCompareceu || dataCompareceu === '') return false;
         
-        try {
-          // Extrair apenas a data (ignorar timezone) - formato: "2025-12-17T03:00:00+03:00"
-          const datePart = dataCompareceu.split('T')[0];
-          const dateCompareceu = parseISO(datePart);
-          
-          // Verificar se está dentro do período
-          return dateCompareceu >= start && dateCompareceu <= end;
-        } catch {
-          return false;
-        }
+        // Verificar se começa com alguma das datas do período
+        // Ex: "2025-12-17T21:58:56+03:00" começa com "2025-12-17"
+        return datasNoPeriodo.some(data => dataCompareceu.startsWith(data));
       });
 
       const comparecimentos = {
