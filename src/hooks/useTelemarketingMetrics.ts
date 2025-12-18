@@ -172,19 +172,13 @@ export function useTelemarketingMetrics(
         query = query.eq('bitrix_telemarketing_id', operatorId);
       }
 
-      // Query para comparecimentos - busca leads que PODEM ter comparecido
-      // Filtro JSONB não funciona bem no Supabase JS, então buscamos por período amplo
-      // e filtramos por UF_CRM_DATACOMPARECEU no JavaScript
-      const comparecimentosStartStr = format(subDays(start, 60), 'yyyy-MM-dd');
-      let comparecimentosQuery = supabase
-        .from('leads')
-        .select('id, name, nome_modelo, scouter, telemarketing, bitrix_telemarketing_id, fonte_normalizada, raw')
-        .gte('date_modify', comparecimentosStartStr);
-      // Não aplicamos .lte('date_modify', endStr) pois o lead pode ser modificado após a data de comparecimento.
-
-      if (operatorId) {
-        comparecimentosQuery = comparecimentosQuery.eq('bitrix_telemarketing_id', operatorId);
-      }
+      // Query para comparecimentos - usa RPC que filtra diretamente por UF_CRM_DATACOMPARECEU no banco
+      // Isso evita o limite de 1000 registros e garante que pegamos TODOS os comparecidos no período
+      const comparecimentosQuery = supabase.rpc('get_comparecidos_by_date', {
+        p_start_date: startStr,
+        p_end_date: endStr,
+        p_operator_id: operatorId || null
+      });
 
       // Query SEPARADA para agendamentos - filtra por data_criacao_agendamento INDEPENDENTE de date_modify
       // Isso garante que pegamos TODOS os leads agendados no período, mesmo que não tenham sido modificados
@@ -210,7 +204,6 @@ export function useTelemarketingMetrics(
       }
 
       const leadsData = leadsResult.data || [];
-      const allLeadsForComparecimentos = comparecimentosResult.data || [];
       const agendadosData = agendadosResult.data || [];
 
       // Calculate metrics
@@ -262,24 +255,9 @@ export function useTelemarketingMetrics(
         })
         .sort((a, b) => a.data.localeCompare(b.data));
 
-      // Calculate comparecimentos por UF_CRM_DATACOMPARECEU (data real de comparecimento)
-      // INDEPENDENTE de presença confirmada ou etapa atual
-      // Gerar lista de datas no período no formato YYYY-MM-DD
-      const datasNoPeriodo: string[] = [];
-      let currentDate = new Date(start);
-      while (currentDate <= end) {
-        datasNoPeriodo.push(format(currentDate, 'yyyy-MM-dd'));
-        currentDate = addDays(currentDate, 1);
-      }
-
-      const comparecimentosLeads = allLeadsForComparecimentos.filter(lead => {
-        const dataCompareceu = getRawField(lead.raw, 'UF_CRM_DATACOMPARECEU');
-        if (!dataCompareceu || dataCompareceu === '') return false;
-        
-        // Verificar se começa com alguma das datas do período
-        // Ex: "2025-12-17T21:58:56+03:00" começa com "2025-12-17"
-        return datasNoPeriodo.some(data => dataCompareceu.startsWith(data));
-      });
+      // Comparecimentos já vem filtrado da RPC por UF_CRM_DATACOMPARECEU
+      // Não precisa mais filtrar no JavaScript
+      const comparecimentosLeads = comparecimentosResult.data || [];
 
       const comparecimentos = {
         total: comparecimentosLeads.length,
@@ -288,8 +266,8 @@ export function useTelemarketingMetrics(
           name: lead.nome_modelo || lead.name || 'Sem nome',
           scouter: lead.scouter || null,
           telemarketing: lead.telemarketing || operatorNameMap.get(lead.bitrix_telemarketing_id!) || null,
-          agendadoEm: getRawField(lead.raw, 'UF_CRM_AGEND_EM'),
-          dataComparecimento: getRawField(lead.raw, 'UF_CRM_DATACOMPARECEU') || '',
+          agendadoEm: null, // Não disponível na RPC simplificada
+          dataComparecimento: lead.data_compareceu || '',
           fonte: lead.fonte_normalizada || 'Não informada',
         })),
       };
