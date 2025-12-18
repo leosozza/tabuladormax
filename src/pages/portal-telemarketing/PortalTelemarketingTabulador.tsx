@@ -154,7 +154,7 @@ const PortalTelemarketingTabulador = () => {
   const handleNotificationClick = (notification: any) => {
     // Navegar para o lead/conversa quando clicar na notificação
     if (notification.lead_id) {
-      console.log('Navigating to lead:', notification.lead_id);
+      navigate(`/portal-telemarketing/tabulador?lead=${notification.lead_id}`);
     }
   };
 
