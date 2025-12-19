@@ -27,6 +27,7 @@ const STATUS_ORDER: NegotiationStatus[] = [
 ];
 
 const STATUS_COLORS: Record<NegotiationStatus, string> = {
+  inicial: 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700',
   ficha_preenchida: 'bg-blue-100 hover:bg-blue-200 border-blue-300 text-blue-700',
   contrato_nao_fechado: 'bg-orange-100 hover:bg-orange-200 border-orange-300 text-orange-700',
   analisar: 'bg-purple-100 hover:bg-purple-200 border-purple-300 text-purple-700',

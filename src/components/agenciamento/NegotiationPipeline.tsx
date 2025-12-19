@@ -61,6 +61,7 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
   // Group negotiations by status
   const negotiationsByStatus = useMemo(() => {
     const grouped: Record<NegotiationStatus, Negotiation[]> = {
+      inicial: [],
       ficha_preenchida: [],
       contrato_nao_fechado: [],
       analisar: [],

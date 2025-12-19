@@ -19,6 +19,7 @@ interface PipelineCardProps {
 }
 
 const STATUS_COLORS: Record<NegotiationStatus, string> = {
+  inicial: 'border-l-slate-500',
   ficha_preenchida: 'border-l-blue-500',
   contrato_nao_fechado: 'border-l-orange-500',
   analisar: 'border-l-purple-500',
