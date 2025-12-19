@@ -12,7 +12,7 @@ export function useHotkeys(mapping: HotkeyMapping[], disabled: boolean = false) 
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       
-      const match = mapping.find(m => m.key.toLowerCase() === key);
+      const match = mapping.find(m => m.key && m.key.toLowerCase() === key);
       
       if (match) {
         event.preventDefault();
