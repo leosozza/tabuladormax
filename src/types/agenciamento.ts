@@ -2,6 +2,7 @@
 // Complete type definitions for commercial negotiations
 
 export type NegotiationStatus =
+  | 'inicial'
   | 'ficha_preenchida'
   | 'contrato_nao_fechado'
   | 'analisar'
@@ -253,6 +254,7 @@ export const NEGOTIATION_STATUS_CONFIG: Record<
   NegotiationStatus,
   { label: string; color: string; icon?: string }
 > = {
+  inicial: { label: 'Inicial', color: 'slate' },
   ficha_preenchida: { label: 'Ficha Preenchida', color: 'blue' },
   contrato_nao_fechado: { label: 'Contrato não fechado', color: 'orange' },
   analisar: { label: 'Analisar', color: 'purple' },
