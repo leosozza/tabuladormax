@@ -9,6 +9,7 @@ interface WhatsAppHeaderProps {
   loading?: boolean;
   onRefresh?: () => void;
   onClose?: () => void;
+  rightContent?: React.ReactNode;
 }
 
 export function WhatsAppHeader({
@@ -17,7 +18,8 @@ export function WhatsAppHeader({
   bitrixId,
   loading,
   onRefresh,
-  onClose
+  onClose,
+  rightContent
 }: WhatsAppHeaderProps) {
   const navigate = useNavigate();
 
@@ -36,7 +38,8 @@ export function WhatsAppHeader({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
+        {rightContent}
         {bitrixId && (
           <Button
             variant="ghost"
