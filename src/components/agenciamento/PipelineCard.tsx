@@ -1,5 +1,4 @@
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import React from 'react';
 import { Card } from '@/components/ui/card';
 import { DollarSign, Calendar, GripVertical, MoreVertical } from 'lucide-react';
 import type { Negotiation, NegotiationStatus } from '@/types/agenciamento';
@@ -16,6 +15,8 @@ interface PipelineCardProps {
   negotiation: Negotiation;
   onClick: () => void;
   onChangeStatus?: (status: NegotiationStatus) => void;
+  onDragStart?: (e: React.DragEvent) => void;
+  isDragging?: boolean;
 }
 
 // Cores dos status - Alinhado com Bitrix Categoria 1 (Pinheiros)
@@ -28,21 +29,13 @@ const STATUS_COLORS: Record<NegotiationStatus, string> = {
   analisar: 'border-l-purple-500',
 };
 
-export function PipelineCard({ negotiation, onClick, onChangeStatus }: PipelineCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: negotiation.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
+export const PipelineCard = React.memo(function PipelineCard({ 
+  negotiation, 
+  onClick, 
+  onChangeStatus,
+  onDragStart,
+  isDragging = false,
+}: PipelineCardProps) {
   const initials = negotiation.client_name
     .split(' ')
     .map((n) => n[0])
@@ -50,22 +43,24 @@ export function PipelineCard({ negotiation, onClick, onChangeStatus }: PipelineC
     .join('')
     .toUpperCase();
 
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', negotiation.id);
+    onDragStart?.(e);
+  };
+
   return (
     <Card
-      ref={setNodeRef}
-      style={style}
+      draggable
+      onDragStart={handleDragStart}
       className={cn(
-        'p-3 cursor-pointer hover:shadow-md transition-shadow border-l-4',
+        'p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-all border-l-4',
         STATUS_COLORS[negotiation.status],
-        isDragging && 'opacity-50 shadow-lg rotate-2'
+        isDragging && 'opacity-30 scale-95'
       )}
     >
       <div className="flex items-start gap-3">
-        <div
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-1"
-        >
+        <div className="text-muted-foreground hover:text-foreground mt-1">
           <GripVertical className="h-4 w-4" />
         </div>
 
@@ -192,4 +187,4 @@ export function PipelineCard({ negotiation, onClick, onChangeStatus }: PipelineC
       </div>
     </Card>
   );
-}
+});
