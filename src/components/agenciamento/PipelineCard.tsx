@@ -70,15 +70,32 @@ export function PipelineCard({ negotiation, onClick, onChangeStatus }: PipelineC
         </div>
 
         <div className="flex-1 min-w-0" onClick={onClick}>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-1">
             <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
               {initials}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm truncate">{negotiation.client_name}</p>
-              <p className="text-xs text-muted-foreground truncate">{negotiation.title}</p>
+              {negotiation.bitrix_deal_id && (
+                <p className="text-xs text-muted-foreground">ID: {negotiation.bitrix_deal_id}</p>
+              )}
             </div>
           </div>
+
+          {(negotiation.model_name || negotiation.responsible_name) && (
+            <div className="mb-2 space-y-0.5">
+              {negotiation.model_name && (
+                <p className="text-xs text-muted-foreground truncate">
+                  <span className="font-medium">Modelo:</span> {negotiation.model_name}
+                </p>
+              )}
+              {negotiation.responsible_name && (
+                <p className="text-xs text-muted-foreground truncate">
+                  <span className="font-medium">Resp:</span> {negotiation.responsible_name}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1 text-sm font-semibold text-primary">

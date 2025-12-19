@@ -116,6 +116,10 @@ export interface Negotiation {
   // Notes and attachments
   internal_notes?: string | null;
   attachments?: string[] | null;
+
+  // Display fields from Bitrix
+  model_name?: string | null;
+  responsible_name?: string | null;
 }
 
 export interface NegotiationHistory {
