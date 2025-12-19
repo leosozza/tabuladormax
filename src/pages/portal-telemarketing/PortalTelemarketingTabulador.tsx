@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeNotifications, useBrowserNotification, TelemarketingNotification } from '@/hooks/useTelemarketingNotifications';
 import { useOperatorRanking } from '@/hooks/useOperatorRanking';
 import { useComparecimentosRanking } from '@/hooks/useComparecimentosRanking';
+import { useTelemarketingHeartbeat } from '@/hooks/useTelemarketingHeartbeat';
 import UserMenu from '@/components/UserMenu';
 import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
@@ -114,6 +115,9 @@ const PortalTelemarketingTabulador = () => {
   // Hooks de ranking
   const { position: rankingPosition, total: totalAgendados } = useOperatorRanking(context?.bitrix_id || null);
   const { position: comparecimentosPosition, total: totalComparecimentos } = useComparecimentosRanking(context?.bitrix_id || null, 'today');
+
+  // Heartbeat para rastrear telemarketing online
+  useTelemarketingHeartbeat(context?.bitrix_id || null);
 
   // Ativar notificações em tempo real
   useRealtimeNotifications(context?.bitrix_id || null);

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Users, MapPin, Phone, Loader2, Trophy, ChevronDown, ExternalLink, X } from 'lucide-react';
 import { useOnlinePresence } from '@/hooks/useOnlinePresence';
+import { useTelemarketingOnline } from '@/hooks/useTelemarketingOnline';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -102,7 +103,9 @@ interface TeamStatusPanelProps {
 }
 
 export function TeamStatusPanel({ sourceFilter = 'all' }: TeamStatusPanelProps) {
-  const { totalOnline, telemarketingOnline, onlineUsers } = useOnlinePresence();
+  const { totalOnline, onlineUsers } = useOnlinePresence();
+  const { data: telemarketingOnlineData, isLoading: loadingTelemarketing } = useTelemarketingOnline();
+  const telemarketingOnlineCount = telemarketingOnlineData?.length || 0;
   const [scouterPeriod, setScouterPeriod] = useState<PeriodKey>('today');
   const [telemarketingPeriod, setTelemarketingPeriod] = useState<PeriodKey>('today');
   const [showScoutersDialog, setShowScoutersDialog] = useState(false);
@@ -317,10 +320,14 @@ export function TeamStatusPanel({ sourceFilter = 'all' }: TeamStatusPanelProps) 
             </CardHeader>
             <CardContent>
               <div className="flex items-end justify-between">
-                <div>
-                  <div className="text-4xl font-bold text-purple-600">{telemarketingOnline}</div>
-                  <p className="text-xs text-muted-foreground mt-1">conectados agora</p>
-                </div>
+                {loadingTelemarketing ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                ) : (
+                  <div>
+                    <div className="text-4xl font-bold text-purple-600">{telemarketingOnlineCount}</div>
+                    <p className="text-xs text-muted-foreground mt-1">conectados agora</p>
+                  </div>
+                )}
                 <ExternalLink className="h-4 w-4 text-purple-600/50" />
               </div>
             </CardContent>
@@ -519,23 +526,24 @@ export function TeamStatusPanel({ sourceFilter = 'all' }: TeamStatusPanelProps) 
               Telemarketing Online
             </DialogTitle>
             <DialogDescription>
-              {telemarketingOnline} operadores conectados
+              {telemarketingOnlineCount} operadores conectados
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {onlineUsers
-              .filter(u => u.isTelemarketing)
-              .map((user) => (
-                <div key={user.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                  <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{user.displayName || user.email}</p>
-                  </div>
+            {telemarketingOnlineData?.map((tm) => (
+              <div key={tm.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
+                <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{tm.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Última atividade: {formatDistanceToNow(new Date(tm.last_activity_at), { addSuffix: true, locale: ptBR })}
+                  </p>
                 </div>
-              ))}
+              </div>
+            ))}
 
-            {telemarketingOnline === 0 && (
+            {telemarketingOnlineCount === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
                 Nenhum operador online no momento
               </p>
