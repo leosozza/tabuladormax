@@ -314,7 +314,7 @@ export function TeamStatusPanel({ sourceFilter = 'all' }: TeamStatusPanelProps) 
                   Telemarketing Online
                 </div>
                 <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
-                  tempo real
+                  últimas 4h
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -325,7 +325,7 @@ export function TeamStatusPanel({ sourceFilter = 'all' }: TeamStatusPanelProps) 
                 ) : (
                   <div>
                     <div className="text-4xl font-bold text-purple-600">{telemarketingOnlineCount}</div>
-                    <p className="text-xs text-muted-foreground mt-1">conectados agora</p>
+                    <p className="text-xs text-muted-foreground mt-1">ativos nas últimas 4h</p>
                   </div>
                 )}
                 <ExternalLink className="h-4 w-4 text-purple-600/50" />
