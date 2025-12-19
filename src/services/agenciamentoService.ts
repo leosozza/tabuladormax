@@ -297,7 +297,13 @@ export async function getNegotiation(id: string): Promise<Negotiation | null> {
 export async function listNegotiations(filters?: NegotiationFilters): Promise<Negotiation[]> {
   let query = supabase
     .from('negotiations')
-    .select('*')
+    .select(`
+      *,
+      deals:deal_id (
+        bitrix_deal_id,
+        raw
+      )
+    `)
     .order('created_at', { ascending: false });
 
   if (filters?.status && filters.status.length > 0) {
@@ -319,7 +325,15 @@ export async function listNegotiations(filters?: NegotiationFilters): Promise<Ne
     throw new Error('Erro ao listar negociações');
   }
 
-  return (data || []).map(transformDbToNegotiation);
+  return (data || []).map((item: any) => {
+    // Extract model name and responsible name from deals.raw
+    const raw = item.deals?.raw as Record<string, any> | null;
+    const modelNameArray = raw?.UF_CRM_6748E09939008;
+    const modelName = Array.isArray(modelNameArray) ? modelNameArray[0] : modelNameArray;
+    const responsibleName = raw?.UF_CRM_690CA588BDFB7;
+    
+    return transformDbToNegotiation(item, modelName, responsibleName);
+  });
 }
 
 /**
@@ -485,7 +499,7 @@ export async function getNegotiationSummary(id: string): Promise<NegotiationSumm
 }
 
 // Helper function to transform DB record to Negotiation type
-function transformDbToNegotiation(data: any): Negotiation {
+function transformDbToNegotiation(data: any, modelName?: string | null, responsibleName?: string | null): Negotiation {
   return {
     id: data.id,
     deal_id: data.deal_id,
@@ -527,5 +541,7 @@ function transformDbToNegotiation(data: any): Negotiation {
     updated_by: null,
     created_at: data.created_at,
     updated_at: data.updated_at,
+    model_name: modelName || null,
+    responsible_name: responsibleName || null,
   };
 }
