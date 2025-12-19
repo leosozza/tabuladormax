@@ -15,13 +15,9 @@ export function useTelemarketingHeartbeat(bitrixId: number | null) {
 
     const sendHeartbeat = async () => {
       try {
-        const { error } = await supabase
-          .from('telemarketing_operators')
-          .update({ 
-            last_activity_at: new Date().toISOString(),
-            status: 'ativo'
-          })
-          .eq('bitrix_id', bitrixId);
+        const { error } = await supabase.rpc('telemarketing_heartbeat', {
+          p_bitrix_id: bitrixId
+        });
         
         if (error) {
           console.warn('[Heartbeat] Error updating:', error.message);

@@ -4959,6 +4959,10 @@ export type Database = {
           key_prefix: string
         }[]
       }
+      telemarketing_heartbeat: {
+        Args: { p_bitrix_id: number }
+        Returns: undefined
+      }
       unblock_phone_number: {
         Args: { p_phone_number: string; p_user_id?: string }
         Returns: boolean
