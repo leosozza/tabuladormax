@@ -218,6 +218,51 @@ const heightClassMap: Record<number, string> = {
   3: "min-h-[176px]"
 };
 const DEFAULT_WEBHOOK = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json";
+
+// Componente separado para evitar recriação durante digitação
+interface SortableFieldInputItemProps {
+  mapping: FieldMapping;
+  profile: DynamicProfile;
+  setProfile: React.Dispatch<React.SetStateAction<DynamicProfile>>;
+}
+
+const SortableFieldInputItem = ({ mapping, profile, setProfile }: SortableFieldInputItemProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition
+  } = useSortable({
+    id: mapping.id || mapping.profile_field
+  });
+  
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition
+  };
+  
+  return (
+    <div ref={setNodeRef} style={style} className="flex gap-2 items-end">
+      <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing pb-2">
+        <GripVertical className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+      </div>
+      <div className="flex-1">
+        <Label className="text-xs md:text-sm">{mapping.display_name || mapping.profile_field}</Label>
+        <Input 
+          value={String((profile as any)[mapping.profile_field] || '')} 
+          onChange={e => setProfile(prev => ({
+            ...prev,
+            [mapping.profile_field]: e.target.value
+          }))} 
+          placeholder={`Digite ${mapping.display_name || mapping.profile_field}`} 
+          className="text-xs md:text-sm" 
+        />
+      </div>
+    </div>
+  );
+};
+
 const LeadTab = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -2693,36 +2738,14 @@ const LeadTab = () => {
             </> : <div className="w-full space-y-2 md:space-y-3">
               <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={fieldMappings.filter(mapping => !mapping.is_profile_photo).map(m => m.id || m.profile_field)} strategy={verticalListSortingStrategy}>
-                  {fieldMappings.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).filter(mapping => !mapping.is_profile_photo).map(mapping => {
-                  const SortableFieldInput = () => {
-                    const {
-                      attributes,
-                      listeners,
-                      setNodeRef,
-                      transform,
-                      transition
-                    } = useSortable({
-                      id: mapping.id || mapping.profile_field
-                    });
-                    const style = {
-                      transform: CSS.Transform.toString(transform),
-                      transition
-                    };
-                    return <div ref={setNodeRef} style={style} key={mapping.profile_field} className="flex gap-2 items-end">
-                            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing pb-2">
-                              <GripVertical className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1">
-                              <Label className="text-xs md:text-sm">{mapping.display_name || mapping.profile_field}</Label>
-                              <Input value={String((profile as any)[mapping.profile_field] || '')} onChange={e => setProfile({
-                          ...profile,
-                          [mapping.profile_field]: e.target.value
-                        })} placeholder={`Digite ${mapping.display_name || mapping.profile_field}`} className="text-xs md:text-sm" />
-                            </div>
-                          </div>;
-                  };
-                  return <SortableFieldInput key={mapping.profile_field} />;
-                })}
+                  {fieldMappings.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).filter(mapping => !mapping.is_profile_photo).map(mapping => (
+                    <SortableFieldInputItem
+                      key={mapping.profile_field}
+                      mapping={mapping}
+                      profile={profile}
+                      setProfile={setProfile}
+                    />
+                  ))}
                 </SortableContext>
               </DndContext>
 
