@@ -12,23 +12,23 @@ const corsHeaders = {
 // Mapeamento de Stage do Bitrix → Status da Negociação
 // Alinhado EXATAMENTE com Bitrix - Categoria 1 (Pinheiros)
 const BITRIX_STAGE_TO_STATUS: Record<string, string> = {
-  // Categoria 1 - Pinheiros (EXATAMENTE como Bitrix)
-  'C1:NEW': 'ficha_preenchida',              // "Ficha Preenchida" (1 deal)
-  'C1:UC_3KJOIF': 'contrato_nao_fechado',    // "Contrato não fechado" (257 deals)
-  'C1:UC_0SXJB5': 'analisar',                // "Analisar" (846 deals)
-  'C1:UC_MKIQ0S': 'atendimento_produtor',    // "Atendimento Produtor"
-  'C1:WON': 'realizado',                     // "Negócios Fechados" (269 deals)
-  'C1:LOSE': 'nao_realizado',                // "Anulados"
+  // Categoria 1 - Pinheiros (Stage IDs CORRETOS)
+  'C1:NEW': 'recepcao_cadastro',           // "Recepção - Cadastro atendimento" (0 deals)
+  'C1:UC_O2KDK6': 'ficha_preenchida',      // "Ficha Preenchida" (1 deal)
+  'C1:EXECUTING': 'atendimento_produtor',  // "Atendimento Produtor" (0 deals)
+  'C1:WON': 'negocios_fechados',           // "Negócios Fechados" (269 deals)
+  'C1:LOSE': 'contrato_nao_fechado',       // "Contrato não fechado" (257 deals)
+  'C1:UC_MKIQ0S': 'analisar',              // "Analisar" (846 deals)
   
   // Fallback para stages genéricos (outras categorias)
-  'NEW': 'ficha_preenchida',
+  'NEW': 'recepcao_cadastro',
   'PREPARATION': 'ficha_preenchida',
   'PREPAYMENT_INVOICE': 'atendimento_produtor',
   'EXECUTING': 'atendimento_produtor',
   'FINAL_INVOICE': 'atendimento_produtor',
-  'WON': 'realizado',
-  'LOSE': 'nao_realizado',
-  'APOLOGY': 'nao_realizado',
+  'WON': 'negocios_fechados',
+  'LOSE': 'contrato_nao_fechado',
+  'APOLOGY': 'contrato_nao_fechado',
 };
 
 interface SyncRequest {
@@ -91,7 +91,7 @@ serve(async (req) => {
     if (sync_active_only) {
       console.log('🔄 [MODO SYNC_ACTIVE_ONLY] Buscando negotiations ativas locais...');
       
-      const activeStatuses = ['inicial', 'ficha_preenchida', 'atendimento_produtor'];
+      const activeStatuses = ['recepcao_cadastro', 'ficha_preenchida', 'atendimento_produtor'];
       
       // Buscar todas as negotiations ativas que têm bitrix_deal_id
       const { data: activeNegotiations, error: fetchError } = await supabase
@@ -135,7 +135,7 @@ serve(async (req) => {
 
           const deal = data.result;
           const currentBitrixStage = deal.STAGE_ID;
-          const newStatus = BITRIX_STAGE_TO_STATUS[currentBitrixStage] || 'inicial';
+          const newStatus = BITRIX_STAGE_TO_STATUS[currentBitrixStage] || 'recepcao_cadastro';
           const oldStatus = neg.status;
 
           // Atualizar deal local com o stage atual
@@ -328,7 +328,7 @@ serve(async (req) => {
         }
 
         const bitrixDealId = parseInt(deal.ID);
-        const negotiationStatus = BITRIX_STAGE_TO_STATUS[deal.STAGE_ID] || 'inicial';
+        const negotiationStatus = BITRIX_STAGE_TO_STATUS[deal.STAGE_ID] || 'recepcao_cadastro';
         const baseValue = deal.OPPORTUNITY ? parseFloat(deal.OPPORTUNITY) : 0;
 
         // VERIFICAR SE JÁ EXISTE NEGOTIATION POR bitrix_deal_id (evitar duplicatas)
@@ -478,57 +478,79 @@ serve(async (req) => {
             updateData.total_value = baseValue;
           }
 
-          const { error: updateNegError } = await supabase
+          const { error: updateError } = await supabase
             .from('negotiations')
             .update(updateData)
             .eq('id', existingNegByDeal.id);
 
-          if (updateNegError) {
-            console.warn('⚠️ Erro ao atualizar negociação:', updateNegError);
+          if (updateError) {
+            console.warn('⚠️ Erro ao atualizar negociação:', updateError);
             results.errors++;
           } else {
             results.updated++;
-            console.log(`✅ Negociação atualizada (via deal_id): ${existingNegByDeal.id} (${existingNegByDeal.status} → ${negotiationStatus})`);
+            console.log(`✅ Negociação (por deal_id) atualizada: ${existingNegByDeal.id}`);
           }
-        } else {
-          // Criar nova negociação
-          const negotiationData = {
-            deal_id: dealId,
-            bitrix_deal_id: bitrixDealId,
-            title: deal.TITLE || `Negociação #${deal.ID}`,
-            client_name: clientName,
-            client_phone: clientPhone,
-            client_email: clientEmail,
+
+          results.details.push({
+            bitrix_deal_id: deal.ID,
+            title: deal.TITLE,
             status: negotiationStatus,
-            base_value: baseValue,
-            total_value: baseValue,
-            start_date: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
+            action: 'updated',
+            success: true,
+          });
 
-          const { data: newNegotiation, error: createNegError } = await supabase
-            .from('negotiations')
-            .insert(negotiationData)
-            .select()
-            .single();
-
-          if (createNegError) {
-            console.warn('⚠️ Erro ao criar negociação:', createNegError);
-            results.errors++;
-          } else {
-            results.created++;
-            console.log(`✅ Negociação criada: ${newNegotiation.id} (status: ${negotiationStatus})`);
-          }
+          continue;
         }
 
-        results.details.push({
-          bitrix_deal_id: deal.ID,
-          title: deal.TITLE,
+        // Criar nova negociação
+        const negotiationData = {
+          deal_id: dealId,
+          bitrix_deal_id: bitrixDealId,
+          title: deal.TITLE || `Negociação #${deal.ID}`,
+          client_name: clientName,
+          client_phone: clientPhone,
+          client_email: clientEmail,
           status: negotiationStatus,
-          action: existingNegByDeal ? 'updated' : 'created',
-          success: true,
-        });
+          base_value: baseValue,
+          discount_percentage: 0,
+          discount_value: 0,
+          final_value: baseValue,
+          payment_methods: [],
+          installments_number: 1,
+          installment_value: baseValue,
+          payment_frequency: 'monthly',
+          additional_fees: 0,
+          tax_percentage: 0,
+          tax_value: 0,
+          total_value: baseValue,
+          negotiation_date: deal.DATE_CREATE ? new Date(deal.DATE_CREATE).toISOString() : new Date().toISOString(),
+          items: [],
+        };
+
+        const { error: insertNegError } = await supabase
+          .from('negotiations')
+          .insert(negotiationData);
+
+        if (insertNegError) {
+          console.error('❌ Erro ao criar negociação:', insertNegError);
+          results.errors++;
+          results.details.push({
+            bitrix_deal_id: deal.ID,
+            title: deal.TITLE,
+            error: insertNegError.message,
+            action: 'create_failed',
+          });
+        } else {
+          results.created++;
+          console.log(`✅ Negociação criada para deal ${deal.ID}`);
+          results.details.push({
+            bitrix_deal_id: deal.ID,
+            title: deal.TITLE,
+            status: negotiationStatus,
+            action: 'created',
+            success: true,
+          });
+        }
 
       } catch (error) {
         console.error(`❌ Erro ao processar deal ${deal.ID}:`, error);
@@ -537,14 +559,14 @@ serve(async (req) => {
           bitrix_deal_id: deal.ID,
           title: deal.TITLE,
           error: String(error),
-          success: false,
+          action: 'error',
         });
       }
     }
 
     const processingTime = Date.now() - startTime;
-    console.log(`\n✅ [sync-negotiations-from-bitrix] Sincronização concluída em ${processingTime}ms`);
-    console.log(`📊 Resultados: ${results.created} criadas, ${results.updated} atualizadas, ${results.skipped} puladas, ${results.errors} erros`);
+    console.log(`\n✅ Sincronização concluída em ${processingTime}ms`);
+    console.log(`📊 Resultados: ${results.created} criados, ${results.updated} atualizados, ${results.skipped} ignorados, ${results.errors} erros`);
 
     return new Response(
       JSON.stringify({
@@ -557,64 +579,49 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ [sync-negotiations-from-bitrix] Erro:', error);
-    
     return new Response(
-      JSON.stringify({ 
-        error: String(error),
-        processingTime: Date.now() - startTime,
-      }),
+      JSON.stringify({ error: String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
 
-// Helper function para upsert deal
+// Helper function to upsert deal
 async function upsertDeal(
   supabase: any,
-  deal: BitrixDeal, 
+  deal: BitrixDeal,
   bitrixDealId: number,
-  clientName: string, 
-  clientPhone: string | null, 
+  clientName: string,
+  clientPhone: string | null,
   clientEmail: string | null
 ) {
-  const { data: existingDeal } = await supabase
-    .from('deals')
-    .select('id')
-    .eq('bitrix_deal_id', bitrixDealId)
-    .maybeSingle();
-
   const dealData = {
-    title: deal.TITLE,
+    bitrix_deal_id: bitrixDealId,
+    title: deal.TITLE || `Deal #${deal.ID}`,
     stage_id: deal.STAGE_ID,
     category_id: deal.CATEGORY_ID,
     opportunity: deal.OPPORTUNITY ? parseFloat(deal.OPPORTUNITY) : null,
+    currency_id: deal.CURRENCY_ID,
+    company_id: deal.COMPANY_ID ? parseInt(deal.COMPANY_ID) : null,
+    contact_id: deal.CONTACT_ID ? parseInt(deal.CONTACT_ID) : null,
+    bitrix_lead_id: deal.LEAD_ID ? parseInt(deal.LEAD_ID) : null,
+    assigned_by_id: deal.ASSIGNED_BY_ID ? parseInt(deal.ASSIGNED_BY_ID) : null,
+    created_date: deal.DATE_CREATE ? new Date(deal.DATE_CREATE).toISOString() : null,
+    close_date: deal.CLOSEDATE && deal.CLOSEDATE !== '' ? new Date(deal.CLOSEDATE).toISOString() : null,
+    date_modify: deal.DATE_MODIFY ? new Date(deal.DATE_MODIFY).toISOString() : null,
     client_name: clientName,
     client_phone: clientPhone,
     client_email: clientEmail,
-    date_modify: deal.DATE_MODIFY ? new Date(deal.DATE_MODIFY).toISOString() : null,
+    raw: deal,
     last_sync_at: new Date().toISOString(),
     sync_status: 'synced',
   };
 
-  if (existingDeal) {
-    await supabase
-      .from('deals')
-      .update(dealData)
-      .eq('id', existingDeal.id);
-  } else {
-    await supabase
-      .from('deals')
-      .insert({
-        bitrix_deal_id: bitrixDealId,
-        ...dealData,
-        currency_id: deal.CURRENCY_ID,
-        company_id: deal.COMPANY_ID ? parseInt(deal.COMPANY_ID) : null,
-        contact_id: deal.CONTACT_ID ? parseInt(deal.CONTACT_ID) : null,
-        bitrix_lead_id: deal.LEAD_ID ? parseInt(deal.LEAD_ID) : null,
-        assigned_by_id: deal.ASSIGNED_BY_ID ? parseInt(deal.ASSIGNED_BY_ID) : null,
-        created_date: deal.DATE_CREATE ? new Date(deal.DATE_CREATE).toISOString() : null,
-        close_date: deal.CLOSEDATE && deal.CLOSEDATE !== '' ? new Date(deal.CLOSEDATE).toISOString() : null,
-        raw: deal,
-      });
+  const { error } = await supabase
+    .from('deals')
+    .upsert(dealData, { onConflict: 'bitrix_deal_id' });
+
+  if (error) {
+    console.warn('⚠️ Erro ao upsert deal:', error);
   }
 }

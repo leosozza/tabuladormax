@@ -27,14 +27,14 @@ interface NegotiationPipelineProps {
   onCardClick: (negotiation: Negotiation) => void;
 }
 
-// Pipeline status order (alinhado com Bitrix - Categoria 1 Pinheiros)
+// Pipeline status order - EXATAMENTE como Bitrix Categoria 1 (Pinheiros)
 const PIPELINE_STATUSES: NegotiationStatus[] = [
-  'ficha_preenchida',
-  'contrato_nao_fechado',
-  'analisar',
-  'atendimento_produtor',
-  'realizado',
-  'nao_realizado',
+  'recepcao_cadastro',      // C1:NEW
+  'ficha_preenchida',       // C1:UC_O2KDK6
+  'atendimento_produtor',   // C1:EXECUTING
+  'negocios_fechados',      // C1:WON
+  'contrato_nao_fechado',   // C1:LOSE
+  'analisar',               // C1:UC_MKIQ0S
 ];
 
 export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPipelineProps) {
@@ -61,13 +61,12 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
   // Group negotiations by status
   const negotiationsByStatus = useMemo(() => {
     const grouped: Record<NegotiationStatus, Negotiation[]> = {
-      inicial: [],
+      recepcao_cadastro: [],
       ficha_preenchida: [],
+      atendimento_produtor: [],
+      negocios_fechados: [],
       contrato_nao_fechado: [],
       analisar: [],
-      atendimento_produtor: [],
-      realizado: [],
-      nao_realizado: [],
     };
 
     negotiations.forEach((neg) => {
@@ -82,8 +81,14 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
   // Update status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: NegotiationStatus }) => {
-      // Update negotiation status
-      const result = await updateNegotiation(id, { status });
+      // Update negotiation status using the correct method
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { error } = await supabase
+        .from('negotiations')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      
+      if (error) throw error;
       
       // Sync to Bitrix
       const negotiation = negotiations.find(n => n.id === id);
@@ -101,7 +106,7 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
         }
       }
       
-      return result;
+      return { id, status };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['negotiations'] });

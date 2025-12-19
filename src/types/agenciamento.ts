@@ -1,14 +1,14 @@
 // Agenciamento (Negotiations) Module Types
 // Complete type definitions for commercial negotiations
 
+// Status alinhados EXATAMENTE com Bitrix - Categoria 1 (Pinheiros)
 export type NegotiationStatus =
-  | 'inicial'
-  | 'ficha_preenchida'
-  | 'contrato_nao_fechado'
-  | 'analisar'
-  | 'atendimento_produtor'
-  | 'realizado'
-  | 'nao_realizado';
+  | 'recepcao_cadastro'      // C1:NEW - Recepção - Cadastro atendimento
+  | 'ficha_preenchida'       // C1:UC_O2KDK6 - Ficha Preenchida
+  | 'atendimento_produtor'   // C1:EXECUTING - Atendimento Produtor
+  | 'negocios_fechados'      // C1:WON - Negócios Fechados
+  | 'contrato_nao_fechado'   // C1:LOSE - Contrato não fechado
+  | 'analisar';              // C1:UC_MKIQ0S - Analisar
 
 export type PaymentMethod =
   | 'cash'
@@ -99,68 +99,71 @@ export interface Negotiation {
   // Terms and Conditions
   terms_and_conditions?: string | null;
   special_conditions?: string | null;
-  internal_notes?: string | null;
-
-  // Approval Workflow
-  requires_approval: boolean;
-  approved_by?: string | null;
-  approved_at?: string | null;
-  approval_notes?: string | null;
-  rejected_by?: string | null;
-  rejected_at?: string | null;
-  rejection_reason?: string | null;
-
-  // Tracking
-  created_by: string;
-  updated_by?: string | null;
-  created_at: string;
-  updated_at: string;
 
   // Metadata
-  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  created_by?: string | null;
+  updated_by?: string | null;
+
+  // Approval workflow
+  approval_status?: 'pending' | 'approved' | 'rejected' | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  rejection_reason?: string | null;
+  requires_approval?: boolean | null;
+
+  // Notes and attachments
+  internal_notes?: string | null;
+  attachments?: string[] | null;
 }
 
 export interface NegotiationHistory {
   id: string;
   negotiation_id: string;
   action: string;
-  changes?: Record<string, any> | null;
-  performed_by: string;
+  old_status?: string;
+  new_status?: string;
+  changes?: Record<string, any>;
+  notes?: string;
+  performed_by?: string;
   performed_at: string;
-  notes?: string | null;
 }
 
 export interface NegotiationAttachment {
   id: string;
   negotiation_id: string;
   file_name: string;
-  file_path: string;
-  file_size?: number | null;
-  file_type?: string | null;
+  file_type: string;
+  file_size: number;
+  file_url: string;
   uploaded_by: string;
   uploaded_at: string;
-  description?: string | null;
 }
 
+// Summary type for lists
 export interface NegotiationSummary {
   id: string;
   title: string;
   client_name: string;
   status: NegotiationStatus;
   total_value: number;
+  negotiation_date: string;
   created_at: string;
   updated_at?: string;
 }
 
-// Form types for creation/editing
+// Form data types
 export interface NegotiationFormData {
-  // Deal reference
-  deal_id?: string;
-  bitrix_deal_id?: number;
-
   // Basic Information
   title: string;
   description?: string;
+  deal_id?: string;
+  bitrix_deal_id?: number;
+  bitrix_project_id?: string;
+  bitrix_contact_id?: string;
+  bitrix_company_id?: string;
+  bitrix_product_id?: number;
   status?: NegotiationStatus;
 
   // Client Information
@@ -169,43 +172,39 @@ export interface NegotiationFormData {
   client_phone?: string;
   client_document?: string;
 
-  // Bitrix24 Integration
-  bitrix_project_id?: string;
-  bitrix_product_id?: string | number;
-
   // Commercial Conditions
   base_value: number;
-  discount_percentage?: number;
-  discount_value?: number;
+  discount_percentage: number;
+  discount_value: number;
 
   // Payment Conditions
   payment_methods: SelectedPaymentMethod[];
-  installments_number?: number;
+  installments_number: number;
+  installment_value: number;
   first_payment_date?: string;
-  payment_frequency?: PaymentFrequency;
+  payment_frequency: PaymentFrequency;
 
   // Additional Fees and Taxes
-  additional_fees?: number;
-  tax_percentage?: number;
+  additional_fees: number;
+  tax_percentage: number;
 
   // Dates
-  negotiation_date?: string;
+  negotiation_date: string;
   validity_date?: string;
   expected_closing_date?: string;
 
   // Items
-  items?: NegotiationItem[];
+  items: NegotiationItem[];
 
   // Terms and Conditions
   terms_and_conditions?: string;
   special_conditions?: string;
   internal_notes?: string;
-
+  
   // Approval
   requires_approval?: boolean;
 }
 
-// Calculation results
 export interface NegotiationCalculation {
   base_value: number;
   discount_percentage: number;
@@ -223,19 +222,23 @@ export interface NegotiationCalculation {
   }>;
 }
 
-// Filter and search options
 export interface NegotiationFilters {
   status?: NegotiationStatus[];
   search?: string;
-  client_name?: string;
-  date_from?: string;
-  date_to?: string;
-  min_value?: number;
-  max_value?: number;
+  dateRange?: {
+    start: string;
+    end: string;
+  };
+  valueRange?: {
+    min: number;
+    max: number;
+  };
+  clientId?: string;
+  createdBy?: string;
   created_by?: string;
 }
 
-// Payment method options with labels
+// Payment method labels
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: 'Dinheiro',
   credit_card: 'Cartão de Crédito',
@@ -249,18 +252,17 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   other: 'Outro',
 };
 
-// Status labels with colors (alinhado com Bitrix - Categoria 1 Pinheiros)
+// Status labels with colors - Alinhado EXATAMENTE com Bitrix Categoria 1 (Pinheiros)
 export const NEGOTIATION_STATUS_CONFIG: Record<
   NegotiationStatus,
   { label: string; color: string; icon?: string }
 > = {
-  inicial: { label: 'Inicial', color: 'slate' },
+  recepcao_cadastro: { label: 'Recepção - Cadastro atendimento', color: 'slate' },
   ficha_preenchida: { label: 'Ficha Preenchida', color: 'blue' },
+  atendimento_produtor: { label: 'Atendimento Produtor', color: 'amber' },
+  negocios_fechados: { label: 'Negócios Fechados', color: 'green' },
   contrato_nao_fechado: { label: 'Contrato não fechado', color: 'orange' },
   analisar: { label: 'Analisar', color: 'purple' },
-  atendimento_produtor: { label: 'Atendimento Produtor', color: 'amber' },
-  realizado: { label: 'Negócios Fechados', color: 'green' },
-  nao_realizado: { label: 'Anulados', color: 'red' },
 };
 
 // Payment frequency labels

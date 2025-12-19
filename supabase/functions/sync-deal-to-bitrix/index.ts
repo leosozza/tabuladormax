@@ -8,13 +8,14 @@ const corsHeaders = {
 const BITRIX_WEBHOOK_URL = 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr'
 
 // Map negotiation status to Bitrix deal stage (Categoria 1 - Pinheiros)
+// Mapeamento CORRETO com Stage IDs reais do Bitrix
 const STATUS_TO_STAGE: Record<string, string> = {
-  ficha_preenchida: 'C1:NEW',
-  contrato_nao_fechado: 'C1:UC_3KJOIF',
-  analisar: 'C1:UC_0SXJB5',
-  atendimento_produtor: 'C1:UC_MKIQ0S',
-  realizado: 'C1:WON',
-  nao_realizado: 'C1:LOSE',
+  recepcao_cadastro: 'C1:NEW',           // Recepção - Cadastro atendimento
+  ficha_preenchida: 'C1:UC_O2KDK6',      // Ficha Preenchida
+  atendimento_produtor: 'C1:EXECUTING',  // Atendimento Produtor
+  negocios_fechados: 'C1:WON',           // Negócios Fechados
+  contrato_nao_fechado: 'C1:LOSE',       // Contrato não fechado
+  analisar: 'C1:UC_MKIQ0S',              // Analisar
 }
 
 Deno.serve(async (req) => {
@@ -73,6 +74,7 @@ Deno.serve(async (req) => {
     // Map status to stage
     if (status && STATUS_TO_STAGE[status]) {
       updateFields.STAGE_ID = STATUS_TO_STAGE[status]
+      console.log(`[sync-deal-to-bitrix] Mapping status "${status}" to stage "${STATUS_TO_STAGE[status]}"`)
     }
 
     // Update in Bitrix
@@ -95,10 +97,10 @@ Deno.serve(async (req) => {
       throw new Error(result.error_description || result.error)
     }
 
-    console.log(`[sync-deal-to-bitrix] Successfully updated deal ${bitrixDealId}`)
+    console.log(`[sync-deal-to-bitrix] Successfully updated deal ${bitrixDealId} with stage ${updateFields.STAGE_ID}`)
 
     return new Response(
-      JSON.stringify({ success: true, bitrix_deal_id: bitrixDealId }),
+      JSON.stringify({ success: true, bitrix_deal_id: bitrixDealId, stage: updateFields.STAGE_ID }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

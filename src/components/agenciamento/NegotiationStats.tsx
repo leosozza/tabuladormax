@@ -1,8 +1,8 @@
 // Negotiation Statistics Component
-// Dashboard cards showing key metrics
+// Dashboard cards showing key metrics - Alinhado com Bitrix Categoria 1 (Pinheiros)
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DollarSign, FileText, TrendingUp, Clock, CheckCircle } from 'lucide-react';
+import { DollarSign, FileText, TrendingUp, Clock, CheckCircle, XCircle, Search } from 'lucide-react';
 import type { Negotiation } from '@/types/agenciamento';
 
 interface NegotiationStatsProps {
@@ -10,16 +10,16 @@ interface NegotiationStatsProps {
 }
 
 export function NegotiationStats({ negotiations }: NegotiationStatsProps) {
-  // Calculate statistics
+  // Calculate statistics - Alinhado com Bitrix
   const stats = {
     total: negotiations.length,
     totalValue: negotiations.reduce((sum, n) => sum + n.total_value, 0),
+    recepcaoCadastro: negotiations.filter((n) => n.status === 'recepcao_cadastro').length,
     fichaPreenchida: negotiations.filter((n) => n.status === 'ficha_preenchida').length,
+    atendimentoProdutor: negotiations.filter((n) => n.status === 'atendimento_produtor').length,
+    negociosFechados: negotiations.filter((n) => n.status === 'negocios_fechados').length,
     contratoNaoFechado: negotiations.filter((n) => n.status === 'contrato_nao_fechado').length,
     analisar: negotiations.filter((n) => n.status === 'analisar').length,
-    atendimentoProdutor: negotiations.filter((n) => n.status === 'atendimento_produtor').length,
-    realizado: negotiations.filter((n) => n.status === 'realizado').length,
-    naoRealizado: negotiations.filter((n) => n.status === 'nao_realizado').length,
     averageValue:
       negotiations.length > 0
         ? negotiations.reduce((sum, n) => sum + n.total_value, 0) / negotiations.length
@@ -40,40 +40,40 @@ export function NegotiationStats({ negotiations }: NegotiationStatsProps) {
       color: 'text-green-600',
     },
     {
+      title: 'Recepção - Cadastro',
+      value: stats.recepcaoCadastro,
+      icon: Clock,
+      color: 'text-slate-600',
+    },
+    {
       title: 'Ficha Preenchida',
       value: stats.fichaPreenchida,
-      icon: Clock,
+      icon: FileText,
       color: 'text-blue-600',
+    },
+    {
+      title: 'Atendimento Produtor',
+      value: stats.atendimentoProdutor,
+      icon: TrendingUp,
+      color: 'text-amber-600',
+    },
+    {
+      title: 'Negócios Fechados',
+      value: stats.negociosFechados,
+      icon: CheckCircle,
+      color: 'text-green-600',
     },
     {
       title: 'Contrato não fechado',
       value: stats.contratoNaoFechado,
-      icon: Clock,
+      icon: XCircle,
       color: 'text-orange-600',
     },
     {
       title: 'Analisar',
       value: stats.analisar,
-      icon: Clock,
+      icon: Search,
       color: 'text-purple-600',
-    },
-    {
-      title: 'Atendimento Produtor',
-      value: stats.atendimentoProdutor,
-      icon: Clock,
-      color: 'text-amber-600',
-    },
-    {
-      title: 'Negócios Fechados',
-      value: stats.realizado,
-      icon: CheckCircle,
-      color: 'text-green-600',
-    },
-    {
-      title: 'Anulados',
-      value: stats.naoRealizado,
-      icon: Clock,
-      color: 'text-red-600',
     },
   ];
 
