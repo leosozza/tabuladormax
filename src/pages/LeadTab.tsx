@@ -1691,7 +1691,8 @@ const LeadTab = () => {
         category: category,
         additional_fields: (entry as any).additional_fields || [],
         transfer_conversation: (entry as any).transfer_conversation || false,
-        sync_target: (entry as any).sync_target || 'bitrix'
+        sync_target: (entry as any).sync_target || 'bitrix',
+        trigger_id: entry.trigger_id
       };
     });
     const normalized = normalizeButtonList(parsed);
