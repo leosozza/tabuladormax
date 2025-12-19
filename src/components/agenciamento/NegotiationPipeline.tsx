@@ -1,22 +1,8 @@
-import { useState, useMemo } from 'react';
-import {
-  DndContext,
-  DragOverlay,
-  closestCorners,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragStartEvent,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { useState, useMemo, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Negotiation, NegotiationStatus } from '@/types/agenciamento';
-import { updateNegotiation } from '@/services/agenciamentoService';
 import { PipelineColumn } from './PipelineColumn';
-import { PipelineCard } from './PipelineCard';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ProducerSelectDialog } from './ProducerSelectDialog';
 import { Producer } from '@/hooks/useProducers';
@@ -38,7 +24,8 @@ const PIPELINE_STATUSES: NegotiationStatus[] = [
 ];
 
 export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPipelineProps) {
-  const [activeNegotiation, setActiveNegotiation] = useState<Negotiation | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTargetStatus, setDropTargetStatus] = useState<NegotiationStatus | null>(null);
   const [producerSelectOpen, setProducerSelectOpen] = useState(false);
   const [pendingTransition, setPendingTransition] = useState<{
     negotiationId: string;
@@ -46,17 +33,6 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
     newStatus: NegotiationStatus;
   } | null>(null);
   const queryClient = useQueryClient();
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   // Group negotiations by status
   const negotiationsByStatus = useMemo(() => {
@@ -81,8 +57,6 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
   // Update status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: NegotiationStatus }) => {
-      // Update negotiation status using the correct method
-      const { supabase } = await import('@/integrations/supabase/client');
       const { error } = await supabase
         .from('negotiations')
         .update({ status, updated_at: new Date().toISOString() })
@@ -134,34 +108,57 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
     },
   });
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const negotiation = negotiations.find((n) => n.id === active.id);
-    if (negotiation) {
-      setActiveNegotiation(negotiation);
+  // Native Drag & Drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, negotiationId: string) => {
+    // Use setTimeout to avoid React state update during drag start
+    setTimeout(() => setDraggedId(negotiationId), 0);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    // Get the column status from the event target
+    const columnElement = (e.currentTarget as HTMLElement);
+    const statusAttr = columnElement.dataset.status as NegotiationStatus;
+    if (statusAttr && statusAttr !== dropTargetStatus) {
+      setDropTargetStatus(statusAttr);
     }
-  };
+  }, [dropTargetStatus]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveNegotiation(null);
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // Only clear if leaving the column entirely
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+      setDropTargetStatus(null);
+    }
+  }, []);
 
-    if (!over) return;
-
-    const negotiationId = active.id as string;
-    const newStatus = over.id as NegotiationStatus;
-
-    const negotiation = negotiations.find((n) => n.id === negotiationId);
-    if (!negotiation || negotiation.status === newStatus) return;
+  const handleDrop = useCallback((e: React.DragEvent, newStatus: NegotiationStatus) => {
+    e.preventDefault();
+    
+    if (!draggedId) return;
+    
+    const negotiation = negotiations.find((n) => n.id === draggedId);
+    if (!negotiation || negotiation.status === newStatus) {
+      resetDragState();
+      return;
+    }
 
     // Validate status transition
-    if (!PIPELINE_STATUSES.includes(newStatus)) return;
+    if (!PIPELINE_STATUSES.includes(newStatus)) {
+      resetDragState();
+      return;
+    }
 
     handleStatusChange(negotiation, newStatus);
-  };
+    resetDragState();
+  }, [draggedId, negotiations]);
+
+  const resetDragState = useCallback(() => {
+    setDraggedId(null);
+    setDropTargetStatus(null);
+  }, []);
 
   // Centralized status change handler - used by both drag-and-drop and menu
-  const handleStatusChange = (negotiation: Negotiation, newStatus: NegotiationStatus) => {
+  const handleStatusChange = useCallback((negotiation: Negotiation, newStatus: NegotiationStatus) => {
     // Intercept transition to "atendimento_produtor" - require producer selection
     if (newStatus === 'atendimento_produtor') {
       setPendingTransition({
@@ -174,13 +171,13 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
     }
 
     updateStatusMutation.mutate({ id: negotiation.id, status: newStatus });
-  };
+  }, [updateStatusMutation]);
 
   // Handler for PipelineCard menu status change
-  const handleCardStatusChange = (negotiation: Negotiation) => (newStatus: NegotiationStatus) => {
+  const handleCardStatusChange = useCallback((negotiation: Negotiation) => (newStatus: NegotiationStatus) => {
     if (negotiation.status === newStatus) return;
     handleStatusChange(negotiation, newStatus);
-  };
+  }, [handleStatusChange]);
 
   const handleProducerSelect = async (producer: Producer) => {
     if (!pendingTransition) return;
@@ -214,38 +211,34 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
     setPendingTransition(null);
   };
 
+  // Global drag end handler (in case drop happens outside)
+  const handleDragEnd = useCallback(() => {
+    resetDragState();
+  }, [resetDragState]);
+
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
+    <div onDragEnd={handleDragEnd}>
       <ScrollArea className="w-full">
         <div className="flex gap-4 pb-4 min-w-max">
           {PIPELINE_STATUSES.map((status) => (
-            <PipelineColumn
-              key={status}
-              status={status}
-              negotiations={negotiationsByStatus[status]}
-              onCardClick={onCardClick}
-              onChangeStatus={handleCardStatusChange}
-            />
+            <div key={status} data-status={status}>
+              <PipelineColumn
+                status={status}
+                negotiations={negotiationsByStatus[status]}
+                onCardClick={onCardClick}
+                onChangeStatus={handleCardStatusChange}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onDragLeave={handleDragLeave}
+                draggedId={draggedId}
+                isDropTarget={dropTargetStatus === status}
+              />
+            </div>
           ))}
         </div>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
-
-      <DragOverlay>
-        {activeNegotiation && (
-          <div className="rotate-3 scale-105">
-            <PipelineCard
-              negotiation={activeNegotiation}
-              onClick={() => {}}
-            />
-          </div>
-        )}
-      </DragOverlay>
 
       <ProducerSelectDialog
         open={producerSelectOpen}
@@ -253,6 +246,6 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
         onSelect={handleProducerSelect}
         title="Selecionar Produtor para Atendimento"
       />
-    </DndContext>
+    </div>
   );
 }
