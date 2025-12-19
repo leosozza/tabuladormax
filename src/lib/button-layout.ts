@@ -1,4 +1,5 @@
-export type ButtonCategory = "NAO_AGENDADO" | "RETORNAR" | "AGENDAR";
+// Tipo flexível para permitir categorias dinâmicas do banco de dados
+export type ButtonCategory = string;
 
 export interface ButtonLayout {
   category: ButtonCategory;
@@ -7,12 +8,17 @@ export interface ButtonLayout {
   h: number;
 }
 
-export const BUTTON_CATEGORIES = [
-  { id: "AGENDAR" as ButtonCategory, label: "Agendar" },
-  { id: "RETORNAR" as ButtonCategory, label: "Retornar" },
-  { id: "NAO_AGENDADO" as ButtonCategory, label: "Não Agendado" },
+// Categorias padrão para fallback quando banco não está disponível
+export const DEFAULT_BUTTON_CATEGORIES = [
+  { id: "AGENDAR", label: "Agendar" },
+  { id: "RETORNAR", label: "Retornar" },
+  { id: "NAO_AGENDADO", label: "Não Agendado" },
 ];
 
+// Mantido para compatibilidade - use categories do banco quando possível
+export const BUTTON_CATEGORIES = DEFAULT_BUTTON_CATEGORIES;
+
+// Ordem padrão - use sort_order do banco quando possível
 export const categoryOrder: ButtonCategory[] = ["AGENDAR", "RETORNAR", "NAO_AGENDADO"];
 
 export function createDefaultLayout(category: ButtonCategory = "NAO_AGENDADO", index: number = 0): ButtonLayout {
@@ -24,17 +30,27 @@ export function createDefaultLayout(category: ButtonCategory = "NAO_AGENDADO", i
   };
 }
 
-export function ensureButtonLayout(layout: Partial<ButtonLayout> | null | undefined, defaultIndex: number = 0): ButtonLayout {
+export function ensureButtonLayout(
+  layout: Partial<ButtonLayout> | null | undefined,
+  defaultIndex: number = 0,
+  validCategories?: string[]
+): ButtonLayout {
   if (!layout || typeof layout !== 'object') {
-    return createDefaultLayout("NAO_AGENDADO", defaultIndex);
+    const defaultCategory = validCategories?.[0] || "NAO_AGENDADO";
+    return createDefaultLayout(defaultCategory, defaultIndex);
   }
 
-  const category = categoryOrder.includes(layout.category as ButtonCategory)
-    ? (layout.category as ButtonCategory)
-    : "NAO_AGENDADO";
+  // Se validCategories foi passado, usar para validar; senão, aceitar qualquer categoria
+  let finalCategory = layout.category || "NAO_AGENDADO";
+  
+  if (validCategories && validCategories.length > 0) {
+    if (!validCategories.includes(finalCategory)) {
+      finalCategory = validCategories[0];
+    }
+  }
 
   return {
-    category,
+    category: finalCategory,
     index: typeof layout.index === 'number' ? layout.index : defaultIndex,
     w: typeof layout.w === 'number' && layout.w >= 1 && layout.w <= 3 ? layout.w : 1,
     h: typeof layout.h === 'number' && layout.h >= 1 && layout.h <= 3 ? layout.h : 1,

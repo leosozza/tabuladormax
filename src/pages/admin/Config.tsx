@@ -9,8 +9,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BitrixError, BitrixField, getLeadFields } from "@/lib/bitrix";
 import {
-  BUTTON_CATEGORIES,
-  categoryOrder,
   createDefaultLayout,
   ensureButtonLayout,
   type ButtonCategory,
@@ -71,11 +69,12 @@ const cloneButtons = (buttons: ButtonConfig[]): ButtonConfig[] =>
     })),
   }));
 
-const normalizeButtons = (buttons: ButtonConfig[]): ButtonConfig[] => {
-  const counters = BUTTON_CATEGORIES.reduce(
-    (acc, category) => ({ ...acc, [category.id]: 0 }),
-    {} as Record<ButtonCategory, number>,
-  );
+const normalizeButtons = (buttons: ButtonConfig[], categories: Category[]): ButtonConfig[] => {
+  // Usar categorias dinâmicas para criar contadores
+  const counters: Record<string, number> = {};
+  categories.forEach(cat => {
+    counters[cat.name] = 0;
+  });
 
   const sanitized = buttons
     .map((button) => ({
@@ -95,18 +94,23 @@ const normalizeButtons = (buttons: ButtonConfig[]): ButtonConfig[] => {
       })),
     }))
     .sort((a, b) => {
-      const categoryDiff = categoryOrder.indexOf(a.layout.category) - categoryOrder.indexOf(b.layout.category);
-
-      if (categoryDiff !== 0) {
-        return categoryDiff;
+      // Ordenar por sort_order das categorias
+      const categoryA = categories.find(c => c.name === a.layout.category);
+      const categoryB = categories.find(c => c.name === b.layout.category);
+      const orderA = categoryA?.sort_order ?? 999;
+      const orderB = categoryB?.sort_order ?? 999;
+      
+      if (orderA !== orderB) {
+        return orderA - orderB;
       }
 
       return a.layout.index - b.layout.index;
     });
 
   return sanitized.map((button, index) => {
-    const currentIndex = counters[button.layout.category];
-    counters[button.layout.category] = currentIndex + 1;
+    const categoryKey = button.layout.category;
+    const currentIndex = counters[categoryKey] || 0;
+    counters[categoryKey] = currentIndex + 1;
 
     return {
       ...button,
@@ -216,7 +220,7 @@ const Config = () => {
   };
 
   const applyUpdate = (updater: (buttons: ButtonConfig[]) => ButtonConfig[]) => {
-    setButtons((prev) => normalizeButtons(updater(cloneButtons(prev))));
+    setButtons((prev) => normalizeButtons(updater(cloneButtons(prev)), categories));
   };
 
   const loadButtons = async () => {
@@ -249,7 +253,7 @@ const Config = () => {
       transfer_conversation: entry.transfer_conversation || false,
     }));
 
-    setButtons(normalizeButtons(parsed));
+    setButtons(normalizeButtons(parsed, categories));
     setLoadingButtons(false);
   };
 
@@ -267,7 +271,7 @@ const Config = () => {
   };
 
   const addButton = () => {
-    const defaultCategory = (categories[0]?.name || BUTTON_CATEGORIES[0].id) as ButtonCategory;
+    const defaultCategory = (categories[0]?.name || "NAO_AGENDADO") as ButtonCategory;
     const layout = createDefaultLayout(
       defaultCategory,
       buttons.filter((button) => button.layout.category === defaultCategory).length,

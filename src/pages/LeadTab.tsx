@@ -28,7 +28,8 @@ import { extractBitrixOpenLineData, extractConversationFromOpenLine, saveChatwoo
 import { getTelemarketingId } from "@/handlers/tabular";
 import { BitrixChatModal } from "@/components/bitrix/BitrixChatModal";
 import { WhatsAppModal } from "@/components/whatsapp";
-import { BUTTON_CATEGORIES, categoryOrder, ensureButtonLayout, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
+import { ensureButtonLayout, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
+import { useButtonCategories } from "@/hooks/useButtonCategories";
 import { cn } from "@/lib/utils";
 import { getEtapaStyle } from "@/lib/etapaColors";
 import { getLeadPhotoUrl } from "@/lib/leadPhotoUtils";
@@ -333,6 +334,9 @@ const LeadTab = () => {
   const [observacaoTelemarketing, setObservacaoTelemarketing] = useState('');
   const [savingObservacao, setSavingObservacao] = useState(false);
   const [observacoesExpanded, setObservacoesExpanded] = useState(false);
+
+  // Hook para carregar categorias do banco
+  const { data: buttonCategories = [] } = useButtonCategories();
 
   // Abrir WhatsApp automaticamente quando vier da notificação
   useEffect(() => {
@@ -2817,8 +2821,8 @@ const LeadTab = () => {
 
           {buttons.length === 0 && !loadingButtons ? <p className="text-xs md:text-sm text-muted-foreground">
               Nenhum botão configurado. Clique em "Configurar Botões" para começar.
-            </p> : <div className="space-y-4 md:space-y-6">{BUTTON_CATEGORIES.map(category => {
-              const categoryButtons = buttons.filter(button => button.category === category.id);
+            </p> : <div className="space-y-4 md:space-y-6">{buttonCategories.map(category => {
+              const categoryButtons = buttons.filter(button => button.category === category.name);
               return <div key={category.id}>
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-xs md:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -3400,8 +3404,8 @@ const LeadTab = () => {
           
           <ScrollArea className="flex-1 max-h-[60vh]">
             <div className="space-y-4 p-4">
-              {BUTTON_CATEGORIES.map(category => {
-                const categoryButtons = buttons.filter(btn => btn.category === category.id);
+              {buttonCategories.map(category => {
+                const categoryButtons = buttons.filter(btn => btn.category === category.name);
                 if (categoryButtons.length === 0) return null;
                 
                 return (
