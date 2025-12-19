@@ -47,6 +47,7 @@ interface ButtonConfig {
   sync_target?: 'bitrix' | 'supabase';
   additional_fields?: Array<{ field: string; value: string }>;
   transfer_conversation?: boolean;
+  trigger_id?: string;
 }
 
 const DEFAULT_WEBHOOK = "https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr/crm.lead.update.json";
@@ -831,6 +832,7 @@ const Config = () => {
         sync_target: button.sync_target || 'bitrix',
         additional_fields: button.additional_fields || [],
         transfer_conversation: button.transfer_conversation || false,
+        trigger_id: button.trigger_id || null,
       }));
 
       // Usar upsert (insert ou update) para salvar todos os botões
