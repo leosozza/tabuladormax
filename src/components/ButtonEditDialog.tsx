@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BitrixField, getLeadStatuses } from "@/lib/bitrix";
-import { BUTTON_CATEGORIES, type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
+import { type ButtonCategory, type ButtonLayout } from "@/lib/button-layout";
 import { useState, useEffect } from "react";
 import { createFlowFromButton } from "@/handlers/flowFromButton";
 import type { Flow } from "@/types/flow";
