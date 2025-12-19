@@ -199,8 +199,8 @@ export function ButtonEditDialog({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto z-[100]">
         <DialogHeader>
           <DialogTitle>Editar Botão: {button.label}</DialogTitle>
           <DialogDescription>
@@ -261,7 +261,7 @@ export function ButtonEditDialog({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-[200]">
+                <SelectContent className="bg-popover z-[9999]" position="popper" sideOffset={5}>
                   {categories.map((item) => (
                     <SelectItem key={item.id} value={item.name}>
                       {item.label}
@@ -284,7 +284,7 @@ export function ButtonEditDialog({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-[200]">
+                <SelectContent className="bg-popover z-[9999]" position="popper" sideOffset={5}>
                   <SelectItem value="bitrix">
                     🔷 Bitrix → Supabase
                   </SelectItem>
@@ -369,7 +369,7 @@ export function ButtonEditDialog({
                     ) : null}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="bg-background z-[200] max-h-[400px]">
+                <SelectContent className="bg-popover z-[9999] max-h-[400px]" position="popper" sideOffset={5}>
                   <div className="sticky top-0 z-10 bg-background p-2 border-b">
                     <div className="relative">
                       <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -435,7 +435,7 @@ export function ButtonEditDialog({
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-64 bg-background z-[250]">
+                    <DropdownMenuContent align="end" className="w-64 bg-popover z-[9999]">
                       {AVAILABLE_PLACEHOLDERS.map((ph) => (
                         <DropdownMenuItem
                           key={ph.value}
@@ -469,7 +469,7 @@ export function ButtonEditDialog({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-[200]">
+                <SelectContent className="bg-popover z-[9999]" position="popper" sideOffset={5}>
                   <SelectItem value="simple">✅ Simples</SelectItem>
                   <SelectItem value="schedule">📅 Agendamento</SelectItem>
                   <SelectItem value="text">✏️ Campo de Texto</SelectItem>
@@ -595,7 +595,7 @@ export function ButtonEditDialog({
                               ) : null}
                             </SelectValue>
                           </SelectTrigger>
-                          <SelectContent className="bg-background z-[200] max-h-[300px]">
+                          <SelectContent className="bg-popover z-[9999] max-h-[300px]" position="popper" sideOffset={5}>
                             <div className="sticky top-0 z-10 bg-background p-2 border-b">
                               <div className="relative">
                                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -649,7 +649,7 @@ export function ButtonEditDialog({
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-64 bg-background z-[250]">
+                              <DropdownMenuContent align="end" className="w-64 bg-popover z-[9999]">
                                 {AVAILABLE_PLACEHOLDERS.map((ph) => (
                                   <DropdownMenuItem
                                     key={ph.value}
@@ -687,7 +687,7 @@ export function ButtonEditDialog({
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-64 bg-background z-[250]">
+                              <DropdownMenuContent align="end" className="w-64 bg-popover z-[9999]">
                                 {AVAILABLE_PLACEHOLDERS.map((ph) => (
                                   <DropdownMenuItem
                                     key={ph.value}
@@ -837,7 +837,7 @@ export function ButtonEditDialog({
                               ) : null}
                             </SelectValue>
                           </SelectTrigger>
-                          <SelectContent className="bg-background z-[200] max-h-[200px]">
+                          <SelectContent className="bg-popover z-[9999] max-h-[200px]" position="popper" sideOffset={5}>
                             <SelectItem value="_placeholder_">
                               <div className="flex items-center gap-2">
                                 <code className="text-xs bg-primary/10 px-1.5 py-0.5 rounded">{'{ }'}</code>
@@ -890,7 +890,7 @@ export function ButtonEditDialog({
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-64 bg-background z-[250]">
+                              <DropdownMenuContent align="end" className="w-64 bg-popover z-[9999]">
                                 {AVAILABLE_PLACEHOLDERS.map((ph) => (
                                   <DropdownMenuItem
                                     key={ph.value}
@@ -928,7 +928,7 @@ export function ButtonEditDialog({
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-64 bg-background z-[250]">
+                              <DropdownMenuContent align="end" className="w-64 bg-popover z-[9999]">
                                 {AVAILABLE_PLACEHOLDERS.map((ph) => (
                                   <DropdownMenuItem
                                     key={ph.value}
