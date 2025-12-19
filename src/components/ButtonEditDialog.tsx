@@ -58,6 +58,7 @@ interface ButtonConfig {
   sync_target?: 'bitrix' | 'supabase';
   additional_fields?: Array<{ field: string; value: string }>;
   transfer_conversation?: boolean;
+  trigger_id?: string;
 }
 
 interface SupabaseField {
@@ -128,7 +129,42 @@ export function ButtonEditDialog({
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [flowBuilderOpen, setFlowBuilderOpen] = useState(false);
   const [generatedFlow, setGeneratedFlow] = useState<Flow | null>(null);
-  
+  const [availableTriggers, setAvailableTriggers] = useState<Array<{
+    id: string;
+    flow_id: string;
+    trigger_type: string;
+    trigger_config: Record<string, unknown>;
+    flows?: { nome: string } | null;
+  }>>([]);
+  const [loadingTriggers, setLoadingTriggers] = useState(false);
+
+  // Carregar gatilhos ativos quando action_type = trigger_flow
+  useEffect(() => {
+    if (button?.action_type === 'trigger_flow') {
+      setLoadingTriggers(true);
+      import('@/integrations/supabase/client').then(({ supabase }) => {
+        supabase
+          .from('flow_triggers')
+          .select('id, flow_id, trigger_type, trigger_config, flows(nome)')
+          .eq('ativo', true)
+          .then(({ data, error }) => {
+            if (error) {
+              console.error('❌ Erro ao carregar gatilhos:', error);
+            } else {
+              console.log('✅ Gatilhos carregados:', data);
+              setAvailableTriggers((data || []) as Array<{
+                id: string;
+                flow_id: string;
+                trigger_type: string;
+                trigger_config: Record<string, unknown>;
+                flows?: { nome: string } | null;
+              }>);
+            }
+            setLoadingTriggers(false);
+          });
+      });
+    }
+  }, [button?.action_type]);
 
   // Carregar etapas quando o campo STATUS_ID for selecionado
   useEffect(() => {
@@ -467,7 +503,7 @@ export function ButtonEditDialog({
                 onValueChange={(value) => onUpdate(button.id, { action_type: value })}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-[9999]" position="popper" sideOffset={5}>
                   <SelectItem value="simple">✅ Simples</SelectItem>
@@ -477,9 +513,49 @@ export function ButtonEditDialog({
                   <SelectItem value="datetime">🕐 Data e Hora</SelectItem>
                   <SelectItem value="list">📋 Lista</SelectItem>
                   <SelectItem value="number">🔢 Número</SelectItem>
+                  <SelectItem value="trigger_flow">⚡ Acionar Gatilho de Flow</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Seletor de Gatilho - aparece quando action_type = trigger_flow */}
+            {button.action_type === 'trigger_flow' && (
+              <div className="md:col-span-2">
+                <Label>Gatilho do Flow</Label>
+                <Select
+                  value={button.trigger_id || ""}
+                  onValueChange={(value) => onUpdate(button.id, { trigger_id: value })}
+                  disabled={loadingTriggers}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingTriggers ? "Carregando gatilhos..." : "Selecione um gatilho"}>
+                      {button.trigger_id && availableTriggers.find(t => t.id === button.trigger_id)?.flows?.nome
+                        ? `${availableTriggers.find(t => t.id === button.trigger_id)?.flows?.nome} (${availableTriggers.find(t => t.id === button.trigger_id)?.trigger_type})`
+                        : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-[9999]" position="popper" sideOffset={5}>
+                    {availableTriggers.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        Nenhum gatilho ativo encontrado
+                      </div>
+                    ) : (
+                      availableTriggers.map((trigger) => (
+                        <SelectItem key={trigger.id} value={trigger.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{trigger.flows?.nome || 'Flow sem nome'}</span>
+                            <span className="text-xs text-muted-foreground">{trigger.trigger_type}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ao clicar no botão, o flow associado será executado automaticamente
+                </p>
+              </div>
+            )}
 
             <div>
               <Label>Atalho de Teclado</Label>

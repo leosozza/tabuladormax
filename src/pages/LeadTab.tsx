@@ -78,6 +78,7 @@ interface ButtonConfig {
     value: string;
   }>;
   transfer_conversation?: boolean;
+  trigger_id?: string;
 }
 interface FieldMapping {
   id?: string;
@@ -2343,9 +2344,59 @@ const LeadTab = () => {
       transfer_conversation: button.transfer_conversation,
       transfer_conversation_type: typeof button.transfer_conversation,
       has_property: 'transfer_conversation' in button,
+      action_type: button.action_type,
+      trigger_id: button.trigger_id,
       button_completo: button
     });
     setSelectedButton(button);
+
+    // Ação especial: Acionar Gatilho de Flow
+    if (button.action_type === 'trigger_flow' && button.trigger_id) {
+      console.log('⚡ Executando gatilho de flow:', button.trigger_id);
+      try {
+        toast.loading('Executando flow...', { id: 'flow-execution' });
+        
+        // Buscar o flow_id do gatilho
+        const { data: trigger, error: triggerError } = await supabase
+          .from('flow_triggers')
+          .select('flow_id')
+          .eq('id', button.trigger_id)
+          .single();
+        
+        if (triggerError || !trigger?.flow_id) {
+          toast.error('Gatilho não encontrado', { id: 'flow-execution' });
+          console.error('❌ Erro ao buscar gatilho:', triggerError);
+          return;
+        }
+
+        // Executar o flow via edge function
+        const leadId = chatwootData?.bitrix_id || chatwootData?.id_bitrix || profile['ID Bitrix'];
+        const phoneNumber = chatwootData?.phone_number || profile['Telefone'] || profile['custom_1759958661434'];
+        
+        const { data: flowResult, error: flowError } = await supabase.functions.invoke('flows-executor', {
+          body: { 
+            flowId: trigger.flow_id, 
+            leadId: Number(leadId),
+            phoneNumber: String(phoneNumber || ''),
+            triggerType: 'button_click',
+            triggerValue: button.label
+          }
+        });
+
+        if (flowError) {
+          toast.error('Erro ao executar flow: ' + flowError.message, { id: 'flow-execution' });
+          console.error('❌ Erro ao executar flow:', flowError);
+        } else {
+          toast.success('Flow executado com sucesso!', { id: 'flow-execution' });
+          console.log('✅ Flow executado:', flowResult);
+        }
+      } catch (error) {
+        console.error('❌ Erro inesperado ao executar flow:', error);
+        toast.error('Erro inesperado ao executar flow', { id: 'flow-execution' });
+      }
+      return;
+    }
+
     if (button.sub_buttons && button.sub_buttons.length > 0) {
       setSubButtonModal(true);
       return;

@@ -1054,6 +1054,7 @@ export type Database = {
           sub_buttons: Json | null
           sync_target: string | null
           transfer_conversation: boolean | null
+          trigger_id: string | null
           value: string | null
           webhook_url: string | null
         }
@@ -1074,6 +1075,7 @@ export type Database = {
           sub_buttons?: Json | null
           sync_target?: string | null
           transfer_conversation?: boolean | null
+          trigger_id?: string | null
           value?: string | null
           webhook_url?: string | null
         }
@@ -1094,10 +1096,19 @@ export type Database = {
           sub_buttons?: Json | null
           sync_target?: string | null
           transfer_conversation?: boolean | null
+          trigger_id?: string | null
           value?: string | null
           webhook_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "button_config_trigger_id_fkey"
+            columns: ["trigger_id"]
+            isOneToOne: false
+            referencedRelation: "flow_triggers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       call_logs: {
         Row: {
