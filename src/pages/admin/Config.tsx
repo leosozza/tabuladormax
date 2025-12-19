@@ -1013,6 +1013,20 @@ const Config = () => {
                                         >
                                           <Edit className="w-3.5 h-3.5" />
                                         </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (confirm(`Excluir o botão "${button.label}"?`)) {
+                                              removeButton(button.id);
+                                            }
+                                          }}
+                                          className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                          title="Excluir botão"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </Button>
                                       </div>
                                     </div>
                                   </Card>
