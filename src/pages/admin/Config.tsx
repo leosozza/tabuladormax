@@ -199,9 +199,62 @@ const Config = () => {
   const editingButton = editingButtonId ? buttons.find(b => b.id === editingButtonId) || null : null;
 
   useEffect(() => {
-    loadCategories();
-    loadButtons();
-    loadFields();
+    const init = async () => {
+      // Primeiro carregar categorias
+      const { data: categoriesData, error: catError } = await supabase
+        .from("button_categories")
+        .select("*")
+        .order("sort_order", { ascending: true });
+
+      if (catError) {
+        console.error("Erro ao carregar categorias:", catError);
+        toast.error("Não foi possível carregar as categorias");
+        return;
+      }
+
+      const loadedCategories = categoriesData || [];
+      setCategories(loadedCategories);
+
+      // Depois carregar botões com as categorias já disponíveis
+      setLoadingButtons(true);
+      const { data, error } = await supabase.from("button_config").select("*").order("sort", { ascending: true });
+
+      if (error) {
+        console.error("Erro ao carregar botões:", error);
+        toast.error("Não foi possível carregar as ações");
+        setLoadingButtons(false);
+        return;
+      }
+
+      const validCategoryNames = loadedCategories.map(c => c.name);
+
+      const parsed = (data || []).map((entry, index) => ({
+        id: entry.id,
+        label: entry.label,
+        description: entry.description || "",
+        color: entry.color,
+        webhook_url: entry.webhook_url || DEFAULT_WEBHOOK,
+        field: entry.field || "",
+        value: entry.value || "",
+        field_type: entry.field_type || "string",
+        action_type: entry.action_type || "simple",
+        hotkey: entry.hotkey || "",
+        sort: entry.sort || index + 1,
+        layout: ensureButtonLayout(entry.pos as Partial<ButtonLayout>, entry.sort || index, validCategoryNames),
+        sub_buttons: parseSubButtons(entry.sub_buttons),
+        sync_target: (entry.sync_target as 'bitrix' | 'supabase') || 'bitrix',
+        additional_fields: (entry.additional_fields as Array<{ field: string; value: string }>) || [],
+        transfer_conversation: entry.transfer_conversation || false,
+      }));
+
+      setButtons(normalizeButtons(parsed, loadedCategories));
+      setLoadingButtons(false);
+
+      // Carregar campos em paralelo
+      loadFields();
+    };
+
+    init();
   }, []);
 
   const loadCategories = async () => {
