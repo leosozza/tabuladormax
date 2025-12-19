@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Negotiation, NegotiationStatus, NEGOTIATION_STATUS_CONFIG } from '@/types/agenciamento';
-import { TrendingUp, TrendingDown, Users, DollarSign, Target, CheckCircle, XCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, DollarSign, Target, CheckCircle, XCircle, Search } from 'lucide-react';
 
 interface AgenciamentoDashboardProps {
   negotiations: Negotiation[];
@@ -21,29 +21,32 @@ export function AgenciamentoDashboard({ negotiations }: AgenciamentoDashboardPro
     }, {} as Record<NegotiationStatus, number>);
 
     const totalValue = negotiations.reduce((sum, n) => sum + n.total_value, 0);
-    const realizadoValue = valueByStatus['realizado'] || 0;
-    const realizadoCount = byStatus['realizado'] || 0;
-    const naoRealizadoCount = byStatus['nao_realizado'] || 0;
-    const finalizados = realizadoCount + naoRealizadoCount;
-    const taxaConversao = finalizados > 0 ? (realizadoCount / finalizados) * 100 : 0;
+    // Usar os novos nomes de status alinhados com Bitrix
+    const negociosFechadosValue = valueByStatus['negocios_fechados'] || 0;
+    const negociosFechadosCount = byStatus['negocios_fechados'] || 0;
+    const contratoNaoFechadoCount = byStatus['contrato_nao_fechado'] || 0;
+    const finalizados = negociosFechadosCount + contratoNaoFechadoCount;
+    const taxaConversao = finalizados > 0 ? (negociosFechadosCount / finalizados) * 100 : 0;
 
     return {
       total,
       byStatus,
       valueByStatus,
       totalValue,
-      realizadoValue,
+      negociosFechadosValue,
       taxaConversao,
       finalizados,
     };
   }, [negotiations]);
 
+  // Funnel stages alinhados com Bitrix - Categoria 1 (Pinheiros)
   const funnelStages: NegotiationStatus[] = [
+    'recepcao_cadastro',
     'ficha_preenchida',
+    'atendimento_produtor',
+    'negocios_fechados',
     'contrato_nao_fechado',
     'analisar',
-    'atendimento_produtor',
-    'realizado',
   ];
 
   const formatCurrency = (value: number) => {
@@ -105,7 +108,7 @@ export function AgenciamentoDashboard({ negotiations }: AgenciamentoDashboardPro
               {stats.taxaConversao.toFixed(1)}%
             </div>
             <p className="text-xs text-muted-foreground">
-              Realizados vs Finalizados
+              Fechados vs Finalizados
             </p>
           </CardContent>
         </Card>
@@ -113,13 +116,13 @@ export function AgenciamentoDashboard({ negotiations }: AgenciamentoDashboardPro
         <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Valor Realizado
+              Negócios Fechados
             </CardTitle>
             <Target className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(stats.realizadoValue)}
+              {formatCurrency(stats.negociosFechadosValue)}
             </div>
             <p className="text-xs text-muted-foreground">
               Agenciamentos concluídos
@@ -155,11 +158,12 @@ export function AgenciamentoDashboard({ negotiations }: AgenciamentoDashboardPro
                     <div className="h-8 bg-muted rounded-md overflow-hidden">
                       <div
                         className={`h-full transition-all duration-500 flex items-center justify-center text-xs font-medium ${
+                          status === 'recepcao_cadastro' ? 'bg-slate-500' :
                           status === 'ficha_preenchida' ? 'bg-blue-500' :
-                          status === 'contrato_nao_fechado' ? 'bg-orange-500' :
-                          status === 'analisar' ? 'bg-purple-500' :
                           status === 'atendimento_produtor' ? 'bg-amber-500' :
-                          'bg-green-500'
+                          status === 'negocios_fechados' ? 'bg-green-500' :
+                          status === 'contrato_nao_fechado' ? 'bg-orange-500' :
+                          'bg-purple-500'
                         } text-white`}
                         style={{ width: `${Math.max(width, 5)}%` }}
                       >
@@ -183,8 +187,9 @@ export function AgenciamentoDashboard({ negotiations }: AgenciamentoDashboardPro
               {Object.entries(NEGOTIATION_STATUS_CONFIG).map(([status, config]) => {
                 const count = stats.byStatus[status as NegotiationStatus] || 0;
                 const value = stats.valueByStatus[status as NegotiationStatus] || 0;
-                const Icon = status === 'realizado' ? CheckCircle : 
-                            status === 'nao_realizado' ? XCircle : Target;
+                const Icon = status === 'negocios_fechados' ? CheckCircle : 
+                            status === 'contrato_nao_fechado' ? XCircle : 
+                            status === 'analisar' ? Search : Target;
 
                 return (
                   <div
@@ -194,12 +199,12 @@ export function AgenciamentoDashboard({ negotiations }: AgenciamentoDashboardPro
                     <div className="flex items-center gap-3">
                       <div
                         className={`p-2 rounded-full ${
+                          status === 'recepcao_cadastro' ? 'bg-slate-100 text-slate-600' :
                           status === 'ficha_preenchida' ? 'bg-blue-100 text-blue-600' :
-                          status === 'contrato_nao_fechado' ? 'bg-orange-100 text-orange-600' :
-                          status === 'analisar' ? 'bg-purple-100 text-purple-600' :
                           status === 'atendimento_produtor' ? 'bg-amber-100 text-amber-600' :
-                          status === 'realizado' ? 'bg-green-100 text-green-600' :
-                          'bg-red-100 text-red-600'
+                          status === 'negocios_fechados' ? 'bg-green-100 text-green-600' :
+                          status === 'contrato_nao_fechado' ? 'bg-orange-100 text-orange-600' :
+                          'bg-purple-100 text-purple-600'
                         }`}
                       >
                         <Icon className="h-4 w-4" />
