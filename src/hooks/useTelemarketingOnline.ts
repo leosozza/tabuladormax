@@ -9,7 +9,8 @@ export interface TelemarketingOnline {
   cargo: string | null;
 }
 
-const ONLINE_THRESHOLD_MINUTES = 5; // Considera online se teve atividade nos últimos 5 minutos
+const ONLINE_THRESHOLD_HOURS = 4; // Considera ativo se logou nas últimas 4 horas
+const ONLINE_THRESHOLD_MINUTES = ONLINE_THRESHOLD_HOURS * 60; // 240 minutos
 
 /**
  * Hook para buscar telemarketing online baseado em last_activity_at recente
