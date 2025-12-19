@@ -532,7 +532,7 @@ export function ButtonEditDialog({
               />
               <div className="flex-1">
                 <Label htmlFor={`transfer-conversation-${button.id}`} className="text-sm font-medium cursor-pointer">
-                  Transferir conversa do Chatwoot ao tabular
+                  Transferir conversa do WhatsApp ao tabular
                 </Label>
                 <p className="text-xs text-muted-foreground mt-1">
                   Quando ativado, a conversa será automaticamente transferida para o operador que tabulou este botão
@@ -964,7 +964,7 @@ export function ButtonEditDialog({
                         />
                         <div className="flex-1">
                           <Label htmlFor={`transfer-conversation-sub-${button.id}-${subIndex}`} className="text-xs font-medium cursor-pointer">
-                            Transferir conversa do Chatwoot ao tabular
+                            Transferir conversa do WhatsApp ao tabular
                           </Label>
                           <p className="text-[10px] text-muted-foreground mt-0.5">
                             Quando ativado, transfere a conversa para o operador que tabulou

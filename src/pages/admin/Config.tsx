@@ -348,6 +348,13 @@ const Config = () => {
     };
 
     applyUpdate((current) => [...current, newButton]);
+    
+    // Abrir modal de edição automaticamente para o novo botão
+    setTimeout(() => {
+      setEditingButtonId(newButton.id);
+    }, 100);
+    
+    toast.info("Configure o novo botão no modal de edição");
   };
 
   const duplicateButton = (id: string) => {
