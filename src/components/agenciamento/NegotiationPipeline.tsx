@@ -7,6 +7,8 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ProducerSelectDialog } from './ProducerSelectDialog';
 import { Producer } from '@/hooks/useProducers';
 import { supabase } from '@/integrations/supabase/client';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface NegotiationPipelineProps {
   negotiations: Negotiation[];
@@ -18,14 +20,18 @@ const PIPELINE_STATUSES: NegotiationStatus[] = [
   'recepcao_cadastro',      // C1:NEW
   'ficha_preenchida',       // C1:UC_O2KDK6
   'atendimento_produtor',   // C1:EXECUTING
-  'negocios_fechados',      // C1:WON
+  'negocios_fechados',      // C1:WON - CONVERTED
   'contrato_nao_fechado',   // C1:LOSE
   'analisar',               // C1:UC_MKIQ0S
 ];
 
+// Statuses that are considered "converted" (final/won stages)
+const CONVERTED_STATUSES: NegotiationStatus[] = ['negocios_fechados'];
+
 export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPipelineProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTargetStatus, setDropTargetStatus] = useState<NegotiationStatus | null>(null);
+  const [showConvertedStages, setShowConvertedStages] = useState(false);
   const [producerSelectOpen, setProducerSelectOpen] = useState(false);
   const [pendingTransition, setPendingTransition] = useState<{
     negotiationId: string;
@@ -33,6 +39,12 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
     newStatus: NegotiationStatus;
   } | null>(null);
   const queryClient = useQueryClient();
+
+  // Filter visible statuses based on showConvertedStages toggle
+  const visibleStatuses = useMemo(() => {
+    if (showConvertedStages) return PIPELINE_STATUSES;
+    return PIPELINE_STATUSES.filter(status => !CONVERTED_STATUSES.includes(status));
+  }, [showConvertedStages]);
 
   // Group negotiations by status
   const negotiationsByStatus = useMemo(() => {
@@ -216,11 +228,30 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
     resetDragState();
   }, [resetDragState]);
 
+  // Count converted negotiations
+  const convertedCount = useMemo(() => {
+    return CONVERTED_STATUSES.reduce((acc, status) => 
+      acc + (negotiationsByStatus[status]?.length || 0), 0
+    );
+  }, [negotiationsByStatus]);
+
   return (
     <div onDragEnd={handleDragEnd}>
+      {/* Toggle para mostrar/ocultar etapas convertidas */}
+      <div className="flex items-center justify-end gap-2 mb-4">
+        <Switch
+          id="show-converted"
+          checked={showConvertedStages}
+          onCheckedChange={setShowConvertedStages}
+        />
+        <Label htmlFor="show-converted" className="text-sm text-muted-foreground cursor-pointer">
+          Mostrar convertidos {convertedCount > 0 && `(${convertedCount})`}
+        </Label>
+      </div>
+
       <ScrollArea className="w-full">
         <div className="flex gap-4 pb-4 min-w-max">
-          {PIPELINE_STATUSES.map((status) => (
+          {visibleStatuses.map((status) => (
             <div key={status} data-status={status}>
               <PipelineColumn
                 status={status}
