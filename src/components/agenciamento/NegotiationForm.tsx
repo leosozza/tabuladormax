@@ -170,7 +170,7 @@ export function NegotiationForm({
         client_name: values.client_name || '',
         base_value: values.base_value || 0,
         ...values,
-        bitrix_product_id: selectedProduct?.ID,
+        bitrix_product_id: selectedProduct?.ID ? Number(selectedProduct.ID) : undefined,
         payment_methods: paymentMethods,
         discount_percentage: values.discount_percentage || 0,
         additional_fees: values.additional_fees || 0,

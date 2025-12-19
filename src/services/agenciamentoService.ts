@@ -478,6 +478,7 @@ export async function getNegotiationSummary(id: string): Promise<NegotiationSumm
     client_name: negotiation.client_name,
     status: negotiation.status,
     total_value: negotiation.total_value,
+    negotiation_date: negotiation.negotiation_date,
     created_at: negotiation.created_at,
     updated_at: negotiation.updated_at,
   };
@@ -521,8 +522,6 @@ function transformDbToNegotiation(data: any): Negotiation {
     requires_approval: false,
     approved_by: data.approved_by,
     approved_at: data.approved_at,
-    rejected_by: null,
-    rejected_at: null,
     rejection_reason: data.rejection_reason,
     created_by: data.created_by,
     updated_by: null,

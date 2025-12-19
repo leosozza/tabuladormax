@@ -174,27 +174,27 @@ export interface NegotiationFormData {
 
   // Commercial Conditions
   base_value: number;
-  discount_percentage: number;
-  discount_value: number;
+  discount_percentage?: number;
+  discount_value?: number;
 
   // Payment Conditions
-  payment_methods: SelectedPaymentMethod[];
-  installments_number: number;
-  installment_value: number;
+  payment_methods?: SelectedPaymentMethod[];
+  installments_number?: number;
+  installment_value?: number;
   first_payment_date?: string;
-  payment_frequency: PaymentFrequency;
+  payment_frequency?: PaymentFrequency;
 
   // Additional Fees and Taxes
-  additional_fees: number;
-  tax_percentage: number;
+  additional_fees?: number;
+  tax_percentage?: number;
 
   // Dates
-  negotiation_date: string;
+  negotiation_date?: string;
   validity_date?: string;
   expected_closing_date?: string;
 
   // Items
-  items: NegotiationItem[];
+  items?: NegotiationItem[];
 
   // Terms and Conditions
   terms_and_conditions?: string;
