@@ -64,7 +64,7 @@ const nodeTypes = [
   {
     type: 'send_message' as const,
     label: 'Enviar Mensagem',
-    description: 'Envia para Chatwoot',
+    description: 'Envia mensagem WhatsApp',
     icon: MessageSquare,
   },
   {
