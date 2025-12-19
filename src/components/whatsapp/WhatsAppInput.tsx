@@ -37,7 +37,7 @@ interface WhatsAppInputProps {
   onSendText: (message: string) => Promise<boolean | void>;
   onSendMedia: (mediaUrl: string, mediaType: MediaType, caption?: string, filename?: string) => Promise<boolean | void>;
   disabled?: boolean;
-  isWindowOpen: boolean;
+  isWindowOpen?: boolean; // Mantido para compatibilidade, mas não será usado para bloquear
   inCooldown?: boolean;
   projectId?: string;
   chatMessages?: ChatMessage[];
@@ -60,7 +60,7 @@ export function WhatsAppInput({
   onSendText,
   onSendMedia,
   disabled,
-  isWindowOpen,
+  isWindowOpen, // Não usado para bloquear
   inCooldown,
   projectId,
   chatMessages = []
@@ -266,6 +266,7 @@ export function WhatsAppInput({
     setAutoSendAfterStop(false);
   };
 
+  // Remover isWindowOpen da lógica de disabled - apenas usar disabled e inCooldown
   const isDisabled = disabled || uploading || inCooldown || isSending;
   const canSend = !isDisabled && (messageInput.trim() || mediaPreview || audioBlob);
 
@@ -362,7 +363,7 @@ export function WhatsAppInput({
       <div className="flex gap-1.5 items-end">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" disabled={isDisabled || isRecording || !isWindowOpen} className="h-9 w-9 shrink-0">
+            <Button variant="ghost" size="icon" disabled={isDisabled || isRecording} className="h-9 w-9 shrink-0">
               <Plus className="h-5 w-5" />
             </Button>
           </PopoverTrigger>
@@ -381,7 +382,7 @@ export function WhatsAppInput({
         <QuickTextSelector
           projectId={projectId}
           onSelect={(text) => setMessageInput(text)}
-          disabled={isDisabled || isRecording || !isWindowOpen}
+          disabled={isDisabled || isRecording}
         />
 
         {/* AI Buttons */}
@@ -393,7 +394,7 @@ export function WhatsAppInput({
                   variant="ghost"
                   size="icon"
                   onClick={handleImproveText}
-                  disabled={isDisabled || isRecording || !isWindowOpen || isImproving}
+                  disabled={isDisabled || isRecording || isImproving}
                   className="h-9 w-9 shrink-0 text-purple-500 hover:text-purple-600 hover:bg-purple-500/10"
                 >
                   {isImproving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
@@ -410,7 +411,7 @@ export function WhatsAppInput({
                   variant="ghost"
                   size="icon"
                   onClick={handleGenerateAI}
-                  disabled={isDisabled || isRecording || !isWindowOpen || isGenerating || chatMessages.length === 0}
+                  disabled={isDisabled || isRecording || isGenerating || chatMessages.length === 0}
                   className="h-9 w-9 shrink-0 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
                 >
                   {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -439,7 +440,7 @@ export function WhatsAppInput({
             variant="ghost"
             size="icon"
             onClick={startRecording}
-            disabled={isDisabled || !isWindowOpen}
+            disabled={isDisabled}
             className="h-9 w-9 shrink-0"
           >
             <Mic className="h-4 w-4" />

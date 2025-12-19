@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Lock, MessageSquare } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { useWhatsAppMessages } from '@/hooks/useWhatsAppMessages';
 import { useGupshupWindowStatus } from '@/hooks/useGupshupWindowStatus';
 import { calculateWindowStatus, WindowStatus } from '@/lib/whatsappWindow';
 import { WhatsAppHeader } from './WhatsAppHeader';
-import { WhatsAppWindowBanner, CooldownTimer } from './WhatsAppWindowBanner';
+import { CooldownTimer } from './WhatsAppWindowBanner';
+import { WindowTimeCircle } from './WindowTimeCircle';
 import { WhatsAppMessageList } from './WhatsAppMessageList';
 import { WhatsAppInput, MediaType } from './WhatsAppInput';
 import { TemplateSelector } from '@/components/gupshup/TemplateSelector';
@@ -55,7 +56,6 @@ export function WhatsAppChatContainer({
   });
 
   const windowStatus: WindowStatus = gupshupWindowStatus || calculateWindowStatus(null);
-  const isWindowOpen = windowStatus.isOpen;
   const inCooldown = isInCooldown();
 
   // Update cooldown timer
@@ -86,16 +86,14 @@ export function WhatsAppChatContainer({
     }
   }, [messages, markAsRead]);
 
-  // Note: removed auto-switch to templates when window is closed
-  // Agent can now read messages even with window closed
-
   const handleRefresh = () => {
     fetchMessages();
     refetchWindowStatus();
   };
 
+  // Remover todas as restrições de isWindowOpen - deixar enviar sempre
   const handleSendMessage = async (content: string) => {
-    if (isSendingRef.current || !content.trim() || !isWindowOpen || sending || inCooldown) return false;
+    if (isSendingRef.current || !content.trim() || sending || inCooldown) return false;
     isSendingRef.current = true;
     try {
       return await sendMessage(content);
@@ -105,7 +103,7 @@ export function WhatsAppChatContainer({
   };
 
   const handleSendMedia = async (mediaUrl: string, mediaType: MediaType, caption?: string, filename?: string) => {
-    if (isSendingRef.current || !isWindowOpen || sending || inCooldown) return false;
+    if (isSendingRef.current || sending || inCooldown) return false;
     isSendingRef.current = true;
     try {
       return await sendMedia(mediaUrl, mediaType, caption, filename);
@@ -138,11 +136,9 @@ export function WhatsAppChatContainer({
 
   // Calculate heights for absolute positioning
   const headerHeight = 73; // header
-  const bannerHeight = windowStatus.isOpen ? 36 : 36; // window banner
   const tabsHeight = 49; // tabs
-  const inputHeight = 70; // base input height
 
-  const topOffset = headerHeight + bannerHeight + tabsHeight;
+  const topOffset = headerHeight + tabsHeight;
 
   return (
     <div className="relative h-full w-full bg-background overflow-hidden">
@@ -155,8 +151,8 @@ export function WhatsAppChatContainer({
           loading={loading}
           onRefresh={handleRefresh}
           onClose={onClose}
+          rightContent={<WindowTimeCircle status={windowStatus} size="sm" />}
         />
-        <WhatsAppWindowBanner status={windowStatus} />
         {cooldownRemaining > 0 && <CooldownTimer remaining={cooldownRemaining} />}
       </div>
 
@@ -165,14 +161,11 @@ export function WhatsAppChatContainer({
         {/* Tab list - Fixed position */}
         <div 
           className="absolute left-0 right-0 z-10 border-b px-4 bg-background"
-          style={{ top: headerHeight + bannerHeight + (cooldownRemaining > 0 ? 36 : 0) }}
+          style={{ top: headerHeight + (cooldownRemaining > 0 ? 36 : 0) }}
         >
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="messages">Mensagens</TabsTrigger>
-            <TabsTrigger value="templates" className={!isWindowOpen ? 'animate-pulse bg-primary/10' : ''}>
-              Templates
-              {!isWindowOpen && <Lock className="w-3 h-3 ml-1" />}
-            </TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
           </TabsList>
         </div>
 
@@ -190,28 +183,12 @@ export function WhatsAppChatContainer({
             <WhatsAppMessageList messages={messages} loading={loading} usingBitrixFallback={usingBitrixFallback} />
           </div>
 
-          {/* Closed window warning */}
-          {!isWindowOpen && (
-            <div className="px-4 py-2 bg-amber-500/10 border-t border-amber-500/20">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-                <Lock className="w-4 h-4 shrink-0" />
-                <p className="text-sm flex-1">
-                  Janela de 24h expirada. Use um{' '}
-                  <button className="underline font-medium" onClick={() => setActiveTab('templates')}>
-                    Template
-                  </button>{' '}
-                  para iniciar a conversa.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Input - Fixed at bottom */}
+          {/* Input - Fixed at bottom - SEM restrição de janela */}
           <WhatsAppInput
             onSendText={handleSendMessage}
             onSendMedia={handleSendMedia}
-            disabled={sending || !isWindowOpen}
-            isWindowOpen={isWindowOpen}
+            disabled={sending}
+            isWindowOpen={true}
             inCooldown={inCooldown}
             projectId={commercialProjectId}
             chatMessages={messages.map(m => ({

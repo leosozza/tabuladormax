@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, MessageSquare, ArrowLeft, Lock, Check, CheckCheck, Clock } from 'lucide-react';
+import { RefreshCw, MessageSquare, ArrowLeft, Check, CheckCheck, Clock } from 'lucide-react';
 import { useWhatsAppMessages, WhatsAppMessage } from '@/hooks/useWhatsAppMessages';
 import { TemplateSelector } from './TemplateSelector';
 import { WindowIndicator } from './WindowIndicator';
@@ -129,7 +129,6 @@ export function ChatPanel({
 
   // Usar o status da janela do Gupshup ou fallback para props/default
   const windowStatus = propWindowStatus || gupshupWindowStatus || calculateWindowStatus(null);
-  const isWindowOpen = windowStatus.isOpen;
   
   // Verificar se está em cooldown
   const inCooldown = isInCooldown();
@@ -173,23 +172,18 @@ export function ChatPanel({
     }
   }, [messages]);
 
-  // Se janela fechada, ir automaticamente para templates
-  useEffect(() => {
-    if (!isWindowOpen && activeTab === 'messages') {
-      setActiveTab('templates');
-    }
-  }, [isWindowOpen, activeTab]);
+  // Removido: redirecionamento automático para templates quando janela fechada
 
+  // Remover todas as restrições de isWindowOpen - deixar enviar sempre
   const handleSendMessage = async (content: string) => {
     // Proteção contra múltiplos cliques/envios
     if (isSendingRef.current) {
       console.log('[ChatPanelGupshup] handleSendMessage blocked - already sending');
       return false;
     }
-    if (!content.trim() || !isWindowOpen || sending || inCooldown) {
+    if (!content.trim() || sending || inCooldown) {
       console.log('[ChatPanelGupshup] handleSendMessage blocked', { 
         hasMessage: !!content.trim(), 
-        isWindowOpen, 
         sending,
         inCooldown 
       });
@@ -214,7 +208,7 @@ export function ChatPanel({
     caption?: string, 
     filename?: string
   ) => {
-    if (isSendingRef.current || !isWindowOpen || sending || inCooldown) {
+    if (isSendingRef.current || sending || inCooldown) {
       console.log('[ChatPanelGupshup] handleSendMedia blocked');
       return false;
     }
@@ -281,7 +275,9 @@ export function ChatPanel({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            {/* Indicador visual compacto do status da janela */}
+            <WindowIndicator status={windowStatus} variant="dot" />
             <Button
               variant="ghost" 
               size="icon" 
@@ -295,18 +291,12 @@ export function ChatPanel({
         </div>
       </div>
 
-      {/* Banner de status da janela */}
-      <WindowIndicator status={windowStatus} variant="banner" />
-
       {/* Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="border-b px-4">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="messages">Mensagens</TabsTrigger>
-            <TabsTrigger value="templates" className={!isWindowOpen ? 'animate-pulse bg-primary/10' : ''}>
-              Templates
-              {!isWindowOpen && <Lock className="w-3 h-3 ml-1" />}
-            </TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
           </TabsList>
         </div>
 
@@ -377,36 +367,19 @@ export function ChatPanel({
             </div>
           </div>
 
-          {/* Área de input - FIXA no rodapé */}
+          {/* Área de input - FIXA no rodapé - SEM restrição de janela */}
           <div className="shrink-0 border-t p-3 bg-card space-y-2">
             {/* Cooldown Timer */}
             {inCooldown && (
               <CooldownTimer getCooldownRemaining={getCooldownRemaining} />
             )}
-            
-            {/* Aviso de janela fechada */}
-            {!isWindowOpen && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-700 dark:text-amber-400">
-                <Lock className="w-4 h-4 shrink-0" />
-                <p className="text-sm flex-1">
-                  Janela de 24h expirada. Use um{' '}
-                  <button 
-                    className="underline font-medium hover:text-amber-600 dark:hover:text-amber-300" 
-                    onClick={() => setActiveTab('templates')}
-                  >
-                    Template
-                  </button>{' '}
-                  para iniciar a conversa.
-                </p>
-              </div>
-            )}
 
-            {/* ChatInput sempre visível */}
+            {/* ChatInput sempre habilitado */}
             <ChatInput
               onSendText={handleSendMessage}
               onSendMedia={handleSendMedia}
-              disabled={sending || !isWindowOpen}
-              isWindowOpen={isWindowOpen}
+              disabled={sending}
+              isWindowOpen={true}
               inCooldown={inCooldown}
             />
           </div>
