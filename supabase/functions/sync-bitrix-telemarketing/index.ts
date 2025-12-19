@@ -63,6 +63,30 @@ serve(async (req) => {
       console.log(`✅ ${upsertedData?.length || 0} operadores atualizados na tabela telemarketing_operators`);
     }
 
+    // Marcar como inativos os operadores que NÃO estão mais no Bitrix
+    const activeBitrixIds = data.result.items.map((item: any) => item.id);
+    let deactivatedCount = 0;
+    
+    if (activeBitrixIds.length > 0) {
+      const { data: deactivated, error: deactivateError } = await supabase
+        .from('telemarketing_operators')
+        .update({ 
+          status: 'inativo', 
+          updated_at: new Date().toISOString() 
+        })
+        .not('bitrix_id', 'in', `(${activeBitrixIds.join(',')})`)
+        .eq('status', 'ativo')
+        .select('id, name, bitrix_id');
+
+      if (deactivateError) {
+        console.error('⚠️ Erro ao desativar operadores removidos:', deactivateError);
+      } else if (deactivated && deactivated.length > 0) {
+        deactivatedCount = deactivated.length;
+        console.log(`🗑️ ${deactivatedCount} operadores marcados como inativos (removidos do Bitrix):`, 
+          deactivated.map(op => op.name).join(', '));
+      }
+    }
+
     // Salvar no config_kv para cache (compatibilidade)
     const { error: cacheError } = await supabase
       .from('config_kv')
@@ -83,7 +107,8 @@ serve(async (req) => {
         success: true,
         count: data.result.items.length,
         items: data.result.items,
-        operators_updated: upsertedData?.length || 0
+        operators_updated: upsertedData?.length || 0,
+        operators_deactivated: deactivatedCount
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
