@@ -1,4 +1,5 @@
 import { Plus, Trash2, Info, Save, MoreVertical, Search, Workflow } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -231,6 +232,15 @@ export function ButtonEditDialog({
    */
   const handleFlowSave = () => {
     handleFlowBuilderClose();
+  };
+
+  const handleSaveWithValidation = () => {
+    // Validar trigger_id quando action_type é trigger_flow
+    if (button.action_type === 'trigger_flow' && !button.trigger_id) {
+      toast.error('Selecione um gatilho para botões do tipo "Disparar Fluxo"');
+      return;
+    }
+    onSave();
   };
 
   return (
@@ -1233,7 +1243,7 @@ export function ButtonEditDialog({
                 Abrir no FlowBuilder
               </Button>
             </div>
-            <Button onClick={onSave} className="gap-2">
+            <Button onClick={handleSaveWithValidation} className="gap-2">
               <Save className="w-4 h-4" />
               Salvar
             </Button>
