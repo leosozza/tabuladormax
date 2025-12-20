@@ -2378,9 +2378,11 @@ const LeadTab = () => {
           body: { 
             flowId: trigger.flow_id, 
             leadId: Number(leadId),
-            phoneNumber: String(phoneNumber || ''),
-            triggerType: 'button_click',
-            triggerValue: button.label
+            context: {
+              phone_number: String(phoneNumber || ''),
+              triggerType: 'button_click',
+              triggerValue: button.label
+            }
           }
         });
 
