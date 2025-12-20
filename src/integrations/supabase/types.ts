@@ -462,6 +462,164 @@ export type Database = {
         }
         Relationships: []
       }
+      app_documentation: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          filters_available: Json | null
+          hooks_used: Json | null
+          id: string
+          is_active: boolean | null
+          last_updated_by: string | null
+          main_component: string | null
+          module: string
+          name: string
+          notes: string | null
+          page_route: string
+          rpcs_used: Json | null
+          tables_accessed: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          filters_available?: Json | null
+          hooks_used?: Json | null
+          id?: string
+          is_active?: boolean | null
+          last_updated_by?: string | null
+          main_component?: string | null
+          module?: string
+          name: string
+          notes?: string | null
+          page_route: string
+          rpcs_used?: Json | null
+          tables_accessed?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          filters_available?: Json | null
+          hooks_used?: Json | null
+          id?: string
+          is_active?: boolean | null
+          last_updated_by?: string | null
+          main_component?: string | null
+          module?: string
+          name?: string
+          notes?: string | null
+          page_route?: string
+          rpcs_used?: Json | null
+          tables_accessed?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      app_field_documentation: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          field_id: string
+          field_name: string
+          field_source: string | null
+          field_type: string | null
+          id: string
+          possible_values: Json | null
+          updated_at: string | null
+          usage_examples: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          field_id: string
+          field_name: string
+          field_source?: string | null
+          field_type?: string | null
+          id?: string
+          possible_values?: Json | null
+          updated_at?: string | null
+          usage_examples?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          field_id?: string
+          field_name?: string
+          field_source?: string | null
+          field_type?: string | null
+          id?: string
+          possible_values?: Json | null
+          updated_at?: string | null
+          usage_examples?: Json | null
+        }
+        Relationships: []
+      }
+      app_metrics_documentation: {
+        Row: {
+          business_rule: string | null
+          calculation_formula: string | null
+          created_at: string | null
+          data_source: string
+          documentation_id: string | null
+          field_explanations: Json | null
+          fields_used: Json | null
+          filters_applied: string | null
+          id: string
+          metric_key: string | null
+          metric_name: string
+          notes: string | null
+          sort_order: number | null
+          source_type: string | null
+          sql_example: string | null
+        }
+        Insert: {
+          business_rule?: string | null
+          calculation_formula?: string | null
+          created_at?: string | null
+          data_source: string
+          documentation_id?: string | null
+          field_explanations?: Json | null
+          fields_used?: Json | null
+          filters_applied?: string | null
+          id?: string
+          metric_key?: string | null
+          metric_name: string
+          notes?: string | null
+          sort_order?: number | null
+          source_type?: string | null
+          sql_example?: string | null
+        }
+        Update: {
+          business_rule?: string | null
+          calculation_formula?: string | null
+          created_at?: string | null
+          data_source?: string
+          documentation_id?: string | null
+          field_explanations?: Json | null
+          fields_used?: Json | null
+          filters_applied?: string | null
+          id?: string
+          metric_key?: string | null
+          metric_name?: string
+          notes?: string | null
+          sort_order?: number | null
+          source_type?: string | null
+          sql_example?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_metrics_documentation_documentation_id_fkey"
+            columns: ["documentation_id"]
+            isOneToOne: false
+            referencedRelation: "app_documentation"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_releases: {
         Row: {
           file_path: string
