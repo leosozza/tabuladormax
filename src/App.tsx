@@ -45,7 +45,7 @@ import GupshupIntegration from './pages/admin/GupshupIntegration';
 import LoopMonitor from './pages/admin/LoopMonitor';
 import WhatsAppBot from './pages/admin/WhatsAppBot';
 import FlowBuilderAdmin from './pages/admin/FlowBuilderAdmin';
-
+import AppDocumentation from './pages/admin/AppDocumentation';
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
 import GestaoLeads from "./pages/gestao/Leads";
@@ -177,7 +177,7 @@ const App = () => (
             <Route path="/admin/loop-monitor" element={<ProtectedRoute requireManager><LoopMonitor /></ProtectedRoute>} />
             <Route path="/admin/whatsapp-bot" element={<ProtectedRoute requireAdmin><WhatsAppBot /></ProtectedRoute>} />
             <Route path="/admin/flow-builder" element={<ProtectedRoute requireManager><FlowBuilderAdmin /></ProtectedRoute>} />
-
+            <Route path="/admin/app-documentation" element={<ProtectedRoute requireManager><AppDocumentation /></ProtectedRoute>} />
             {/* Agenciamento */}
             <Route path="/agenciamento" element={<Agenciamento />} />
 

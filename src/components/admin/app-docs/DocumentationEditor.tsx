@@ -87,25 +87,41 @@ export function DocumentationEditor({ documentation, onSave, onCancel }: Props) 
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
     try {
-      const payload = {
-        ...data,
-        hooks_used: hooksUsed as unknown as any,
-        rpcs_used: rpcsUsed as unknown as any,
-        tables_accessed: tablesAccessed as unknown as any,
-        filters_available: filtersAvailable as unknown as any,
-      };
-
       if (documentation) {
         const { error } = await supabase
           .from('app_documentation')
-          .update(payload)
+          .update({
+            name: data.name,
+            description: data.description || null,
+            page_route: data.page_route,
+            category: data.category,
+            module: data.module,
+            main_component: data.main_component || null,
+            notes: data.notes || null,
+            hooks_used: hooksUsed,
+            rpcs_used: rpcsUsed,
+            tables_accessed: tablesAccessed,
+            filters_available: filtersAvailable,
+          })
           .eq('id', documentation.id);
         if (error) throw error;
         toast.success('Documentação atualizada');
       } else {
         const { error } = await supabase
           .from('app_documentation')
-          .insert(payload);
+          .insert({
+            name: data.name,
+            description: data.description || null,
+            page_route: data.page_route,
+            category: data.category,
+            module: data.module,
+            main_component: data.main_component || null,
+            notes: data.notes || null,
+            hooks_used: hooksUsed,
+            rpcs_used: rpcsUsed,
+            tables_accessed: tablesAccessed,
+            filters_available: filtersAvailable,
+          });
         if (error) throw error;
         toast.success('Documentação criada');
       }
