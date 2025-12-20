@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Smartphone,
   Loader2,
+  BookOpen,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -115,6 +116,13 @@ const adminOptions = [
     title: 'App Android',
     description: 'Gerenciar versões do aplicativo Android',
     color: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
+  },
+  {
+    path: '/admin/app-documentation',
+    icon: BookOpen,
+    title: 'Documentação Técnica',
+    description: 'Documentação técnica da aplicação',
+    color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
   },
 ];
 
