@@ -58,27 +58,28 @@ export default function StatsComparison() {
       const thirtyDaysAgo = startOfDay(subDays(now, 30));
       const sixtyDaysAgo = startOfDay(subDays(now, 60));
 
-      // Período atual (últimos 30 dias)
-      const { data: currentData } = await supabase
-        .from("leads")
-        .select("ficha_confirmada, presenca_confirmada")
-        .gte("criado", thirtyDaysAgo.toISOString());
+      // Usar RPC para evitar limite de 1000 linhas
+      const { data, error } = await supabase.rpc('get_stats_comparison', {
+        p_current_start: thirtyDaysAgo.toISOString(),
+        p_current_end: now.toISOString(),
+        p_previous_start: sixtyDaysAgo.toISOString(),
+        p_previous_end: thirtyDaysAgo.toISOString()
+      });
 
-      // Período anterior (30-60 dias atrás)
-      const { data: previousData } = await supabase
-        .from("leads")
-        .select("ficha_confirmada, presenca_confirmada")
-        .gte("criado", sixtyDaysAgo.toISOString())
-        .lt("criado", thirtyDaysAgo.toISOString());
+      if (error) throw error;
 
-      const currentTotal = currentData?.length || 0;
-      const currentConfirmed = currentData?.filter(l => l.ficha_confirmada).length || 0;
-      const currentPresent = currentData?.filter(l => l.presenca_confirmada).length || 0;
+      // Processar resultado da RPC
+      const current = data?.find((r: { period: string }) => r.period === 'current') || { total: 0, confirmed: 0, present: 0 };
+      const previous = data?.find((r: { period: string }) => r.period === 'previous') || { total: 0, confirmed: 0, present: 0 };
+
+      const currentTotal = Number(current.total) || 0;
+      const currentConfirmed = Number(current.confirmed) || 0;
+      const currentPresent = Number(current.present) || 0;
       const currentConversion = currentTotal > 0 ? (currentPresent / currentTotal * 100) : 0;
 
-      const previousTotal = previousData?.length || 0;
-      const previousConfirmed = previousData?.filter(l => l.ficha_confirmada).length || 0;
-      const previousPresent = previousData?.filter(l => l.presenca_confirmada).length || 0;
+      const previousTotal = Number(previous.total) || 0;
+      const previousConfirmed = Number(previous.confirmed) || 0;
+      const previousPresent = Number(previous.present) || 0;
       const previousConversion = previousTotal > 0 ? (previousPresent / previousTotal * 100) : 0;
 
       return {

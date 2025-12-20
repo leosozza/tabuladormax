@@ -4521,6 +4521,21 @@ export type Database = {
         }
         Returns: Json
       }
+      get_leadrometro_stats: {
+        Args: {
+          p_end_date: string
+          p_source_filter?: string
+          p_start_date: string
+        }
+        Returns: {
+          agendados: number
+          com_foto: number
+          confirmados: number
+          convertidos: number
+          em_analise: number
+          total: number
+        }[]
+      }
       get_leads_chart_data: {
         Args: {
           p_end_date: string
@@ -4832,6 +4847,20 @@ export type Database = {
           compareceram: number
           confirmados: number
           fonte_normalizada: string
+          total: number
+        }[]
+      }
+      get_stats_comparison: {
+        Args: {
+          p_current_end: string
+          p_current_start: string
+          p_previous_end: string
+          p_previous_start: string
+        }
+        Returns: {
+          confirmed: number
+          period: string
+          present: number
           total: number
         }[]
       }
