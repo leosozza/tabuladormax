@@ -2,12 +2,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Progress } from "@/components/ui/progress";
 import { LeadActions } from "./LeadActions";
 import { LeadEditModal } from "./LeadEditModal";
@@ -43,6 +45,8 @@ interface DuplicateCheckProgress {
   message: string;
 }
 
+type SortOrder = 'recent' | 'oldest' | 'az' | 'za';
+
 const ITEMS_PER_PAGE = 10;
 
 export function ScouterLeadsModal({
@@ -59,6 +63,8 @@ export function ScouterLeadsModal({
   const [duplicateStatus, setDuplicateStatus] = useState<Map<number, { has_duplicate: boolean; is_duplicate_deleted: boolean }>>(new Map());
   const [checkProgress, setCheckProgress] = useState<DuplicateCheckProgress>({ phase: 'idle', progress: 0, message: '' });
   const [editingLead, setEditingLead] = useState<LeadData | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
   const queryClient = useQueryClient();
 
   // Carregar leads filtrados por tipo de card
@@ -79,14 +85,53 @@ export function ScouterLeadsModal({
     enabled: isOpen && !!scouterName,
   });
 
-  // Reset estado quando modal fecha ou leads mudam
+  // Reset estado quando modal fecha
   useEffect(() => {
     if (!isOpen) {
       setDuplicateStatus(new Map());
       setCheckProgress({ phase: 'idle', progress: 0, message: '' });
       setCurrentPage(1);
+      setSearchTerm('');
+      setSortOrder('recent');
     }
   }, [isOpen]);
+
+  // Filtrar e ordenar leads
+  const filteredAndSortedLeads = useMemo(() => {
+    if (!leads) return [];
+
+    // Filtrar por busca
+    let result = leads;
+    if (searchTerm.trim()) {
+      const search = searchTerm.toLowerCase().trim();
+      result = leads.filter(lead => 
+        lead.lead_id.toString().includes(search) ||
+        lead.nome_modelo?.toLowerCase().includes(search) ||
+        lead.nome_responsavel?.toLowerCase().includes(search)
+      );
+    }
+
+    // Ordenar
+    return [...result].sort((a, b) => {
+      switch (sortOrder) {
+        case 'recent':
+          return new Date(b.criado || 0).getTime() - new Date(a.criado || 0).getTime();
+        case 'oldest':
+          return new Date(a.criado || 0).getTime() - new Date(b.criado || 0).getTime();
+        case 'az':
+          return (a.nome_modelo || '').localeCompare(b.nome_modelo || '', 'pt-BR');
+        case 'za':
+          return (b.nome_modelo || '').localeCompare(a.nome_modelo || '', 'pt-BR');
+        default:
+          return 0;
+      }
+    });
+  }, [leads, searchTerm, sortOrder]);
+
+  // Reset para página 1 quando busca ou ordenação mudar
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortOrder]);
 
   // Função para verificar duplicados
   const checkDuplicates = useCallback(async () => {
@@ -160,9 +205,9 @@ export function ScouterLeadsModal({
     setCheckProgress({ phase: 'complete', progress: 100, message: `✓ ${uniqueCount} leads únicos (${newStatus.size} duplicados)` });
   }, [leads, projectId]);
 
-  const totalPages = Math.ceil((leads?.length || 0) / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredAndSortedLeads.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedLeads = leads?.slice(startIndex, startIndex + ITEMS_PER_PAGE) || [];
+  const paginatedLeads = filteredAndSortedLeads.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const handlePrevPage = () => setCurrentPage((prev) => Math.max(1, prev - 1));
   const handleNextPage = () => setCurrentPage((prev) => Math.min(totalPages, prev + 1));
@@ -261,6 +306,43 @@ export function ScouterLeadsModal({
           </div>
         )}
 
+        {/* Busca e Ordenação */}
+        {leads && leads.length > 0 && (
+          <div className="flex flex-col sm:flex-row gap-2 py-2 border-b border-border">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <Select value={sortOrder} onValueChange={(value: SortOrder) => setSortOrder(value)}>
+                <SelectTrigger className="w-[160px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Mais Recentes</SelectItem>
+                  <SelectItem value="oldest">Mais Antigos</SelectItem>
+                  <SelectItem value="az">Alfabético A-Z</SelectItem>
+                  <SelectItem value="za">Alfabético Z-A</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {/* Contador de resultados */}
+        {leads && leads.length > 0 && (
+          <div className="text-xs text-muted-foreground py-1">
+            Mostrando {Math.min(startIndex + 1, filteredAndSortedLeads.length)}-{Math.min(startIndex + ITEMS_PER_PAGE, filteredAndSortedLeads.length)} de {filteredAndSortedLeads.length} leads
+            {searchTerm && ` (filtrado de ${leads.length})`}
+          </div>
+        )}
+
         <div className="flex-1 overflow-auto -mx-4 px-4 sm:-mx-6 sm:px-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
@@ -269,6 +351,10 @@ export function ScouterLeadsModal({
           ) : !leads || leads.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Nenhum lead encontrado
+            </div>
+          ) : filteredAndSortedLeads.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhum lead encontrado para "{searchTerm}"
             </div>
           ) : (
             <>
@@ -374,29 +460,29 @@ export function ScouterLeadsModal({
         </div>
 
         {/* Pagination */}
-        {leads && leads.length > ITEMS_PER_PAGE && (
+        {filteredAndSortedLeads.length > ITEMS_PER_PAGE && (
           <div className="flex items-center justify-between pt-4 border-t gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={handlePrevPage}
               disabled={currentPage === 1}
-              className="h-8 px-2 sm:px-3"
+              className="h-9 px-3"
             >
               <ChevronLeft className="h-4 w-4" />
-              <span className="hidden sm:inline ml-1">Anterior</span>
+              <span className="ml-1">Anterior</span>
             </Button>
-            <span className="text-xs sm:text-sm text-muted-foreground">
-              {currentPage} / {totalPages}
+            <span className="text-sm font-medium">
+              Página {currentPage} de {totalPages}
             </span>
             <Button
               variant="outline"
               size="sm"
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
-              className="h-8 px-2 sm:px-3"
+              className="h-9 px-3"
             >
-              <span className="hidden sm:inline mr-1">Próxima</span>
+              <span className="mr-1">Próxima</span>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
