@@ -13,27 +13,17 @@ interface LeadEditModalProps {
   lead: {
     lead_id: number;
     nome_modelo: string | null;
-    celular: string | null;
-    address: string | null;
   } | null;
   onSuccess: () => void;
 }
 
 export function LeadEditModal({ isOpen, onClose, lead, onSuccess }: LeadEditModalProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    nome_modelo: '',
-    celular: '',
-    address: '',
-  });
+  const [nomeModelo, setNomeModelo] = useState('');
 
   useEffect(() => {
     if (lead) {
-      setFormData({
-        nome_modelo: lead.nome_modelo || '',
-        celular: lead.celular || '',
-        address: lead.address || '',
-      });
+      setNomeModelo(lead.nome_modelo || '');
     }
   }, [lead]);
 
@@ -43,34 +33,27 @@ export function LeadEditModal({ isOpen, onClose, lead, onSuccess }: LeadEditModa
 
     setIsLoading(true);
     try {
-      // lead.lead_id IS the Bitrix lead ID (they're the same)
       const bitrixLeadId = lead.lead_id;
 
-      // Update Supabase first
+      // Update Supabase - apenas nome_modelo
       const { error: updateError } = await supabase
         .from('leads')
         .update({
-          nome_modelo: formData.nome_modelo || null,
-          celular: formData.celular || null,
-          local_abordagem: formData.address || null,
+          nome_modelo: nomeModelo || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', lead.lead_id);
 
       if (updateError) throw updateError;
 
-      // Sync to Bitrix via edge function
+      // Sync to Bitrix - apenas nome do modelo
       const { error: syncError } = await supabase.functions.invoke('bitrix-entity-update', {
         body: {
           entityType: 'lead',
           entityId: bitrixLeadId,
           fields: {
-            UF_CRM_LEAD_1732627097745: formData.nome_modelo ? [formData.nome_modelo] : [],
-            UF_CRM_1741117093: formData.address || '',
+            UF_CRM_LEAD_1732627097745: nomeModelo ? [nomeModelo] : [],
           },
-          contactFields: formData.celular ? {
-            PHONE: [{ VALUE: formData.celular, VALUE_TYPE: 'MOBILE' }],
-          } : undefined,
         },
       });
 
@@ -78,7 +61,7 @@ export function LeadEditModal({ isOpen, onClose, lead, onSuccess }: LeadEditModa
         console.error('Erro ao sincronizar com Bitrix:', syncError);
         toast.warning('Lead atualizado localmente, mas falhou ao sincronizar com Bitrix');
       } else {
-        toast.success('Lead atualizado com sucesso');
+        toast.success('Nome do modelo atualizado com sucesso');
       }
 
       onSuccess();
@@ -95,7 +78,7 @@ export function LeadEditModal({ isOpen, onClose, lead, onSuccess }: LeadEditModa
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Editar Lead #{lead?.lead_id}</DialogTitle>
+          <DialogTitle>Editar Nome do Modelo</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -103,29 +86,9 @@ export function LeadEditModal({ isOpen, onClose, lead, onSuccess }: LeadEditModa
             <Label htmlFor="nome_modelo">Nome do Modelo</Label>
             <Input
               id="nome_modelo"
-              value={formData.nome_modelo}
-              onChange={(e) => setFormData(prev => ({ ...prev, nome_modelo: e.target.value }))}
-              placeholder="Nome completo"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="celular">Celular</Label>
-            <Input
-              id="celular"
-              value={formData.celular}
-              onChange={(e) => setFormData(prev => ({ ...prev, celular: e.target.value }))}
-              placeholder="(00) 00000-0000"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="address">Local de Abordagem</Label>
-            <Input
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-              placeholder="Endereço"
+              value={nomeModelo}
+              onChange={(e) => setNomeModelo(e.target.value)}
+              placeholder="Nome completo do modelo"
             />
           </div>
 
