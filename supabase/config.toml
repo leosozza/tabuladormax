@@ -281,3 +281,6 @@ verify_jwt = false
 
 [functions.get-bitrix-stages]
 verify_jwt = false
+
+[functions.scouter-lead-action]
+verify_jwt = false
