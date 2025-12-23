@@ -86,8 +86,40 @@ serve(async (req) => {
       }),
     });
 
-    const bitrixResult = await bitrixResponse.json();
-    console.log('[scouter-lead-action] Bitrix response:', bitrixResult);
+    // Check if response is OK and content type is JSON
+    const contentType = bitrixResponse.headers.get('content-type') || '';
+    const responseText = await bitrixResponse.text();
+    console.log(`[scouter-lead-action] Bitrix response status: ${bitrixResponse.status}, content-type: ${contentType}`);
+    
+    let bitrixResult: any;
+    
+    if (!bitrixResponse.ok) {
+      console.error('[scouter-lead-action] Bitrix HTTP error:', bitrixResponse.status, responseText.substring(0, 500));
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Erro de comunicação com Bitrix: HTTP ${bitrixResponse.status}`,
+          details: responseText.substring(0, 200)
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    try {
+      bitrixResult = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('[scouter-lead-action] Failed to parse Bitrix response:', responseText.substring(0, 500));
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Resposta inválida do Bitrix (não é JSON)',
+          details: responseText.substring(0, 200)
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log('[scouter-lead-action] Bitrix result:', bitrixResult);
 
     if (!bitrixResult.result) {
       console.error('[scouter-lead-action] Bitrix update failed:', bitrixResult);
