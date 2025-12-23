@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { LogOut, RefreshCw, Trophy, Medal, Bot, FileText, Link2 } from 'lucide-react';
+import { LogOut, RefreshCw, Trophy, Medal, Bot } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ScouterStatsCards } from './ScouterStatsCards';
 import { ScouterFilters } from './ScouterFilters';
@@ -171,11 +171,6 @@ export const ScouterDashboard = ({
     clearAnalysis();
   };
 
-  const handleGenerateLink = () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url);
-    toast.success('Link copiado para a área de transferência!');
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -272,15 +267,6 @@ export const ScouterDashboard = ({
               <Bot className="h-4 w-4" />
               Análise IA
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerateLink}
-              className="gap-2"
-            >
-              <Link2 className="h-4 w-4" />
-              Compartilhar
-            </Button>
           </div>
         </div>
 
@@ -311,7 +297,6 @@ export const ScouterDashboard = ({
         scouterName={scouterData.name}
         periodLabel={getPeriodLabel()}
         metrics={analysisResult?.metrics}
-        onGenerateLink={handleGenerateLink}
       />
 
       {/* Modal de leads */}
