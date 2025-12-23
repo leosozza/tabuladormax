@@ -34,6 +34,7 @@ interface LeadData {
   etapa_lead: string | null;
   celular: string | null;
   commercial_project_id: string | null;
+  ficha_confirmada: boolean | null;
   // Campos de duplicado (preenchidos após verificação)
   has_duplicate?: boolean;
   is_duplicate_deleted?: boolean;
@@ -257,6 +258,18 @@ export function ScouterLeadsModal({
     return null;
   };
 
+  const renderConfirmadoBadge = (lead: LeadData) => {
+    if (lead.ficha_confirmada) {
+      return (
+        <Badge className="bg-green-500 hover:bg-green-600 text-white text-xs whitespace-nowrap">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          Confirmado
+        </Badge>
+      );
+    }
+    return null;
+  };
+
   const duplicatesCount = duplicateStatus.size;
   const uniqueLeadsCount = (leads?.length || 0) - duplicatesCount;
   const isChecking = checkProgress.phase !== 'idle' && checkProgress.phase !== 'complete';
@@ -406,6 +419,7 @@ export function ScouterLeadsModal({
                         <span className="font-mono">{lead.lead_id}</span>
                       </div>
                       <div className="flex items-center gap-2">
+                        {renderConfirmadoBadge(lead)}
                         {renderDuplicateBadge(lead)}
                         <LeadActions
                           lead={lead}
@@ -475,7 +489,10 @@ export function ScouterLeadsModal({
                         {lead.address || '-'}
                       </TableCell>
                       <TableCell>
-                        {renderDuplicateBadge(lead)}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {renderConfirmadoBadge(lead)}
+                          {renderDuplicateBadge(lead)}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <LeadActions
