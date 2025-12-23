@@ -4916,6 +4916,7 @@ export type Database = {
           commercial_project_id: string
           criado: string
           etapa_lead: string
+          ficha_confirmada: boolean
           lead_id: number
           nome_modelo: string
           nome_responsavel: string

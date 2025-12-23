@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { MoreHorizontal, Pencil, RefreshCw, Trash2, Loader2 } from "lucide-react";
+import { MoreHorizontal, Pencil, RefreshCw, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ interface LeadActionsProps {
     nome_modelo: string | null;
     celular: string | null;
     address: string | null;
+    ficha_confirmada: boolean | null;
   };
   scouterBitrixId?: number;
   onEdit: () => void;
@@ -129,6 +130,17 @@ export function LeadActions({ lead, scouterBitrixId, onEdit, onActionComplete }:
             <AlertDialogTitle>Excluir Lead</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div>
+                {lead.ficha_confirmada && (
+                  <div className="bg-amber-100 dark:bg-amber-900/30 border border-amber-400 dark:border-amber-600 rounded-md p-3 mb-3">
+                    <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-medium">
+                      <AlertTriangle className="h-4 w-4" />
+                      Este lead está CONFIRMADO!
+                    </div>
+                    <p className="text-sm text-amber-600 dark:text-amber-500 mt-1">
+                      Tem certeza que deseja excluir um lead confirmado?
+                    </p>
+                  </div>
+                )}
                 <p className="mb-3">Tem certeza que deseja excluir este lead?</p>
                 <strong>O que vai acontecer:</strong>
                 <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
