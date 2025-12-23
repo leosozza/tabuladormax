@@ -13,13 +13,21 @@ serve(async (req) => {
   }
 
   try {
-    const { action, leadId, scouterBitrixId } = await req.json();
+    const { action, leadId, scouterBitrixId, deleteReason } = await req.json();
     
-    console.log(`[scouter-lead-action] Action: ${action}, Lead ID: ${leadId}, Scouter Bitrix ID: ${scouterBitrixId}`);
+    console.log(`[scouter-lead-action] Action: ${action}, Lead ID: ${leadId}, Scouter Bitrix ID: ${scouterBitrixId}, Delete Reason: ${deleteReason || 'N/A'}`);
 
     if (!action || !leadId) {
       return new Response(
         JSON.stringify({ success: false, error: 'Missing action or leadId' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validar motivo obrigatório para exclusão
+    if (action === 'delete' && !deleteReason?.trim()) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Motivo da exclusão é obrigatório' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -29,9 +37,9 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get Bitrix credentials
+    // Get Bitrix credentials - URL correta do MaxSystem
     const bitrixUrl = Deno.env.get('BITRIX_URL') || 
-      'https://maxcomerciogrupoybrasil.bitrix24.com.br/rest/60/ztqakxp0uhc2w8n7';
+      'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr';
 
     // The lead ID in Supabase IS the Bitrix lead ID (they're the same)
     const bitrixLeadId = leadId;
@@ -43,10 +51,13 @@ serve(async (req) => {
     switch (action) {
       case 'delete':
         // Move para "Analisar - Sem interesse" e limpa campos do scouter
+        // Salva o motivo no campo COMMENTS do Bitrix
+        const motivoFormatado = `[EXCLUSÃO SCOUTER] ${new Date().toLocaleString('pt-BR')}\nMotivo: ${deleteReason}`;
         bitrixFields = {
           STATUS_ID: 'UC_GPH3PL', // Analisar - Sem interesse
           PARENT_ID_1096: '', // Limpa gestão scouter (SPA)
           UF_CRM_1742226427: '', // Limpa campo scouter
+          COMMENTS: motivoFormatado, // Salva o motivo da exclusão
         };
         supabaseUpdate = {
           etapa: 'Analizar - Sem interesse',
@@ -145,12 +156,18 @@ serve(async (req) => {
       );
     }
 
-    // Log the action
+    // Log the action (inclui o motivo da exclusão quando aplicável)
     await supabase.from('actions_log').insert({
       lead_id: leadId,
       action_label: `scouter_${action}`,
       status: 'success',
-      payload: { action, bitrixLeadId, bitrixFields, scouterBitrixId },
+      payload: { 
+        action, 
+        bitrixLeadId, 
+        bitrixFields, 
+        scouterBitrixId,
+        deleteReason: action === 'delete' ? deleteReason : undefined,
+      },
     });
 
     return new Response(

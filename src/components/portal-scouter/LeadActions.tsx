@@ -16,6 +16,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { MoreHorizontal, Pencil, RefreshCw, Trash2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,8 +40,22 @@ export function LeadActions({ lead, scouterBitrixId, onEdit, onActionComplete }:
   const [isResendDialogOpen, setIsResendDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<'delete' | 'resend' | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+
+  const handleDeleteDialogClose = (open: boolean) => {
+    setIsDeleteDialogOpen(open);
+    if (!open) {
+      setDeleteReason(''); // Limpa o motivo ao fechar
+    }
+  };
 
   const handleAction = async (action: 'delete' | 'resend') => {
+    // Validação do motivo para exclusão
+    if (action === 'delete' && !deleteReason.trim()) {
+      toast.error('Por favor, informe o motivo da exclusão');
+      return;
+    }
+
     setIsLoading(true);
     setLoadingAction(action);
 
@@ -49,6 +65,7 @@ export function LeadActions({ lead, scouterBitrixId, onEdit, onActionComplete }:
           action,
           leadId: lead.lead_id,
           scouterBitrixId,
+          deleteReason: action === 'delete' ? deleteReason.trim() : undefined,
         },
       });
 
@@ -68,6 +85,7 @@ export function LeadActions({ lead, scouterBitrixId, onEdit, onActionComplete }:
       setLoadingAction(null);
       setIsDeleteDialogOpen(false);
       setIsResendDialogOpen(false);
+      setDeleteReason('');
     }
   };
 
@@ -105,27 +123,53 @@ export function LeadActions({ lead, scouterBitrixId, onEdit, onActionComplete }:
         </DropdownMenu>
       </div>
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={handleDeleteDialogClose}>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Lead</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir este lead?
-              <br /><br />
-              <strong>O que vai acontecer:</strong>
-              <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-                <li>O lead será movido para "Analisar - Sem interesse"</li>
-                <li>A associação com você (scouter) será removida</li>
-                <li>O lead poderá ser excluído definitivamente posteriormente</li>
-              </ul>
+            <AlertDialogDescription asChild>
+              <div>
+                <p className="mb-3">Tem certeza que deseja excluir este lead?</p>
+                <strong>O que vai acontecer:</strong>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                  <li>O lead será movido para "Analisar - Sem interesse"</li>
+                  <li>A associação com você (scouter) será removida</li>
+                  <li>O lead poderá ser excluído definitivamente posteriormente</li>
+                </ul>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={loadingAction === 'delete'}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => handleAction('delete')}
+          
+          <div className="py-2">
+            <Label htmlFor="delete-reason" className="text-sm font-medium">
+              Motivo da Exclusão <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="delete-reason"
+              placeholder="Informe o motivo da exclusão do lead..."
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              className="mt-2 min-h-[100px] resize-none"
               disabled={loadingAction === 'delete'}
-              className="bg-destructive hover:bg-destructive/90"
+            />
+            {deleteReason.trim() === '' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Campo obrigatório
+              </p>
+            )}
+          </div>
+
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel disabled={loadingAction === 'delete'} className="w-full sm:w-auto">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleAction('delete');
+              }}
+              disabled={loadingAction === 'delete' || !deleteReason.trim()}
+              className="bg-destructive hover:bg-destructive/90 w-full sm:w-auto"
             >
               {loadingAction === 'delete' ? (
                 <>
