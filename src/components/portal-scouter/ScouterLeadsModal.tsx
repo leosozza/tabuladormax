@@ -3,12 +3,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState, useCallback, useEffect } from "react";
 import { Progress } from "@/components/ui/progress";
+import { LeadActions } from "./LeadActions";
+import { LeadEditModal } from "./LeadEditModal";
 
 interface ScouterLeadsModalProps {
   isOpen: boolean;
@@ -55,6 +57,8 @@ export function ScouterLeadsModal({
   const [currentPage, setCurrentPage] = useState(1);
   const [duplicateStatus, setDuplicateStatus] = useState<Map<number, { has_duplicate: boolean; is_duplicate_deleted: boolean }>>(new Map());
   const [checkProgress, setCheckProgress] = useState<DuplicateCheckProgress>({ phase: 'idle', progress: 0, message: '' });
+  const [editingLead, setEditingLead] = useState<LeadData | null>(null);
+  const queryClient = useQueryClient();
 
   // Carregar leads filtrados por tipo de card
   const { data: leads, isLoading } = useQuery({
@@ -279,7 +283,16 @@ export function ScouterLeadsModal({
                         <Hash className="h-3 w-3" />
                         <span className="font-mono">{lead.lead_id}</span>
                       </div>
-                      {renderDuplicateBadge(lead)}
+                      <div className="flex items-center gap-2">
+                        {renderDuplicateBadge(lead)}
+                        <LeadActions
+                          lead={lead}
+                          onEdit={() => setEditingLead(lead)}
+                          onActionComplete={() => {
+                            queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
+                          }}
+                        />
+                      </div>
                     </div>
                     
                     <div className="space-y-1.5">
@@ -318,7 +331,8 @@ export function ScouterLeadsModal({
                     <TableHead>Nome do Modelo</TableHead>
                     <TableHead className="w-32">Data Criação</TableHead>
                     <TableHead>Local de Abordagem</TableHead>
-                    <TableHead className="w-36">Status</TableHead>
+                    <TableHead className="w-28">Status</TableHead>
+                    <TableHead className="w-16">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -340,6 +354,15 @@ export function ScouterLeadsModal({
                       </TableCell>
                       <TableCell>
                         {renderDuplicateBadge(lead)}
+                      </TableCell>
+                      <TableCell>
+                        <LeadActions
+                          lead={lead}
+                          onEdit={() => setEditingLead(lead)}
+                          onActionComplete={() => {
+                            queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
+                          }}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -378,6 +401,16 @@ export function ScouterLeadsModal({
           </div>
         )}
       </DialogContent>
+
+      {/* Edit Lead Modal */}
+      <LeadEditModal
+        isOpen={!!editingLead}
+        onClose={() => setEditingLead(null)}
+        lead={editingLead}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
+        }}
+      />
     </Dialog>
   );
 }
