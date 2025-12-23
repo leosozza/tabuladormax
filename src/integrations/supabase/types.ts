@@ -4918,6 +4918,7 @@ export type Database = {
           etapa_lead: string
           lead_id: number
           nome_modelo: string
+          nome_responsavel: string
         }[]
       }
       get_scouter_location_stats: { Args: never; Returns: Json }

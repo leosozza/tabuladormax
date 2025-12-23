@@ -26,6 +26,7 @@ interface ScouterLeadsModalProps {
 interface LeadData {
   lead_id: number;
   nome_modelo: string | null;
+  nome_responsavel: string | null;
   criado: string | null;
   address: string | null;
   etapa_lead: string | null;
