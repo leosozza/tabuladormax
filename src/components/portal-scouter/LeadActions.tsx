@@ -84,7 +84,7 @@ export function LeadActions({ lead, scouterBitrixId, onEdit, onActionComplete }:
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="z-[100]">
+          <DropdownMenuContent align="end" side="bottom" sideOffset={4} className="z-[600]">
           <DropdownMenuItem onClick={onEdit}>
             <Pencil className="h-4 w-4 mr-2" />
             Editar
