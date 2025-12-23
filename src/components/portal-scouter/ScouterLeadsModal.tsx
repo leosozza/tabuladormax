@@ -47,7 +47,7 @@ interface DuplicateCheckProgress {
 
 type SortOrder = 'recent' | 'oldest' | 'az' | 'za';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50, 100] as const;
 
 export function ScouterLeadsModal({
   isOpen,
@@ -60,6 +60,7 @@ export function ScouterLeadsModal({
   projectId,
 }: ScouterLeadsModalProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [duplicateStatus, setDuplicateStatus] = useState<Map<number, { has_duplicate: boolean; is_duplicate_deleted: boolean }>>(new Map());
   const [checkProgress, setCheckProgress] = useState<DuplicateCheckProgress>({ phase: 'idle', progress: 0, message: '' });
   const [editingLead, setEditingLead] = useState<LeadData | null>(null);
@@ -128,10 +129,10 @@ export function ScouterLeadsModal({
     });
   }, [leads, searchTerm, sortOrder]);
 
-  // Reset para página 1 quando busca ou ordenação mudar
+  // Reset para página 1 quando busca, ordenação ou itens por página mudar
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, sortOrder]);
+  }, [searchTerm, sortOrder, itemsPerPage]);
 
   // Função para verificar duplicados
   const checkDuplicates = useCallback(async () => {
@@ -205,9 +206,26 @@ export function ScouterLeadsModal({
     setCheckProgress({ phase: 'complete', progress: 100, message: `✓ ${uniqueCount} leads únicos (${newStatus.size} duplicados)` });
   }, [leads, projectId]);
 
-  const totalPages = Math.ceil(filteredAndSortedLeads.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedLeads = filteredAndSortedLeads.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredAndSortedLeads.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedLeads = filteredAndSortedLeads.slice(startIndex, startIndex + itemsPerPage);
+
+  // Gerar números de páginas para navegação
+  const getPageNumbers = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   const handlePrevPage = () => setCurrentPage((prev) => Math.max(1, prev - 1));
   const handleNextPage = () => setCurrentPage((prev) => Math.min(totalPages, prev + 1));
@@ -335,11 +353,28 @@ export function ScouterLeadsModal({
           </div>
         )}
 
-        {/* Contador de resultados */}
+        {/* Contador de resultados e Itens por página */}
         {leads && leads.length > 0 && (
-          <div className="text-xs text-muted-foreground py-1">
-            Mostrando {Math.min(startIndex + 1, filteredAndSortedLeads.length)}-{Math.min(startIndex + ITEMS_PER_PAGE, filteredAndSortedLeads.length)} de {filteredAndSortedLeads.length} leads
-            {searchTerm && ` (filtrado de ${leads.length})`}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2">
+            <div className="text-xs text-muted-foreground">
+              Mostrando {Math.min(startIndex + 1, filteredAndSortedLeads.length)}-{Math.min(startIndex + itemsPerPage, filteredAndSortedLeads.length)} de {filteredAndSortedLeads.length} leads
+              {searchTerm && ` (filtrado de ${leads.length})`}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Itens por página:</span>
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                <SelectTrigger className="w-[80px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ITEMS_PER_PAGE_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option.toString()}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
 
@@ -460,31 +495,45 @@ export function ScouterLeadsModal({
         </div>
 
         {/* Pagination */}
-        {filteredAndSortedLeads.length > ITEMS_PER_PAGE && (
-          <div className="flex items-center justify-between pt-4 border-t gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrevPage}
-              disabled={currentPage === 1}
-              className="h-9 px-3"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span className="ml-1">Anterior</span>
-            </Button>
-            <span className="text-sm font-medium">
-              Página {currentPage} de {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleNextPage}
-              disabled={currentPage === totalPages}
-              className="h-9 px-3"
-            >
-              <span className="mr-1">Próxima</span>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-4 border-t">
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                className="h-8 px-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              {getPageNumbers().map((page, index) => (
+                page === 'ellipsis' ? (
+                  <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground">...</span>
+                ) : (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {page}
+                  </Button>
+                )
+              ))}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="h-8 px-2"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </DialogContent>
