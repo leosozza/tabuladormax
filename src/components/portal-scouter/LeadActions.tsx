@@ -73,17 +73,18 @@ export function LeadActions({ lead, scouterBitrixId, onEdit, onActionComplete }:
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isLoading}>
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <MoreHorizontal className="h-4 w-4" />
-            )}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+      <div onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isLoading}>
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MoreHorizontal className="h-4 w-4" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="z-[100]">
           <DropdownMenuItem onClick={onEdit}>
             <Pencil className="h-4 w-4 mr-2" />
             Editar
@@ -101,8 +102,8 @@ export function LeadActions({ lead, scouterBitrixId, onEdit, onActionComplete }:
             Excluir Lead
           </DropdownMenuItem>
         </DropdownMenuContent>
-      </DropdownMenu>
-
+        </DropdownMenu>
+      </div>
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
