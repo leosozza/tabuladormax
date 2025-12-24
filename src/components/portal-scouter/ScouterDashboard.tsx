@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,6 +11,7 @@ import { ScouterStatsCards } from './ScouterStatsCards';
 import { PhotoUploadDialog } from './PhotoUploadDialog';
 import { ScouterLeadsModal } from './ScouterLeadsModal';
 import { AIAnalysisModal } from './AIAnalysisModal';
+import { ScouterOnboardingGuide } from './ScouterOnboardingGuide';
 import { useScouterAIAnalysis } from '@/hooks/useScouterAIAnalysis';
 import { startOfDay, endOfDay, startOfWeek, startOfMonth, subDays, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -45,6 +46,47 @@ export const ScouterDashboard = ({
   // State para análise de IA
   const [aiAnalysisOpen, setAiAnalysisOpen] = useState(false);
   const { generateAnalysis, isAnalyzing, analysisResult, clearAnalysis } = useScouterAIAnalysis();
+
+  // State para onboarding
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Verificar se deve mostrar onboarding
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('scouters')
+          .select('onboarding_completed')
+          .eq('id', scouterData.id)
+          .single();
+        
+        if (!error && data && !data.onboarding_completed) {
+          // Pequeno delay para garantir que a UI carregou
+          setTimeout(() => setShowOnboarding(true), 500);
+        }
+      } catch (err) {
+        console.error('Erro ao verificar onboarding:', err);
+      }
+    };
+    
+    checkOnboarding();
+  }, [scouterData.id]);
+
+  // Handler para completar onboarding
+  const handleCompleteOnboarding = async (dontShowAgain: boolean) => {
+    setShowOnboarding(false);
+    
+    if (dontShowAgain) {
+      try {
+        await supabase
+          .from('scouters')
+          .update({ onboarding_completed: true })
+          .eq('id', scouterData.id);
+      } catch (err) {
+        console.error('Erro ao salvar preferência de onboarding:', err);
+      }
+    }
+  };
 
   const getDateRange = () => {
     const now = new Date();
@@ -249,6 +291,7 @@ export const ScouterDashboard = ({
         <div className="flex items-center justify-between gap-4">
           {/* Botão Análise IA */}
           <Button
+            data-tour="ai-analysis"
             variant="default"
             size="sm"
             onClick={handleOpenAIAnalysis}
@@ -264,7 +307,7 @@ export const ScouterDashboard = ({
             {/* Ícone de Data com Popover */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+                <Button data-tour="date-filter" variant="ghost" size="icon" className="h-9 w-9 relative">
                   <CalendarIcon className="h-4 w-4" />
                   {datePreset !== 'today' && (
                     <span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full" />
@@ -368,7 +411,7 @@ export const ScouterDashboard = ({
             {/* Ícone de Projeto com Popover */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+                <Button data-tour="project-filter" variant="ghost" size="icon" className="h-9 w-9 relative">
                   <Building className="h-4 w-4" />
                   {projectId && (
                     <span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full" />
@@ -412,11 +455,13 @@ export const ScouterDashboard = ({
         </div>
 
         {/* Cards de Estatísticas */}
-        <ScouterStatsCards 
-          stats={stats} 
-          isLoading={isLoading} 
-          onCardClick={handleCardClick}
-        />
+        <div data-tour="stats-cards">
+          <ScouterStatsCards 
+            stats={stats} 
+            isLoading={isLoading} 
+            onCardClick={handleCardClick}
+          />
+        </div>
       </main>
 
       {/* Dialog de upload de foto */}
@@ -450,6 +495,12 @@ export const ScouterDashboard = ({
         dateFrom={start}
         dateTo={end}
         projectId={projectId}
+      />
+
+      {/* Guia de Onboarding */}
+      <ScouterOnboardingGuide
+        isOpen={showOnboarding}
+        onComplete={handleCompleteOnboarding}
       />
     </div>
   );

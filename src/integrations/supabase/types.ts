@@ -3540,6 +3540,7 @@ export type Database = {
           leads_last_30_days: number | null
           name: string
           notes: string | null
+          onboarding_completed: boolean | null
           phone: string | null
           photo_url: string | null
           responsible_user_id: string | null
@@ -3560,6 +3561,7 @@ export type Database = {
           leads_last_30_days?: number | null
           name: string
           notes?: string | null
+          onboarding_completed?: boolean | null
           phone?: string | null
           photo_url?: string | null
           responsible_user_id?: string | null
@@ -3580,6 +3582,7 @@ export type Database = {
           leads_last_30_days?: number | null
           name?: string
           notes?: string | null
+          onboarding_completed?: boolean | null
           phone?: string | null
           photo_url?: string | null
           responsible_user_id?: string | null
