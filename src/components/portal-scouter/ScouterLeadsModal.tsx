@@ -316,15 +316,25 @@ export function ScouterLeadsModal({
     return null;
   };
 
-  const renderPhotoBadge = (lead: LeadData, isFirst: boolean = false) => {
+  // Encontrar o primeiro lead que TEM foto (para o data-tour)
+  const firstLeadWithPhoto = useMemo(() => {
+    return paginatedLeads.find(lead => 
+      lead.photo_url && lead.photo_url !== '' && lead.photo_url !== '[]'
+    );
+  }, [paginatedLeads]);
+
+  const renderPhotoBadge = (lead: LeadData) => {
     const hasPhoto = lead.photo_url && 
       lead.photo_url !== '' && 
       lead.photo_url !== '[]';
     
     if (hasPhoto) {
+      // Adicionar data-tour apenas ao primeiro lead com foto
+      const isFirstWithPhoto = firstLeadWithPhoto?.lead_id === lead.lead_id;
+      
       return (
         <Badge 
-          data-tour={isFirst ? "lead-photo-badge" : undefined}
+          data-tour={isFirstWithPhoto ? "lead-photo-badge" : undefined}
           className="bg-blue-500 hover:bg-blue-600 text-white text-xs whitespace-nowrap cursor-pointer"
           onClick={(e) => {
             e.stopPropagation();
@@ -600,7 +610,7 @@ export function ScouterLeadsModal({
                         <span className="font-mono">{lead.lead_id}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        {renderPhotoBadge(lead, paginatedLeads.indexOf(lead) === 0)}
+                        {renderPhotoBadge(lead)}
                         {renderConfirmadoBadge(lead)}
                         {renderDuplicateBadge(lead)}
                         <div data-tour={paginatedLeads.indexOf(lead) === 0 ? "lead-actions-menu" : undefined}>
@@ -676,7 +686,7 @@ export function ScouterLeadsModal({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 flex-wrap">
-                          {renderPhotoBadge(lead, paginatedLeads.indexOf(lead) === 0)}
+                          {renderPhotoBadge(lead)}
                           {renderConfirmadoBadge(lead)}
                           {renderDuplicateBadge(lead)}
                         </div>
