@@ -14,9 +14,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
-import { Trash2, Plus, AlertCircle, CheckCircle2, DollarSign, CreditCard } from 'lucide-react';
+import { Trash2, Plus, AlertCircle, CheckCircle2, DollarSign, CreditCard, Mic } from 'lucide-react';
 import type { PaymentMethod, SelectedPaymentMethod } from '@/types/agenciamento';
 import { PAYMENT_METHOD_LABELS } from '@/types/agenciamento';
+import { PaymentVoiceAssistant } from './PaymentVoiceAssistant';
 
 interface EnhancedPaymentMethodsSelectorProps {
   value: SelectedPaymentMethod[];
@@ -36,6 +37,14 @@ export function EnhancedPaymentMethodsSelector({
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | ''>('');
   const [amount, setAmount] = useState<string>('');
   const [installments, setInstallments] = useState<string>('1');
+  const [showVoiceAssistant, setShowVoiceAssistant] = useState(false);
+
+  // Handler for adding payments from voice assistant
+  const handleVoicePaymentsExtracted = (payments: SelectedPaymentMethod[]) => {
+    // Add all extracted payments to existing ones
+    onChange([...value, ...payments]);
+    setShowVoiceAssistant(false);
+  };
 
   // Calculate the net total after discount
   const netTotal = totalValue - discountValue;
@@ -185,19 +194,40 @@ export function EnhancedPaymentMethodsSelector({
               </Select>
             </div>
 
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
               <Button 
                 type="button" 
                 onClick={addPaymentMethod} 
                 size="sm"
-                className="h-9 w-full sm:w-auto"
+                className="h-9 flex-1 sm:flex-initial"
                 disabled={!selectedMethod || !amount || parseFloat(amount) <= 0}
               >
                 <Plus className="h-4 w-4 sm:mr-2" />
                 <span className="sm:inline">Adicionar</span>
               </Button>
+              <Button
+                type="button"
+                onClick={() => setShowVoiceAssistant(true)}
+                size="sm"
+                variant="outline"
+                className="h-9"
+                title="Falar formas de pagamento"
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
             </div>
           </div>
+
+          {/* Voice Assistant Panel */}
+          {showVoiceAssistant && (
+            <div className="mt-4">
+              <PaymentVoiceAssistant
+                totalValue={netTotal}
+                onPaymentsExtracted={handleVoicePaymentsExtracted}
+                onClose={() => setShowVoiceAssistant(false)}
+              />
+            </div>
+          )}
 
           {remainingBalance > 0.01 && (
             <p className="text-xs text-muted-foreground">
