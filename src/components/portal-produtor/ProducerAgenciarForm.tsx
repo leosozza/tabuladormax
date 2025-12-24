@@ -134,7 +134,10 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
   // Form state
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [baseValue, setBaseValue] = useState<number>(deal.opportunity || 0);
+  const [discountType, setDiscountType] = useState<'percent' | 'fixed' | 'final'>('percent');
   const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [discountFixed, setDiscountFixed] = useState<number>(0);
+  const [finalValueInput, setFinalValueInput] = useState<number>(0);
   const [notes, setNotes] = useState<string>('');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [status, setStatus] = useState<string>(deal.negotiation_status || 'inicial');
@@ -187,9 +190,24 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
     setBaseValue(product.PRICE);
   };
 
-  // Calcular valores
-  const discountValue = (baseValue * discountPercent) / 100;
-  const totalValue = baseValue - discountValue;
+  // Calcular valores baseado no tipo de desconto
+  const discountValue = useMemo(() => {
+    switch (discountType) {
+      case 'percent':
+        return (baseValue * discountPercent) / 100;
+      case 'fixed':
+        return discountFixed;
+      case 'final':
+        return baseValue - finalValueInput;
+      default:
+        return 0;
+    }
+  }, [discountType, baseValue, discountPercent, discountFixed, finalValueInput]);
+  
+  const totalValue = discountType === 'final' ? finalValueInput : baseValue - discountValue;
+  
+  // Calcular percentual efetivo para exibição
+  const effectiveDiscountPercent = baseValue > 0 ? (discountValue / baseValue) * 100 : 0;
 
   // Calcular total das formas de pagamento
   const paymentTotal = paymentMethods.reduce((sum, pm) => sum + (pm.value || 0), 0);
@@ -632,7 +650,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Valor Base (R$)</Label>
               <Input
@@ -644,7 +662,27 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
               />
             </div>
             <div>
-              <Label className="text-xs">Desconto (%)</Label>
+              <Label className="text-xs">Tipo de Desconto</Label>
+              <Select value={discountType} onValueChange={(v) => setDiscountType(v as 'percent' | 'fixed' | 'final')}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="percent">Percentual (%)</SelectItem>
+                  <SelectItem value="fixed">Valor do Desconto (R$)</SelectItem>
+                  <SelectItem value="final">Valor Final (R$)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">
+              {discountType === 'percent' && 'Desconto (%)'}
+              {discountType === 'fixed' && 'Valor do Desconto (R$)'}
+              {discountType === 'final' && 'Valor Final com Desconto (R$)'}
+            </Label>
+            {discountType === 'percent' && (
               <Input
                 type="number"
                 min={0}
@@ -654,7 +692,29 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
                 placeholder="0"
                 className="h-10"
               />
-            </div>
+            )}
+            {discountType === 'fixed' && (
+              <Input
+                type="number"
+                min={0}
+                max={baseValue}
+                value={discountFixed}
+                onChange={(e) => setDiscountFixed(Number(e.target.value))}
+                placeholder="0,00"
+                className="h-10"
+              />
+            )}
+            {discountType === 'final' && (
+              <Input
+                type="number"
+                min={0}
+                max={baseValue}
+                value={finalValueInput}
+                onChange={(e) => setFinalValueInput(Number(e.target.value))}
+                placeholder="0,00"
+                className="h-10"
+              />
+            )}
           </div>
 
           <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg">
@@ -662,9 +722,9 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
               <p className="text-xs text-muted-foreground">Valor Final</p>
               <p className="text-xl font-bold text-primary">{formatCurrency(totalValue)}</p>
             </div>
-            {discountPercent > 0 && (
+            {effectiveDiscountPercent > 0 && (
               <Badge variant="secondary" className="text-xs">
-                -{discountPercent}%
+                -{effectiveDiscountPercent.toFixed(1)}%
               </Badge>
             )}
           </div>
