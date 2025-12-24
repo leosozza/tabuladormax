@@ -97,6 +97,8 @@ export function AgenciamentoAssistant({
     voiceResponseEnabled,
     setVoiceResponseEnabled,
     isSpeaking,
+    showDatePicker,
+    pendingBoletoData,
     startAssistant,
     sendMessage,
     sendAudio,
@@ -108,6 +110,8 @@ export function AgenciamentoAssistant({
     goBack,
     reset,
     stopSpeaking,
+    selectDueDate,
+    cancelDatePicker,
   } = useAgenciamentoAssistant({
     products,
     clientName,
@@ -490,6 +494,10 @@ export function AgenciamentoAssistant({
             installments: pm.installments,
           })),
         }}
+        showDatePicker={showDatePicker}
+        pendingBoletoData={pendingBoletoData}
+        onSelectDueDate={selectDueDate}
+        onCancelDatePicker={cancelDatePicker}
       />
     </div>
   );

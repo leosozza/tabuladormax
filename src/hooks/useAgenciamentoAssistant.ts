@@ -13,6 +13,12 @@ export interface PaymentMethodData {
   dueDate?: string;
 }
 
+export interface PendingBoletoData {
+  method: string;
+  amount: number;
+  installments: number;
+}
+
 export interface AgenciamentoData {
   stage: AgenciamentoStage;
   selectedPackage: BitrixProduct | null;
@@ -20,6 +26,8 @@ export interface AgenciamentoData {
   finalValue: number;
   discountPercent: number;
   paymentMethods: PaymentMethodData[];
+  pendingBoletoData?: PendingBoletoData;
+  showDatePicker?: boolean;
 }
 
 export interface ConversationMessage {
@@ -70,6 +78,10 @@ interface UseAgenciamentoAssistantReturn {
   isRecording: boolean;
   recordingTime: number;
   
+  // Date picker state for boleto
+  showDatePicker: boolean;
+  pendingBoletoData: PendingBoletoData | null;
+  
   // Actions
   startAssistant: () => void;
   sendMessage: (text: string) => Promise<void>;
@@ -83,6 +95,8 @@ interface UseAgenciamentoAssistantReturn {
   goBack: () => void;
   reset: () => void;
   stopSpeaking: () => void;
+  selectDueDate: (date: Date) => Promise<void>;
+  cancelDatePicker: () => void;
 }
 
 const INITIAL_DATA: AgenciamentoData = {
@@ -115,6 +129,10 @@ export function useAgenciamentoAssistant({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const processingMutexRef = useRef(false);
+  
+  // Date picker state for boleto parcelado
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pendingBoletoData, setPendingBoletoData] = useState<PendingBoletoData | null>(null);
   
   // AI Provider state - usar valores padrão do sistema
   const [provider, setProvider] = useState<string>('lovable');
@@ -409,6 +427,16 @@ Qual pacote o cliente escolheu?`;
           }
           break;
 
+        case 'ask_due_date':
+          // Salvar dados do boleto pendente e mostrar date picker
+          setPendingBoletoData({
+            method: result.data.method,
+            amount: result.data.amount,
+            installments: result.data.installments
+          });
+          setShowDatePicker(true);
+          break;
+
         case 'ask_question':
         case 'message':
           // Just display the message
@@ -482,6 +510,29 @@ Qual pacote o cliente escolheu?`;
     }
   }, [stage]);
 
+  // Selecionar data de vencimento do boleto
+  const selectDueDate = useCallback(async (date: Date) => {
+    if (!pendingBoletoData) return;
+    
+    setShowDatePicker(false);
+    
+    // Formatar a data para enviar à IA
+    const formattedDate = date.toISOString().split('T')[0];
+    const displayDate = date.toLocaleDateString('pt-BR');
+    
+    // Enviar resposta com a data selecionada
+    await sendMessage(`A primeira parcela vence em ${displayDate}`);
+    
+    // Limpar dados pendentes
+    setPendingBoletoData(null);
+  }, [pendingBoletoData, sendMessage]);
+
+  // Cancelar seleção de data
+  const cancelDatePicker = useCallback(() => {
+    setShowDatePicker(false);
+    setPendingBoletoData(null);
+  }, []);
+
   return {
     // State
     stage,
@@ -507,6 +558,10 @@ Qual pacote o cliente escolheu?`;
     isRecording: audioRecorder.isRecording,
     recordingTime: audioRecorder.recordingTime,
     
+    // Date picker state for boleto
+    showDatePicker,
+    pendingBoletoData,
+    
     // Actions
     startAssistant,
     sendMessage,
@@ -520,5 +575,7 @@ Qual pacote o cliente escolheu?`;
     goBack,
     reset,
     stopSpeaking,
+    selectDueDate,
+    cancelDatePicker,
   };
 }

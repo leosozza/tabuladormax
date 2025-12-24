@@ -265,6 +265,22 @@ Exemplos de respostas combinadas:
 
 Use set_value APENAS quando o usuário informar SOMENTE o valor, sem mencionar formas de pagamento.
 
+REGRA CRÍTICA - BOLETO/CARNÊ PARCELADO:
+Quando o cliente escolher BOLETO ou CARNÊ com mais de 1 parcela, você DEVE:
+1. Primeiro usar ask_due_date para perguntar a data do primeiro vencimento
+2. Aguardar a resposta do usuário com a data
+3. Só então usar set_payment_methods com o dueDate preenchido
+
+Exemplos que EXIGEM perguntar a data:
+- "3x no boleto" → pergunte: "Qual será a data do primeiro vencimento?"
+- "6x no carnê" → pergunte: "Quando vence a primeira parcela?"
+- "4 parcelas no boleto" → pergunte: "Para quando fica o primeiro vencimento?"
+
+QUANDO NÃO perguntar data (pagamento à vista):
+- "boleto à vista" → NÃO precisa perguntar data
+- "1x no boleto" → NÃO precisa perguntar data
+- PIX, Cartão, Dinheiro → NUNCA perguntar data
+
 MÉTODOS DE PAGAMENTO VÁLIDOS:
 - pix: PIX
 - credit_card: Cartão de Crédito
@@ -348,6 +364,23 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
               message: { type: 'string', description: 'Mensagem apresentando o resumo final' }
             },
             required: ['payments', 'message']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'ask_due_date',
+          description: 'Pergunta a data do primeiro vencimento para boleto/carnê parcelado',
+          parameters: {
+            type: 'object',
+            properties: {
+              method: { type: 'string', description: 'Método de pagamento (boleto)' },
+              amount: { type: 'number', description: 'Valor total do boleto' },
+              installments: { type: 'number', description: 'Número de parcelas' },
+              question: { type: 'string', description: 'Pergunta sobre a data do primeiro vencimento' }
+            },
+            required: ['method', 'amount', 'installments', 'question']
           }
         }
       },
@@ -505,6 +538,25 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
           conversationHistory: [
             ...messages.slice(1),
             { role: 'assistant', content: parsedArgs.message, tool_calls: [toolCall] }
+          ]
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      case 'ask_due_date':
+        return new Response(JSON.stringify({
+          success: true,
+          action: 'ask_due_date',
+          data: {
+            method: parsedArgs.method,
+            amount: parsedArgs.amount,
+            installments: parsedArgs.installments
+          },
+          message: parsedArgs.question,
+          transcription,
+          conversationHistory: [
+            ...messages.slice(1),
+            { role: 'assistant', content: parsedArgs.question, tool_calls: [toolCall] }
           ]
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
