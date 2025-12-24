@@ -86,7 +86,17 @@ export function useSystemSettings() {
         // Converter models de Json para string[]
         let models: string[] = [];
         if (Array.isArray(p.models)) {
-          models = p.models.filter((m): m is string => typeof m === 'string');
+          models = p.models.map((m: unknown) => {
+            // Se for objeto com id, pegar o id
+            if (typeof m === 'object' && m !== null && 'id' in m) {
+              return (m as { id: string }).id;
+            }
+            // Se já for string, usar direto
+            if (typeof m === 'string') {
+              return m;
+            }
+            return null;
+          }).filter((m): m is string => m !== null);
         }
         return {
           id: p.id,
