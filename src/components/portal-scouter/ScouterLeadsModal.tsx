@@ -472,45 +472,45 @@ export function ScouterLeadsModal({
               </div>
               
               {/* Lado direito: Ícones de Busca e Ordenação */}
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
                 {/* Busca expansível */}
                 {isSearchOpen ? (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 md:gap-2">
                     <Input
                       autoFocus
                       placeholder="Buscar..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="h-9 w-32 sm:w-48"
+                      className="h-9 md:h-10 w-32 sm:w-48 md:w-56"
                     />
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-9 w-9 flex-shrink-0"
+                      className="h-9 w-9 md:h-10 md:w-10 flex-shrink-0"
                       onClick={() => {
                         setIsSearchOpen(false);
                         setSearchTerm('');
                       }}
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4 md:h-5 md:w-5" />
                     </Button>
                   </div>
                 ) : (
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-9 w-9"
+                    className="h-9 w-9 md:h-10 md:w-10"
                     onClick={() => setIsSearchOpen(true)}
                   >
-                    <Search className="h-4 w-4" />
+                    <Search className="h-4 w-4 md:h-5 md:w-5" />
                   </Button>
                 )}
 
                 {/* Ordenação com Popover */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-9 w-9">
-                      <ArrowUpDown className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10">
+                      <ArrowUpDown className="h-4 w-4 md:h-5 md:w-5" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-44 p-1" align="end">
