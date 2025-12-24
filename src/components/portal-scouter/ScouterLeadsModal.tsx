@@ -4,7 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X } from "lucide-react";
+import { getLeadPhotoUrl } from '@/lib/leadPhotoUtils';
+import noPhotoPlaceholder from '@/assets/no-photo-placeholder.png';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -65,6 +67,7 @@ export function ScouterLeadsModal({
   const [duplicateStatus, setDuplicateStatus] = useState<Map<number, { has_duplicate: boolean; is_duplicate_deleted: boolean }>>(new Map());
   const [checkProgress, setCheckProgress] = useState<DuplicateCheckProgress>({ phase: 'idle', progress: 0, message: '' });
   const [editingLead, setEditingLead] = useState<LeadData | null>(null);
+  const [photoPreviewLead, setPhotoPreviewLead] = useState<LeadData | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
   const queryClient = useQueryClient();
@@ -277,7 +280,13 @@ export function ScouterLeadsModal({
     
     if (hasPhoto) {
       return (
-        <Badge className="bg-blue-500 hover:bg-blue-600 text-white text-xs whitespace-nowrap">
+        <Badge 
+          className="bg-blue-500 hover:bg-blue-600 text-white text-xs whitespace-nowrap cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            setPhotoPreviewLead(lead);
+          }}
+        >
           <Camera className="h-3 w-3 mr-1" />
           Foto
         </Badge>
@@ -647,6 +656,46 @@ export function ScouterLeadsModal({
           queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
         }}
       />
+
+      {/* Modal de Preview de Foto */}
+      <Dialog open={!!photoPreviewLead} onOpenChange={() => setPhotoPreviewLead(null)}>
+        <DialogContent className="max-w-lg p-0 bg-black/95 border-none overflow-hidden">
+          <div className="relative w-full flex flex-col items-center">
+            {/* Header com nome do lead */}
+            <div className="w-full bg-black/80 px-4 py-3 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">#{photoPreviewLead?.lead_id}</p>
+                  <p className="text-sm text-gray-300">
+                    {photoPreviewLead?.nome_modelo || photoPreviewLead?.nome_responsavel || 'Sem nome'}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/20"
+                  onClick={() => setPhotoPreviewLead(null)}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+            
+            {/* Foto */}
+            <div className="w-full flex items-center justify-center p-4">
+              <img
+                src={getLeadPhotoUrl(photoPreviewLead?.photo_url)}
+                alt={`Foto do lead ${photoPreviewLead?.lead_id}`}
+                className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = noPhotoPlaceholder;
+                }}
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
