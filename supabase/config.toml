@@ -284,3 +284,6 @@ verify_jwt = false
 
 [functions.scouter-lead-action]
 verify_jwt = false
+
+[functions.extract-payment-from-audio]
+verify_jwt = false
