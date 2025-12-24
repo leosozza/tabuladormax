@@ -2,12 +2,14 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { 
   Mic, MicOff, Loader2, Check, X, RotateCcw, 
   Send, ChevronLeft, Package, DollarSign, CreditCard, CheckCircle,
-  MessageSquare
+  MessageSquare, Settings2, Bot
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useAgenciamentoAssistant, AgenciamentoStage, AgenciamentoData, PaymentMethodData } from '@/hooks/useAgenciamentoAssistant';
 import { BitrixProduct } from '@/lib/bitrix';
@@ -37,6 +39,35 @@ const STAGE_CONFIG: Record<AgenciamentoStage, { icon: React.ElementType; label: 
   complete: { icon: Check, label: 'Concluído', step: 5 },
 };
 
+// AI Provider configurations
+const AI_PROVIDERS = [
+  {
+    id: 'lovable',
+    name: 'Lovable AI',
+    models: [
+      { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+      { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+      { id: 'openai/gpt-5', name: 'GPT-5' },
+      { id: 'openai/gpt-5-mini', name: 'GPT-5 Mini' },
+    ],
+    defaultModel: 'google/gemini-2.5-flash',
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    models: [
+      { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
+      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
+      { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Free)' },
+      { id: 'google/gemini-2.5-flash-preview-05-20', name: 'Gemini 2.5 Flash' },
+      { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B' },
+      { id: 'openai/gpt-4o', name: 'GPT-4o' },
+      { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3' },
+    ],
+    defaultModel: 'anthropic/claude-3.5-sonnet',
+  },
+];
+
 export function AgenciamentoAssistant({ 
   products, 
   clientName,
@@ -55,6 +86,10 @@ export function AgenciamentoAssistant({
     error,
     isRecording,
     recordingTime,
+    provider,
+    model,
+    setProvider,
+    setModel,
     startAssistant,
     sendMessage,
     sendAudio,
@@ -81,6 +116,19 @@ export function AgenciamentoAssistant({
       }
     },
   });
+
+  // Get current provider configuration
+  const currentProvider = AI_PROVIDERS.find(p => p.id === provider) || AI_PROVIDERS[0];
+  const currentModels = currentProvider.models;
+
+  // Handle provider change
+  const handleProviderChange = (newProvider: string) => {
+    setProvider(newProvider);
+    const providerConfig = AI_PROVIDERS.find(p => p.id === newProvider);
+    if (providerConfig) {
+      setModel(providerConfig.defaultModel);
+    }
+  };
 
   // Auto-start the assistant
   useEffect(() => {
@@ -137,9 +185,60 @@ export function AgenciamentoAssistant({
             <MessageSquare className="h-5 w-5 text-primary" />
             <h2 className="font-semibold">Assistente de Agenciamento</h2>
           </div>
-          <Button variant="ghost" size="icon" onClick={onCancel}>
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* AI Provider Settings */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1.5">
+                  <Bot className="h-4 w-4" />
+                  <span className="hidden sm:inline text-xs">{currentProvider.name}</span>
+                  <Settings2 className="h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72" align="end">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Provedor de IA</label>
+                    <Select value={provider} onValueChange={handleProviderChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o provedor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {AI_PROVIDERS.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Modelo</label>
+                    <Select value={model} onValueChange={setModel}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o modelo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currentModels.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {provider === 'lovable' 
+                      ? 'Lovable AI usa créditos inclusos no plano' 
+                      : 'OpenRouter usa sua própria API key'}
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Button variant="ghost" size="icon" onClick={onCancel}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         
         {/* Progress Steps */}
