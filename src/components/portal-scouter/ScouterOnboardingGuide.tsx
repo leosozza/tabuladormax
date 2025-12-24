@@ -100,6 +100,24 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: Sco
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === ONBOARDING_STEPS.length - 1;
 
+  // Helper para verificar se elemento está realmente visível
+  const isElementVisible = (el: Element): boolean => {
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    
+    // Verificar se tem dimensões
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    
+    // Verificar se não está escondido via CSS
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+    
+    // Verificar se está na viewport (pelo menos parcialmente)
+    if (rect.bottom < 0 || rect.top > window.innerHeight) return false;
+    if (rect.right < 0 || rect.left > window.innerWidth) return false;
+    
+    return true;
+  };
+
   // Find and highlight target element with retry for modal elements
   useEffect(() => {
     if (!isOpen || !step.targetSelector) {
@@ -108,30 +126,54 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: Sco
     }
 
     let attempts = 0;
-    const maxAttempts = 15;
+    const maxAttempts = 30; // Aumentado para dar mais tempo
     let retryTimeout: NodeJS.Timeout | null = null;
 
     const findTarget = () => {
-      const target = document.querySelector(step.targetSelector!);
-      if (target) {
-        const rect = target.getBoundingClientRect();
+      // Buscar TODOS os elementos que correspondem ao seletor
+      const candidates = document.querySelectorAll(step.targetSelector!);
+      
+      // Encontrar o primeiro que está realmente visível
+      let visibleTarget: Element | null = null;
+      for (const candidate of candidates) {
+        if (isElementVisible(candidate)) {
+          visibleTarget = candidate;
+          break;
+        }
+      }
+      
+      if (visibleTarget) {
+        const rect = visibleTarget.getBoundingClientRect();
         setTargetRect(rect);
+        
+        // Scroll suave para garantir que o elemento esteja visível no centro
+        visibleTarget.scrollIntoView({ block: 'center', behavior: 'smooth' });
       } else if (attempts < maxAttempts) {
-        // Retry if element not found (modal might still be rendering)
+        // Retry if no visible element found (modal might still be rendering)
         attempts++;
-        retryTimeout = setTimeout(findTarget, 150);
+        retryTimeout = setTimeout(findTarget, 200); // Intervalo um pouco maior
       } else {
         setTargetRect(null);
       }
     };
 
     // Initial delay - longer for steps that require modal to be open
-    const initialDelay = step.requiresModalOpen ? 500 : 100;
+    const initialDelay = step.requiresModalOpen ? 700 : 100;
     const timeout = setTimeout(findTarget, initialDelay);
     
     // Update position on scroll/resize
-    window.addEventListener('scroll', findTarget, true);
-    window.addEventListener('resize', findTarget);
+    const handlePositionUpdate = () => {
+      const candidates = document.querySelectorAll(step.targetSelector!);
+      for (const candidate of candidates) {
+        if (isElementVisible(candidate)) {
+          setTargetRect(candidate.getBoundingClientRect());
+          return;
+        }
+      }
+    };
+    
+    window.addEventListener('scroll', handlePositionUpdate, true);
+    window.addEventListener('resize', handlePositionUpdate);
     
     // MutationObserver for dynamic elements
     const observer = new MutationObserver(() => {
@@ -144,8 +186,8 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: Sco
     return () => {
       clearTimeout(timeout);
       if (retryTimeout) clearTimeout(retryTimeout);
-      window.removeEventListener('scroll', findTarget, true);
-      window.removeEventListener('resize', findTarget);
+      window.removeEventListener('scroll', handlePositionUpdate, true);
+      window.removeEventListener('resize', handlePositionUpdate);
       observer.disconnect();
     };
   }, [isOpen, step.targetSelector, step.requiresModalOpen, currentStep]);

@@ -93,8 +93,12 @@ export const ScouterDashboard = ({
   // Handler para mudança de passo do onboarding
   const handleOnboardingStepChange = (stepId: string, action?: 'openLeadsModal' | 'closeLeadsModal') => {
     if (action === 'openLeadsModal') {
-      // Abrir modal de leads para mostrar os elementos
-      setSelectedFilter({ type: 'all', label: 'Total de Leads' });
+      // Para o passo da foto, abrir já filtrado para leads COM foto
+      if (stepId === 'photo-badge') {
+        setSelectedFilter({ type: 'com_foto', label: 'Com Foto' });
+      } else {
+        setSelectedFilter({ type: 'all', label: 'Total de Leads' });
+      }
       setLeadsModalOpen(true);
     } else if (action === 'closeLeadsModal') {
       setLeadsModalOpen(false);
