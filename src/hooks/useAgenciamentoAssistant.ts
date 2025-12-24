@@ -108,6 +108,7 @@ export function useAgenciamentoAssistant({
   const [currentMessage, setCurrentMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const processingMutexRef = useRef(false);
   
   // AI Provider state
   const [provider, setProvider] = useState<string>('lovable');
@@ -230,6 +231,13 @@ Qual pacote o cliente escolheu?`;
   }, [reset, clientName, speakText]);
 
   const processResponse = useCallback(async (transcription: string, audioBlob?: Blob) => {
+    // Prevent parallel processing
+    if (processingMutexRef.current) {
+      console.log('[useAgenciamentoAssistant] Já processando, ignorando chamada');
+      return;
+    }
+    
+    processingMutexRef.current = true;
     setIsProcessing(true);
     setError(null);
     stopSpeaking(); // Stop any ongoing speech
@@ -368,6 +376,7 @@ Qual pacote o cliente escolheu?`;
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setIsProcessing(false);
+      processingMutexRef.current = false;
     }
   }, [conversationHistory, data, products, stage, clientName, dealTitle, provider, model, stopSpeaking, speakText]);
 
