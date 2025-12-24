@@ -28,7 +28,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     id: 'date-filter',
     title: 'Filtro de Data 📅',
     description: 'Escolha o período para ver seus leads.',
-    targetSelector: '[data-tour="date-filter"]',
+    targetSelector: '[data-tour="date-filter"], [data-tour="date-filter-mobile"]',
     position: 'bottom',
     icon: '📅'
   },
@@ -36,7 +36,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     id: 'project-filter',
     title: 'Filtro de Projeto 🏢',
     description: 'Filtre por projeto específico.',
-    targetSelector: '[data-tour="project-filter"]',
+    targetSelector: '[data-tour="project-filter"], [data-tour="project-filter-mobile"]',
     position: 'bottom',
     icon: '🏢'
   },
@@ -53,7 +53,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     title: 'Ver Foto 📷',
     description: 'Clique no badge azul "Foto" para ver a imagem do lead.',
     targetSelector: '[data-tour="lead-photo-badge"]',
-    position: 'left',
+    position: 'bottom',
     icon: '📷',
     action: 'openLeadsModal',
     requiresModalOpen: true
@@ -63,7 +63,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     title: 'Ações do Lead ⚙️',
     description: 'Clique nos 3 pontinhos para Editar, Reenviar ou Excluir.',
     targetSelector: '[data-tour="lead-actions-menu"]',
-    position: 'left',
+    position: 'bottom',
     icon: '⚙️',
     requiresModalOpen: true
   },
@@ -100,8 +100,18 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: Sco
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === ONBOARDING_STEPS.length - 1;
 
-  // Helper para verificar se elemento está realmente visível
+  // Helper para verificar se elemento está realmente visível (inclui ancestrais)
   const isElementVisible = (el: Element): boolean => {
+    // Verificar se algum ancestral está escondido
+    let current: Element | null = el;
+    while (current) {
+      const style = getComputedStyle(current);
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        return false;
+      }
+      current = current.parentElement;
+    }
+    
     const rect = el.getBoundingClientRect();
     const style = getComputedStyle(el);
     
@@ -109,7 +119,7 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: Sco
     if (rect.width <= 0 || rect.height <= 0) return false;
     
     // Verificar se não está escondido via CSS
-    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+    if (style.opacity === '0') return false;
     
     // Verificar se está na viewport (pelo menos parcialmente)
     if (rect.bottom < 0 || rect.top > window.innerHeight) return false;
@@ -250,7 +260,10 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: Sco
 
   if (!isOpen) return null;
 
-  // Calculate tooltip position
+  // Detectar se é mobile
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+  // Calculate tooltip position with mobile adaptations
   const getTooltipStyle = (): React.CSSProperties => {
     if (!targetRect || step.position === 'center') {
       return {
@@ -262,14 +275,18 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: Sco
     }
 
     const padding = 12;
-    const tooltipWidth = 256;
+    const tooltipWidth = isMobile ? Math.min(256, window.innerWidth - 32) : 256;
     
-    switch (step.position) {
+    // No mobile, forçar posição bottom para evitar problemas de espaço lateral
+    const effectivePosition = isMobile ? 'bottom' : step.position;
+    
+    switch (effectivePosition) {
       case 'bottom':
         return {
           position: 'fixed',
-          top: targetRect.bottom + padding,
+          top: Math.min(targetRect.bottom + padding, window.innerHeight - 200),
           left: Math.max(padding, Math.min(targetRect.left + targetRect.width / 2 - tooltipWidth / 2, window.innerWidth - tooltipWidth - padding)),
+          width: isMobile ? tooltipWidth : undefined,
         };
       case 'top':
         return {
@@ -298,7 +315,7 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: Sco
   const spotlightPadding = 8;
 
   return (
-    <div className="fixed inset-0 z-[600]">
+    <div className="fixed inset-0 z-[600] pointer-events-none">
       {/* SVG Overlay with spotlight cutout */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none">
         <defs>
@@ -370,7 +387,10 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: Sco
 
       {/* Compact Tooltip Card */}
       <Card
-        className="w-64 shadow-2xl border-primary/30 animate-in fade-in-0 zoom-in-95 duration-300 bg-background/95 backdrop-blur-sm"
+        className={cn(
+          "shadow-2xl border-primary/30 animate-in fade-in-0 zoom-in-95 duration-300 bg-background/95 backdrop-blur-sm pointer-events-auto",
+          isMobile ? "w-[calc(100vw-32px)] max-w-64" : "w-64"
+        )}
         style={getTooltipStyle()}
       >
         <CardContent className="p-4 space-y-3">
