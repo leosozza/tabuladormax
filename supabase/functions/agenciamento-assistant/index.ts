@@ -95,29 +95,43 @@ serve(async (req) => {
 
     let transcription = textResponse || '';
 
-    // Step 1: Transcribe audio if provided (always uses Lovable AI Gateway for Whisper)
+    // Step 1: Transcribe audio if provided using Gemini multimodal
     if (audio) {
-      console.log('[agenciamento-assistant] Transcrevendo áudio...');
+      console.log('[agenciamento-assistant] Transcrevendo áudio via Gemini...');
       
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
       if (!LOVABLE_API_KEY) {
         throw new Error('LOVABLE_API_KEY não configurada para transcrição');
       }
 
-      const binaryAudio = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
-      const audioBlob = new Blob([binaryAudio], { type: 'audio/mpeg' });
-      
-      const formData = new FormData();
-      formData.append('file', audioBlob, 'audio.mp3');
-      formData.append('model', 'whisper-1');
-      formData.append('language', 'pt');
-
-      const transcriptionResponse = await fetch('https://ai.gateway.lovable.dev/v1/audio/transcriptions', {
+      // Use Gemini multimodal to transcribe audio
+      const transcriptionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Transcreva exatamente o que é dito neste áudio em português. Retorne apenas a transcrição, sem explicações adicionais.'
+                },
+                {
+                  type: 'input_audio',
+                  input_audio: {
+                    data: audio,
+                    format: 'mp3'
+                  }
+                }
+              ]
+            }
+          ]
+        }),
       });
 
       if (!transcriptionResponse.ok) {
@@ -127,7 +141,7 @@ serve(async (req) => {
       }
 
       const transcriptionResult = await transcriptionResponse.json();
-      transcription = transcriptionResult.text;
+      transcription = transcriptionResult.choices?.[0]?.message?.content || '';
       
       console.log('[agenciamento-assistant] Transcrição:', transcription);
 
