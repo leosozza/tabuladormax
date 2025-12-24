@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { X, MessageSquare, Volume2, Pause, Play } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { X, MessageSquare, Volume2, Pause, Play, Mic, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AudioVisualizer } from './AudioVisualizer';
 import { useVoiceActivityDetection } from '@/hooks/useVoiceActivityDetection';
@@ -17,6 +17,7 @@ interface VoiceAssistantOverlayProps {
   isProcessing: boolean;
   currentTranscript?: string;
   assistantResponse?: string;
+  assistantError?: string | null;
   onSpeakingComplete?: () => void;
 }
 
@@ -29,11 +30,15 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
   isProcessing,
   currentTranscript,
   assistantResponse,
+  assistantError,
   onSpeakingComplete,
 }) => {
   const [mode, setMode] = useState<VoiceMode>('idle');
   const [isPaused, setIsPaused] = useState(false);
   const [lastTranscript, setLastTranscript] = useState<string | null>(null);
+  const [needsUserGesture, setNeedsUserGesture] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const isSendingRef = useRef(false);
 
   const {
     initializeContext,
@@ -47,11 +52,26 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
   }, []);
 
   const handleSpeechEnd = useCallback(async (audioBlob: Blob) => {
+    // Prevent sending if already processing or sending
+    if (isSendingRef.current || isProcessing) {
+      console.log('[VoiceOverlay] Ignorando envio - já processando');
+      return;
+    }
+
     console.log('[VoiceOverlay] Speech ended - sending audio', audioBlob.size);
     if (audioBlob.size > 0) {
-      await onSendAudio(audioBlob);
+      isSendingRef.current = true;
+      setLocalError(null);
+      try {
+        await onSendAudio(audioBlob);
+      } catch (err) {
+        console.error('[VoiceOverlay] Erro ao enviar áudio:', err);
+        setLocalError(err instanceof Error ? err.message : 'Erro ao enviar áudio');
+      } finally {
+        isSendingRef.current = false;
+      }
     }
-  }, [onSendAudio]);
+  }, [onSendAudio, isProcessing]);
 
   const {
     isListening,
@@ -60,9 +80,10 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
     startListening,
     stopListening,
     stream,
+    micError,
   } = useVoiceActivityDetection(handleSpeechStart, handleSpeechEnd, {
-    silenceThreshold: 0.015,
-    speechThreshold: 0.025,
+    silenceThreshold: 0.02,
+    speechThreshold: 0.04,
     silenceDuration: 1500,
     minSpeechDuration: 500,
   });
@@ -76,30 +97,52 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
     }
   }, [stream, initializeContext, connectMicrophone]);
 
-  // Start listening when overlay opens (unless paused or speaking)
-  useEffect(() => {
-    if (isOpen && !isPaused && !isSpeaking && !isProcessing) {
-      startListening().catch(console.error);
+  // Attempt to start listening with user gesture fallback
+  const attemptStartListening = useCallback(async () => {
+    try {
+      setNeedsUserGesture(false);
+      setLocalError(null);
+      await startListening();
+    } catch (err) {
+      console.error('[VoiceOverlay] Erro ao iniciar escuta:', err);
+      // Check if it's a permission/gesture error
+      if (err instanceof Error && 
+          (err.name === 'NotAllowedError' || 
+           err.message.includes('permission') ||
+           err.message.includes('gesture'))) {
+        setNeedsUserGesture(true);
+      } else {
+        setLocalError(err instanceof Error ? err.message : 'Erro ao acessar microfone');
+      }
     }
-    
+  }, [startListening]);
+
+  // Start/stop listening based on overlay state
+  useEffect(() => {
+    if (isOpen && !isPaused && !isSpeaking && !isProcessing && !isListening && !needsUserGesture) {
+      attemptStartListening();
+    }
+
+    // Cleanup when overlay closes
     return () => {
       if (!isOpen) {
         stopListening();
         cleanupVisualizer();
+        isSendingRef.current = false;
       }
     };
-  }, [isOpen, isPaused, isSpeaking, isProcessing, startListening, stopListening, cleanupVisualizer]);
+  }, [isOpen, isPaused, isSpeaking, isProcessing, isListening, needsUserGesture, attemptStartListening, stopListening, cleanupVisualizer]);
 
   // Resume listening after speaking completes
   useEffect(() => {
-    if (!isSpeaking && !isProcessing && isOpen && !isPaused && !isListening) {
+    if (!isSpeaking && !isProcessing && isOpen && !isPaused && !isListening && !needsUserGesture) {
       const timer = setTimeout(() => {
-        startListening().catch(console.error);
+        attemptStartListening();
         onSpeakingComplete?.();
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isSpeaking, isProcessing, isOpen, isPaused, isListening, startListening, onSpeakingComplete]);
+  }, [isSpeaking, isProcessing, isOpen, isPaused, isListening, needsUserGesture, attemptStartListening, onSpeakingComplete]);
 
   // Update mode based on current state
   useEffect(() => {
@@ -126,20 +169,34 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
   const handlePauseResume = useCallback(() => {
     if (isPaused) {
       setIsPaused(false);
-      startListening().catch(console.error);
+      attemptStartListening();
     } else {
       setIsPaused(true);
       stopListening();
     }
-  }, [isPaused, startListening, stopListening]);
+  }, [isPaused, attemptStartListening, stopListening]);
 
   const handleClose = useCallback(() => {
     stopListening();
     cleanupVisualizer();
+    isSendingRef.current = false;
     onClose();
   }, [stopListening, cleanupVisualizer, onClose]);
 
+  const handleActivateMic = useCallback(async () => {
+    // This is called from a user gesture (button click)
+    setNeedsUserGesture(false);
+    setLocalError(null);
+    try {
+      await startListening();
+    } catch (err) {
+      console.error('[VoiceOverlay] Erro ao ativar microfone:', err);
+      setLocalError(err instanceof Error ? err.message : 'Erro ao ativar microfone');
+    }
+  }, [startListening]);
+
   const getModeLabel = () => {
+    if (needsUserGesture) return 'Clique para ativar';
     if (isPaused) return 'Pausado';
     switch (mode) {
       case 'listening':
@@ -154,6 +211,9 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
   };
 
   const getModeIcon = () => {
+    if (needsUserGesture) {
+      return <Mic className="h-10 w-10" />;
+    }
     if (isPaused) {
       return <Play className="h-10 w-10" />;
     }
@@ -170,20 +230,23 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
                 isListening && "animate-pulse"
               )}
               style={{
-                transform: `scale(${1 + voiceLevel * 0.5})`,
+                transform: `scale(${1 + voiceLevel * 2})`,
               }}
             />
             <div 
               className="absolute inset-0 rounded-full bg-white/20"
               style={{
-                transform: `scale(${1 + voiceLevel * 1.5})`,
-                opacity: voiceLevel * 2,
+                transform: `scale(${1 + voiceLevel * 4})`,
+                opacity: Math.min(voiceLevel * 5, 0.6),
               }}
             />
           </div>
         );
     }
   };
+
+  // Combine errors
+  const displayError = assistantError || localError || micError;
 
   if (!isOpen) return null;
 
@@ -210,6 +273,8 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
         <div 
           className={cn(
             "w-3 h-3 rounded-full transition-colors",
+            displayError ? "bg-red-500" :
+            needsUserGesture ? "bg-yellow-500" :
             isPaused ? "bg-yellow-500" :
             isListening ? "bg-green-500 animate-pulse" : 
             isProcessing ? "bg-amber-500 animate-pulse" :
@@ -218,12 +283,22 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
           )}
         />
         <span className="text-white/60 text-sm">
-          {isPaused ? "Em pausa" : 
+          {displayError ? "Erro" :
+           needsUserGesture ? "Aguardando ativação" :
+           isPaused ? "Em pausa" : 
            isListening ? "Escuta ativa" : 
            isProcessing ? "Processando" :
            isSpeaking ? "Falando" : "Aguardando"}
         </span>
       </div>
+
+      {/* Error display */}
+      {displayError && (
+        <div className="absolute top-32 max-w-md mx-4 px-4 py-2 bg-red-500/20 border border-red-500/50 rounded-lg flex items-center gap-2">
+          <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
+          <span className="text-red-200 text-sm">{displayError}</span>
+        </div>
+      )}
 
       {/* Visualizer Container */}
       <div className="w-full max-w-2xl px-8">
@@ -232,11 +307,12 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
           <div
             className={cn(
               'absolute inset-0 blur-3xl opacity-30 transition-colors duration-500',
-              mode === 'listening' && 'bg-green-500',
-              mode === 'speaking' && 'bg-purple-500',
-              mode === 'processing' && 'bg-amber-500',
-              mode === 'idle' && isListening && 'bg-blue-500',
-              mode === 'idle' && !isListening && 'bg-gray-500'
+              displayError && 'bg-red-500',
+              !displayError && mode === 'listening' && 'bg-green-500',
+              !displayError && mode === 'speaking' && 'bg-purple-500',
+              !displayError && mode === 'processing' && 'bg-amber-500',
+              !displayError && mode === 'idle' && isListening && 'bg-blue-500',
+              !displayError && mode === 'idle' && !isListening && 'bg-gray-500'
             )}
           />
           
@@ -258,7 +334,7 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
               "h-full transition-all duration-75 rounded-full",
               isUserSpeaking ? "bg-green-500" : "bg-blue-500"
             )}
-            style={{ width: `${Math.min(voiceLevel * 300, 100)}%` }}
+            style={{ width: `${Math.min(voiceLevel * 500, 100)}%` }}
           />
         </div>
       )}
@@ -267,6 +343,7 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
       <div className="mt-8 text-center max-w-lg px-4">
         <p className={cn(
           "text-lg font-medium mb-2 transition-colors",
+          displayError ? "text-red-400" :
           isUserSpeaking ? "text-green-400" : "text-white"
         )}>
           {getModeLabel()}
@@ -281,31 +358,44 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
         )}
       </div>
 
-      {/* Main Visual Indicator */}
+      {/* Main Visual Indicator / Activate Button */}
       <div className="mt-12">
-        <div
-          className={cn(
-            'w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300',
-            'focus:outline-none focus:ring-4 focus:ring-white/20',
-            isUserSpeaking && 'scale-110',
-            isPaused ? 'bg-yellow-500/20 border-2 border-yellow-500/50' :
-            isProcessing ? 'bg-amber-500/20 border-2 border-amber-500/50' :
-            isSpeaking ? 'bg-purple-500/20 border-2 border-purple-500/50' :
-            isListening ? 'bg-blue-500/20 border-2 border-blue-500/50' :
-            'bg-white/10 border-2 border-white/30'
-          )}
-          style={{
-            boxShadow: isUserSpeaking 
-              ? `0 0 ${30 + voiceLevel * 50}px rgba(34, 197, 94, ${0.3 + voiceLevel * 0.3})`
-              : undefined
-          }}
-        >
-          <div className="text-white">
-            {getModeIcon()}
+        {needsUserGesture ? (
+          <Button
+            onClick={handleActivateMic}
+            className="w-32 h-32 rounded-full bg-blue-500/20 border-2 border-blue-500/50 hover:bg-blue-500/30 hover:border-blue-500 transition-all"
+          >
+            <div className="text-center">
+              <Mic className="h-10 w-10 mx-auto text-blue-400" />
+              <span className="text-blue-300 text-xs mt-2 block">Ativar</span>
+            </div>
+          </Button>
+        ) : (
+          <div
+            className={cn(
+              'w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300',
+              'focus:outline-none focus:ring-4 focus:ring-white/20',
+              isUserSpeaking && 'scale-110',
+              displayError ? 'bg-red-500/20 border-2 border-red-500/50' :
+              isPaused ? 'bg-yellow-500/20 border-2 border-yellow-500/50' :
+              isProcessing ? 'bg-amber-500/20 border-2 border-amber-500/50' :
+              isSpeaking ? 'bg-purple-500/20 border-2 border-purple-500/50' :
+              isListening ? 'bg-blue-500/20 border-2 border-blue-500/50' :
+              'bg-white/10 border-2 border-white/30'
+            )}
+            style={{
+              boxShadow: isUserSpeaking 
+                ? `0 0 ${30 + voiceLevel * 100}px rgba(34, 197, 94, ${0.3 + voiceLevel * 0.5})`
+                : undefined
+            }}
+          >
+            <div className="text-white">
+              {getModeIcon()}
+            </div>
           </div>
-        </div>
+        )}
 
-        {isListening && !isPaused && !isProcessing && !isSpeaking && (
+        {isListening && !isPaused && !isProcessing && !isSpeaking && !needsUserGesture && (
           <p className="text-center text-blue-400 text-sm mt-4">
             {isUserSpeaking ? "Gravando sua fala..." : "Aguardando você falar..."}
           </p>
@@ -321,7 +411,7 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
             isPaused && "border-yellow-500/50 text-yellow-400"
           )}
           onClick={handlePauseResume}
-          disabled={isProcessing}
+          disabled={isProcessing || needsUserGesture}
         >
           {isPaused ? (
             <>

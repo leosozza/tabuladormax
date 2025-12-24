@@ -557,6 +557,7 @@ export function AgenciamentoAssistant({
         isProcessing={isProcessing}
         currentTranscript={messages.filter(m => m.role === 'user').slice(-1)[0]?.content}
         assistantResponse={messages.filter(m => m.role === 'assistant').slice(-1)[0]?.content}
+        assistantError={error}
       />
     </div>
   );
