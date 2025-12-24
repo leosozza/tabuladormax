@@ -215,11 +215,22 @@ serve(async (req) => {
         contextParts.push(`Desconto: ${currentData.discountPercent.toFixed(1)}%`);
       }
     }
+    // Calcular pagamentos e valor faltante
     if (currentData?.paymentMethods && currentData.paymentMethods.length > 0) {
+      const totalPagamentos = currentData.paymentMethods.reduce((sum: number, pm: PaymentMethod) => sum + pm.amount, 0);
+      const valorFinal = currentData.finalValue || 0;
+      const faltando = valorFinal - totalPagamentos;
+      
       const paymentInfo = currentData.paymentMethods.map((pm: PaymentMethod) => 
-        `${pm.method}: R$ ${pm.amount} ${pm.installments > 1 ? `(${pm.installments}x)` : ''}`
+        `${pm.method}: R$ ${pm.amount.toLocaleString('pt-BR')} ${pm.installments > 1 ? `(${pm.installments}x)` : ''}`
       ).join(', ');
-      contextParts.push(`Pagamentos: ${paymentInfo}`);
+      
+      contextParts.push(`Pagamentos já definidos: ${paymentInfo}`);
+      contextParts.push(`Total já definido: R$ ${totalPagamentos.toLocaleString('pt-BR')}`);
+      
+      if (faltando > 0 && valorFinal > 0) {
+        contextParts.push(`⚠️ VALOR FALTANDO: R$ ${faltando.toLocaleString('pt-BR')} para completar os R$ ${valorFinal.toLocaleString('pt-BR')}`);
+      }
     }
 
     const currentContext = contextParts.length > 0 ? contextParts.join('\n') : 'Nenhuma informação coletada ainda';
@@ -288,6 +299,26 @@ MÉTODOS DE PAGAMENTO VÁLIDOS:
 - boleto: Boleto/Carnê
 - cash: Dinheiro
 - bank_transfer: Transferência
+
+REGRA CRÍTICA - VALIDAÇÃO DE VALOR TOTAL:
+Ao processar formas de pagamento, você DEVE:
+1. Calcular a SOMA de todas as formas de pagamento já definidas (veja no CONTEXTO ATUAL)
+2. Comparar com o VALOR FINAL da proposta
+3. Se a soma for MENOR que o valor final:
+   - Informar quanto falta: "Já temos R$ X definidos. Ainda faltam R$ Y para completar os R$ Z"
+   - Perguntar: "Como será o pagamento dos R$ Y restantes? Ou prefere alterar as formas já definidas?"
+   - Use add_payment_method para ADICIONAR cada nova forma (não substitui as anteriores)
+4. Se a soma for IGUAL ao valor final:
+   - Usar set_payment_methods com TODAS as formas de pagamento
+   - Ir para o resumo
+
+IMPORTANTE: Se o contexto mostrar "VALOR FALTANDO", você DEVE perguntar como será o pagamento do valor restante!
+
+Exemplo de cálculo:
+- Valor final: R$ 6.000
+- Já definido: R$ 2.000 no PIX + R$ 3.000 no cartão = R$ 5.000
+- Faltam: R$ 1.000
+- Resposta: "Ótimo! Já temos R$ 5.000 definidos (PIX e cartão). Ainda faltam R$ 1.000 para completar os R$ 6.000. Como será esse restante?"
 
 Use as tools para avançar no processo. Quando tiver informação suficiente, use a tool apropriada.`;
 
@@ -381,6 +412,29 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
               question: { type: 'string', description: 'Pergunta sobre a data do primeiro vencimento' }
             },
             required: ['method', 'amount', 'installments', 'question']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'add_payment_method',
+          description: 'Adiciona UMA forma de pagamento quando ainda falta valor para completar o total. Use quando o usuário define uma forma mas ainda há valor faltando.',
+          parameters: {
+            type: 'object',
+            properties: {
+              method: { 
+                type: 'string', 
+                enum: ['pix', 'credit_card', 'debit_card', 'boleto', 'bank_transfer', 'cash'],
+                description: 'Método de pagamento'
+              },
+              amount: { type: 'number', description: 'Valor desta forma de pagamento' },
+              installments: { type: 'number', description: 'Número de parcelas (1 para à vista)' },
+              dueDate: { type: 'string', description: 'Data do primeiro vencimento (opcional, para boleto parcelado)' },
+              remainingAmount: { type: 'number', description: 'Valor que ainda falta após este pagamento' },
+              message: { type: 'string', description: 'Mensagem informando o que foi registrado e perguntando sobre o restante' }
+            },
+            required: ['method', 'amount', 'installments', 'remainingAmount', 'message']
           }
         }
       },
@@ -557,6 +611,27 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
           conversationHistory: [
             ...messages.slice(1),
             { role: 'assistant', content: parsedArgs.question, tool_calls: [toolCall] }
+          ]
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      case 'add_payment_method':
+        return new Response(JSON.stringify({
+          success: true,
+          action: 'add_payment_method',
+          data: {
+            method: parsedArgs.method,
+            amount: Math.round(parsedArgs.amount * 100) / 100,
+            installments: Math.max(1, Math.round(parsedArgs.installments || 1)),
+            dueDate: parsedArgs.dueDate,
+            remainingAmount: Math.round(parsedArgs.remainingAmount * 100) / 100
+          },
+          message: parsedArgs.message,
+          transcription,
+          conversationHistory: [
+            ...messages.slice(1),
+            { role: 'assistant', content: parsedArgs.message, tool_calls: [toolCall] }
           ]
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
