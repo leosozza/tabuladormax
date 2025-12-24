@@ -75,6 +75,7 @@ export const ScouterDashboard = ({
   // Handler para completar onboarding
   const handleCompleteOnboarding = async (dontShowAgain: boolean) => {
     setShowOnboarding(false);
+    setLeadsModalOpen(false); // Fechar modal se estiver aberto
     
     if (dontShowAgain) {
       try {
@@ -85,6 +86,17 @@ export const ScouterDashboard = ({
       } catch (err) {
         console.error('Erro ao salvar preferência de onboarding:', err);
       }
+    }
+  };
+
+  // Handler para mudança de passo do onboarding
+  const handleOnboardingStepChange = (stepId: string, action?: 'openLeadsModal' | 'closeLeadsModal') => {
+    if (action === 'openLeadsModal') {
+      // Abrir modal de leads para mostrar os elementos
+      setSelectedFilter({ type: 'all', label: 'Total de Leads' });
+      setLeadsModalOpen(true);
+    } else if (action === 'closeLeadsModal') {
+      setLeadsModalOpen(false);
     }
   };
 
@@ -501,6 +513,7 @@ export const ScouterDashboard = ({
       <ScouterOnboardingGuide
         isOpen={showOnboarding}
         onComplete={handleCompleteOnboarding}
+        onStepChange={handleOnboardingStepChange}
       />
     </div>
   );
