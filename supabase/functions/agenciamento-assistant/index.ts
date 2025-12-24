@@ -70,7 +70,7 @@ serve(async (req) => {
       formData.append('model', 'whisper-1');
       formData.append('language', 'pt');
 
-      const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      const transcriptionResponse = await fetch('https://ai.gateway.lovable.dev/v1/audio/transcriptions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
