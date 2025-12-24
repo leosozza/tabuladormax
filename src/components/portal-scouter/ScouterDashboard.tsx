@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LogOut, RefreshCw, Trophy, Medal, Bot, CalendarIcon, Building, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ScouterStatsCards } from './ScouterStatsCards';
@@ -314,12 +315,110 @@ export const ScouterDashboard = ({
             Análise IA
           </Button>
           
-          {/* Ícones de Filtro */}
-          <div className="flex items-center gap-1">
+          {/* Filtros Desktop - Selects completos */}
+          <div className="hidden md:flex items-center gap-3">
+            {/* Select de Período */}
+            <Select value={datePreset} onValueChange={(value) => setDatePreset(value as DateRangePreset)}>
+              <SelectTrigger data-tour="date-filter" className="w-[140px] h-9">
+                <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Hoje</SelectItem>
+                <SelectItem value="yesterday">Ontem</SelectItem>
+                <SelectItem value="week">Esta Semana</SelectItem>
+                <SelectItem value="last7days">Últimos 7 dias</SelectItem>
+                <SelectItem value="month">Este Mês</SelectItem>
+                <SelectItem value="custom">Intervalo</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Seletor de datas customizadas quando "Intervalo" */}
+            {datePreset === 'custom' && (
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "w-[110px] justify-start text-left font-normal h-9",
+                        !customDateRange.start && "text-muted-foreground"
+                      )}
+                    >
+                      {customDateRange.start ? (
+                        format(customDateRange.start, "dd/MM/yy", { locale: ptBR })
+                      ) : (
+                        <span>De</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customDateRange.start || undefined}
+                      onSelect={(date) => setCustomDateRange({ ...customDateRange, start: date || null })}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                      locale={ptBR}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-xs text-muted-foreground">-</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "w-[110px] justify-start text-left font-normal h-9",
+                        !customDateRange.end && "text-muted-foreground"
+                      )}
+                    >
+                      {customDateRange.end ? (
+                        format(customDateRange.end, "dd/MM/yy", { locale: ptBR })
+                      ) : (
+                        <span>Até</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={customDateRange.end || undefined}
+                      onSelect={(date) => setCustomDateRange({ ...customDateRange, end: date || null })}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                      locale={ptBR}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+            
+            {/* Select de Projeto */}
+            <Select value={projectId || 'all'} onValueChange={(value) => setProjectId(value === 'all' ? null : value)}>
+              <SelectTrigger data-tour="project-filter" className="w-[180px] h-9">
+                <Building className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Projetos</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.project_id} value={project.project_id}>
+                    {project.project_name} ({project.lead_count})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Filtros Mobile - Ícones Compactos */}
+          <div className="flex md:hidden items-center gap-1">
             {/* Ícone de Data com Popover */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button data-tour="date-filter" variant="ghost" size="icon" className="h-9 w-9 relative">
+                <Button data-tour="date-filter-mobile" variant="ghost" size="icon" className="h-9 w-9 relative">
                   <CalendarIcon className="h-4 w-4" />
                   {datePreset !== 'today' && (
                     <span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full" />
@@ -423,7 +522,7 @@ export const ScouterDashboard = ({
             {/* Ícone de Projeto com Popover */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button data-tour="project-filter" variant="ghost" size="icon" className="h-9 w-9 relative">
+                <Button data-tour="project-filter-mobile" variant="ghost" size="icon" className="h-9 w-9 relative">
                   <Building className="h-4 w-4" />
                   {projectId && (
                     <span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full" />
