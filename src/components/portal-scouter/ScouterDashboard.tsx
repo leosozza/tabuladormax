@@ -610,6 +610,7 @@ export const ScouterDashboard = ({
         dateFrom={start}
         dateTo={end}
         projectId={projectId}
+        onboardingActive={showOnboarding}
       />
 
       {/* Guia de Onboarding */}

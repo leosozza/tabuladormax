@@ -28,6 +28,7 @@ interface ScouterLeadsModalProps {
   dateFrom: Date | null;
   dateTo: Date | null;
   projectId: string | null;
+  onboardingActive?: boolean;
 }
 
 interface LeadData {
@@ -64,6 +65,7 @@ export function ScouterLeadsModal({
   dateFrom,
   dateTo,
   projectId,
+  onboardingActive = false,
 }: ScouterLeadsModalProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
@@ -417,7 +419,7 @@ export function ScouterLeadsModal({
   const isChecking = checkProgress.phase !== 'idle' && checkProgress.phase !== 'complete';
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange} modal={!onboardingActive}>
       <DialogContent className="w-[95vw] max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
@@ -765,7 +767,7 @@ export function ScouterLeadsModal({
       />
 
       {/* Modal de Preview de Foto */}
-      <Dialog open={!!photoPreviewLead} onOpenChange={() => setPhotoPreviewLead(null)}>
+      <Dialog open={!!photoPreviewLead} onOpenChange={() => setPhotoPreviewLead(null)} modal={!onboardingActive}>
         <DialogContent className="max-w-lg p-0 bg-black/95 border-none overflow-hidden">
           <div className="relative w-full flex flex-col items-center">
             {/* Header com nome do lead */}
