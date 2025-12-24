@@ -767,7 +767,6 @@ serve(async (req) => {
         // Analisar imagem
         const imageAnalysis = await analyzeImage(media_url, apiKey!, provider as AIProvider, modelToUse);
         if (imageAnalysis) {
-        if (imageAnalysis) {
           mediaDescription = `[O cliente enviou uma imagem. Descrição: ${imageAnalysis}]`;
           console.log('[whatsapp-bot-respond] Image analyzed:', imageAnalysis.substring(0, 100));
         } else {
