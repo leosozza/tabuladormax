@@ -363,8 +363,14 @@ Qual pacote o cliente escolheu?`;
 
         case 'complete_negotiation':
           if (result.confirmed) {
+            const finalData = {
+              ...data,
+              stage: 'complete' as AgenciamentoStage
+            };
             setStage('complete');
-            setData(prev => ({ ...prev, stage: 'complete' }));
+            setData(finalData);
+            // Salvar negociação automaticamente
+            onComplete(finalData);
           }
           break;
 
