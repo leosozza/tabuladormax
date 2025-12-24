@@ -68,19 +68,22 @@ export function PaymentVoiceAssistant({
   }, [startRecording]);
 
   const handleStopRecording = useCallback(async () => {
-    stopRecording();
     setState('processing');
+    const blob = await stopRecording();
     
-    setTimeout(async () => {
-      const isComplete = await extractPayments(totalValue);
-      if (isComplete) {
-        setState('preview');
-      } else if (needsMoreInfo || questions.length > 0) {
-        setState('chat');
-      } else {
-        setState('error');
-      }
-    }, 500);
+    if (!blob) {
+      setState('error');
+      return;
+    }
+    
+    const isComplete = await extractPayments(totalValue, blob);
+    if (isComplete) {
+      setState('preview');
+    } else if (needsMoreInfo || questions.length > 0) {
+      setState('chat');
+    } else {
+      setState('error');
+    }
   }, [stopRecording, extractPayments, totalValue, needsMoreInfo, questions.length]);
 
   // Start recording for chat response
@@ -93,19 +96,22 @@ export function PaymentVoiceAssistant({
 
   // Stop recording and send chat audio response
   const handleStopChatRecording = useCallback(async () => {
-    stopRecording();
     setState('processing');
+    const blob = await stopRecording();
     
-    setTimeout(async () => {
-      const isComplete = await respondWithAudio(totalValue);
-      if (isComplete) {
-        setState('preview');
-      } else if (needsMoreInfo || questions.length > 0) {
-        setState('chat');
-      } else {
-        setState('error');
-      }
-    }, 500);
+    if (!blob) {
+      setState('error');
+      return;
+    }
+    
+    const isComplete = await respondWithAudio(totalValue, blob);
+    if (isComplete) {
+      setState('preview');
+    } else if (needsMoreInfo || questions.length > 0) {
+      setState('chat');
+    } else {
+      setState('error');
+    }
   }, [stopRecording, respondWithAudio, totalValue, needsMoreInfo, questions.length]);
 
   // Send text response

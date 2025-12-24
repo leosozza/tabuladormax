@@ -58,11 +58,11 @@ interface UsePaymentVoiceExtractionReturn {
   
   // Actions
   startRecording: () => Promise<boolean>;
-  stopRecording: () => void;
+  stopRecording: () => Promise<Blob | null>;
   cancelRecording: () => void;
-  extractPayments: (totalValue: number) => Promise<boolean>;
+  extractPayments: (totalValue: number, blob?: Blob) => Promise<boolean>;
   respondWithText: (text: string, totalValue: number) => Promise<boolean>;
-  respondWithAudio: (totalValue: number) => Promise<boolean>;
+  respondWithAudio: (totalValue: number, blob?: Blob) => Promise<boolean>;
   clearExtraction: () => void;
   reset: () => void;
 }
@@ -124,8 +124,10 @@ export function usePaymentVoiceExtraction(): UsePaymentVoiceExtractionReturn {
     throw new Error('Status desconhecido');
   }, [convertToSelectedPaymentMethod]);
 
-  const extractPayments = useCallback(async (totalValue: number): Promise<boolean> => {
-    if (!audioRecorder.audioBlob) {
+  const extractPayments = useCallback(async (totalValue: number, blob?: Blob): Promise<boolean> => {
+    const audioToUse = blob || audioRecorder.audioBlob;
+    
+    if (!audioToUse) {
       setExtractionError('Nenhum áudio gravado');
       return false;
     }
@@ -134,12 +136,12 @@ export function usePaymentVoiceExtraction(): UsePaymentVoiceExtractionReturn {
     setExtractionError(null);
 
     try {
-      const arrayBuffer = await audioRecorder.audioBlob.arrayBuffer();
+      const arrayBuffer = await audioToUse.arrayBuffer();
       const base64Audio = btoa(
         new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
       );
 
-      console.log('[usePaymentVoiceExtraction] Enviando áudio, totalValue:', totalValue);
+      console.log('[usePaymentVoiceExtraction] Enviando áudio, totalValue:', totalValue, 'blob size:', audioToUse.size);
 
       const { data, error } = await supabase.functions.invoke('extract-payment-from-audio', {
         body: { 
@@ -199,8 +201,10 @@ export function usePaymentVoiceExtraction(): UsePaymentVoiceExtractionReturn {
     }
   }, [conversationHistory, processResult]);
 
-  const respondWithAudio = useCallback(async (totalValue: number): Promise<boolean> => {
-    if (!audioRecorder.audioBlob) {
+  const respondWithAudio = useCallback(async (totalValue: number, blob?: Blob): Promise<boolean> => {
+    const audioToUse = blob || audioRecorder.audioBlob;
+    
+    if (!audioToUse) {
       setExtractionError('Nenhum áudio gravado');
       return false;
     }
@@ -209,12 +213,12 @@ export function usePaymentVoiceExtraction(): UsePaymentVoiceExtractionReturn {
     setExtractionError(null);
 
     try {
-      const arrayBuffer = await audioRecorder.audioBlob.arrayBuffer();
+      const arrayBuffer = await audioToUse.arrayBuffer();
       const base64Audio = btoa(
         new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
       );
 
-      console.log('[usePaymentVoiceExtraction] Enviando resposta de áudio');
+      console.log('[usePaymentVoiceExtraction] Enviando resposta de áudio, blob size:', audioToUse.size);
 
       const { data, error } = await supabase.functions.invoke('extract-payment-from-audio', {
         body: { 
