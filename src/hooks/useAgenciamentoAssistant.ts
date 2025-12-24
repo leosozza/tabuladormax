@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useAudioRecorder } from './useAudioRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { BitrixProduct } from '@/lib/bitrix';
@@ -57,6 +57,11 @@ interface UseAgenciamentoAssistantReturn {
   setProvider: (provider: string) => void;
   setModel: (model: string) => void;
   
+  // Voice response state
+  voiceResponseEnabled: boolean;
+  setVoiceResponseEnabled: (enabled: boolean) => void;
+  isSpeaking: boolean;
+  
   // Recording state
   isRecording: boolean;
   recordingTime: number;
@@ -72,6 +77,7 @@ interface UseAgenciamentoAssistantReturn {
   cancel: () => void;
   goBack: () => void;
   reset: () => void;
+  stopSpeaking: () => void;
 }
 
 const INITIAL_DATA: AgenciamentoData = {
@@ -104,8 +110,88 @@ export function useAgenciamentoAssistant({
   // AI Provider state
   const [provider, setProvider] = useState<string>('lovable');
   const [model, setModel] = useState<string>('google/gemini-2.5-flash');
+  
+  // Voice response state
+  const [voiceResponseEnabled, setVoiceResponseEnabled] = useState<boolean>(false);
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    setIsSpeaking(false);
+  }, []);
+
+  const speakText = useCallback(async (text: string) => {
+    if (!voiceResponseEnabled) return;
+    
+    try {
+      setIsSpeaking(true);
+      
+      // Clean text for TTS (remove emojis and special characters)
+      const cleanText = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+      if (!cleanText) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ 
+            text: cleanText,
+            voiceName: 'laura' // Brazilian Portuguese friendly voice
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        console.error('[TTS] Error:', response.status);
+        setIsSpeaking(false);
+        return;
+      }
+
+      const data = await response.json();
+      if (!data.audioContent) {
+        console.error('[TTS] No audio content received');
+        setIsSpeaking(false);
+        return;
+      }
+
+      // Play the audio using data URI
+      const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsSpeaking(false);
+        audioRef.current = null;
+      };
+      
+      audio.onerror = () => {
+        console.error('[TTS] Audio playback error');
+        setIsSpeaking(false);
+        audioRef.current = null;
+      };
+
+      await audio.play();
+    } catch (err) {
+      console.error('[TTS] Error:', err);
+      setIsSpeaking(false);
+    }
+  }, [voiceResponseEnabled]);
 
   const reset = useCallback(() => {
+    stopSpeaking();
     setStage('idle');
     setData(INITIAL_DATA);
     setMessages([]);
@@ -113,7 +199,7 @@ export function useAgenciamentoAssistant({
     setCurrentMessage(null);
     setError(null);
     audioRecorder.clearRecording();
-  }, [audioRecorder]);
+  }, [audioRecorder, stopSpeaking]);
 
   const startAssistant = useCallback(() => {
     reset();
@@ -126,11 +212,15 @@ Qual pacote o cliente escolheu?`;
     
     setCurrentMessage(greeting);
     setMessages([{ role: 'assistant', content: greeting }]);
-  }, [reset, clientName]);
+    
+    // Speak the greeting if voice is enabled
+    setTimeout(() => speakText(greeting), 500);
+  }, [reset, clientName, speakText]);
 
   const processResponse = useCallback(async (transcription: string, audioBlob?: Blob) => {
     setIsProcessing(true);
     setError(null);
+    stopSpeaking(); // Stop any ongoing speech
 
     try {
       let base64Audio: string | undefined;
@@ -252,10 +342,13 @@ Qual pacote o cliente escolheu?`;
           break;
       }
 
-      // Set the AI's response message
+      // Set the AI's response message and speak it
       if (result.message) {
         setCurrentMessage(result.message);
         setMessages(prev => [...prev, { role: 'assistant', content: result.message }]);
+        
+        // Speak the response
+        setTimeout(() => speakText(result.message), 300);
       }
 
     } catch (err) {
@@ -264,7 +357,7 @@ Qual pacote o cliente escolheu?`;
     } finally {
       setIsProcessing(false);
     }
-  }, [conversationHistory, data, products, stage, clientName, dealTitle, provider, model]);
+  }, [conversationHistory, data, products, stage, clientName, dealTitle, provider, model, stopSpeaking, speakText]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isProcessing) return;
@@ -322,6 +415,11 @@ Qual pacote o cliente escolheu?`;
     setProvider,
     setModel,
     
+    // Voice response state
+    voiceResponseEnabled,
+    setVoiceResponseEnabled,
+    isSpeaking,
+    
     // Recording state
     isRecording: audioRecorder.isRecording,
     recordingTime: audioRecorder.recordingTime,
@@ -337,5 +435,6 @@ Qual pacote o cliente escolheu?`;
     cancel,
     goBack,
     reset,
+    stopSpeaking,
   };
 }
