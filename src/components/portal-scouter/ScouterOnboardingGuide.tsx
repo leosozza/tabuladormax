@@ -13,6 +13,7 @@ interface OnboardingStep {
   position: 'top' | 'bottom' | 'left' | 'right' | 'center';
   icon?: string;
   action?: 'openLeadsModal' | 'closeLeadsModal';
+  requiresModalOpen?: boolean;
 }
 
 const ONBOARDING_STEPS: OnboardingStep[] = [
@@ -45,8 +46,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     description: 'Clique nos cards para ver a lista de leads.',
     targetSelector: '[data-tour="stats-cards"]',
     position: 'top',
-    icon: '📊',
-    action: 'openLeadsModal'
+    icon: '📊'
   },
   {
     id: 'photo-badge',
@@ -54,7 +54,9 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     description: 'Clique no badge azul "Foto" para ver a imagem do lead.',
     targetSelector: '[data-tour="lead-photo-badge"]',
     position: 'left',
-    icon: '📷'
+    icon: '📷',
+    action: 'openLeadsModal',
+    requiresModalOpen: true
   },
   {
     id: 'lead-actions',
@@ -63,7 +65,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     targetSelector: '[data-tour="lead-actions-menu"]',
     position: 'left',
     icon: '⚙️',
-    action: 'closeLeadsModal'
+    requiresModalOpen: true
   },
   {
     id: 'ai-analysis',
@@ -71,7 +73,8 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     description: 'Receba uma análise completa dos seus leads.',
     targetSelector: '[data-tour="ai-analysis"]',
     position: 'bottom',
-    icon: '✨'
+    icon: '✨',
+    action: 'closeLeadsModal'
   },
   {
     id: 'complete',
@@ -97,58 +100,75 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: Sco
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === ONBOARDING_STEPS.length - 1;
 
-  // Find and highlight target element
+  // Find and highlight target element with retry for modal elements
   useEffect(() => {
     if (!isOpen || !step.targetSelector) {
       setTargetRect(null);
       return;
     }
 
+    let attempts = 0;
+    const maxAttempts = 15;
+    let retryTimeout: NodeJS.Timeout | null = null;
+
     const findTarget = () => {
       const target = document.querySelector(step.targetSelector!);
       if (target) {
         const rect = target.getBoundingClientRect();
         setTargetRect(rect);
+      } else if (attempts < maxAttempts) {
+        // Retry if element not found (modal might still be rendering)
+        attempts++;
+        retryTimeout = setTimeout(findTarget, 150);
       } else {
         setTargetRect(null);
       }
     };
 
-    // Delay to wait for modal to open
-    const timeout = setTimeout(findTarget, 100);
+    // Initial delay - longer for steps that require modal to be open
+    const initialDelay = step.requiresModalOpen ? 500 : 100;
+    const timeout = setTimeout(findTarget, initialDelay);
     
     // Update position on scroll/resize
     window.addEventListener('scroll', findTarget, true);
     window.addEventListener('resize', findTarget);
     
     // MutationObserver for dynamic elements
-    const observer = new MutationObserver(findTarget);
+    const observer = new MutationObserver(() => {
+      if (!targetRect) {
+        findTarget();
+      }
+    });
     observer.observe(document.body, { childList: true, subtree: true });
     
     return () => {
       clearTimeout(timeout);
+      if (retryTimeout) clearTimeout(retryTimeout);
       window.removeEventListener('scroll', findTarget, true);
       window.removeEventListener('resize', findTarget);
       observer.disconnect();
     };
-  }, [isOpen, step.targetSelector, currentStep]);
+  }, [isOpen, step.targetSelector, step.requiresModalOpen, currentStep]);
 
   const handleNext = useCallback(() => {
     if (isLastStep) {
       onComplete(dontShowAgain);
     } else {
       const nextStep = ONBOARDING_STEPS[currentStep + 1];
-      // Call action before navigating to next step
-      if (step.action) {
-        onStepChange?.(step.id, step.action);
+      
+      // Execute action of NEXT step BEFORE navigating (prepare UI first)
+      if (nextStep.action) {
+        onStepChange?.(nextStep.id, nextStep.action);
       }
-      setCurrentStep(prev => prev + 1);
-      // Notify about the new step after a small delay for modal to open
+      
+      // Delay navigation if next step requires modal to be open
+      const delay = nextStep.requiresModalOpen ? 600 : 100;
+      
       setTimeout(() => {
-        onStepChange?.(nextStep.id);
-      }, 50);
+        setCurrentStep(prev => prev + 1);
+      }, delay);
     }
-  }, [isLastStep, onComplete, dontShowAgain, currentStep, step, onStepChange]);
+  }, [isLastStep, onComplete, dontShowAgain, currentStep, onStepChange]);
 
   const handlePrevious = useCallback(() => {
     if (!isFirstStep) {
