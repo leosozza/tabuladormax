@@ -12,6 +12,7 @@ interface OnboardingStep {
   targetSelector?: string;
   position: 'top' | 'bottom' | 'left' | 'right' | 'center';
   icon?: string;
+  action?: 'openLeadsModal' | 'closeLeadsModal';
 }
 
 const ONBOARDING_STEPS: OnboardingStep[] = [
@@ -44,14 +45,25 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     description: 'Clique nos cards para ver a lista de leads.',
     targetSelector: '[data-tour="stats-cards"]',
     position: 'top',
-    icon: '📊'
+    icon: '📊',
+    action: 'openLeadsModal'
   },
   {
-    id: 'leads-modal-info',
-    title: 'Gerenciando Leads 📋',
-    description: 'Clique na foto para ampliar. Use os 3 pontinhos para editar ou excluir.',
-    position: 'center',
-    icon: '📋'
+    id: 'photo-badge',
+    title: 'Ver Foto 📷',
+    description: 'Clique no badge azul "Foto" para ver a imagem do lead.',
+    targetSelector: '[data-tour="lead-photo-badge"]',
+    position: 'left',
+    icon: '📷'
+  },
+  {
+    id: 'lead-actions',
+    title: 'Ações do Lead ⚙️',
+    description: 'Clique nos 3 pontinhos para Editar, Reenviar ou Excluir.',
+    targetSelector: '[data-tour="lead-actions-menu"]',
+    position: 'left',
+    icon: '⚙️',
+    action: 'closeLeadsModal'
   },
   {
     id: 'ai-analysis',
@@ -73,9 +85,10 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
 interface ScouterOnboardingGuideProps {
   isOpen: boolean;
   onComplete: (dontShowAgain: boolean) => void;
+  onStepChange?: (stepId: string, action?: 'openLeadsModal' | 'closeLeadsModal') => void;
 }
 
-export const ScouterOnboardingGuide = ({ isOpen, onComplete }: ScouterOnboardingGuideProps) => {
+export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: ScouterOnboardingGuideProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -101,15 +114,22 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete }: ScouterOnboarding
       }
     };
 
-    findTarget();
+    // Delay to wait for modal to open
+    const timeout = setTimeout(findTarget, 100);
     
     // Update position on scroll/resize
     window.addEventListener('scroll', findTarget, true);
     window.addEventListener('resize', findTarget);
     
+    // MutationObserver for dynamic elements
+    const observer = new MutationObserver(findTarget);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
     return () => {
+      clearTimeout(timeout);
       window.removeEventListener('scroll', findTarget, true);
       window.removeEventListener('resize', findTarget);
+      observer.disconnect();
     };
   }, [isOpen, step.targetSelector, currentStep]);
 
@@ -117,19 +137,36 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete }: ScouterOnboarding
     if (isLastStep) {
       onComplete(dontShowAgain);
     } else {
+      const nextStep = ONBOARDING_STEPS[currentStep + 1];
+      // Call action before navigating to next step
+      if (step.action) {
+        onStepChange?.(step.id, step.action);
+      }
       setCurrentStep(prev => prev + 1);
+      // Notify about the new step after a small delay for modal to open
+      setTimeout(() => {
+        onStepChange?.(nextStep.id);
+      }, 50);
     }
-  }, [isLastStep, onComplete, dontShowAgain]);
+  }, [isLastStep, onComplete, dontShowAgain, currentStep, step, onStepChange]);
 
   const handlePrevious = useCallback(() => {
     if (!isFirstStep) {
+      const prevStep = ONBOARDING_STEPS[currentStep - 1];
+      // If going back from modal steps to cards, close modal
+      if ((step.id === 'photo-badge' || step.id === 'lead-actions') && prevStep.id === 'leads-cards') {
+        onStepChange?.(prevStep.id, 'closeLeadsModal');
+      }
       setCurrentStep(prev => prev - 1);
+      onStepChange?.(prevStep.id);
     }
-  }, [isFirstStep]);
+  }, [isFirstStep, currentStep, step, onStepChange]);
 
   const handleSkip = useCallback(() => {
+    // Close modal if open
+    onStepChange?.('skip', 'closeLeadsModal');
     onComplete(dontShowAgain);
-  }, [onComplete, dontShowAgain]);
+  }, [onComplete, dontShowAgain, onStepChange]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -181,9 +218,8 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete }: ScouterOnboarding
       case 'left':
         return {
           position: 'fixed',
-          top: targetRect.top + targetRect.height / 2,
+          top: Math.max(padding, Math.min(targetRect.top + targetRect.height / 2 - 60, window.innerHeight - 150)),
           right: window.innerWidth - targetRect.left + padding,
-          transform: 'translateY(-50%)',
         };
       case 'right':
         return {
@@ -200,7 +236,7 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete }: ScouterOnboarding
   const spotlightPadding = 8;
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[200]">
       {/* SVG Overlay with spotlight cutout */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none">
         <defs>
@@ -257,6 +293,15 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete }: ScouterOnboarding
           style={{
             top: targetRect.top - 12,
             left: targetRect.left + targetRect.width / 2 - 8,
+          }}
+        />
+      )}
+      {targetRect && step.position === 'left' && (
+        <div
+          className="absolute w-0 h-0 border-t-8 border-b-8 border-l-8 border-t-transparent border-b-transparent border-l-primary pointer-events-none"
+          style={{
+            top: targetRect.top + targetRect.height / 2 - 8,
+            left: targetRect.left - 12,
           }}
         />
       )}

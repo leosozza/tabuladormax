@@ -316,7 +316,7 @@ export function ScouterLeadsModal({
     return null;
   };
 
-  const renderPhotoBadge = (lead: LeadData) => {
+  const renderPhotoBadge = (lead: LeadData, isFirst: boolean = false) => {
     const hasPhoto = lead.photo_url && 
       lead.photo_url !== '' && 
       lead.photo_url !== '[]';
@@ -324,6 +324,7 @@ export function ScouterLeadsModal({
     if (hasPhoto) {
       return (
         <Badge 
+          data-tour={isFirst ? "lead-photo-badge" : undefined}
           className="bg-blue-500 hover:bg-blue-600 text-white text-xs whitespace-nowrap cursor-pointer"
           onClick={(e) => {
             e.stopPropagation();
@@ -599,16 +600,18 @@ export function ScouterLeadsModal({
                         <span className="font-mono">{lead.lead_id}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        {renderPhotoBadge(lead)}
+                        {renderPhotoBadge(lead, paginatedLeads.indexOf(lead) === 0)}
                         {renderConfirmadoBadge(lead)}
                         {renderDuplicateBadge(lead)}
-                        <LeadActions
-                          lead={lead}
-                          onEdit={() => setEditingLead(lead)}
-                          onActionComplete={() => {
-                            queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
-                          }}
-                        />
+                        <div data-tour={paginatedLeads.indexOf(lead) === 0 ? "lead-actions-menu" : undefined}>
+                          <LeadActions
+                            lead={lead}
+                            onEdit={() => setEditingLead(lead)}
+                            onActionComplete={() => {
+                              queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
                     
@@ -673,19 +676,21 @@ export function ScouterLeadsModal({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 flex-wrap">
-                          {renderPhotoBadge(lead)}
+                          {renderPhotoBadge(lead, paginatedLeads.indexOf(lead) === 0)}
                           {renderConfirmadoBadge(lead)}
                           {renderDuplicateBadge(lead)}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <LeadActions
-                          lead={lead}
-                          onEdit={() => setEditingLead(lead)}
-                          onActionComplete={() => {
-                            queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
-                          }}
-                        />
+                        <div data-tour={paginatedLeads.indexOf(lead) === 0 ? "lead-actions-menu" : undefined}>
+                          <LeadActions
+                            lead={lead}
+                            onEdit={() => setEditingLead(lead)}
+                            onActionComplete={() => {
+                              queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
+                            }}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
