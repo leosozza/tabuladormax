@@ -1,17 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { 
-  Mic, MicOff, Loader2, Check, X, 
+  Mic, MicOff, Loader2, Check, X,
   Send, ChevronLeft, Package, DollarSign, CreditCard, CheckCircle,
-  MessageSquare, Settings2, Bot, Volume2, VolumeX, Radio
+  MessageSquare, Volume2, VolumeX, Radio
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useAgenciamentoAssistant, AgenciamentoStage, AgenciamentoData, PaymentMethodData } from '@/hooks/useAgenciamentoAssistant';
 import { BitrixProduct } from '@/lib/bitrix';
@@ -212,20 +208,23 @@ export function AgenciamentoAssistant({
       {/* Header with Progress */}
       <div className="flex-shrink-0 border-b bg-muted/30 p-4">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-primary" />
-            <h2 className="font-semibold">Assistente de Agenciamento</h2>
-            {isSpeaking && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={stopSpeaking}
-                className="h-7 px-2 gap-1 text-primary animate-pulse"
-              >
-                <Volume2 className="h-4 w-4" />
-                <span className="text-xs">Falando...</span>
-              </Button>
-            )}
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Assistente de Agenciamento</h2>
+              {isSpeaking && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={stopSpeaking}
+                  className="h-7 px-2 gap-1 text-primary animate-pulse"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  <span className="text-xs">Falando...</span>
+                </Button>
+              )}
+            </div>
+            <span className="text-xs text-muted-foreground ml-7">{currentProvider.name}</span>
           </div>
           <div className="flex items-center gap-2">
             {/* Immersive Voice Mode Button */}
@@ -255,76 +254,6 @@ export function AgenciamentoAssistant({
               )}
               <span className="hidden sm:inline text-xs">Voz</span>
             </Button>
-
-            {/* AI Provider Settings */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1.5">
-                  <Bot className="h-4 w-4" />
-                  <span className="hidden sm:inline text-xs">{currentProvider.name}</span>
-                  <Settings2 className="h-3 w-3" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72" align="end">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Provedor de IA</label>
-                    <Select value={provider} onValueChange={handleProviderChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o provedor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {AI_PROVIDERS.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Modelo</label>
-                    <Select value={model} onValueChange={setModel}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o modelo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {currentModels.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="border-t pt-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="voice-response" className="text-sm font-medium">
-                          Resposta por Voz
-                        </Label>
-                        <p className="text-xs text-muted-foreground">
-                          Usa ElevenLabs TTS
-                        </p>
-                      </div>
-                      <Switch
-                        id="voice-response"
-                        checked={voiceResponseEnabled}
-                        onCheckedChange={setVoiceResponseEnabled}
-                      />
-                    </div>
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground">
-                    {provider === 'lovable' 
-                      ? 'Lovable AI usa créditos inclusos no plano' 
-                      : 'OpenRouter usa sua própria API key'}
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-            {/* X button removed - SheetContent already provides close button */}
           </div>
         </div>
         
