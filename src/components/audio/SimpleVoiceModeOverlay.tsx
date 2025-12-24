@@ -1,9 +1,17 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Mic, MicOff, Loader2, MessageSquare, Volume2 } from 'lucide-react';
+import { X, Mic, MicOff, Loader2, MessageSquare, Volume2, Check, Edit3, RotateCcw, Package, DollarSign, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 type VoiceState = 'idle' | 'recording' | 'processing' | 'speaking';
+
+export interface NegotiationSummary {
+  packageName?: string;
+  packagePrice?: number;
+  finalValue?: number;
+  discountPercent?: number;
+  paymentMethods?: { method: string; amount: number; installments: number }[];
+}
 
 interface SimpleVoiceModeOverlayProps {
   isOpen: boolean;
@@ -16,6 +24,12 @@ interface SimpleVoiceModeOverlayProps {
   assistantResponse?: string;
   assistantError?: string;
   onSpeakingComplete?: () => void;
+  // ManyChat-style confirmation buttons
+  showConfirmationButtons?: boolean;
+  onConfirm?: () => void;
+  onCorrect?: () => void;
+  onRestart?: () => void;
+  negotiationSummary?: NegotiationSummary;
 }
 
 export function SimpleVoiceModeOverlay({
@@ -28,6 +42,11 @@ export function SimpleVoiceModeOverlay({
   currentTranscript,
   assistantResponse,
   assistantError,
+  showConfirmationButtons = false,
+  onConfirm,
+  onCorrect,
+  onRestart,
+  negotiationSummary,
 }: SimpleVoiceModeOverlayProps) {
   const [state, setState] = useState<VoiceState>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
@@ -176,7 +195,17 @@ export function SimpleVoiceModeOverlay({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
   const getStateLabel = () => {
+    if (showConfirmationButtons) {
+      return 'Confirme a negociação';
+    }
     switch (state) {
       case 'recording':
         return 'Gravando...';
@@ -231,48 +260,141 @@ export function SimpleVoiceModeOverlay({
         </div>
 
         {/* Recording Time */}
-        {state === 'recording' && (
+        {state === 'recording' && !showConfirmationButtons && (
           <div className="text-2xl font-mono text-primary animate-pulse">
             {formatTime(recordingTime)}
           </div>
         )}
 
-        {/* Main Button */}
-        <button
-          onClick={handleMicPress}
-          disabled={state === 'processing' || state === 'speaking'}
-          className={cn(
-            "relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300",
-            "focus:outline-none focus:ring-4 focus:ring-primary/30",
-            state === 'idle' && "bg-primary hover:bg-primary/90 active:scale-95",
-            state === 'recording' && "bg-red-500 hover:bg-red-600",
-            (state === 'processing' || state === 'speaking') && "bg-muted cursor-not-allowed"
-          )}
-        >
-          {/* Pulse animation for recording */}
-          {state === 'recording' && (
-            <>
-              <span className="absolute inset-0 rounded-full bg-red-500/50 animate-ping" />
-              <span className="absolute inset-0 rounded-full bg-red-500/30 animate-pulse" />
-            </>
-          )}
-          
-          {/* Speaking animation */}
-          {state === 'speaking' && (
-            <span className="absolute inset-0 rounded-full bg-primary/30 animate-pulse" />
-          )}
-          
-          {/* Icon */}
-          {state === 'processing' ? (
-            <Loader2 className="h-12 w-12 text-muted-foreground animate-spin" />
-          ) : state === 'recording' ? (
-            <MicOff className="h-12 w-12 text-white relative z-10" />
-          ) : state === 'speaking' ? (
-            <Volume2 className="h-12 w-12 text-primary relative z-10" />
-          ) : (
-            <Mic className="h-12 w-12 text-primary-foreground" />
-          )}
-        </button>
+        {/* ManyChat-style Confirmation Buttons */}
+        {showConfirmationButtons ? (
+          <div className="w-full max-w-sm space-y-6">
+            {/* Negotiation Summary Card */}
+            {negotiationSummary && (
+              <div className="bg-card border rounded-xl p-4 shadow-lg space-y-3">
+                <div className="text-center">
+                  <h3 className="font-semibold text-lg flex items-center justify-center gap-2">
+                    📋 Resumo da Negociação
+                  </h3>
+                </div>
+                
+                {negotiationSummary.packageName && (
+                  <div className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                    <Package className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Pacote</p>
+                      <p className="font-medium">{negotiationSummary.packageName}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {negotiationSummary.finalValue !== undefined && negotiationSummary.finalValue > 0 && (
+                  <div className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                    <DollarSign className="h-5 w-5 text-green-600" />
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground">Valor Final</p>
+                      <p className="font-medium text-green-600">{formatCurrency(negotiationSummary.finalValue)}</p>
+                    </div>
+                    {negotiationSummary.discountPercent !== undefined && negotiationSummary.discountPercent > 0 && (
+                      <span className="bg-green-100 text-green-700 text-xs font-medium px-2 py-1 rounded-full">
+                        -{negotiationSummary.discountPercent.toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                )}
+                
+                {negotiationSummary.paymentMethods && negotiationSummary.paymentMethods.length > 0 && (
+                  <div className="p-2 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CreditCard className="h-5 w-5 text-primary" />
+                      <p className="text-xs text-muted-foreground">Formas de Pagamento</p>
+                    </div>
+                    <div className="space-y-1.5 pl-7">
+                      {negotiationSummary.paymentMethods.map((pm, idx) => (
+                        <p key={idx} className="text-sm">
+                          <span className="font-medium">{pm.method}</span>: {formatCurrency(pm.amount)}
+                          {pm.installments > 1 && ` (${pm.installments}x)`}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Action Buttons - ManyChat Style */}
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={onConfirm}
+                className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-green-500 hover:bg-green-600 text-white transition-all active:scale-95 shadow-lg hover:shadow-xl"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <Check className="h-6 w-6" />
+                </div>
+                <span className="font-semibold text-sm">Confirmar</span>
+              </button>
+              
+              <button
+                onClick={onCorrect}
+                className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all active:scale-95 shadow-lg hover:shadow-xl"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <Edit3 className="h-6 w-6" />
+                </div>
+                <span className="font-semibold text-sm">Corrigir</span>
+              </button>
+              
+              <button
+                onClick={onRestart}
+                className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-red-500 hover:bg-red-600 text-white transition-all active:scale-95 shadow-lg hover:shadow-xl"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <RotateCcw className="h-6 w-6" />
+                </div>
+                <span className="font-semibold text-sm">Reiniciar</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Main Button */}
+            <button
+              onClick={handleMicPress}
+              disabled={state === 'processing' || state === 'speaking'}
+              className={cn(
+                "relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300",
+                "focus:outline-none focus:ring-4 focus:ring-primary/30",
+                state === 'idle' && "bg-primary hover:bg-primary/90 active:scale-95",
+                state === 'recording' && "bg-red-500 hover:bg-red-600",
+                (state === 'processing' || state === 'speaking') && "bg-muted cursor-not-allowed"
+              )}
+            >
+              {/* Pulse animation for recording */}
+              {state === 'recording' && (
+                <>
+                  <span className="absolute inset-0 rounded-full bg-red-500/50 animate-ping" />
+                  <span className="absolute inset-0 rounded-full bg-red-500/30 animate-pulse" />
+                </>
+              )}
+              
+              {/* Speaking animation */}
+              {state === 'speaking' && (
+                <span className="absolute inset-0 rounded-full bg-primary/30 animate-pulse" />
+              )}
+              
+              {/* Icon */}
+              {state === 'processing' ? (
+                <Loader2 className="h-12 w-12 text-muted-foreground animate-spin" />
+              ) : state === 'recording' ? (
+                <MicOff className="h-12 w-12 text-white relative z-10" />
+              ) : state === 'speaking' ? (
+                <Volume2 className="h-12 w-12 text-primary relative z-10" />
+              ) : (
+                <Mic className="h-12 w-12 text-primary-foreground" />
+              )}
+            </button>
+          </>
+        )}
 
         {/* State Label */}
         <p className="text-muted-foreground text-sm">
