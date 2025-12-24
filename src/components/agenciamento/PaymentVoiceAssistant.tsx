@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { Mic, MicOff, Loader2, Check, X, RotateCcw, Volume2 } from 'lucide-react';
+import { Mic, MicOff, Loader2, Check, X, RotateCcw, Volume2, MessageSquare, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { usePaymentVoiceExtraction } from '@/hooks/usePaymentVoiceExtraction';
 import { SelectedPaymentMethod, PAYMENT_METHOD_LABELS } from '@/types/agenciamento';
 import { cn } from '@/lib/utils';
@@ -13,7 +14,7 @@ interface PaymentVoiceAssistantProps {
   onClose: () => void;
 }
 
-type AssistantState = 'idle' | 'recording' | 'processing' | 'preview' | 'error';
+type AssistantState = 'idle' | 'recording' | 'processing' | 'preview' | 'chat' | 'chat_recording' | 'error';
 
 export function PaymentVoiceAssistant({ 
   totalValue, 
@@ -21,6 +22,7 @@ export function PaymentVoiceAssistant({
   onClose 
 }: PaymentVoiceAssistantProps) {
   const [state, setState] = useState<AssistantState>('idle');
+  const [textInput, setTextInput] = useState('');
   
   const {
     isRecording,
@@ -31,10 +33,15 @@ export function PaymentVoiceAssistant({
     transcription,
     reasoning,
     extractionError,
+    needsMoreInfo,
+    questions,
+    partialPayments,
     startRecording,
     stopRecording,
     cancelRecording,
     extractPayments,
+    respondWithText,
+    respondWithAudio,
     reset,
   } = usePaymentVoiceExtraction();
 
@@ -64,16 +71,59 @@ export function PaymentVoiceAssistant({
     stopRecording();
     setState('processing');
     
-    // Small delay to ensure audio blob is ready
     setTimeout(async () => {
-      const success = await extractPayments(totalValue);
-      if (success) {
+      const isComplete = await extractPayments(totalValue);
+      if (isComplete) {
         setState('preview');
+      } else if (needsMoreInfo || questions.length > 0) {
+        setState('chat');
       } else {
         setState('error');
       }
     }, 500);
-  }, [stopRecording, extractPayments, totalValue]);
+  }, [stopRecording, extractPayments, totalValue, needsMoreInfo, questions.length]);
+
+  // Start recording for chat response
+  const handleStartChatRecording = useCallback(async () => {
+    const success = await startRecording();
+    if (success) {
+      setState('chat_recording');
+    }
+  }, [startRecording]);
+
+  // Stop recording and send chat audio response
+  const handleStopChatRecording = useCallback(async () => {
+    stopRecording();
+    setState('processing');
+    
+    setTimeout(async () => {
+      const isComplete = await respondWithAudio(totalValue);
+      if (isComplete) {
+        setState('preview');
+      } else if (needsMoreInfo || questions.length > 0) {
+        setState('chat');
+      } else {
+        setState('error');
+      }
+    }, 500);
+  }, [stopRecording, respondWithAudio, totalValue, needsMoreInfo, questions.length]);
+
+  // Send text response
+  const handleSendTextResponse = useCallback(async () => {
+    if (!textInput.trim()) return;
+    
+    setState('processing');
+    const isComplete = await respondWithText(textInput, totalValue);
+    setTextInput('');
+    
+    if (isComplete) {
+      setState('preview');
+    } else if (needsMoreInfo || questions.length > 0) {
+      setState('chat');
+    } else {
+      setState('error');
+    }
+  }, [textInput, respondWithText, totalValue, needsMoreInfo, questions.length]);
 
   const handleCancel = useCallback(() => {
     cancelRecording();
@@ -96,6 +146,7 @@ export function PaymentVoiceAssistant({
 
   const totalExtracted = extractedPayments?.reduce((sum, p) => sum + p.amount, 0) || 0;
   const difference = totalValue - totalExtracted;
+  const partialTotal = partialPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-background">
@@ -116,10 +167,7 @@ export function PaymentVoiceAssistant({
               Exemplo: "5 mil no PIX de entrada, depois 3x de 2 mil no cartão, e o resto em 6x no boleto"
             </p>
             <div className="flex justify-center gap-2">
-              <Button
-                onClick={handleStartRecording}
-                className="gap-2"
-              >
+              <Button onClick={handleStartRecording} className="gap-2">
                 <Mic className="h-4 w-4" />
                 Iniciar Gravação
               </Button>
@@ -144,11 +192,7 @@ export function PaymentVoiceAssistant({
               <p className="text-sm text-muted-foreground">Gravando... Fale as formas de pagamento</p>
             </div>
             <div className="flex justify-center gap-2">
-              <Button
-                onClick={handleStopRecording}
-                variant="default"
-                className="gap-2"
-              >
+              <Button onClick={handleStopRecording} variant="default" className="gap-2">
                 <MicOff className="h-4 w-4" />
                 Parar e Processar
               </Button>
@@ -164,7 +208,7 @@ export function PaymentVoiceAssistant({
           <div className="text-center space-y-4 py-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
             <p className="text-sm text-muted-foreground">
-              Transcrevendo e extraindo pagamentos...
+              Processando...
             </p>
           </div>
         )}
@@ -184,6 +228,127 @@ export function PaymentVoiceAssistant({
               </Button>
               <Button variant="ghost" onClick={handleCancel}>
                 Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Chat State - AI asking questions */}
+        {state === 'chat' && (
+          <div className="space-y-4">
+            {/* What was understood */}
+            {transcription && (
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Você disse:</p>
+                <p className="text-sm italic">"{transcription}"</p>
+              </div>
+            )}
+
+            {/* Partial payments identified */}
+            {partialPayments.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Já identificado:</p>
+                {partialPayments.map((payment, index) => (
+                  <div 
+                    key={index}
+                    className="flex items-center justify-between p-2 bg-background rounded-lg border border-dashed"
+                  >
+                    <Badge variant="outline" className="text-xs">
+                      {PAYMENT_METHOD_LABELS[payment.method] || payment.method}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {payment.amount ? formatCurrency(payment.amount) : '?'}
+                    </span>
+                  </div>
+                ))}
+                {partialTotal > 0 && (
+                  <p className="text-xs text-muted-foreground text-right">
+                    Parcial: {formatCurrency(partialTotal)} de {formatCurrency(totalValue)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* AI Questions */}
+            <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <div className="flex items-start gap-2 mb-3">
+                <MessageSquare className="h-4 w-4 text-primary mt-0.5" />
+                <div className="space-y-2">
+                  {questions.map((q, index) => (
+                    <p key={q.id} className="text-sm font-medium">
+                      {questions.length > 1 && `${index + 1}. `}{q.question}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Response Options */}
+            <div className="space-y-3">
+              {/* Text Input */}
+              <div className="flex gap-2">
+                <Input
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  placeholder="Digite sua resposta..."
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendTextResponse()}
+                />
+                <Button 
+                  onClick={handleSendTextResponse} 
+                  disabled={!textInput.trim()}
+                  size="icon"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Voice Response */}
+              <div className="flex justify-center gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={handleStartChatRecording}
+                  className="gap-2"
+                >
+                  <Mic className="h-4 w-4" />
+                  Responder por áudio
+                </Button>
+                <Button variant="ghost" onClick={handleCancel}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Chat Recording State */}
+        {state === 'chat_recording' && (
+          <div className="text-center space-y-4">
+            <div className="flex flex-col items-center gap-2">
+              <div className="relative">
+                <div className="absolute inset-0 bg-red-500/20 rounded-full animate-ping" />
+                <div className="relative bg-red-500 text-white p-4 rounded-full">
+                  <Mic className="h-6 w-6" />
+                </div>
+              </div>
+              <p className="text-lg font-mono text-red-500">{formatTime(recordingTime)}</p>
+              <p className="text-sm text-muted-foreground">Gravando resposta...</p>
+            </div>
+
+            {/* Show the question being answered */}
+            {questions.length > 0 && (
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Respondendo:</p>
+                <p className="text-sm">{questions[0].question}</p>
+              </div>
+            )}
+
+            <div className="flex justify-center gap-2">
+              <Button onClick={handleStopChatRecording} variant="default" className="gap-2">
+                <MicOff className="h-4 w-4" />
+                Enviar Resposta
+              </Button>
+              <Button variant="outline" onClick={() => { cancelRecording(); setState('chat'); }}>
+                <X className="h-4 w-4" />
               </Button>
             </div>
           </div>

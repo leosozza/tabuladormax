@@ -9,8 +9,20 @@ interface ExtractedPayment {
   installments: number;
 }
 
+interface AIQuestion {
+  id: string;
+  question: string;
+}
+
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  tool_calls?: any[];
+}
+
 interface ExtractionResult {
   success: boolean;
+  status?: 'complete' | 'needs_info';
   transcription?: string;
   payments?: ExtractedPayment[];
   reasoning?: string;
@@ -18,6 +30,11 @@ interface ExtractionResult {
   totalValue?: number;
   difference?: number;
   error?: string;
+  // For needs_info status
+  questions?: AIQuestion[];
+  partialPayments?: ExtractedPayment[];
+  context?: string;
+  conversationHistory?: ConversationMessage[];
 }
 
 interface UsePaymentVoiceExtractionReturn {
@@ -33,11 +50,19 @@ interface UsePaymentVoiceExtractionReturn {
   reasoning: string | null;
   extractionError: string | null;
   
+  // Conversation state
+  needsMoreInfo: boolean;
+  questions: AIQuestion[];
+  partialPayments: SelectedPaymentMethod[];
+  conversationHistory: ConversationMessage[];
+  
   // Actions
   startRecording: () => Promise<boolean>;
   stopRecording: () => void;
   cancelRecording: () => void;
   extractPayments: (totalValue: number) => Promise<boolean>;
+  respondWithText: (text: string, totalValue: number) => Promise<boolean>;
+  respondWithAudio: (totalValue: number) => Promise<boolean>;
   clearExtraction: () => void;
   reset: () => void;
 }
@@ -50,6 +75,54 @@ export function usePaymentVoiceExtraction(): UsePaymentVoiceExtractionReturn {
   const [transcription, setTranscription] = useState<string | null>(null);
   const [reasoning, setReasoning] = useState<string | null>(null);
   const [extractionError, setExtractionError] = useState<string | null>(null);
+  
+  // Conversation state
+  const [needsMoreInfo, setNeedsMoreInfo] = useState(false);
+  const [questions, setQuestions] = useState<AIQuestion[]>([]);
+  const [partialPayments, setPartialPayments] = useState<SelectedPaymentMethod[]>([]);
+  const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
+
+  const convertToSelectedPaymentMethod = useCallback((payments: ExtractedPayment[], totalValue: number): SelectedPaymentMethod[] => {
+    return payments.map((p) => ({
+      method: p.method,
+      amount: p.amount,
+      installments: p.installments,
+      installment_value: p.installments > 0 ? p.amount / p.installments : p.amount,
+      percentage: totalValue > 0 ? (p.amount / totalValue) * 100 : 0
+    }));
+  }, []);
+
+  const processResult = useCallback((result: ExtractionResult, totalValue: number): boolean => {
+    if (!result.success) {
+      throw new Error(result.error || 'Erro ao extrair pagamentos');
+    }
+
+    setTranscription(result.transcription || null);
+
+    if (result.status === 'needs_info') {
+      setNeedsMoreInfo(true);
+      setQuestions(result.questions || []);
+      setPartialPayments(
+        convertToSelectedPaymentMethod(result.partialPayments || [], totalValue)
+      );
+      setConversationHistory(result.conversationHistory || []);
+      setReasoning(result.context || null);
+      return false; // Not complete yet
+    }
+
+    if (result.status === 'complete') {
+      setNeedsMoreInfo(false);
+      setQuestions([]);
+      setReasoning(result.reasoning || null);
+      setExtractedPayments(
+        convertToSelectedPaymentMethod(result.payments || [], totalValue)
+      );
+      setConversationHistory([]);
+      return true; // Complete
+    }
+
+    throw new Error('Status desconhecido');
+  }, [convertToSelectedPaymentMethod]);
 
   const extractPayments = useCallback(async (totalValue: number): Promise<boolean> => {
     if (!audioRecorder.audioBlob) {
@@ -61,18 +134,18 @@ export function usePaymentVoiceExtraction(): UsePaymentVoiceExtractionReturn {
     setExtractionError(null);
 
     try {
-      // Convert blob to base64
       const arrayBuffer = await audioRecorder.audioBlob.arrayBuffer();
       const base64Audio = btoa(
         new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
       );
 
-      console.log('[usePaymentVoiceExtraction] Enviando áudio para extração, totalValue:', totalValue);
+      console.log('[usePaymentVoiceExtraction] Enviando áudio, totalValue:', totalValue);
 
       const { data, error } = await supabase.functions.invoke('extract-payment-from-audio', {
         body: { 
           audio: base64Audio,
-          totalValue 
+          totalValue,
+          conversationHistory
         }
       });
 
@@ -81,28 +154,7 @@ export function usePaymentVoiceExtraction(): UsePaymentVoiceExtractionReturn {
         throw new Error(error.message || 'Erro ao processar áudio');
       }
 
-      const result = data as ExtractionResult;
-
-      if (!result.success) {
-        throw new Error(result.error || 'Erro ao extrair pagamentos');
-      }
-
-      setTranscription(result.transcription || null);
-      setReasoning(result.reasoning || null);
-
-      // Convert to SelectedPaymentMethod format
-      const payments: SelectedPaymentMethod[] = (result.payments || []).map((p) => ({
-        method: p.method,
-        amount: p.amount,
-        installments: p.installments,
-        installment_value: p.installments > 0 ? p.amount / p.installments : p.amount,
-        percentage: totalValue > 0 ? (p.amount / totalValue) * 100 : 0
-      }));
-
-      setExtractedPayments(payments);
-      console.log('[usePaymentVoiceExtraction] Pagamentos extraídos:', payments);
-
-      return true;
+      return processResult(data as ExtractionResult, totalValue);
     } catch (err) {
       console.error('[usePaymentVoiceExtraction] Erro:', err);
       setExtractionError(err instanceof Error ? err.message : 'Erro desconhecido');
@@ -110,13 +162,92 @@ export function usePaymentVoiceExtraction(): UsePaymentVoiceExtractionReturn {
     } finally {
       setIsExtracting(false);
     }
-  }, [audioRecorder.audioBlob]);
+  }, [audioRecorder.audioBlob, conversationHistory, processResult]);
+
+  const respondWithText = useCallback(async (text: string, totalValue: number): Promise<boolean> => {
+    if (!text.trim()) {
+      setExtractionError('Digite uma resposta');
+      return false;
+    }
+
+    setIsExtracting(true);
+    setExtractionError(null);
+
+    try {
+      console.log('[usePaymentVoiceExtraction] Enviando resposta de texto:', text);
+
+      const { data, error } = await supabase.functions.invoke('extract-payment-from-audio', {
+        body: { 
+          textResponse: text,
+          totalValue,
+          conversationHistory
+        }
+      });
+
+      if (error) {
+        console.error('[usePaymentVoiceExtraction] Erro na invocação:', error);
+        throw new Error(error.message || 'Erro ao processar resposta');
+      }
+
+      return processResult(data as ExtractionResult, totalValue);
+    } catch (err) {
+      console.error('[usePaymentVoiceExtraction] Erro:', err);
+      setExtractionError(err instanceof Error ? err.message : 'Erro desconhecido');
+      return false;
+    } finally {
+      setIsExtracting(false);
+    }
+  }, [conversationHistory, processResult]);
+
+  const respondWithAudio = useCallback(async (totalValue: number): Promise<boolean> => {
+    if (!audioRecorder.audioBlob) {
+      setExtractionError('Nenhum áudio gravado');
+      return false;
+    }
+
+    setIsExtracting(true);
+    setExtractionError(null);
+
+    try {
+      const arrayBuffer = await audioRecorder.audioBlob.arrayBuffer();
+      const base64Audio = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+
+      console.log('[usePaymentVoiceExtraction] Enviando resposta de áudio');
+
+      const { data, error } = await supabase.functions.invoke('extract-payment-from-audio', {
+        body: { 
+          audio: base64Audio,
+          totalValue,
+          conversationHistory
+        }
+      });
+
+      if (error) {
+        console.error('[usePaymentVoiceExtraction] Erro na invocação:', error);
+        throw new Error(error.message || 'Erro ao processar áudio');
+      }
+
+      return processResult(data as ExtractionResult, totalValue);
+    } catch (err) {
+      console.error('[usePaymentVoiceExtraction] Erro:', err);
+      setExtractionError(err instanceof Error ? err.message : 'Erro desconhecido');
+      return false;
+    } finally {
+      setIsExtracting(false);
+    }
+  }, [audioRecorder.audioBlob, conversationHistory, processResult]);
 
   const clearExtraction = useCallback(() => {
     setExtractedPayments(null);
     setTranscription(null);
     setReasoning(null);
     setExtractionError(null);
+    setNeedsMoreInfo(false);
+    setQuestions([]);
+    setPartialPayments([]);
+    setConversationHistory([]);
   }, []);
 
   const reset = useCallback(() => {
@@ -137,11 +268,19 @@ export function usePaymentVoiceExtraction(): UsePaymentVoiceExtractionReturn {
     reasoning,
     extractionError: extractionError || audioRecorder.error,
     
+    // Conversation state
+    needsMoreInfo,
+    questions,
+    partialPayments,
+    conversationHistory,
+    
     // Actions
     startRecording: audioRecorder.startRecording,
     stopRecording: audioRecorder.stopRecording,
     cancelRecording: audioRecorder.cancelRecording,
     extractPayments,
+    respondWithText,
+    respondWithAudio,
     clearExtraction,
     reset,
   };
