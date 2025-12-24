@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -270,6 +270,85 @@ export function ScouterLeadsModal({
     return null;
   };
 
+  const renderPhotoBadge = (lead: LeadData) => {
+    const hasPhoto = lead.photo_url && 
+      lead.photo_url !== '' && 
+      lead.photo_url !== '[]';
+    
+    if (hasPhoto) {
+      return (
+        <Badge className="bg-blue-500 hover:bg-blue-600 text-white text-xs whitespace-nowrap">
+          <Camera className="h-3 w-3 mr-1" />
+          Foto
+        </Badge>
+      );
+    }
+    return null;
+  };
+
+  // Formatar endereço para exibição resumida
+  const formatAddress = (fullAddress: string | null): string => {
+    if (!fullAddress) return '-';
+    
+    // Partes a remover (padrões de geocoding)
+    const partsToRemove = [
+      /,?\s*Região Imediata de[^,]*/gi,
+      /,?\s*Região Metropolitana de[^,]*/gi,
+      /,?\s*Região Geográfica Intermediária de[^,]*/gi,
+      /,?\s*Região (Sudeste|Norte|Sul|Centro-Oeste|Nordeste)/gi,
+      /,?\s*Brasil$/gi,
+      /,?\s*\d{5}-\d{3}/g, // CEP
+    ];
+    
+    let cleaned = fullAddress;
+    partsToRemove.forEach(pattern => {
+      cleaned = cleaned.replace(pattern, '');
+    });
+    
+    // Limpar vírgulas duplicadas e espaços extras
+    cleaned = cleaned.replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim();
+    cleaned = cleaned.replace(/,\s*$/, '');
+    
+    // Pegar partes e identificar estado
+    const parts = cleaned.split(',').map(p => p.trim()).filter(p => p);
+    
+    // Tentar identificar cidade e estado (ex: "São Paulo" é cidade e estado)
+    const statePattern = /^(São Paulo|Rio de Janeiro|Minas Gerais|Bahia|Paraná|Santa Catarina|Rio Grande do Sul|Goiás|Pernambuco|Ceará|Espírito Santo|Maranhão|Mato Grosso|Mato Grosso do Sul|Amazonas|Pará|Piauí|Sergipe|Alagoas|Paraíba|Rio Grande do Norte|Tocantins|Acre|Amapá|Rondônia|Roraima|Distrito Federal)$/i;
+    
+    const stateAbbr: { [key: string]: string } = {
+      'são paulo': 'SP', 'rio de janeiro': 'RJ', 'minas gerais': 'MG', 'bahia': 'BA',
+      'paraná': 'PR', 'santa catarina': 'SC', 'rio grande do sul': 'RS', 'goiás': 'GO',
+      'pernambuco': 'PE', 'ceará': 'CE', 'espírito santo': 'ES', 'maranhão': 'MA',
+      'mato grosso': 'MT', 'mato grosso do sul': 'MS', 'amazonas': 'AM', 'pará': 'PA',
+      'piauí': 'PI', 'sergipe': 'SE', 'alagoas': 'AL', 'paraíba': 'PB',
+      'rio grande do norte': 'RN', 'tocantins': 'TO', 'acre': 'AC', 'amapá': 'AP',
+      'rondônia': 'RO', 'roraima': 'RR', 'distrito federal': 'DF'
+    };
+    
+    // Encontrar e remover estado, guardando a abreviação
+    let stateAbbreviation = '';
+    const filteredParts = parts.filter(part => {
+      if (statePattern.test(part)) {
+        stateAbbreviation = stateAbbr[part.toLowerCase()] || '';
+        return false;
+      }
+      return true;
+    });
+    
+    // Se tiver muitas partes, limitar
+    let result = filteredParts.slice(0, 5).join(', ');
+    
+    // Adicionar estado abreviado à cidade (última parte antes do estado)
+    if (stateAbbreviation && filteredParts.length > 0) {
+      const lastPart = filteredParts[filteredParts.length - 1];
+      result = filteredParts.slice(0, -1).join(', ');
+      if (result) result += ', ';
+      result += `${lastPart}-${stateAbbreviation}`;
+    }
+    
+    return result || '-';
+  };
+
   const duplicatesCount = duplicateStatus.size;
   const uniqueLeadsCount = (leads?.length || 0) - duplicatesCount;
   const isChecking = checkProgress.phase !== 'idle' && checkProgress.phase !== 'complete';
@@ -419,6 +498,7 @@ export function ScouterLeadsModal({
                         <span className="font-mono">{lead.lead_id}</span>
                       </div>
                       <div className="flex items-center gap-2">
+                        {renderPhotoBadge(lead)}
                         {renderConfirmadoBadge(lead)}
                         {renderDuplicateBadge(lead)}
                         <LeadActions
@@ -451,7 +531,7 @@ export function ScouterLeadsModal({
                       <div className="flex items-center gap-2">
                         <MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <span className="text-xs text-muted-foreground truncate">
-                          {lead.address || '-'}
+                          {formatAddress(lead.address)}
                         </span>
                       </div>
                     </div>
@@ -485,11 +565,14 @@ export function ScouterLeadsModal({
                           ? format(new Date(lead.criado), "dd/MM/yyyy HH:mm", { locale: ptBR })
                           : '-'}
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {lead.address || '-'}
+                      <TableCell className="text-sm max-w-[250px]">
+                        <span className="truncate block" title={lead.address || ''}>
+                          {formatAddress(lead.address)}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 flex-wrap">
+                          {renderPhotoBadge(lead)}
                           {renderConfirmadoBadge(lead)}
                           {renderDuplicateBadge(lead)}
                         </div>
