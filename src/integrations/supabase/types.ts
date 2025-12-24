@@ -4913,13 +4913,13 @@ export type Database = {
         Returns: {
           address: string
           celular: string
-          commercial_project_id: string
           criado: string
-          etapa_lead: string
           ficha_confirmada: boolean
           lead_id: number
           nome_modelo: string
           nome_responsavel: string
+          phone_normalized: string
+          photo_url: string
         }[]
       }
       get_scouter_location_stats: { Args: never; Returns: Json }
