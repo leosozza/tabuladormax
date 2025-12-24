@@ -226,35 +226,21 @@ export function AgenciamentoAssistant({
             </div>
             <span className="text-xs text-muted-foreground ml-7">{currentProvider.name}</span>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Immersive Voice Mode Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setVoiceOverlayOpen(true)}
-              className="gap-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-primary/30 hover:bg-primary/10"
-              title="Modo Voz Imersivo"
-            >
-              <Radio className="h-4 w-4 text-primary" />
-              <span className="hidden sm:inline text-xs">Modo Voz</span>
-            </Button>
-
-            {/* Voice Response Toggle */}
-            <Button
-              variant={voiceResponseEnabled ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setVoiceResponseEnabled(!voiceResponseEnabled)}
-              className="gap-1.5"
-              title={voiceResponseEnabled ? "Desativar resposta por voz" : "Ativar resposta por voz"}
-            >
-              {voiceResponseEnabled ? (
-                <Volume2 className="h-4 w-4" />
-              ) : (
-                <VolumeX className="h-4 w-4" />
-              )}
-              <span className="hidden sm:inline text-xs">Voz</span>
-            </Button>
-          </div>
+          {/* Voice Response Toggle */}
+          <Button
+            variant={voiceResponseEnabled ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setVoiceResponseEnabled(!voiceResponseEnabled)}
+            className="gap-1.5"
+            title={voiceResponseEnabled ? "Desativar resposta por voz" : "Ativar resposta por voz"}
+          >
+            {voiceResponseEnabled ? (
+              <Volume2 className="h-4 w-4" />
+            ) : (
+              <VolumeX className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline text-xs">Voz</span>
+          </Button>
         </div>
         
         {/* Progress Steps */}
@@ -457,11 +443,13 @@ export function AgenciamentoAssistant({
               </Button>
               <Button 
                 variant="outline" 
-                onClick={handleStartRecording}
+                onClick={() => setVoiceOverlayOpen(true)}
                 disabled={isProcessing}
                 size="icon"
+                className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-primary/30 hover:bg-primary/10"
+                title="Modo Voz Imersivo"
               >
-                <Mic className="h-4 w-4" />
+                <Radio className="h-4 w-4 text-primary" />
               </Button>
             </div>
           )}
