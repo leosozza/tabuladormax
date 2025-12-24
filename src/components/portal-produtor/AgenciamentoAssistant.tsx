@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { useAgenciamentoAssistant, AgenciamentoStage, AgenciamentoData, PaymentMethodData } from '@/hooks/useAgenciamentoAssistant';
 import { BitrixProduct } from '@/lib/bitrix';
 import { PAYMENT_METHOD_LABELS, PaymentMethod } from '@/types/agenciamento';
-import { VoiceAssistantOverlay } from '@/components/audio/VoiceAssistantOverlay';
+import { SimpleVoiceModeOverlay } from '@/components/audio/SimpleVoiceModeOverlay';
 
 interface AgenciamentoAssistantProps {
   products: BitrixProduct[];
@@ -546,7 +546,7 @@ export function AgenciamentoAssistant({
       )}
 
       {/* Voice Assistant Overlay */}
-      <VoiceAssistantOverlay
+      <SimpleVoiceModeOverlay
         isOpen={voiceOverlayOpen}
         onClose={() => setVoiceOverlayOpen(false)}
         onSendAudio={async (blob) => {
