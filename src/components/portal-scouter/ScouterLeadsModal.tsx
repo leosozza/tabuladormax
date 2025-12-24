@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X } from "lucide-react";
 import { getLeadPhotoUrl, needsPhotoSync } from '@/lib/leadPhotoUtils';
 import noPhotoPlaceholder from '@/assets/no-photo-placeholder.png';
 import { toast } from "sonner";
@@ -100,8 +100,45 @@ export function ScouterLeadsModal({
       setCurrentPage(1);
       setSearchTerm('');
       setSortOrder('recent');
+      setPhotoPreviewLead(null);
+      setIsSyncingPhoto(false);
     }
   }, [isOpen]);
+
+  // Sincronização automática de foto ao abrir preview
+  useEffect(() => {
+    const syncPhotoIfNeeded = async () => {
+      if (!photoPreviewLead?.lead_id) return;
+      if (!needsPhotoSync(photoPreviewLead.photo_url)) return;
+      
+      setIsSyncingPhoto(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('bitrix-photo-sync', {
+          body: { leadId: photoPreviewLead.lead_id }
+        });
+        
+        if (error) throw error;
+        
+        // Atualizar cache
+        queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
+        
+        // Atualizar o lead atual com a nova URL da foto
+        if (data?.publicUrls?.length > 0) {
+          setPhotoPreviewLead(prev => prev ? {
+            ...prev,
+            photo_url: JSON.stringify(data.publicUrls)
+          } : null);
+        }
+      } catch (err: any) {
+        console.error('Erro ao sincronizar foto:', err);
+        toast.error('Erro ao carregar foto do Bitrix');
+      } finally {
+        setIsSyncingPhoto(false);
+      }
+    };
+    
+    syncPhotoIfNeeded();
+  }, [photoPreviewLead?.lead_id, queryClient]);
 
   // Filtrar e ordenar leads
   const filteredAndSortedLeads = useMemo(() => {
@@ -684,58 +721,24 @@ export function ScouterLeadsModal({
             </div>
             
             {/* Foto */}
-            <div className="w-full flex items-center justify-center p-4">
-              <img
-                src={getLeadPhotoUrl(photoPreviewLead?.photo_url)}
-                alt={`Foto do lead ${photoPreviewLead?.lead_id}`}
-                className="max-w-full max-h-[60vh] object-contain rounded-lg"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = noPhotoPlaceholder;
-                }}
-              />
-            </div>
-
-            {/* Botão de sincronização se foto não está sincronizada */}
-            {needsPhotoSync(photoPreviewLead?.photo_url) && (
-              <div className="w-full px-4 pb-4 space-y-2">
-                <Button
-                  onClick={async () => {
-                    if (!photoPreviewLead?.lead_id) return;
-                    setIsSyncingPhoto(true);
-                    
-                    try {
-                      const { data, error } = await supabase.functions.invoke('bitrix-photo-sync', {
-                        body: { leadId: photoPreviewLead.lead_id }
-                      });
-                      
-                      if (error) throw error;
-                      
-                      toast.success(`Foto sincronizada! ${data?.publicUrls?.length || 0} foto(s) processada(s)`);
-                      queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
-                      setPhotoPreviewLead(null);
-                    } catch (err: any) {
-                      console.error('Erro ao sincronizar foto:', err);
-                      toast.error(err.message || 'Erro ao sincronizar foto');
-                    } finally {
-                      setIsSyncingPhoto(false);
-                    }
+            <div className="w-full flex items-center justify-center p-4 min-h-[200px]">
+              {isSyncingPhoto ? (
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <p className="text-sm">Carregando foto do Bitrix...</p>
+                </div>
+              ) : (
+                <img
+                  src={getLeadPhotoUrl(photoPreviewLead?.photo_url)}
+                  alt={`Foto do lead ${photoPreviewLead?.lead_id}`}
+                  className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = noPhotoPlaceholder;
                   }}
-                  disabled={isSyncingPhoto}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  {isSyncingPhoto ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                  )}
-                  Sincronizar Foto do Bitrix
-                </Button>
-                <p className="text-xs text-gray-400 text-center">
-                  Esta foto ainda está no Bitrix. Clique para baixar e armazenar localmente.
-                </p>
-              </div>
-            )}
+                />
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
