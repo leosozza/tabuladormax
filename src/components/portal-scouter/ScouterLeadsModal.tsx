@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X } from "lucide-react";
-import { getLeadPhotoUrl } from '@/lib/leadPhotoUtils';
+import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X, RefreshCw } from "lucide-react";
+import { getLeadPhotoUrl, needsPhotoSync } from '@/lib/leadPhotoUtils';
 import noPhotoPlaceholder from '@/assets/no-photo-placeholder.png';
+import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -68,6 +69,7 @@ export function ScouterLeadsModal({
   const [checkProgress, setCheckProgress] = useState<DuplicateCheckProgress>({ phase: 'idle', progress: 0, message: '' });
   const [editingLead, setEditingLead] = useState<LeadData | null>(null);
   const [photoPreviewLead, setPhotoPreviewLead] = useState<LeadData | null>(null);
+  const [isSyncingPhoto, setIsSyncingPhoto] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
   const queryClient = useQueryClient();
@@ -693,6 +695,47 @@ export function ScouterLeadsModal({
                 }}
               />
             </div>
+
+            {/* Botão de sincronização se foto não está sincronizada */}
+            {needsPhotoSync(photoPreviewLead?.photo_url) && (
+              <div className="w-full px-4 pb-4 space-y-2">
+                <Button
+                  onClick={async () => {
+                    if (!photoPreviewLead?.lead_id) return;
+                    setIsSyncingPhoto(true);
+                    
+                    try {
+                      const { data, error } = await supabase.functions.invoke('bitrix-photo-sync', {
+                        body: { leadId: photoPreviewLead.lead_id }
+                      });
+                      
+                      if (error) throw error;
+                      
+                      toast.success(`Foto sincronizada! ${data?.publicUrls?.length || 0} foto(s) processada(s)`);
+                      queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
+                      setPhotoPreviewLead(null);
+                    } catch (err: any) {
+                      console.error('Erro ao sincronizar foto:', err);
+                      toast.error(err.message || 'Erro ao sincronizar foto');
+                    } finally {
+                      setIsSyncingPhoto(false);
+                    }
+                  }}
+                  disabled={isSyncingPhoto}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  {isSyncingPhoto ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Sincronizar Foto do Bitrix
+                </Button>
+                <p className="text-xs text-gray-400 text-center">
+                  Esta foto ainda está no Bitrix. Clique para baixar e armazenar localmente.
+                </p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
