@@ -19,9 +19,7 @@ import {
   Calculator, CreditCard, Loader2, Package, Check, X,
   CalendarIcon, FileText, ChevronDown, GitCompare, Mic, MessageSquare
 } from 'lucide-react';
-import { PaymentVoiceAssistant } from '@/components/agenciamento/PaymentVoiceAssistant';
 import { AgenciamentoAssistant } from '@/components/portal-produtor/AgenciamentoAssistant';
-import { SelectedPaymentMethod } from '@/types/agenciamento';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -148,7 +146,6 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
   const [status, setStatus] = useState<string>(deal.negotiation_status || 'inicial');
   const [isServicesOpen, setIsServicesOpen] = useState(true);
   const [showComparison, setShowComparison] = useState(false);
-  const [showVoiceAssistant, setShowVoiceAssistant] = useState(false);
   const [showFullAssistant, setShowFullAssistant] = useState(false);
 
   // Handler para dados do assistente completo
@@ -200,37 +197,6 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
     return mapping[method] || method;
   };
 
-  // Handler para pagamentos extraídos pelo assistente de voz
-  const handleVoicePaymentsExtracted = (extractedPayments: SelectedPaymentMethod[]) => {
-    const newPayments: PaymentMethod[] = extractedPayments.map(ep => {
-      // Cast para acessar campos extras que vêm da edge function
-      const extended = ep as SelectedPaymentMethod & { due_date?: string };
-      
-      const basePayment: PaymentMethod = {
-        id: crypto.randomUUID(),
-        method: mapMethodType(ep.method),
-        value: ep.amount || 0,
-      };
-
-      // Adicionar campos específicos por tipo
-      if (ep.installments) {
-        basePayment.installments = ep.installments;
-      }
-      if (extended.due_date) {
-        basePayment.firstDueDate = extended.due_date;
-        // Calcular datas dos boletos se aplicável
-        if (basePayment.method === 'boleto' && ep.installments) {
-          basePayment.dueDates = calculateBoletooDates(new Date(extended.due_date), ep.installments);
-        }
-      }
-
-      return basePayment;
-    });
-
-    setPaymentMethods(prev => [...prev, ...newPayments]);
-    setShowVoiceAssistant(false);
-    toast.success(`${newPayments.length} forma(s) de pagamento adicionada(s)`);
-  };
 
   // Buscar produtos da seção SERVIÇOS E PROJETOS
   const { data: products, isLoading: loadingProducts } = useQuery({
@@ -853,37 +819,14 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
               <CreditCard className="h-4 w-4" />
               Formas de Pagamento
             </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={addPaymentMethod} className="h-8 gap-1">
-                <Plus className="h-3 w-3" />
-                <span className="hidden sm:inline">Adicionar</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setShowVoiceAssistant(true)} 
-                className="h-8 gap-1"
-                title="Falar formas de pagamento"
-              >
-                <Mic className="h-3 w-3" />
-                <span className="hidden sm:inline">Voz</span>
-              </Button>
-            </div>
+            <Button variant="outline" size="sm" onClick={addPaymentMethod} className="h-8 gap-1">
+              <Plus className="h-3 w-3" />
+              <span className="hidden sm:inline">Adicionar</span>
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {/* Assistente de Voz */}
-          {showVoiceAssistant && (
-            <div className="mb-4">
-              <PaymentVoiceAssistant
-                totalValue={totalValue}
-                onPaymentsExtracted={handleVoicePaymentsExtracted}
-                onClose={() => setShowVoiceAssistant(false)}
-              />
-            </div>
-          )}
-
-          {paymentMethods.length === 0 && !showVoiceAssistant ? (
+          {paymentMethods.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               Nenhuma forma de pagamento
             </p>
