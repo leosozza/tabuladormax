@@ -518,8 +518,16 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
               products={products}
               clientName={deal.client_name || undefined}
               dealTitle={deal.title}
-              defaultPackage={products.find(p => p.PRICE === deal.opportunity) || null}
-              defaultValue={deal.opportunity || undefined}
+              defaultPackage={
+                selectedProductId 
+                  ? products.find(p => p.ID === selectedProductId) || null
+                  : products.find(p => p.PRICE === deal.opportunity) || null
+              }
+              defaultValue={
+                selectedProductId 
+                  ? products.find(p => p.ID === selectedProductId)?.PRICE 
+                  : (deal.opportunity || undefined)
+              }
               onComplete={handleFullAssistantComplete}
               onCancel={() => setShowFullAssistant(false)}
             />
