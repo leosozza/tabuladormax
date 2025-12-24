@@ -406,12 +406,38 @@ Qual pacote o cliente escolheu?`;
           break;
 
         case 'set_payment_methods':
-          setData(prev => ({
-            ...prev,
-            paymentMethods: result.data.payments,
-            stage: 'review'
-          }));
-          setStage('review');
+          // Validação de segurança: verificar se há boleto parcelado sem data de vencimento
+          const payments = result.data.payments || [];
+          const boletoParceladoSemData = payments.find(
+            (p: any) => p.method === 'boleto' && p.installments > 1 && !p.dueDate
+          );
+          
+          if (boletoParceladoSemData) {
+            // Interceptar: boleto parcelado sem data, forçar pergunta
+            console.log('[useAgenciamentoAssistant] Interceptando boleto parcelado sem data de vencimento');
+            setPendingBoletoData({
+              method: boletoParceladoSemData.method,
+              amount: boletoParceladoSemData.amount,
+              installments: boletoParceladoSemData.installments
+            });
+            // Salvar os outros pagamentos para depois
+            const outrosPagamentos = payments.filter((p: any) => p !== boletoParceladoSemData);
+            setData(prev => ({
+              ...prev,
+              paymentMethods: outrosPagamentos
+            }));
+            setShowDatePicker(true);
+            setCurrentMessage('Qual será a data do primeiro vencimento do boleto?');
+            setMessages(prev => [...prev, { role: 'assistant', content: 'Qual será a data do primeiro vencimento do boleto?' }]);
+            speakText('Qual será a data do primeiro vencimento do boleto?');
+          } else {
+            setData(prev => ({
+              ...prev,
+              paymentMethods: payments,
+              stage: 'review'
+            }));
+            setStage('review');
+          }
           break;
 
         case 'complete_negotiation':
