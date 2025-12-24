@@ -24,63 +24,67 @@ serve(async (req) => {
   }
 
   try {
-    const { audio, totalValue } = await req.json();
+    const { audio, totalValue, conversationHistory, textResponse } = await req.json();
     
-    if (!audio) {
-      throw new Error('Nenhum áudio fornecido');
+    // Check if this is a text response to a previous question
+    const isFollowUp = !!textResponse || (conversationHistory && conversationHistory.length > 0 && !audio);
+
+    if (!audio && !textResponse) {
+      throw new Error('Nenhum áudio ou resposta fornecida');
     }
 
     if (!totalValue || totalValue <= 0) {
       throw new Error('Valor total inválido');
     }
 
-    console.log('[extract-payment] Recebido áudio, totalValue:', totalValue);
+    console.log('[extract-payment] Recebido, totalValue:', totalValue, 'isFollowUp:', isFollowUp);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY não configurada');
     }
 
-    // Step 1: Transcribe audio using Whisper via Lovable AI Gateway
-    console.log('[extract-payment] Transcrevendo áudio...');
-    
-    // Convert base64 to binary for Whisper
-    const binaryAudio = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
-    const audioBlob = new Blob([binaryAudio], { type: 'audio/mpeg' });
-    
-    const formData = new FormData();
-    formData.append('file', audioBlob, 'audio.mp3');
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'pt');
+    let transcription = textResponse || '';
 
-    const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: formData,
-    });
+    // Step 1: Transcribe audio if provided
+    if (audio) {
+      console.log('[extract-payment] Transcrevendo áudio...');
+      
+      const binaryAudio = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
+      const audioBlob = new Blob([binaryAudio], { type: 'audio/mpeg' });
+      
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'audio.mp3');
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'pt');
 
-    if (!transcriptionResponse.ok) {
-      const errorText = await transcriptionResponse.text();
-      console.error('[extract-payment] Erro na transcrição:', errorText);
-      throw new Error(`Erro na transcrição: ${transcriptionResponse.status}`);
+      const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        },
+        body: formData,
+      });
+
+      if (!transcriptionResponse.ok) {
+        const errorText = await transcriptionResponse.text();
+        console.error('[extract-payment] Erro na transcrição:', errorText);
+        throw new Error(`Erro na transcrição: ${transcriptionResponse.status}`);
+      }
+
+      const transcriptionResult = await transcriptionResponse.json();
+      transcription = transcriptionResult.text;
+      
+      console.log('[extract-payment] Transcrição:', transcription);
+
+      if (!transcription || transcription.trim().length < 3) {
+        throw new Error('Não foi possível entender o áudio. Por favor, fale mais claramente.');
+      }
     }
 
-    const transcriptionResult = await transcriptionResponse.json();
-    const transcription = transcriptionResult.text;
-    
-    console.log('[extract-payment] Transcrição:', transcription);
-
-    if (!transcription || transcription.trim().length < 5) {
-      throw new Error('Não foi possível entender o áudio. Por favor, fale mais claramente.');
-    }
-
-    // Step 2: Extract payment methods using Gemini with tool calling
-    console.log('[extract-payment] Extraindo formas de pagamento...');
-
+    // Step 2: Build conversation messages
     const systemPrompt = `Você é um assistente especializado em extrair informações de pagamento de texto em português brasileiro.
-Você deve analisar o texto e extrair as formas de pagamento mencionadas.
+Você está em uma conversa com um produtor rural que está explicando como o cliente vai pagar.
 
 IMPORTANTE:
 - O valor total da negociação é R$ ${totalValue.toFixed(2)}
@@ -100,12 +104,28 @@ Métodos de pagamento disponíveis:
 - check: Cheque
 - financing: Financiamento
 
-Exemplos de interpretação:
-- "5 mil no PIX de entrada" → {method: "pix", amount: 5000, installments: 1}
-- "3x de 2 mil no cartão" → {method: "credit_card", amount: 6000, installments: 3}
-- "o resto em 6x no boleto" → calcule o restante e divida em 6 parcelas
-- "entrada de 30%" → calcule 30% do valor total`;
+REGRAS PARA PERGUNTAS:
+Se você não tiver informação suficiente para preencher todos os detalhes, faça perguntas usando a função ask_questions.
+Situações que requerem perguntas:
+1. Soma dos pagamentos < valor total → Pergunte como será pago o restante
+2. Boleto/financiamento sem número de parcelas → Pergunte quantas parcelas
+3. Boleto sem data de vencimento do primeiro → Pergunte a data (opcional, só se parecer importante)
+4. Valor ambíguo → Pergunte para clarificar (ex: "3 mil é o valor total ou de cada parcela?")
 
+Se você tiver todas as informações necessárias E a soma dos pagamentos for igual ou próxima do valor total (tolerância de R$ 10), use set_payment_methods.`;
+
+    // Build messages array with conversation history
+    const messages: any[] = [{ role: 'system', content: systemPrompt }];
+    
+    if (conversationHistory && conversationHistory.length > 0) {
+      messages.push(...conversationHistory);
+    }
+    
+    messages.push({ role: 'user', content: transcription });
+
+    console.log('[extract-payment] Mensagens para IA:', messages.length);
+
+    // Step 3: Call AI with both tools available
     const extractionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -114,51 +134,100 @@ Exemplos de interpretação:
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Extraia as formas de pagamento do seguinte texto:\n\n"${transcription}"` }
-        ],
-        tools: [{
-          type: 'function',
-          function: {
-            name: 'set_payment_methods',
-            description: 'Define as formas de pagamento extraídas do texto',
-            parameters: {
-              type: 'object',
-              properties: {
-                payments: {
-                  type: 'array',
-                  description: 'Lista de formas de pagamento extraídas',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      method: {
-                        type: 'string',
-                        enum: ['pix', 'credit_card', 'debit_card', 'boleto', 'bank_transfer', 'cash', 'check', 'financing'],
-                        description: 'Tipo de forma de pagamento'
+        messages,
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'set_payment_methods',
+              description: 'Define as formas de pagamento quando TODAS as informações necessárias estiverem disponíveis e a soma dos valores for igual ou próxima ao valor total',
+              parameters: {
+                type: 'object',
+                properties: {
+                  payments: {
+                    type: 'array',
+                    description: 'Lista de formas de pagamento extraídas',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        method: {
+                          type: 'string',
+                          enum: ['pix', 'credit_card', 'debit_card', 'boleto', 'bank_transfer', 'cash', 'check', 'financing'],
+                          description: 'Tipo de forma de pagamento'
+                        },
+                        amount: {
+                          type: 'number',
+                          description: 'Valor total desta forma de pagamento em reais (não o valor da parcela)'
+                        },
+                        installments: {
+                          type: 'number',
+                          description: 'Número de parcelas (1 para pagamento à vista)'
+                        }
                       },
-                      amount: {
-                        type: 'number',
-                        description: 'Valor total desta forma de pagamento em reais (não o valor da parcela)'
-                      },
-                      installments: {
-                        type: 'number',
-                        description: 'Número de parcelas (1 para pagamento à vista)'
-                      }
-                    },
-                    required: ['method', 'amount', 'installments']
+                      required: ['method', 'amount', 'installments']
+                    }
+                  },
+                  reasoning: {
+                    type: 'string',
+                    description: 'Breve explicação de como você interpretou o texto'
                   }
                 },
-                reasoning: {
-                  type: 'string',
-                  description: 'Breve explicação de como você interpretou o texto'
-                }
-              },
-              required: ['payments', 'reasoning']
+                required: ['payments', 'reasoning']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'ask_questions',
+              description: 'Faz perguntas ao usuário quando faltam informações importantes para completar os pagamentos',
+              parameters: {
+                type: 'object',
+                properties: {
+                  questions: {
+                    type: 'array',
+                    description: 'Lista de perguntas para o usuário',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        id: {
+                          type: 'string',
+                          description: 'Identificador único da pergunta (ex: remaining_balance, installments_count)'
+                        },
+                        question: {
+                          type: 'string',
+                          description: 'A pergunta em português, de forma amigável e direta'
+                        }
+                      },
+                      required: ['id', 'question']
+                    }
+                  },
+                  partialPayments: {
+                    type: 'array',
+                    description: 'Pagamentos já identificados até agora',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        method: {
+                          type: 'string',
+                          enum: ['pix', 'credit_card', 'debit_card', 'boleto', 'bank_transfer', 'cash', 'check', 'financing']
+                        },
+                        amount: { type: 'number' },
+                        installments: { type: 'number' }
+                      },
+                      required: ['method']
+                    }
+                  },
+                  context: {
+                    type: 'string',
+                    description: 'Resumo do que foi entendido até agora para manter contexto'
+                  }
+                },
+                required: ['questions', 'context']
+              }
             }
           }
-        }],
-        tool_choice: { type: 'function', function: { name: 'set_payment_methods' } }
+        ],
       }),
     });
 
@@ -177,44 +246,100 @@ Exemplos de interpretação:
     }
 
     const extractionResult = await extractionResponse.json();
-    console.log('[extract-payment] Resultado da extração:', JSON.stringify(extractionResult, null, 2));
+    console.log('[extract-payment] Resultado:', JSON.stringify(extractionResult, null, 2));
 
-    // Parse the tool call response
-    const toolCall = extractionResult.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall || toolCall.function.name !== 'set_payment_methods') {
-      throw new Error('Não foi possível extrair as formas de pagamento. Tente novamente.');
+    // Parse the response
+    const message = extractionResult.choices?.[0]?.message;
+    const toolCall = message?.tool_calls?.[0];
+
+    if (!toolCall) {
+      // AI responded with text instead of tool call - treat as needs_info
+      const aiMessage = message?.content || 'Não entendi. Pode repetir as formas de pagamento?';
+      return new Response(JSON.stringify({
+        success: true,
+        status: 'needs_info',
+        transcription,
+        questions: [{ id: 'clarification', question: aiMessage }],
+        partialPayments: [],
+        context: transcription,
+        conversationHistory: [
+          ...messages.slice(1), // Exclude system prompt
+          { role: 'assistant', content: aiMessage }
+        ]
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const parsedArgs = JSON.parse(toolCall.function.arguments);
-    const payments = parsedArgs.payments || [];
-    const reasoning = parsedArgs.reasoning || '';
 
-    console.log('[extract-payment] Pagamentos extraídos:', payments);
-    console.log('[extract-payment] Raciocínio:', reasoning);
+    if (toolCall.function.name === 'ask_questions') {
+      // AI needs more information
+      const questions = parsedArgs.questions || [];
+      const partialPayments = parsedArgs.partialPayments || [];
+      const context = parsedArgs.context || '';
 
-    // Validate payments
-    if (!payments || payments.length === 0) {
-      throw new Error('Não foram identificadas formas de pagamento no áudio. Tente ser mais específico.');
+      console.log('[extract-payment] Precisa de mais info:', questions);
+
+      // Build updated conversation history
+      const updatedHistory = [
+        ...messages.slice(1), // Exclude system prompt
+        { 
+          role: 'assistant', 
+          content: `Preciso de mais informações: ${questions.map((q: any) => q.question).join(' ')}`,
+          tool_calls: [toolCall]
+        }
+      ];
+
+      return new Response(JSON.stringify({
+        success: true,
+        status: 'needs_info',
+        transcription,
+        questions,
+        partialPayments: partialPayments.map((p: any) => ({
+          method: p.method,
+          amount: p.amount || 0,
+          installments: p.installments || 1
+        })),
+        context,
+        conversationHistory: updatedHistory
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Calculate totals and validate
-    const totalExtracted = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-    
-    return new Response(JSON.stringify({
-      success: true,
-      transcription,
-      payments: payments.map((p: any) => ({
-        method: p.method,
-        amount: Math.round(p.amount * 100) / 100, // Round to 2 decimal places
-        installments: Math.max(1, Math.round(p.installments || 1))
-      })),
-      reasoning,
-      totalExtracted,
-      totalValue,
-      difference: Math.round((totalValue - totalExtracted) * 100) / 100
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    if (toolCall.function.name === 'set_payment_methods') {
+      // AI has all information needed
+      const payments = parsedArgs.payments || [];
+      const reasoning = parsedArgs.reasoning || '';
+
+      console.log('[extract-payment] Pagamentos completos:', payments);
+
+      if (!payments || payments.length === 0) {
+        throw new Error('Não foram identificadas formas de pagamento. Tente ser mais específico.');
+      }
+
+      const totalExtracted = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        status: 'complete',
+        transcription,
+        payments: payments.map((p: any) => ({
+          method: p.method,
+          amount: Math.round(p.amount * 100) / 100,
+          installments: Math.max(1, Math.round(p.installments || 1))
+        })),
+        reasoning,
+        totalExtracted,
+        totalValue,
+        difference: Math.round((totalValue - totalExtracted) * 100) / 100
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    throw new Error('Resposta inesperada da IA. Tente novamente.');
 
   } catch (error) {
     console.error('[extract-payment] Erro:', error);
