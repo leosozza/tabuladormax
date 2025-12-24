@@ -61,6 +61,7 @@ interface UseAgenciamentoAssistantReturn {
   voiceResponseEnabled: boolean;
   setVoiceResponseEnabled: (enabled: boolean) => void;
   isSpeaking: boolean;
+  setOnSpeakingComplete: (callback: (() => void) | null) => void;
   
   // Recording state
   isRecording: boolean;
@@ -176,20 +177,30 @@ export function useAgenciamentoAssistant({
       audio.onended = () => {
         setIsSpeaking(false);
         audioRef.current = null;
+        onSpeakingCompleteRef.current?.();
       };
       
       audio.onerror = () => {
         console.error('[TTS] Audio playback error');
         setIsSpeaking(false);
         audioRef.current = null;
+        onSpeakingCompleteRef.current?.();
       };
 
       await audio.play();
     } catch (err) {
       console.error('[TTS] Error:', err);
       setIsSpeaking(false);
+      onSpeakingCompleteRef.current?.();
     }
   }, [voiceResponseEnabled]);
+
+  // Callback ref for speaking complete
+  const onSpeakingCompleteRef = useRef<(() => void) | null>(null);
+  
+  const setOnSpeakingComplete = useCallback((callback: (() => void) | null) => {
+    onSpeakingCompleteRef.current = callback;
+  }, []);
 
   const reset = useCallback(() => {
     stopSpeaking();
@@ -428,6 +439,7 @@ Qual pacote o cliente escolheu?`;
     voiceResponseEnabled,
     setVoiceResponseEnabled,
     isSpeaking,
+    setOnSpeakingComplete,
     
     // Recording state
     isRecording: audioRecorder.isRecording,
