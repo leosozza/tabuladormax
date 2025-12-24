@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { useAgenciamentoAssistant, AgenciamentoStage, AgenciamentoData, PaymentMethodData } from '@/hooks/useAgenciamentoAssistant';
 import { BitrixProduct } from '@/lib/bitrix';
 import { PAYMENT_METHOD_LABELS, PaymentMethod } from '@/types/agenciamento';
-import { SimpleVoiceModeOverlay } from '@/components/audio/SimpleVoiceModeOverlay';
+import { SimpleVoiceModeOverlay, NegotiationSummary } from '@/components/audio/SimpleVoiceModeOverlay';
 
 interface AgenciamentoAssistantProps {
   products: BitrixProduct[];
@@ -558,6 +558,30 @@ export function AgenciamentoAssistant({
         currentTranscript={messages.filter(m => m.role === 'user').slice(-1)[0]?.content}
         assistantResponse={messages.filter(m => m.role === 'assistant').slice(-1)[0]?.content}
         assistantError={error}
+        // ManyChat-style confirmation buttons
+        showConfirmationButtons={stage === 'review'}
+        onConfirm={() => {
+          confirmAndSave();
+          setVoiceOverlayOpen(false);
+        }}
+        onCorrect={() => {
+          goBack();
+        }}
+        onRestart={() => {
+          reset();
+          startAssistant();
+        }}
+        negotiationSummary={{
+          packageName: data.selectedPackage?.NAME,
+          packagePrice: data.selectedPackage?.PRICE,
+          finalValue: data.finalValue,
+          discountPercent: data.discountPercent,
+          paymentMethods: data.paymentMethods.map(pm => ({
+            method: pm.method,
+            amount: pm.amount,
+            installments: pm.installments,
+          })),
+        }}
       />
     </div>
   );
