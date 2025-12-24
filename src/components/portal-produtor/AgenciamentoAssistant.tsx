@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { 
-  Mic, MicOff, Loader2, Check, X, RotateCcw, 
+  Mic, MicOff, Loader2, Check, X, 
   Send, ChevronLeft, Package, DollarSign, CreditCard, CheckCircle,
-  MessageSquare, Settings2, Bot
+  MessageSquare, Settings2, Bot, Volume2, VolumeX
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useAgenciamentoAssistant, AgenciamentoStage, AgenciamentoData, PaymentMethodData } from '@/hooks/useAgenciamentoAssistant';
 import { BitrixProduct } from '@/lib/bitrix';
@@ -90,6 +92,9 @@ export function AgenciamentoAssistant({
     model,
     setProvider,
     setModel,
+    voiceResponseEnabled,
+    setVoiceResponseEnabled,
+    isSpeaking,
     startAssistant,
     sendMessage,
     sendAudio,
@@ -99,6 +104,7 @@ export function AgenciamentoAssistant({
     confirmAndSave,
     goBack,
     reset,
+    stopSpeaking,
   } = useAgenciamentoAssistant({
     products,
     clientName,
@@ -170,7 +176,6 @@ export function AgenciamentoAssistant({
   }, [confirmAndSave]);
 
   const currentStepNumber = STAGE_CONFIG[stage]?.step || 0;
-  const totalSteps = 4;
 
   // Calculate payment totals
   const paymentTotal = data.paymentMethods.reduce((sum, pm) => sum + pm.amount, 0);
@@ -184,8 +189,35 @@ export function AgenciamentoAssistant({
           <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-primary" />
             <h2 className="font-semibold">Assistente de Agenciamento</h2>
+            {isSpeaking && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={stopSpeaking}
+                className="h-7 px-2 gap-1 text-primary animate-pulse"
+              >
+                <Volume2 className="h-4 w-4" />
+                <span className="text-xs">Falando...</span>
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Voice Response Toggle */}
+            <Button
+              variant={voiceResponseEnabled ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setVoiceResponseEnabled(!voiceResponseEnabled)}
+              className="gap-1.5"
+              title={voiceResponseEnabled ? "Desativar resposta por voz" : "Ativar resposta por voz"}
+            >
+              {voiceResponseEnabled ? (
+                <Volume2 className="h-4 w-4" />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline text-xs">Voz</span>
+            </Button>
+
             {/* AI Provider Settings */}
             <Popover>
               <PopoverTrigger asChild>
@@ -227,6 +259,25 @@ export function AgenciamentoAssistant({
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="voice-response" className="text-sm font-medium">
+                          Resposta por Voz
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Usa ElevenLabs TTS
+                        </p>
+                      </div>
+                      <Switch
+                        id="voice-response"
+                        checked={voiceResponseEnabled}
+                        onCheckedChange={setVoiceResponseEnabled}
+                      />
+                    </div>
+                  </div>
+                  
                   <p className="text-xs text-muted-foreground">
                     {provider === 'lovable' 
                       ? 'Lovable AI usa créditos inclusos no plano' 
