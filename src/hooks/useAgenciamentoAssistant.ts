@@ -437,6 +437,23 @@ Qual pacote o cliente escolheu?`;
           setShowDatePicker(true);
           break;
 
+        case 'add_payment_method':
+          // Adicionar ao array de pagamentos existente (não substitui)
+          setData(prev => ({
+            ...prev,
+            paymentMethods: [
+              ...(prev.paymentMethods || []),
+              {
+                method: result.data.method,
+                amount: result.data.amount,
+                installments: result.data.installments,
+                dueDate: result.data.dueDate
+              }
+            ]
+            // NÃO muda o stage - continua em 'payment' até completar o valor
+          }));
+          break;
+
         case 'ask_question':
         case 'message':
           // Just display the message
