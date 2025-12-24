@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { X, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,15 +17,15 @@ interface OnboardingStep {
 const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'welcome',
-    title: 'Bem-vindo ao Portal do Scouter! 👋',
-    description: 'Este guia rápido vai te mostrar como usar todas as funcionalidades do portal. Vamos começar?',
+    title: 'Bem-vindo! 👋',
+    description: 'Vamos conhecer o Portal do Scouter.',
     position: 'center',
     icon: '🎉'
   },
   {
     id: 'date-filter',
     title: 'Filtro de Data 📅',
-    description: 'Clique aqui para escolher o período que deseja visualizar os leads. Você pode selecionar Hoje, Ontem, Esta Semana, ou um intervalo personalizado.',
+    description: 'Escolha o período para ver seus leads.',
     targetSelector: '[data-tour="date-filter"]',
     position: 'bottom',
     icon: '📅'
@@ -33,30 +33,30 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'project-filter',
     title: 'Filtro de Projeto 🏢',
-    description: 'Se você trabalha em mais de um projeto, clique aqui para filtrar os leads por projeto específico.',
+    description: 'Filtre por projeto específico.',
     targetSelector: '[data-tour="project-filter"]',
     position: 'bottom',
     icon: '🏢'
   },
   {
     id: 'leads-cards',
-    title: 'Cards de Estatísticas 📊',
-    description: 'Clique em "Total de Leads" ou qualquer outro card para abrir a lista detalhada com todos os seus leads.',
+    title: 'Estatísticas 📊',
+    description: 'Clique nos cards para ver a lista de leads.',
     targetSelector: '[data-tour="stats-cards"]',
     position: 'top',
     icon: '📊'
   },
   {
     id: 'leads-modal-info',
-    title: 'Gerenciando seus Leads 📋',
-    description: 'Na lista de leads, você pode: clicar na foto para visualizar em tamanho maior, usar os 3 pontinhos para editar, reenviar confirmação ou excluir o lead.',
+    title: 'Gerenciando Leads 📋',
+    description: 'Clique na foto para ampliar. Use os 3 pontinhos para editar ou excluir.',
     position: 'center',
     icon: '📋'
   },
   {
     id: 'ai-analysis',
     title: 'Análise por IA ✨',
-    description: 'Clique aqui para receber uma análise completa e detalhada sobre seus leads, gerada por Inteligência Artificial!',
+    description: 'Receba uma análise completa dos seus leads.',
     targetSelector: '[data-tour="ai-analysis"]',
     position: 'bottom',
     icon: '✨'
@@ -64,7 +64,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'complete',
     title: 'Tudo Pronto! 🎉',
-    description: 'Agora você conhece todas as funcionalidades do Portal do Scouter. Bom trabalho e ótimas conversões!',
+    description: 'Bom trabalho e ótimas conversões!',
     position: 'center',
     icon: '🚀'
   }
@@ -162,8 +162,8 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete }: ScouterOnboarding
       };
     }
 
-    const padding = 16;
-    const tooltipWidth = 320;
+    const padding = 12;
+    const tooltipWidth = 256;
     
     switch (step.position) {
       case 'bottom':
@@ -197,60 +197,105 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete }: ScouterOnboarding
     }
   };
 
+  const spotlightPadding = 8;
+
   return (
     <div className="fixed inset-0 z-[100]">
-      {/* Overlay with spotlight */}
-      <div className="absolute inset-0 bg-black/70 transition-opacity duration-300">
-        {targetRect && (
-          <div
-            className="absolute bg-transparent rounded-lg ring-4 ring-primary ring-offset-4 ring-offset-transparent transition-all duration-300"
-            style={{
-              top: targetRect.top - 8,
-              left: targetRect.left - 8,
-              width: targetRect.width + 16,
-              height: targetRect.height + 16,
-              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
-            }}
-          />
-        )}
-      </div>
+      {/* SVG Overlay with spotlight cutout */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none">
+        <defs>
+          <mask id="spotlight-mask">
+            <rect x="0" y="0" width="100%" height="100%" fill="white" />
+            {targetRect && (
+              <rect
+                x={targetRect.left - spotlightPadding}
+                y={targetRect.top - spotlightPadding}
+                width={targetRect.width + spotlightPadding * 2}
+                height={targetRect.height + spotlightPadding * 2}
+                rx="8"
+                fill="black"
+              />
+            )}
+          </mask>
+        </defs>
+        <rect
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          fill="rgba(0, 0, 0, 0.5)"
+          mask="url(#spotlight-mask)"
+        />
+      </svg>
 
-      {/* Tooltip Card */}
+      {/* Highlight ring around target */}
+      {targetRect && (
+        <div
+          className="absolute rounded-lg ring-4 ring-primary animate-pulse pointer-events-none transition-all duration-300"
+          style={{
+            top: targetRect.top - spotlightPadding,
+            left: targetRect.left - spotlightPadding,
+            width: targetRect.width + spotlightPadding * 2,
+            height: targetRect.height + spotlightPadding * 2,
+          }}
+        />
+      )}
+
+      {/* Arrow pointing to element */}
+      {targetRect && step.position === 'bottom' && (
+        <div
+          className="absolute w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-primary pointer-events-none"
+          style={{
+            top: targetRect.bottom + 4,
+            left: targetRect.left + targetRect.width / 2 - 8,
+          }}
+        />
+      )}
+      {targetRect && step.position === 'top' && (
+        <div
+          className="absolute w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-primary pointer-events-none"
+          style={{
+            top: targetRect.top - 12,
+            left: targetRect.left + targetRect.width / 2 - 8,
+          }}
+        />
+      )}
+
+      {/* Compact Tooltip Card */}
       <Card
-        className="w-80 shadow-2xl border-primary/20 animate-in fade-in-0 zoom-in-95 duration-300"
+        className="w-64 shadow-2xl border-primary/30 animate-in fade-in-0 zoom-in-95 duration-300 bg-background/95 backdrop-blur-sm"
         style={getTooltipStyle()}
       >
-        <CardHeader className="pb-2 relative">
-          {/* Skip button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-2 h-6 w-6"
-            onClick={handleSkip}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-
-          {/* Step icon */}
-          <div className="text-3xl mb-2">{step.icon}</div>
+        <CardContent className="p-4 space-y-3">
+          {/* Header with icon, title and close */}
+          <div className="flex items-start gap-2">
+            <span className="text-2xl">{step.icon}</span>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm leading-tight">{step.title}</h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 -mt-1 -mr-2 shrink-0"
+              onClick={handleSkip}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
           
-          <CardTitle className="text-lg pr-6">{step.title}</CardTitle>
-        </CardHeader>
-        
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             {step.description}
           </p>
 
           {/* Progress indicators */}
-          <div className="flex items-center justify-center gap-1.5">
+          <div className="flex items-center justify-center gap-1">
             {ONBOARDING_STEPS.map((_, index) => (
               <div
                 key={index}
                 className={cn(
-                  "w-2 h-2 rounded-full transition-all duration-200",
+                  "w-1.5 h-1.5 rounded-full transition-all duration-200",
                   index === currentStep
-                    ? "w-6 bg-primary"
+                    ? "w-4 bg-primary"
                     : index < currentStep
                     ? "bg-primary/60"
                     : "bg-muted"
@@ -261,48 +306,49 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete }: ScouterOnboarding
 
           {/* Don't show again checkbox (only on last step) */}
           {isLastStep && (
-            <div className="flex items-center gap-2 pt-2 border-t">
+            <div className="flex items-center gap-2 pt-1 border-t">
               <Checkbox
                 id="dont-show-again"
                 checked={dontShowAgain}
                 onCheckedChange={(checked) => setDontShowAgain(checked === true)}
+                className="h-3 w-3"
               />
               <label
                 htmlFor="dont-show-again"
-                className="text-xs text-muted-foreground cursor-pointer"
+                className="text-[10px] text-muted-foreground cursor-pointer"
               >
-                Não mostrar este guia novamente
+                Não mostrar novamente
               </label>
             </div>
           )}
 
           {/* Navigation buttons */}
-          <div className="flex items-center justify-between gap-2 pt-2">
+          <div className="flex items-center justify-between gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={handlePrevious}
               disabled={isFirstStep}
-              className={cn(isFirstStep && "invisible")}
+              className={cn("h-7 text-xs px-2", isFirstStep && "invisible")}
             >
-              <ChevronLeft className="h-4 w-4 mr-1" />
+              <ChevronLeft className="h-3 w-3 mr-0.5" />
               Anterior
             </Button>
 
             <Button
               size="sm"
               onClick={handleNext}
-              className="gap-1"
+              className="h-7 text-xs px-3 gap-1"
             >
               {isLastStep ? (
                 <>
-                  <Sparkles className="h-4 w-4" />
+                  <Sparkles className="h-3 w-3" />
                   Começar
                 </>
               ) : (
                 <>
                   Próximo
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3 w-3" />
                 </>
               )}
             </Button>
