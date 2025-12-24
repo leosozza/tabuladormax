@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { 
   Mic, MicOff, Loader2, Check, X, 
   Send, ChevronLeft, Package, DollarSign, CreditCard, CheckCircle,
-  MessageSquare, Settings2, Bot, Volume2, VolumeX
+  MessageSquare, Settings2, Bot, Volume2, VolumeX, Radio
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useAgenciamentoAssistant, AgenciamentoStage, AgenciamentoData, PaymentMethodData } from '@/hooks/useAgenciamentoAssistant';
 import { BitrixProduct } from '@/lib/bitrix';
 import { PAYMENT_METHOD_LABELS, PaymentMethod } from '@/types/agenciamento';
+import { VoiceAssistantOverlay } from '@/components/audio/VoiceAssistantOverlay';
 
 interface AgenciamentoAssistantProps {
   products: BitrixProduct[];
@@ -78,6 +79,7 @@ export function AgenciamentoAssistant({
   onCancel 
 }: AgenciamentoAssistantProps) {
   const [textInput, setTextInput] = useState('');
+  const [voiceOverlayOpen, setVoiceOverlayOpen] = useState(false);
   
   const {
     stage,
@@ -98,6 +100,7 @@ export function AgenciamentoAssistant({
     startAssistant,
     sendMessage,
     sendAudio,
+    sendAudioBlob,
     startRecording,
     stopRecording,
     cancelRecording,
@@ -171,6 +174,23 @@ export function AgenciamentoAssistant({
     await sendAudio();
   }, [sendAudio]);
 
+  const handleVoiceOverlaySendAudio = useCallback(async (audioBlob: Blob) => {
+    // Convert blob to base64 and send
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = (reader.result as string).split(',')[1];
+      if (base64) {
+        // We need to use the hook's sendAudio with the blob
+        // For now, start recording and send - but the overlay handles its own recording
+        // So we can just process the text response
+      }
+    };
+    reader.readAsDataURL(audioBlob);
+    
+    // For the overlay, we use its own recording mechanism
+    // Just close overlay after sending
+  }, []);
+
   const handleConfirm = useCallback(() => {
     confirmAndSave();
   }, [confirmAndSave]);
@@ -202,6 +222,18 @@ export function AgenciamentoAssistant({
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Immersive Voice Mode Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setVoiceOverlayOpen(true)}
+              className="gap-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-primary/30 hover:bg-primary/10"
+              title="Modo Voz Imersivo"
+            >
+              <Radio className="h-4 w-4 text-primary" />
+              <span className="hidden sm:inline text-xs">Modo Voz</span>
+            </Button>
+
             {/* Voice Response Toggle */}
             <Button
               variant={voiceResponseEnabled ? "default" : "ghost"}
@@ -512,6 +544,20 @@ export function AgenciamentoAssistant({
           </div>
         </div>
       )}
+
+      {/* Voice Assistant Overlay */}
+      <VoiceAssistantOverlay
+        isOpen={voiceOverlayOpen}
+        onClose={() => setVoiceOverlayOpen(false)}
+        onSendAudio={async (blob) => {
+          await sendAudioBlob(blob);
+        }}
+        onSwitchToText={() => setVoiceOverlayOpen(false)}
+        isSpeaking={isSpeaking}
+        isProcessing={isProcessing}
+        currentTranscript={messages.filter(m => m.role === 'user').slice(-1)[0]?.content}
+        assistantResponse={messages.filter(m => m.role === 'assistant').slice(-1)[0]?.content}
+      />
     </div>
   );
 }

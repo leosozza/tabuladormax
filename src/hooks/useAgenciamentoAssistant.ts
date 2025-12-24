@@ -70,6 +70,7 @@ interface UseAgenciamentoAssistantReturn {
   startAssistant: () => void;
   sendMessage: (text: string) => Promise<void>;
   sendAudio: () => Promise<void>;
+  sendAudioBlob: (blob: Blob) => Promise<void>;
   startRecording: () => Promise<boolean>;
   stopRecording: () => Promise<Blob | null>;
   cancelRecording: () => void;
@@ -373,6 +374,14 @@ Qual pacote o cliente escolheu?`;
     await processResponse('', blob);
   }, [audioRecorder, processResponse]);
 
+  const sendAudioBlob = useCallback(async (blob: Blob) => {
+    if (!blob || blob.size === 0) {
+      setError('Nenhum áudio fornecido');
+      return;
+    }
+    await processResponse('', blob);
+  }, [processResponse]);
+
   const confirmAndSave = useCallback(() => {
     onComplete(data);
     setStage('complete');
@@ -428,6 +437,7 @@ Qual pacote o cliente escolheu?`;
     startAssistant,
     sendMessage,
     sendAudio,
+    sendAudioBlob,
     startRecording: audioRecorder.startRecording,
     stopRecording: audioRecorder.stopRecording,
     cancelRecording: audioRecorder.cancelRecording,
