@@ -4,7 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X, Check } from "lucide-react";
 import { getLeadPhotoUrl, needsPhotoSync } from '@/lib/leadPhotoUtils';
 import noPhotoPlaceholder from '@/assets/no-photo-placeholder.png';
 import { toast } from "sonner";
@@ -72,6 +74,7 @@ export function ScouterLeadsModal({
   const [isSyncingPhoto, setIsSyncingPhoto] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Carregar leads filtrados por tipo de card
@@ -100,6 +103,7 @@ export function ScouterLeadsModal({
       setCurrentPage(1);
       setSearchTerm('');
       setSortOrder('recent');
+      setIsSearchOpen(false);
       setPhotoPreviewLead(null);
       setIsSyncingPhoto(false);
     }
@@ -430,66 +434,115 @@ export function ScouterLeadsModal({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Botão Verificar Duplicados + Progresso - APENAS para Total de Leads */}
-        {leads && leads.length > 0 && filterType === 'all' && (
+        {/* Controles: Verificar Duplicados + Busca + Ordenação */}
+        {leads && leads.length > 0 && (
           <div className="flex flex-col gap-2 py-2 border-b border-border">
-            <div className="flex items-center gap-3">
-              <Button
-                variant={checkProgress.phase === 'complete' ? 'secondary' : 'default'}
-                size="sm"
-                onClick={checkDuplicates}
-                disabled={isChecking}
-                className="gap-2"
-              >
-                {isChecking ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : checkProgress.phase === 'complete' ? (
-                  <CheckCircle2 className="h-4 w-4" />
-                ) : (
-                  <Search className="h-4 w-4" />
+            <div className="flex items-center justify-between gap-3">
+              {/* Lado esquerdo: Verificar Duplicados (apenas para Total de Leads) */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                {filterType === 'all' && (
+                  <>
+                    <Button
+                      variant={checkProgress.phase === 'complete' ? 'secondary' : 'default'}
+                      size="sm"
+                      onClick={checkDuplicates}
+                      disabled={isChecking}
+                      className="gap-2 flex-shrink-0"
+                    >
+                      {isChecking ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : checkProgress.phase === 'complete' ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                      <span className="hidden sm:inline">
+                        {checkProgress.phase === 'complete' ? 'Verificado' : 'Verificar Duplicados'}
+                      </span>
+                    </Button>
+                    
+                    {checkProgress.phase !== 'idle' && (
+                      <span className="text-sm text-muted-foreground truncate">
+                        {checkProgress.message}
+                      </span>
+                    )}
+                  </>
                 )}
-                {checkProgress.phase === 'complete' ? 'Verificado' : 'Verificar Duplicados'}
-              </Button>
+              </div>
               
-              {checkProgress.phase !== 'idle' && (
-                <span className="text-sm text-muted-foreground">
-                  {checkProgress.message}
-                </span>
-              )}
+              {/* Lado direito: Ícones de Busca e Ordenação */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {/* Busca expansível */}
+                {isSearchOpen ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      autoFocus
+                      placeholder="Buscar..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-9 w-32 sm:w-48"
+                    />
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-9 w-9 flex-shrink-0"
+                      onClick={() => {
+                        setIsSearchOpen(false);
+                        setSearchTerm('');
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-9 w-9"
+                    onClick={() => setIsSearchOpen(true)}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                )}
+
+                {/* Ordenação com Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-9 w-9">
+                      <ArrowUpDown className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-44 p-1" align="end">
+                    <div className="flex flex-col">
+                      {[
+                        { value: 'recent', label: 'Mais Recentes' },
+                        { value: 'oldest', label: 'Mais Antigos' },
+                        { value: 'az', label: 'Alfabético A-Z' },
+                        { value: 'za', label: 'Alfabético Z-A' },
+                      ].map((option) => (
+                        <Button
+                          key={option.value}
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "justify-start font-normal",
+                            sortOrder === option.value && "bg-accent font-medium"
+                          )}
+                          onClick={() => setSortOrder(option.value as SortOrder)}
+                        >
+                          {sortOrder === option.value && <Check className="h-4 w-4 mr-2" />}
+                          {option.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             
             {isChecking && (
               <Progress value={checkProgress.progress} className="h-1.5" />
             )}
-          </div>
-        )}
-
-        {/* Busca e Ordenação */}
-        {leads && leads.length > 0 && (
-          <div className="flex flex-col sm:flex-row gap-2 py-2 border-b border-border">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-9"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <Select value={sortOrder} onValueChange={(value: SortOrder) => setSortOrder(value)}>
-                <SelectTrigger className="w-[160px] h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent">Mais Recentes</SelectItem>
-                  <SelectItem value="oldest">Mais Antigos</SelectItem>
-                  <SelectItem value="az">Alfabético A-Z</SelectItem>
-                  <SelectItem value="za">Alfabético Z-A</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         )}
 
