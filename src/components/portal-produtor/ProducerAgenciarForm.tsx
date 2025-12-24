@@ -168,7 +168,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
       setDiscountPercent(assistantData.discountPercent);
     }
     
-    // Set payment methods
+    // Map payment methods
     const newPayments: PaymentMethod[] = assistantData.paymentMethods.map(pm => ({
       id: crypto.randomUUID(),
       method: mapMethodType(pm.method),
@@ -178,9 +178,31 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
     }));
     setPaymentMethods(newPayments);
     
-    setShowFullAssistant(false);
-    setIsServicesOpen(false);
-    toast.success('Dados preenchidos pelo assistente!');
+    // Calcular valores para salvamento
+    const calculatedDiscountValue = assistantData.baseValue - assistantData.finalValue;
+    
+    // Salvar automaticamente a negociação no banco
+    saveMutation.mutate({
+      base_value: assistantData.baseValue,
+      discount_percentage: assistantData.discountPercent,
+      discount_value: calculatedDiscountValue,
+      total_value: assistantData.finalValue,
+      notes: '',
+      payment_methods: newPayments,
+      status: status || 'inicial',
+      bitrix_product_id: assistantData.packageId ? parseInt(assistantData.packageId) : null
+    }, {
+      onSuccess: () => {
+        setShowFullAssistant(false);
+        setIsServicesOpen(false);
+        toast.success('Negociação salva e vinculada ao deal!');
+        onSuccess(); // Atualizar lista de deals
+      },
+      onError: () => {
+        setShowFullAssistant(false);
+        setIsServicesOpen(false);
+      }
+    });
   };
 
   // Mapear tipos de método de pagamento do assistente de voz para o formato local
