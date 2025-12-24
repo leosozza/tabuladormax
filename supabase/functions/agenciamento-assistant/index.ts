@@ -29,6 +29,40 @@ interface AgenciamentoData {
   paymentMethods?: PaymentMethod[];
 }
 
+// Provider configuration
+interface ProviderConfig {
+  baseUrl: string;
+  apiKey: string;
+  defaultModel: string;
+}
+
+function getProviderConfig(provider: string): ProviderConfig {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+
+  switch (provider) {
+    case 'openrouter':
+      if (!OPENROUTER_API_KEY) {
+        throw new Error('OPENROUTER_API_KEY não configurada');
+      }
+      return {
+        baseUrl: 'https://openrouter.ai/api/v1',
+        apiKey: OPENROUTER_API_KEY,
+        defaultModel: 'anthropic/claude-3.5-sonnet',
+      };
+    case 'lovable':
+    default:
+      if (!LOVABLE_API_KEY) {
+        throw new Error('LOVABLE_API_KEY não configurada');
+      }
+      return {
+        baseUrl: 'https://ai.gateway.lovable.dev/v1',
+        apiKey: LOVABLE_API_KEY,
+        defaultModel: 'google/gemini-2.5-flash',
+      };
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -42,26 +76,34 @@ serve(async (req) => {
       currentData,
       products,
       clientName,
-      dealTitle
+      dealTitle,
+      provider = 'lovable',
+      model
     } = await req.json();
 
     if (!audio && !textResponse) {
       throw new Error('Nenhum áudio ou resposta fornecida');
     }
 
-    console.log('[agenciamento-assistant] Recebido, stage:', currentData?.stage);
+    console.log('[agenciamento-assistant] Recebido, stage:', currentData?.stage, 'provider:', provider);
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY não configurada');
-    }
+    // Get provider configuration
+    const providerConfig = getProviderConfig(provider);
+    const selectedModel = model || providerConfig.defaultModel;
+
+    console.log('[agenciamento-assistant] Usando provider:', provider, 'model:', selectedModel);
 
     let transcription = textResponse || '';
 
-    // Step 1: Transcribe audio if provided
+    // Step 1: Transcribe audio if provided (always uses Lovable AI Gateway for Whisper)
     if (audio) {
       console.log('[agenciamento-assistant] Transcrevendo áudio...');
       
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+      if (!LOVABLE_API_KEY) {
+        throw new Error('LOVABLE_API_KEY não configurada para transcrição');
+      }
+
       const binaryAudio = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
       const audioBlob = new Blob([binaryAudio], { type: 'audio/mpeg' });
       
@@ -264,15 +306,24 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
       }
     ];
 
+    // Build headers for the AI request
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${providerConfig.apiKey}`,
+      'Content-Type': 'application/json',
+    };
+
+    // OpenRouter requires additional headers
+    if (provider === 'openrouter') {
+      headers['HTTP-Referer'] = 'https://tabuladormax.lovable.app';
+      headers['X-Title'] = 'TabuladorMAX';
+    }
+
     // Call AI
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch(`${providerConfig.baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: selectedModel,
         messages,
         tools,
       }),

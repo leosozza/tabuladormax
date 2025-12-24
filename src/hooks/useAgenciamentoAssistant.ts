@@ -27,6 +27,14 @@ export interface ConversationMessage {
   tool_calls?: any[];
 }
 
+export interface AIProviderOption {
+  id: string;
+  name: string;
+  displayName: string;
+  models: { id: string; name: string }[];
+  defaultModel: string;
+}
+
 interface UseAgenciamentoAssistantProps {
   products: BitrixProduct[];
   clientName?: string;
@@ -42,6 +50,12 @@ interface UseAgenciamentoAssistantReturn {
   currentMessage: string | null;
   isProcessing: boolean;
   error: string | null;
+  
+  // AI Provider state
+  provider: string;
+  model: string;
+  setProvider: (provider: string) => void;
+  setModel: (model: string) => void;
   
   // Recording state
   isRecording: boolean;
@@ -86,6 +100,10 @@ export function useAgenciamentoAssistant({
   const [currentMessage, setCurrentMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // AI Provider state
+  const [provider, setProvider] = useState<string>('lovable');
+  const [model, setModel] = useState<string>('google/gemini-2.5-flash');
 
   const reset = useCallback(() => {
     setStage('idle');
@@ -127,7 +145,9 @@ Qual pacote o cliente escolheu?`;
       console.log('[useAgenciamentoAssistant] Enviando:', { 
         hasAudio: !!base64Audio, 
         textResponse: transcription,
-        stage: data.stage 
+        stage: data.stage,
+        provider,
+        model
       });
 
       const { data: result, error: invokeError } = await supabase.functions.invoke('agenciamento-assistant', {
@@ -154,7 +174,9 @@ Qual pacote o cliente escolheu?`;
             description: p.DESCRIPTION
           })),
           clientName,
-          dealTitle
+          dealTitle,
+          provider,
+          model
         }
       });
 
@@ -242,7 +264,7 @@ Qual pacote o cliente escolheu?`;
     } finally {
       setIsProcessing(false);
     }
-  }, [conversationHistory, data, products, stage, clientName, dealTitle]);
+  }, [conversationHistory, data, products, stage, clientName, dealTitle, provider, model]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isProcessing) return;
@@ -293,6 +315,12 @@ Qual pacote o cliente escolheu?`;
     currentMessage,
     isProcessing,
     error,
+    
+    // AI Provider state
+    provider,
+    model,
+    setProvider,
+    setModel,
     
     // Recording state
     isRecording: audioRecorder.isRecording,
