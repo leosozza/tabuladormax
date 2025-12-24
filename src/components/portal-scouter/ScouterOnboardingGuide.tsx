@@ -298,7 +298,7 @@ export const ScouterOnboardingGuide = ({ isOpen, onComplete, onStepChange }: Sco
   const spotlightPadding = 8;
 
   return (
-    <div className="fixed inset-0 z-[200]">
+    <div className="fixed inset-0 z-[600]">
       {/* SVG Overlay with spotlight cutout */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none">
         <defs>
