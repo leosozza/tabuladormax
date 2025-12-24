@@ -119,13 +119,13 @@ export function useSystemSettings() {
       const updates: { key: string; value: string }[] = [];
       
       if (newSettings.defaultVoice !== undefined) {
-        updates.push({ key: 'system_default_voice', value: JSON.stringify(newSettings.defaultVoice) });
+        updates.push({ key: 'system_default_voice', value: newSettings.defaultVoice });
       }
       if (newSettings.defaultAIProvider !== undefined) {
-        updates.push({ key: 'system_default_ai_provider', value: JSON.stringify(newSettings.defaultAIProvider) });
+        updates.push({ key: 'system_default_ai_provider', value: newSettings.defaultAIProvider });
       }
       if (newSettings.defaultAIModel !== undefined) {
-        updates.push({ key: 'system_default_ai_model', value: JSON.stringify(newSettings.defaultAIModel) });
+        updates.push({ key: 'system_default_ai_model', value: newSettings.defaultAIModel });
       }
 
       for (const update of updates) {
