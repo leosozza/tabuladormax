@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,9 +37,45 @@ interface ProviderConfig {
   defaultModel: string;
 }
 
+// Buscar configuração padrão de IA do sistema
+async function getDefaultAIConfig(): Promise<{ provider: string; model: string }> {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
+    const { data } = await supabase
+      .from('config_kv')
+      .select('key, value')
+      .in('key', ['system_default_ai_provider', 'system_default_ai_model']);
+    
+    const configMap = new Map<string, string>();
+    data?.forEach(row => {
+      try {
+        configMap.set(row.key, JSON.parse(row.value as string));
+      } catch {
+        configMap.set(row.key, row.value as string);
+      }
+    });
+    
+    return {
+      provider: configMap.get('system_default_ai_provider') || 'lovable',
+      model: configMap.get('system_default_ai_model') || 'google/gemini-2.5-flash',
+    };
+  } catch (error) {
+    console.error('[getDefaultAIConfig] Error:', error);
+    return {
+      provider: 'lovable',
+      model: 'google/gemini-2.5-flash',
+    };
+  }
+}
+
 function getProviderConfig(provider: string): ProviderConfig {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+  const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
   switch (provider) {
     case 'openrouter':
@@ -49,6 +86,15 @@ function getProviderConfig(provider: string): ProviderConfig {
         baseUrl: 'https://openrouter.ai/api/v1',
         apiKey: OPENROUTER_API_KEY,
         defaultModel: 'anthropic/claude-3.5-sonnet',
+      };
+    case 'groq':
+      if (!GROQ_API_KEY) {
+        throw new Error('GROQ_API_KEY não configurada');
+      }
+      return {
+        baseUrl: 'https://api.groq.com/openai/v1',
+        apiKey: GROQ_API_KEY,
+        defaultModel: 'llama-3.3-70b-versatile',
       };
     case 'lovable':
     default:
@@ -77,13 +123,18 @@ serve(async (req) => {
       products,
       clientName,
       dealTitle,
-      provider = 'lovable',
-      model
+      provider: requestProvider,
+      model: requestModel
     } = await req.json();
 
     if (!audio && !textResponse) {
       throw new Error('Nenhum áudio ou resposta fornecida');
     }
+
+    // Buscar configuração padrão se não fornecida
+    const defaultConfig = await getDefaultAIConfig();
+    const provider = requestProvider || defaultConfig.provider;
+    const model = requestModel || defaultConfig.model;
 
     console.log('[agenciamento-assistant] Recebido, stage:', currentData?.stage, 'provider:', provider);
 

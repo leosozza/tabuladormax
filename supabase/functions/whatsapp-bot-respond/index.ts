@@ -64,6 +64,36 @@ const PERSONALITY_PROMPTS: Record<string, string> = {
     Identifique oportunidades e conduza para a conversão. Seja persuasivo mas não invasivo.`,
 };
 
+// Buscar configuração padrão de IA do sistema
+async function getDefaultAIConfig(supabase: any): Promise<{ provider: string; model: string }> {
+  try {
+    const { data } = await supabase
+      .from('config_kv')
+      .select('key, value')
+      .in('key', ['system_default_ai_provider', 'system_default_ai_model']);
+    
+    const configMap = new Map<string, string>();
+    data?.forEach((row: { key: string; value: any }) => {
+      try {
+        configMap.set(row.key, JSON.parse(row.value as string));
+      } catch {
+        configMap.set(row.key, row.value as string);
+      }
+    });
+    
+    return {
+      provider: configMap.get('system_default_ai_provider') || 'lovable',
+      model: configMap.get('system_default_ai_model') || 'google/gemini-2.5-flash',
+    };
+  } catch (error) {
+    console.error('[getDefaultAIConfig] Error:', error);
+    return {
+      provider: 'lovable',
+      model: 'google/gemini-2.5-flash',
+    };
+  }
+}
+
 // Executar ferramenta do agente
 async function executeAgentTool(
   supabase: any,
@@ -683,8 +713,11 @@ serve(async (req) => {
       );
     }
 
-    // Buscar provider de IA
-    const providerName = botConfig.ai_provider || 'lovable';
+    // Buscar provider de IA (usar config padrão do sistema se não configurado)
+    const defaultConfig = await getDefaultAIConfig(supabase);
+    const providerName = botConfig.ai_provider || defaultConfig.provider;
+    const modelToUse = botConfig.ai_model || defaultConfig.model;
+    
     const { data: provider } = await supabase
       .from('ai_providers')
       .select('*')
@@ -732,8 +765,8 @@ serve(async (req) => {
         }
       } else if (media_type === 'image') {
         // Analisar imagem
-        const model = botConfig.ai_model || provider.default_model || provider.models?.[0]?.id;
-        const imageAnalysis = await analyzeImage(media_url, apiKey!, provider as AIProvider, model);
+        const imageAnalysis = await analyzeImage(media_url, apiKey!, provider as AIProvider, modelToUse);
+        if (imageAnalysis) {
         if (imageAnalysis) {
           mediaDescription = `[O cliente enviou uma imagem. Descrição: ${imageAnalysis}]`;
           console.log('[whatsapp-bot-respond] Image analyzed:', imageAnalysis.substring(0, 100));
@@ -849,9 +882,8 @@ CONTEXTO: Esta é uma conversa por WhatsApp com um potencial cliente.`;
     console.log('[whatsapp-bot-respond] Calling AI provider:', providerName);
     const startTime = Date.now();
 
-    // Primeira chamada para IA
-    const model = botConfig.ai_model || provider.default_model || provider.models?.[0]?.id;
-    let aiResult = await callAIProvider(provider as AIProvider, apiKey!, model, messages, aiTools);
+    // Primeira chamada para IA (usar modelToUse definido no início)
+    let aiResult = await callAIProvider(provider as AIProvider, apiKey!, modelToUse, messages, aiTools);
 
     if (aiResult.error) {
       console.error('[whatsapp-bot-respond] AI error:', aiResult.error);
@@ -909,7 +941,7 @@ CONTEXTO: Esta é uma conversa por WhatsApp com um potencial cliente.`;
 
       // Segunda chamada para IA formular resposta final
       console.log('[whatsapp-bot-respond] Making second AI call for final response');
-      aiResult = await callAIProvider(provider as AIProvider, apiKey!, model, messages);
+      aiResult = await callAIProvider(provider as AIProvider, apiKey!, modelToUse, messages);
     }
 
     const responseTime = Date.now() - startTime;
@@ -1012,7 +1044,7 @@ CONTEXTO: Esta é uma conversa por WhatsApp com um potencial cliente.`;
         response_time_ms: responseTime,
         tool_results: toolResults,
         ai_provider: providerName,
-        ai_model: model,
+        ai_model: modelToUse,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

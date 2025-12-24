@@ -13,6 +13,7 @@ import { Bot, Save, X, Plus, Clock, MessageSquare, Zap, Cpu, Settings } from 'lu
 import { useBotConfig, useUpsertBotConfig, PERSONALITY_OPTIONS } from '@/hooks/useWhatsAppBot';
 import { BotProviderConfig } from './BotProviderConfig';
 import { BotToolsManager } from './BotToolsManager';
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 
 interface BotConfigProps {
   projectId: string;
@@ -22,6 +23,11 @@ interface BotConfigProps {
 export function BotConfig({ projectId, projectName }: BotConfigProps) {
   const { data: config, isLoading } = useBotConfig(projectId);
   const upsertConfig = useUpsertBotConfig();
+  const { settings: systemSettings } = useSystemSettings();
+
+  // Usar valores padrão do sistema
+  const defaultProvider = systemSettings?.defaultAIProvider || 'lovable';
+  const defaultModel = systemSettings?.defaultAIModel || 'google/gemini-2.5-flash';
 
   const [formData, setFormData] = useState({
     bot_name: 'Assistente MAX',
@@ -40,13 +46,24 @@ export function BotConfig({ projectId, projectName }: BotConfigProps) {
     collect_lead_data: true,
     auto_qualify: true,
     is_enabled: false,
-    // Novos campos de AI Agent
-    ai_provider: 'lovable',
-    ai_model: 'google/gemini-2.5-flash',
+    // Novos campos de AI Agent - usar padrão do sistema
+    ai_provider: defaultProvider,
+    ai_model: defaultModel,
     api_key_secret_name: null as string | null,
     tools_enabled: false,
     available_tools: [] as string[],
   });
+  
+  // Atualizar formData quando as configurações do sistema carregarem (apenas se não houver config salva)
+  useEffect(() => {
+    if (!config && systemSettings) {
+      setFormData(prev => ({
+        ...prev,
+        ai_provider: systemSettings.defaultAIProvider || prev.ai_provider,
+        ai_model: systemSettings.defaultAIModel || prev.ai_model,
+      }));
+    }
+  }, [systemSettings, config]);
 
   const [newKeyword, setNewKeyword] = useState('');
 
