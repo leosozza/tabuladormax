@@ -11,7 +11,7 @@ interface UseAudioRecorderReturn {
   recordingTime: number;
   audioBlob: Blob | null;
   startRecording: () => Promise<boolean>;
-  stopRecording: () => void;
+  stopRecording: () => Promise<Blob | null>;
   cancelRecording: () => void;
   clearRecording: () => void;
   error: string | null;
@@ -111,21 +111,40 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     }
   }, [cleanup]);
 
-  const stopRecording = useCallback(() => {
-    if (!isRecording || !recorderRef.current) return;
-    
-    stopTimer();
-    
-    if (recorderRef.current.state !== 'inactive') {
-      recorderRef.current.stop();
-    }
-    
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    
-    setIsRecording(false);
+  const stopRecording = useCallback((): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      if (!isRecording || !recorderRef.current) {
+        resolve(null);
+        return;
+      }
+      
+      stopTimer();
+      
+      const recorder = recorderRef.current;
+      
+      // Set up listener for dataavailable BEFORE stopping
+      const handleDataAvailable = (e: BlobEvent) => {
+        if (e.data && e.data.size > 0) {
+          setAudioBlob(e.data);
+          resolve(e.data);
+        } else {
+          resolve(null);
+        }
+      };
+      
+      recorder.addEventListener('dataavailable', handleDataAvailable, { once: true });
+      
+      if (recorder.state !== 'inactive') {
+        recorder.stop();
+      }
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      
+      setIsRecording(false);
+    });
   }, [isRecording, stopTimer]);
 
   const cancelRecording = useCallback(() => {
