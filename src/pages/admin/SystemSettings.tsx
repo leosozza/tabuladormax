@@ -8,6 +8,16 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Volume2, Save, Cpu, Mic, Check, X, Zap, Wrench, Key } from 'lucide-react';
 import { useSystemSettings, ELEVENLABS_VOICES, VoiceKey } from '@/hooks/useSystemSettings';
 
+// Mapeamento de provedores para suas chaves de API
+const PROVIDER_API_KEYS: Record<string, string> = {
+  openrouter: 'OPENROUTER_API_KEY',
+  groq: 'GROQ_API_KEY',
+  openai: 'OPENAI_API_KEY',
+};
+
+// Chaves configuradas (atualizar conforme necessário)
+const CONFIGURED_KEYS = ['OPENROUTER_API_KEY', 'GROQ_API_KEY', 'ELEVENLABS_API_KEY', 'LOVABLE_API_KEY'];
+
 export default function SystemSettings() {
   const { settings, isLoading, aiProviders, saveSettings, isSaving, testVoice } = useSystemSettings();
   
@@ -16,6 +26,13 @@ export default function SystemSettings() {
   const [selectedModel, setSelectedModel] = useState<string>('google/gemini-2.5-flash');
   const [isTesting, setIsTesting] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Verificar se o provedor tem a chave configurada
+  const isApiKeyConfigured = (providerName: string): boolean => {
+    const keyName = PROVIDER_API_KEYS[providerName];
+    if (!keyName) return true; // Lovable não precisa de chave externa
+    return CONFIGURED_KEYS.includes(keyName);
+  };
 
   // Sincronizar com configurações carregadas
   useEffect(() => {
@@ -189,10 +206,17 @@ export default function SystemSettings() {
                       </Badge>
                     )}
                     {currentProvider.requires_api_key && (
-                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-500/20">
-                        <Key className="h-3 w-3 mr-1" />
-                        Requer API Key
-                      </Badge>
+                      isApiKeyConfigured(currentProvider.name) ? (
+                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+                          <Check className="h-3 w-3 mr-1" />
+                          API Key Configurada
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs text-red-600 border-red-500/20">
+                          <X className="h-3 w-3 mr-1" />
+                          API Key Não Configurada
+                        </Badge>
+                      )
                     )}
                   </div>
                 )}
