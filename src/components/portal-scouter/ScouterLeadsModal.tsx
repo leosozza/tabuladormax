@@ -30,10 +30,10 @@ interface LeadData {
   nome_modelo: string | null;
   nome_responsavel: string | null;
   criado: string | null;
-  address: string | null;
-  etapa_lead: string | null;
   celular: string | null;
-  commercial_project_id: string | null;
+  address: string | null;
+  photo_url: string | null;
+  phone_normalized: string | null;
   ficha_confirmada: boolean | null;
   // Campos de duplicado (preenchidos após verificação)
   has_duplicate?: boolean;
