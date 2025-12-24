@@ -1,7 +1,8 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAudioRecorder } from './useAudioRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { BitrixProduct } from '@/lib/bitrix';
+import { useSystemSettings } from './useSystemSettings';
 
 export type AgenciamentoStage = 'idle' | 'package' | 'value' | 'payment' | 'review' | 'complete';
 
@@ -100,6 +101,7 @@ export function useAgenciamentoAssistant({
   onComplete,
 }: UseAgenciamentoAssistantProps): UseAgenciamentoAssistantReturn {
   const audioRecorder = useAudioRecorder();
+  const { settings } = useSystemSettings();
   
   const [stage, setStage] = useState<AgenciamentoStage>('idle');
   const [data, setData] = useState<AgenciamentoData>(INITIAL_DATA);
@@ -110,9 +112,19 @@ export function useAgenciamentoAssistant({
   const [error, setError] = useState<string | null>(null);
   const processingMutexRef = useRef(false);
   
-  // AI Provider state
+  // AI Provider state - usar valores padrão do sistema
   const [provider, setProvider] = useState<string>('lovable');
   const [model, setModel] = useState<string>('google/gemini-2.5-flash');
+  
+  // Atualizar quando as configurações do sistema carregarem
+  useEffect(() => {
+    if (settings?.defaultAIProvider) {
+      setProvider(settings.defaultAIProvider);
+    }
+    if (settings?.defaultAIModel) {
+      setModel(settings.defaultAIModel);
+    }
+  }, [settings?.defaultAIProvider, settings?.defaultAIModel]);
   
   // Voice response state
   const [voiceResponseEnabled, setVoiceResponseEnabled] = useState<boolean>(false);
