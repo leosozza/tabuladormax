@@ -35,6 +35,7 @@ import {
   LucideIcon,
   Repeat,
   TestTube,
+  Mic,
 } from 'lucide-react';
 import { ResyncDateClosedButton } from '@/components/admin/ResyncDateClosedButton';
 import { AdminCategorySection, AdminOption } from '@/components/admin/AdminCategorySection';
@@ -240,6 +241,13 @@ const adminCategories: Record<string, CategoryConfig> = {
         title: 'Permissões de Acesso',
         description: 'Controle de acesso por perfil',
         color: 'bg-red-500/10 text-red-600 dark:text-red-400',
+      },
+      {
+        path: '/admin/system-settings',
+        icon: Mic,
+        title: 'IA & Voz',
+        description: 'Provedores de IA e vozes padrão',
+        color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
       },
     ],
   },
