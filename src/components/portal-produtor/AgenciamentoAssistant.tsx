@@ -22,6 +22,8 @@ interface AgenciamentoAssistantProps {
   products: BitrixProduct[];
   clientName?: string;
   dealTitle?: string;
+  defaultPackage?: BitrixProduct | null;
+  defaultValue?: number;
   onComplete: (data: {
     packageId: string;
     packageName: string;
@@ -75,6 +77,8 @@ export function AgenciamentoAssistant({
   products, 
   clientName,
   dealTitle,
+  defaultPackage,
+  defaultValue,
   onComplete, 
   onCancel 
 }: AgenciamentoAssistantProps) {
@@ -112,6 +116,8 @@ export function AgenciamentoAssistant({
     products,
     clientName,
     dealTitle,
+    defaultPackage,
+    defaultValue,
     onComplete: (completedData) => {
       if (completedData.selectedPackage) {
         onComplete({
@@ -318,9 +324,7 @@ export function AgenciamentoAssistant({
                 </div>
               </PopoverContent>
             </Popover>
-            <Button variant="ghost" size="icon" onClick={onCancel}>
-              <X className="h-4 w-4" />
-            </Button>
+            {/* X button removed - SheetContent already provides close button */}
           </div>
         </div>
         

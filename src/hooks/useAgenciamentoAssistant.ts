@@ -40,6 +40,8 @@ interface UseAgenciamentoAssistantProps {
   products: BitrixProduct[];
   clientName?: string;
   dealTitle?: string;
+  defaultPackage?: BitrixProduct | null;
+  defaultValue?: number;
   onComplete: (data: AgenciamentoData) => void;
 }
 
@@ -98,6 +100,8 @@ export function useAgenciamentoAssistant({
   products,
   clientName,
   dealTitle,
+  defaultPackage,
+  defaultValue,
   onComplete,
 }: UseAgenciamentoAssistantProps): UseAgenciamentoAssistantReturn {
   const audioRecorder = useAudioRecorder();
@@ -226,21 +230,52 @@ export function useAgenciamentoAssistant({
     audioRecorder.clearRecording();
   }, [audioRecorder, stopSpeaking]);
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
   const startAssistant = useCallback(() => {
     reset();
-    setStage('package');
     
-    // Initial greeting
-    const greeting = `Olá! 👋 Vou te ajudar a registrar a negociação${clientName ? ` do ${clientName}` : ''}.
+    // Se tem pacote padrão do deal, já começar com ele selecionado
+    if (defaultPackage) {
+      const pkgValue = defaultValue || defaultPackage.PRICE;
+      setData(prev => ({
+        ...prev,
+        selectedPackage: defaultPackage,
+        baseValue: pkgValue,
+        finalValue: pkgValue,
+        stage: 'value'
+      }));
+      setStage('value');
+      
+      const greeting = `Olá! 👋 O pacote ${defaultPackage.NAME} já está selecionado (${formatCurrency(pkgValue)}).
+
+Qual será o valor final negociado?`;
+      
+      setCurrentMessage(greeting);
+      setMessages([{ role: 'assistant', content: greeting }]);
+      
+      // Speak the greeting if voice is enabled
+      setTimeout(() => speakText(greeting), 500);
+    } else {
+      setStage('package');
+      
+      // Initial greeting - perguntando o pacote
+      const greeting = `Olá! 👋 Vou te ajudar a registrar a negociação${clientName ? ` do ${clientName}` : ''}.
 
 Qual pacote o cliente escolheu?`;
-    
-    setCurrentMessage(greeting);
-    setMessages([{ role: 'assistant', content: greeting }]);
-    
-    // Speak the greeting if voice is enabled
-    setTimeout(() => speakText(greeting), 500);
-  }, [reset, clientName, speakText]);
+      
+      setCurrentMessage(greeting);
+      setMessages([{ role: 'assistant', content: greeting }]);
+      
+      // Speak the greeting if voice is enabled
+      setTimeout(() => speakText(greeting), 500);
+    }
+  }, [reset, clientName, defaultPackage, defaultValue, speakText]);
 
   const processResponse = useCallback(async (transcription: string, audioBlob?: Blob) => {
     // Prevent parallel processing
