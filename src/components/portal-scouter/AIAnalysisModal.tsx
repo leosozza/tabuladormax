@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Bot, FileText, Link2, Copy, Check, X } from 'lucide-react';
+import { Loader2, Bot, FileText, Link2, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AIAnalysisModalProps {
@@ -107,21 +107,16 @@ export const AIAnalysisModal = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[85vh] h-[85vh] sm:h-auto sm:max-h-[90vh] flex flex-col p-4 sm:p-6">
         <DialogHeader className="flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Bot className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg">Análise de IA</DialogTitle>
-                <p className="text-sm text-muted-foreground">
-                  {scouterName} • {periodLabel}
-                </p>
-              </div>
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Bot className="h-5 w-5 text-primary" />
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
+            <div>
+              <DialogTitle className="text-lg">Análise de IA</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                {scouterName} • {periodLabel}
+              </p>
+            </div>
           </div>
         </DialogHeader>
 
