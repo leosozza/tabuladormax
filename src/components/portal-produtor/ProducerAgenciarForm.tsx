@@ -178,31 +178,12 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
     }));
     setPaymentMethods(newPayments);
     
-    // Calcular valores para salvamento
-    const calculatedDiscountValue = assistantData.baseValue - assistantData.finalValue;
+    // Fechar o assistente e mostrar o formulário preenchido
+    setShowFullAssistant(false);
+    setIsServicesOpen(false);
     
-    // Salvar automaticamente a negociação no banco
-    saveMutation.mutate({
-      base_value: assistantData.baseValue,
-      discount_percentage: assistantData.discountPercent,
-      discount_value: calculatedDiscountValue,
-      total_value: assistantData.finalValue,
-      notes: '',
-      payment_methods: newPayments,
-      status: status || 'inicial',
-      bitrix_product_id: assistantData.packageId ? parseInt(assistantData.packageId) : null
-    }, {
-      onSuccess: () => {
-        setShowFullAssistant(false);
-        setIsServicesOpen(false);
-        toast.success('Negociação salva e vinculada ao deal!');
-        onSuccess(); // Atualizar lista de deals
-      },
-      onError: () => {
-        setShowFullAssistant(false);
-        setIsServicesOpen(false);
-      }
-    });
+    // Mostrar toast informando que os dados foram preenchidos
+    toast.success('Dados preenchidos! Revise e clique em Gerar Contrato ou Finalizar.');
   };
 
   // Mapear tipos de método de pagamento do assistente de voz para o formato local

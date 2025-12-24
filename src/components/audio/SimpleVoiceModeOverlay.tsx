@@ -1,7 +1,10 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Mic, MicOff, Loader2, MessageSquare, Volume2, VolumeX, Check, Edit3, RotateCcw, Package, DollarSign, CreditCard } from 'lucide-react';
+import { X, Mic, MicOff, Loader2, MessageSquare, Volume2, VolumeX, Check, Edit3, RotateCcw, Package, DollarSign, CreditCard, CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 type VoiceState = 'idle' | 'recording' | 'processing' | 'speaking';
 
@@ -11,6 +14,12 @@ export interface NegotiationSummary {
   finalValue?: number;
   discountPercent?: number;
   paymentMethods?: { method: string; amount: number; installments: number }[];
+}
+
+export interface PendingBoletoInfo {
+  method: string;
+  amount: number;
+  installments: number;
 }
 
 interface SimpleVoiceModeOverlayProps {
@@ -32,6 +41,11 @@ interface SimpleVoiceModeOverlayProps {
   onCorrect?: () => void;
   onRestart?: () => void;
   negotiationSummary?: NegotiationSummary;
+  // Date picker for boleto
+  showDatePicker?: boolean;
+  pendingBoletoData?: PendingBoletoInfo | null;
+  onSelectDueDate?: (date: Date) => void;
+  onCancelDatePicker?: () => void;
 }
 
 export function SimpleVoiceModeOverlay({
@@ -51,10 +65,15 @@ export function SimpleVoiceModeOverlay({
   onCorrect,
   onRestart,
   negotiationSummary,
+  showDatePicker = false,
+  pendingBoletoData,
+  onSelectDueDate,
+  onCancelDatePicker,
 }: SimpleVoiceModeOverlayProps) {
   const [state, setState] = useState<VoiceState>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
   const [micError, setMicError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -207,6 +226,9 @@ export function SimpleVoiceModeOverlay({
   };
 
   const getStateLabel = () => {
+    if (showDatePicker) {
+      return 'Selecione a data do primeiro vencimento';
+    }
     if (showConfirmationButtons) {
       return 'Confirme a negociação';
     }
@@ -219,6 +241,13 @@ export function SimpleVoiceModeOverlay({
         return 'Assistente falando...';
       default:
         return 'Toque para falar';
+    }
+  };
+
+  const handleSelectDate = () => {
+    if (selectedDate && onSelectDueDate) {
+      onSelectDueDate(selectedDate);
+      setSelectedDate(undefined);
     }
   };
 
@@ -287,8 +316,77 @@ export function SimpleVoiceModeOverlay({
           </div>
         )}
 
-        {/* ManyChat-style Confirmation Buttons */}
-        {showConfirmationButtons ? (
+        {/* Date Picker for Boleto */}
+        {showDatePicker && pendingBoletoData ? (
+          <div className="w-full max-w-sm space-y-6">
+            {/* Boleto Info Card */}
+            <div className="bg-card border rounded-xl p-4 shadow-lg space-y-3">
+              <div className="text-center">
+                <h3 className="font-semibold text-lg flex items-center justify-center gap-2">
+                  <CalendarIcon className="h-5 w-5 text-primary" />
+                  Data do Primeiro Vencimento
+                </h3>
+              </div>
+              
+              <div className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
+                <CreditCard className="h-5 w-5 text-amber-600" />
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground">Boleto Parcelado</p>
+                  <p className="font-medium">
+                    {formatCurrency(pendingBoletoData.amount)} em {pendingBoletoData.installments}x
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Calendar */}
+            <div className="flex justify-center">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                locale={ptBR}
+                disabled={(date) => date < new Date()}
+                className="rounded-md border bg-card pointer-events-auto"
+              />
+            </div>
+
+            {/* Selected Date Display */}
+            {selectedDate && (
+              <div className="text-center p-3 bg-primary/10 rounded-lg">
+                <p className="text-sm text-muted-foreground">Data selecionada:</p>
+                <p className="font-semibold text-lg text-primary">
+                  {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                </p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={onCancelDatePicker}
+                className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-muted hover:bg-muted/80 text-foreground transition-all active:scale-95"
+              >
+                <X className="h-6 w-6" />
+                <span className="font-semibold text-sm">Cancelar</span>
+              </button>
+              
+              <button
+                onClick={handleSelectDate}
+                disabled={!selectedDate}
+                className={cn(
+                  "flex flex-col items-center gap-2 p-4 rounded-2xl transition-all active:scale-95 shadow-lg",
+                  selectedDate 
+                    ? "bg-green-500 hover:bg-green-600 text-white hover:shadow-xl" 
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
+              >
+                <Check className="h-6 w-6" />
+                <span className="font-semibold text-sm">Confirmar</span>
+              </button>
+            </div>
+          </div>
+        ) : showConfirmationButtons ? (
           <div className="w-full max-w-sm space-y-6">
             {/* Negotiation Summary Card */}
             {negotiationSummary && (
