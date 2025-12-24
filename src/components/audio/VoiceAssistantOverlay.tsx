@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { X, Mic, MicOff, MessageSquare, Volume2 } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { X, MessageSquare, Volume2, Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AudioVisualizer } from './AudioVisualizer';
+import { useVoiceActivityDetection } from '@/hooks/useVoiceActivityDetection';
 import { useAudioVisualizer } from '@/hooks/useAudioVisualizer';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +17,7 @@ interface VoiceAssistantOverlayProps {
   isProcessing: boolean;
   currentTranscript?: string;
   assistantResponse?: string;
+  onSpeakingComplete?: () => void;
 }
 
 export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
@@ -27,131 +29,118 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
   isProcessing,
   currentTranscript,
   assistantResponse,
+  onSpeakingComplete,
 }) => {
   const [mode, setMode] = useState<VoiceMode>('idle');
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [lastTranscript, setLastTranscript] = useState<string | null>(null);
 
   const {
-    isInitialized,
     initializeContext,
     connectMicrophone,
     getFrequencyData,
-    cleanup,
+    cleanup: cleanupVisualizer,
   } = useAudioVisualizer();
 
-  useEffect(() => {
-    if (isOpen && !isInitialized) {
-      initializeContext();
-    }
-  }, [isOpen, isInitialized, initializeContext]);
+  const handleSpeechStart = useCallback(() => {
+    console.log('[VoiceOverlay] Speech detected - recording started');
+  }, []);
 
+  const handleSpeechEnd = useCallback(async (audioBlob: Blob) => {
+    console.log('[VoiceOverlay] Speech ended - sending audio', audioBlob.size);
+    if (audioBlob.size > 0) {
+      await onSendAudio(audioBlob);
+    }
+  }, [onSendAudio]);
+
+  const {
+    isListening,
+    isSpeaking: isUserSpeaking,
+    voiceLevel,
+    startListening,
+    stopListening,
+    stream,
+  } = useVoiceActivityDetection(handleSpeechStart, handleSpeechEnd, {
+    silenceThreshold: 0.015,
+    speechThreshold: 0.025,
+    silenceDuration: 1500,
+    minSpeechDuration: 500,
+  });
+
+  // Connect microphone to visualizer when stream is available
+  useEffect(() => {
+    if (stream) {
+      initializeContext().then(() => {
+        connectMicrophone(stream);
+      });
+    }
+  }, [stream, initializeContext, connectMicrophone]);
+
+  // Start listening when overlay opens (unless paused or speaking)
+  useEffect(() => {
+    if (isOpen && !isPaused && !isSpeaking && !isProcessing) {
+      startListening().catch(console.error);
+    }
+    
+    return () => {
+      if (!isOpen) {
+        stopListening();
+        cleanupVisualizer();
+      }
+    };
+  }, [isOpen, isPaused, isSpeaking, isProcessing, startListening, stopListening, cleanupVisualizer]);
+
+  // Resume listening after speaking completes
+  useEffect(() => {
+    if (!isSpeaking && !isProcessing && isOpen && !isPaused && !isListening) {
+      const timer = setTimeout(() => {
+        startListening().catch(console.error);
+        onSpeakingComplete?.();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isSpeaking, isProcessing, isOpen, isPaused, isListening, startListening, onSpeakingComplete]);
+
+  // Update mode based on current state
   useEffect(() => {
     if (isSpeaking) {
       setMode('speaking');
     } else if (isProcessing) {
       setMode('processing');
-    } else if (isRecording) {
+    } else if (isListening && isUserSpeaking) {
       setMode('listening');
+    } else if (isListening) {
+      setMode('idle');
     } else {
       setMode('idle');
     }
-  }, [isSpeaking, isProcessing, isRecording]);
+  }, [isSpeaking, isProcessing, isListening, isUserSpeaking]);
 
+  // Update last transcript
   useEffect(() => {
-    return () => {
-      stopRecording();
-      cleanup();
-    };
-  }, [cleanup]);
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 44100,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-      });
-
-      streamRef.current = stream;
-      connectMicrophone(stream);
-
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
-      });
-
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        if (audioBlob.size > 0) {
-          await onSendAudio(audioBlob);
-        }
-      };
-
-      mediaRecorder.start(100);
-      setIsRecording(true);
-      setRecordingTime(0);
-
-      timerRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
-
-      console.log('[VoiceOverlay] Recording started');
-    } catch (error) {
-      console.error('[VoiceOverlay] Failed to start recording:', error);
+    if (currentTranscript) {
+      setLastTranscript(currentTranscript);
     }
-  };
+  }, [currentTranscript]);
 
-  const stopRecording = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-
-    setIsRecording(false);
-    setRecordingTime(0);
-    console.log('[VoiceOverlay] Recording stopped');
-  };
-
-  const handleMicClick = () => {
-    if (isRecording) {
-      stopRecording();
+  const handlePauseResume = useCallback(() => {
+    if (isPaused) {
+      setIsPaused(false);
+      startListening().catch(console.error);
     } else {
-      startRecording();
+      setIsPaused(true);
+      stopListening();
     }
-  };
+  }, [isPaused, startListening, stopListening]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  const handleClose = useCallback(() => {
+    stopListening();
+    cleanupVisualizer();
+    onClose();
+  }, [stopListening, cleanupVisualizer, onClose]);
 
   const getModeLabel = () => {
+    if (isPaused) return 'Pausado';
     switch (mode) {
       case 'listening':
         return 'Ouvindo...';
@@ -160,18 +149,39 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
       case 'speaking':
         return 'Respondendo...';
       default:
-        return 'Toque para falar';
+        return isListening ? 'Pode falar...' : 'Iniciando...';
     }
   };
 
   const getModeIcon = () => {
+    if (isPaused) {
+      return <Play className="h-10 w-10" />;
+    }
     switch (mode) {
       case 'speaking':
-        return <Volume2 className="h-6 w-6 animate-pulse" />;
-      case 'listening':
-        return <Mic className="h-6 w-6 animate-pulse" />;
+        return <Volume2 className="h-10 w-10 animate-pulse" />;
       default:
-        return <Mic className="h-6 w-6" />;
+        return (
+          <div className="relative">
+            <div 
+              className={cn(
+                "w-16 h-16 rounded-full transition-all duration-150",
+                isUserSpeaking ? "bg-green-500 scale-110" : "bg-blue-500",
+                isListening && "animate-pulse"
+              )}
+              style={{
+                transform: `scale(${1 + voiceLevel * 0.5})`,
+              }}
+            />
+            <div 
+              className="absolute inset-0 rounded-full bg-white/20"
+              style={{
+                transform: `scale(${1 + voiceLevel * 1.5})`,
+                opacity: voiceLevel * 2,
+              }}
+            />
+          </div>
+        );
     }
   };
 
@@ -184,7 +194,7 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
         variant="ghost"
         size="icon"
         className="absolute top-4 right-4 text-white/70 hover:text-white hover:bg-white/10"
-        onClick={onClose}
+        onClick={handleClose}
       >
         <X className="h-6 w-6" />
       </Button>
@@ -192,7 +202,27 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
       {/* Title */}
       <div className="absolute top-8 text-center">
         <h2 className="text-2xl font-semibold text-white">Assistente de Voz</h2>
-        <p className="text-white/60 text-sm mt-1">Agenciamento Inteligente</p>
+        <p className="text-white/60 text-sm mt-1">Conversa Contínua</p>
+      </div>
+
+      {/* Status indicator */}
+      <div className="absolute top-24 flex items-center gap-2">
+        <div 
+          className={cn(
+            "w-3 h-3 rounded-full transition-colors",
+            isPaused ? "bg-yellow-500" :
+            isListening ? "bg-green-500 animate-pulse" : 
+            isProcessing ? "bg-amber-500 animate-pulse" :
+            isSpeaking ? "bg-purple-500 animate-pulse" :
+            "bg-gray-500"
+          )}
+        />
+        <span className="text-white/60 text-sm">
+          {isPaused ? "Em pausa" : 
+           isListening ? "Escuta ativa" : 
+           isProcessing ? "Processando" :
+           isSpeaking ? "Falando" : "Aguardando"}
+        </span>
       </div>
 
       {/* Visualizer Container */}
@@ -202,32 +232,48 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
           <div
             className={cn(
               'absolute inset-0 blur-3xl opacity-30 transition-colors duration-500',
-              mode === 'listening' && 'bg-blue-500',
+              mode === 'listening' && 'bg-green-500',
               mode === 'speaking' && 'bg-purple-500',
               mode === 'processing' && 'bg-amber-500',
-              mode === 'idle' && 'bg-gray-500'
+              mode === 'idle' && isListening && 'bg-blue-500',
+              mode === 'idle' && !isListening && 'bg-gray-500'
             )}
           />
           
           <AudioVisualizer
-            isActive={isRecording || isSpeaking || isProcessing}
+            isActive={isListening || isSpeaking || isProcessing}
             mode={mode}
             getFrequencyData={getFrequencyData}
+            voiceLevel={voiceLevel}
             className="relative z-10"
           />
         </div>
       </div>
 
+      {/* Voice level indicator */}
+      {isListening && !isPaused && (
+        <div className="mt-4 w-64 h-2 bg-white/10 rounded-full overflow-hidden">
+          <div 
+            className={cn(
+              "h-full transition-all duration-75 rounded-full",
+              isUserSpeaking ? "bg-green-500" : "bg-blue-500"
+            )}
+            style={{ width: `${Math.min(voiceLevel * 300, 100)}%` }}
+          />
+        </div>
+      )}
+
       {/* Status and Transcript */}
       <div className="mt-8 text-center max-w-lg px-4">
-        <p className="text-lg font-medium text-white mb-2">{getModeLabel()}</p>
-        
-        {isRecording && (
-          <p className="text-white/60 text-sm">{formatTime(recordingTime)}</p>
-        )}
+        <p className={cn(
+          "text-lg font-medium mb-2 transition-colors",
+          isUserSpeaking ? "text-green-400" : "text-white"
+        )}>
+          {getModeLabel()}
+        </p>
 
-        {currentTranscript && mode === 'processing' && (
-          <p className="text-white/80 text-sm mt-4 italic">"{currentTranscript}"</p>
+        {lastTranscript && (mode === 'processing' || mode === 'speaking') && (
+          <p className="text-white/80 text-sm mt-4 italic">"{lastTranscript}"</p>
         )}
 
         {assistantResponse && mode === 'speaking' && (
@@ -235,38 +281,61 @@ export const VoiceAssistantOverlay: React.FC<VoiceAssistantOverlayProps> = ({
         )}
       </div>
 
-      {/* Main Control Button */}
+      {/* Main Visual Indicator */}
       <div className="mt-12">
-        <button
-          onClick={handleMicClick}
-          disabled={isProcessing || isSpeaking}
+        <div
           className={cn(
-            'w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300',
+            'w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300',
             'focus:outline-none focus:ring-4 focus:ring-white/20',
-            isRecording
-              ? 'bg-red-500 hover:bg-red-600 scale-110'
-              : 'bg-white/10 hover:bg-white/20 border-2 border-white/30',
-            (isProcessing || isSpeaking) && 'opacity-50 cursor-not-allowed'
+            isUserSpeaking && 'scale-110',
+            isPaused ? 'bg-yellow-500/20 border-2 border-yellow-500/50' :
+            isProcessing ? 'bg-amber-500/20 border-2 border-amber-500/50' :
+            isSpeaking ? 'bg-purple-500/20 border-2 border-purple-500/50' :
+            isListening ? 'bg-blue-500/20 border-2 border-blue-500/50' :
+            'bg-white/10 border-2 border-white/30'
           )}
+          style={{
+            boxShadow: isUserSpeaking 
+              ? `0 0 ${30 + voiceLevel * 50}px rgba(34, 197, 94, ${0.3 + voiceLevel * 0.3})`
+              : undefined
+          }}
         >
           <div className="text-white">
-            {isRecording ? (
-              <MicOff className="h-10 w-10" />
-            ) : (
-              getModeIcon()
-            )}
+            {getModeIcon()}
           </div>
-        </button>
+        </div>
 
-        {isRecording && (
-          <p className="text-center text-red-400 text-sm mt-3 animate-pulse">
-            Toque para parar
+        {isListening && !isPaused && !isProcessing && !isSpeaking && (
+          <p className="text-center text-blue-400 text-sm mt-4">
+            {isUserSpeaking ? "Gravando sua fala..." : "Aguardando você falar..."}
           </p>
         )}
       </div>
 
       {/* Bottom Actions */}
       <div className="absolute bottom-8 flex gap-4">
+        <Button
+          variant="outline"
+          className={cn(
+            "bg-transparent border-white/20 text-white hover:bg-white/10",
+            isPaused && "border-yellow-500/50 text-yellow-400"
+          )}
+          onClick={handlePauseResume}
+          disabled={isProcessing}
+        >
+          {isPaused ? (
+            <>
+              <Play className="h-4 w-4 mr-2" />
+              Continuar
+            </>
+          ) : (
+            <>
+              <Pause className="h-4 w-4 mr-2" />
+              Pausar
+            </>
+          )}
+        </Button>
+        
         <Button
           variant="outline"
           className="bg-transparent border-white/20 text-white hover:bg-white/10"
