@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +8,7 @@ const corsHeaders = {
 };
 
 // Voice IDs for ElevenLabs
-const VOICES = {
+const VOICES: Record<string, string> = {
   roger: 'CwhRBWXzGAHq8TQ4Fs17',
   sarah: 'EXAVITQu4vr4xnSDxMaL',
   laura: 'FGY2WhTYpPnrIDTdsKH5',
@@ -28,6 +29,33 @@ const VOICES = {
   bill: 'pqHfZKP75CvOlQylNhV4',
 };
 
+// Buscar voz padrão do config_kv
+async function getDefaultVoice(): Promise<string> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      return 'laura';
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data } = await supabase
+      .from('config_kv')
+      .select('value')
+      .eq('key', 'system_default_voice')
+      .single();
+
+    if (data?.value) {
+      const voiceName = typeof data.value === 'string' ? data.value : String(data.value);
+      return voiceName.replace(/"/g, '');
+    }
+  } catch (e) {
+    console.error('[elevenlabs-tts] Error fetching default voice:', e);
+  }
+  return 'laura';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -45,13 +73,15 @@ serve(async (req) => {
       throw new Error('ELEVENLABS_API_KEY não configurada');
     }
 
-    // Get voice ID - use provided voiceId, or look up by name, or default to Laura (Brazilian Portuguese friendly)
+    // Get voice ID - use provided voiceId, or look up by name, or fetch default from config
     let selectedVoiceId = voiceId;
     if (!selectedVoiceId && voiceName) {
-      selectedVoiceId = VOICES[voiceName.toLowerCase() as keyof typeof VOICES];
+      selectedVoiceId = VOICES[voiceName.toLowerCase()];
     }
     if (!selectedVoiceId) {
-      selectedVoiceId = VOICES.laura; // Default voice
+      const defaultVoiceName = await getDefaultVoice();
+      selectedVoiceId = VOICES[defaultVoiceName.toLowerCase()] || VOICES.laura;
+      console.log('[elevenlabs-tts] Using default voice from config:', defaultVoiceName);
     }
 
     console.log('[elevenlabs-tts] Generating speech for text:', text.substring(0, 50) + '...');
