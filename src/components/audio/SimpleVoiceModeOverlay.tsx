@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Mic, MicOff, Loader2, MessageSquare, Volume2, Check, Edit3, RotateCcw, Package, DollarSign, CreditCard } from 'lucide-react';
+import { X, Mic, MicOff, Loader2, MessageSquare, Volume2, VolumeX, Check, Edit3, RotateCcw, Package, DollarSign, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +24,8 @@ interface SimpleVoiceModeOverlayProps {
   assistantResponse?: string;
   assistantError?: string;
   onSpeakingComplete?: () => void;
+  voiceResponseEnabled?: boolean;
+  onVoiceResponseToggle?: () => void;
   // ManyChat-style confirmation buttons
   showConfirmationButtons?: boolean;
   onConfirm?: () => void;
@@ -42,6 +44,8 @@ export function SimpleVoiceModeOverlay({
   currentTranscript,
   assistantResponse,
   assistantError,
+  voiceResponseEnabled = true,
+  onVoiceResponseToggle,
   showConfirmationButtons = false,
   onConfirm,
   onCorrect,
@@ -228,9 +232,26 @@ export function SimpleVoiceModeOverlay({
           <Volume2 className="h-5 w-5 text-primary" />
           Modo Voz
         </h2>
-        <Button variant="ghost" size="icon" onClick={handleClose}>
-          <X className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Voice Response Toggle */}
+          <Button
+            variant={voiceResponseEnabled ? "default" : "ghost"}
+            size="sm"
+            onClick={onVoiceResponseToggle}
+            className="gap-1.5"
+            title={voiceResponseEnabled ? "Desativar resposta por voz" : "Ativar resposta por voz"}
+          >
+            {voiceResponseEnabled ? (
+              <Volume2 className="h-4 w-4" />
+            ) : (
+              <VolumeX className="h-4 w-4" />
+            )}
+            <span className="text-xs">Voz</span>
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleClose}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Content */}

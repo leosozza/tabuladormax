@@ -226,21 +226,6 @@ export function AgenciamentoAssistant({
             </div>
             <span className="text-xs text-muted-foreground ml-7">{currentProvider.name}</span>
           </div>
-          {/* Voice Response Toggle */}
-          <Button
-            variant={voiceResponseEnabled ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setVoiceResponseEnabled(!voiceResponseEnabled)}
-            className="gap-1.5"
-            title={voiceResponseEnabled ? "Desativar resposta por voz" : "Ativar resposta por voz"}
-          >
-            {voiceResponseEnabled ? (
-              <Volume2 className="h-4 w-4" />
-            ) : (
-              <VolumeX className="h-4 w-4" />
-            )}
-            <span className="hidden sm:inline text-xs">Voz</span>
-          </Button>
         </div>
         
         {/* Progress Steps */}
@@ -479,6 +464,8 @@ export function AgenciamentoAssistant({
         currentTranscript={messages.filter(m => m.role === 'user').slice(-1)[0]?.content}
         assistantResponse={messages.filter(m => m.role === 'assistant').slice(-1)[0]?.content}
         assistantError={error}
+        voiceResponseEnabled={voiceResponseEnabled}
+        onVoiceResponseToggle={() => setVoiceResponseEnabled(!voiceResponseEnabled)}
         // ManyChat-style confirmation buttons
         showConfirmationButtons={stage === 'review'}
         onConfirm={() => {
