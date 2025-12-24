@@ -3,10 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { LogOut, RefreshCw, Trophy, Medal, Bot } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { LogOut, RefreshCw, Trophy, Medal, Bot, CalendarIcon, Building, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ScouterStatsCards } from './ScouterStatsCards';
-import { ScouterFilters } from './ScouterFilters';
 import { PhotoUploadDialog } from './PhotoUploadDialog';
 import { ScouterLeadsModal } from './ScouterLeadsModal';
 import { AIAnalysisModal } from './AIAnalysisModal';
@@ -14,6 +15,7 @@ import { useScouterAIAnalysis } from '@/hooks/useScouterAIAnalysis';
 import { startOfDay, endOfDay, startOfWeek, startOfMonth, subDays, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface ScouterDashboardProps {
   scouterData: {
@@ -243,30 +245,169 @@ export const ScouterDashboard = ({
           </Card>
         )}
 
-        {/* Filtros e Ações */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <ScouterFilters 
-            datePreset={datePreset} 
-            onDatePresetChange={setDatePreset} 
-            customDateRange={customDateRange}
-            onCustomDateRangeChange={setCustomDateRange}
-            projectId={projectId} 
-            onProjectChange={setProjectId} 
-            projects={projects} 
-          />
+        {/* Filtros e Ações - Tudo em uma linha */}
+        <div className="flex items-center justify-between gap-4">
+          {/* Botão Análise IA */}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleOpenAIAnalysis}
+            disabled={isAnalyzing || !stats}
+            className="gap-2"
+          >
+            <Bot className="h-4 w-4" />
+            Análise IA
+          </Button>
           
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleOpenAIAnalysis}
-              disabled={isAnalyzing || !stats}
-              className="gap-2"
-            >
-              <Bot className="h-4 w-4" />
-              Análise IA
-            </Button>
+          {/* Ícones de Filtro */}
+          <div className="flex items-center gap-1">
+            {/* Ícone de Data com Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+                  <CalendarIcon className="h-4 w-4" />
+                  {datePreset !== 'today' && (
+                    <span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full" />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-2" align="end">
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs text-muted-foreground px-2 pb-1 border-b mb-1">Período</p>
+                  {[
+                    { value: 'today', label: 'Hoje' },
+                    { value: 'yesterday', label: 'Ontem' },
+                    { value: 'week', label: 'Esta Semana' },
+                    { value: 'last7days', label: 'Últimos 7 dias' },
+                    { value: 'month', label: 'Este Mês' },
+                    { value: 'custom', label: 'Intervalo' },
+                  ].map((option) => (
+                    <Button
+                      key={option.value}
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "justify-start font-normal",
+                        datePreset === option.value && "bg-accent font-medium"
+                      )}
+                      onClick={() => setDatePreset(option.value as DateRangePreset)}
+                    >
+                      {datePreset === option.value && <Check className="h-4 w-4 mr-2" />}
+                      {option.label}
+                    </Button>
+                  ))}
+                  
+                  {/* Seletor de datas quando "Intervalo" está ativo */}
+                  {datePreset === 'custom' && (
+                    <div className="pt-2 border-t mt-2 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={cn(
+                                "flex-1 justify-start text-left font-normal",
+                                !customDateRange.start && "text-muted-foreground"
+                              )}
+                            >
+                              {customDateRange.start ? (
+                                format(customDateRange.start, "dd/MM/yyyy", { locale: ptBR })
+                              ) : (
+                                <span>De</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={customDateRange.start || undefined}
+                              onSelect={(date) => setCustomDateRange({ ...customDateRange, start: date || null })}
+                              initialFocus
+                              className={cn("p-3 pointer-events-auto")}
+                              locale={ptBR}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <span className="text-xs text-muted-foreground">até</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={cn(
+                                "flex-1 justify-start text-left font-normal",
+                                !customDateRange.end && "text-muted-foreground"
+                              )}
+                            >
+                              {customDateRange.end ? (
+                                format(customDateRange.end, "dd/MM/yyyy", { locale: ptBR })
+                              ) : (
+                                <span>Até</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="end">
+                            <Calendar
+                              mode="single"
+                              selected={customDateRange.end || undefined}
+                              onSelect={(date) => setCustomDateRange({ ...customDateRange, end: date || null })}
+                              initialFocus
+                              className={cn("p-3 pointer-events-auto")}
+                              locale={ptBR}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+            
+            {/* Ícone de Projeto com Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+                  <Building className="h-4 w-4" />
+                  {projectId && (
+                    <span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full" />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2" align="end">
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs text-muted-foreground px-2 pb-1 border-b mb-1">Projeto</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "justify-start font-normal",
+                      !projectId && "bg-accent font-medium"
+                    )}
+                    onClick={() => setProjectId(null)}
+                  >
+                    {!projectId && <Check className="h-4 w-4 mr-2" />}
+                    Todos os Projetos
+                  </Button>
+                  {projects.map((project) => (
+                    <Button
+                      key={project.project_id}
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "justify-start font-normal",
+                        projectId === project.project_id && "bg-accent font-medium"
+                      )}
+                      onClick={() => setProjectId(project.project_id)}
+                    >
+                      {projectId === project.project_id && <Check className="h-4 w-4 mr-2" />}
+                      {project.project_name} ({project.lead_count})
+                    </Button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
