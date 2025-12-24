@@ -287,3 +287,6 @@ verify_jwt = false
 
 [functions.extract-payment-from-audio]
 verify_jwt = false
+
+[functions.agenciamento-assistant]
+verify_jwt = false

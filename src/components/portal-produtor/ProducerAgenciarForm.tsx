@@ -17,18 +17,21 @@ import { ptBR } from 'date-fns/locale';
 import { 
   Plus, Trash2, Save, CheckCircle, 
   Calculator, CreditCard, Loader2, Package, Check, X,
-  CalendarIcon, FileText, ChevronDown, GitCompare, Mic
+  CalendarIcon, FileText, ChevronDown, GitCompare, Mic, MessageSquare
 } from 'lucide-react';
 import { PaymentVoiceAssistant } from '@/components/agenciamento/PaymentVoiceAssistant';
+import { AgenciamentoAssistant } from '@/components/portal-produtor/AgenciamentoAssistant';
 import { SelectedPaymentMethod } from '@/types/agenciamento';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { Deal } from './ProducerDealsTab';
 import { Json } from '@/integrations/supabase/types';
 import { listProductsBySection, BitrixProduct } from '@/lib/bitrix';
 import { generateContractPDF } from '@/services/contractPDFService';
 import { cn } from '@/lib/utils';
+import { PaymentMethodData } from '@/hooks/useAgenciamentoAssistant';
 
 interface ProducerAgenciarFormProps {
   deal: Deal;
@@ -146,6 +149,42 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
   const [isServicesOpen, setIsServicesOpen] = useState(true);
   const [showComparison, setShowComparison] = useState(false);
   const [showVoiceAssistant, setShowVoiceAssistant] = useState(false);
+  const [showFullAssistant, setShowFullAssistant] = useState(false);
+
+  // Handler para dados do assistente completo
+  const handleFullAssistantComplete = (assistantData: {
+    packageId: string;
+    packageName: string;
+    baseValue: number;
+    finalValue: number;
+    discountPercent: number;
+    paymentMethods: PaymentMethodData[];
+  }) => {
+    // Set package
+    setSelectedProductId(assistantData.packageId);
+    setBaseValue(assistantData.baseValue);
+    
+    // Set value/discount
+    if (assistantData.discountPercent > 0) {
+      setDiscountType('final');
+      setFinalValueInput(assistantData.finalValue);
+      setDiscountPercent(assistantData.discountPercent);
+    }
+    
+    // Set payment methods
+    const newPayments: PaymentMethod[] = assistantData.paymentMethods.map(pm => ({
+      id: crypto.randomUUID(),
+      method: mapMethodType(pm.method),
+      value: pm.amount,
+      installments: pm.installments,
+      firstDueDate: pm.dueDate,
+    }));
+    setPaymentMethods(newPayments);
+    
+    setShowFullAssistant(false);
+    setIsServicesOpen(false);
+    toast.success('Dados preenchidos pelo assistente!');
+  };
 
   // Mapear tipos de método de pagamento do assistente de voz para o formato local
   const mapMethodType = (method: string): string => {
@@ -472,6 +511,32 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
   return (
     <div className="space-y-4">
+      {/* Botão Principal do Assistente */}
+      <Button 
+        onClick={() => setShowFullAssistant(true)}
+        variant="outline"
+        className="w-full gap-2 h-12 border-primary/30 hover:bg-primary/5"
+      >
+        <MessageSquare className="h-5 w-5 text-primary" />
+        <span className="font-medium">Preencher com Assistente de Voz</span>
+        <Mic className="h-4 w-4 text-muted-foreground" />
+      </Button>
+
+      {/* Sheet do Assistente Completo */}
+      <Sheet open={showFullAssistant} onOpenChange={setShowFullAssistant}>
+        <SheetContent side="bottom" className="h-[90vh] p-0">
+          {products && (
+            <AgenciamentoAssistant
+              products={products}
+              clientName={deal.client_name || undefined}
+              dealTitle={deal.title}
+              onComplete={handleFullAssistantComplete}
+              onCancel={() => setShowFullAssistant(false)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
       {/* Seleção de Serviço - Colapsável */}
       <Collapsible open={isServicesOpen} onOpenChange={setIsServicesOpen}>
         <Card>
