@@ -138,6 +138,41 @@ function getProviderConfig(provider: string): ProviderConfig {
   }
 }
 
+function coerceNumber(value: unknown, fallback = 0): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+
+  if (typeof value === 'string') {
+    // Keep digits, separators and sign; tolerate "R$ 3.000,50".
+    const raw = value.trim();
+    const cleaned = raw.replace(/[^0-9,.-]/g, '');
+
+    const hasComma = cleaned.includes(',');
+    const hasDot = cleaned.includes('.');
+
+    let normalized = cleaned;
+    if (hasComma && hasDot) {
+      // Assume pt-BR: "." thousands, "," decimal
+      normalized = cleaned.replace(/\./g, '').replace(',', '.');
+    } else if (hasComma && !hasDot) {
+      normalized = cleaned.replace(',', '.');
+    }
+
+    const n = parseFloat(normalized);
+    if (Number.isFinite(n)) return n;
+  }
+
+  return fallback;
+}
+
+function coerceInt(value: unknown, fallback = 1): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+  if (typeof value === 'string') {
+    const m = value.match(/-?\d+/);
+    if (m) return parseInt(m[0], 10);
+  }
+  return fallback;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -420,7 +455,7 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
             properties: {
               packageId: { type: 'string', description: 'ID do pacote selecionado' },
               packageName: { type: 'string', description: 'Nome do pacote' },
-              packagePrice: { type: 'number', description: 'Preço do pacote' },
+              packagePrice: { type: ['number', 'string'], description: 'Preço do pacote' },
               message: { type: 'string', description: 'Mensagem para o usuário confirmando e perguntando o próximo passo' }
             },
             required: ['packageId', 'packageName', 'packagePrice', 'message']
@@ -435,8 +470,8 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
           parameters: {
             type: 'object',
             properties: {
-              finalValue: { type: 'number', description: 'Valor final acordado' },
-              discountPercent: { type: 'number', description: 'Percentual de desconto aplicado' },
+              finalValue: { type: ['number', 'string'], description: 'Valor final acordado' },
+              discountPercent: { type: ['number', 'string'], description: 'Percentual de desconto aplicado' },
               message: { type: 'string', description: 'Mensagem confirmando o valor e perguntando a forma de pagamento' }
             },
             required: ['finalValue', 'message']
@@ -460,8 +495,8 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
                       type: 'string', 
                       enum: ['pix', 'credit_card', 'debit_card', 'boleto', 'bank_transfer', 'cash'] 
                     },
-                    amount: { type: 'number', description: 'Valor total desta forma de pagamento' },
-                    installments: { type: 'number', description: 'Número de parcelas (1 para à vista)' },
+                    amount: { type: ['number', 'string'], description: 'Valor total desta forma de pagamento' },
+                    installments: { type: ['number', 'string'], description: 'Número de parcelas (1 para à vista)' },
                     dueDate: { type: 'string', description: 'Data do primeiro vencimento (opcional)' }
                   },
                   required: ['method', 'amount', 'installments']
@@ -482,8 +517,8 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
             type: 'object',
             properties: {
               method: { type: 'string', description: 'Método de pagamento (boleto ou cheque)' },
-              amount: { type: 'string', description: 'Valor total do boleto/cheque como string (ex: "1000")' },
-              installments: { type: 'string', description: 'Número de parcelas como string (ex: "5")' },
+              amount: { type: ['number', 'string'], description: 'Valor total do boleto/cheque (ex: "1000")' },
+              installments: { type: ['number', 'string'], description: 'Número de parcelas (ex: "5")' },
               question: { type: 'string', description: 'Pergunta sobre a data do primeiro vencimento' }
             },
             required: ['method', 'amount', 'installments', 'question']
@@ -503,10 +538,10 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
                 enum: ['pix', 'credit_card', 'debit_card', 'boleto', 'bank_transfer', 'cash'],
                 description: 'Método de pagamento'
               },
-              amount: { type: 'number', description: 'Valor desta forma de pagamento' },
-              installments: { type: 'number', description: 'Número de parcelas (1 para à vista)' },
+              amount: { type: ['number', 'string'], description: 'Valor desta forma de pagamento' },
+              installments: { type: ['number', 'string'], description: 'Número de parcelas (1 para à vista)' },
               dueDate: { type: 'string', description: 'Data do primeiro vencimento (opcional, para boleto parcelado)' },
-              remainingAmount: { type: 'number', description: 'Valor que ainda falta após este pagamento' },
+              remainingAmount: { type: ['number', 'string'], description: 'Valor que ainda falta após este pagamento' },
               message: { type: 'string', description: 'Mensagem informando o que foi registrado e perguntando sobre o restante' }
             },
             required: ['method', 'amount', 'installments', 'remainingAmount', 'message']
@@ -630,13 +665,16 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
 
-      case 'set_value':
+      case 'set_value': {
+        const finalValue = coerceNumber(parsedArgs.finalValue, 0);
+        const discountPercent = coerceNumber(parsedArgs.discountPercent, 0);
+
         return new Response(JSON.stringify({
           success: true,
           action: 'set_value',
           data: {
-            finalValue: parsedArgs.finalValue,
-            discountPercent: parsedArgs.discountPercent || 0
+            finalValue,
+            discountPercent,
           },
           message: parsedArgs.message,
           transcription,
@@ -648,18 +686,26 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
 
-      case 'set_payment_methods':
+      case 'set_payment_methods': {
+        const payments = (parsedArgs.payments || []).map((p: any) => {
+          const amount = coerceNumber(p.amount, 0);
+          const installments = Math.max(1, coerceInt(p.installments, 1));
+
+          return {
+            method: p.method,
+            amount: Math.round(amount * 100) / 100,
+            installments,
+            dueDate: p.dueDate,
+          };
+        });
+
         return new Response(JSON.stringify({
           success: true,
           action: 'set_payment_methods',
           data: {
-            payments: parsedArgs.payments.map((p: any) => ({
-              method: p.method,
-              amount: Math.round(p.amount * 100) / 100,
-              installments: Math.max(1, Math.round(p.installments || 1)),
-              dueDate: p.dueDate
-            }))
+            payments,
           },
           message: parsedArgs.message,
           transcription,
@@ -671,19 +717,19 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
 
-      case 'ask_due_date':
-        // Convert values to numbers in case AI returns them as strings
-        const askDueDateAmount = typeof parsedArgs.amount === 'string' ? parseFloat(parsedArgs.amount) : parsedArgs.amount;
-        const askDueDateInstallments = typeof parsedArgs.installments === 'string' ? parseInt(parsedArgs.installments, 10) : parsedArgs.installments;
-        
+      case 'ask_due_date': {
+        const amount = coerceNumber(parsedArgs.amount, 0);
+        const installments = Math.max(1, coerceInt(parsedArgs.installments, 1));
+
         return new Response(JSON.stringify({
           success: true,
           action: 'ask_due_date',
           data: {
             method: parsedArgs.method,
-            amount: askDueDateAmount,
-            installments: askDueDateInstallments
+            amount,
+            installments,
           },
           message: parsedArgs.question,
           transcription,
@@ -694,17 +740,22 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
 
-      case 'add_payment_method':
+      case 'add_payment_method': {
+        const amount = coerceNumber(parsedArgs.amount, 0);
+        const installments = Math.max(1, coerceInt(parsedArgs.installments, 1));
+        const remainingAmount = coerceNumber(parsedArgs.remainingAmount, 0);
+
         return new Response(JSON.stringify({
           success: true,
           action: 'add_payment_method',
           data: {
             method: parsedArgs.method,
-            amount: Math.round(parsedArgs.amount * 100) / 100,
-            installments: Math.max(1, Math.round(parsedArgs.installments || 1)),
+            amount: Math.round(amount * 100) / 100,
+            installments,
             dueDate: parsedArgs.dueDate,
-            remainingAmount: Math.round(parsedArgs.remainingAmount * 100) / 100
+            remainingAmount: Math.round(remainingAmount * 100) / 100,
           },
           message: parsedArgs.message,
           transcription,
@@ -715,6 +766,7 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
 
       case 'ask_question':
         return new Response(JSON.stringify({
