@@ -55,6 +55,7 @@ const PAYMENT_METHOD_OPTIONS = [
   { value: 'cartao_credito', label: 'Cartão de Crédito' },
   { value: 'cartao_debito', label: 'Cartão de Débito' },
   { value: 'boleto', label: 'Boleto' },
+  { value: 'cheque', label: 'Cheque' },
   { value: 'dinheiro', label: 'Dinheiro' },
   { value: 'transferencia', label: 'Transferência' },
 ];
@@ -426,10 +427,36 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
     });
   };
 
+  // Validar se boletos/cheques têm data de vencimento
+  const validatePaymentMethodsDueDate = (): { valid: boolean; error?: string } => {
+    const methodsRequiringDueDate = ['boleto', 'cheque'];
+    
+    for (const pm of paymentMethods) {
+      if (methodsRequiringDueDate.includes(pm.method)) {
+        if (!pm.firstDueDate) {
+          const methodLabel = pm.method === 'boleto' ? 'Boleto' : 'Cheque';
+          return {
+            valid: false,
+            error: `Informe a data de vencimento para o ${methodLabel}`
+          };
+        }
+      }
+    }
+    
+    return { valid: true };
+  };
+
   // Finalizar negociação
   const handleFinalize = async () => {
     if (remainingValue > 0) {
       toast.error('O valor total das formas de pagamento não cobre o valor da negociação');
+      return;
+    }
+
+    // Validar data de vencimento para boletos e cheques
+    const dueDateValidation = validatePaymentMethodsDueDate();
+    if (!dueDateValidation.valid) {
+      toast.error(dueDateValidation.error);
       return;
     }
 
@@ -939,8 +966,8 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
                   </div>
                 )}
 
-                {/* Campos adicionais para Boleto */}
-                {pm.method === 'boleto' && (
+                {/* Campos adicionais para Boleto e Cheque */}
+                {(pm.method === 'boleto' || pm.method === 'cheque') && (
                   <div className="pt-2 border-t space-y-3">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
