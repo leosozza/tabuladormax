@@ -200,6 +200,13 @@ const adminCategories: Record<string, CategoryConfig> = {
         color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
       },
       {
+        path: '/admin/agenciamento-training',
+        icon: Mic,
+        title: 'Assistente Produtor',
+        description: 'Configurar assistente de voz do produtor',
+        color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+      },
+      {
         path: '/admin/ai-playground',
         icon: TestTube,
         title: 'Playground IA',
