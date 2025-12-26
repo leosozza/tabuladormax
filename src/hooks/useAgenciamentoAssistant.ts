@@ -1,8 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useAudioRecorder } from './useAudioRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { BitrixProduct } from '@/lib/bitrix';
-import { useSystemSettings } from './useSystemSettings';
 
 export type AgenciamentoStage = 'idle' | 'package' | 'value' | 'payment' | 'review' | 'complete';
 
@@ -62,12 +61,6 @@ interface UseAgenciamentoAssistantReturn {
   isProcessing: boolean;
   error: string | null;
   
-  // AI Provider state
-  provider: string;
-  model: string;
-  setProvider: (provider: string) => void;
-  setModel: (model: string) => void;
-  
   // Voice response state
   voiceResponseEnabled: boolean;
   setVoiceResponseEnabled: (enabled: boolean) => void;
@@ -119,7 +112,6 @@ export function useAgenciamentoAssistant({
   onComplete,
 }: UseAgenciamentoAssistantProps): UseAgenciamentoAssistantReturn {
   const audioRecorder = useAudioRecorder();
-  const { settings } = useSystemSettings();
   
   const [stage, setStage] = useState<AgenciamentoStage>('idle');
   const [data, setData] = useState<AgenciamentoData>(INITIAL_DATA);
@@ -134,19 +126,6 @@ export function useAgenciamentoAssistant({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pendingBoletoData, setPendingBoletoData] = useState<PendingBoletoData | null>(null);
   
-  // AI Provider state - usar valores padrão do sistema
-  const [provider, setProvider] = useState<string>('lovable');
-  const [model, setModel] = useState<string>('google/gemini-2.5-flash');
-  
-  // Atualizar quando as configurações do sistema carregarem
-  useEffect(() => {
-    if (settings?.defaultAIProvider) {
-      setProvider(settings.defaultAIProvider);
-    }
-    if (settings?.defaultAIModel) {
-      setModel(settings.defaultAIModel);
-    }
-  }, [settings?.defaultAIProvider, settings?.defaultAIModel]);
   
   // Voice response state
   const [voiceResponseEnabled, setVoiceResponseEnabled] = useState<boolean>(false);
@@ -320,9 +299,7 @@ Qual pacote o cliente escolheu?`;
       console.log('[useAgenciamentoAssistant] Enviando:', { 
         hasAudio: !!base64Audio, 
         textResponse: transcription,
-        stage: data.stage,
-        provider,
-        model
+        stage: data.stage
       });
 
       const { data: result, error: invokeError } = await supabase.functions.invoke('agenciamento-assistant', {
@@ -349,9 +326,7 @@ Qual pacote o cliente escolheu?`;
             description: p.DESCRIPTION
           })),
           clientName,
-          dealTitle,
-          provider,
-          model
+          dealTitle
         }
       });
 
@@ -502,7 +477,7 @@ Qual pacote o cliente escolheu?`;
       setIsProcessing(false);
       processingMutexRef.current = false;
     }
-  }, [conversationHistory, data, products, stage, clientName, dealTitle, provider, model, stopSpeaking, speakText]);
+  }, [conversationHistory, data, products, stage, clientName, dealTitle, stopSpeaking, speakText]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isProcessing) return;
@@ -585,11 +560,6 @@ Qual pacote o cliente escolheu?`;
     isProcessing,
     error,
     
-    // AI Provider state
-    provider,
-    model,
-    setProvider,
-    setModel,
     
     // Voice response state
     voiceResponseEnabled,

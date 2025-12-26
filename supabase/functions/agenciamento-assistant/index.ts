@@ -66,77 +66,6 @@ async function getAgenciamentoConfig(): Promise<string | null> {
   }
 }
 
-// Buscar configuração padrão de IA do sistema
-async function getDefaultAIConfig(): Promise<{ provider: string; model: string }> {
-  try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-    
-    const { data } = await supabase
-      .from('config_kv')
-      .select('key, value')
-      .in('key', ['system_default_ai_provider', 'system_default_ai_model']);
-    
-    const configMap = new Map<string, string>();
-    data?.forEach(row => {
-      try {
-        configMap.set(row.key, JSON.parse(row.value as string));
-      } catch {
-        configMap.set(row.key, row.value as string);
-      }
-    });
-    
-    return {
-      provider: configMap.get('system_default_ai_provider') || 'lovable',
-      model: configMap.get('system_default_ai_model') || 'google/gemini-2.5-flash',
-    };
-  } catch (error) {
-    console.error('[getDefaultAIConfig] Error:', error);
-    return {
-      provider: 'lovable',
-      model: 'google/gemini-2.5-flash',
-    };
-  }
-}
-
-function getProviderConfig(provider: string): ProviderConfig {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
-  const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
-
-  switch (provider) {
-    case 'openrouter':
-      if (!OPENROUTER_API_KEY) {
-        throw new Error('OPENROUTER_API_KEY não configurada');
-      }
-      return {
-        baseUrl: 'https://openrouter.ai/api/v1',
-        apiKey: OPENROUTER_API_KEY,
-        defaultModel: 'anthropic/claude-3.5-sonnet',
-      };
-    case 'groq':
-      if (!GROQ_API_KEY) {
-        throw new Error('GROQ_API_KEY não configurada');
-      }
-      return {
-        baseUrl: 'https://api.groq.com/openai/v1',
-        apiKey: GROQ_API_KEY,
-        defaultModel: 'llama-3.3-70b-versatile',
-      };
-    case 'lovable':
-    default:
-      if (!LOVABLE_API_KEY) {
-        throw new Error('LOVABLE_API_KEY não configurada');
-      }
-      return {
-        baseUrl: 'https://ai.gateway.lovable.dev/v1',
-        apiKey: LOVABLE_API_KEY,
-        defaultModel: 'google/gemini-2.5-flash',
-      };
-  }
-}
 
 function coerceNumber(value: unknown, fallback = 0): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -186,27 +115,19 @@ serve(async (req) => {
       currentData,
       products,
       clientName,
-      dealTitle,
-      provider: requestProvider,
-      model: requestModel
+      dealTitle
     } = await req.json();
 
     if (!audio && !textResponse) {
       throw new Error('Nenhum áudio ou resposta fornecida');
     }
 
-    // Buscar configuração padrão se não fornecida
-    const defaultConfig = await getDefaultAIConfig();
-    const provider = requestProvider || defaultConfig.provider;
-    const model = requestModel || defaultConfig.model;
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY não configurada');
+    }
 
-    console.log('[agenciamento-assistant] Recebido, stage:', currentData?.stage, 'provider:', provider);
-
-    // Get provider configuration
-    const providerConfig = getProviderConfig(provider);
-    const selectedModel = model || providerConfig.defaultModel;
-
-    console.log('[agenciamento-assistant] Usando provider:', provider, 'model:', selectedModel);
+    console.log('[agenciamento-assistant] Recebido, stage:', currentData?.stage);
 
     let transcription = textResponse || '';
 
@@ -498,11 +419,15 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
         type: 'function',
         function: {
           name: 'ask_due_date',
-          description: 'Pergunta a data do primeiro vencimento para boleto/carnê parcelado',
+          description: 'Pergunta a data do primeiro vencimento para boleto/carnê parcelado. SOMENTE para boleto ou cheque!',
           parameters: {
             type: 'object',
             properties: {
-              method: { type: 'string', description: 'Método de pagamento (boleto ou cheque)' },
+              method: { 
+                type: 'string', 
+                enum: ['boleto', 'cheque'],
+                description: 'Método de pagamento (SOMENTE boleto ou cheque)' 
+              },
               amount: { type: ['number', 'string'], description: 'Valor total do boleto/cheque (ex: "1000")' },
               installments: { type: ['number', 'string'], description: 'Número de parcelas (ex: "5")' },
               question: { type: 'string', description: 'Pergunta sobre a data do primeiro vencimento' }
@@ -566,24 +491,15 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
       }
     ];
 
-    // Build headers for the AI request
-    const headers: Record<string, string> = {
-      'Authorization': `Bearer ${providerConfig.apiKey}`,
-      'Content-Type': 'application/json',
-    };
-
-    // OpenRouter requires additional headers
-    if (provider === 'openrouter') {
-      headers['HTTP-Referer'] = 'https://tabuladormax.lovable.app';
-      headers['X-Title'] = 'TabuladorMAX';
-    }
-
-    // Call AI
-    const aiResponse = await fetch(`${providerConfig.baseUrl}/chat/completions`, {
+    // Call AI using Lovable AI Gateway
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
-      headers,
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        model: selectedModel,
+        model: 'google/gemini-2.5-flash',
         messages,
         tools,
       }),
