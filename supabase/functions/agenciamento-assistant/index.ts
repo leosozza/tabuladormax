@@ -308,24 +308,45 @@ MÉTODOS DE PAGAMENTO VÁLIDOS:
 - bank_transfer: Transferência
 
 REGRA CRÍTICA - VALIDAÇÃO DE VALOR TOTAL:
+⚠️ LEMBRE-SE: Se o restante for BOLETO/CARNÊ PARCELADO, a REGRA #1 (ask_due_date) tem prioridade!
+
 Ao processar formas de pagamento, você DEVE:
-1. Calcular a SOMA de todas as formas de pagamento já definidas (veja no CONTEXTO ATUAL)
+1. Calcular a SOMA de todas as formas de pagamento informadas
 2. Comparar com o VALOR FINAL da proposta
 3. Se a soma for MENOR que o valor final:
-   - Informar quanto falta: "Já temos R$ X definidos. Ainda faltam R$ Y para completar os R$ Z"
-   - Perguntar: "Como será o pagamento dos R$ Y restantes? Ou prefere alterar as formas já definidas?"
-   - Use add_payment_method para ADICIONAR cada nova forma (não substitui as anteriores)
-4. Se a soma for IGUAL ao valor final:
-   - Usar set_payment_methods com TODAS as formas de pagamento
-   - Ir para o resumo
+   
+   a) Se o usuário JÁ INFORMOU como será o restante NA MESMA MENSAGEM (ex: "restante em 3x no boleto"):
+      - Calcular o valor restante automaticamente
+      - Se for BOLETO/CARNÊ PARCELADO → usar ask_due_date para perguntar a data!
+      - Se NÃO for boleto parcelado → usar add_payment_method ou set_payment_methods
+   
+   b) Se o usuário NÃO informou como será o restante:
+      - Informar quanto falta: "Já temos R$ X definidos. Ainda faltam R$ Y para completar os R$ Z"
+      - Perguntar: "Como será o pagamento dos R$ Y restantes?"
+      - Use add_payment_method para ADICIONAR cada nova forma
 
-IMPORTANTE: Se o contexto mostrar "VALOR FALTANDO", você DEVE perguntar como será o pagamento do valor restante!
+4. Se a soma for IGUAL ao valor final:
+   - Se houver BOLETO PARCELADO SEM DATA → usar ask_due_date primeiro!
+   - Se todos os dados estiverem completos → usar set_payment_methods
+
+EXEMPLOS COM "RESTANTE":
+✅ "500 pix, 1000 cartão 10x, restante em 3x no boleto" 
+   → O usuário DEFINIU que o restante é boleto 3x
+   → Usar ask_due_date: "Qual a data do primeiro vencimento do boleto?"
+
+✅ "metade no pix, o resto em 6x no carnê"
+   → O usuário DEFINIU que o resto é carnê 6x  
+   → Usar ask_due_date: "Qual a data do primeiro vencimento?"
+
+❌ "500 pix e 1000 no cartão" (valor final R$ 2.000)
+   → O usuário NÃO definiu o restante
+   → Perguntar: "Ainda faltam R$ 500. Como será o pagamento?"
 
 Exemplo de cálculo:
 - Valor final: R$ 6.000
-- Já definido: R$ 2.000 no PIX + R$ 3.000 no cartão = R$ 5.000
-- Faltam: R$ 1.000
-- Resposta: "Ótimo! Já temos R$ 5.000 definidos (PIX e cartão). Ainda faltam R$ 1.000 para completar os R$ 6.000. Como será esse restante?"
+- Informado: R$ 2.000 PIX + R$ 3.000 cartão + "restante em 2x boleto"
+- Restante calculado: R$ 1.000 (6.000 - 5.000)
+- Resposta: usar ask_due_date porque tem boleto parcelado!
 
 Use as tools para avançar no processo. Quando tiver informação suficiente, use a tool apropriada.`;
 
