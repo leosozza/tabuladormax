@@ -43,7 +43,7 @@ export const ProducerDealsTab = ({ producerId, onDealSelect }: ProducerDealsTabP
       } else if (statusFilter === 'em_andamento') {
         statusParam = 'atendimento_produtor';
       } else if (statusFilter === 'concluidos') {
-        statusParam = 'realizado';
+        statusParam = 'negocios_fechados';
       }
 
       const { data, error } = await supabase.rpc('get_producer_deals', {

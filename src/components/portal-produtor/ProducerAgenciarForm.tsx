@@ -356,8 +356,8 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
     onSuccess: (data) => {
       setCurrentNegotiationId(data.negotiationId);
       
-      // Se status é 'realizado', mostrar fase de documentação
-      if (data.status === 'realizado') {
+      // Se status é 'negocios_fechados', mostrar fase de documentação
+      if (data.status === 'negocios_fechados') {
         toast.success('Negociação finalizada! Agora envie os documentos.');
         setShowDocumentation(true);
       } else {
@@ -440,7 +440,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
       total_value: totalValue,
       notes,
       payment_methods: paymentMethods,
-      status: 'realizado',
+      status: 'negocios_fechados',
       bitrix_product_id: selectedProductId ? parseInt(selectedProductId) : null
     });
   };
@@ -1080,7 +1080,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
         <Button 
           className="flex-1 h-12 sm:h-10 gap-2"
           onClick={handleFinalize}
-          disabled={saveMutation.isPending || status === 'realizado'}
+          disabled={saveMutation.isPending || status === 'negocios_fechados'}
         >
           {saveMutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
