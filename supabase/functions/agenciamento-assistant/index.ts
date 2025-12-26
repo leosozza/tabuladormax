@@ -481,9 +481,9 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
           parameters: {
             type: 'object',
             properties: {
-              method: { type: 'string', description: 'Método de pagamento (boleto)' },
-              amount: { type: 'number', description: 'Valor total do boleto' },
-              installments: { type: 'number', description: 'Número de parcelas' },
+              method: { type: 'string', description: 'Método de pagamento (boleto ou cheque)' },
+              amount: { type: 'string', description: 'Valor total do boleto/cheque como string (ex: "1000")' },
+              installments: { type: 'string', description: 'Número de parcelas como string (ex: "5")' },
               question: { type: 'string', description: 'Pergunta sobre a data do primeiro vencimento' }
             },
             required: ['method', 'amount', 'installments', 'question']
@@ -673,13 +673,17 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
         });
 
       case 'ask_due_date':
+        // Convert values to numbers in case AI returns them as strings
+        const askDueDateAmount = typeof parsedArgs.amount === 'string' ? parseFloat(parsedArgs.amount) : parsedArgs.amount;
+        const askDueDateInstallments = typeof parsedArgs.installments === 'string' ? parseInt(parsedArgs.installments, 10) : parsedArgs.installments;
+        
         return new Response(JSON.stringify({
           success: true,
           action: 'ask_due_date',
           data: {
             method: parsedArgs.method,
-            amount: parsedArgs.amount,
-            installments: parsedArgs.installments
+            amount: askDueDateAmount,
+            installments: askDueDateInstallments
           },
           message: parsedArgs.question,
           transcription,
