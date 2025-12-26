@@ -284,7 +284,7 @@ export function SimpleVoiceModeOverlay({
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
+      <div className="flex-1 flex flex-col items-center p-6 gap-8 overflow-y-auto">
         {/* Error */}
         {(micError || assistantError) && (
           <div className="bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm max-w-sm text-center">
