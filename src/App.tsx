@@ -47,6 +47,7 @@ import WhatsAppBot from './pages/admin/WhatsAppBot';
 import FlowBuilderAdmin from './pages/admin/FlowBuilderAdmin';
 import AppDocumentation from './pages/admin/AppDocumentation';
 import SystemSettings from './pages/admin/SystemSettings';
+import AgenciamentoAssistantTraining from './pages/admin/AgenciamentoAssistantTraining';
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
 import GestaoLeads from "./pages/gestao/Leads";
@@ -180,6 +181,7 @@ const App = () => (
             <Route path="/admin/flow-builder" element={<ProtectedRoute requireManager><FlowBuilderAdmin /></ProtectedRoute>} />
             <Route path="/admin/app-documentation" element={<ProtectedRoute requireManager><AppDocumentation /></ProtectedRoute>} />
             <Route path="/admin/system-settings" element={<ProtectedRoute requireAdmin><SystemSettings /></ProtectedRoute>} />
+            <Route path="/admin/agenciamento-training" element={<ProtectedRoute requireAdmin><AgenciamentoAssistantTraining /></ProtectedRoute>} />
             {/* Agenciamento */}
             <Route path="/agenciamento" element={<Agenciamento />} />
 

@@ -37,6 +37,35 @@ interface ProviderConfig {
   defaultModel: string;
 }
 
+// Buscar configurações dinâmicas do assistente
+async function getAgenciamentoConfig(): Promise<string | null> {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
+    const { data, error } = await supabase
+      .from('agenciamento_assistant_config')
+      .select('config_value, priority')
+      .eq('is_active', true)
+      .order('priority', { ascending: false });
+    
+    if (error || !data || data.length === 0) {
+      console.log('Usando prompt hardcoded (sem configurações no banco)');
+      return null;
+    }
+    
+    // Concatenar todas as configurações ativas ordenadas por prioridade
+    const dynamicPrompt = data.map(c => c.config_value).join('\n\n');
+    console.log(`Usando prompt dinâmico (${data.length} regras ativas)`);
+    return dynamicPrompt;
+  } catch (e) {
+    console.error('Erro ao buscar configurações:', e);
+    return null;
+  }
+}
+
 // Buscar configuração padrão de IA do sistema
 async function getDefaultAIConfig(): Promise<{ provider: string; model: string }> {
   try {
@@ -235,11 +264,11 @@ serve(async (req) => {
 
     const currentContext = contextParts.length > 0 ? contextParts.join('\n') : 'Nenhuma informação coletada ainda';
 
-    // System prompt
-    const systemPrompt = `Você é um assistente amigável de agenciamento para a Prada Assessoria.
-Seu objetivo é guiar o produtor rural para registrar uma negociação de forma rápida e conversacional.
-
-CLIENTE: ${clientName || 'Cliente'}
+    // Tentar buscar prompt dinâmico do banco de dados
+    const dynamicRules = await getAgenciamentoConfig();
+    
+    // Parte fixa do prompt (contexto da negociação)
+    const contextHeader = `CLIENTE: ${clientName || 'Cliente'}
 NEGOCIAÇÃO: ${dealTitle || 'Nova Negociação'}
 
 PACOTES DISPONÍVEIS:
@@ -247,7 +276,24 @@ ${productsInfo}
 
 CONTEXTO ATUAL:
 ${currentContext}
-Estágio atual: ${currentData?.stage || 'package'}
+Estágio atual: ${currentData?.stage || 'package'}`;
+
+    // System prompt - usa regras dinâmicas se disponíveis, senão usa hardcoded
+    let systemPrompt: string;
+    
+    if (dynamicRules) {
+      // Prompt dinâmico do banco de dados
+      systemPrompt = `${dynamicRules}
+
+${contextHeader}
+
+Use as tools para avançar no processo. Quando tiver informação suficiente, use a tool apropriada.`;
+    } else {
+      // Fallback: prompt hardcoded
+      systemPrompt = `Você é um assistente amigável de agenciamento para a Prada Assessoria.
+Seu objetivo é guiar o produtor rural para registrar uma negociação de forma rápida e conversacional.
+
+${contextHeader}
 
 FLUXO DE TRABALHO:
 1. PACKAGE: Pergunte qual pacote o cliente escolheu (B2, B3, B4, B5 ou similar)
@@ -349,6 +395,7 @@ Exemplo de cálculo:
 - Resposta: usar ask_due_date porque tem boleto parcelado!
 
 Use as tools para avançar no processo. Quando tiver informação suficiente, use a tool apropriada.`;
+    }
 
     // Build messages array
     const messages: any[] = [{ role: 'system', content: systemPrompt }];
