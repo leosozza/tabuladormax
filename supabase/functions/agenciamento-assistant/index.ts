@@ -336,49 +336,57 @@ FLUXO DE TRABALHO:
 3. PAYMENT: Pergunte como será a forma de pagamento
 4. REVIEW: Apresente um resumo e peça confirmação
 
-REGRAS CRÍTICAS:
-- Seja conversacional, amigável e direto
-- Use emojis com moderação (1-2 por mensagem)
-- Quando o usuário disser algo, extraia as informações usando as tools disponíveis
-- Se precisar de mais informações, faça apenas UMA pergunta por vez
-- Quando mencionar "o resto", "restante", calcule baseado no valor total menos o que já foi dito
-- Parcelas: "3x de 2 mil" significa amount=6000, installments=3
-- PIX, Dinheiro geralmente são parcela única
+⚠️⚠️⚠️ REGRA #0 - PRIORIDADE ABSOLUTA - CAPTURA DE FORMAS DE PAGAMENTO:
+ESTA REGRA TEM A MAIOR PRIORIDADE DE TODAS! EXECUTE-A ANTES DE QUALQUER OUTRA!
 
-⚠️ REGRA #1 - PRIORIDADE MÁXIMA - BOLETO/CARNÊ PARCELADO:
-ESTA REGRA TEM PRIORIDADE SOBRE TODAS AS OUTRAS REGRAS!
+Se o usuário informar QUALQUER forma de pagamento (PIX, cartão, boleto, carnê, dinheiro, transferência, etc),
+você DEVE processar essa informação IMEDIATAMENTE, independente do estágio atual!
 
-Quando o cliente mencionar BOLETO ou CARNÊ com MAIS DE 1 PARCELA (2x, 3x, 6x, etc), você DEVE OBRIGATORIAMENTE:
-1. NÃO usar set_payment_methods ainda!
+❌ NUNCA use set_value se o usuário mencionou formas de pagamento na mesma mensagem!
+✅ SEMPRE use set_payment_methods, add_payment_method ou ask_due_date quando houver menção de pagamento!
+
+EXEMPLOS CRÍTICOS:
+- Usuário diz "4296, 2 mil no pix e o resto no cartão" 
+  → NÃO usar set_value! 
+  → Usar set_payment_methods com [pix: 2000, cartão: 2296]
+
+- Usuário diz "2 mil no pix e o restante em 10x no cartão"
+  → NÃO usar set_value!
+  → Usar set_payment_methods com os valores calculados
+
+- Usuário diz "metade pix, metade cartão 12x"
+  → NÃO usar set_value!
+  → Calcular metades e usar set_payment_methods
+
+A ÚNICA situação para usar set_value é quando o usuário informa APENAS o valor, SEM mencionar como vai pagar:
+- "4296" → OK usar set_value
+- "4 mil com desconto" → OK usar set_value
+- "fica em 5 mil" → OK usar set_value
+
+⚠️ REGRA #1 - PRIORIDADE ALTA - BOLETO/CARNÊ PARCELADO:
+Quando o cliente mencionar BOLETO ou CARNÊ com MAIS DE 1 PARCELA (2x, 3x, 6x, etc), você DEVE:
+1. NÃO usar set_payment_methods ainda se não tiver a data!
 2. Usar ask_due_date para perguntar a data do primeiro vencimento
 3. Aguardar a resposta do usuário com a data
 4. Só depois de ter a data, usar set_payment_methods
 
-⚠️ IMPORTANTE: Mesmo que o usuário informe valor + todas as formas de pagamento na mesma mensagem, 
-se houver boleto/carnê parcelado (2+ parcelas), você DEVE perguntar a data primeiro usando ask_due_date!
-
 Exemplos que EXIGEM usar ask_due_date PRIMEIRO:
-- "4 mil, 2 mil no cartão e 2 mil em 3x no boleto" → use ask_due_date (NÃO use set_payment_methods!)
-- "6 mil, 3 mil pix e 3 mil carnê 6x" → use ask_due_date (NÃO use set_payment_methods!)
+- "4 mil, 2 mil no cartão e 2 mil em 3x no boleto" → use ask_due_date
+- "6 mil, 3 mil pix e 3 mil carnê 6x" → use ask_due_date
 - "3x no boleto" → use ask_due_date
-- "6x no carnê" → use ask_due_date
+- "o restante em 3x no boleto" → use ask_due_date
 
-QUANDO NÃO perguntar data (pode usar set_payment_methods direto):
-- "boleto à vista" → NÃO precisa perguntar data
-- "1x no boleto" → NÃO precisa perguntar data  
+QUANDO NÃO perguntar data:
+- "boleto à vista" ou "1x no boleto" → pode usar set_payment_methods direto
 - PIX, Cartão, Dinheiro → NUNCA perguntar data
 
-REGRA #2 - RESPOSTAS COMBINADAS (SOMENTE quando NÃO há boleto/carnê parcelado):
-Se o usuário informar valor + formas de pagamento na mesma mensagem e NÃO houver boleto/carnê parcelado,
-use set_payment_methods diretamente.
-
-Exemplos que PODEM usar set_payment_methods direto:
-- "4 mil, 1 mil no pix e 3 mil no cartão 12x" → OK (não tem boleto parcelado)
-- "5 mil, metade pix e metade cartão" → OK (não tem boleto parcelado)
-- "3 mil tudo no pix" → OK (não tem boleto parcelado)
-- "6 mil, 2 mil dinheiro e 4 mil cartão" → OK (não tem boleto parcelado)
-
-Use set_value APENAS quando o usuário informar SOMENTE o valor, sem mencionar formas de pagamento.
+REGRAS GERAIS:
+- Seja conversacional, amigável e direto
+- Use emojis com moderação (1-2 por mensagem)
+- Se precisar de mais informações, faça apenas UMA pergunta por vez
+- Quando mencionar "o resto", "restante", calcule baseado no valor total menos o que já foi dito
+- Parcelas: "3x de 2 mil" significa amount=6000, installments=3
+- PIX, Dinheiro geralmente são parcela única
 
 MÉTODOS DE PAGAMENTO VÁLIDOS:
 - pix: PIX
@@ -389,45 +397,23 @@ MÉTODOS DE PAGAMENTO VÁLIDOS:
 - bank_transfer: Transferência
 
 REGRA CRÍTICA - VALIDAÇÃO DE VALOR TOTAL:
-⚠️ LEMBRE-SE: Se o restante for BOLETO/CARNÊ PARCELADO, a REGRA #1 (ask_due_date) tem prioridade!
-
 Ao processar formas de pagamento, você DEVE:
 1. Calcular a SOMA de todas as formas de pagamento informadas
 2. Comparar com o VALOR FINAL da proposta
 3. Se a soma for MENOR que o valor final:
    
-   a) Se o usuário JÁ INFORMOU como será o restante NA MESMA MENSAGEM (ex: "restante em 3x no boleto"):
+   a) Se o usuário JÁ INFORMOU como será o restante (ex: "restante em 3x no boleto"):
       - Calcular o valor restante automaticamente
-      - Se for BOLETO/CARNÊ PARCELADO → usar ask_due_date para perguntar a data!
-      - Se NÃO for boleto parcelado → usar add_payment_method ou set_payment_methods
+      - Se for BOLETO/CARNÊ PARCELADO → usar ask_due_date
+      - Se NÃO for boleto parcelado → usar set_payment_methods
    
    b) Se o usuário NÃO informou como será o restante:
-      - Informar quanto falta: "Já temos R$ X definidos. Ainda faltam R$ Y para completar os R$ Z"
+      - Informar quanto falta: "Já temos R$ X definidos. Ainda faltam R$ Y"
       - Perguntar: "Como será o pagamento dos R$ Y restantes?"
-      - Use add_payment_method para ADICIONAR cada nova forma
 
 4. Se a soma for IGUAL ao valor final:
    - Se houver BOLETO PARCELADO SEM DATA → usar ask_due_date primeiro!
    - Se todos os dados estiverem completos → usar set_payment_methods
-
-EXEMPLOS COM "RESTANTE":
-✅ "500 pix, 1000 cartão 10x, restante em 3x no boleto" 
-   → O usuário DEFINIU que o restante é boleto 3x
-   → Usar ask_due_date: "Qual a data do primeiro vencimento do boleto?"
-
-✅ "metade no pix, o resto em 6x no carnê"
-   → O usuário DEFINIU que o resto é carnê 6x  
-   → Usar ask_due_date: "Qual a data do primeiro vencimento?"
-
-❌ "500 pix e 1000 no cartão" (valor final R$ 2.000)
-   → O usuário NÃO definiu o restante
-   → Perguntar: "Ainda faltam R$ 500. Como será o pagamento?"
-
-Exemplo de cálculo:
-- Valor final: R$ 6.000
-- Informado: R$ 2.000 PIX + R$ 3.000 cartão + "restante em 2x boleto"
-- Restante calculado: R$ 1.000 (6.000 - 5.000)
-- Resposta: usar ask_due_date porque tem boleto parcelado!
 
 Use as tools para avançar no processo. Quando tiver informação suficiente, use a tool apropriada.`;
     }
@@ -466,7 +452,7 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
         type: 'function',
         function: {
           name: 'set_value',
-          description: 'Define o valor final da negociação (com ou sem desconto)',
+          description: '⚠️ ATENÇÃO: Use APENAS quando o usuário informar SOMENTE o valor, SEM mencionar formas de pagamento! Se o usuário disser qualquer forma de pagamento (PIX, cartão, boleto, etc) junto com o valor, NÃO use esta função - use set_payment_methods ou add_payment_method!',
           parameters: {
             type: 'object',
             properties: {
@@ -482,7 +468,7 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
         type: 'function',
         function: {
           name: 'set_payment_methods',
-          description: 'Define as formas de pagamento quando TODAS as informações estiverem disponíveis',
+          description: '✅ PRIORIDADE MÁXIMA: Use esta função SEMPRE que o usuário mencionar formas de pagamento (PIX, cartão, boleto, etc), independente do estágio atual! Tem prioridade sobre set_value quando há menção de pagamento. Use quando o total dos pagamentos = valor final.',
           parameters: {
             type: 'object',
             properties: {
@@ -666,6 +652,15 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
         });
 
       case 'set_value': {
+        // Validação de contexto: detectar se há menção de pagamento na transcrição
+        const paymentKeywords = ['pix', 'cartão', 'cartao', 'boleto', 'carnê', 'carne', 'cheque', 'dinheiro', 'transferência', 'transferencia', 'débito', 'debito', 'crédito', 'credito'];
+        const hasPaymentMention = paymentKeywords.some(kw => transcription.toLowerCase().includes(kw));
+        
+        if (hasPaymentMention) {
+          console.warn('[agenciamento-assistant] ⚠️ IA usou set_value mas usuário mencionou pagamento na mensagem:', transcription);
+          console.warn('[agenciamento-assistant] ⚠️ Deveria ter usado set_payment_methods ou add_payment_method!');
+        }
+
         const finalValue = coerceNumber(parsedArgs.finalValue, 0);
         const discountPercent = coerceNumber(parsedArgs.discountPercent, 0);
 
@@ -682,7 +677,8 @@ Use as tools para avançar no processo. Quando tiver informação suficiente, us
           conversationHistory: [
             ...messages.slice(1),
             { role: 'assistant', content: parsedArgs.message, tool_calls: [toolCall] }
-          ]
+          ],
+          warning: hasPaymentMention ? 'Formas de pagamento mencionadas mas não processadas' : undefined
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
