@@ -40,34 +40,6 @@ const STAGE_CONFIG: Record<AgenciamentoStage, { icon: React.ElementType; label: 
   complete: { icon: Check, label: 'Concluído', step: 5 },
 };
 
-// AI Provider configurations
-const AI_PROVIDERS = [
-  {
-    id: 'lovable',
-    name: 'Lovable AI',
-    models: [
-      { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-      { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-      { id: 'openai/gpt-5', name: 'GPT-5' },
-      { id: 'openai/gpt-5-mini', name: 'GPT-5 Mini' },
-    ],
-    defaultModel: 'google/gemini-2.5-flash',
-  },
-  {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    models: [
-      { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
-      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
-      { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Free)' },
-      { id: 'google/gemini-2.5-flash-preview-05-20', name: 'Gemini 2.5 Flash' },
-      { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B' },
-      { id: 'openai/gpt-4o', name: 'GPT-4o' },
-      { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3' },
-    ],
-    defaultModel: 'anthropic/claude-3.5-sonnet',
-  },
-];
 
 export function AgenciamentoAssistant({ 
   products, 
@@ -90,10 +62,6 @@ export function AgenciamentoAssistant({
     error,
     isRecording,
     recordingTime,
-    provider,
-    model,
-    setProvider,
-    setModel,
     voiceResponseEnabled,
     setVoiceResponseEnabled,
     isSpeaking,
@@ -132,18 +100,6 @@ export function AgenciamentoAssistant({
     },
   });
 
-  // Get current provider configuration
-  const currentProvider = AI_PROVIDERS.find(p => p.id === provider) || AI_PROVIDERS[0];
-  const currentModels = currentProvider.models;
-
-  // Handle provider change
-  const handleProviderChange = (newProvider: string) => {
-    setProvider(newProvider);
-    const providerConfig = AI_PROVIDERS.find(p => p.id === newProvider);
-    if (providerConfig) {
-      setModel(providerConfig.defaultModel);
-    }
-  };
 
   // Auto-start the assistant
   useEffect(() => {
@@ -228,7 +184,7 @@ export function AgenciamentoAssistant({
                 </Button>
               )}
             </div>
-            <span className="text-xs text-muted-foreground ml-7">{currentProvider.name}</span>
+            <span className="text-xs text-muted-foreground ml-7">Lovable AI</span>
           </div>
         </div>
         
