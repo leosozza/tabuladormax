@@ -20,6 +20,7 @@ import {
   CalendarIcon, FileText, ChevronDown, GitCompare, Mic, MessageSquare
 } from 'lucide-react';
 import { AgenciamentoAssistant } from '@/components/portal-produtor/AgenciamentoAssistant';
+import { DocumentationPhase } from '@/components/portal-produtor/DocumentationPhase';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -147,6 +148,8 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
   const [isServicesOpen, setIsServicesOpen] = useState(true);
   const [showComparison, setShowComparison] = useState(false);
   const [showFullAssistant, setShowFullAssistant] = useState(false);
+  const [showDocumentation, setShowDocumentation] = useState(false);
+  const [currentNegotiationId, setCurrentNegotiationId] = useState<string | null>(null);
 
   // Handler para dados do assistente completo
   const handleFullAssistantComplete = (assistantData: {
@@ -350,8 +353,17 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
       return { negotiationId, status: formData.status };
     },
-    onSuccess: () => {
-      toast.success('Negociação salva!');
+    onSuccess: (data) => {
+      setCurrentNegotiationId(data.negotiationId);
+      
+      // Se status é 'realizado', mostrar fase de documentação
+      if (data.status === 'realizado') {
+        toast.success('Negociação finalizada! Agora envie os documentos.');
+        setShowDocumentation(true);
+      } else {
+        toast.success('Negociação salva!');
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['negotiation', deal.deal_id] });
       queryClient.invalidateQueries({ queryKey: ['producer-deals'] });
     },
@@ -475,6 +487,23 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
+    );
+  }
+
+  // Mostrar fase de documentação se ativa
+  if (showDocumentation && currentNegotiationId) {
+    return (
+      <DocumentationPhase
+        negotiationId={currentNegotiationId}
+        clientName={deal.client_name || 'Cliente'}
+        totalValue={totalValue}
+        paymentMethods={paymentMethods}
+        onComplete={() => {
+          toast.success('Documentação concluída!');
+          onSuccess();
+        }}
+        onBack={() => setShowDocumentation(false)}
+      />
     );
   }
 
