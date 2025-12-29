@@ -4755,6 +4755,20 @@ export type Database = {
           total: number
         }[]
       }
+      get_dashboard_stats: {
+        Args: {
+          p_end_date?: string
+          p_show_all?: boolean
+          p_start_date?: string
+          p_user_id?: string
+        }
+        Returns: {
+          action_stats: Json
+          scheduled_count: number
+          todays_contacts: number
+          total_leads: number
+        }[]
+      }
       get_general_stats: {
         Args: never
         Returns: {

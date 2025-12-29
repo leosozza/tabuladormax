@@ -178,67 +178,33 @@ const Index = () => {
   };
 
   const loadActionStats = async () => {
-    let query = supabase
-      .from('actions_log')
-      .select('action_label, lead_id, created_at');
-    
-    // Apply date filter
-    query = query
-      .gte('created_at', dateFilter.startDate.toISOString())
-      .lte('created_at', dateFilter.endDate.toISOString());
-    
-    // Filter by operator if selected
-    if (selectedOperator) {
-      // Buscar nome do operador no mapeamento
-      const { data: mapping } = await supabase
-        .from('agent_telemarketing_mapping')
-        .select('bitrix_telemarketing_name')
-        .eq('tabuladormax_user_id', selectedOperator)
-        .maybeSingle();
-      
-      if (mapping?.bitrix_telemarketing_name) {
-        // Usar LIKE para match parcial do primeiro nome
-        const firstName = mapping.bitrix_telemarketing_name.split(' ')[0];
-        const { data: operatorLeads } = await supabase
-          .from('leads')
-          .select('id')
-          .ilike('responsible', `${firstName}%`);
-        
-        const leadIds = operatorLeads?.map(l => l.id) || [];
-        if (leadIds.length > 0) {
-          query = query.in('lead_id', leadIds);
-        } else {
-          setActionStats({});
-          return;
-        }
-      } else {
-        toast.warning('Operador não está mapeado no Bitrix');
-        setActionStats({});
-        return;
-      }
-    } else if ((!isAdmin || !showAllUsers) && currentUserId) {
-      // Filtrar por leads do usuário se não for admin ou se admin não quiser ver todos
-      const { data: userLeads } = await supabase
-        .from('leads')
-        .select('id')
-        .eq('responsible', currentUserId);
-      
-      const leadIds = userLeads?.map(l => l.id) || [];
-      if (leadIds.length > 0) {
-        query = query.in('lead_id', leadIds);
-      }
-    }
-    
-    const { data } = await query;
-    
-    // Contar ações por label
-    const counts: Record<string, number> = {};
-    data?.forEach(log => {
-      const label = log.action_label || 'Desconhecido';
-      counts[label] = (counts[label] || 0) + 1;
+    // Usar RPC para evitar limite de 1000 registros
+    const { data, error } = await supabase.rpc('get_dashboard_stats', {
+      p_start_date: dateFilter.startDate.toISOString(),
+      p_end_date: dateFilter.endDate.toISOString(),
+      p_user_id: currentUserId || null,
+      p_show_all: isAdmin && showAllUsers
     });
-    
-    setActionStats(counts);
+
+    if (error) {
+      console.error('Erro ao carregar stats:', error);
+      setActionStats({});
+      return;
+    }
+
+    if (data && data.length > 0) {
+      const stats = data[0];
+      // Converter JSONB para Record<string, number>
+      const counts: Record<string, number> = {};
+      if (stats.action_stats) {
+        Object.entries(stats.action_stats).forEach(([label, count]) => {
+          counts[label] = Number(count);
+        });
+      }
+      setActionStats(counts);
+    } else {
+      setActionStats({});
+    }
   };
 
   const loadOperators = async () => {
