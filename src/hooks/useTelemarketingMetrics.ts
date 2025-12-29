@@ -159,60 +159,82 @@ export function useTelemarketingMetrics(
         }
       });
 
-      // Build base query - busca leads modificados no período
-      // Includes raw for UF_CRM fields and date_closed for comparecimentos
-      let query = supabase
-        .from('leads')
-        .select('id, name, op_telemarketing, bitrix_telemarketing_id, ficha_confirmada, data_confirmacao_ficha, data_agendamento, data_criacao_agendamento, status_tabulacao, etapa, date_modify, date_closed, nome_modelo, scouter, fonte_normalizada, telemarketing, raw')
-        .gte('date_modify', startStr)
-        .lte('date_modify', endStr)
-        .not('bitrix_telemarketing_id', 'is', null);
-
-      if (operatorId) {
-        query = query.eq('bitrix_telemarketing_id', operatorId);
-      }
+      // Usa RPC para buscar métricas agregadas sem limite de 1000 linhas
+      const metricsRpcQuery = supabase.rpc('get_telemarketing_metrics', {
+        p_start_date: startStr,
+        p_end_date: endStr,
+        p_operator_id: operatorId || null
+      });
 
       // Query para comparecimentos - usa RPC que filtra diretamente por UF_CRM_DATACOMPARECEU no banco
-      // Isso evita o limite de 1000 registros e garante que pegamos TODOS os comparecidos no período
       const comparecimentosQuery = supabase.rpc('get_comparecidos_by_date', {
         p_start_date: startStr,
         p_end_date: endStr,
         p_operator_id: operatorId || null
       });
 
-      // Query SEPARADA para agendamentos - filtra por data_criacao_agendamento INDEPENDENTE de date_modify
-      // Isso garante que pegamos TODOS os leads agendados no período, mesmo que não tenham sido modificados
+      // Query limitada para detalhes de leads (apenas para modais/exibição detalhada)
+      let leadsDetailsQuery = supabase
+        .from('leads')
+        .select('id, name, op_telemarketing, bitrix_telemarketing_id, ficha_confirmada, data_confirmacao_ficha, data_agendamento, data_criacao_agendamento, status_tabulacao, etapa, date_modify, date_closed, nome_modelo, scouter, fonte_normalizada, telemarketing, raw')
+        .gte('date_modify', startStr)
+        .lte('date_modify', endStr)
+        .not('bitrix_telemarketing_id', 'is', null)
+        .limit(500);
+
+      if (operatorId) {
+        leadsDetailsQuery = leadsDetailsQuery.eq('bitrix_telemarketing_id', operatorId);
+      }
+
+      // Query para agendamentos com detalhes (para modal)
       let agendadosQuery = supabase
         .from('leads')
         .select('id, name, nome_modelo, scouter, telemarketing, bitrix_telemarketing_id, fonte_normalizada, data_criacao_agendamento, data_agendamento, raw')
         .gte('data_criacao_agendamento', startStr)
-        .lte('data_criacao_agendamento', endStr);
+        .lte('data_criacao_agendamento', endStr)
+        .limit(500);
 
       if (operatorId) {
         agendadosQuery = agendadosQuery.eq('bitrix_telemarketing_id', operatorId);
       }
 
-      const [leadsResult, comparecimentosResult, agendadosResult] = await Promise.all([
-        query,
+      const [metricsResult, comparecimentosResult, leadsDetailsResult, agendadosResult] = await Promise.all([
+        metricsRpcQuery,
         comparecimentosQuery,
+        leadsDetailsQuery,
         agendadosQuery
       ]);
 
-      if (leadsResult.error) {
-        console.error('Error fetching metrics:', leadsResult.error);
-        throw leadsResult.error;
+      if (metricsResult.error) {
+        console.error('Error fetching metrics RPC:', metricsResult.error);
+        throw metricsResult.error;
       }
 
-      const leadsData = leadsResult.data || [];
+      const metricsData = metricsResult.data as {
+        total_leads: number;
+        agendamentos: number;
+        operator_stats: Array<{
+          bitrix_telemarketing_id: number;
+          name: string;
+          leads: number;
+          confirmadas: number;
+          agendamentos: number;
+          leads_scouter: number;
+          leads_meta: number;
+        }>;
+        tabulacao_stats: Array<{ status: string; count: number }>;
+        scouter_stats: Array<{ name: string; total_leads: number; agendamentos: number }>;
+      };
+
+      const leadsData = leadsDetailsResult.data || [];
       const agendadosData = agendadosResult.data || [];
 
-      // Calculate metrics
-      const totalLeads = leadsData.length;
-      
-      // Agendamentos: vem diretamente da query por data_criacao_agendamento
-      // INDEPENDENTE de date_modify ou etapa atual
+      // Use RPC data for counts
+      const totalLeads = metricsData?.total_leads || 0;
+      const agendamentos = metricsData?.agendamentos || 0;
+
+      // Agendamentos list para detalhes (modal)
       const agendadosList = agendadosData;
-      const agendamentos = agendadosList.length;
       
       const taxaConversao = totalLeads > 0 ? (agendamentos / totalLeads) * 100 : 0;
 
@@ -293,85 +315,42 @@ export function useTelemarketingMetrics(
         };
       });
 
-      // Group by operator using friendly names and track bitrix_id
-      const operatorMap = new Map<number, { name: string; leads: number; confirmadas: number; agendamentos: number; leadsScouter: number; leadsMeta: number }>();
-      leadsData.forEach(lead => {
-        const opId = lead.bitrix_telemarketing_id;
-        if (!opId) return; // Skip leads without operator
-        
-        const opName = operatorNameMap.get(opId) || `Operador ${opId}`;
-        const current = operatorMap.get(opId) || { name: opName, leads: 0, confirmadas: 0, agendamentos: 0, leadsScouter: 0, leadsMeta: 0 };
-        current.leads++;
-        if (lead.ficha_confirmada) current.confirmadas++;
-        // Conta agendamento se data_criacao_agendamento no período (independente da etapa atual)
-        if (lead.data_criacao_agendamento) {
-          const dataAgendamento = new Date(lead.data_criacao_agendamento);
-          if (dataAgendamento >= start && dataAgendamento <= end) {
-            current.agendamentos++;
-          }
-        }
-        if (lead.fonte_normalizada === 'Scouter - Fichas') current.leadsScouter++;
-        if (lead.fonte_normalizada === 'Meta') current.leadsMeta++;
-        operatorMap.set(opId, current);
-      });
-
-      // Sort by agendamentos first, then conversion rate
-      const operatorPerformance = Array.from(operatorMap.entries())
-        .map(([bitrix_id, data]) => ({ bitrix_id, ...data }))
-        .sort((a, b) => {
-          // First sort by agendamentos
-          if (b.agendamentos !== a.agendamentos) {
-            return b.agendamentos - a.agendamentos;
-          }
-          // Then by conversion rate
-          const taxaA = a.leads > 0 ? a.confirmadas / a.leads : 0;
-          const taxaB = b.leads > 0 ? b.confirmadas / b.leads : 0;
-          return taxaB - taxaA;
-        })
-        .slice(0, 10);
+      // Operator performance vem da RPC (sem limite de 1000)
+      const operatorPerformance = (metricsData?.operator_stats || []).map(op => ({
+        bitrix_id: op.bitrix_telemarketing_id,
+        name: op.name,
+        leads: op.leads,
+        confirmadas: op.confirmadas,
+        agendamentos: op.agendamentos,
+        leadsScouter: op.leads_scouter,
+        leadsMeta: op.leads_meta,
+      })).slice(0, 10);
       
-      // Build available operators list from leads that have activity in the period
-      const activeOperatorIds = new Set(
-        leadsData
-          .filter(l => l.bitrix_telemarketing_id)
-          .map(l => l.bitrix_telemarketing_id!)
-      );
-      
-      const availableOperators: OperatorInfo[] = Array.from(activeOperatorIds)
-        .map(bitrix_id => ({
-          bitrix_id,
-          name: operatorNameMap.get(bitrix_id) || `Operador ${bitrix_id}`
+      // Build available operators list from RPC data
+      const availableOperators: OperatorInfo[] = (metricsData?.operator_stats || [])
+        .map(op => ({
+          bitrix_id: op.bitrix_telemarketing_id,
+          name: op.name
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
 
-      // Status distribution with friendly labels
-      const statusMap = new Map<string, number>();
-      leadsData.forEach(lead => {
-        const label = resolveTabulacaoLabel(lead.status_tabulacao);
-        statusMap.set(label, (statusMap.get(label) || 0) + 1);
-      });
-
-      const statusDistribution = Array.from(statusMap.entries())
-        .filter(([status]) => !status.toLowerCase().includes('agendado'))
-        .map(([status, count]) => ({ status, count }))
-        .sort((a, b) => b.count - a.count)
+      // Status distribution vem da RPC (sem limite de 1000)
+      const statusDistribution = (metricsData?.tabulacao_stats || [])
+        .filter(s => !s.status.toLowerCase().includes('agendado'))
+        .map(s => ({ 
+          status: resolveTabulacaoLabel(s.status), 
+          count: s.count 
+        }))
         .slice(0, 8);
 
-      // Tabulacao groups for KPI detail
-      const tabulacaoMap = new Map<string, { rawStatus: string; count: number }>();
-      leadsData.forEach(lead => {
-        const rawStatus = lead.status_tabulacao || '';
-        const label = resolveTabulacaoLabel(rawStatus);
-        
-        const current = tabulacaoMap.get(label) || { rawStatus, count: 0 };
-        current.count++;
-        tabulacaoMap.set(label, current);
-      });
-
-      const tabulacaoGroups: TabulacaoGroup[] = Array.from(tabulacaoMap.entries())
-        .filter(([label]) => !label.toLowerCase().includes('agendado'))
-        .map(([label, data]) => ({ label, rawStatus: data.rawStatus, count: data.count }))
-        .sort((a, b) => b.count - a.count);
+      // Tabulacao groups vem da RPC (sem limite de 1000)
+      const tabulacaoGroups: TabulacaoGroup[] = (metricsData?.tabulacao_stats || [])
+        .filter(s => !s.status.toLowerCase().includes('agendado'))
+        .map(s => ({ 
+          label: resolveTabulacaoLabel(s.status), 
+          rawStatus: s.status, 
+          count: s.count 
+        }));
 
       // Timeline - agendados agrupados pelo horário de data_criacao_agendamento (UF_CRM_AGEND_EM)
       // Converte UTC para São Paulo (UTC-3)
@@ -451,30 +430,14 @@ export function useTelemarketingMetrics(
         }
       }
 
-      // Top 5 Scouters por agendamentos
-      const scouterMap = new Map<string, { leads: number; agendamentos: number }>();
-      leadsData.forEach(lead => {
-        if (lead.fonte_normalizada === 'Scouter - Fichas' && lead.scouter) {
-          const current = scouterMap.get(lead.scouter) || { leads: 0, agendamentos: 0 };
-          current.leads++;
-          if (lead.data_criacao_agendamento) {
-            const dataAgendamento = new Date(lead.data_criacao_agendamento);
-            if (dataAgendamento >= start && dataAgendamento <= end) {
-              current.agendamentos++;
-            }
-          }
-          scouterMap.set(lead.scouter, current);
-        }
-      });
-
-      const scouterPerformance: ScouterPerformance[] = Array.from(scouterMap.entries())
-        .map(([name, data]) => ({
-          name,
-          agendamentos: data.agendamentos,
-          totalLeads: data.leads,
-          taxaConversao: data.leads > 0 ? (data.agendamentos / data.leads) * 100 : 0,
+      // Scouter performance vem da RPC (sem limite de 1000)
+      const scouterPerformance: ScouterPerformance[] = (metricsData?.scouter_stats || [])
+        .map(s => ({
+          name: s.name,
+          agendamentos: s.agendamentos,
+          totalLeads: s.total_leads,
+          taxaConversao: s.total_leads > 0 ? (s.agendamentos / s.total_leads) * 100 : 0,
         }))
-        .sort((a, b) => b.agendamentos - a.agendamentos)
         .slice(0, 5);
 
       return {

@@ -5164,6 +5164,14 @@ export type Database = {
           is_nullable: string
         }[]
       }
+      get_telemarketing_metrics: {
+        Args: {
+          p_end_date: string
+          p_operator_id?: number
+          p_start_date: string
+        }
+        Returns: Json
+      }
       get_top_active_numbers: {
         Args: { p_limit?: number }
         Returns: {
