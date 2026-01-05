@@ -14,6 +14,36 @@ const ENTITY_TYPES = {
   PRODUCER: 1156,
 };
 
+/**
+ * Converte chaves com bracket notation para objetos aninhados
+ * Exemplo: "data[FIELDS][ID]": "123" => { data: { FIELDS: { ID: "123" } } }
+ */
+function parseBracketNotation(rawPayload: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {};
+  
+  for (const [key, value] of Object.entries(rawPayload)) {
+    // Exemplo: "data[FIELDS][ID]" => ["data", "FIELDS", "ID"]
+    const parts = key.split(/[\[\]]/).filter(Boolean);
+    
+    if (parts.length === 1) {
+      result[key] = value;
+      continue;
+    }
+    
+    let current = result;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      if (!(part in current)) {
+        current[part] = {};
+      }
+      current = current[part];
+    }
+    current[parts[parts.length - 1]] = value;
+  }
+  
+  return result;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -34,9 +64,11 @@ serve(async (req) => {
       payload = await req.json();
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
       const formData = await req.formData();
+      const rawPayload: Record<string, any> = {};
       formData.forEach((value, key) => {
-        payload[key] = value;
+        rawPayload[key] = value;
       });
+      payload = parseBracketNotation(rawPayload);
     } else {
       // Tentar JSON por padrão
       try {
@@ -44,10 +76,13 @@ serve(async (req) => {
         payload = JSON.parse(text);
       } catch {
         console.log('⚠️ Payload não é JSON válido, tentando form-urlencoded');
-        const params = new URLSearchParams(await req.text());
+        const text = await req.text();
+        const params = new URLSearchParams(text);
+        const rawPayload: Record<string, any> = {};
         params.forEach((value, key) => {
-          payload[key] = value;
+          rawPayload[key] = value;
         });
+        payload = parseBracketNotation(rawPayload);
       }
     }
 
