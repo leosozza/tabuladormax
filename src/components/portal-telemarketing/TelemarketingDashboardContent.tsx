@@ -20,6 +20,7 @@ import { ComparecimentosDetailModal } from './ComparecimentosDetailModal';
 import { TelemarketingAIAnalysisModal } from './TelemarketingAIAnalysisModal';
 import { useTelemarketingAIAnalysis } from '@/hooks/useTelemarketingAIAnalysis';
 import { useComparecimentosRanking, ComparecimentosPeriod } from '@/hooks/useComparecimentosRanking';
+import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
 import { 
   generateTelemarketingReportPDF, 
   createShareableReport,
@@ -34,11 +35,13 @@ import { DateRange } from 'react-day-picker';
 interface TelemarketingDashboardContentProps {
   operatorBitrixId?: number;
   operatorCargo?: string;
+  commercialProjectId?: string;
 }
 
 export function TelemarketingDashboardContent({ 
   operatorBitrixId, 
-  operatorCargo 
+  operatorCargo,
+  commercialProjectId
 }: TelemarketingDashboardContentProps) {
   const [period, setPeriod] = useState<PeriodFilter>('today');
   const [selectedOperator, setSelectedOperator] = useState<string>('all');
@@ -58,6 +61,12 @@ export function TelemarketingDashboardContent({
   const [comparecimentosPeriod, setComparecimentosPeriod] = useState<ComparecimentosPeriod>('today');
   
   const isSupervisor = operatorCargo === SUPERVISOR_CARGO;
+  
+  // Hook para buscar equipe do supervisor (apenas agentes sob supervisão direta)
+  const { data: supervisorTeam } = useSupervisorTeam(
+    commercialProjectId || null,
+    operatorBitrixId || null
+  );
   
   // AI Analysis hook
   const { 
@@ -284,8 +293,15 @@ export function TelemarketingDashboardContent({
     );
   }
 
-  // Get available operators from metrics
-  const availableOperators = metrics?.availableOperators || [];
+  // Get available operators from metrics, filtered by supervisor's team
+  const teamAgentBitrixIds = new Set(
+    supervisorTeam?.agents.map(a => a.bitrix_telemarketing_id) || []
+  );
+  
+  // Se supervisor tem equipe definida, filtra apenas os agentes da sua equipe
+  const availableOperators = isSupervisor && teamAgentBitrixIds.size > 0
+    ? (metrics?.availableOperators || []).filter(op => teamAgentBitrixIds.has(op.bitrix_id))
+    : (metrics?.availableOperators || []);
 
   const kpis = [
     {

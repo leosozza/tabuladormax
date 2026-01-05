@@ -16,6 +16,7 @@ interface TelemarketingContext {
   bitrix_id: number;
   cargo: string;
   name: string;
+  commercial_project_id?: string;
 }
 
 type StoredTelemarketingOperator = {
@@ -23,6 +24,7 @@ type StoredTelemarketingOperator = {
   cargo: string;
   operator_name: string;
   operator_photo?: string | null;
+  commercial_project_id?: string;
 };
 
 const PortalTelemarketingDashboard = () => {
@@ -51,6 +53,7 @@ const PortalTelemarketingDashboard = () => {
           bitrix_id: operator.bitrix_id,
           cargo: operator.cargo,
           name: operator.operator_name,
+          commercial_project_id: operator.commercial_project_id,
         };
         localStorage.setItem('telemarketing_context', JSON.stringify(ctx));
         return ctx;
@@ -210,6 +213,7 @@ const PortalTelemarketingDashboard = () => {
         <TelemarketingDashboardContent 
           operatorBitrixId={context.bitrix_id}
           operatorCargo={context.cargo}
+          commercialProjectId={context.commercial_project_id}
         />
       </div>
 
