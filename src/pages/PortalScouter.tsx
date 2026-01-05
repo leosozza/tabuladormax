@@ -25,6 +25,11 @@ const PortalScouter = () => {
   });
 
   const handleAccessGranted = (data: ScouterData) => {
+    // Limpar contextos de outros portais para evitar conflitos de sessão
+    localStorage.removeItem('telemarketing_operator');
+    localStorage.removeItem('telemarketing_context');
+    localStorage.removeItem('produtor_session');
+    
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     setScouterData(data);
   };

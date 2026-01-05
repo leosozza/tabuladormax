@@ -178,6 +178,10 @@ const PortalTelemarketing = () => {
       redirectTo,
     });
 
+    // Limpar contextos de outros portais para evitar conflitos de sessão
+    localStorage.removeItem('scouter_session');
+    localStorage.removeItem('produtor_session');
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
     // Salvar contexto também para acesso direto às sub-rotas

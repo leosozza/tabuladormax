@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Bell } from 'lucide-react';
+import { ArrowLeft, Bell, Loader2 } from 'lucide-react';
 import { NotificationCenter } from '@/components/telemarketing/NotificationCenter';
 import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { TelemarketingDashboardContent } from '@/components/portal-telemarketing/TelemarketingDashboardContent';
@@ -30,6 +30,10 @@ type StoredTelemarketingOperator = {
 const PortalTelemarketingDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Estado para validação do contexto
+  const [isValidatingContext, setIsValidatingContext] = useState(true);
+  const [isValidContext, setIsValidContext] = useState<boolean | null>(null);
   
   // Estado para celebração
   const [celebration, setCelebration] = useState({
@@ -67,6 +71,41 @@ const PortalTelemarketingDashboard = () => {
     }
   })();
 
+  // Validar que o bitrix_id existe na tabela telemarketing_operators
+  useEffect(() => {
+    const validateContext = async () => {
+      if (!context) {
+        setIsValidContext(false);
+        setIsValidatingContext(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('telemarketing_operators')
+          .select('bitrix_id')
+          .eq('bitrix_id', context.bitrix_id)
+          .maybeSingle();
+
+        if (error || !data) {
+          console.warn('[Dashboard] Contexto inválido - operador não encontrado:', context.bitrix_id);
+          localStorage.removeItem('telemarketing_context');
+          localStorage.removeItem('telemarketing_operator');
+          setIsValidContext(false);
+        } else {
+          setIsValidContext(true);
+        }
+      } catch (e) {
+        console.error('[Dashboard] Erro ao validar contexto:', e);
+        setIsValidContext(false);
+      } finally {
+        setIsValidatingContext(false);
+      }
+    };
+
+    validateContext();
+  }, [context?.bitrix_id]);
+
   // Hook de ranking de comparecimentos
   const { position: comparecimentosPosition, total: totalComparecimentos } = useComparecimentosRanking(
     context?.bitrix_id || null,
@@ -75,7 +114,7 @@ const PortalTelemarketingDashboard = () => {
 
   // Listener de realtime para celebração
   useEffect(() => {
-    if (!context?.bitrix_id) return;
+    if (!context?.bitrix_id || !isValidContext) return;
 
     const channel = supabase
       .channel(`dashboard-celebration-${context.bitrix_id}`)
@@ -106,10 +145,22 @@ const PortalTelemarketingDashboard = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [context?.bitrix_id]);
+  }, [context?.bitrix_id, isValidContext]);
 
-  // Se não tem contexto, redireciona para login
-  if (!context) {
+  // Mostrar loading enquanto valida
+  if (isValidatingContext) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Validando sessão...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Se não tem contexto ou contexto inválido, redireciona para login
+  if (!context || isValidContext === false) {
     const redirectTarget = `${location.pathname}${location.search}`;
     return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }
