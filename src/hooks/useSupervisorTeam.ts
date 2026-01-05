@@ -21,31 +21,37 @@ export interface SupervisorTeamData {
 export function useSupervisorTeam(commercialProjectId: string | null, supervisorBitrixId: number | null) {
   return useQuery({
     queryKey: ['supervisor-team', commercialProjectId, supervisorBitrixId],
-    enabled: !!commercialProjectId && !!supervisorBitrixId,
+    // Apenas precisa do bitrix_id do supervisor - projectId é opcional
+    enabled: !!supervisorBitrixId,
     queryFn: async (): Promise<SupervisorTeamData> => {
-      if (!commercialProjectId || !supervisorBitrixId) {
+      if (!supervisorBitrixId) {
         return { agents: [], projectId: null, projectName: null, projectCode: null };
       }
 
-      // Buscar dados do projeto
-      const { data: projectData, error: projectError } = await supabase
-        .from('commercial_projects')
-        .select('id, name, code')
-        .eq('id', commercialProjectId)
-        .single();
+      // Buscar dados do projeto (opcional)
+      let projectData = null;
+      if (commercialProjectId) {
+        const { data, error: projectError } = await supabase
+          .from('commercial_projects')
+          .select('id, name, code')
+          .eq('id', commercialProjectId)
+          .single();
 
-      if (projectError) {
-        console.error('Erro ao buscar projeto:', projectError);
+        if (projectError) {
+          console.error('Erro ao buscar projeto:', projectError);
+        } else {
+          projectData = data;
+        }
       }
 
-      // Primeiro, buscar o tabuladormax_user_id do supervisor pelo bitrix_id
+      // Buscar o tabuladormax_user_id do supervisor pelo bitrix_id
       const { data: supervisorMapping, error: supervisorError } = await supabase
         .from('agent_telemarketing_mapping')
         .select('tabuladormax_user_id')
         .eq('bitrix_telemarketing_id', supervisorBitrixId)
         .single();
 
-      if (supervisorError) {
+      if (supervisorError || !supervisorMapping?.tabuladormax_user_id) {
         console.error('Erro ao buscar mapping do supervisor:', supervisorError);
         return {
           agents: [],
@@ -56,11 +62,18 @@ export function useSupervisorTeam(commercialProjectId: string | null, supervisor
       }
 
       // Buscar agentes que têm esse supervisor_id
-      const { data: agentsData, error: agentsError } = await supabase
+      let agentsQuery = supabase
         .from('agent_telemarketing_mapping')
         .select('*')
         .eq('supervisor_id', supervisorMapping.tabuladormax_user_id)
         .order('bitrix_telemarketing_name');
+
+      // Se tem projectId, filtra também por projeto para não misturar equipes
+      if (commercialProjectId) {
+        agentsQuery = agentsQuery.eq('commercial_project_id', commercialProjectId);
+      }
+
+      const { data: agentsData, error: agentsError } = await agentsQuery;
 
       if (agentsError) {
         console.error('Erro ao buscar agentes:', agentsError);

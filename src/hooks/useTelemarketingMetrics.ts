@@ -148,6 +148,24 @@ export function useTelemarketingMetrics(
       const startStr = start.toISOString();
       const endStr = end.toISOString();
 
+      // Se operatorIds é array vazio, retorna dados zerados (supervisor sem equipe)
+      if (operatorIds && operatorIds.length === 0) {
+        return {
+          totalLeads: 0,
+          agendamentos: 0,
+          taxaConversao: 0,
+          agendamentosPorData: [],
+          comparecimentos: { total: 0, leads: [] },
+          operatorPerformance: [],
+          scouterPerformance: [],
+          statusDistribution: [],
+          timeline: [],
+          leadsDetails: [],
+          tabulacaoGroups: [],
+          availableOperators: [],
+        };
+      }
+
       // Fetch operators to map ID -> Name
       const { data: operators } = await supabase
         .from('telemarketing_operators')
@@ -185,8 +203,11 @@ export function useTelemarketingMetrics(
         .not('bitrix_telemarketing_id', 'is', null)
         .limit(500);
 
+      // Filtrar por operador individual OU por lista de IDs da equipe
       if (operatorId) {
         leadsDetailsQuery = leadsDetailsQuery.eq('bitrix_telemarketing_id', operatorId);
+      } else if (operatorIds && operatorIds.length > 0) {
+        leadsDetailsQuery = leadsDetailsQuery.in('bitrix_telemarketing_id', operatorIds);
       }
 
       // Query para agendamentos com detalhes (para modal)
@@ -197,8 +218,11 @@ export function useTelemarketingMetrics(
         .lte('data_criacao_agendamento', endStr)
         .limit(500);
 
+      // Filtrar por operador individual OU por lista de IDs da equipe
       if (operatorId) {
         agendadosQuery = agendadosQuery.eq('bitrix_telemarketing_id', operatorId);
+      } else if (operatorIds && operatorIds.length > 0) {
+        agendadosQuery = agendadosQuery.in('bitrix_telemarketing_id', operatorIds);
       }
 
       const [metricsResult, comparecimentosResult, leadsDetailsResult, agendadosResult] = await Promise.all([
