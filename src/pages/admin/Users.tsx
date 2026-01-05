@@ -40,6 +40,7 @@ export default function Users() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'manager' | 'supervisor' | 'agent' | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Dialogs
@@ -113,8 +114,14 @@ export default function Users() {
   useEffect(() => {
     checkUserRole();
     loadCommercialProjects();
-    loadUsers();
   }, []);
+
+  // Carregar usuários após o role ser definido (para supervisores filtrarem corretamente)
+  useEffect(() => {
+    if (currentUserRole !== null) {
+      loadUsers();
+    }
+  }, [currentUserRole, currentUserId]);
 
   useEffect(() => {
     if (newUserRole === 'agent' && newUserProject) {
@@ -155,6 +162,8 @@ export default function Users() {
       navigate('/auth');
       return;
     }
+
+    setCurrentUserId(session.user.id);
 
     const { data } = await supabase
       .from('user_roles')
@@ -334,11 +343,36 @@ export default function Users() {
   const loadUsers = async () => {
     setLoading(true);
     
-    // QUERY 1: Buscar todos os profiles
-    const { data: profiles, error: profilesError } = await supabase
+    // Para supervisores, filtrar apenas sua equipe
+    let teamUserIds: string[] | null = null;
+    if (currentUserRole === 'supervisor' && currentUserId) {
+      const { data: teamMappings } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('tabuladormax_user_id')
+        .or(`supervisor_id.eq.${currentUserId},tabuladormax_user_id.eq.${currentUserId}`);
+      
+      teamUserIds = (teamMappings || [])
+        .map(m => m.tabuladormax_user_id)
+        .filter(Boolean) as string[];
+      
+      if (teamUserIds.length === 0) {
+        setUsers([]);
+        setLoading(false);
+        return;
+      }
+    }
+    
+    // QUERY 1: Buscar profiles (filtrados para supervisores)
+    let profilesQuery = supabase
       .from('profiles')
       .select('id, email, display_name, created_at')
       .order('created_at', { ascending: false });
+    
+    if (teamUserIds) {
+      profilesQuery = profilesQuery.in('id', teamUserIds);
+    }
+    
+    const { data: profiles, error: profilesError } = await profilesQuery;
 
     if (profilesError) {
       toast.error('Erro ao carregar usuários');
