@@ -138,10 +138,11 @@ export function useTelemarketingMetrics(
   period: PeriodFilter = 'today',
   operatorId?: number,
   customStartDate?: Date,
-  customEndDate?: Date
+  customEndDate?: Date,
+  operatorIds?: number[]
 ) {
   return useQuery({
-    queryKey: ['telemarketing-metrics', period, operatorId, customStartDate?.toISOString(), customEndDate?.toISOString()],
+    queryKey: ['telemarketing-metrics', period, operatorId, customStartDate?.toISOString(), customEndDate?.toISOString(), operatorIds?.join(',')],
     queryFn: async (): Promise<TelemarketingMetrics> => {
       const { start, end } = getDateRange(period, customStartDate, customEndDate);
       const startStr = start.toISOString();
@@ -163,14 +164,16 @@ export function useTelemarketingMetrics(
       const metricsRpcQuery = supabase.rpc('get_telemarketing_metrics', {
         p_start_date: startStr,
         p_end_date: endStr,
-        p_operator_id: operatorId || null
+        p_operator_id: operatorId || null,
+        p_operator_ids: operatorIds || null
       });
 
       // Query para comparecimentos - usa RPC que filtra diretamente por UF_CRM_DATACOMPARECEU no banco
       const comparecimentosQuery = supabase.rpc('get_comparecidos_by_date', {
         p_start_date: startStr,
         p_end_date: endStr,
-        p_operator_id: operatorId || null
+        p_operator_id: operatorId || null,
+        p_operator_ids: operatorIds || null
       });
 
       // Query limitada para detalhes de leads (apenas para modais/exibição detalhada)
