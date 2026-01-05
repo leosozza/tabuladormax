@@ -86,13 +86,20 @@ export function TelemarketingDashboardContent({
   // IDs da equipe do supervisor para filtrar dados
   const teamOperatorIds = supervisorTeam?.agents.map(a => a.bitrix_telemarketing_id) || [];
   
-  // Quando supervisor seleciona "Todos", usa array da equipe; caso contrário usa operatorId individual
+  // Quando supervisor seleciona "Todos":
+  // - Se tem equipe, usa array de IDs da equipe
+  // - Se NÃO tem equipe, passa array vazio para forçar resultado 0 (não mostrar todos)
+  // Operador comum: não passa operatorIds (usa apenas operatorId individual)
+  const supervisorOperatorIds = isSupervisor && selectedOperator === 'all' 
+    ? teamOperatorIds // Pode ser [] se não tem equipe - RPC vai retornar 0
+    : undefined;
+  
   const { data: metrics, isLoading, error } = useTelemarketingMetrics(
     period, 
     filterOperatorId,
     period === 'custom' ? customDateRange?.from : undefined,
     period === 'custom' ? customDateRange?.to : undefined,
-    isSupervisor && selectedOperator === 'all' && teamOperatorIds.length > 0 ? teamOperatorIds : undefined
+    supervisorOperatorIds
   );
 
   // Hook para ranking de comparecimentos (supervisores)

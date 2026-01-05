@@ -107,7 +107,8 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                   localStorage.setItem('telemarketing_context', JSON.stringify({
                     bitrix_id: operatorData.bitrix_id,
                     cargo: operatorData.cargo,
-                    name: operatorData.operator_name
+                    name: operatorData.operator_name,
+                    commercial_project_id: operatorData.commercial_project_id
                   }));
                   navigate('/portal-telemarketing/tabulador');
                 }}
@@ -138,7 +139,8 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                   localStorage.setItem('telemarketing_context', JSON.stringify({
                     bitrix_id: operatorData.bitrix_id,
                     cargo: operatorData.cargo,
-                    name: operatorData.operator_name
+                    name: operatorData.operator_name,
+                    commercial_project_id: operatorData.commercial_project_id
                   }));
                   navigate('/portal-telemarketing/dashboard');
                 }}
@@ -166,7 +168,8 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                   localStorage.setItem('telemarketing_context', JSON.stringify({
                     bitrix_id: operatorData.bitrix_id,
                     cargo: operatorData.cargo,
-                    name: operatorData.operator_name
+                    name: operatorData.operator_name,
+                    commercial_project_id: operatorData.commercial_project_id
                   }));
                   navigate('/portal-telemarketing/whatsapp');
                 }}
@@ -194,7 +197,8 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                   localStorage.setItem('telemarketing_context', JSON.stringify({
                     bitrix_id: operatorData.bitrix_id,
                     cargo: operatorData.cargo,
-                    name: operatorData.operator_name
+                    name: operatorData.operator_name,
+                    commercial_project_id: operatorData.commercial_project_id
                   }));
                   navigate('/portal-telemarketing/maxtalk');
                 }}
