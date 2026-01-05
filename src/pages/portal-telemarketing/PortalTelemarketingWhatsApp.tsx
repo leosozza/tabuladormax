@@ -10,6 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 import { supabase } from '@/integrations/supabase/client';
+import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -109,6 +110,13 @@ const PortalTelemarketingWhatsApp = () => {
     validateContext();
   }, [context?.bitrix_id]);
 
+  // Buscar equipe do supervisor
+  const { data: supervisorTeam } = useSupervisorTeam(
+    context?.commercial_project_id || null,
+    isSupervisor ? context?.bitrix_id || null : null
+  );
+  const teamOperatorIds = supervisorTeam?.agents.map(a => a.bitrix_telemarketing_id) || [];
+
   const {
     conversations,
     isLoading,
@@ -118,6 +126,7 @@ const PortalTelemarketingWhatsApp = () => {
     bitrixTelemarketingId: context?.bitrix_id || 0,
     cargo: context?.cargo,
     commercialProjectId: context?.commercial_project_id,
+    teamOperatorIds: isSupervisor ? teamOperatorIds : undefined,
   });
 
   // Mostrar loading enquanto valida

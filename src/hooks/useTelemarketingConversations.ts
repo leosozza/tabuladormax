@@ -23,6 +23,7 @@ interface UseTelemarketingConversationsOptions {
   bitrixTelemarketingId: number;
   cargo?: string;
   commercialProjectId?: string;
+  teamOperatorIds?: number[];
 }
 
 const SUPERVISOR_CARGO = '10620';
@@ -36,22 +37,28 @@ export function useTelemarketingConversations(
       ? { bitrixTelemarketingId: bitrixTelemarketingIdOrOptions }
       : bitrixTelemarketingIdOrOptions;
 
-  const { bitrixTelemarketingId, cargo, commercialProjectId } = options;
+  const { bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds } = options;
   const isSupervisor = cargo === SUPERVISOR_CARGO;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedConversations, setSelectedConversations] = useState<number[]>([]);
 
   const { data: conversations = [], isLoading, refetch } = useQuery({
-    queryKey: ['telemarketing-conversations', bitrixTelemarketingId, cargo, commercialProjectId],
+    queryKey: ['telemarketing-conversations', bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds],
     queryFn: async () => {
       if (!bitrixTelemarketingId) return [];
 
       let leads: any[] = [];
 
-      if (isSupervisor && commercialProjectId) {
-        // SUPERVISOR: Buscar todos os leads do projeto comercial
-        const { data: projectLeads, error: projectError } = await supabase
+      if (isSupervisor && teamOperatorIds !== undefined) {
+        // SUPERVISOR com equipe definida
+        if (teamOperatorIds.length === 0) {
+          // Supervisor sem equipe: retornar vazio
+          return [];
+        }
+        
+        // Buscar leads vinculados aos membros da equipe
+        const { data: teamLeads, error: teamError } = await supabase
           .from('leads')
           .select(`
             id,
@@ -65,13 +72,12 @@ export function useTelemarketingConversations(
             telemarketing,
             conversation_id
           `)
-          .eq('commercial_project_id', commercialProjectId)
-          .not('bitrix_telemarketing_id', 'is', null)
+          .in('bitrix_telemarketing_id', teamOperatorIds)
           .order('updated_at', { ascending: false })
           .limit(500);
 
-        if (projectError) throw projectError;
-        leads = projectLeads || [];
+        if (teamError) throw teamError;
+        leads = teamLeads || [];
       } else {
         // AGENTE: Buscar apenas leads vinculados ao telemarketing específico
         const { data: agentLeads, error: leadsError } = await supabase
