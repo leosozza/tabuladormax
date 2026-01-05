@@ -46,7 +46,8 @@ const PortalTelemarketingEquipe = () => {
   }, [navigate]);
 
   const { data: teamData, isLoading: loadingTeam } = useSupervisorTeam(
-    context?.commercial_project_id || null
+    context?.commercial_project_id || null,
+    context?.bitrix_id || null
   );
   
 

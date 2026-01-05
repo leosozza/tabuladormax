@@ -18,12 +18,12 @@ export interface SupervisorTeamData {
   projectCode: string | null;
 }
 
-export function useSupervisorTeam(commercialProjectId: string | null) {
+export function useSupervisorTeam(commercialProjectId: string | null, supervisorBitrixId: number | null) {
   return useQuery({
-    queryKey: ['supervisor-team', commercialProjectId],
-    enabled: !!commercialProjectId,
+    queryKey: ['supervisor-team', commercialProjectId, supervisorBitrixId],
+    enabled: !!commercialProjectId && !!supervisorBitrixId,
     queryFn: async (): Promise<SupervisorTeamData> => {
-      if (!commercialProjectId) {
+      if (!commercialProjectId || !supervisorBitrixId) {
         return { agents: [], projectId: null, projectName: null, projectCode: null };
       }
 
@@ -38,11 +38,28 @@ export function useSupervisorTeam(commercialProjectId: string | null) {
         console.error('Erro ao buscar projeto:', projectError);
       }
 
-      // Buscar agentes do mesmo projeto comercial
+      // Primeiro, buscar o tabuladormax_user_id do supervisor pelo bitrix_id
+      const { data: supervisorMapping, error: supervisorError } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('tabuladormax_user_id')
+        .eq('bitrix_telemarketing_id', supervisorBitrixId)
+        .single();
+
+      if (supervisorError) {
+        console.error('Erro ao buscar mapping do supervisor:', supervisorError);
+        return {
+          agents: [],
+          projectId: projectData?.id || null,
+          projectName: projectData?.name || null,
+          projectCode: projectData?.code || null,
+        };
+      }
+
+      // Buscar agentes que têm esse supervisor_id
       const { data: agentsData, error: agentsError } = await supabase
         .from('agent_telemarketing_mapping')
         .select('*')
-        .eq('commercial_project_id', commercialProjectId)
+        .eq('supervisor_id', supervisorMapping.tabuladormax_user_id)
         .order('bitrix_telemarketing_name');
 
       if (agentsError) {
