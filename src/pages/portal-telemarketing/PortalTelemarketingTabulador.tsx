@@ -3,7 +3,7 @@ import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import LeadTab from '@/pages/LeadTab';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Headset, Settings } from 'lucide-react';
+import { ArrowLeft, Headset, Settings, Loader2 } from 'lucide-react';
 import { ScriptViewer } from '@/components/telemarketing/ScriptViewer';
 import { ScriptManager } from '@/components/telemarketing/ScriptManager';
 import { NotificationCenter } from '@/components/telemarketing/NotificationCenter';
@@ -38,6 +38,8 @@ const PortalTelemarketingTabulador = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [isValidatingContext, setIsValidatingContext] = useState(true);
+  const [isValidContext, setIsValidContext] = useState<boolean | null>(null);
   
   // Estado para celebração
   const [celebration, setCelebration] = useState({
@@ -45,6 +47,10 @@ const PortalTelemarketingTabulador = () => {
     clientName: '',
     projectName: ''
   });
+
+  // Verificar se há lead_id na URL - se sim, permitir acesso público sem validação
+  const searchParams = new URLSearchParams(location.search);
+  const leadIdFromUrl = searchParams.get('lead') || searchParams.get('id');
 
   // Inicialização SÍNCRONA - lê do localStorage no primeiro render
   const context = (() => {
@@ -112,6 +118,48 @@ const PortalTelemarketingTabulador = () => {
     }
   })();
 
+  // Validar que o bitrix_id existe na tabela telemarketing_operators
+  useEffect(() => {
+    const validateContext = async () => {
+      // Se tem lead na URL, permite acesso público sem validação
+      if (leadIdFromUrl) {
+        setIsValidatingContext(false);
+        setIsValidContext(true); // Permite acesso mesmo sem contexto válido
+        return;
+      }
+
+      if (!context) {
+        setIsValidContext(false);
+        setIsValidatingContext(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('telemarketing_operators')
+          .select('bitrix_id')
+          .eq('bitrix_id', context.bitrix_id)
+          .maybeSingle();
+
+        if (error || !data) {
+          console.warn('[Tabulador] Contexto inválido - operador não encontrado:', context.bitrix_id);
+          localStorage.removeItem('telemarketing_context');
+          localStorage.removeItem('telemarketing_operator');
+          setIsValidContext(false);
+        } else {
+          setIsValidContext(true);
+        }
+      } catch (e) {
+        console.error('[Tabulador] Erro ao validar contexto:', e);
+        setIsValidContext(false);
+      } finally {
+        setIsValidatingContext(false);
+      }
+    };
+
+    validateContext();
+  }, [context?.bitrix_id, leadIdFromUrl]);
+
   // Hooks de ranking
   const { position: rankingPosition, total: totalAgendados } = useOperatorRanking(context?.bitrix_id || null);
   const { position: comparecimentosPosition, total: totalComparecimentos } = useComparecimentosRanking(context?.bitrix_id || null, 'today');
@@ -137,7 +185,7 @@ const PortalTelemarketingTabulador = () => {
 
   // Listener separado para celebração de cliente compareceu
   useEffect(() => {
-    if (!context?.bitrix_id) return;
+    if (!context?.bitrix_id || !isValidContext) return;
 
     const channel = supabase
       .channel(`celebration-${context.bitrix_id}`)
@@ -168,7 +216,7 @@ const PortalTelemarketingTabulador = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [context?.bitrix_id]);
+  }, [context?.bitrix_id, isValidContext]);
 
   // Fetch commercial_project_id for the operator
   useEffect(() => {
@@ -189,14 +237,29 @@ const PortalTelemarketingTabulador = () => {
     fetchProjectId();
   }, [context?.bitrix_id]);
 
-  // Verificar se há lead_id na URL - se sim, permitir acesso público
-  const searchParams = new URLSearchParams(location.search);
-  const leadIdFromUrl = searchParams.get('lead') || searchParams.get('id');
+  // Mostrar loading enquanto valida (apenas se não tem lead na URL)
+  if (isValidatingContext && !leadIdFromUrl) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Validando sessão...</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Se não tem contexto E não tem lead na URL, redirecionar para login
+  // Se não tem contexto E não tem lead na URL E contexto é inválido, redirecionar para login
   if (!context && !leadIdFromUrl) {
     const redirectTarget = `${location.pathname}${location.search}`;
     console.warn('[TM][Tabulador] redirecting to login', { redirectTarget });
+    return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
+  }
+
+  // Se tem contexto mas é inválido e não tem lead na URL
+  if (context && isValidContext === false && !leadIdFromUrl) {
+    const redirectTarget = `${location.pathname}${location.search}`;
+    console.warn('[TM][Tabulador] invalid context, redirecting to login', { redirectTarget });
     return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }
 

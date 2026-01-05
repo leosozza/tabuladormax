@@ -4,11 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, MessageSquare, Search, Loader2, User, Users } from 'lucide-react';
 import { useTelemarketingConversations, TelemarketingConversation } from '@/hooks/useTelemarketingConversations';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { WhatsAppChatContainer } from '@/components/whatsapp';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -31,6 +32,8 @@ const PortalTelemarketingWhatsApp = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedConversation, setSelectedConversation] = useState<TelemarketingConversation | null>(null);
+  const [isValidatingContext, setIsValidatingContext] = useState(true);
+  const [isValidContext, setIsValidContext] = useState<boolean | null>(null);
 
   // Ler contexto do localStorage
   const getContext = (): { context: TelemarketingContext | null; operatorPhoto: string | null } => {
@@ -71,6 +74,41 @@ const PortalTelemarketingWhatsApp = () => {
   const { context, operatorPhoto } = getContext();
   const isSupervisor = context?.cargo === SUPERVISOR_CARGO;
 
+  // Validar que o bitrix_id existe na tabela telemarketing_operators
+  useEffect(() => {
+    const validateContext = async () => {
+      if (!context) {
+        setIsValidContext(false);
+        setIsValidatingContext(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('telemarketing_operators')
+          .select('bitrix_id')
+          .eq('bitrix_id', context.bitrix_id)
+          .maybeSingle();
+
+        if (error || !data) {
+          console.warn('[WhatsApp] Contexto inválido - operador não encontrado:', context.bitrix_id);
+          localStorage.removeItem('telemarketing_context');
+          localStorage.removeItem('telemarketing_operator');
+          setIsValidContext(false);
+        } else {
+          setIsValidContext(true);
+        }
+      } catch (e) {
+        console.error('[WhatsApp] Erro ao validar contexto:', e);
+        setIsValidContext(false);
+      } finally {
+        setIsValidatingContext(false);
+      }
+    };
+
+    validateContext();
+  }, [context?.bitrix_id]);
+
   const {
     conversations,
     isLoading,
@@ -82,8 +120,20 @@ const PortalTelemarketingWhatsApp = () => {
     commercialProjectId: context?.commercial_project_id,
   });
 
-  // Redireciona se não tem contexto
-  if (!context) {
+  // Mostrar loading enquanto valida
+  if (isValidatingContext) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Validando sessão...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redireciona se não tem contexto ou contexto inválido
+  if (!context || isValidContext === false) {
     const redirectTarget = `${location.pathname}${location.search}`;
     return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }

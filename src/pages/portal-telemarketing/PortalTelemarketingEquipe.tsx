@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,9 +14,11 @@ import {
   User,
   Mail,
   Hash,
-  Zap
+  Zap,
+  Loader2
 } from 'lucide-react';
 import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
+import { supabase } from '@/integrations/supabase/client';
 
 import { BotConfig } from '@/components/whatsapp/BotConfig';
 import { BotTraining } from '@/components/whatsapp/BotTraining';
@@ -33,26 +35,76 @@ interface TelemarketingContext {
 
 const PortalTelemarketingEquipe = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [context, setContext] = useState<TelemarketingContext | null>(null);
   const [activeTab, setActiveTab] = useState('agentes');
+  const [isValidatingContext, setIsValidatingContext] = useState(true);
+  const [isValidContext, setIsValidContext] = useState<boolean | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('telemarketing_context');
     if (stored) {
       setContext(JSON.parse(stored));
     } else {
-      navigate('/portal-telemarketing');
+      setIsValidatingContext(false);
+      setIsValidContext(false);
     }
-  }, [navigate]);
+  }, []);
+
+  // Validar que o bitrix_id existe na tabela telemarketing_operators
+  useEffect(() => {
+    const validateContext = async () => {
+      if (!context) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('telemarketing_operators')
+          .select('bitrix_id')
+          .eq('bitrix_id', context.bitrix_id)
+          .maybeSingle();
+
+        if (error || !data) {
+          console.warn('[Equipe] Contexto inválido - operador não encontrado:', context.bitrix_id);
+          localStorage.removeItem('telemarketing_context');
+          localStorage.removeItem('telemarketing_operator');
+          setIsValidContext(false);
+        } else {
+          setIsValidContext(true);
+        }
+      } catch (e) {
+        console.error('[Equipe] Erro ao validar contexto:', e);
+        setIsValidContext(false);
+      } finally {
+        setIsValidatingContext(false);
+      }
+    };
+
+    if (context) {
+      validateContext();
+    }
+  }, [context?.bitrix_id]);
 
   const { data: teamData, isLoading: loadingTeam } = useSupervisorTeam(
     context?.commercial_project_id || null,
     context?.bitrix_id || null
   );
-  
 
-  if (!context) {
-    return null;
+  // Mostrar loading enquanto valida
+  if (isValidatingContext) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Validando sessão...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Se não tem contexto ou contexto inválido, redireciona para login
+  if (!context || isValidContext === false) {
+    const redirectTarget = `${location.pathname}${location.search}`;
+    return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }
 
   const projectId = context.commercial_project_id || null;
