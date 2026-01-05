@@ -239,7 +239,8 @@ export function useTelemarketingMetrics(
 
       const metricsData = metricsResult.data as {
         total_leads: number;
-        agendamentos: number;
+        total_agendamentos: number;
+        total_confirmadas: number;
         operator_stats: Array<{
           bitrix_telemarketing_id: number;
           name: string;
@@ -248,6 +249,7 @@ export function useTelemarketingMetrics(
           agendamentos: number;
           leads_scouter: number;
           leads_meta: number;
+          taxa_conversao: number;
         }>;
         tabulacao_stats: Array<{ status: string; count: number }>;
         scouter_stats: Array<{ name: string; total_leads: number; agendamentos: number }>;
@@ -258,7 +260,7 @@ export function useTelemarketingMetrics(
 
       // Use RPC data for counts
       const totalLeads = metricsData?.total_leads || 0;
-      const agendamentos = metricsData?.agendamentos || 0;
+      const agendamentos = metricsData?.total_agendamentos || 0;
 
       // Agendamentos list para detalhes (modal)
       const agendadosList = agendadosData;
