@@ -34,9 +34,44 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
   const [error, setError] = useState<string | null>(null);
 
   const performSupabaseAuth = async (bitrixId: number, accessKeyValue: string) => {
-    // Generate email based on bitrix_id
-    const email = `tele-${bitrixId}@maxfama.internal`;
     const password = accessKeyValue;
+
+    // 1. Verificar se já existe usuário vinculado no mapping
+    const { data: existingMapping } = await supabase
+      .from('agent_telemarketing_mapping')
+      .select('tabuladormax_user_id')
+      .eq('bitrix_telemarketing_id', bitrixId)
+      .not('tabuladormax_user_id', 'is', null)
+      .maybeSingle();
+
+    if (existingMapping?.tabuladormax_user_id) {
+      // 2. Buscar email do usuário existente via profiles
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', existingMapping.tabuladormax_user_id)
+        .single();
+      
+      if (profile?.email) {
+        // 3. Tentar autenticar com email existente
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: profile.email,
+          password,
+        });
+        
+        if (signInData?.session) {
+          console.log('[TM] Signed in with existing user:', profile.email);
+          return true;
+        }
+        
+        console.warn('[TM] Failed to sign in with existing user:', signInError?.message);
+        // Não criar novo usuário se já existe um vinculado - evita duplicação
+        return false;
+      }
+    }
+
+    // 4. Fallback: usar email padrão (cria novo usuário se não existir)
+    const email = `tele-${bitrixId}@maxfama.internal`;
 
     // Try to sign in first
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -45,13 +80,13 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
     });
 
     if (signInData?.session) {
-      console.log('Supabase auth: signed in successfully');
+      console.log('[TM] Supabase auth: signed in successfully');
       return true;
     }
 
     // If sign in fails, try to create the user
     if (signInError?.message?.includes('Invalid login credentials')) {
-      console.log('User does not exist, creating...');
+      console.log('[TM] User does not exist, creating...');
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -65,8 +100,7 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
       });
 
       if (signUpError) {
-        console.error('Error creating user:', signUpError);
-        // Continue anyway - the access key validation already passed
+        console.error('[TM] Error creating user:', signUpError);
         return false;
       }
 
@@ -78,13 +112,13 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
         });
         
         if (!retrySignInError) {
-          console.log('Supabase auth: created and signed in successfully');
+          console.log('[TM] Supabase auth: created and signed in successfully');
           return true;
         }
       }
     }
 
-    console.warn('Supabase auth failed, continuing with access key only');
+    console.warn('[TM] Supabase auth failed, continuing with access key only');
     return false;
   };
 
