@@ -441,8 +441,17 @@ export default function Users() {
     const validUserIds = new Set(validMappings.map(m => m.tabuladormax_user_id));
     const filteredProfiles = profiles.filter(p => {
       const hasMapping = (mappingsData || []).some(m => m.tabuladormax_user_id === p.id);
-      if (!hasMapping) return true; // Usuário sem mapping (admin sem telemarketing)
-      return validUserIds.has(p.id); // Usuário com operador ativo
+      
+      // Usuário com email @maxfama.internal sem mapping = órfão (excluir)
+      if (!hasMapping && p.email?.includes('@maxfama.internal')) {
+        return false;
+      }
+      
+      // Usuário sem mapping e sem email interno = admin legítimo
+      if (!hasMapping) return true;
+      
+      // Usuário com mapping = verificar se operador está ativo
+      return validUserIds.has(p.id);
     });
 
     // Extrair IDs únicos de projetos e supervisores
