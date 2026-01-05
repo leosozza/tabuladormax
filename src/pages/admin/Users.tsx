@@ -412,6 +412,39 @@ export default function Users() {
       `)
       .in('tabuladormax_user_id', userIds);
 
+    // QUERY 3.1: Filtrar operadores inativos
+    const bitrixIds = [...new Set(
+      (mappingsData || [])
+        .map(m => m.bitrix_telemarketing_id)
+        .filter(id => id && id !== 0) // Ignorar IDs nulos e placeholder 0
+    )] as number[];
+
+    let activeOperatorIds: number[] = [];
+    if (bitrixIds.length > 0) {
+      const { data: activeOperators } = await supabase
+        .from('telemarketing_operators')
+        .select('bitrix_id')
+        .in('bitrix_id', bitrixIds)
+        .eq('status', 'ativo');
+      
+      activeOperatorIds = (activeOperators || []).map(op => op.bitrix_id);
+    }
+
+    // Filtrar mappings para incluir apenas operadores ativos (ou sem operador)
+    const validMappings = (mappingsData || []).filter(m => 
+      !m.bitrix_telemarketing_id || // Sem operador associado
+      m.bitrix_telemarketing_id === 0 || // Placeholder ID
+      activeOperatorIds.includes(m.bitrix_telemarketing_id) // Operador ativo
+    );
+
+    // Filtrar profiles para manter apenas usuários válidos
+    const validUserIds = new Set(validMappings.map(m => m.tabuladormax_user_id));
+    const filteredProfiles = profiles.filter(p => {
+      const hasMapping = (mappingsData || []).some(m => m.tabuladormax_user_id === p.id);
+      if (!hasMapping) return true; // Usuário sem mapping (admin sem telemarketing)
+      return validUserIds.has(p.id); // Usuário com operador ativo
+    });
+
     // Extrair IDs únicos de projetos e supervisores
     const projectIds = [...new Set(
       (mappingsData || [])
@@ -468,8 +501,8 @@ export default function Users() {
       (mappingsData || []).map(m => [m.tabuladormax_user_id, m])
     );
 
-    // Merge dos resultados em memória
-    const usersWithRoles: UserWithRole[] = profiles.map(profile => {
+    // Merge dos resultados em memória (usando filteredProfiles)
+    const usersWithRoles: UserWithRole[] = filteredProfiles.map(profile => {
       const roleData = rolesMap.get(profile.id);
       const departmentData = departmentsMap.get(profile.id);
       const mappingData = mappingsMap.get(profile.id);
