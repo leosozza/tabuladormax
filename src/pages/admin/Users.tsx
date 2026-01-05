@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, User as UserIcon, Key, Copy, Check, Edit2, Plus, Building2, Users as UsersIcon } from "lucide-react";
+import { Shield, User as UserIcon, Key, Copy, Check, Edit2, Plus, Building2, Users as UsersIcon, Phone, Search, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TelemarketingSelector } from "@/components/TelemarketingSelector";
@@ -102,6 +103,7 @@ export default function Users() {
   // Filters
   const [filterProject, setFilterProject] = useState("");
   const [filterRole, setFilterRole] = useState("");
+  const [filterDepartment, setFilterDepartment] = useState<'telemarketing' | 'scouters' | 'administrativo'>('telemarketing');
 
   // Batch edit
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -990,6 +992,10 @@ export default function Users() {
   };
 
   const filteredUsers = users.filter(user => {
+    // Filtrar por departamento (tab ativa)
+    const userDept = user.department || 'telemarketing';
+    if (userDept !== filterDepartment) return false;
+    
     if (filterProject && filterProject !== "all" && user.project_id !== filterProject) return false;
     if (filterRole && filterRole !== "all" && user.role !== filterRole) return false;
     return true;
@@ -1279,13 +1285,50 @@ export default function Users() {
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Usuários do Sistema</CardTitle>
-            <CardDescription>
-              Total de {filteredUsers.length} usuário{filteredUsers.length !== 1 ? 's' : ''} {filterProject || filterRole ? 'filtrado(s)' : 'cadastrado(s)'}
-            </CardDescription>
-          </CardHeader>
+        {/* Tabs por Departamento */}
+        <Tabs 
+          value={filterDepartment} 
+          onValueChange={(v) => {
+            setFilterDepartment(v as 'telemarketing' | 'scouters' | 'administrativo');
+            setSelectedUserIds(new Set()); // Limpar seleção ao trocar de tab
+          }}
+          className="w-full"
+        >
+          <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsTrigger value="telemarketing" className="flex items-center gap-2">
+              <Phone className="w-4 h-4" />
+              Telemarketing
+              <Badge variant="secondary" className="ml-1">
+                {users.filter(u => (u.department || 'telemarketing') === 'telemarketing').length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="scouters" className="flex items-center gap-2">
+              <Search className="w-4 h-4" />
+              Scouters
+              <Badge variant="secondary" className="ml-1">
+                {users.filter(u => u.department === 'scouters').length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="administrativo" className="flex items-center gap-2">
+              <Briefcase className="w-4 h-4" />
+              Administrativo
+              <Badge variant="secondary" className="ml-1">
+                {users.filter(u => u.department === 'administrativo').length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {filterDepartment === 'telemarketing' && 'Usuários de Telemarketing'}
+                {filterDepartment === 'scouters' && 'Usuários Scouters'}
+                {filterDepartment === 'administrativo' && 'Usuários Administrativos'}
+              </CardTitle>
+              <CardDescription>
+                Total de {filteredUsers.length} usuário{filteredUsers.length !== 1 ? 's' : ''} {filterProject || filterRole ? 'filtrado(s)' : ''}
+              </CardDescription>
+            </CardHeader>
           <CardContent>
             {loading ? (
               <p className="text-sm text-muted-foreground">Carregando usuários...</p>
@@ -1401,7 +1444,8 @@ export default function Users() {
               </div>
             )}
           </CardContent>
-        </Card>
+          </Card>
+        </Tabs>
 
         {/* Dialog: Criar Usuário */}
         <Dialog open={createUserDialogOpen} onOpenChange={setCreateUserDialogOpen}>
