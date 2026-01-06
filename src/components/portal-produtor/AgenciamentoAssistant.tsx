@@ -87,16 +87,15 @@ export function AgenciamentoAssistant({
     defaultPackage,
     defaultValue,
     onComplete: (completedData) => {
-      if (completedData.selectedPackage) {
-        onComplete({
-          packageId: completedData.selectedPackage.ID,
-          packageName: completedData.selectedPackage.NAME,
-          baseValue: completedData.baseValue,
-          finalValue: completedData.finalValue,
-          discountPercent: completedData.discountPercent,
-          paymentMethods: completedData.paymentMethods,
-        });
-      }
+      // Sempre chamar onComplete - mesmo sem pacote selecionado
+      onComplete({
+        packageId: completedData.selectedPackage?.ID || '',
+        packageName: completedData.selectedPackage?.NAME || 'Pacote não selecionado',
+        baseValue: completedData.baseValue,
+        finalValue: completedData.finalValue,
+        discountPercent: completedData.discountPercent,
+        paymentMethods: completedData.paymentMethods,
+      });
     },
   });
 
