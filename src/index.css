@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom animations for UI components */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 10px 25px -5px rgba(236, 72, 153, 0.4); }
+  50% { box-shadow: 0 10px 25px -5px rgba(236, 72, 153, 0.7), 0 0 0 8px rgba(236, 72, 153, 0.1); }
+}
+
+/* Safe area for bottom navigation (iOS) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 8px);
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
