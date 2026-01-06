@@ -22,17 +22,16 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
   const [activeView, setActiveView] = useState<ActiveView>('deals');
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [dealActiveTab, setDealActiveTab] = useState<'perfil' | 'agenciar'>('perfil');
 
   const handleCloseDeal = () => {
     setSelectedDeal(null);
+    setDealActiveTab('perfil'); // Reset ao fechar
   };
 
-  const handleOpenAssistant = () => {
-    // Se estiver em um deal, apenas garantir que estamos na aba correta
-    // O botão de IA do formulário abrirá o assistente
-    if (activeView !== 'deals') {
-      setActiveView('deals');
-    }
+  const handleDealSelect = (deal: Deal) => {
+    setSelectedDeal(deal);
+    setDealActiveTab('perfil'); // Sempre começa no perfil
   };
 
   return (
@@ -67,11 +66,12 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
             deal={selectedDeal} 
             onClose={handleCloseDeal}
             producerId={producerData.id}
+            onTabChange={setDealActiveTab}
           />
         ) : (
           <>
             {activeView === 'deals' && (
-              <ProducerDealsTab producerId={producerData.id} onDealSelect={setSelectedDeal} />
+              <ProducerDealsTab producerId={producerData.id} onDealSelect={handleDealSelect} />
             )}
             {activeView === 'dashboard' && (
               <ProducerDashboardTab producerId={producerData.id} />
@@ -82,7 +82,9 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
 
       {/* Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t z-50 pb-safe">
-        <div className="flex items-end justify-around px-6 pb-2 pt-1 max-w-lg mx-auto">
+        <div className={`flex items-end px-6 pb-2 pt-1 max-w-lg mx-auto ${
+          selectedDeal && dealActiveTab === 'agenciar' ? 'justify-around' : 'justify-between'
+        }`}>
           
           {/* Perfil - Esquerda */}
           <button 
@@ -98,25 +100,26 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
             <span className="text-[10px] mt-1 text-muted-foreground">Perfil</span>
           </button>
           
-          {/* Botão IA - Centro (Elevado) */}
-          <button 
-            onClick={handleOpenAssistant}
-            className="flex flex-col items-center -mt-6"
-          >
-            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 
-                          shadow-xl flex items-center justify-center border-4 border-background
-                          hover:from-pink-600 hover:to-purple-700 transition-all
-                          animate-[pulse-glow_2s_ease-in-out_infinite]">
-              <Mic className="h-7 w-7 text-white" />
-            </div>
-            <span className="text-[10px] mt-1 font-semibold text-primary">Assistente</span>
-          </button>
+          {/* Botão IA - Centro (Elevado) - APENAS na aba Agenciar */}
+          {selectedDeal && dealActiveTab === 'agenciar' && (
+            <button 
+              className="flex flex-col items-center -mt-6"
+            >
+              <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 
+                            shadow-xl flex items-center justify-center border-4 border-background
+                            hover:from-pink-600 hover:to-purple-700 transition-all
+                            animate-[pulse-glow_2s_ease-in-out_infinite]">
+                <Mic className="h-7 w-7 text-white" />
+              </div>
+              <span className="text-[10px] mt-1 font-semibold text-primary">Assistente</span>
+            </button>
+          )}
           
           {/* Deals - Direita */}
           <button 
             onClick={() => { setActiveView('deals'); setSelectedDeal(null); }}
             className={`flex flex-col items-center py-2 px-4 rounded-lg transition-colors ${
-              activeView === 'deals' ? 'text-primary' : 'text-muted-foreground hover:bg-muted'
+              activeView === 'deals' && !selectedDeal ? 'text-primary' : 'text-muted-foreground hover:bg-muted'
             }`}
           >
             <Briefcase className="h-6 w-6" />
