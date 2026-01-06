@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,7 @@ interface ProducerAgenciarFormProps {
   deal: Deal;
   producerId: string;
   onSuccess: () => void;
+  openAssistantTrigger?: number;
 }
 
 interface PaymentMethod {
@@ -133,7 +134,7 @@ const groupProductFeatures = (products: BitrixProduct[]): Map<string, { displayN
   return featureMap;
 };
 
-export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAgenciarFormProps) => {
+export const ProducerAgenciarForm = ({ deal, producerId, onSuccess, openAssistantTrigger }: ProducerAgenciarFormProps) => {
   const queryClient = useQueryClient();
   
   // Form state
@@ -151,6 +152,13 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
   const [showFullAssistant, setShowFullAssistant] = useState(false);
   const [showDocumentation, setShowDocumentation] = useState(false);
   const [currentNegotiationId, setCurrentNegotiationId] = useState<string | null>(null);
+
+  // Abrir assistente quando trigger externo muda
+  useEffect(() => {
+    if (openAssistantTrigger && openAssistantTrigger > 0) {
+      setShowFullAssistant(true);
+    }
+  }, [openAssistantTrigger]);
 
   // Handler para dados do assistente completo
   const handleFullAssistantComplete = (assistantData: {
@@ -536,18 +544,6 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
   return (
     <div className="space-y-4">
-      {/* Botão Compacto do Assistente IA */}
-      <Button 
-        onClick={() => setShowFullAssistant(true)}
-        className="w-full h-14 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white shadow-lg gap-3"
-      >
-        <div className="bg-white/20 p-2 rounded-full">
-          <Mic className="h-5 w-5" />
-        </div>
-        <span className="font-semibold">Preencher com IA</span>
-        <MessageSquare className="h-4 w-4 opacity-60" />
-      </Button>
-
       {/* Sheet do Assistente Completo */}
       <Sheet open={showFullAssistant} onOpenChange={setShowFullAssistant}>
         <SheetContent side="bottom" className="h-[90vh] p-0">
