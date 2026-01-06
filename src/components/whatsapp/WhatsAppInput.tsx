@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Image, Paperclip, Mic, Square, X, Loader2, Plus, Sparkles, Wand2 } from 'lucide-react';
+import { Send, Image, Paperclip, Mic, Square, X, Loader2, Plus, Sparkles, Wand2, MapPin } from 'lucide-react';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { LocationSendModal } from './LocationSendModal';
 
 export type MediaType = 'image' | 'video' | 'audio' | 'document';
 
@@ -36,6 +37,7 @@ interface ChatMessage {
 interface WhatsAppInputProps {
   onSendText: (message: string) => Promise<boolean | void>;
   onSendMedia: (mediaUrl: string, mediaType: MediaType, caption?: string, filename?: string) => Promise<boolean | void>;
+  onSendLocation?: (latitude: number, longitude: number, name: string, address: string) => Promise<boolean>;
   disabled?: boolean;
   isWindowOpen?: boolean; // Mantido para compatibilidade, mas não será usado para bloquear
   inCooldown?: boolean;
@@ -59,6 +61,7 @@ function getMediaType(file: File): MediaType {
 export function WhatsAppInput({
   onSendText,
   onSendMedia,
+  onSendLocation,
   disabled,
   isWindowOpen, // Não usado para bloquear
   inCooldown,
@@ -70,6 +73,11 @@ export function WhatsAppInput({
   const [uploading, setUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [autoSendAfterStop, setAutoSendAfterStop] = useState(false);
+  
+  // Location state
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [sendingLocation, setSendingLocation] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -190,6 +198,62 @@ export function WhatsAppInput({
     }
     clearRecording();
   }, [mediaPreview, clearRecording]);
+
+  const handleLocationRequest = useCallback(() => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocalização não é suportada pelo seu navegador');
+      return;
+    }
+
+    toast.info('Obtendo sua localização...');
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationCoords({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude
+        });
+        setShowLocationModal(true);
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error('Permissão de localização negada. Verifique as configurações do navegador.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error('Informação de localização indisponível.');
+            break;
+          case error.TIMEOUT:
+            toast.error('Tempo esgotado ao obter localização.');
+            break;
+          default:
+            toast.error('Erro ao obter localização.');
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  }, []);
+
+  const handleSendLocation = async (latitude: number, longitude: number, name: string, address: string) => {
+    if (!onSendLocation) return false;
+    
+    setSendingLocation(true);
+    try {
+      const success = await onSendLocation(latitude, longitude, name, address);
+      if (success) {
+        setShowLocationModal(false);
+        setLocationCoords(null);
+      }
+      return success;
+    } finally {
+      setSendingLocation(false);
+    }
+  };
 
   const handleSendAudio = async () => {
     if (!audioBlob || sendingRef.current) return;
@@ -375,6 +439,11 @@ export function WhatsAppInput({
               <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} className="h-9 w-9" title="Arquivo">
                 <Paperclip className="h-5 w-5" />
               </Button>
+              {onSendLocation && (
+                <Button variant="ghost" size="icon" onClick={handleLocationRequest} className="h-9 w-9" title="Localização">
+                  <MapPin className="h-5 w-5" />
+                </Button>
+              )}
             </div>
           </PopoverContent>
         </Popover>
@@ -451,6 +520,21 @@ export function WhatsAppInput({
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </div>
+
+      {/* Location Modal */}
+      {locationCoords && (
+        <LocationSendModal
+          open={showLocationModal}
+          onClose={() => {
+            setShowLocationModal(false);
+            setLocationCoords(null);
+          }}
+          onSend={handleSendLocation}
+          latitude={locationCoords.lat}
+          longitude={locationCoords.lon}
+          sending={sendingLocation}
+        />
+      )}
     </div>
   );
 }

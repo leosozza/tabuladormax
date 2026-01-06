@@ -40,6 +40,17 @@ interface SendMediaRequest {
   source?: string;
 }
 
+interface SendLocationRequest {
+  phone_number: string;
+  latitude: number;
+  longitude: number;
+  name?: string;
+  address?: string;
+  bitrix_id?: string;
+  conversation_id?: number;
+  source?: string;
+}
+
 // Função para gerar hash simples do conteúdo
 function simpleHash(str: string): string {
   let hash = 0;
@@ -172,6 +183,8 @@ Deno.serve(async (req) => {
       return await handleSendMedia(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
     } else if (action === 'send_interactive') {
       return await handleSendInteractive(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
+    } else if (action === 'send_location') {
+      return await handleSendLocation(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
     } else {
       return await handleSendMessage(supabase, body, gupshupApiKey, gupshupSourceNumber, gupshupAppName, senderName, source);
     }
@@ -879,5 +892,158 @@ async function handleSendInteractive(
     );
   } else {
     throw new Error(responseData.message || 'Erro ao enviar mensagem interativa');
+  }
+}
+
+// ============================================
+// SEND LOCATION
+// ============================================
+async function handleSendLocation(
+  supabase: any,
+  body: SendLocationRequest,
+  apiKey: string,
+  sourceNumber: string,
+  appName: string,
+  senderName: string,
+  source: string
+) {
+  const { phone_number, latitude, longitude, name, address, bitrix_id, conversation_id } = body;
+
+  if (!phone_number || latitude === undefined || longitude === undefined) {
+    return new Response(
+      JSON.stringify({ error: 'phone_number, latitude e longitude são obrigatórios' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Normalizar telefone
+  const normalizedPhone = normalizeDestinationPhone(phone_number);
+  if (!normalizedPhone) {
+    return new Response(
+      JSON.stringify({ error: 'phone_number inválido' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // 🛑 Bloqueio explícito
+  const blockCheck = await checkBlockedNumber(supabase, normalizedPhone);
+  if (blockCheck.blocked) {
+    console.warn(`🚫 Envio bloqueado (blocked_numbers) para ${normalizedPhone}: ${blockCheck.reason}`);
+    return new Response(
+      JSON.stringify({ error: blockCheck.reason, blocked: true }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  console.log(`📤 Enviando localização para ${normalizedPhone}: ${latitude}, ${longitude}`);
+
+  // Rate limit check
+  const messageContent = `location:${latitude},${longitude}`;
+  const rateLimitCheck = await checkRateLimit(supabase, normalizedPhone, messageContent, source);
+  
+  if (rateLimitCheck.blocked) {
+    return new Response(
+      JSON.stringify({
+        error: rateLimitCheck.reason,
+        blocked: true,
+        alertType: rateLimitCheck.alertType,
+        count: rateLimitCheck.count
+      }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Montar payload de localização do Gupshup
+  const messagePayload = {
+    type: 'location',
+    location: {
+      longitude: longitude,
+      latitude: latitude,
+      name: name || 'Localização',
+      address: address || `${latitude}, ${longitude}`
+    }
+  };
+
+  // Enviar via Gupshup
+  const gupshupUrl = 'https://api.gupshup.io/wa/api/v1/msg';
+  
+  const formData = new URLSearchParams();
+  formData.append('channel', 'whatsapp');
+  formData.append('source', sourceNumber);
+  formData.append('destination', normalizedPhone);
+  formData.append('message', JSON.stringify(messagePayload));
+  formData.append('src.name', appName);
+
+  const response = await fetch(gupshupUrl, {
+    method: 'POST',
+    headers: {
+      'apikey': apiKey,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: formData.toString(),
+  });
+
+  const responseData = await response.json();
+  console.log('📨 Gupshup location response:', responseData);
+
+  if (responseData.status === 'submitted' || response.ok) {
+    // Construir preview do conteúdo
+    const contentPreview = name 
+      ? `📍 ${name}${address ? ` - ${address}` : ''}`
+      : `📍 ${address || `${latitude}, ${longitude}`}`;
+
+    // Salvar mensagem no banco
+    const { error: insertError } = await supabase
+      .from('whatsapp_messages')
+      .insert({
+        phone_number: normalizedPhone,
+        bitrix_id: bitrix_id,
+        conversation_id: conversation_id,
+        gupshup_message_id: responseData.messageId,
+        direction: 'outbound',
+        message_type: 'location',
+        content: contentPreview,
+        status: 'sent',
+        sent_by: 'tabulador',
+        sender_name: senderName,
+        metadata: { 
+          ...responseData, 
+          source,
+          latitude,
+          longitude,
+          location_name: name,
+          location_address: address
+        },
+      });
+
+    if (insertError) {
+      console.error('❌ Erro ao salvar mensagem de localização:', insertError);
+    }
+
+    // Atualizar last_message no chatwoot_contacts
+    if (bitrix_id) {
+      await supabase
+        .from('chatwoot_contacts')
+        .update({
+          last_message_at: new Date().toISOString(),
+          last_message_preview: contentPreview.substring(0, 100),
+          last_message_direction: 'outbound',
+        })
+        .eq('bitrix_id', bitrix_id);
+    }
+
+    console.log(`✅ Localização enviada com sucesso`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        messageId: responseData.messageId,
+        message: 'Localização enviada com sucesso',
+        rateLimitInfo: rateLimitCheck.rateLimitInfo
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } else {
+    throw new Error(responseData.message || 'Erro ao enviar localização');
   }
 }
