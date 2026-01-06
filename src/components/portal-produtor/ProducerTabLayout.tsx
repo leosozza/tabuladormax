@@ -23,15 +23,20 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [dealActiveTab, setDealActiveTab] = useState<'perfil' | 'agenciar'>('perfil');
+  const [assistantTrigger, setAssistantTrigger] = useState(0);
 
   const handleCloseDeal = () => {
     setSelectedDeal(null);
-    setDealActiveTab('perfil'); // Reset ao fechar
+    setDealActiveTab('perfil');
   };
 
   const handleDealSelect = (deal: Deal) => {
     setSelectedDeal(deal);
-    setDealActiveTab('perfil'); // Sempre começa no perfil
+    setDealActiveTab('perfil');
+  };
+
+  const handleOpenAssistant = () => {
+    setAssistantTrigger(prev => prev + 1);
   };
 
   return (
@@ -67,6 +72,7 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
             onClose={handleCloseDeal}
             producerId={producerData.id}
             onTabChange={setDealActiveTab}
+            openAssistantTrigger={assistantTrigger}
           />
         ) : (
           <>
@@ -103,6 +109,7 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
           {/* Botão IA - Centro (Elevado) - APENAS na aba Agenciar */}
           {selectedDeal && dealActiveTab === 'agenciar' && (
             <button 
+              onClick={handleOpenAssistant}
               className="flex flex-col items-center -mt-6"
             >
               <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 

@@ -9,6 +9,7 @@ interface DealDetailViewProps {
   onClose: () => void;
   producerId: string;
   onTabChange?: (tab: 'perfil' | 'agenciar') => void;
+  openAssistantTrigger?: number;
 }
 const STATUS_LABELS: Record<string, {
   label: string;
@@ -39,7 +40,8 @@ export const DealDetailView = ({
   deal,
   onClose,
   producerId,
-  onTabChange
+  onTabChange,
+  openAssistantTrigger
 }: DealDetailViewProps) => {
   const [activeTab, setActiveTab] = useState<'perfil' | 'agenciar'>('perfil');
 
@@ -67,7 +69,12 @@ export const DealDetailView = ({
         </TabsContent>
 
         <TabsContent value="agenciar" className="flex-1 mt-4">
-          <ProducerAgenciarForm deal={deal} producerId={producerId} onSuccess={onClose} />
+          <ProducerAgenciarForm 
+            deal={deal} 
+            producerId={producerId} 
+            onSuccess={onClose}
+            openAssistantTrigger={openAssistantTrigger}
+          />
         </TabsContent>
       </Tabs>
     </div>;
