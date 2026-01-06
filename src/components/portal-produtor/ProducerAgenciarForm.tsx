@@ -160,7 +160,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess, openAssistan
     }
   }, [openAssistantTrigger]);
 
-  // Handler para dados do assistente completo
+  // Handler para dados do assistente completo - salva automaticamente
   const handleFullAssistantComplete = (assistantData: {
     packageId: string;
     packageName: string;
@@ -169,15 +169,21 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess, openAssistan
     discountPercent: number;
     paymentMethods: PaymentMethodData[];
   }) => {
-    // Set package
-    setSelectedProductId(assistantData.packageId);
+    // 1. Preencher campos do formulário
+    if (assistantData.packageId) {
+      setSelectedProductId(assistantData.packageId);
+    }
     setBaseValue(assistantData.baseValue);
     
-    // Set value/discount
-    if (assistantData.discountPercent > 0) {
+    // Calcular desconto corretamente
+    const calcDiscountPercent = assistantData.baseValue > 0 
+      ? ((assistantData.baseValue - assistantData.finalValue) / assistantData.baseValue) * 100 
+      : 0;
+    
+    if (calcDiscountPercent > 0 || assistantData.finalValue !== assistantData.baseValue) {
       setDiscountType('final');
       setFinalValueInput(assistantData.finalValue);
-      setDiscountPercent(assistantData.discountPercent);
+      setDiscountPercent(calcDiscountPercent);
     }
     
     // Map payment methods
@@ -190,12 +196,24 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess, openAssistan
     }));
     setPaymentMethods(newPayments);
     
-    // Fechar o assistente e mostrar o formulário preenchido
+    // 2. Fechar o assistente
     setShowFullAssistant(false);
     setIsServicesOpen(false);
     
-    // Mostrar toast informando que os dados foram preenchidos
-    toast.success('Dados preenchidos! Revise e clique em Gerar Contrato ou Finalizar.');
+    // 3. Calcular valores para salvar
+    const discountVal = assistantData.baseValue - assistantData.finalValue;
+    
+    // 4. Salvar automaticamente com status 'negocios_fechados'
+    saveMutation.mutate({
+      base_value: assistantData.baseValue,
+      discount_percentage: calcDiscountPercent,
+      discount_value: discountVal,
+      total_value: assistantData.finalValue,
+      notes: '',
+      payment_methods: newPayments,
+      status: 'negocios_fechados',
+      bitrix_product_id: assistantData.packageId ? parseInt(assistantData.packageId) : null
+    });
   };
 
   // Mapear tipos de método de pagamento do assistente de voz para o formato local

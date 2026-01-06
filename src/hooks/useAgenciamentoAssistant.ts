@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAudioRecorder } from './useAudioRecorder';
 import { supabase } from '@/integrations/supabase/client';
 import { BitrixProduct } from '@/lib/bitrix';
@@ -121,6 +121,12 @@ export function useAgenciamentoAssistant({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const processingMutexRef = useRef(false);
+  
+  // Ref para manter dados sempre atualizados (evita closure stale)
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
   
   // Date picker state for boleto parcelado
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -417,8 +423,10 @@ Qual pacote o cliente escolheu?`;
 
         case 'complete_negotiation':
           if (result.confirmed) {
-            const finalData = {
-              ...data,
+            // Usar dataRef para garantir dados atualizados (evita closure stale)
+            const currentData = dataRef.current;
+            const finalData: AgenciamentoData = {
+              ...currentData,
               stage: 'complete' as AgenciamentoStage
             };
             setStage('complete');
