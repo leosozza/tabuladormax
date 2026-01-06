@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { LogOut, User, Mic, Briefcase, Handshake, LayoutDashboard, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, ArrowLeft, Briefcase, LayoutDashboard, Mic } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ProducerDealsTab, Deal } from './ProducerDealsTab';
 import { ProducerDashboardTab } from './ProducerDashboardTab';
 import { DealDetailView } from './DealDetailView';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 
 interface ProducerTabLayoutProps {
   producerData: {
@@ -16,10 +17,8 @@ interface ProducerTabLayoutProps {
   onLogout: () => void;
 }
 
-type ActiveView = 'deals' | 'dashboard';
-
 export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutProps) => {
-  const [activeView, setActiveView] = useState<ActiveView>('deals');
+  const [activeView, setActiveView] = useState<'deals' | 'dashboard'>('deals');
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [dealActiveTab, setDealActiveTab] = useState<'perfil' | 'agenciar'>('perfil');
@@ -36,48 +35,66 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
   };
 
   const handleOpenAssistant = () => {
+    // Primeiro garantir que está na aba agenciar
+    setDealActiveTab('agenciar');
+    // Incrementar trigger para abrir o assistente
     setAssistantTrigger(prev => prev + 1);
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Header Simplificado */}
-      <header className="border-b bg-card sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {selectedDeal && (
-                <Button variant="ghost" size="icon" onClick={handleCloseDeal} title="Voltar">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              )}
-              <div>
-                <h1 className="font-bold text-lg">Olá, {producerData.name}!</h1>
-                <p className="text-xs text-muted-foreground">Portal do Produtor</p>
-              </div>
-            </div>
-
-            <Button variant="ghost" size="icon" onClick={onLogout} title="Sair">
-              <LogOut className="h-4 w-4" />
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="bg-card border-b px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+        <div className="flex items-center gap-3">
+          {selectedDeal && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleCloseDeal}
+              className="mr-1"
+            >
+              <ChevronLeft className="h-5 w-5" />
             </Button>
+          )}
+          <Avatar className="h-10 w-10 border-2 border-primary/20">
+            <AvatarImage src={producerData.photo || undefined} />
+            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+              {producerData.name.substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h1 className="font-semibold text-foreground">
+              {selectedDeal ? selectedDeal.title : producerData.name}
+            </h1>
+            {selectedDeal && (
+              <p className="text-xs text-muted-foreground">
+                {selectedDeal.client_name}
+              </p>
+            )}
           </div>
         </div>
+        <Button variant="ghost" size="icon" onClick={onLogout}>
+          <LogOut className="h-5 w-5" />
+        </Button>
       </header>
 
-      {/* Content */}
-      <main className="container mx-auto px-4 py-4">
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto pb-24 pb-safe scrollbar-hide">
         {selectedDeal ? (
           <DealDetailView 
-            deal={selectedDeal} 
+            deal={selectedDeal}
             onClose={handleCloseDeal}
             producerId={producerData.id}
-            onTabChange={setDealActiveTab}
+            activeTab={dealActiveTab}
             openAssistantTrigger={assistantTrigger}
           />
         ) : (
           <>
             {activeView === 'deals' && (
-              <ProducerDealsTab producerId={producerData.id} onDealSelect={handleDealSelect} />
+              <ProducerDealsTab 
+                producerId={producerData.id} 
+                onDealSelect={handleDealSelect}
+              />
             )}
             {activeView === 'dashboard' && (
               <ProducerDashboardTab producerId={producerData.id} />
@@ -88,90 +105,122 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
 
       {/* Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t z-50 pb-safe">
-        <div className={`flex items-end px-6 pb-2 pt-1 max-w-lg mx-auto ${
-          selectedDeal && dealActiveTab === 'agenciar' ? 'justify-around' : 'justify-between'
-        }`}>
+        <div className="flex items-end justify-around px-6 pb-2 pt-1 max-w-lg mx-auto">
           
-          {/* Perfil - Esquerda */}
-          <button 
-            onClick={() => setShowProfile(true)}
-            className="flex flex-col items-center py-2 px-4 rounded-lg transition-colors hover:bg-muted"
-          >
-            <Avatar className="h-7 w-7 border border-border">
-              <AvatarImage src={producerData.photo || undefined} className="object-cover" />
-              <AvatarFallback className="text-xs bg-muted">
-                {producerData.name.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-[10px] mt-1 text-muted-foreground">Perfil</span>
-          </button>
-          
-          {/* Botão IA - Centro (Elevado) - APENAS na aba Agenciar */}
-          {selectedDeal && dealActiveTab === 'agenciar' && (
-            <button 
-              onClick={handleOpenAssistant}
-              className="flex flex-col items-center -mt-6"
-            >
-              <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 
-                            shadow-xl flex items-center justify-center border-4 border-background
-                            hover:from-pink-600 hover:to-purple-700 transition-all
-                            animate-[pulse-glow_2s_ease-in-out_infinite]">
-                <Mic className="h-7 w-7 text-white" />
-              </div>
-              <span className="text-[10px] mt-1 font-semibold text-primary">Assistente</span>
-            </button>
+          {selectedDeal ? (
+            // --- NAVEGAÇÃO DENTRO DO DEAL (3 botões) ---
+            <>
+              {/* Perfil do Modelo */}
+              <button 
+                onClick={() => setDealActiveTab('perfil')}
+                className={cn(
+                  "flex flex-col items-center py-2 px-4 rounded-lg transition-colors min-w-[72px]",
+                  dealActiveTab === 'perfil' 
+                    ? 'text-primary' 
+                    : 'text-muted-foreground hover:bg-muted'
+                )}
+              >
+                <User className="h-6 w-6" />
+                <span className="text-[10px] mt-1 font-medium">Perfil</span>
+              </button>
+              
+              {/* IA - Centro Elevado */}
+              <button 
+                onClick={handleOpenAssistant}
+                className="flex flex-col items-center -mt-6"
+              >
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-shadow animate-pulse">
+                  <Mic className="h-7 w-7 text-white" />
+                </div>
+                <span className="text-[10px] mt-1 font-semibold text-primary">Assistente</span>
+              </button>
+              
+              {/* Agenciar */}
+              <button 
+                onClick={() => setDealActiveTab('agenciar')}
+                className={cn(
+                  "flex flex-col items-center py-2 px-4 rounded-lg transition-colors min-w-[72px]",
+                  dealActiveTab === 'agenciar' 
+                    ? 'text-primary' 
+                    : 'text-muted-foreground hover:bg-muted'
+                )}
+              >
+                <Handshake className="h-6 w-6" />
+                <span className="text-[10px] mt-1 font-medium">Agenciar</span>
+              </button>
+            </>
+          ) : (
+            // --- NAVEGAÇÃO PRINCIPAL (2 botões) ---
+            <>
+              {/* Perfil */}
+              <button 
+                onClick={() => setShowProfile(true)}
+                className="flex flex-col items-center py-2 px-6 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <Avatar className="h-7 w-7 border border-border">
+                  <AvatarImage src={producerData.photo || undefined} />
+                  <AvatarFallback className="text-xs bg-muted">
+                    {producerData.name.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-[10px] mt-1 font-medium">Perfil</span>
+              </button>
+              
+              {/* Deals */}
+              <button 
+                onClick={() => setActiveView('deals')}
+                className={cn(
+                  "flex flex-col items-center py-2 px-6 rounded-lg transition-colors",
+                  activeView === 'deals' 
+                    ? 'text-primary' 
+                    : 'text-muted-foreground hover:bg-muted'
+                )}
+              >
+                <Briefcase className="h-6 w-6" />
+                <span className="text-[10px] mt-1 font-medium">Deals</span>
+              </button>
+            </>
           )}
-          
-          {/* Deals - Direita */}
-          <button 
-            onClick={() => { setActiveView('deals'); setSelectedDeal(null); }}
-            className={`flex flex-col items-center py-2 px-4 rounded-lg transition-colors ${
-              activeView === 'deals' && !selectedDeal ? 'text-primary' : 'text-muted-foreground hover:bg-muted'
-            }`}
-          >
-            <Briefcase className="h-6 w-6" />
-            <span className="text-[10px] mt-1">Deals</span>
-          </button>
           
         </div>
       </nav>
 
       {/* Profile Sheet */}
       <Sheet open={showProfile} onOpenChange={setShowProfile}>
-        <SheetContent side="bottom" className="rounded-t-xl">
+        <SheetContent side="left" className="w-[300px] sm:w-[350px]">
           <SheetHeader>
             <SheetTitle>Meu Perfil</SheetTitle>
           </SheetHeader>
-          <div className="py-6 space-y-4">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16 border-2 border-primary/20">
-                <AvatarImage src={producerData.photo || undefined} className="object-cover" />
-                <AvatarFallback className="text-xl bg-primary/10 text-primary">
-                  {producerData.name.charAt(0)}
+          <div className="mt-6 space-y-6">
+            <div className="flex flex-col items-center gap-3">
+              <Avatar className="h-20 w-20 border-4 border-primary/20">
+                <AvatarImage src={producerData.photo || undefined} />
+                <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                  {producerData.name.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <h3 className="font-bold text-lg">{producerData.name}</h3>
-                <p className="text-sm text-muted-foreground">Produtor</p>
-              </div>
+              <h2 className="text-xl font-semibold">{producerData.name}</h2>
             </div>
 
-            <div className="pt-4 border-t space-y-2">
+            <div className="space-y-2">
               <Button 
                 variant="outline" 
-                className="w-full justify-start gap-2"
-                onClick={() => { setActiveView('dashboard'); setShowProfile(false); }}
+                className="w-full justify-start gap-3"
+                onClick={() => {
+                  setActiveView('dashboard');
+                  setShowProfile(false);
+                }}
               >
-                <LayoutDashboard className="h-4 w-4" />
-                Ver Dashboard
+                <LayoutDashboard className="h-5 w-5" />
+                Dashboard
               </Button>
               <Button 
-                variant="destructive" 
-                className="w-full justify-start gap-2"
+                variant="outline" 
+                className="w-full justify-start gap-3 text-destructive hover:text-destructive"
                 onClick={onLogout}
               >
-                <LogOut className="h-4 w-4" />
-                Sair da Conta
+                <LogOut className="h-5 w-5" />
+                Sair
               </Button>
             </div>
           </div>

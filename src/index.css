@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Scrollbar invisível */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Custom animations for UI components */
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 10px 25px -5px rgba(236, 72, 153, 0.4); }

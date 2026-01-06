@@ -666,7 +666,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess, openAssistan
 
       {/* Modal de Comparação de Pacotes */}
       <Dialog open={showComparison} onOpenChange={setShowComparison}>
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-auto p-0">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-auto scrollbar-hide p-0">
           <DialogHeader className="p-6 pb-4 border-b">
             <DialogTitle className="flex items-center gap-2">
               <GitCompare className="h-5 w-5" />
