@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { 
   Mic, MicOff, Loader2, Check, X,
   Send, ChevronLeft, Package, DollarSign, CreditCard, CheckCircle,
-  MessageSquare, Volume2, VolumeX, Radio
+  MessageSquare, Volume2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -370,31 +370,31 @@ export function AgenciamentoAssistant({
               </div>
             </div>
           ) : (
-            <div className="flex gap-2 max-w-lg mx-auto">
+            <div className="flex gap-2 max-w-lg mx-auto items-center">
               <Input
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Digite ou use o microfone..."
+                placeholder="Digite sua mensagem..."
                 onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
                 disabled={isProcessing}
-                className="flex-1"
+                className="flex-1 h-12"
               />
               <Button 
                 onClick={handleSendText} 
                 disabled={!textInput.trim() || isProcessing}
                 size="icon"
+                className="h-12 w-12 shrink-0"
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-5 w-5" />
               </Button>
+              {/* Botão de Voz Destacado */}
               <Button 
-                variant="outline" 
                 onClick={() => setVoiceOverlayOpen(true)}
                 disabled={isProcessing}
-                size="icon"
-                className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-primary/30 hover:bg-primary/10"
-                title="Modo Voz Imersivo"
+                className="h-14 w-14 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white shadow-lg shrink-0 p-0"
+                title="Modo Voz"
               >
-                <Radio className="h-4 w-4 text-primary" />
+                <Mic className="h-6 w-6" />
               </Button>
             </div>
           )}

@@ -536,16 +536,36 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess }: ProducerAg
 
   return (
     <div className="space-y-4">
-      {/* Botão Principal do Assistente */}
-      <Button 
-        onClick={() => setShowFullAssistant(true)}
-        variant="outline"
-        className="w-full gap-2 h-12 border-primary/30 hover:bg-primary/5"
-      >
-        <MessageSquare className="h-5 w-5 text-primary" />
-        <span className="font-medium">Preencher com Assistente de Voz</span>
-        <Mic className="h-4 w-4 text-muted-foreground" />
-      </Button>
+      {/* Seção Destaque - Assistente IA */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 p-1">
+        <div className="absolute inset-0 bg-gradient-to-r from-pink-500/20 to-purple-600/20 animate-pulse" />
+        <Button 
+          onClick={() => setShowFullAssistant(true)}
+          className="relative w-full h-20 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white border-0 shadow-lg"
+        >
+          <div className="flex items-center gap-4 w-full">
+            <div className="bg-white/20 p-3 rounded-full shrink-0">
+              <Mic className="h-6 w-6" />
+            </div>
+            <div className="text-left flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs opacity-80 font-normal">✨ Assistente IA</span>
+                <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">RECOMENDADO</span>
+              </div>
+              <p className="font-bold text-lg truncate">Falar para Preencher</p>
+              <p className="text-xs opacity-80 font-normal">Preencha tudo por voz em segundos</p>
+            </div>
+            <MessageSquare className="h-5 w-5 opacity-60 shrink-0" />
+          </div>
+        </Button>
+      </div>
+
+      {/* Divisor visual */}
+      <div className="flex items-center gap-3 px-2">
+        <div className="flex-1 h-px bg-border" />
+        <span className="text-xs text-muted-foreground">ou preencha manual</span>
+        <div className="flex-1 h-px bg-border" />
+      </div>
 
       {/* Sheet do Assistente Completo */}
       <Sheet open={showFullAssistant} onOpenChange={setShowFullAssistant}>
