@@ -8,6 +8,7 @@ interface DealDetailViewProps {
   deal: Deal;
   onClose: () => void;
   producerId: string;
+  onTabChange?: (tab: 'perfil' | 'agenciar') => void;
 }
 const STATUS_LABELS: Record<string, {
   label: string;
@@ -37,13 +38,19 @@ const STATUS_LABELS: Record<string, {
 export const DealDetailView = ({
   deal,
   onClose,
-  producerId
+  producerId,
+  onTabChange
 }: DealDetailViewProps) => {
   const [activeTab, setActiveTab] = useState<'perfil' | 'agenciar'>('perfil');
+
+  const handleTabChange = (tab: 'perfil' | 'agenciar') => {
+    setActiveTab(tab);
+    onTabChange?.(tab);
+  };
   const statusInfo = STATUS_LABELS[deal.negotiation_status || 'inicial'] || STATUS_LABELS['inicial'];
   return <div className="flex flex-col min-h-[calc(100vh-200px)]">
       {/* Tabs maiores para mobile */}
-      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'perfil' | 'agenciar')} className="flex-1 flex flex-col">
+      <Tabs value={activeTab} onValueChange={v => handleTabChange(v as 'perfil' | 'agenciar')} className="flex-1 flex flex-col">
         <TabsList className="grid w-full grid-cols-2 h-14 p-1 mt-3">
           <TabsTrigger value="perfil" className="h-12 text-sm font-medium gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <User className="h-4 w-4" />
