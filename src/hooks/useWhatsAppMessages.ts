@@ -25,6 +25,7 @@ export interface WhatsAppMessage {
   created_at: string;
   delivered_at: string | null;
   read_at: string | null;
+  metadata?: Record<string, any>;
 }
 
 export interface TemplateParams {
@@ -662,6 +663,158 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     }
   };
 
+  const sendLocation = async (
+    latitude: number,
+    longitude: number,
+    name?: string,
+    address?: string
+  ): Promise<boolean> => {
+    logDebug('sendLocation called', { latitude, longitude, name });
+    
+    if (!phoneNumber) {
+      logDebug('sendLocation rejected: missing phone');
+      toast.error('Telefone é obrigatório');
+      return false;
+    }
+
+    // Verificar cooldown por rate limit
+    if (isInCooldown()) {
+      const waitSeconds = getCooldownRemaining();
+      logDebug('sendLocation rejected: in cooldown', { waitSeconds });
+      toast.warning(`Aguarde ${waitSeconds}s antes de enviar`);
+      return false;
+    }
+
+    // Anti-spam: verificar tempo desde último envio
+    const now = Date.now();
+    const timeSinceLastSend = now - lastSendTimeRef.current;
+    if (timeSinceLastSend < SEND_DEBOUNCE_MS) {
+      logDebug('sendLocation rejected: debounce', { timeSinceLastSend });
+      toast.warning('Aguarde antes de enviar outra localização');
+      return false;
+    }
+
+    // Verificar se já está enviando
+    if (sending) {
+      logDebug('sendLocation rejected: already sending');
+      toast.warning('Aguarde o envio anterior terminar');
+      return false;
+    }
+
+    // Limite de envios por sessão
+    if (sendCountRef.current >= MAX_SENDS_PER_SESSION) {
+      logDebug('sendLocation rejected: session limit reached');
+      toast.error('Limite de mensagens por sessão atingido. Recarregue a página.');
+      return false;
+    }
+
+    // Lock cross-tab
+    if (!acquireSendLock(phoneNumber)) {
+      logDebug('sendLocation rejected: cross-tab lock');
+      toast.warning('Envio em andamento em outra aba');
+      return false;
+    }
+
+    lastSendTimeRef.current = now;
+    sendCountRef.current += 1;
+    setSending(true);
+    logDebug('sendLocation starting', { sendCount: sendCountRef.current });
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('gupshup-send-message', {
+        body: {
+          action: 'send_location',
+          phone_number: phoneNumber,
+          latitude,
+          longitude,
+          name,
+          address,
+          bitrix_id: bitrixId,
+          conversation_id: conversationId,
+        },
+      });
+
+      if (!mountedRef.current) {
+        logDebug('sendLocation aborted: component unmounted');
+        return false;
+      }
+
+      if (error) {
+        console.error('Erro ao enviar localização:', error);
+        releaseSendLock();
+        
+        const errorMessage = error?.message || '';
+        const errorContext = (error as any)?.context;
+        
+        if (errorMessage.includes('401') || errorMessage.includes('Não autorizado')) {
+          return handleSendError(error, 'auth_error');
+        }
+        if (errorContext?.error?.includes('Limite') || errorContext?.blocked || errorMessage.includes('429')) {
+          return handleSendError(error, 'rate_limit');
+        }
+        
+        return handleSendError(error, 'unknown_error');
+      }
+
+      if (data?.error) {
+        console.error('Erro da API:', data.error);
+        releaseSendLock();
+        
+        if (data.blocked || data.error?.includes('Limite') || data.error?.includes('401')) {
+          return handleSendError(data.error, 'api_error');
+        }
+        
+        toast.error(data.error);
+        return false;
+      }
+
+      // Sucesso!
+      consecutiveFailsRef.current = 0;
+      releaseSendLock();
+
+      // Adicionar mensagem otimisticamente
+      const contentPreview = name 
+        ? `📍 ${name}${address ? ` - ${address}` : ''}`
+        : `📍 ${address || `${latitude}, ${longitude}`}`;
+
+      const newMessage: WhatsAppMessage = {
+        id: crypto.randomUUID(),
+        phone_number: phoneNumber.replace(/\D/g, ''),
+        bitrix_id: bitrixId || null,
+        conversation_id: conversationId || null,
+        gupshup_message_id: data?.messageId || null,
+        direction: 'outbound',
+        message_type: 'location',
+        content: contentPreview,
+        template_name: null,
+        status: 'sent',
+        sent_by: 'tabulador',
+        sender_name: 'Você',
+        media_url: null,
+        media_type: null,
+        created_at: new Date().toISOString(),
+        delivered_at: null,
+        read_at: null,
+      };
+
+      setMessages(prev => [...prev, newMessage]);
+      toast.success('Localização enviada');
+      return true;
+    } catch (error: any) {
+      console.error('Error sending location:', error);
+      releaseSendLock();
+      
+      if (error?.name === 'AbortError') {
+        logDebug('sendLocation aborted');
+        return false;
+      }
+      
+      return handleSendError(error, 'catch_error');
+    } finally {
+      setSending(false);
+    }
+  };
+
   // Buscar mensagens iniciais
   useEffect(() => {
     fetchMessages();
@@ -768,6 +921,7 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     fetchMessages,
     sendMessage,
     sendMedia,
+    sendLocation,
     sendTemplate,
     markAsRead,
     usingBitrixFallback,

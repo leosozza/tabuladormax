@@ -44,6 +44,7 @@ export function WhatsAppChatContainer({
     fetchMessages,
     sendMessage,
     sendMedia,
+    sendLocation,
     sendTemplate,
     markAsRead,
     usingBitrixFallback
@@ -122,6 +123,16 @@ export function WhatsAppChatContainer({
     }
   };
 
+  const handleSendLocation = async (latitude: number, longitude: number, name: string, address: string): Promise<boolean> => {
+    if (isSendingRef.current || sending || inCooldown) return false;
+    isSendingRef.current = true;
+    try {
+      return await sendLocation(latitude, longitude, name, address);
+    } finally {
+      isSendingRef.current = false;
+    }
+  };
+
   if (!bitrixId && !phoneNumber && !conversationId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-muted/20 h-full">
@@ -187,6 +198,7 @@ export function WhatsAppChatContainer({
           <WhatsAppInput
             onSendText={handleSendMessage}
             onSendMedia={handleSendMedia}
+            onSendLocation={handleSendLocation}
             disabled={sending}
             isWindowOpen={true}
             inCooldown={inCooldown}

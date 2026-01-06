@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Check, CheckCheck } from 'lucide-react';
+import { Check, CheckCheck, MapPin, ExternalLink } from 'lucide-react';
 import { WhatsAppMessage } from '@/hooks/useWhatsAppMessages';
 
 interface WhatsAppMessageBubbleProps {
@@ -22,10 +22,70 @@ function MessageStatus({ status }: { status: WhatsAppMessage['status'] }) {
   }
 }
 
+function LocationPreview({ message }: { message: WhatsAppMessage }) {
+  // Extract coordinates from metadata if available
+  const metadata = message.metadata as any;
+  const lat = metadata?.latitude;
+  const lon = metadata?.longitude;
+  const locationName = metadata?.location_name;
+  const locationAddress = metadata?.location_address;
+
+  const googleMapsUrl = lat && lon 
+    ? `https://www.google.com/maps?q=${lat},${lon}`
+    : null;
+
+  const osmMapUrl = lat && lon
+    ? `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=15&size=300x150&markers=${lat},${lon},red-pushpin`
+    : null;
+
+  return (
+    <div className="space-y-2">
+      {osmMapUrl && (
+        <a href={googleMapsUrl || '#'} target="_blank" rel="noopener noreferrer" className="block">
+          <div className="relative rounded-lg overflow-hidden">
+            <img 
+              src={osmMapUrl} 
+              alt="Localização"
+              className="w-full h-[120px] object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+            <div className="absolute bottom-2 right-2 bg-background/80 rounded-full p-1.5">
+              <ExternalLink className="h-3 w-3" />
+            </div>
+          </div>
+        </a>
+      )}
+      <div className="flex items-start gap-2">
+        <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+        <div className="min-w-0">
+          {locationName && <div className="font-medium text-sm">{locationName}</div>}
+          {locationAddress && <div className="text-xs opacity-80 break-words">{locationAddress}</div>}
+          {!locationName && !locationAddress && lat && lon && (
+            <div className="text-xs opacity-80">{lat.toFixed(6)}, {lon.toFixed(6)}</div>
+          )}
+        </div>
+      </div>
+      {googleMapsUrl && (
+        <a 
+          href={googleMapsUrl} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-xs underline opacity-80 hover:opacity-100 flex items-center gap-1"
+        >
+          Abrir no Google Maps
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      )}
+    </div>
+  );
+}
+
 export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
   const isOutbound = message.direction === 'outbound';
-
   const isBitrixAutomation = message.sent_by === 'bitrix';
+  const isLocation = message.message_type === 'location';
 
   return (
     <div className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
@@ -60,11 +120,16 @@ export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
           </div>
         )}
 
-        {/* Content */}
-        <div className="whitespace-pre-wrap">{message.content}</div>
+        {/* Location Content */}
+        {isLocation ? (
+          <LocationPreview message={message} />
+        ) : (
+          /* Regular Content */
+          <div className="whitespace-pre-wrap">{message.content}</div>
+        )}
 
         {/* Media */}
-        {message.media_url && (
+        {message.media_url && !isLocation && (
           <div className="mt-2">
             {message.media_type === 'image' ? (
               <img src={message.media_url} alt="Imagem" className="max-w-full rounded" />
