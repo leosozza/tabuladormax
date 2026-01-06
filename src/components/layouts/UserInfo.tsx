@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
-import { User } from "lucide-react";
+import { User, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface UserInfoProps {
   open: boolean;
@@ -18,6 +21,7 @@ const roleLabels: Record<string, string> = {
 export function UserInfo({ open }: UserInfoProps) {
   const [userName, setUserName] = useState<string>("");
   const [userRole, setUserRole] = useState<string>("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadUserInfo = async () => {
@@ -45,6 +49,16 @@ export function UserInfo({ open }: UserInfoProps) {
     loadUserInfo();
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success("Logout realizado com sucesso");
+      navigate("/auth");
+    } catch (error) {
+      toast.error("Erro ao fazer logout");
+    }
+  };
+
   const initials = userName
     .split(" ")
     .map(n => n[0])
@@ -54,12 +68,21 @@ export function UserInfo({ open }: UserInfoProps) {
 
   if (!open) {
     return (
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-2">
         <Avatar className="h-8 w-8">
           <AvatarFallback className="bg-primary/10 text-primary text-xs">
             {initials || <User className="h-4 w-4" />}
           </AvatarFallback>
         </Avatar>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleLogout}
+          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+          title="Sair"
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
       </div>
     );
   }
@@ -71,12 +94,21 @@ export function UserInfo({ open }: UserInfoProps) {
           {initials || <User className="h-4 w-4" />}
         </AvatarFallback>
       </Avatar>
-      <div className="flex flex-col overflow-hidden">
+      <div className="flex flex-col overflow-hidden flex-1">
         <span className="text-sm font-medium truncate">{userName}</span>
         <span className="text-xs text-muted-foreground truncate">
           {roleLabels[userRole] || userRole}
         </span>
       </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleLogout}
+        className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+        title="Sair"
+      >
+        <LogOut className="h-4 w-4" />
+      </Button>
     </div>
   );
 }
