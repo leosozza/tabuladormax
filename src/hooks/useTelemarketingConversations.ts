@@ -105,8 +105,14 @@ export function useTelemarketingConversations(
 
       // Coletar todos os telefones dos leads (normalizados)
       const phoneToLeadMap: Record<string, typeof leads[0]> = {};
+      const leadIdsWithoutPhone: number[] = [];
+      
       leads.forEach(lead => {
         const phones = [lead.celular, lead.telefone_casa, lead.telefone_trabalho].filter(Boolean);
+        if (phones.length === 0) {
+          // Lead sem telefone cadastrado - marcar para buscar nas mensagens
+          leadIdsWithoutPhone.push(lead.id);
+        }
         phones.forEach(phone => {
           if (phone) {
             const normalizedPhone = phone.replace(/\D/g, '');
@@ -116,6 +122,37 @@ export function useTelemarketingConversations(
           }
         });
       });
+
+      // Para leads sem telefone, buscar telefones das mensagens enviadas via automação
+      const leadIdToPhoneFromMessages: Record<number, string> = {};
+      
+      if (leadIdsWithoutPhone.length > 0) {
+        const { data: phonesFromMessages } = await supabase
+          .from('whatsapp_messages')
+          .select('bitrix_id, phone_number')
+          .in('bitrix_id', leadIdsWithoutPhone.map(String))
+          .order('created_at', { ascending: false });
+
+        if (phonesFromMessages) {
+          phonesFromMessages.forEach(msg => {
+            if (msg.bitrix_id && msg.phone_number) {
+              const leadId = parseInt(msg.bitrix_id, 10);
+              // Usar o telefone mais recente (primeira ocorrência)
+              if (!leadIdToPhoneFromMessages[leadId]) {
+                const normalizedPhone = msg.phone_number.replace(/\D/g, '');
+                if (normalizedPhone.length >= 10) {
+                  leadIdToPhoneFromMessages[leadId] = normalizedPhone;
+                  // Adicionar ao mapa de telefone -> lead
+                  const lead = leads.find(l => l.id === leadId);
+                  if (lead) {
+                    phoneToLeadMap[normalizedPhone] = lead;
+                  }
+                }
+              }
+            }
+          });
+        }
+      }
 
       const phoneNumbers = Object.keys(phoneToLeadMap);
       if (phoneNumbers.length === 0) return [];
@@ -172,8 +209,11 @@ export function useTelemarketingConversations(
           .filter(Boolean)
           .map(p => p?.replace(/\D/g, '') || '');
         
+        // Fallback: telefone obtido das mensagens de automação
+        const phoneFromMessages = leadIdToPhoneFromMessages[lead.id];
+        
         const phoneWithMessages = leadPhones.find(p => messageStats[p]);
-        const primaryPhone = phoneWithMessages || leadPhones[0] || '';
+        const primaryPhone = phoneWithMessages || leadPhones[0] || phoneFromMessages || '';
         
         if (primaryPhone) {
           const stats = messageStats[primaryPhone] || {
