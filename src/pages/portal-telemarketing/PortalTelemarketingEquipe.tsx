@@ -86,7 +86,8 @@ const PortalTelemarketingEquipe = () => {
 
   const { data: teamData, isLoading: loadingTeam } = useSupervisorTeam(
     context?.commercial_project_id || null,
-    context?.bitrix_id || null
+    context?.bitrix_id || null,
+    context?.cargo
   );
 
   // Mostrar loading enquanto valida

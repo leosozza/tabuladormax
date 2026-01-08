@@ -113,10 +113,11 @@ const PortalTelemarketingWhatsApp = () => {
     validateContext();
   }, [context?.bitrix_id]);
 
-  // Buscar equipe do supervisor
+  // Buscar equipe do supervisor (passa cargo para adjuntos herdarem equipe)
   const { data: supervisorTeam } = useSupervisorTeam(
     context?.commercial_project_id || null,
-    isSupervisor ? context?.bitrix_id || null : null
+    isSupervisor ? context?.bitrix_id || null : null,
+    context?.cargo
   );
   const teamOperatorIds = supervisorTeam?.agents.map(a => a.bitrix_telemarketing_id) || [];
   
