@@ -21,6 +21,8 @@ interface FlowStep {
 interface ExecuteRequest {
   flowId: string;
   leadId?: number;
+  phoneNumber?: string;
+  bitrixId?: string;
   context?: Record<string, any>;
 }
 
@@ -71,7 +73,15 @@ Deno.serve(async (req) => {
     }
 
     const body: ExecuteRequest = await req.json();
-    const { flowId, leadId, context = {} } = body;
+    const { flowId, phoneNumber, bitrixId, context = {} } = body;
+    
+    // Support leadId directly or convert from bitrixId
+    const leadId = body.leadId || (bitrixId ? parseInt(bitrixId) : undefined);
+    
+    // Propagate phoneNumber to context if provided
+    if (phoneNumber && !context.phone_number) {
+      context.phone_number = phoneNumber;
+    }
 
     if (!flowId) {
       return new Response(
