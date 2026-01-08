@@ -295,6 +295,29 @@ const PortalTelemarketingTabulador = () => {
     }
   };
 
+  const handleCheckSession = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        toast.error(`Erro ao verificar sessão: ${error.message}`);
+        return;
+      }
+      
+      if (session) {
+        const expiresAt = session.expires_at ? new Date(session.expires_at * 1000).toLocaleString('pt-BR') : 'N/A';
+        toast.success(`Sessão ativa: ${session.user.email}`, {
+          description: `Expira em: ${expiresAt}`
+        });
+      } else {
+        toast.warning('Sem sessão ativa no banco de dados. Alguns recursos podem não funcionar.');
+      }
+    } catch (e) {
+      console.error('[Tabulador] Erro ao verificar sessão:', e);
+      toast.error('Erro ao verificar sessão');
+    }
+  };
+
   const handleNotificationClick = (notification: any) => {
     // Se for notificação de cliente compareceu, mostrar celebração
     if (notification.type === 'cliente_compareceu') {
@@ -371,6 +394,11 @@ const PortalTelemarketingTabulador = () => {
                 <DropdownMenuItem onClick={() => window.location.reload()}>
                   <RefreshCcw className="w-4 h-4 mr-2" />
                   Apenas Recarregar Página
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleCheckSession}>
+                  <HeartPulse className="w-4 h-4 mr-2" />
+                  Verificar Sessão BD
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
