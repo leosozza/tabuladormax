@@ -81,23 +81,44 @@ export function useBulkLeadsWithActiveWindow(options: UseBulkLeadsOptions) {
           break;
       }
 
-      // Use RPC to avoid type issues
-      const { data: leads, error } = await supabase.rpc('get_leads_for_bulk_send', {
-        p_date_from: dateFrom?.toISOString() || null,
-        p_date_to: dateTo?.toISOString() || null,
-        p_operator_id: (!['10620', '10626', '10627'].includes(cargo || '')) ? bitrixTelemarketingId : null,
-        p_team_ids: teamOperatorIds && teamOperatorIds.length > 0 ? teamOperatorIds : null,
-      });
+      // Build query for leads
+      let query = supabase
+        .from('leads')
+        .select('id, name, telefone_trabalho, celular, bitrix_telemarketing_id, data_criacao_agendamento')
+        .not('data_criacao_agendamento', 'is', null);
 
-      if (error) {
-        // Fallback: direct query if RPC doesn't exist
-        console.warn('RPC not available, using direct query');
-        return { leads: [], totalLeads: 0, activeWindowCount: 0 };
+      // Apply date filter
+      if (dateFrom && dateTo) {
+        query = query
+          .gte('data_criacao_agendamento', dateFrom.toISOString())
+          .lt('data_criacao_agendamento', dateTo.toISOString());
       }
+
+      // Apply operator filter based on cargo
+      const isSupervisor = ['10620', '10626', '10627'].includes(cargo || '');
+      if (!isSupervisor) {
+        query = query.eq('bitrix_telemarketing_id', bitrixTelemarketingId);
+      } else if (teamOperatorIds && teamOperatorIds.length > 0) {
+        query = query.in('bitrix_telemarketing_id', teamOperatorIds);
+      }
+
+      const { data: leads, error } = await query.limit(500);
+
+      if (error) throw error;
 
       if (!leads || leads.length === 0) {
         return { leads: [], totalLeads: 0, activeWindowCount: 0 };
       }
+
+      // Get telemarketing names
+      const operatorIds = [...new Set(leads.map(l => l.bitrix_telemarketing_id).filter(Boolean))];
+      const { data: mappings } = await supabase
+        .from('agent_telemarketing_mapping')
+        .select('bitrix_telemarketing_id, bitrix_telemarketing_name')
+        .in('bitrix_telemarketing_id', operatorIds);
+      
+      const nameMap = new Map<number, string>();
+      mappings?.forEach(m => nameMap.set(m.bitrix_telemarketing_id, m.bitrix_telemarketing_name || ''));
 
       const phoneMap = new Map<string, { lead: typeof leads[number]; phone: string }>();
       for (const lead of leads) {
@@ -128,7 +149,7 @@ export function useBulkLeadsWithActiveWindow(options: UseBulkLeadsOptions) {
           id: lead.id,
           lead_name: lead.name || `Lead ${lead.id}`,
           phone_number: phone,
-          telemarketing_name: lead.telemarketing_name || null,
+          telemarketing_name: nameMap.get(lead.bitrix_telemarketing_id || 0) || null,
           is_window_open: window?.is_open ?? false,
           hours_remaining: window?.hours_remaining ?? 0,
           minutes_remaining: window?.minutes_remaining ?? 0,
