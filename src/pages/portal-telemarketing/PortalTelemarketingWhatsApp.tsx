@@ -136,8 +136,10 @@ const PortalTelemarketingWhatsApp = () => {
   const {
     conversations,
     isLoading,
+    isLoadingStats,
     searchQuery,
     setSearchQuery,
+    totalLeads,
   } = useTelemarketingConversations({
     bitrixTelemarketingId: context?.bitrix_id || 0,
     cargo: context?.cargo,
@@ -351,8 +353,19 @@ const PortalTelemarketingWhatsApp = () => {
           </div>
 
           {/* Footer com contagem */}
-          <div className="p-2 border-t text-xs text-muted-foreground text-center">
-            {conversations.length} conversa{conversations.length !== 1 ? 's' : ''}
+          <div className="p-2 border-t text-xs text-muted-foreground text-center space-y-1">
+            <div>{conversations.length} conversa{conversations.length !== 1 ? 's' : ''}</div>
+            {agendamentoFilter !== 'all' && (
+              <div className="text-[10px]">
+                {totalLeads} lead{totalLeads !== 1 ? 's' : ''} no filtro
+              </div>
+            )}
+            {isLoadingStats && (
+              <div className="flex items-center justify-center gap-1 text-[10px]">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Carregando prévias...
+              </div>
+            )}
           </div>
         </div>
 
