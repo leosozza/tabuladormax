@@ -4792,6 +4792,18 @@ export type Database = {
           total_leads: number
         }[]
       }
+      get_filtered_leads_count: {
+        Args: {
+          p_end_date?: string
+          p_fonte?: string
+          p_project_id?: string
+          p_scouter?: string
+          p_search_term?: string
+          p_start_date?: string
+          p_with_photo?: boolean
+        }
+        Returns: number
+      }
       get_general_stats: {
         Args: never
         Returns: {
