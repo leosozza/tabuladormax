@@ -190,43 +190,109 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     try {
       let supabaseMessages: WhatsAppMessage[] = [];
       
-      // Modo telemarketing: usar RPC com validação de acesso
+      // Modo telemarketing: usar RPC com fallback para query direta
       if (useTelemarketingMode && operatorBitrixId) {
         logDebug('Fetching via RPC telemarketing mode', { operatorBitrixId, leadId, phoneNumber });
         
-        const { data, error } = await supabase.rpc('get_telemarketing_whatsapp_messages', {
-          p_operator_bitrix_id: operatorBitrixId,
-          p_phone_number: phoneNumber || null,
-          p_lead_id: leadId || null,
-          p_team_operator_ids: teamOperatorIds && teamOperatorIds.length > 0 ? teamOperatorIds : null,
-          p_limit: 500
-        });
+        let rpcFailed = false;
+        try {
+          const { data, error } = await supabase.rpc('get_telemarketing_whatsapp_messages', {
+            p_operator_bitrix_id: operatorBitrixId,
+            p_phone_number: phoneNumber || null,
+            p_lead_id: leadId || null,
+            p_team_operator_ids: teamOperatorIds && teamOperatorIds.length > 0 ? teamOperatorIds : null,
+            p_limit: 500
+          });
 
-        if (error) {
-          console.error('Erro ao buscar mensagens via RPC:', error);
-          // Não mostrar toast, tentar fallback
-        } else {
-          supabaseMessages = (data || []).map((m: any) => ({
-            id: m.id,
-            phone_number: m.phone_number,
-            bitrix_id: m.bitrix_id,
-            conversation_id: null,
-            gupshup_message_id: m.gupshup_message_id,
-            direction: m.direction as 'inbound' | 'outbound',
-            message_type: m.message_type,
-            content: m.content,
-            template_name: m.template_name,
-            status: m.status as WhatsAppMessage['status'],
-            sent_by: null,
-            sender_name: m.direction === 'inbound' ? 'Cliente' : 'Você',
-            media_url: m.media_url,
-            media_type: m.media_mime_type,
-            created_at: m.created_at,
-            delivered_at: null,
-            read_at: m.read_at,
-            metadata: m.location_data ? { location: m.location_data } : undefined
-          }));
-          logDebug('RPC messages loaded', { count: supabaseMessages.length });
+          if (error) {
+            console.error('Erro ao buscar mensagens via RPC:', error);
+            rpcFailed = true;
+          } else if (data && data.length > 0) {
+            supabaseMessages = data.map((m: any) => ({
+              id: m.id,
+              phone_number: m.phone_number,
+              bitrix_id: m.bitrix_id,
+              conversation_id: null,
+              gupshup_message_id: m.gupshup_message_id,
+              direction: m.direction as 'inbound' | 'outbound',
+              message_type: m.message_type,
+              content: m.content,
+              template_name: m.template_name,
+              status: m.status as WhatsAppMessage['status'],
+              sent_by: null,
+              sender_name: m.direction === 'inbound' ? 'Cliente' : 'Você',
+              media_url: m.media_url,
+              media_type: m.media_type || m.media_mime_type,
+              created_at: m.created_at,
+              delivered_at: null,
+              read_at: m.read_at,
+              metadata: m.metadata || (m.location_data ? { location: m.location_data } : undefined)
+            }));
+            logDebug('RPC messages loaded', { count: supabaseMessages.length });
+          } else {
+            rpcFailed = true;
+            logDebug('RPC returned empty, will try fallback');
+          }
+        } catch (err) {
+          console.error('RPC exception:', err);
+          rpcFailed = true;
+        }
+        
+        // Fallback: query direta quando RPC falha ou retorna vazio
+        if (rpcFailed || supabaseMessages.length === 0) {
+          logDebug('Using direct query fallback', { leadId, phoneNumber });
+          
+          try {
+            // Tentar por bitrix_id primeiro (leadId convertido para texto)
+            if (leadId) {
+              const leadIdStr = leadId.toString();
+              const { data: byBitrixId } = await supabase
+                .from('whatsapp_messages')
+                .select('*')
+                .eq('bitrix_id', leadIdStr)
+                .order('created_at', { ascending: true })
+                .limit(500);
+              
+              if (byBitrixId && byBitrixId.length > 0) {
+                supabaseMessages = byBitrixId as WhatsAppMessage[];
+                logDebug('Fallback found messages by bitrix_id', { count: supabaseMessages.length });
+              }
+            }
+            
+            // Se não encontrou por bitrix_id, tentar por telefone
+            if (supabaseMessages.length === 0 && phoneNumber) {
+              const normalizedPhone = phoneNumber.replace(/\D/g, '');
+              const { data: byPhone } = await supabase
+                .from('whatsapp_messages')
+                .select('*')
+                .eq('phone_number', normalizedPhone)
+                .order('created_at', { ascending: true })
+                .limit(500);
+              
+              if (byPhone && byPhone.length > 0) {
+                supabaseMessages = byPhone as WhatsAppMessage[];
+                logDebug('Fallback found messages by phone', { count: supabaseMessages.length });
+              } else {
+                // Último recurso: buscar por últimos 9 dígitos
+                const last9 = normalizedPhone.slice(-9);
+                if (last9.length === 9) {
+                  const { data: byLast9 } = await supabase
+                    .from('whatsapp_messages')
+                    .select('*')
+                    .like('phone_number', `%${last9}`)
+                    .order('created_at', { ascending: true })
+                    .limit(500);
+                  
+                  if (byLast9 && byLast9.length > 0) {
+                    supabaseMessages = byLast9 as WhatsAppMessage[];
+                    logDebug('Fallback found messages by last 9 digits', { count: supabaseMessages.length });
+                  }
+                }
+              }
+            }
+          } catch (fallbackErr) {
+            console.error('Fallback query error:', fallbackErr);
+          }
         }
       } else {
         // Modo padrão: query direta
