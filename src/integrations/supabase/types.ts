@@ -5280,20 +5280,22 @@ export type Database = {
         Returns: {
           bitrix_id: string
           content: string
+          conversation_id: number
           created_at: string
+          delivered_at: string
           direction: string
           gupshup_message_id: string
           id: string
-          location_data: Json
-          media_mime_type: string
+          media_type: string
           media_url: string
           message_type: string
+          metadata: Json
           phone_number: string
           read_at: string
+          sender_name: string
+          sent_by: string
           status: string
           template_name: string
-          template_params: Json
-          updated_at: string
         }[]
       }
       get_top_active_numbers: {
