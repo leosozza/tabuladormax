@@ -118,7 +118,7 @@ const PortalTelemarketingTabulador = () => {
     }
   })();
 
-  // Validar que o bitrix_id existe na tabela telemarketing_operators
+  // Validar que o bitrix_id existe E que há sessão auth válida
   useEffect(() => {
     const validateContext = async () => {
       // Se tem lead na URL, permite acesso público sem validação
@@ -135,6 +135,17 @@ const PortalTelemarketingTabulador = () => {
       }
 
       try {
+        // Verificar sessão auth primeiro
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.warn('[Tabulador] Sem sessão auth válida');
+          localStorage.removeItem('telemarketing_context');
+          localStorage.removeItem('telemarketing_operator');
+          setIsValidContext(false);
+          setIsValidatingContext(false);
+          return;
+        }
+
         const { data, error } = await supabase
           .from('telemarketing_operators')
           .select('bitrix_id')
