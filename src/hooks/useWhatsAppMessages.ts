@@ -37,6 +37,10 @@ interface UseWhatsAppMessagesOptions {
   bitrixId?: string;
   phoneNumber?: string;
   conversationId?: number;
+  leadId?: number;
+  // Contexto do operador telemarketing (para uso com RPC)
+  operatorBitrixId?: number;
+  teamOperatorIds?: number[];
 }
 
 // Debounce time to prevent spam
@@ -76,7 +80,10 @@ const releaseSendLock = () => {
 };
 
 export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
-  const { bitrixId, phoneNumber, conversationId } = options;
+  const { bitrixId, phoneNumber, conversationId, leadId, operatorBitrixId, teamOperatorIds } = options;
+  
+  // Determinar se deve usar modo telemarketing (RPC)
+  const useTelemarketingMode = !!operatorBitrixId;
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [bitrixMessages, setBitrixMessages] = useState<WhatsAppMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -181,30 +188,73 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     setBitrixMessages([]);
     
     try {
-      let query = supabase
-        .from('whatsapp_messages')
-        .select('*')
-        .order('created_at', { ascending: true });
+      let supabaseMessages: WhatsAppMessage[] = [];
+      
+      // Modo telemarketing: usar RPC com validação de acesso
+      if (useTelemarketingMode && operatorBitrixId) {
+        logDebug('Fetching via RPC telemarketing mode', { operatorBitrixId, leadId, phoneNumber });
+        
+        const { data, error } = await supabase.rpc('get_telemarketing_whatsapp_messages', {
+          p_operator_bitrix_id: operatorBitrixId,
+          p_phone_number: phoneNumber || null,
+          p_lead_id: leadId || null,
+          p_team_operator_ids: teamOperatorIds && teamOperatorIds.length > 0 ? teamOperatorIds : null,
+          p_limit: 500
+        });
 
-      // Prioritize phone_number as it's the most reliable identifier for linking messages
-      if (phoneNumber) {
-        const normalizedPhone = phoneNumber.replace(/\D/g, '');
-        query = query.eq('phone_number', normalizedPhone);
-      } else if (bitrixId) {
-        query = query.eq('bitrix_id', bitrixId);
-      } else if (conversationId) {
-        query = query.eq('conversation_id', conversationId);
+        if (error) {
+          console.error('Erro ao buscar mensagens via RPC:', error);
+          // Não mostrar toast, tentar fallback
+        } else {
+          supabaseMessages = (data || []).map((m: any) => ({
+            id: m.id,
+            phone_number: m.phone_number,
+            bitrix_id: m.bitrix_id,
+            conversation_id: null,
+            gupshup_message_id: m.gupshup_message_id,
+            direction: m.direction as 'inbound' | 'outbound',
+            message_type: m.message_type,
+            content: m.content,
+            template_name: m.template_name,
+            status: m.status as WhatsAppMessage['status'],
+            sent_by: null,
+            sender_name: m.direction === 'inbound' ? 'Cliente' : 'Você',
+            media_url: m.media_url,
+            media_type: m.media_mime_type,
+            created_at: m.created_at,
+            delivered_at: null,
+            read_at: m.read_at,
+            metadata: m.location_data ? { location: m.location_data } : undefined
+          }));
+          logDebug('RPC messages loaded', { count: supabaseMessages.length });
+        }
+      } else {
+        // Modo padrão: query direta
+        let query = supabase
+          .from('whatsapp_messages')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (phoneNumber) {
+          const normalizedPhone = phoneNumber.replace(/\D/g, '');
+          query = query.eq('phone_number', normalizedPhone);
+        } else if (bitrixId) {
+          query = query.eq('bitrix_id', bitrixId);
+        } else if (conversationId) {
+          query = query.eq('conversation_id', conversationId);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('Erro ao buscar mensagens:', error);
+          toast.error('Erro ao carregar mensagens');
+          return;
+        }
+
+        supabaseMessages = (data || []) as WhatsAppMessage[];
       }
 
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Erro ao buscar mensagens:', error);
-        toast.error('Erro ao carregar mensagens');
-        return;
-      }
-
-      const supabaseMessages = (data || []) as WhatsAppMessage[];
       setMessages(supabaseMessages);
       
       // Se não há mensagens no Supabase mas temos conversationId, buscar do Bitrix
@@ -218,7 +268,7 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     } finally {
       setLoading(false);
     }
-  }, [bitrixId, phoneNumber, conversationId, fetchBitrixMessages]);
+  }, [bitrixId, phoneNumber, conversationId, leadId, operatorBitrixId, teamOperatorIds, useTelemarketingMode, fetchBitrixMessages]);
 
   // Handler de erro com cooldown
   const handleSendError = useCallback((error: any, context: string) => {
@@ -868,13 +918,14 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   // Marcar mensagens como lidas
   const markAsRead = useCallback(async (messageIds?: string[]) => {
     if (!bitrixId && !phoneNumber && !conversationId) return;
+    if (!messageIds || messageIds.length === 0) return;
 
     try {
       // Marcar localmente primeiro (otimístico)
       setMessages(prev => 
         prev.map(msg => {
           if (msg.direction === 'inbound' && msg.status !== 'read') {
-            if (!messageIds || messageIds.includes(msg.id)) {
+            if (messageIds.includes(msg.id)) {
               return { ...msg, status: 'read' as const, read_at: new Date().toISOString() };
             }
           }
@@ -882,14 +933,28 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         })
       );
 
-      // Atualizar no banco
+      // Modo telemarketing: usar RPC
+      if (useTelemarketingMode && operatorBitrixId) {
+        const { error } = await supabase.rpc('mark_telemarketing_whatsapp_messages_read', {
+          p_operator_bitrix_id: operatorBitrixId,
+          p_message_ids: messageIds,
+          p_team_operator_ids: teamOperatorIds && teamOperatorIds.length > 0 ? teamOperatorIds : null
+        });
+        
+        if (error) {
+          console.error('Erro ao marcar mensagens via RPC:', error);
+        }
+        return;
+      }
+
+      // Modo padrão: update direto
       let query = supabase
         .from('whatsapp_messages')
         .update({ status: 'read', read_at: new Date().toISOString() })
         .eq('direction', 'inbound')
         .neq('status', 'read');
 
-      if (messageIds && messageIds.length > 0) {
+      if (messageIds.length > 0) {
         query = query.in('id', messageIds);
       } else if (bitrixId) {
         query = query.eq('bitrix_id', bitrixId);
@@ -906,7 +971,7 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     } catch (error) {
       console.error('Error marking messages as read:', error);
     }
-  }, [bitrixId, phoneNumber, conversationId]);
+  }, [bitrixId, phoneNumber, conversationId, useTelemarketingMode, operatorBitrixId, teamOperatorIds]);
 
   // Combinar mensagens: Supabase tem prioridade, fallback para Bitrix
   const allMessages = messages.length > 0 ? messages : bitrixMessages;

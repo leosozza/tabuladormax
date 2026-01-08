@@ -5247,6 +5247,33 @@ export type Database = {
             }
             Returns: Json
           }
+      get_telemarketing_whatsapp_messages: {
+        Args: {
+          p_lead_id?: number
+          p_limit?: number
+          p_operator_bitrix_id: number
+          p_phone_number?: string
+          p_team_operator_ids?: number[]
+        }
+        Returns: {
+          bitrix_id: string
+          content: string
+          created_at: string
+          direction: string
+          gupshup_message_id: string
+          id: string
+          location_data: Json
+          media_mime_type: string
+          media_url: string
+          message_type: string
+          phone_number: string
+          read_at: string
+          status: string
+          template_name: string
+          template_params: Json
+          updated_at: string
+        }[]
+      }
       get_top_active_numbers: {
         Args: { p_limit?: number }
         Returns: {
@@ -5312,6 +5339,14 @@ export type Database = {
       map_bitrix_stage_to_status: {
         Args: { stage_id: string }
         Returns: string
+      }
+      mark_telemarketing_whatsapp_messages_read: {
+        Args: {
+          p_message_ids: string[]
+          p_operator_bitrix_id: number
+          p_team_operator_ids?: number[]
+        }
+        Returns: number
       }
       normalize_etapa: { Args: { raw_etapa: string }; Returns: string }
       normalize_etapa_single_batch: {

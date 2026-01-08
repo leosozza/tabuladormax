@@ -318,11 +318,14 @@ const PortalTelemarketingWhatsApp = () => {
             <WhatsAppChatContainer
               bitrixId={selectedConversation.bitrix_id}
               phoneNumber={selectedConversation.phone_number}
+              leadId={selectedConversation.lead_id}
               contactName={selectedConversation.lead_name}
               onClose={() => setSelectedConversation(null)}
               variant="fullscreen"
               commercialProjectId={context?.commercial_project_id}
               conversationId={selectedConversation.conversation_id}
+              operatorBitrixId={context?.bitrix_id}
+              teamOperatorIds={isSupervisor ? teamOperatorIds : undefined}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">

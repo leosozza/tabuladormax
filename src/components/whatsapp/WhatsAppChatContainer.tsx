@@ -15,20 +15,27 @@ interface WhatsAppChatContainerProps {
   bitrixId?: string;
   phoneNumber?: string;
   conversationId?: number;
+  leadId?: number;
   contactName: string;
   onClose?: () => void;
   variant?: 'modal' | 'fullscreen';
   commercialProjectId?: string;
+  // Contexto do operador telemarketing (para uso com RPC)
+  operatorBitrixId?: number;
+  teamOperatorIds?: number[];
 }
 
 export function WhatsAppChatContainer({
   bitrixId,
   phoneNumber,
   conversationId,
+  leadId,
   contactName,
   onClose,
   variant = 'modal',
-  commercialProjectId
+  commercialProjectId,
+  operatorBitrixId,
+  teamOperatorIds
 }: WhatsAppChatContainerProps) {
   const [activeTab, setActiveTab] = useState('messages');
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
@@ -48,7 +55,14 @@ export function WhatsAppChatContainer({
     sendTemplate,
     markAsRead,
     usingBitrixFallback
-  } = useWhatsAppMessages({ bitrixId, phoneNumber, conversationId });
+  } = useWhatsAppMessages({ 
+    bitrixId, 
+    phoneNumber, 
+    conversationId,
+    leadId,
+    operatorBitrixId,
+    teamOperatorIds
+  });
 
   const { data: gupshupWindowStatus, refetch: refetchWindowStatus } = useGupshupWindowStatus({
     phoneNumber,
