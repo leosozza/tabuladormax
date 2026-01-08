@@ -13,7 +13,7 @@ const corsHeaders = {
 
 interface FlowStep {
   id: string;
-  type: 'tabular' | 'bitrix_connector' | 'supabase_connector' | 'supabase_query' | 'chatwoot_connector' | 'n8n_connector' | 'http_call' | 'wait' | 'bitrix_get_field' | 'gupshup_send_text' | 'gupshup_send_image' | 'gupshup_send_buttons';
+  type: 'tabular' | 'bitrix_connector' | 'supabase_connector' | 'supabase_query' | 'chatwoot_connector' | 'n8n_connector' | 'http_call' | 'wait' | 'bitrix_get_field' | 'gupshup_send_text' | 'gupshup_send_image' | 'gupshup_send_buttons' | 'condition' | 'assign_agent';
   nome: string;
   config: any;
 }
@@ -214,6 +214,14 @@ Deno.serve(async (req) => {
             
             case 'supabase_query':
               stepResult = await executeSupabaseQuery(step, leadId, context, supabaseAdmin);
+              break;
+            
+            case 'condition':
+              stepResult = await executeConditionStep(step, leadId, context);
+              break;
+            
+            case 'assign_agent':
+              stepResult = await executeAssignAgentStep(step, leadId, context, supabaseAdmin);
               break;
             
             default:
@@ -936,5 +944,110 @@ async function executeSupabaseQuery(
     filter_value: resolvedFilterValue,
     data,
     output_variable: output_variable ? { [output_variable]: context[output_variable] } : null
+  };
+}
+
+// Condition Step - Avalia condições e retorna resultado
+async function executeConditionStep(step: FlowStep, leadId: number | undefined, context: Record<string, any>) {
+  const { conditions, logic = 'AND' } = step.config;
+  
+  if (!conditions || !Array.isArray(conditions) || conditions.length === 0) {
+    console.log('🔍 Condição sem regras definidas, continuando...');
+    return { matched: true, reason: 'Sem condições definidas' };
+  }
+  
+  const results = conditions.map((cond: any) => {
+    const variable = replacePlaceholders(cond.variable || '', leadId, context);
+    const value = cond.value || '';
+    const operator = cond.operator || 'equals';
+    
+    let result = false;
+    switch (operator) {
+      case 'equals':
+        result = variable === value;
+        break;
+      case 'not_equals':
+        result = variable !== value;
+        break;
+      case 'contains':
+        result = String(variable).includes(value);
+        break;
+      case 'starts_with':
+        result = String(variable).startsWith(value);
+        break;
+      case 'ends_with':
+        result = String(variable).endsWith(value);
+        break;
+      case 'is_empty':
+        result = !variable || variable === '';
+        break;
+      case 'is_not_empty':
+        result = !!variable && variable !== '';
+        break;
+      default:
+        result = false;
+    }
+    
+    console.log(`  📌 ${cond.variable} ${operator} "${value}" => ${result} (valor atual: "${variable}")`);
+    return { condition: cond, result };
+  });
+  
+  const matched = logic === 'AND' 
+    ? results.every(r => r.result) 
+    : results.some(r => r.result);
+  
+  console.log(`🔍 Condição avaliada [${logic}]: ${matched}`);
+  
+  return { matched, logic, results };
+}
+
+// Assign Agent Step - Marca conversa para atendimento humano
+async function executeAssignAgentStep(step: FlowStep, leadId: number | undefined, context: Record<string, any>, supabaseAdmin: any) {
+  const { agentId, message } = step.config;
+  
+  const phoneNumber = context.phone_number;
+  
+  if (!phoneNumber) {
+    console.log('⚠️ phone_number não disponível no contexto');
+    return { assigned: false, reason: 'phone_number não disponível' };
+  }
+  
+  // Buscar conversa mais recente pelo telefone
+  const { data: conversation } = await supabaseAdmin
+    .from('whatsapp_conversations')
+    .select('id, status')
+    .eq('phone_number', phoneNumber)
+    .order('last_message_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  
+  if (!conversation) {
+    console.log(`⚠️ Conversa não encontrada para ${phoneNumber}`);
+    return { assigned: false, reason: 'Conversa não encontrada' };
+  }
+  
+  // Atualizar status da conversa para pendente de atendimento
+  const { error } = await supabaseAdmin
+    .from('whatsapp_conversations')
+    .update({ 
+      needs_attention: true,
+      status: 'pending_agent',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', conversation.id);
+  
+  if (error) {
+    console.error('❌ Erro ao atualizar conversa:', error);
+    throw new Error(`Erro ao marcar conversa: ${error.message}`);
+  }
+  
+  console.log(`👤 Conversa ${conversation.id} marcada para atendimento humano`);
+  
+  return { 
+    assigned: true, 
+    conversationId: conversation.id,
+    phoneNumber,
+    agentId: agentId === 'auto' ? 'auto-assigned' : agentId,
+    message: message || 'Conversa encaminhada para atendimento'
   };
 }
