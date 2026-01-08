@@ -59,11 +59,13 @@ export function WhatsAppFlowSelector({ phoneNumber, bitrixId, disabled }: WhatsA
 
       if (error) throw error;
 
-      if (data?.success) {
-        toast.success(`Flow "${flow.nome}" executado com sucesso`);
+      const ok = data?.success === true || data?.status === 'completed';
+
+      if (ok) {
+        toast.success(data?.message || `Flow "${flow.nome}" executado com sucesso`);
         setLastResult({ flowId: flow.id, success: true });
       } else {
-        toast.error(data?.error || 'Erro ao executar flow');
+        toast.error(data?.error || data?.message || 'Erro ao executar flow');
         setLastResult({ flowId: flow.id, success: false });
       }
     } catch (err) {
