@@ -1093,6 +1093,37 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
       .limit(1)
       .maybeSingle();
     
+    // Tentar identificar o template pelo metadata do callback
+    let templateContent = '[📋 Template enviado via automação Bitrix]';
+    let templateName = 'bitrix_automation';
+    
+    // Verificar se há informações do template no payload
+    const payloadMeta = payload as any;
+    const possibleTemplateName = payloadMeta?.template?.name || 
+                                  payloadMeta?.templateId || 
+                                  payloadMeta?.payload?.templateId ||
+                                  payloadMeta?.context?.gsId;
+    
+    if (possibleTemplateName && typeof possibleTemplateName === 'string') {
+      console.log(`🔍 Tentando buscar template: ${possibleTemplateName}`);
+      
+      // Buscar o body do template no banco
+      const { data: templateData } = await supabase
+        .from('gupshup_templates')
+        .select('template_body, display_name, element_name')
+        .or(`element_name.eq.${possibleTemplateName},template_id.eq.${possibleTemplateName}`)
+        .limit(1)
+        .maybeSingle();
+      
+      if (templateData?.template_body) {
+        templateContent = templateData.template_body;
+        templateName = templateData.element_name || possibleTemplateName;
+        console.log(`✅ Template encontrado: ${templateName} - usando body real`);
+      } else {
+        console.log(`⚠️ Template ${possibleTemplateName} não encontrado no banco`);
+      }
+    }
+    
     // Criar mensagem como enviada por automação
     const { error: insertError } = await supabase
       .from('whatsapp_messages')
@@ -1103,8 +1134,8 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
         gupshup_message_id: messageId,
         direction: 'outbound',
         message_type: 'template',
-        content: '[📋 Template enviado via automação Bitrix]',
-        template_name: 'bitrix_automation',
+        content: templateContent,
+        template_name: templateName,
         status: statusMap[statusType] || statusType,
         sent_by: 'bitrix_automation',
         sender_name: 'Automação Bitrix',
@@ -1114,6 +1145,7 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
           ...payload,
           source: 'bitrix_automation_fallback',
           note: 'Mensagem detectada via callback - nenhuma pendente encontrada',
+          template_lookup_attempted: !!possibleTemplateName,
           detected_at: new Date().toISOString()
         }
       });
@@ -1121,7 +1153,7 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
     if (insertError) {
       console.error('❌ Erro ao registrar mensagem de automação Bitrix:', insertError);
     } else {
-      console.log(`✅ Mensagem de automação Bitrix registrada para ${destination} (lead: ${lead?.id || 'não encontrado'})`);
+      console.log(`✅ Mensagem de automação Bitrix registrada para ${destination} (lead: ${lead?.id || 'não encontrado'}, template: ${templateName})`);
     }
     return;
   }
