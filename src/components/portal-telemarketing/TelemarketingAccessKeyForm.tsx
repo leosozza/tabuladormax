@@ -115,12 +115,10 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
           console.log('[TM] Supabase auth: created and signed in successfully');
           return true;
         }
-        console.error('[TM] Failed to sign in after signup');
-        return false;
       }
     }
 
-    console.error('[TM] Supabase auth failed completely');
+    console.warn('[TM] Supabase auth failed, continuing with access key only');
     return false;
   };
 
@@ -153,35 +151,32 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
 
       const operatorData = data[0] as TelemarketingOperatorData;
       
-      // Perform Supabase Auth login/signup - OBRIGATÓRIO
+      // Perform Supabase Auth login/signup (opcional - melhora segurança mas não bloqueia)
       const authSuccess = await performSupabaseAuth(operatorData.bitrix_id, accessKey.trim());
       
-      if (!authSuccess) {
-        setError('Não foi possível iniciar sua sessão. Tente novamente ou contate o suporte.');
-        return;
-      }
-      
-      // Sincronizar role do usuário baseado no cargo
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const targetRole = mapCargoToRole(operatorData.cargo);
-        console.log(`[TM] Syncing user role: cargo=${operatorData.cargo} -> role=${targetRole}`);
-        
-        await supabase
-          .from('user_roles')
-          .upsert({ 
-            user_id: user.id, 
-            role: targetRole 
-          }, { 
-            onConflict: 'user_id' 
-          });
-        
-        // Sincronizar tabuladormax_user_id no agent_telemarketing_mapping
-        console.log(`[TM] Syncing tabuladormax_user_id for bitrix_id=${operatorData.bitrix_id}`);
-        await supabase
-          .from('agent_telemarketing_mapping')
-          .update({ tabuladormax_user_id: user.id })
-          .eq('bitrix_telemarketing_id', operatorData.bitrix_id);
+      // Sincronizar role do usuário baseado no cargo (se auth funcionou)
+      if (authSuccess) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const targetRole = mapCargoToRole(operatorData.cargo);
+          console.log(`[TM] Syncing user role: cargo=${operatorData.cargo} -> role=${targetRole}`);
+          
+          await supabase
+            .from('user_roles')
+            .upsert({ 
+              user_id: user.id, 
+              role: targetRole 
+            }, { 
+              onConflict: 'user_id' 
+            });
+          
+          // Sincronizar tabuladormax_user_id no agent_telemarketing_mapping
+          console.log(`[TM] Syncing tabuladormax_user_id for bitrix_id=${operatorData.bitrix_id}`);
+          await supabase
+            .from('agent_telemarketing_mapping')
+            .update({ tabuladormax_user_id: user.id })
+            .eq('bitrix_telemarketing_id', operatorData.bitrix_id);
+        }
       }
       
       toast.success(`Bem-vindo(a), ${operatorData.operator_name}!`);
