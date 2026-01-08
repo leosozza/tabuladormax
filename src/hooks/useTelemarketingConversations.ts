@@ -17,6 +17,7 @@ export interface TelemarketingConversation {
   windowStatus: WindowStatus;
   telemarketing_name?: string;
   conversation_id?: number;
+  data_agendamento?: string | null;
 }
 
 interface UseTelemarketingConversationsOptions {
@@ -24,6 +25,7 @@ interface UseTelemarketingConversationsOptions {
   cargo?: string;
   commercialProjectId?: string;
   teamOperatorIds?: number[];
+  agendamentoFilter?: string; // 'all' | 'today' | 'yesterday' | '3days' | '7days'
 }
 
 const SUPERVISOR_CARGO = '10620';
@@ -37,16 +39,45 @@ export function useTelemarketingConversations(
       ? { bitrixTelemarketingId: bitrixTelemarketingIdOrOptions }
       : bitrixTelemarketingIdOrOptions;
 
-  const { bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds } = options;
+  const { bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds, agendamentoFilter } = options;
   const isSupervisor = cargo === SUPERVISOR_CARGO;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedConversations, setSelectedConversations] = useState<number[]>([]);
 
   const { data: conversations = [], isLoading, refetch } = useQuery({
-    queryKey: ['telemarketing-conversations', bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds],
+    queryKey: ['telemarketing-conversations', bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds, agendamentoFilter],
     queryFn: async () => {
       if (!bitrixTelemarketingId) return [];
+
+      // Calcular datas de filtro de agendamento
+      const getAgendamentoDateRange = () => {
+        if (!agendamentoFilter || agendamentoFilter === 'all') return null;
+        
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        switch (agendamentoFilter) {
+          case 'today':
+            return { start: today.toISOString(), end: new Date(today.getTime() + 86400000).toISOString() };
+          case 'yesterday': {
+            const yesterday = new Date(today.getTime() - 86400000);
+            return { start: yesterday.toISOString(), end: today.toISOString() };
+          }
+          case '3days': {
+            const threeDaysAgo = new Date(today.getTime() - 3 * 86400000);
+            return { start: threeDaysAgo.toISOString(), end: new Date(today.getTime() + 86400000).toISOString() };
+          }
+          case '7days': {
+            const sevenDaysAgo = new Date(today.getTime() - 7 * 86400000);
+            return { start: sevenDaysAgo.toISOString(), end: new Date(today.getTime() + 86400000).toISOString() };
+          }
+          default:
+            return null;
+        }
+      };
+
+      const dateRange = getAgendamentoDateRange();
 
       let leads: any[] = [];
 
@@ -58,7 +89,7 @@ export function useTelemarketingConversations(
         }
         
         // Buscar leads vinculados aos membros da equipe
-        const { data: teamLeads, error: teamError } = await supabase
+        let query = supabase
           .from('leads')
           .select(`
             id,
@@ -70,17 +101,28 @@ export function useTelemarketingConversations(
             telefone_trabalho,
             bitrix_telemarketing_id,
             telemarketing,
-            conversation_id
+            conversation_id,
+            data_agendamento
           `)
           .in('bitrix_telemarketing_id', teamOperatorIds)
           .order('updated_at', { ascending: false })
           .limit(500);
 
+        // Aplicar filtro de agendamento se definido
+        if (dateRange) {
+          query = query
+            .not('data_agendamento', 'is', null)
+            .gte('data_agendamento', dateRange.start)
+            .lt('data_agendamento', dateRange.end);
+        }
+
+        const { data: teamLeads, error: teamError } = await query;
+
         if (teamError) throw teamError;
         leads = teamLeads || [];
       } else {
         // AGENTE: Buscar apenas leads vinculados ao telemarketing específico
-        const { data: agentLeads, error: leadsError } = await supabase
+        let query = supabase
           .from('leads')
           .select(`
             id,
@@ -92,10 +134,21 @@ export function useTelemarketingConversations(
             telefone_trabalho,
             bitrix_telemarketing_id,
             telemarketing,
-            conversation_id
+            conversation_id,
+            data_agendamento
           `)
           .eq('bitrix_telemarketing_id', bitrixTelemarketingId)
           .order('updated_at', { ascending: false });
+
+        // Aplicar filtro de agendamento se definido
+        if (dateRange) {
+          query = query
+            .not('data_agendamento', 'is', null)
+            .gte('data_agendamento', dateRange.start)
+            .lt('data_agendamento', dateRange.end);
+        }
+
+        const { data: agentLeads, error: leadsError } = await query;
 
         if (leadsError) throw leadsError;
         leads = agentLeads || [];
@@ -239,6 +292,7 @@ export function useTelemarketingConversations(
             windowStatus,
             telemarketing_name: lead.telemarketing || undefined,
             conversation_id: lead.conversation_id || undefined,
+            data_agendamento: lead.data_agendamento || null,
           };
         }
       });
