@@ -23,11 +23,36 @@ interface NodePaletteProps {
 }
 
 const nodeTypes = [
-  // ✅ NOVOS CONECTORES
+  // ✅ WHATSAPP / GUPSHUP
+  {
+    type: 'gupshup_send_text' as const,
+    label: 'WhatsApp: Texto',
+    description: 'Envia texto via WhatsApp',
+    icon: MessageSquare,
+  },
+  {
+    type: 'gupshup_send_buttons' as const,
+    label: 'WhatsApp: Botões',
+    description: 'Mensagem com botões interativos',
+    icon: MousePointerClick,
+  },
+  {
+    type: 'gupshup_send_image' as const,
+    label: 'WhatsApp: Imagem',
+    description: 'Envia imagem via WhatsApp',
+    icon: MessageSquare,
+  },
+  // ✅ CONECTORES
   {
     type: 'bitrix_connector' as const,
     label: 'Bitrix',
     description: 'Atualizar/Criar no Bitrix',
+    icon: Database,
+  },
+  {
+    type: 'bitrix_get_field' as const,
+    label: 'Bitrix: Buscar Campo',
+    description: 'Busca valor de campo do lead',
     icon: Database,
   },
   {
