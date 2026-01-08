@@ -76,8 +76,8 @@ serve(async (req) => {
             stageFilter = '&filter[stageId]=DT1096_210:NEW';
             extraFields = '&select[]=ufCrm32_1739220520381&select[]=ufCrm32_1739219729812';
           } else if (entityType.id === 1144) {
-            // Telemarketing: campos de chave de acesso, cargo e FOTO
-            extraFields = '&select[]=ufCrm50Chavetele&select[]=ufCrm50Cargo&select[]=ufCrm50Fototele';
+            // Telemarketing: campos de chave de acesso, cargo, FOTO e projeto comercial (parentId1120)
+            extraFields = '&select[]=ufCrm50Chavetele&select[]=ufCrm50Cargo&select[]=ufCrm50Fototele&select[]=parentId1120';
           } else if (entityType.id === 1156) {
             // Produtores: campo UF_CRM_54_CHAVE para chave de acesso
             extraFields = '&select[]=ufCrm54Chave';
@@ -278,7 +278,23 @@ serve(async (req) => {
               item.ufCrm_50_Cargo ||
               'agente';
             
-            console.log(`  🔑 Chave: ${accessKey || 'SEM CHAVE'} | Cargo: ${cargo} | Foto: ${photoUrl ? 'SIM' : 'NÃO'}`);
+            // Buscar projeto comercial vinculado (parentId1120)
+            const projectBitrixId = item.parentId1120 || null;
+            let commercialProjectId: string | null = null;
+            
+            if (projectBitrixId) {
+              console.log(`  🏢 Buscando projeto comercial: parentId1120=${projectBitrixId}`);
+              const { data: projectData } = await supabase
+                .from('commercial_projects')
+                .select('id')
+                .eq('code', String(projectBitrixId))
+                .maybeSingle();
+              
+              commercialProjectId = projectData?.id || null;
+              console.log(`  🏢 Projeto comercial encontrado: ${commercialProjectId || 'NÃO ENCONTRADO'}`);
+            }
+            
+            console.log(`  🔑 Chave: ${accessKey || 'SEM CHAVE'} | Cargo: ${cargo} | Foto: ${photoUrl ? 'SIM' : 'NÃO'} | Projeto: ${commercialProjectId || 'NENHUM'}`);
             
             const { error: teleError } = await supabase
               .from('telemarketing_operators')
@@ -288,6 +304,7 @@ serve(async (req) => {
                 access_key: accessKey,
                 cargo: String(cargo),
                 photo_url: photoUrl,
+                commercial_project_id: commercialProjectId,
                 status: 'ativo',
                 updated_at: new Date().toISOString(),
               }, {
@@ -316,8 +333,12 @@ serve(async (req) => {
                   const email = `tele-${item.id}@maxfama.com.br`;
                   const password = String(accessKey);
                   const operatorName = (item.title || `Operador ${item.id}`).trim();
-                  const isSupervisor = Number(cargo) === 10620 || String(cargo) === '10620';
-                  const roleName = isSupervisor ? 'supervisor' : 'agent';
+                  
+                  // Determinar role baseado no cargo
+                  // 10620 = Supervisor, 10626 = Supervisor Adjunto, 10627 = Control Desk
+                  const cargoNum = Number(cargo);
+                  const isSupervisorRole = cargoNum === 10620 || cargoNum === 10626 || cargoNum === 10627;
+                  const roleName = isSupervisorRole ? 'supervisor' : 'agent';
                   
                   // Criar usuário no Supabase Auth
                   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -383,21 +404,44 @@ serve(async (req) => {
                       }
                     }
                     
-                    // Buscar commercial_project_id do operador (se já foi associado)
-                    const { data: operatorData } = await supabase
-                      .from('telemarketing_operators')
-                      .select('commercial_project_id')
-                      .eq('bitrix_id', item.id)
-                      .single();
+                    // Auto-vincular supervisor para agentes (cargo 10618)
+                    let supervisorId: string | null = null;
                     
-                    // Criar agent_telemarketing_mapping
+                    if (!isSupervisorRole && commercialProjectId) {
+                      console.log(`  🔍 Buscando supervisor do projeto ${commercialProjectId}...`);
+                      
+                      // Buscar supervisor principal do projeto (cargo 10620)
+                      const { data: supervisorOperators } = await supabase
+                        .from('telemarketing_operators')
+                        .select('bitrix_id')
+                        .eq('commercial_project_id', commercialProjectId)
+                        .eq('cargo', '10620');
+                      
+                      if (supervisorOperators && supervisorOperators.length > 0) {
+                        const supervisorBitrixIds = supervisorOperators.map(s => s.bitrix_id);
+                        
+                        // Buscar o tabuladormax_user_id do supervisor
+                        const { data: supervisorMapping } = await supabase
+                          .from('agent_telemarketing_mapping')
+                          .select('tabuladormax_user_id')
+                          .in('bitrix_telemarketing_id', supervisorBitrixIds)
+                          .limit(1)
+                          .maybeSingle();
+                        
+                        supervisorId = supervisorMapping?.tabuladormax_user_id || null;
+                        console.log(`  👤 Supervisor encontrado: ${supervisorId || 'NENHUM'}`);
+                      }
+                    }
+                    
+                    // Criar agent_telemarketing_mapping com projeto e supervisor auto-vinculados
                     const { error: mappingError } = await supabase
                       .from('agent_telemarketing_mapping')
                       .insert({
                         tabuladormax_user_id: userId,
                         bitrix_telemarketing_id: item.id,
                         bitrix_telemarketing_name: operatorName,
-                        commercial_project_id: operatorData?.commercial_project_id || null
+                        commercial_project_id: commercialProjectId,
+                        supervisor_id: supervisorId
                       });
                     
                     if (mappingError) {
@@ -407,6 +451,8 @@ serve(async (req) => {
                       console.log(`     📧 Email: ${email}`);
                       console.log(`     🔐 Senha: ${password}`);
                       console.log(`     👤 Role: ${roleName}`);
+                      console.log(`     🏢 Projeto: ${commercialProjectId || 'NENHUM'}`);
+                      console.log(`     👥 Supervisor: ${supervisorId || 'NENHUM'}`);
                     }
                   }
                 } else {

@@ -19,7 +19,7 @@ export interface SupervisorTeamData {
 }
 
 // Cargos que precisam herdar equipe do supervisor principal
-const ADJUNTO_CARGOS = ['10626']; // Supervisor Adjunto
+const ADJUNTO_CARGOS = ['10626', '10627']; // Supervisor Adjunto + Control Desk
 
 export function useSupervisorTeam(
   commercialProjectId: string | null, 

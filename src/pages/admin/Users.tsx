@@ -1505,21 +1505,25 @@ export default function Users() {
                       {currentUserRole === 'supervisor' ? (
                         <>
                           <SelectItem value="supervisor">Supervisor</SelectItem>
-                          <SelectItem value="agent">Agent</SelectItem>
+                          <SelectItem value="supervisor_adjunto">Supervisor Adjunto</SelectItem>
+                          <SelectItem value="control_desk">Control Desk</SelectItem>
+                          <SelectItem value="agent">Agente</SelectItem>
                         </>
                       ) : (
                         <>
                           {currentUserRole === 'admin' && <SelectItem value="admin">Admin</SelectItem>}
                           {(currentUserRole === 'admin' || currentUserRole === 'manager') && <SelectItem value="manager">Manager</SelectItem>}
                           <SelectItem value="supervisor">Supervisor</SelectItem>
-                          <SelectItem value="agent">Agent</SelectItem>
+                          <SelectItem value="supervisor_adjunto">Supervisor Adjunto</SelectItem>
+                          <SelectItem value="control_desk">Control Desk</SelectItem>
+                          <SelectItem value="agent">Agente</SelectItem>
                         </>
                       )}
                     </SelectContent>
                   </Select>
                   {currentUserRole === 'supervisor' && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Supervisores só podem criar supervisores ou agentes
+                      Supervisores só podem criar supervisores, adjuntos ou agentes
                     </p>
                   )}
                 </div>
