@@ -5220,17 +5220,16 @@ export type Database = {
             }
             Returns: {
               bitrix_id: string
-              conv_key: string
-              is_window_open: boolean
-              last_message: string
+              conversation_id: number
               last_message_at: string
-              last_message_direction: string
+              last_message_preview: string
+              lead_id: number
               lead_name: string
               phone_number: string
               photo_url: string
-              telemarketing_id: number
               telemarketing_name: string
               unread_count: number
+              window_open: boolean
             }[]
           }
         | {
@@ -5271,31 +5270,54 @@ export type Database = {
             }
             Returns: Json
           }
-      get_telemarketing_whatsapp_messages: {
-        Args: {
-          p_lead_id?: number
-          p_limit?: number
-          p_operator_bitrix_id?: number
-          p_phone_number?: string
-          p_team_operator_ids?: number[]
-        }
-        Returns: {
-          bitrix_id: string
-          content: string
-          created_at: string
-          direction: string
-          gupshup_message_id: string
-          id: string
-          media_type: string
-          media_url: string
-          message_type: string
-          metadata: Json
-          phone_number: string
-          read_at: string
-          status: string
-          template_name: string
-        }[]
-      }
+      get_telemarketing_whatsapp_messages:
+        | {
+            Args: {
+              p_lead_id?: number
+              p_limit?: number
+              p_offset?: number
+              p_phone_number?: string
+            }
+            Returns: {
+              bitrix_id: string
+              content: string
+              created_at: string
+              direction: string
+              gupshup_message_id: string
+              id: string
+              media_type: string
+              media_url: string
+              phone_number: string
+              read_at: string
+              sender_name: string
+              status: string
+            }[]
+          }
+        | {
+            Args: {
+              p_lead_id?: number
+              p_limit?: number
+              p_operator_bitrix_id?: number
+              p_phone_number?: string
+              p_team_operator_ids?: number[]
+            }
+            Returns: {
+              bitrix_id: string
+              content: string
+              created_at: string
+              direction: string
+              gupshup_message_id: string
+              id: string
+              media_type: string
+              media_url: string
+              message_type: string
+              metadata: Json
+              phone_number: string
+              read_at: string
+              status: string
+              template_name: string
+            }[]
+          }
       get_top_active_numbers: {
         Args: { p_limit?: number }
         Returns: {

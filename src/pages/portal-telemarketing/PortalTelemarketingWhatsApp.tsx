@@ -163,8 +163,11 @@ const PortalTelemarketingWhatsApp = () => {
   // Auto-selecionar conversa se lead veio da URL
   useEffect(() => {
     if (leadIdFromUrl && conversations.length > 0 && !selectedConversation) {
-      const targetLeadId = parseInt(leadIdFromUrl, 10);
-      const found = conversations.find(c => c.lead_id === targetLeadId);
+      // Tentar encontrar por lead_id OU bitrix_id (que pode ser o leadId como string)
+      const found = conversations.find(c => 
+        c.lead_id === parseInt(leadIdFromUrl, 10) || 
+        c.bitrix_id === leadIdFromUrl
+      );
       if (found) {
         setSelectedConversation(found);
       }
@@ -301,6 +304,11 @@ const PortalTelemarketingWhatsApp = () => {
               ) : (
                 <>
                   {conversations.map((conv) => {
+                    // Usar bitrix_id || phone_number como chave estável (lead_id pode ser 0)
+                    const convKey = conv.bitrix_id || conv.phone_number;
+                    const isSelected = selectedConversation?.bitrix_id === conv.bitrix_id || 
+                                       selectedConversation?.phone_number === conv.phone_number;
+                    
                     const photoUrl = getLeadPhotoUrl(conv.photo_url);
                     const isPlaceholder = photoUrl.includes('no-photo-placeholder');
                     const convInitials = conv.lead_name
@@ -312,10 +320,10 @@ const PortalTelemarketingWhatsApp = () => {
 
                     return (
                       <div
-                        key={conv.lead_id}
+                        key={convKey}
                         onClick={() => setSelectedConversation(conv)}
                         className={`p-3 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
-                          selectedConversation?.lead_id === conv.lead_id ? 'bg-muted' : ''
+                          isSelected ? 'bg-muted' : ''
                         }`}
                       >
                         <div className="flex items-center gap-3">
