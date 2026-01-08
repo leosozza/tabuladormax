@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { startOfDay, subDays } from 'date-fns';
 
 export interface LeadWithWindow {
   id: number;
@@ -48,50 +47,52 @@ function extractPhone(field: unknown): string | null {
   return null;
 }
 
+function getAgendamentoDateRange(agendamentoFilter: string | undefined): { start: string; end: string } | null {
+  if (!agendamentoFilter || agendamentoFilter === 'all') return null;
+  
+  const nowSP = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const todayStart = new Date(nowSP.getFullYear(), nowSP.getMonth(), nowSP.getDate());
+  const todayEnd = new Date(todayStart.getTime() + 86400000);
+  
+  switch (agendamentoFilter) {
+    case 'today':
+      return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
+    case 'yesterday': {
+      const yesterday = new Date(todayStart.getTime() - 86400000);
+      return { start: yesterday.toISOString(), end: todayStart.toISOString() };
+    }
+    case '3days': {
+      const threeDaysAgo = new Date(todayStart.getTime() - 3 * 86400000);
+      return { start: threeDaysAgo.toISOString(), end: todayEnd.toISOString() };
+    }
+    case '7days': {
+      const sevenDaysAgo = new Date(todayStart.getTime() - 7 * 86400000);
+      return { start: sevenDaysAgo.toISOString(), end: todayEnd.toISOString() };
+    }
+    default:
+      return null;
+  }
+}
+
 export function useBulkLeadsWithActiveWindow(options: UseBulkLeadsOptions) {
   const { bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds, agendamentoFilter } = options;
 
   return useQuery({
     queryKey: ['bulk-leads-active-window', bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds, agendamentoFilter],
     queryFn: async () => {
-      const now = new Date();
-      const offsetMs = -3 * 60 * 60 * 1000;
-      const nowSP = new Date(now.getTime() + offsetMs + now.getTimezoneOffset() * 60 * 1000);
-      const todayStart = startOfDay(nowSP);
-
-      let dateFrom: Date | null = null;
-      let dateTo: Date | null = null;
-
-      switch (agendamentoFilter) {
-        case 'today':
-          dateFrom = todayStart;
-          dateTo = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-          break;
-        case 'yesterday':
-          dateFrom = subDays(todayStart, 1);
-          dateTo = todayStart;
-          break;
-        case '3days':
-          dateFrom = subDays(todayStart, 3);
-          dateTo = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-          break;
-        case '7days':
-          dateFrom = subDays(todayStart, 7);
-          dateTo = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-          break;
-      }
+      const dateRange = getAgendamentoDateRange(agendamentoFilter);
 
       // Build query for leads
       let query = supabase
         .from('leads')
-        .select('id, name, telefone_trabalho, celular, bitrix_telemarketing_id, data_criacao_agendamento')
-        .not('data_criacao_agendamento', 'is', null);
+        .select('id, name, telefone_trabalho, celular, bitrix_telemarketing_id, data_criacao_agendamento');
 
-      // Apply date filter
-      if (dateFrom && dateTo) {
+      // Apply date filter ONLY when there's a date range
+      if (dateRange) {
         query = query
-          .gte('data_criacao_agendamento', dateFrom.toISOString())
-          .lt('data_criacao_agendamento', dateTo.toISOString());
+          .not('data_criacao_agendamento', 'is', null)
+          .gte('data_criacao_agendamento', dateRange.start)
+          .lt('data_criacao_agendamento', dateRange.end);
       }
 
       // Apply operator filter based on cargo
@@ -169,7 +170,7 @@ export function useBulkLeadsWithActiveWindow(options: UseBulkLeadsOptions) {
         activeWindowCount: leadsWithWindow.filter(l => l.is_window_open).length,
       };
     },
-    enabled: !!bitrixTelemarketingId && agendamentoFilter !== 'all',
+    enabled: !!bitrixTelemarketingId,
     staleTime: 30 * 1000,
   });
 }

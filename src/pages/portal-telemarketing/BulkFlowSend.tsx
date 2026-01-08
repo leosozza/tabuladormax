@@ -177,6 +177,7 @@ const BulkFlowSend = () => {
                       <SelectValue placeholder="Selecione o período" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="all">Todos os agendamentos</SelectItem>
                       <SelectItem value="today">Agendados hoje</SelectItem>
                       <SelectItem value="yesterday">Agendados ontem</SelectItem>
                       <SelectItem value="3days">Últimos 3 dias</SelectItem>
