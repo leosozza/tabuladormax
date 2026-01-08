@@ -10,6 +10,7 @@ import { WindowTimeCircle } from './WindowTimeCircle';
 import { WhatsAppMessageList } from './WhatsAppMessageList';
 import { WhatsAppInput, MediaType } from './WhatsAppInput';
 import { TemplateSelector } from '@/components/gupshup/TemplateSelector';
+import { WhatsAppFlowSelector } from './WhatsAppFlowSelector';
 
 interface WhatsAppChatContainerProps {
   bitrixId?: string;
@@ -174,9 +175,10 @@ export function WhatsAppChatContainer({
           className="absolute left-0 right-0 z-10 border-b px-4 bg-background"
           style={{ top: headerHeight + (cooldownRemaining > 0 ? 36 : 0) }}
         >
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="messages">Mensagens</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="flows">Flows</TabsTrigger>
           </TabsList>
         </div>
 
@@ -221,6 +223,22 @@ export function WhatsAppChatContainer({
           }}
         >
           <TemplateSelector onSendTemplate={handleSendTemplate} disabled={sending || inCooldown} />
+        </TabsContent>
+
+        {/* Flows Tab Content */}
+        <TabsContent 
+          value="flows" 
+          className="absolute left-0 right-0 overflow-hidden m-0 p-0"
+          style={{ 
+            top: topOffset + (cooldownRemaining > 0 ? 36 : 0),
+            bottom: 0
+          }}
+        >
+          <WhatsAppFlowSelector 
+            phoneNumber={phoneNumber} 
+            bitrixId={bitrixId} 
+            disabled={sending || inCooldown} 
+          />
         </TabsContent>
       </Tabs>
     </div>
