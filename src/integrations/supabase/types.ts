@@ -4945,6 +4945,16 @@ export type Database = {
           fonte_normalizada: string
         }[]
       }
+      get_operator_whatsapp_messages: {
+        Args: { p_operator_bitrix_id: number; p_phone_numbers: string[] }
+        Returns: {
+          last_message_at: string
+          last_message_content: string
+          last_message_direction: string
+          phone_number: string
+          total_messages: number
+        }[]
+      }
       get_or_create_private_conversation: {
         Args: { p_other_user_id: string; p_user_id: string }
         Returns: string
