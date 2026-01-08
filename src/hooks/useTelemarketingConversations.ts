@@ -26,7 +26,7 @@ interface UseTelemarketingConversationsOptions {
   teamOperatorIds?: number[];
 }
 
-const SUPERVISOR_CARGO = '10620';
+import { isSupervisorCargo } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 
 export function useTelemarketingConversations(
   bitrixTelemarketingIdOrOptions: number | UseTelemarketingConversationsOptions
@@ -38,7 +38,7 @@ export function useTelemarketingConversations(
       : bitrixTelemarketingIdOrOptions;
 
   const { bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds } = options;
-  const isSupervisor = cargo === SUPERVISOR_CARGO;
+  const isSupervisor = cargo ? isSupervisorCargo(cargo) : false;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedConversations, setSelectedConversations] = useState<number[]>([]);

@@ -8,7 +8,17 @@ import { toast } from 'sonner';
 
 // Constantes de cargo do Bitrix
 export const SUPERVISOR_CARGO = '10620';
+export const SUPERVISOR_ADJUNTO_CARGO = '10626';
+export const CONTROL_DESK_CARGO = '10627'; // Control Desk
 export const AGENT_CARGO = '10618';
+
+// Lista de cargos com acesso de supervisão (vê equipe completa)
+export const SUPERVISION_CARGOS = [SUPERVISOR_CARGO, SUPERVISOR_ADJUNTO_CARGO, CONTROL_DESK_CARGO];
+
+// Verifica se o cargo tem privilégios de supervisão
+export const isSupervisorCargo = (cargo: string): boolean => {
+  return SUPERVISION_CARGOS.includes(cargo);
+};
 
 export interface TelemarketingOperatorData {
   operator_id: string;
@@ -21,7 +31,7 @@ export interface TelemarketingOperatorData {
 
 // Mapeia cargo do Bitrix para role do sistema
 const mapCargoToRole = (cargo: string): 'supervisor' | 'agent' => {
-  return cargo === SUPERVISOR_CARGO ? 'supervisor' : 'agent';
+  return isSupervisorCargo(cargo) ? 'supervisor' : 'agent';
 };
 
 interface TelemarketingAccessKeyFormProps {

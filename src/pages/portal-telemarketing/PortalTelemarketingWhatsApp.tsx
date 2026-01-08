@@ -27,7 +27,7 @@ type StoredTelemarketingOperator = {
   commercial_project_id?: string;
 };
 
-const SUPERVISOR_CARGO = '10620';
+import { isSupervisorCargo } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 
 const PortalTelemarketingWhatsApp = () => {
   const navigate = useNavigate();
@@ -73,7 +73,7 @@ const PortalTelemarketingWhatsApp = () => {
   };
 
   const { context, operatorPhoto } = getContext();
-  const isSupervisor = context?.cargo === SUPERVISOR_CARGO;
+  const isSupervisor = context?.cargo ? isSupervisorCargo(context.cargo) : false;
 
   // Validar que o bitrix_id existe na tabela telemarketing_operators
   useEffect(() => {
