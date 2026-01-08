@@ -181,35 +181,80 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     setBitrixMessages([]);
     
     try {
-      let query = supabase
-        .from('whatsapp_messages')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      // Prioritize phone_number as it's the most reliable identifier for linking messages
-      if (phoneNumber) {
-        const normalizedPhone = phoneNumber.replace(/\D/g, '');
-        query = query.eq('phone_number', normalizedPhone);
-      } else if (bitrixId) {
-        query = query.eq('bitrix_id', bitrixId);
-      } else if (conversationId) {
-        query = query.eq('conversation_id', conversationId);
-      }
-
-      const { data, error } = await query;
+      // Usar RPC com SECURITY DEFINER para bypass de RLS
+      const normalizedPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : undefined;
+      const leadId = bitrixId ? parseInt(bitrixId, 10) : undefined;
+      
+      logDebug('Fetching messages via RPC', { normalizedPhone, leadId, conversationId });
+      
+      const { data, error } = await supabase.rpc('get_telemarketing_whatsapp_messages', {
+        p_phone_number: normalizedPhone || null,
+        p_lead_id: !isNaN(leadId as number) ? leadId : null,
+        p_limit: 200,
+      });
 
       if (error) {
-        console.error('Erro ao buscar mensagens:', error);
-        toast.error('Erro ao carregar mensagens');
+        console.error('Erro ao buscar mensagens via RPC:', error);
+        // Fallback para query direta se RPC falhar
+        logDebug('RPC failed, trying direct query', { error: error.message });
+        
+        let query = supabase
+          .from('whatsapp_messages')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (normalizedPhone) {
+          query = query.eq('phone_number', normalizedPhone);
+        } else if (bitrixId) {
+          query = query.eq('bitrix_id', bitrixId);
+        }
+
+        const { data: directData, error: directError } = await query;
+        
+        if (directError) {
+          console.error('Erro ao buscar mensagens diretamente:', directError);
+          toast.error('Erro ao carregar mensagens');
+          return;
+        }
+        
+        const directMessages = (directData || []) as WhatsAppMessage[];
+        setMessages(directMessages);
+        
+        if (directMessages.length === 0 && conversationId && conversationId < 50000) {
+          logDebug('No messages found, trying legacy Bitrix fallback', { conversationId });
+          await fetchBitrixMessages(conversationId);
+        }
         return;
       }
 
-      const supabaseMessages = (data || []) as WhatsAppMessage[];
+      // Mapear dados do RPC para o formato WhatsAppMessage
+      const supabaseMessages: WhatsAppMessage[] = (data || []).map((msg: any) => ({
+        id: msg.id,
+        phone_number: msg.phone_number || '',
+        bitrix_id: msg.bitrix_id,
+        conversation_id: msg.conversation_id || null,
+        gupshup_message_id: msg.gupshup_message_id || null,
+        direction: msg.direction as 'inbound' | 'outbound',
+        message_type: msg.message_type || 'text',
+        content: msg.content,
+        template_name: msg.template_name || null,
+        status: (msg.status || 'sent') as 'sent' | 'delivered' | 'read' | 'failed' | 'enqueued',
+        sent_by: msg.sent_by || null,
+        sender_name: msg.sender_name || null,
+        media_url: msg.media_url || null,
+        media_type: msg.media_type || null,
+        created_at: msg.created_at,
+        delivered_at: msg.delivered_at || null,
+        read_at: msg.read_at || null,
+        metadata: msg.metadata,
+      }));
+      
+      logDebug('Messages loaded via RPC', { count: supabaseMessages.length });
       setMessages(supabaseMessages);
       
-      // Se não há mensagens no Supabase mas temos conversationId, buscar do Bitrix
-      if (supabaseMessages.length === 0 && conversationId) {
-        logDebug('No Supabase messages, trying Bitrix fallback', { conversationId });
+      // Só usar fallback do Bitrix se não há mensagens E tiver conversationId antigo (< 50000)
+      if (supabaseMessages.length === 0 && conversationId && conversationId < 50000) {
+        logDebug('No Supabase messages, trying legacy Bitrix fallback', { conversationId });
         await fetchBitrixMessages(conversationId);
       }
     } catch (error) {
