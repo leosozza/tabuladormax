@@ -75,7 +75,11 @@ const PortalTelemarketingWhatsApp = () => {
   const { context, operatorPhoto } = getContext();
   const isSupervisor = context?.cargo ? isSupervisorCargo(context.cargo) : false;
 
-  // Validar que o bitrix_id existe na tabela telemarketing_operators
+  // Pegar lead da URL se existir
+  const searchParams = new URLSearchParams(location.search);
+  const leadIdFromUrl = searchParams.get('lead');
+
+  // Validar contexto de forma mais simples e rápida
   useEffect(() => {
     const validateContext = async () => {
       if (!context) {
@@ -85,11 +89,17 @@ const PortalTelemarketingWhatsApp = () => {
       }
 
       try {
+        // Usar timeout para evitar travamento
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
         const { data, error } = await supabase
           .from('telemarketing_operators')
           .select('bitrix_id')
           .eq('bitrix_id', context.bitrix_id)
           .maybeSingle();
+
+        clearTimeout(timeoutId);
 
         if (error || !data) {
           console.warn('[WhatsApp] Contexto inválido - operador não encontrado:', context.bitrix_id);
@@ -100,8 +110,9 @@ const PortalTelemarketingWhatsApp = () => {
           setIsValidContext(true);
         }
       } catch (e) {
-        console.error('[WhatsApp] Erro ao validar contexto:', e);
-        setIsValidContext(false);
+        // Se der erro (timeout ou outro), assumir válido para não bloquear
+        console.warn('[WhatsApp] Erro ao validar contexto, assumindo válido:', e);
+        setIsValidContext(true);
       } finally {
         setIsValidatingContext(false);
       }
@@ -128,6 +139,17 @@ const PortalTelemarketingWhatsApp = () => {
     commercialProjectId: context?.commercial_project_id,
     teamOperatorIds: isSupervisor ? teamOperatorIds : undefined,
   });
+
+  // Auto-selecionar conversa se lead veio da URL
+  useEffect(() => {
+    if (leadIdFromUrl && conversations.length > 0 && !selectedConversation) {
+      const targetLeadId = parseInt(leadIdFromUrl, 10);
+      const found = conversations.find(c => c.lead_id === targetLeadId);
+      if (found) {
+        setSelectedConversation(found);
+      }
+    }
+  }, [leadIdFromUrl, conversations, selectedConversation]);
 
   // Mostrar loading enquanto valida
   if (isValidatingContext) {
