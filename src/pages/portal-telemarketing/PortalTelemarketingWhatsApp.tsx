@@ -39,6 +39,12 @@ const PortalTelemarketingWhatsApp = () => {
   const [selectedConversation, setSelectedConversation] = useState<TelemarketingConversation | null>(null);
   const [isValidatingContext, setIsValidatingContext] = useState(true);
   const [isValidContext, setIsValidContext] = useState<boolean | null>(null);
+  const [deepLinkProcessed, setDeepLinkProcessed] = useState(false);
+  
+  // Parse query params para deep link
+  const searchParams = new URLSearchParams(location.search);
+  const deepLinkLeadId = searchParams.get('lead');
+  const deepLinkPhone = searchParams.get('phone');
 
   // Ler contexto do localStorage
   const getContext = (): { context: TelemarketingContext | null; operatorPhoto: string | null } => {
@@ -192,6 +198,105 @@ const PortalTelemarketingWhatsApp = () => {
   }, [conversations, windowFilter, showOldConversations, isLoadingStats]);
 
   const hiddenCount = conversations.length - displayedConversations.length;
+
+  // Deep link: auto-selecionar conversa quando vier ?lead=... ou ?phone=...
+  useEffect(() => {
+    // Só processar uma vez e após ter conversas carregadas
+    if (deepLinkProcessed || isLoading || (!deepLinkLeadId && !deepLinkPhone)) {
+      return;
+    }
+    
+    console.log('[WhatsApp] Processando deep link:', { deepLinkLeadId, deepLinkPhone });
+    
+    const leadIdNum = deepLinkLeadId ? parseInt(deepLinkLeadId, 10) : null;
+    
+    // Primeiro tentar encontrar na lista já carregada (com ou sem filtros)
+    let foundConv = conversations.find(c => {
+      if (leadIdNum && c.lead_id === leadIdNum) return true;
+      if (deepLinkPhone && c.phone_number?.replace(/\D/g, '').includes(deepLinkPhone.replace(/\D/g, ''))) return true;
+      return false;
+    });
+    
+    if (foundConv) {
+      console.log('[WhatsApp] Conversa encontrada para deep link:', foundConv);
+      setSelectedConversation(foundConv);
+      setDeepLinkProcessed(true);
+      
+      // Se a conversa não está visível pelos filtros, relaxar filtros
+      const isVisible = displayedConversations.some(c => c.lead_id === foundConv!.lead_id);
+      if (!isVisible) {
+        console.log('[WhatsApp] Conversa oculta por filtros, relaxando...');
+        setWindowFilter('all');
+        setShowOldConversations(true);
+      }
+    } else if (leadIdNum) {
+      // Conversa não encontrada na lista - buscar lead diretamente
+      console.log('[WhatsApp] Conversa não encontrada, buscando lead diretamente...');
+      
+      const fetchLeadDirectly = async () => {
+        try {
+          const { data: lead, error } = await supabase
+            .from('leads')
+            .select('id, name, celular, telefone_casa, telefone_trabalho, photo_url, conversation_id')
+            .eq('id', leadIdNum)
+            .maybeSingle();
+          
+          if (error || !lead) {
+            console.warn('[WhatsApp] Lead não encontrado:', leadIdNum, error);
+            setDeepLinkProcessed(true);
+            return;
+          }
+          
+          // Extrair telefone do lead
+          const extractPhone = (value: string | null): string | null => {
+            if (!value) return null;
+            try {
+              const parsed = JSON.parse(value);
+              if (Array.isArray(parsed) && parsed[0]?.VALUE) return parsed[0].VALUE;
+              if (parsed?.VALUE) return parsed.VALUE;
+            } catch {
+              // Não é JSON, retornar valor direto
+            }
+            return value;
+          };
+          
+          const phone = extractPhone(lead.celular) || 
+                       extractPhone(lead.telefone_casa) || 
+                       extractPhone(lead.telefone_trabalho);
+          
+          // Criar objeto de conversa mínimo
+          const directConv: TelemarketingConversation = {
+            lead_id: lead.id,
+            bitrix_id: String(lead.id),
+            lead_name: lead.name || `Lead ${lead.id}`,
+            phone_number: phone || '',
+            photo_url: lead.photo_url,
+            conversation_id: lead.conversation_id,
+            last_message_at: null,
+            last_message_preview: null,
+            unread_count: 0,
+            telemarketing_name: null,
+            windowStatus: null,
+            nome_modelo: null,
+            last_customer_message_at: null,
+          };
+          
+          console.log('[WhatsApp] Conversa criada diretamente do lead:', directConv);
+          setSelectedConversation(directConv);
+          setWindowFilter('all');
+          setShowOldConversations(true);
+        } catch (e) {
+          console.error('[WhatsApp] Erro ao buscar lead:', e);
+        } finally {
+          setDeepLinkProcessed(true);
+        }
+      };
+      
+      fetchLeadDirectly();
+    } else {
+      setDeepLinkProcessed(true);
+    }
+  }, [deepLinkLeadId, deepLinkPhone, deepLinkProcessed, isLoading, conversations, displayedConversations]);
 
   // Mostrar loading enquanto valida
   if (isValidatingContext) {
