@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, MessageSquare, Search, Loader2, Users, CalendarDays, Send } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Search, Loader2, Users, CalendarDays, Send, Clock } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useTelemarketingConversations, TelemarketingConversation } from '@/hooks/useTelemarketingConversations';
 import { useState, useEffect, useMemo } from 'react';
 import { WhatsAppChatContainer } from '@/components/whatsapp';
@@ -127,6 +128,12 @@ const PortalTelemarketingWhatsApp = () => {
   // Estado para filtrar por data de agendamento (todos os operadores)
   const [agendamentoFilter, setAgendamentoFilter] = useState<string>('all');
   
+  // Estado para filtro de janela (aberta/fechada) - padrão: abertas
+  const [windowFilter, setWindowFilter] = useState<'open' | 'closed' | 'all'>('open');
+  
+  // Estado para mostrar conversas antigas (+7 dias)
+  const [showOldConversations, setShowOldConversations] = useState(false);
+  
   // IDs a usar no filtro - se selecionou um agente específico, usa só ele
   const filteredOperatorIds = useMemo(() => {
     if (!isSupervisor) return undefined;
@@ -148,6 +155,33 @@ const PortalTelemarketingWhatsApp = () => {
     teamOperatorIds: filteredOperatorIds,
     agendamentoFilter,
   });
+
+  // Filtragem local: janela e conversas antigas
+  const displayedConversations = useMemo(() => {
+    let filtered = conversations;
+    
+    // Filtrar por janela
+    if (windowFilter === 'open') {
+      filtered = filtered.filter(c => c.windowStatus?.isOpen);
+    } else if (windowFilter === 'closed') {
+      filtered = filtered.filter(c => !c.windowStatus?.isOpen);
+    }
+    
+    // Ocultar conversas com mais de 7 dias (a menos que toggle ativado)
+    if (!showOldConversations) {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      filtered = filtered.filter(c => {
+        if (!c.last_message_at) return false;
+        return new Date(c.last_message_at) >= sevenDaysAgo;
+      });
+    }
+    
+    return filtered;
+  }, [conversations, windowFilter, showOldConversations]);
+
+  const hiddenCount = conversations.length - displayedConversations.length;
 
   // Mostrar loading enquanto valida
   if (isValidatingContext) {
@@ -244,20 +278,46 @@ const PortalTelemarketingWhatsApp = () => {
               />
             </div>
             
-            {/* Filtro por data de agendamento - disponível para todos */}
-            <Select value={agendamentoFilter} onValueChange={setAgendamentoFilter}>
-              <SelectTrigger className="h-8 text-xs">
-                <CalendarDays className="w-3 h-3 mr-1" />
-                <SelectValue placeholder="Agendado em" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os leads</SelectItem>
-                <SelectItem value="today">Agendados hoje</SelectItem>
-                <SelectItem value="yesterday">Agendados ontem</SelectItem>
-                <SelectItem value="3days">Últimos 3 dias</SelectItem>
-                <SelectItem value="7days">Últimos 7 dias</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Filtros em linha */}
+            <div className="flex gap-2">
+              {/* Filtro de janela */}
+              <Select value={windowFilter} onValueChange={(v) => setWindowFilter(v as 'open' | 'closed' | 'all')}>
+                <SelectTrigger className="h-8 text-xs flex-1">
+                  <Clock className="w-3 h-3 mr-1" />
+                  <SelectValue placeholder="Janela" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">Janela Aberta</SelectItem>
+                  <SelectItem value="closed">Janela Fechada</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {/* Filtro por data de agendamento */}
+              <Select value={agendamentoFilter} onValueChange={setAgendamentoFilter}>
+                <SelectTrigger className="h-8 text-xs flex-1">
+                  <CalendarDays className="w-3 h-3 mr-1" />
+                  <SelectValue placeholder="Agendado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="today">Hoje</SelectItem>
+                  <SelectItem value="yesterday">Ontem</SelectItem>
+                  <SelectItem value="3days">3 dias</SelectItem>
+                  <SelectItem value="7days">7 dias</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Toggle para mostrar conversas antigas */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Mostrar +7 dias</span>
+              <Switch 
+                checked={showOldConversations} 
+                onCheckedChange={setShowOldConversations}
+                className="scale-75"
+              />
+            </div>
             
             {/* Filtro por agente - apenas supervisores */}
             {isSupervisor && supervisorTeam && supervisorTeam.agents.length > 0 && (
@@ -284,13 +344,16 @@ const PortalTelemarketingWhatsApp = () => {
               <div className="flex items-center justify-center h-32">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
-            ) : conversations.length === 0 ? (
+            ) : displayedConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
                 <MessageSquare className="w-8 h-8 mb-2 opacity-50" />
                 <p>Nenhuma conversa encontrada</p>
+                {hiddenCount > 0 && (
+                  <p className="text-[10px] mt-1">{hiddenCount} oculta{hiddenCount !== 1 ? 's' : ''} pelos filtros</p>
+                )}
               </div>
             ) : (
-              conversations.map((conv) => {
+              displayedConversations.map((conv) => {
                 // Gerar iniciais do nome do lead
                 const leadInitials = conv.lead_name
                   .split(' ')
@@ -308,23 +371,27 @@ const PortalTelemarketingWhatsApp = () => {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {/* Avatar com foto ou iniciais */}
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        {conv.photo_url ? (
-                          <img 
-                            src={conv.photo_url} 
-                            alt={conv.lead_name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              // Se a imagem falhar, esconder e mostrar iniciais
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        ) : null}
-                        {/* Mostrar iniciais se não tem foto ou como fallback */}
-                        <span className={`text-sm font-semibold text-primary ${conv.photo_url ? 'hidden' : ''}`}>
-                          {leadInitials}
-                        </span>
+                      {/* Avatar com foto ou iniciais + indicador de janela */}
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {conv.photo_url ? (
+                            <img 
+                              src={conv.photo_url} 
+                              alt={conv.lead_name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          ) : null}
+                          <span className={`text-sm font-semibold text-primary ${conv.photo_url ? 'hidden' : ''}`}>
+                            {leadInitials}
+                          </span>
+                        </div>
+                        {/* Indicador de janela */}
+                        <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${
+                          conv.windowStatus?.isOpen ? 'bg-green-500' : 'bg-gray-400'
+                        }`} />
                       </div>
                       
                     {/* Info */}
@@ -364,10 +431,10 @@ const PortalTelemarketingWhatsApp = () => {
 
           {/* Footer com contagem */}
           <div className="p-2 border-t text-xs text-muted-foreground text-center space-y-1">
-            <div>{conversations.length} conversa{conversations.length !== 1 ? 's' : ''}</div>
-            {agendamentoFilter !== 'all' && (
+            <div>{displayedConversations.length} conversa{displayedConversations.length !== 1 ? 's' : ''}</div>
+            {hiddenCount > 0 && (
               <div className="text-[10px]">
-                {totalLeads} lead{totalLeads !== 1 ? 's' : ''} no filtro
+                ({hiddenCount} oculta{hiddenCount !== 1 ? 's' : ''})
               </div>
             )}
             {isLoadingStats && (
