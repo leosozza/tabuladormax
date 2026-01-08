@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { calculateWindowStatus, WindowStatus } from '@/lib/whatsappWindow';
 
 export interface TelemarketingConversation {
@@ -24,9 +24,12 @@ interface UseTelemarketingConversationsOptions {
   cargo?: string;
   commercialProjectId?: string;
   teamOperatorIds?: number[];
+  selectedAgentFilter?: number | 'all';
 }
 
 import { isSupervisorCargo } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
+
+const PAGE_SIZE = 100;
 
 export function useTelemarketingConversations(
   bitrixTelemarketingIdOrOptions: number | UseTelemarketingConversationsOptions
@@ -37,28 +40,44 @@ export function useTelemarketingConversations(
       ? { bitrixTelemarketingId: bitrixTelemarketingIdOrOptions }
       : bitrixTelemarketingIdOrOptions;
 
-  const { bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds } = options;
+  const { bitrixTelemarketingId, cargo, teamOperatorIds, selectedAgentFilter } = options;
   const isSupervisor = cargo ? isSupervisorCargo(cargo) : false;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedConversations, setSelectedConversations] = useState<number[]>([]);
 
-  const { data: conversations = [], isLoading, refetch } = useQuery({
-    queryKey: ['telemarketing-conversations', bitrixTelemarketingId, cargo, teamOperatorIds],
-    queryFn: async () => {
-      if (!bitrixTelemarketingId) return [];
+  // Calcular IDs de operadores para filtro
+  const effectiveOperatorIds = (() => {
+    if (!isSupervisor) return undefined;
+    if (selectedAgentFilter && selectedAgentFilter !== 'all') {
+      return [selectedAgentFilter];
+    }
+    return teamOperatorIds;
+  })();
+
+  const {
+    data,
+    isLoading,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['telemarketing-conversations', bitrixTelemarketingId, cargo, effectiveOperatorIds],
+    queryFn: async ({ pageParam = 0 }) => {
+      if (!bitrixTelemarketingId) return { items: [], nextOffset: null };
 
       // Supervisor sem equipe: retornar vazio
-      if (isSupervisor && teamOperatorIds !== undefined && teamOperatorIds.length === 0) {
-        return [];
+      if (isSupervisor && effectiveOperatorIds !== undefined && effectiveOperatorIds.length === 0) {
+        return { items: [], nextOffset: null };
       }
 
-      // Usar a nova RPC que faz tudo em uma query (bypass RLS)
       const { data, error } = await supabase.rpc('get_telemarketing_conversations', {
         p_operator_bitrix_id: bitrixTelemarketingId,
-        p_team_operator_ids: isSupervisor && teamOperatorIds?.length ? teamOperatorIds : null,
+        p_team_operator_ids: isSupervisor && effectiveOperatorIds?.length ? effectiveOperatorIds : null,
         p_search: null,
-        p_limit: 500
+        p_limit: PAGE_SIZE,
+        p_offset: pageParam as number
       });
 
       if (error) {
@@ -66,10 +85,7 @@ export function useTelemarketingConversations(
         throw error;
       }
 
-      if (!data) return [];
-
-      // Mapear para o formato esperado
-      return data.map((row: any): TelemarketingConversation => ({
+      const items = (data || []).map((row: any): TelemarketingConversation => ({
         lead_id: row.lead_id,
         bitrix_id: row.bitrix_id,
         lead_name: row.lead_name || 'Sem nome',
@@ -84,10 +100,20 @@ export function useTelemarketingConversations(
         telemarketing_name: row.telemarketing_name || undefined,
         conversation_id: undefined,
       }));
+
+      return {
+        items,
+        nextOffset: items.length === PAGE_SIZE ? (pageParam as number) + PAGE_SIZE : null,
+      };
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
     enabled: !!bitrixTelemarketingId,
     refetchInterval: 30000,
   });
+
+  // Flatten all pages into single array
+  const conversations = data?.pages.flatMap(page => page.items) || [];
 
   // Filtrar conversas por busca
   const filteredConversations = conversations.filter(conv =>
@@ -116,6 +142,12 @@ export function useTelemarketingConversations(
     setSelectedConversations([]);
   };
 
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   // Subscribe to realtime updates
   useEffect(() => {
     if (!bitrixTelemarketingId) return;
@@ -142,6 +174,7 @@ export function useTelemarketingConversations(
 
   return {
     conversations: filteredConversations,
+    totalLoaded: conversations.length,
     isLoading,
     refetch,
     searchQuery,
@@ -152,5 +185,9 @@ export function useTelemarketingConversations(
     clearSelection,
     allSelected: selectedConversations.length === filteredConversations.length && filteredConversations.length > 0,
     isSupervisor,
+    // Infinite scroll
+    loadMore,
+    hasNextPage: !!hasNextPage,
+    isFetchingNextPage,
   };
 }
