@@ -1,9 +1,11 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Calendar, User, Phone } from 'lucide-react';
+import { Calendar, User, Phone, MessageCircle } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useNavigate } from 'react-router-dom';
 
 export interface AgendamentoPorData {
   data: string;
@@ -26,6 +28,8 @@ interface AgendamentosPorDataModalProps {
 }
 
 function ModalContent({ agendamentos }: { agendamentos: AgendamentoPorData[] }) {
+  const navigate = useNavigate();
+
   if (agendamentos.length === 0) {
     return (
       <p className="text-muted-foreground text-center py-8">
@@ -33,6 +37,14 @@ function ModalContent({ agendamentos }: { agendamentos: AgendamentoPorData[] }) 
       </p>
     );
   }
+
+  const handleWhatsApp = (leadId: number) => {
+    navigate(`/portal-telemarketing/whatsapp?lead=${leadId}`);
+  };
+
+  const handleTabulador = (leadId: number) => {
+    navigate(`/portal-telemarketing/tabulador?lead=${leadId}`);
+  };
 
   return (
     <Accordion type="single" collapsible className="w-full">
@@ -52,13 +64,33 @@ function ModalContent({ agendamentos }: { agendamentos: AgendamentoPorData[] }) 
             <div className="space-y-2">
               {item.leads.map((lead) => (
                 <div key={lead.id} className="p-3 border rounded-lg bg-muted/30 relative">
-                  <Badge 
-                    variant="secondary" 
-                    className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                  >
-                    {lead.fonte}
-                  </Badge>
-                  <div className="flex items-center gap-2 pr-20">
+                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleWhatsApp(lead.id)}
+                      title="Abrir WhatsApp"
+                    >
+                      <MessageCircle className="w-4 h-4 text-green-600" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleTabulador(lead.id)}
+                      title="Abrir Tabulador"
+                    >
+                      <Phone className="w-4 h-4 text-primary" />
+                    </Button>
+                    <Badge 
+                      variant="secondary" 
+                      className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                    >
+                      {lead.fonte}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 pr-28">
                     <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <span className="font-medium text-sm truncate">{lead.name}</span>
                   </div>
