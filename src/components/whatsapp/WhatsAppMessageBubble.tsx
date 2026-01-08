@@ -22,6 +22,59 @@ function MessageStatus({ status }: { status: WhatsAppMessage['status'] }) {
   }
 }
 
+// Format WhatsApp markdown: *bold*, _italic_, ~strikethrough~, ```code```
+function formatWhatsAppText(text: string): React.ReactNode {
+  if (!text) return null;
+  
+  // Split by code blocks first
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  
+  return parts.map((part, idx) => {
+    if (part.startsWith('```') && part.endsWith('```')) {
+      const code = part.slice(3, -3);
+      return (
+        <code key={idx} className="block bg-background/30 rounded px-2 py-1 my-1 text-xs font-mono whitespace-pre-wrap">
+          {code}
+        </code>
+      );
+    }
+    
+    // Process inline formatting
+    let formatted = part;
+    const elements: React.ReactNode[] = [];
+    let lastIndex = 0;
+    
+    // Regex for *bold*, _italic_, ~strikethrough~
+    const regex = /(\*[^*]+\*)|(_[^_]+_)|(~[^~]+~)/g;
+    let match;
+    
+    while ((match = regex.exec(formatted)) !== null) {
+      // Add text before match
+      if (match.index > lastIndex) {
+        elements.push(formatted.slice(lastIndex, match.index));
+      }
+      
+      const content = match[0];
+      if (content.startsWith('*') && content.endsWith('*')) {
+        elements.push(<strong key={`${idx}-${match.index}`}>{content.slice(1, -1)}</strong>);
+      } else if (content.startsWith('_') && content.endsWith('_')) {
+        elements.push(<em key={`${idx}-${match.index}`}>{content.slice(1, -1)}</em>);
+      } else if (content.startsWith('~') && content.endsWith('~')) {
+        elements.push(<del key={`${idx}-${match.index}`}>{content.slice(1, -1)}</del>);
+      }
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text
+    if (lastIndex < formatted.length) {
+      elements.push(formatted.slice(lastIndex));
+    }
+    
+    return elements.length > 0 ? <span key={idx}>{elements}</span> : part;
+  });
+}
+
 function LocationPreview({ message }: { message: WhatsAppMessage }) {
   // Extract coordinates from metadata if available
   const metadata = message.metadata as any;
@@ -84,8 +137,13 @@ function LocationPreview({ message }: { message: WhatsAppMessage }) {
 
 export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
   const isOutbound = message.direction === 'outbound';
-  const isBitrixAutomation = message.sent_by === 'bitrix';
+  // Handle both 'bitrix' and 'bitrix_automation' (from fallback webhook)
+  const sentBy = message.sent_by as string | null;
+  const isBitrixAutomation = sentBy === 'bitrix' || sentBy === 'bitrix_automation';
   const isLocation = message.message_type === 'location';
+  
+  // Check if content is a generic placeholder
+  const isGenericPlaceholder = message.content?.includes('[📋 Template enviado via automação Bitrix]');
 
   return (
     <div className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
@@ -99,9 +157,9 @@ export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
         {/* Sender info */}
         <div className="text-sm font-medium mb-1 flex items-center gap-2">
           {message.sender_name || (isOutbound ? 'Você' : 'Cliente')}
-          {message.sent_by && isOutbound && (
+          {sentBy && isOutbound && (
             <span className="text-xs opacity-70">
-              ({message.sent_by === 'bitrix' ? 'Bitrix' : message.sent_by === 'tabulador' ? 'TabuladorMax' : 'Operador'})
+              ({sentBy === 'bitrix' || sentBy === 'bitrix_automation' ? 'Bitrix' : sentBy === 'tabulador' ? 'TabuladorMax' : 'Operador'})
             </span>
           )}
         </div>
@@ -123,9 +181,14 @@ export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
         {/* Location Content */}
         {isLocation ? (
           <LocationPreview message={message} />
+        ) : isGenericPlaceholder ? (
+          /* Generic placeholder - show friendly message */
+          <div className="text-sm opacity-80 italic">
+            📋 Template enviado - conteúdo não capturado
+          </div>
         ) : (
-          /* Regular Content */
-          <div className="whitespace-pre-wrap">{message.content}</div>
+          /* Regular Content with WhatsApp formatting */
+          <div className="whitespace-pre-wrap">{formatWhatsAppText(message.content || '')}</div>
         )}
 
         {/* Media */}
