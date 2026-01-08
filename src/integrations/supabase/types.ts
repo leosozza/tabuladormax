@@ -5209,6 +5209,26 @@ export type Database = {
           is_nullable: string
         }[]
       }
+      get_telemarketing_conversations: {
+        Args: {
+          p_limit?: number
+          p_operator_bitrix_id: number
+          p_search?: string
+          p_team_operator_ids?: number[]
+        }
+        Returns: {
+          bitrix_id: string
+          last_message_at: string
+          last_message_preview: string
+          lead_id: number
+          lead_name: string
+          phone_number: string
+          photo_url: string
+          telemarketing_name: string
+          unread_count: number
+          window_open: boolean
+        }[]
+      }
       get_telemarketing_metrics:
         | {
             Args: {
