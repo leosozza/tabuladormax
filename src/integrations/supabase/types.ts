@@ -4610,6 +4610,10 @@ export type Database = {
         Args: { _route_path: string; _user_id: string }
         Returns: boolean
       }
+      can_access_whatsapp_message: {
+        Args: { message_bitrix_id: string; message_phone: string }
+        Returns: boolean
+      }
       check_leads_duplicates: {
         Args: {
           p_days_back?: number
