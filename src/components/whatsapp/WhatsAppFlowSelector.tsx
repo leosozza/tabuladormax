@@ -49,9 +49,11 @@ export function WhatsAppFlowSelector({ phoneNumber, bitrixId, disabled }: WhatsA
       const { data, error } = await supabase.functions.invoke('flows-executor', {
         body: {
           flowId: flow.id,
-          phoneNumber,
-          bitrixId,
-          context: { source: 'whatsapp_chat' },
+          leadId: bitrixId ? parseInt(bitrixId) : undefined,
+          context: { 
+            source: 'whatsapp_chat',
+            phone_number: phoneNumber,
+          },
         },
       });
 
