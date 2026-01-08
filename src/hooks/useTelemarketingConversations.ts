@@ -102,18 +102,19 @@ export function useTelemarketingConversations(
             bitrix_telemarketing_id,
             telemarketing,
             conversation_id,
-            data_agendamento
+            data_agendamento,
+            data_criacao_agendamento
           `)
           .in('bitrix_telemarketing_id', teamOperatorIds)
           .order('updated_at', { ascending: false })
           .limit(500);
 
-        // Aplicar filtro de agendamento se definido
+        // Aplicar filtro por data de CRIAÇÃO do agendamento (consistente com dashboard)
         if (dateRange) {
           query = query
-            .not('data_agendamento', 'is', null)
-            .gte('data_agendamento', dateRange.start)
-            .lt('data_agendamento', dateRange.end);
+            .not('data_criacao_agendamento', 'is', null)
+            .gte('data_criacao_agendamento', dateRange.start)
+            .lt('data_criacao_agendamento', dateRange.end);
         }
 
         const { data: teamLeads, error: teamError } = await query;
@@ -135,17 +136,18 @@ export function useTelemarketingConversations(
             bitrix_telemarketing_id,
             telemarketing,
             conversation_id,
-            data_agendamento
+            data_agendamento,
+            data_criacao_agendamento
           `)
           .eq('bitrix_telemarketing_id', bitrixTelemarketingId)
           .order('updated_at', { ascending: false });
 
-        // Aplicar filtro de agendamento se definido
+        // Aplicar filtro por data de CRIAÇÃO do agendamento (consistente com dashboard)
         if (dateRange) {
           query = query
-            .not('data_agendamento', 'is', null)
-            .gte('data_agendamento', dateRange.start)
-            .lt('data_agendamento', dateRange.end);
+            .not('data_criacao_agendamento', 'is', null)
+            .gte('data_criacao_agendamento', dateRange.start)
+            .lt('data_criacao_agendamento', dateRange.end);
         }
 
         const { data: agentLeads, error: leadsError } = await query;
