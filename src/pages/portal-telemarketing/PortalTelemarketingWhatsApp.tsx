@@ -160,11 +160,17 @@ const PortalTelemarketingWhatsApp = () => {
   const displayedConversations = useMemo(() => {
     let filtered = conversations;
     
+    // Se ainda está carregando estatísticas, não aplicar filtros de janela/data
+    // (pois windowStatus e last_message_at ainda podem estar incompletos)
+    if (isLoadingStats) {
+      return filtered;
+    }
+    
     // Filtrar por janela
     if (windowFilter === 'open') {
       filtered = filtered.filter(c => c.windowStatus?.isOpen);
     } else if (windowFilter === 'closed') {
-      filtered = filtered.filter(c => !c.windowStatus?.isOpen);
+      filtered = filtered.filter(c => c.windowStatus && !c.windowStatus.isOpen);
     }
     
     // Ocultar conversas com mais de 7 dias (a menos que toggle ativado)
@@ -173,13 +179,17 @@ const PortalTelemarketingWhatsApp = () => {
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       
       filtered = filtered.filter(c => {
-        if (!c.last_message_at) return false;
+        // Se não tem last_message_at, verificar se tem windowStatus aberto
+        // (indica que tem mensagem recente do cliente)
+        if (!c.last_message_at) {
+          return c.windowStatus?.isOpen || false;
+        }
         return new Date(c.last_message_at) >= sevenDaysAgo;
       });
     }
     
     return filtered;
-  }, [conversations, windowFilter, showOldConversations]);
+  }, [conversations, windowFilter, showOldConversations, isLoadingStats]);
 
   const hiddenCount = conversations.length - displayedConversations.length;
 
@@ -312,11 +322,16 @@ const PortalTelemarketingWhatsApp = () => {
             {/* Toggle para mostrar conversas antigas */}
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>Mostrar +7 dias</span>
-              <Switch 
-                checked={showOldConversations} 
-                onCheckedChange={setShowOldConversations}
-                className="scale-75"
-              />
+              <div className="flex items-center gap-2">
+                {isLoadingStats && (
+                  <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                )}
+                <Switch 
+                  checked={showOldConversations} 
+                  onCheckedChange={setShowOldConversations}
+                  className="scale-75"
+                />
+              </div>
             </div>
             
             {/* Filtro por agente - apenas supervisores */}
