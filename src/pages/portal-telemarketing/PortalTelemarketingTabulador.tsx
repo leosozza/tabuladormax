@@ -3,13 +3,14 @@ import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import LeadTab from '@/pages/LeadTab';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Headset, Settings, Loader2 } from 'lucide-react';
+import { ArrowLeft, Headset, Settings, Loader2, HeartPulse, Trash2, RefreshCcw } from 'lucide-react';
 import { ScriptViewer } from '@/components/telemarketing/ScriptViewer';
 import { ScriptManager } from '@/components/telemarketing/ScriptManager';
 import { NotificationCenter } from '@/components/telemarketing/NotificationCenter';
 import { NotificationSettings } from '@/components/telemarketing/NotificationSettings';
 import { CelebrationOverlay } from '@/components/telemarketing/CelebrationOverlay';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeNotifications, useBrowserNotification, TelemarketingNotification } from '@/hooks/useTelemarketingNotifications';
 import { useOperatorRanking } from '@/hooks/useOperatorRanking';
@@ -20,6 +21,7 @@ import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/Telemarketin
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 import MaxTalkWidget from '@/components/maxtalk/MaxTalkWidget';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -265,6 +267,34 @@ const PortalTelemarketingTabulador = () => {
 
   const isSupervisor = context?.cargo === SUPERVISOR_CARGO;
 
+  const handleClearCache = async () => {
+    try {
+      // 1. Limpar cache do React Query
+      queryClient.clear();
+      
+      // 2. Limpar localStorage relacionado a cache (preservar sessão)
+      const keysToKeep = ['telemarketing_context', 'telemarketing_operator', 'theme'];
+      Object.keys(localStorage).forEach(key => {
+        if (!keysToKeep.some(k => key.includes(k))) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // 3. Limpar sessionStorage
+      sessionStorage.clear();
+      
+      toast.success("Cache limpo com sucesso!");
+      
+      // 4. Recarregar a página após 500ms
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } catch (error) {
+      console.error('Erro ao limpar cache:', error);
+      toast.error("Erro ao limpar cache");
+    }
+  };
+
   const handleNotificationClick = (notification: any) => {
     // Se for notificação de cliente compareceu, mostrar celebração
     if (notification.type === 'cliente_compareceu') {
@@ -321,8 +351,30 @@ const PortalTelemarketingTabulador = () => {
             )}
           </div>
           
-          {/* Direita: Tema, Notificações, Script, UserMenu */}
+          {/* Direita: Sistema, Tema, Notificações, Script, UserMenu */}
           <div className="flex items-center gap-2">
+            {/* Botão Saúde do Sistema */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <HeartPulse className="w-4 h-4" />
+                  <span className="hidden md:inline">Sistema</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Saúde do Sistema</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleClearCache}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Limpar Cache e Recarregar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.location.reload()}>
+                  <RefreshCcw className="w-4 h-4 mr-2" />
+                  Apenas Recarregar Página
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             <ThemeSelector />
             <NotificationCenter 
               bitrixTelemarketingId={context.bitrix_id}

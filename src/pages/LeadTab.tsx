@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw, MessageSquare, Sparkles, FileText } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw, MessageSquare, Sparkles, FileText, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import noPhotoPlaceholder from "@/assets/no-photo-placeholder.png";
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
@@ -506,6 +507,64 @@ const LeadTab = () => {
     }
     return null;
   }, [leadProfileData?.age, leadStatsFromRaw?.dataNascimento]);
+
+  // Detectar se dados do lead estão incompletos
+  const isLeadDataIncomplete = useMemo(() => {
+    // Só verificar se temos um lead carregado
+    if (!chatwootData?.bitrix_id && !profile['ID Bitrix']) return false;
+    
+    // Verificar campos essenciais
+    const nome = profile['nome_modelo'] || profile['name'] || chatwootData?.name;
+    const hasName = nome && nome !== '—' && nome !== '';
+    
+    const telefone = profile['custom_1759958661434'] || profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number;
+    const hasPhone = telefone && telefone !== '—' && telefone !== '';
+    
+    // Se falta nome ou telefone, considerar incompleto
+    return !hasName || !hasPhone;
+  }, [chatwootData, profile]);
+
+  // Função para enriquecer lead do Bitrix (usada no banner)
+  const handleEnrichLead = async () => {
+    const bitrixId = profile['ID Bitrix'] || chatwootData?.bitrix_id;
+    if (!bitrixId || bitrixId === '—') {
+      toast.error("ID Bitrix não disponível");
+      return;
+    }
+    
+    toast.info("Buscando informações do Bitrix...");
+    try {
+      const { data, error } = await supabase.functions.invoke('bitrix-entity-get', {
+        body: { entityType: 'lead', entityId: bitrixId }
+      });
+      if (error) throw error;
+      if (!data?.success || !data?.dealData) {
+        throw new Error("Não foi possível buscar dados do Bitrix");
+      }
+      
+      const bitrixLead = data.dealData;
+      const updates: Record<string, any> = {};
+      if (bitrixLead.NAME) updates.name = bitrixLead.NAME;
+      if (bitrixLead.PHONE?.[0]?.VALUE) updates.celular = bitrixLead.PHONE[0].VALUE;
+      if (bitrixLead.SOURCE_ID) updates.fonte = bitrixLead.SOURCE_ID;
+      if (bitrixLead.STATUS_ID) updates.etapa = bitrixLead.STATUS_ID;
+      if (bitrixLead.ADDRESS) updates.local_abordagem = bitrixLead.ADDRESS;
+      updates.raw = bitrixLead;
+      updates.last_sync_at = new Date().toISOString();
+      
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update(updates)
+        .eq('id', Number(bitrixId));
+      if (updateError) throw updateError;
+      
+      loadLeadById(String(bitrixId), false, true);
+      toast.success("Informações enriquecidas com sucesso!");
+    } catch (error) {
+      console.error('Erro ao enriquecer lead:', error);
+      toast.error("Erro ao buscar informações do Bitrix");
+    }
+  };
 
   // Preparar requests de enum para resolver
   const enumRequests = useMemo(() => {
@@ -2529,44 +2588,7 @@ const LeadTab = () => {
                 <Button 
                   variant="outline" 
                   size="icon" 
-                  onClick={async () => {
-                    const bitrixId = profile['ID Bitrix'];
-                    if (!bitrixId || bitrixId === '—') {
-                      toast.error("ID Bitrix não disponível");
-                      return;
-                    }
-                    toast.info("Buscando informações do Bitrix...");
-                    try {
-                      const { data, error } = await supabase.functions.invoke('bitrix-entity-get', {
-                        body: { entityType: 'lead', entityId: bitrixId }
-                      });
-                      if (error) throw error;
-                      if (!data?.success || !data?.dealData) {
-                        throw new Error("Não foi possível buscar dados do Bitrix");
-                      }
-                      const bitrixLead = data.dealData;
-                      const updates: Record<string, any> = {};
-                      if (bitrixLead.NAME) updates.name = bitrixLead.NAME;
-                      if (bitrixLead.PHONE?.[0]?.VALUE) updates.celular = bitrixLead.PHONE[0].VALUE;
-                      if (bitrixLead.SOURCE_ID) updates.fonte = bitrixLead.SOURCE_ID;
-                      if (bitrixLead.STATUS_ID) updates.etapa = bitrixLead.STATUS_ID;
-                      if (bitrixLead.ADDRESS) updates.local_abordagem = bitrixLead.ADDRESS;
-                      updates.raw = bitrixLead;
-                      updates.last_sync_at = new Date().toISOString();
-                      
-                      const { error: updateError } = await supabase
-                        .from('leads')
-                        .update(updates)
-                        .eq('id', Number(bitrixId));
-                      if (updateError) throw updateError;
-                      
-                      loadLeadById(String(bitrixId), false, true);
-                      toast.success("Informações enriquecidas!");
-                    } catch (error) {
-                      console.error('Erro ao enriquecer lead:', error);
-                      toast.error("Erro ao buscar informações");
-                    }
-                  }}
+                  onClick={handleEnrichLead}
                   disabled={searchLoading}
                   title="Enriquecer Informações"
                   className="h-8 w-8 md:h-10 md:w-10"
@@ -2590,6 +2612,26 @@ const LeadTab = () => {
               </Button>
             )}
           </div>
+          
+          {/* Banner de Dados Incompletos */}
+          {isLeadDataIncomplete && (chatwootData?.bitrix_id || profile['ID Bitrix']) && (
+            <Alert className="w-full border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-sm font-medium">Dados Incompletos</AlertTitle>
+              <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-1">
+                <span className="text-xs">Alguns dados do lead podem estar desatualizados ou ausentes.</span>
+                <Button 
+                  size="sm" 
+                  onClick={handleEnrichLead}
+                  disabled={searchLoading}
+                  className="bg-amber-600 hover:bg-amber-700 text-white h-7 text-xs"
+                >
+                  {searchLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                  Enriquecer do Bitrix
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
             
           {/* Foto do perfil com galeria */}
           <div className="relative w-full flex flex-col items-center pointer-events-none">
