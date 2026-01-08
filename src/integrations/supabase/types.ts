@@ -5220,16 +5220,17 @@ export type Database = {
             }
             Returns: {
               bitrix_id: string
-              conversation_id: number
+              conv_key: string
+              is_window_open: boolean
+              last_message: string
               last_message_at: string
-              last_message_preview: string
-              lead_id: number
+              last_message_direction: string
               lead_name: string
               phone_number: string
               photo_url: string
+              telemarketing_id: number
               telemarketing_name: string
               unread_count: number
-              window_open: boolean
             }[]
           }
         | {
