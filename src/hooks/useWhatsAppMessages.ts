@@ -187,9 +187,12 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       
       logDebug('Fetching messages via RPC', { normalizedPhone, leadId, conversationId });
       
+      // Chamar RPC com parâmetros nomeados completos para evitar ambiguidade
       const { data, error } = await supabase.rpc('get_telemarketing_whatsapp_messages', {
+        p_operator_bitrix_id: null,
         p_phone_number: normalizedPhone || null,
         p_lead_id: !isNaN(leadId as number) ? leadId : null,
+        p_team_operator_ids: null,
         p_limit: 200,
       });
 

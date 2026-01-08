@@ -380,7 +380,15 @@ const PortalTelemarketingWhatsApp = () => {
                 return (
                   <div
                     key={conv.lead_id}
-                    onClick={() => setSelectedConversation(conv)}
+                    onClick={() => {
+                      console.log('[WhatsApp] Conversa selecionada:', {
+                        lead_id: conv.lead_id,
+                        bitrix_id: conv.bitrix_id,
+                        phone_number: conv.phone_number,
+                        lead_name: conv.lead_name,
+                      });
+                      setSelectedConversation(conv);
+                    }}
                     className={`p-3 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
                       selectedConversation?.lead_id === conv.lead_id ? 'bg-muted' : ''
                     }`}
