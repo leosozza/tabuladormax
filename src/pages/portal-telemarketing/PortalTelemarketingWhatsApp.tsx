@@ -12,6 +12,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
 
 interface TelemarketingContext {
@@ -194,8 +195,13 @@ const PortalTelemarketingWhatsApp = () => {
       });
     }
     
+    // IMPORTANTE: Sempre incluir a conversa selecionada (para deep links)
+    if (selectedConversation && !filtered.some(c => c.lead_id === selectedConversation.lead_id)) {
+      filtered = [selectedConversation, ...filtered];
+    }
+    
     return filtered;
-  }, [conversations, windowFilter, showOldConversations, isLoadingStats]);
+  }, [conversations, windowFilter, showOldConversations, isLoadingStats, selectedConversation]);
 
   const hiddenCount = conversations.length - displayedConversations.length;
 
@@ -206,7 +212,15 @@ const PortalTelemarketingWhatsApp = () => {
       return;
     }
     
-    console.log('[WhatsApp] Processando deep link:', { deepLinkLeadId, deepLinkPhone });
+    console.log('[DeepLink] Estado atual:', {
+      deepLinkLeadId,
+      deepLinkPhone,
+      deepLinkProcessed,
+      isLoading,
+      conversationsCount: conversations.length,
+      displayedCount: displayedConversations.length,
+      selectedConversation: selectedConversation?.lead_id,
+    });
     
     const leadIdNum = deepLinkLeadId ? parseInt(deepLinkLeadId, 10) : null;
     
@@ -218,20 +232,22 @@ const PortalTelemarketingWhatsApp = () => {
     });
     
     if (foundConv) {
-      console.log('[WhatsApp] Conversa encontrada para deep link:', foundConv);
-      setSelectedConversation(foundConv);
+      console.log('[DeepLink] Conversa encontrada na lista:', foundConv.lead_name);
+      toast.info(`Abrindo conversa: ${foundConv.lead_name}`);
+      
+      // Relaxar filtros ANTES de selecionar para garantir visibilidade
+      setWindowFilter('all');
+      setShowOldConversations(true);
       setDeepLinkProcessed(true);
       
-      // Se a conversa não está visível pelos filtros, relaxar filtros
-      const isVisible = displayedConversations.some(c => c.lead_id === foundConv!.lead_id);
-      if (!isVisible) {
-        console.log('[WhatsApp] Conversa oculta por filtros, relaxando...');
-        setWindowFilter('all');
-        setShowOldConversations(true);
-      }
+      // Selecionar após os filtros
+      setTimeout(() => {
+        setSelectedConversation(foundConv!);
+      }, 50);
     } else if (leadIdNum) {
       // Conversa não encontrada na lista - buscar lead diretamente
-      console.log('[WhatsApp] Conversa não encontrada, buscando lead diretamente...');
+      console.log('[DeepLink] Conversa não na lista, buscando lead diretamente:', leadIdNum);
+      toast.info('Carregando conversa...');
       
       const fetchLeadDirectly = async () => {
         try {
@@ -242,7 +258,8 @@ const PortalTelemarketingWhatsApp = () => {
             .maybeSingle();
           
           if (error || !lead) {
-            console.warn('[WhatsApp] Lead não encontrado:', leadIdNum, error);
+            console.warn('[DeepLink] Lead não encontrado:', leadIdNum, error);
+            toast.error('Lead não encontrado');
             setDeepLinkProcessed(true);
             return;
           }
@@ -260,9 +277,26 @@ const PortalTelemarketingWhatsApp = () => {
             return value;
           };
           
-          const phone = extractPhone(lead.celular) || 
-                       extractPhone(lead.telefone_casa) || 
-                       extractPhone(lead.telefone_trabalho);
+          let phone = extractPhone(lead.celular) || 
+                     extractPhone(lead.telefone_casa) || 
+                     extractPhone(lead.telefone_trabalho);
+          
+          // Se não encontrou telefone, buscar do histórico de mensagens
+          if (!phone) {
+            console.log('[DeepLink] Telefone não encontrado no lead, buscando de mensagens...');
+            const { data: msgData } = await supabase
+              .from('whatsapp_messages')
+              .select('phone_number')
+              .eq('bitrix_id', String(leadIdNum))
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            if (msgData?.phone_number) {
+              phone = msgData.phone_number.replace(/\D/g, '');
+              console.log('[DeepLink] Telefone encontrado nas mensagens:', phone);
+            }
+          }
           
           // Criar objeto de conversa mínimo
           const directConv: TelemarketingConversation = {
@@ -281,13 +315,21 @@ const PortalTelemarketingWhatsApp = () => {
             last_customer_message_at: null,
           };
           
-          console.log('[WhatsApp] Conversa criada diretamente do lead:', directConv);
-          setSelectedConversation(directConv);
+          console.log('[DeepLink] Conversa criada do lead:', directConv);
+          toast.success(`Conversa aberta: ${directConv.lead_name}`);
+          
+          // Relaxar filtros e marcar como processado ANTES de selecionar
           setWindowFilter('all');
           setShowOldConversations(true);
+          setDeepLinkProcessed(true);
+          
+          // Selecionar após um tick para garantir que os estados atualizaram
+          setTimeout(() => {
+            setSelectedConversation(directConv);
+          }, 50);
         } catch (e) {
-          console.error('[WhatsApp] Erro ao buscar lead:', e);
-        } finally {
+          console.error('[DeepLink] Erro ao buscar lead:', e);
+          toast.error('Erro ao carregar conversa');
           setDeepLinkProcessed(true);
         }
       };
@@ -296,7 +338,7 @@ const PortalTelemarketingWhatsApp = () => {
     } else {
       setDeepLinkProcessed(true);
     }
-  }, [deepLinkLeadId, deepLinkPhone, deepLinkProcessed, isLoading, conversations, displayedConversations]);
+  }, [deepLinkLeadId, deepLinkPhone, deepLinkProcessed, isLoading, conversations, displayedConversations, selectedConversation]);
 
   // Mostrar loading enquanto valida
   if (isValidatingContext) {
