@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, MessageSquare, Search, Loader2, Users, User, CalendarDays } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Search, Loader2, Users, CalendarDays, Send } from 'lucide-react';
 import { useTelemarketingConversations, TelemarketingConversation } from '@/hooks/useTelemarketingConversations';
 import { useState, useEffect, useMemo } from 'react';
 import { WhatsAppChatContainer } from '@/components/whatsapp';
@@ -214,6 +214,15 @@ const PortalTelemarketingWhatsApp = () => {
               Supervisor
             </Badge>
           )}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => navigate('/portal-telemarketing/envio-lote')}
+            className="gap-2 ml-auto"
+          >
+            <Send className="w-4 h-4" />
+            Envio em Lote
+          </Button>
           <ThemeSelector />
         </div>
       </header>
