@@ -5240,6 +5240,7 @@ export type Database = {
             }
             Returns: {
               bitrix_id: string
+              conversation_id: number
               last_message_at: string
               last_message_preview: string
               lead_id: number

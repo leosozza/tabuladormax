@@ -98,7 +98,7 @@ export function useTelemarketingConversations(
         unread_count: row.unread_count || 0,
         windowStatus: calculateWindowStatus(row.window_open ? row.last_message_at : null),
         telemarketing_name: row.telemarketing_name || undefined,
-        conversation_id: undefined,
+        conversation_id: row.conversation_id || undefined,
       }));
 
       return {
