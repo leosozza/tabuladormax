@@ -839,6 +839,10 @@ async function handleSendInteractive(
     const contentPreview = `${message_text}\n\n🔘 ${buttons.map(b => b.title).join(' | ')}`;
 
     // Salvar mensagem no banco
+    // sent_by precisa respeitar o CHECK constraint whatsapp_messages_sent_by_check
+    const allowedSentBy = ['bitrix', 'tabulador', 'operador', 'gupshup', 'bitrix_automation'];
+    const sentBy = allowedSentBy.includes(source) ? source : 'bitrix_automation';
+
     const { error: insertError } = await supabase
       .from('whatsapp_messages')
       .insert({
@@ -850,11 +854,11 @@ async function handleSendInteractive(
         message_type: 'interactive',
         content: contentPreview,
         status: 'sent',
-        sent_by: source || 'flow_executor',
+        sent_by: sentBy,
         sender_name: senderName,
-        metadata: { 
-          ...responseData, 
-          source, 
+        metadata: {
+          ...responseData,
+          source,
           buttons,
           message_text,
           header,
