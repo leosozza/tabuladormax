@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, MessageSquare, Search, Loader2, Users, User } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Search, Loader2, Users, User, CalendarDays } from 'lucide-react';
 import { useTelemarketingConversations, TelemarketingConversation } from '@/hooks/useTelemarketingConversations';
 import { useState, useEffect, useMemo } from 'react';
 import { WhatsAppChatContainer } from '@/components/whatsapp';
@@ -123,6 +123,9 @@ const PortalTelemarketingWhatsApp = () => {
   // Estado para filtrar por agente específico (supervisores)
   const [selectedAgentFilter, setSelectedAgentFilter] = useState<string>('all');
   
+  // Estado para filtrar por data de agendamento (todos os operadores)
+  const [agendamentoFilter, setAgendamentoFilter] = useState<string>('all');
+  
   // IDs a usar no filtro - se selecionou um agente específico, usa só ele
   const filteredOperatorIds = useMemo(() => {
     if (!isSupervisor) return undefined;
@@ -140,6 +143,7 @@ const PortalTelemarketingWhatsApp = () => {
     cargo: context?.cargo,
     commercialProjectId: context?.commercial_project_id,
     teamOperatorIds: filteredOperatorIds,
+    agendamentoFilter,
   });
 
   // Mostrar loading enquanto valida
@@ -216,7 +220,7 @@ const PortalTelemarketingWhatsApp = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Lista de Conversas */}
         <div className="w-80 border-r bg-card flex flex-col">
-          {/* Search e Filtro de Agente */}
+          {/* Search e Filtros */}
           <div className="p-3 border-b space-y-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -227,9 +231,27 @@ const PortalTelemarketingWhatsApp = () => {
                 className="pl-9"
               />
             </div>
+            
+            {/* Filtro por data de agendamento - disponível para todos */}
+            <Select value={agendamentoFilter} onValueChange={setAgendamentoFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <CalendarDays className="w-3 h-3 mr-1" />
+                <SelectValue placeholder="Agendado em" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os leads</SelectItem>
+                <SelectItem value="today">Agendados hoje</SelectItem>
+                <SelectItem value="yesterday">Agendados ontem</SelectItem>
+                <SelectItem value="3days">Últimos 3 dias</SelectItem>
+                <SelectItem value="7days">Últimos 7 dias</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Filtro por agente - apenas supervisores */}
             {isSupervisor && supervisorTeam && supervisorTeam.agents.length > 0 && (
               <Select value={selectedAgentFilter} onValueChange={setSelectedAgentFilter}>
                 <SelectTrigger className="h-8 text-xs">
+                  <Users className="w-3 h-3 mr-1" />
                   <SelectValue placeholder="Filtrar por agente" />
                 </SelectTrigger>
                 <SelectContent>
