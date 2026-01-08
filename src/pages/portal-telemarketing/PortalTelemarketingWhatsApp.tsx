@@ -2,9 +2,10 @@ import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, MessageSquare, Search, Loader2, User, Users } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, MessageSquare, Search, Loader2, Users, User } from 'lucide-react';
 import { useTelemarketingConversations, TelemarketingConversation } from '@/hooks/useTelemarketingConversations';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { WhatsAppChatContainer } from '@/components/whatsapp';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -27,7 +28,9 @@ type StoredTelemarketingOperator = {
   commercial_project_id?: string;
 };
 
-const SUPERVISOR_CARGO = '10620';
+// Cargos com privilégios de supervisão
+const SUPERVISOR_CARGOS = ['10620', '10626', '10627'];
+const isSupervisorCargo = (cargo: string) => SUPERVISOR_CARGOS.includes(cargo);
 
 const PortalTelemarketingWhatsApp = () => {
   const navigate = useNavigate();
@@ -73,7 +76,7 @@ const PortalTelemarketingWhatsApp = () => {
   };
 
   const { context, operatorPhoto } = getContext();
-  const isSupervisor = context?.cargo === SUPERVISOR_CARGO;
+  const isSupervisor = isSupervisorCargo(context?.cargo || '');
 
   // Validar que o bitrix_id existe na tabela telemarketing_operators
   useEffect(() => {
@@ -116,6 +119,16 @@ const PortalTelemarketingWhatsApp = () => {
     isSupervisor ? context?.bitrix_id || null : null
   );
   const teamOperatorIds = supervisorTeam?.agents.map(a => a.bitrix_telemarketing_id) || [];
+  
+  // Estado para filtrar por agente específico (supervisores)
+  const [selectedAgentFilter, setSelectedAgentFilter] = useState<string>('all');
+  
+  // IDs a usar no filtro - se selecionou um agente específico, usa só ele
+  const filteredOperatorIds = useMemo(() => {
+    if (!isSupervisor) return undefined;
+    if (selectedAgentFilter === 'all') return teamOperatorIds;
+    return [parseInt(selectedAgentFilter, 10)];
+  }, [isSupervisor, selectedAgentFilter, teamOperatorIds]);
 
   const {
     conversations,
@@ -126,7 +139,7 @@ const PortalTelemarketingWhatsApp = () => {
     bitrixTelemarketingId: context?.bitrix_id || 0,
     cargo: context?.cargo,
     commercialProjectId: context?.commercial_project_id,
-    teamOperatorIds: isSupervisor ? teamOperatorIds : undefined,
+    teamOperatorIds: filteredOperatorIds,
   });
 
   // Mostrar loading enquanto valida
@@ -203,8 +216,8 @@ const PortalTelemarketingWhatsApp = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Lista de Conversas */}
         <div className="w-80 border-r bg-card flex flex-col">
-          {/* Search */}
-          <div className="p-3 border-b">
+          {/* Search e Filtro de Agente */}
+          <div className="p-3 border-b space-y-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -214,6 +227,21 @@ const PortalTelemarketingWhatsApp = () => {
                 className="pl-9"
               />
             </div>
+            {isSupervisor && supervisorTeam && supervisorTeam.agents.length > 0 && (
+              <Select value={selectedAgentFilter} onValueChange={setSelectedAgentFilter}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Filtrar por agente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os agentes</SelectItem>
+                  {supervisorTeam.agents.map((agent) => (
+                    <SelectItem key={agent.bitrix_telemarketing_id} value={String(agent.bitrix_telemarketing_id)}>
+                      {agent.bitrix_telemarketing_name || `Agente ${agent.bitrix_telemarketing_id}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Lista */}
@@ -228,28 +256,43 @@ const PortalTelemarketingWhatsApp = () => {
                 <p>Nenhuma conversa encontrada</p>
               </div>
             ) : (
-              conversations.map((conv) => (
-                <div
-                  key={conv.lead_id}
-                  onClick={() => setSelectedConversation(conv)}
-                  className={`p-3 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
-                    selectedConversation?.lead_id === conv.lead_id ? 'bg-muted' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {/* Avatar */}
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {conv.photo_url ? (
-                        <img 
-                          src={conv.photo_url} 
-                          alt={conv.lead_name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <User className="w-5 h-5 text-primary" />
-                      )}
-                    </div>
-                    
+              conversations.map((conv) => {
+                // Gerar iniciais do nome do lead
+                const leadInitials = conv.lead_name
+                  .split(' ')
+                  .map(n => n[0])
+                  .join('')
+                  .substring(0, 2)
+                  .toUpperCase();
+                  
+                return (
+                  <div
+                    key={conv.lead_id}
+                    onClick={() => setSelectedConversation(conv)}
+                    className={`p-3 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
+                      selectedConversation?.lead_id === conv.lead_id ? 'bg-muted' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Avatar com foto ou iniciais */}
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {conv.photo_url ? (
+                          <img 
+                            src={conv.photo_url} 
+                            alt={conv.lead_name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Se a imagem falhar, esconder e mostrar iniciais
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        {/* Mostrar iniciais se não tem foto ou como fallback */}
+                        <span className={`text-sm font-semibold text-primary ${conv.photo_url ? 'hidden' : ''}`}>
+                          {leadInitials}
+                        </span>
+                      </div>
+                      
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
@@ -280,7 +323,8 @@ const PortalTelemarketingWhatsApp = () => {
                     </div>
                   </div>
                 </div>
-              ))
+              );
+              })
             )}
           </div>
 
