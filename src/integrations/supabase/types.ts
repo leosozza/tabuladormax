@@ -5365,6 +5365,17 @@ export type Database = {
           unread_messages: number
         }[]
       }
+      get_whatsapp_message_stats: {
+        Args: { p_phone_numbers: string[] }
+        Returns: {
+          last_customer_message_at: string
+          last_message_at: string
+          last_message_content: string
+          last_message_direction: string
+          phone_number: string
+          unread_count: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
