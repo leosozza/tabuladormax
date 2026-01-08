@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Bell, Loader2 } from 'lucide-react';
 import { NotificationCenter } from '@/components/telemarketing/NotificationCenter';
-import { isSupervisorCargo } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
+import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { TelemarketingDashboardContent } from '@/components/portal-telemarketing/TelemarketingDashboardContent';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 import { CelebrationOverlay } from '@/components/telemarketing/CelebrationOverlay';
@@ -237,7 +237,7 @@ const PortalTelemarketingDashboard = () => {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>{context.name || 'Operador'}</span>
             <span className="text-xs bg-muted px-2 py-0.5 rounded">
-              {isSupervisorCargo(context.cargo) ? 'Supervisor' : 'Agente'}
+              {context.cargo === SUPERVISOR_CARGO ? 'Supervisor' : 'Agente'}
             </span>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, Filter, Users } from "lucide-react";
+import { Calendar as CalendarIcon, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,7 +18,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtils";
 import { useGestaoFieldMappings } from "@/hooks/useGestaoFieldMappings";
 import { useUserCommercialProject } from "@/hooks/useUserCommercialProject";
-import { Skeleton } from "@/components/ui/skeleton";
 
 interface GestaoFiltersProps {
   filters: GestaoFilters;
@@ -240,25 +239,6 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
     },
   });
 
-  // Buscar contagem total de leads filtrados usando RPC
-  const { data: filteredLeadsCount, isLoading: isLoadingCount } = useQuery({
-    queryKey: ["filtered-leads-count", filters.dateFilter, filters.projectId, filters.scouterId, filters.fonte, filters.photoFilter, searchTerm],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_filtered_leads_count', {
-        p_start_date: filters.dateFilter.preset !== 'all' ? filters.dateFilter.startDate.toISOString() : null,
-        p_end_date: filters.dateFilter.preset !== 'all' ? filters.dateFilter.endDate.toISOString() : null,
-        p_project_id: filters.projectId || null,
-        p_scouter: filters.scouterId || null,
-        p_fonte: filters.fonte || null,
-        p_with_photo: filters.photoFilter || false,
-        p_search_term: searchTerm || null,
-      });
-
-      if (error) throw error;
-      return data as number;
-    },
-  });
-
   // Reset scouterId se o scouter selecionado não estiver mais na lista
   useEffect(() => {
     if (filters.scouterId && scouters && !scouters.includes(filters.scouterId)) {
@@ -328,21 +308,7 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
 
   if (isMobile) {
     return (
-      <div className="mb-4 space-y-2">
-        {/* Total de Leads - Mobile */}
-        <div className="flex items-center justify-center gap-2 px-3 py-2 bg-primary/10 rounded-lg border border-primary/20">
-          <Users className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium text-muted-foreground">Total:</span>
-          {isLoadingCount ? (
-            <Skeleton className="h-5 w-12" />
-          ) : (
-            <span className="text-sm font-bold text-primary">
-              {filteredLeadsCount?.toLocaleString('pt-BR') ?? 0}
-            </span>
-          )}
-          <span className="text-sm text-muted-foreground">leads</span>
-        </div>
-        
+      <div className="mb-4">
         <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" className="w-full gap-2 relative">
@@ -732,20 +698,6 @@ export function GestaoFiltersComponent({ filters, onChange, showDateFilter = tru
           Limpar Filtros
         </Button>
       )}
-
-      {/* Total de Leads Filtrados */}
-      <div className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20">
-        <Users className="h-4 w-4 text-primary" />
-        <span className="text-sm font-medium text-muted-foreground">Total:</span>
-        {isLoadingCount ? (
-          <Skeleton className="h-5 w-12" />
-        ) : (
-          <span className="text-sm font-bold text-primary">
-            {filteredLeadsCount?.toLocaleString('pt-BR') ?? 0}
-          </span>
-        )}
-        <span className="text-sm text-muted-foreground">leads</span>
-      </div>
     </div>
   );
 }

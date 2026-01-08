@@ -2,18 +2,16 @@ import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, MessageSquare, Search, Loader2, Users } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Search, Loader2, User, Users } from 'lucide-react';
 import { useTelemarketingConversations, TelemarketingConversation } from '@/hooks/useTelemarketingConversations';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { WhatsAppChatContainer } from '@/components/whatsapp';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getLeadPhotoUrl } from '@/lib/leadPhotoUtils';
+
 interface TelemarketingContext {
   bitrix_id: number;
   cargo: string;
@@ -29,7 +27,7 @@ type StoredTelemarketingOperator = {
   commercial_project_id?: string;
 };
 
-import { isSupervisorCargo } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
+const SUPERVISOR_CARGO = '10620';
 
 const PortalTelemarketingWhatsApp = () => {
   const navigate = useNavigate();
@@ -37,8 +35,6 @@ const PortalTelemarketingWhatsApp = () => {
   const [selectedConversation, setSelectedConversation] = useState<TelemarketingConversation | null>(null);
   const [isValidatingContext, setIsValidatingContext] = useState(true);
   const [isValidContext, setIsValidContext] = useState<boolean | null>(null);
-  const [selectedAgentFilter, setSelectedAgentFilter] = useState<number | 'all'>('all');
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Ler contexto do localStorage
   const getContext = (): { context: TelemarketingContext | null; operatorPhoto: string | null } => {
@@ -77,13 +73,9 @@ const PortalTelemarketingWhatsApp = () => {
   };
 
   const { context, operatorPhoto } = getContext();
-  const isSupervisor = context?.cargo ? isSupervisorCargo(context.cargo) : false;
+  const isSupervisor = context?.cargo === SUPERVISOR_CARGO;
 
-  // Pegar lead da URL se existir
-  const searchParams = new URLSearchParams(location.search);
-  const leadIdFromUrl = searchParams.get('lead');
-
-  // Validar contexto de forma mais simples e rápida
+  // Validar que o bitrix_id existe na tabela telemarketing_operators
   useEffect(() => {
     const validateContext = async () => {
       if (!context) {
@@ -93,17 +85,11 @@ const PortalTelemarketingWhatsApp = () => {
       }
 
       try {
-        // Usar timeout para evitar travamento
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-
         const { data, error } = await supabase
           .from('telemarketing_operators')
           .select('bitrix_id')
           .eq('bitrix_id', context.bitrix_id)
           .maybeSingle();
-
-        clearTimeout(timeoutId);
 
         if (error || !data) {
           console.warn('[WhatsApp] Contexto inválido - operador não encontrado:', context.bitrix_id);
@@ -114,9 +100,8 @@ const PortalTelemarketingWhatsApp = () => {
           setIsValidContext(true);
         }
       } catch (e) {
-        // Se der erro (timeout ou outro), assumir válido para não bloquear
-        console.warn('[WhatsApp] Erro ao validar contexto, assumindo válido:', e);
-        setIsValidContext(true);
+        console.error('[WhatsApp] Erro ao validar contexto:', e);
+        setIsValidContext(false);
       } finally {
         setIsValidatingContext(false);
       }
@@ -134,45 +119,15 @@ const PortalTelemarketingWhatsApp = () => {
 
   const {
     conversations,
-    totalLoaded,
     isLoading,
     searchQuery,
     setSearchQuery,
-    loadMore,
-    hasNextPage,
-    isFetchingNextPage,
   } = useTelemarketingConversations({
     bitrixTelemarketingId: context?.bitrix_id || 0,
     cargo: context?.cargo,
     commercialProjectId: context?.commercial_project_id,
     teamOperatorIds: isSupervisor ? teamOperatorIds : undefined,
-    selectedAgentFilter: isSupervisor ? selectedAgentFilter : undefined,
   });
-
-  // Scroll infinito
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    
-    const { scrollTop, scrollHeight, clientHeight } = el;
-    if (scrollHeight - scrollTop - clientHeight < 200) {
-      loadMore();
-    }
-  }, [loadMore]);
-
-  // Auto-selecionar conversa se lead veio da URL
-  useEffect(() => {
-    if (leadIdFromUrl && conversations.length > 0 && !selectedConversation) {
-      // Tentar encontrar por lead_id OU bitrix_id (que pode ser o leadId como string)
-      const found = conversations.find(c => 
-        c.lead_id === parseInt(leadIdFromUrl, 10) || 
-        c.bitrix_id === leadIdFromUrl
-      );
-      if (found) {
-        setSelectedConversation(found);
-      }
-    }
-  }, [leadIdFromUrl, conversations, selectedConversation]);
 
   // Mostrar loading enquanto valida
   if (isValidatingContext) {
@@ -248,8 +203,8 @@ const PortalTelemarketingWhatsApp = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Lista de Conversas */}
         <div className="w-80 border-r bg-card flex flex-col">
-          {/* Search & Agent Filter */}
-          <div className="p-3 border-b space-y-2">
+          {/* Search */}
+          <div className="p-3 border-b">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -259,142 +214,79 @@ const PortalTelemarketingWhatsApp = () => {
                 className="pl-9"
               />
             </div>
-            
-            {/* Filtro por agente - apenas para supervisores */}
-            {isSupervisor && supervisorTeam?.agents && supervisorTeam.agents.length > 0 && (
-              <Select 
-                value={String(selectedAgentFilter)} 
-                onValueChange={(v) => setSelectedAgentFilter(v === 'all' ? 'all' : parseInt(v))}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <Users className="w-3 h-3 mr-1.5 text-muted-foreground" />
-                  <SelectValue placeholder="Filtrar por agente" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os agentes</SelectItem>
-                  {supervisorTeam.agents.map(agent => (
-                    <SelectItem 
-                      key={agent.bitrix_telemarketing_id} 
-                      value={String(agent.bitrix_telemarketing_id)}
-                    >
-                      {agent.bitrix_telemarketing_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          </div>
+
+          {/* Lista */}
+          <div className="flex-1 overflow-y-auto">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
+                <MessageSquare className="w-8 h-8 mb-2 opacity-50" />
+                <p>Nenhuma conversa encontrada</p>
+              </div>
+            ) : (
+              conversations.map((conv) => (
+                <div
+                  key={conv.lead_id}
+                  onClick={() => setSelectedConversation(conv)}
+                  className={`p-3 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
+                    selectedConversation?.lead_id === conv.lead_id ? 'bg-muted' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Avatar */}
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {conv.photo_url ? (
+                        <img 
+                          src={conv.photo_url} 
+                          alt={conv.lead_name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-5 h-5 text-primary" />
+                      )}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium text-sm truncate">{conv.lead_name}</p>
+                        {conv.last_message_at && (
+                          <span className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: ptBR })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground truncate">
+                            {conv.last_message_preview || conv.phone_number || 'Sem telefone'}
+                          </p>
+                          {isSupervisor && conv.telemarketing_name && (
+                            <p className="text-[10px] text-purple-500 truncate">
+                              Agente: {conv.telemarketing_name}
+                            </p>
+                          )}
+                        </div>
+                        {conv.unread_count > 0 && (
+                          <Badge variant="default" className="ml-2 h-5 min-w-5 text-xs">
+                            {conv.unread_count}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
             )}
           </div>
 
-          {/* Lista com ScrollArea minimalista */}
-          <ScrollArea className="flex-1">
-            <div 
-              ref={scrollRef} 
-              onScroll={handleScroll}
-              className="h-full"
-            >
-              {isLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : conversations.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
-                  <MessageSquare className="w-8 h-8 mb-2 opacity-50" />
-                  <p>Nenhuma conversa encontrada</p>
-                </div>
-              ) : (
-                <>
-                  {conversations.map((conv) => {
-                    // Usar bitrix_id || phone_number como chave estável (lead_id pode ser 0)
-                    const convKey = conv.bitrix_id || conv.phone_number;
-                    const isSelected = selectedConversation?.bitrix_id === conv.bitrix_id || 
-                                       selectedConversation?.phone_number === conv.phone_number;
-                    
-                    const photoUrl = getLeadPhotoUrl(conv.photo_url);
-                    const isPlaceholder = photoUrl.includes('no-photo-placeholder');
-                    const convInitials = conv.lead_name
-                      .split(' ')
-                      .map(n => n[0])
-                      .slice(0, 2)
-                      .join('')
-                      .toUpperCase();
-
-                    return (
-                      <div
-                        key={convKey}
-                        onClick={() => setSelectedConversation(conv)}
-                        className={`p-3 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
-                          isSelected ? 'bg-muted' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {/* Avatar com iniciais ou foto */}
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {!isPlaceholder ? (
-                              <img 
-                                src={photoUrl} 
-                                alt={conv.lead_name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-xs font-bold text-primary">{convInitials}</span>
-                            )}
-                          </div>
-                          
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium text-sm truncate">{conv.lead_name}</p>
-                              {conv.last_message_at && (
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: ptBR })}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {conv.last_message_preview || conv.phone_number || 'Sem telefone'}
-                                </p>
-                                {isSupervisor && (
-                                  <p className="text-[10px] text-purple-500 truncate">
-                                    Agente: {conv.telemarketing_name || 'Sem agente'}
-                                  </p>
-                                )}
-                              </div>
-                              {conv.unread_count > 0 && (
-                                <Badge variant="default" className="ml-2 h-5 min-w-5 text-xs">
-                                  {conv.unread_count}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  
-                  {/* Loading more indicator */}
-                  {isFetchingNextPage && (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                    </div>
-                  )}
-                  
-                  {/* Load more hint */}
-                  {hasNextPage && !isFetchingNextPage && (
-                    <div className="text-center py-2 text-xs text-muted-foreground">
-                      Role para carregar mais
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </ScrollArea>
-
           {/* Footer com contagem */}
           <div className="p-2 border-t text-xs text-muted-foreground text-center">
-            {conversations.length} de {totalLoaded} conversa{totalLoaded !== 1 ? 's' : ''}
-            {hasNextPage && ' (mais disponíveis)'}
+            {conversations.length} conversa{conversations.length !== 1 ? 's' : ''}
           </div>
         </div>
 
@@ -404,14 +296,11 @@ const PortalTelemarketingWhatsApp = () => {
             <WhatsAppChatContainer
               bitrixId={selectedConversation.bitrix_id}
               phoneNumber={selectedConversation.phone_number}
-              leadId={selectedConversation.lead_id}
               contactName={selectedConversation.lead_name}
               onClose={() => setSelectedConversation(null)}
               variant="fullscreen"
               commercialProjectId={context?.commercial_project_id}
               conversationId={selectedConversation.conversation_id}
-              operatorBitrixId={context?.bitrix_id}
-              teamOperatorIds={isSupervisor ? teamOperatorIds : undefined}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">

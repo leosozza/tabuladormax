@@ -12,7 +12,7 @@ import {
   MessageSquare,
   MessageCircle
 } from 'lucide-react';
-import { TelemarketingOperatorData, isSupervisorCargo } from './TelemarketingAccessKeyForm';
+import { TelemarketingOperatorData, SUPERVISOR_CARGO } from './TelemarketingAccessKeyForm';
 import { ThemeSelector } from './ThemeSelector';
 
 interface TelemarketingPortalLayoutProps {
@@ -22,7 +22,7 @@ interface TelemarketingPortalLayoutProps {
 
 export const TelemarketingPortalLayout = ({ operatorData, onLogout }: TelemarketingPortalLayoutProps) => {
   const navigate = useNavigate();
-  const isSupervisor = isSupervisorCargo(operatorData.cargo);
+  const isSupervisor = operatorData.cargo === SUPERVISOR_CARGO;
   const initials = operatorData.operator_name
     .split(' ')
     .map(n => n[0])
@@ -251,7 +251,7 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
                 <h3 className="font-medium">Seu acesso</h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   ID Bitrix: {operatorData.bitrix_id} • 
-                  Cargo: {isSupervisor ? 'Supervisor' : 'Agente'}
+                  Cargo: {operatorData.cargo === SUPERVISOR_CARGO ? 'Supervisor' : 'Agente'}
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
                   {isSupervisor 

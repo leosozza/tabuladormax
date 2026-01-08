@@ -8,17 +8,7 @@ import { toast } from 'sonner';
 
 // Constantes de cargo do Bitrix
 export const SUPERVISOR_CARGO = '10620';
-export const SUPERVISOR_ADJUNTO_CARGO = '10626';
-export const CONTROL_DESK_CARGO = '10627'; // Control Desk
 export const AGENT_CARGO = '10618';
-
-// Lista de cargos com acesso de supervisão (vê equipe completa)
-export const SUPERVISION_CARGOS = [SUPERVISOR_CARGO, SUPERVISOR_ADJUNTO_CARGO, CONTROL_DESK_CARGO];
-
-// Verifica se o cargo tem privilégios de supervisão
-export const isSupervisorCargo = (cargo: string): boolean => {
-  return SUPERVISION_CARGOS.includes(cargo);
-};
 
 export interface TelemarketingOperatorData {
   operator_id: string;
@@ -31,7 +21,7 @@ export interface TelemarketingOperatorData {
 
 // Mapeia cargo do Bitrix para role do sistema
 const mapCargoToRole = (cargo: string): 'supervisor' | 'agent' => {
-  return isSupervisorCargo(cargo) ? 'supervisor' : 'agent';
+  return cargo === SUPERVISOR_CARGO ? 'supervisor' : 'agent';
 };
 
 interface TelemarketingAccessKeyFormProps {
@@ -161,10 +151,10 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
 
       const operatorData = data[0] as TelemarketingOperatorData;
       
-      // Perform Supabase Auth login/signup (opcional - melhora segurança mas não bloqueia)
+      // Perform Supabase Auth login/signup
       const authSuccess = await performSupabaseAuth(operatorData.bitrix_id, accessKey.trim());
       
-      // Sincronizar role do usuário baseado no cargo (se auth funcionou)
+      // Sincronizar role do usuário baseado no cargo
       if (authSuccess) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {

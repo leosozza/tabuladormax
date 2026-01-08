@@ -12,7 +12,7 @@ import { ApexLineChart } from '@/components/dashboard/charts/ApexLineChart';
 import { useTelemarketingMetrics, PeriodFilter } from '@/hooks/useTelemarketingMetrics';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { isSupervisorCargo } from './TelemarketingAccessKeyForm';
+import { SUPERVISOR_CARGO } from './TelemarketingAccessKeyForm';
 import { LeadsDetailModal, KpiType } from './LeadsDetailModal';
 import { ShareReportModal } from './ShareReportModal';
 import { AgendamentosPorDataModal } from './AgendamentosPorDataModal';
@@ -60,7 +60,7 @@ export function TelemarketingDashboardContent({
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [comparecimentosPeriod, setComparecimentosPeriod] = useState<ComparecimentosPeriod>('today');
   
-  const isSupervisor = operatorCargo ? isSupervisorCargo(operatorCargo) : false;
+  const isSupervisor = operatorCargo === SUPERVISOR_CARGO;
   
   // Hook para buscar equipe do supervisor (apenas agentes sob supervisão direta)
   const { data: supervisorTeam } = useSupervisorTeam(

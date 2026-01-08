@@ -2,9 +2,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Calendar, User, MessageCircle, ClipboardList } from 'lucide-react';
+import { Calendar, User, Phone } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useNavigate } from 'react-router-dom';
 
 export interface AgendamentoPorData {
   data: string;
@@ -26,13 +25,7 @@ interface AgendamentosPorDataModalProps {
   totalAgendamentos: number;
 }
 
-function ModalContent({ 
-  agendamentos,
-  onNavigate 
-}: { 
-  agendamentos: AgendamentoPorData[];
-  onNavigate: (path: string) => void;
-}) {
+function ModalContent({ agendamentos }: { agendamentos: AgendamentoPorData[] }) {
   if (agendamentos.length === 0) {
     return (
       <p className="text-muted-foreground text-center py-8">
@@ -69,41 +62,18 @@ function ModalContent({
                     <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <span className="font-medium text-sm truncate">{lead.name}</span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      {lead.scouter && (
-                        <span className="text-teal-600 dark:text-teal-400">
-                          Scouter: {lead.scouter}
-                        </span>
-                      )}
-                      {lead.telemarketing && (
-                        <span className="text-purple-600 dark:text-purple-400">
-                          TM: {lead.telemarketing}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onNavigate(`/portal-telemarketing/whatsapp?lead=${lead.id}`);
-                        }}
-                        className="p-1.5 rounded-full hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
-                        title="Abrir conversa WhatsApp"
-                      >
-                        <MessageCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onNavigate(`/portal-telemarketing/tabulador?lead=${lead.id}`);
-                        }}
-                        className="p-1.5 rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
-                        title="Abrir tabulador"
-                      >
-                        <ClipboardList className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                      </button>
-                    </div>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {lead.scouter && (
+                      <span className="text-teal-600 dark:text-teal-400">
+                        Scouter: {lead.scouter}
+                      </span>
+                    )}
+                    {lead.telemarketing && (
+                      <span className="flex items-center gap-1">
+                        <Phone className="w-3 h-3" />
+                        {lead.telemarketing}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -122,12 +92,6 @@ export function AgendamentosPorDataModal({
   totalAgendamentos,
 }: AgendamentosPorDataModalProps) {
   const isMobile = useIsMobile();
-  const navigate = useNavigate();
-
-  const handleNavigate = (path: string) => {
-    onOpenChange(false);
-    navigate(path);
-  };
 
   const title = (
     <div className="flex items-center gap-2">
@@ -144,7 +108,7 @@ export function AgendamentosPorDataModal({
             <DrawerTitle>{title}</DrawerTitle>
           </DrawerHeader>
           <div className="px-4 pb-6 overflow-y-auto">
-            <ModalContent agendamentos={agendamentos} onNavigate={handleNavigate} />
+            <ModalContent agendamentos={agendamentos} />
           </div>
         </DrawerContent>
       </Drawer>
@@ -157,7 +121,7 @@ export function AgendamentosPorDataModal({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <ModalContent agendamentos={agendamentos} onNavigate={handleNavigate} />
+        <ModalContent agendamentos={agendamentos} />
       </DialogContent>
     </Dialog>
   );

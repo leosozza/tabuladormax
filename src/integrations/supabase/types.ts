@@ -4610,10 +4610,6 @@ export type Database = {
         Args: { _route_path: string; _user_id: string }
         Returns: boolean
       }
-      can_access_whatsapp_message: {
-        Args: { message_bitrix_id: string; message_phone: string }
-        Returns: boolean
-      }
       check_leads_duplicates: {
         Args: {
           p_days_back?: number
@@ -4792,18 +4788,6 @@ export type Database = {
           total_leads: number
         }[]
       }
-      get_filtered_leads_count: {
-        Args: {
-          p_end_date?: string
-          p_fonte?: string
-          p_project_id?: string
-          p_scouter?: string
-          p_search_term?: string
-          p_start_date?: string
-          p_with_photo?: boolean
-        }
-        Returns: number
-      }
       get_general_stats: {
         Args: never
         Returns: {
@@ -4943,16 +4927,6 @@ export type Database = {
         }
         Returns: {
           fonte_normalizada: string
-        }[]
-      }
-      get_operator_whatsapp_messages: {
-        Args: { p_operator_bitrix_id: number; p_phone_numbers: string[] }
-        Returns: {
-          last_message_at: string
-          last_message_content: string
-          last_message_direction: string
-          phone_number: string
-          total_messages: number
         }[]
       }
       get_or_create_private_conversation: {
@@ -5209,49 +5183,6 @@ export type Database = {
           is_nullable: string
         }[]
       }
-      get_telemarketing_conversations:
-        | {
-            Args: {
-              p_limit?: number
-              p_offset?: number
-              p_operator_bitrix_id?: number
-              p_search?: string
-              p_team_operator_ids?: number[]
-            }
-            Returns: {
-              bitrix_id: string
-              conversation_id: number
-              last_message_at: string
-              last_message_preview: string
-              lead_id: number
-              lead_name: string
-              phone_number: string
-              photo_url: string
-              telemarketing_name: string
-              unread_count: number
-              window_open: boolean
-            }[]
-          }
-        | {
-            Args: {
-              p_limit?: number
-              p_operator_bitrix_id: number
-              p_search?: string
-              p_team_operator_ids?: number[]
-            }
-            Returns: {
-              bitrix_id: string
-              last_message_at: string
-              last_message_preview: string
-              lead_id: number
-              lead_name: string
-              phone_number: string
-              photo_url: string
-              telemarketing_name: string
-              unread_count: number
-              window_open: boolean
-            }[]
-          }
       get_telemarketing_metrics:
         | {
             Args: {
@@ -5269,54 +5200,6 @@ export type Database = {
               p_start_date: string
             }
             Returns: Json
-          }
-      get_telemarketing_whatsapp_messages:
-        | {
-            Args: {
-              p_lead_id?: number
-              p_limit?: number
-              p_offset?: number
-              p_phone_number?: string
-            }
-            Returns: {
-              bitrix_id: string
-              content: string
-              created_at: string
-              direction: string
-              gupshup_message_id: string
-              id: string
-              media_type: string
-              media_url: string
-              phone_number: string
-              read_at: string
-              sender_name: string
-              status: string
-            }[]
-          }
-        | {
-            Args: {
-              p_lead_id?: number
-              p_limit?: number
-              p_operator_bitrix_id?: number
-              p_phone_number?: string
-              p_team_operator_ids?: number[]
-            }
-            Returns: {
-              bitrix_id: string
-              content: string
-              created_at: string
-              direction: string
-              gupshup_message_id: string
-              id: string
-              media_type: string
-              media_url: string
-              message_type: string
-              metadata: Json
-              phone_number: string
-              read_at: string
-              status: string
-              template_name: string
-            }[]
           }
       get_top_active_numbers: {
         Args: { p_limit?: number }
@@ -5383,14 +5266,6 @@ export type Database = {
       map_bitrix_stage_to_status: {
         Args: { stage_id: string }
         Returns: string
-      }
-      mark_telemarketing_whatsapp_messages_read: {
-        Args: {
-          p_message_ids: string[]
-          p_operator_bitrix_id: number
-          p_team_operator_ids?: number[]
-        }
-        Returns: number
       }
       normalize_etapa: { Args: { raw_etapa: string }; Returns: string }
       normalize_etapa_single_batch: {
