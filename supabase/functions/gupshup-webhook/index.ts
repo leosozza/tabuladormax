@@ -1024,27 +1024,29 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
     .eq('gupshup_message_id', messageId)
     .maybeSingle();
 
-  // 📝 Se NÃO existir pelo messageId, tentar encontrar mensagem PENDENTE pelo telefone
+  // 📝 Se NÃO existir pelo messageId, tentar encontrar mensagem recente sem gupshup_message_id
   if (!existingMessage && (statusType === 'sent' || statusType === 'delivered' || statusType === 'read' || statusType === 'failed')) {
-    console.log(`📝 Mensagem não encontrada por ID, buscando pendente por telefone: ${destination}`);
+    console.log(`📝 Mensagem não encontrada por ID, buscando recente sem vinculação para: ${destination}`);
     
-    // Buscar mensagem pendente criada nos últimos 5 minutos para este telefone
+    // Buscar mensagem outbound criada nos últimos 5 minutos para este telefone
+    // que ainda não tenha gupshup_message_id (pode ter status 'pending' ou 'sent')
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     
     const { data: pendingMessage } = await supabase
       .from('whatsapp_messages')
-      .select('id, content, template_name, bitrix_id, conversation_id, metadata')
+      .select('id, content, template_name, bitrix_id, conversation_id, metadata, status')
       .eq('phone_number', destination)
       .eq('direction', 'outbound')
-      .eq('status', 'pending')
+      .is('gupshup_message_id', null)
+      .in('status', ['pending', 'sent'])
       .gte('created_at', fiveMinutesAgo)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     
     if (pendingMessage) {
-      // ✅ ENCONTROU! Atualizar a mensagem pendente com o status real e gupshup_message_id
-      console.log(`✅ Mensagem pendente encontrada (ID: ${pendingMessage.id}), atualizando com status: ${statusType}`);
+      // ✅ ENCONTROU! Atualizar a mensagem com o gupshup_message_id e status real
+      console.log(`✅ Mensagem recente encontrada (ID: ${pendingMessage.id}, status atual: ${pendingMessage.status}), vinculando com gupshup_message_id e atualizando status: ${statusType}`);
       
       const updateData: any = {
         gupshup_message_id: messageId,
@@ -1052,7 +1054,8 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
         metadata: {
           ...(pendingMessage.metadata || {}),
           gupshup_callback: payload,
-          status_updated_at: new Date().toISOString()
+          status_updated_at: new Date().toISOString(),
+          original_status: pendingMessage.status
         }
       };
       
@@ -1073,9 +1076,9 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
         .eq('id', pendingMessage.id);
       
       if (updateError) {
-        console.error('❌ Erro ao atualizar mensagem pendente:', updateError);
+        console.error('❌ Erro ao atualizar mensagem:', updateError);
       } else {
-        console.log(`✅ Mensagem pendente atualizada: ${statusType} (template: ${pendingMessage.template_name})`);
+        console.log(`✅ Mensagem vinculada e atualizada: ${statusType} (template: ${pendingMessage.template_name})`);
       }
       return;
     }
