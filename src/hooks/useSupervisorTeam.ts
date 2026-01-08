@@ -18,9 +18,16 @@ export interface SupervisorTeamData {
   projectCode: string | null;
 }
 
-export function useSupervisorTeam(commercialProjectId: string | null, supervisorBitrixId: number | null) {
+// Cargos que precisam herdar equipe do supervisor principal
+const ADJUNTO_CARGOS = ['10626']; // Supervisor Adjunto
+
+export function useSupervisorTeam(
+  commercialProjectId: string | null, 
+  supervisorBitrixId: number | null,
+  operatorCargo?: string
+) {
   return useQuery({
-    queryKey: ['supervisor-team', commercialProjectId, supervisorBitrixId],
+    queryKey: ['supervisor-team', commercialProjectId, supervisorBitrixId, operatorCargo],
     // Apenas precisa do bitrix_id do supervisor - projectId é opcional
     enabled: !!supervisorBitrixId,
     queryFn: async (): Promise<SupervisorTeamData> => {
@@ -44,15 +51,38 @@ export function useSupervisorTeam(commercialProjectId: string | null, supervisor
         }
       }
 
-      // Buscar o tabuladormax_user_id do supervisor pelo bitrix_id
-      const { data: supervisorMapping, error: supervisorError } = await supabase
+      // Buscar o mapping do operador atual
+      const { data: currentMapping, error: currentError } = await supabase
         .from('agent_telemarketing_mapping')
-        .select('tabuladormax_user_id')
+        .select('tabuladormax_user_id, supervisor_id')
         .eq('bitrix_telemarketing_id', supervisorBitrixId)
         .single();
 
-      if (supervisorError || !supervisorMapping?.tabuladormax_user_id) {
-        console.error('Erro ao buscar mapping do supervisor:', supervisorError);
+      if (currentError || !currentMapping) {
+        console.error('Erro ao buscar mapping do operador:', currentError);
+        return {
+          agents: [],
+          projectId: projectData?.id || null,
+          projectName: projectData?.name || null,
+          projectCode: projectData?.code || null,
+        };
+      }
+
+      // Determinar qual supervisor_id usar para buscar a equipe
+      let supervisorUuid: string | null = null;
+
+      if (operatorCargo && ADJUNTO_CARGOS.includes(operatorCargo)) {
+        // Supervisor Adjunto: herdar a equipe do supervisor principal
+        // O supervisor_id do adjunto aponta para o supervisor principal
+        supervisorUuid = currentMapping.supervisor_id;
+        console.log('[useSupervisorTeam] Supervisor Adjunto - herdando equipe do supervisor:', supervisorUuid);
+      } else {
+        // Supervisor principal: usar próprio tabuladormax_user_id
+        supervisorUuid = currentMapping.tabuladormax_user_id;
+      }
+
+      if (!supervisorUuid) {
+        console.error('Não foi possível determinar o supervisor_id para buscar agentes');
         return {
           agents: [],
           projectId: projectData?.id || null,
@@ -65,7 +95,7 @@ export function useSupervisorTeam(commercialProjectId: string | null, supervisor
       let agentsQuery = supabase
         .from('agent_telemarketing_mapping')
         .select('*')
-        .eq('supervisor_id', supervisorMapping.tabuladormax_user_id)
+        .eq('supervisor_id', supervisorUuid)
         .order('bitrix_telemarketing_name');
 
       // Se tem projectId, filtra também por projeto para não misturar equipes
