@@ -82,6 +82,7 @@ import PortalTelemarketingDashboard from "./pages/portal-telemarketing/PortalTel
 import PortalTelemarketingWhatsApp from "./pages/portal-telemarketing/PortalTelemarketingWhatsApp";
 import PortalTelemarketingEquipe from "./pages/portal-telemarketing/PortalTelemarketingEquipe";
 import MaxTalk from "./pages/portal-telemarketing/MaxTalk";
+import BulkFlowSend from "./pages/portal-telemarketing/BulkFlowSend";
 
 // Telemarketing Report Public Page
 import TelemarketingReportPublic from "./pages/TelemarketingReportPublic";
@@ -124,6 +125,7 @@ const App = () => (
           <Route path="/portal-telemarketing/whatsapp" element={<PortalTelemarketingWhatsApp />} />
           <Route path="/portal-telemarketing/equipe" element={<PortalTelemarketingEquipe />} />
           <Route path="/portal-telemarketing/maxtalk" element={<MaxTalk />} />
+          <Route path="/portal-telemarketing/envio-lote" element={<BulkFlowSend />} />
           <Route path="/relatorio/:shortCode" element={<TelemarketingReportPublic />} />
 
           {/* Rotas PROTEGIDAS - com sidebar persistente */}
