@@ -353,24 +353,55 @@ export function ScouterLeadsModal({
     return null;
   };
 
-  // Traduzir erros de template WhatsApp para português
+  // Traduzir erros de template WhatsApp para português com mensagens mais descritivas
   const translateTemplateError = (reason: string | null): string => {
     if (!reason) return 'Erro no envio';
     
-    const errorMap: Record<string, string> = {
-      'low balance': 'Saldo insuficiente',
-      'message undeliverable': 'Não entregue',
-      'invalid phone': 'Telefone inválido',
-      'blocked': 'Número bloqueado',
-      'rate limit': 'Limite excedido',
-      'expired': 'Expirado',
-      'failed': 'Falhou',
-    };
-
     const lowerReason = reason.toLowerCase();
-    for (const [key, value] of Object.entries(errorMap)) {
-      if (lowerReason.includes(key)) {
-        return value;
+    
+    // Mapeamento detalhado com prioridade (primeiro match ganha)
+    const errorPatterns: Array<{ pattern: string; message: string }> = [
+      // Saldo
+      { pattern: 'low balance', message: 'Saldo insuficiente' },
+      { pattern: 'insufficient balance', message: 'Saldo insuficiente' },
+      { pattern: 'balance', message: 'Saldo insuficiente' },
+      
+      // Número sem WhatsApp
+      { pattern: 'not a valid whatsapp', message: 'Número sem WhatsApp' },
+      { pattern: 'not on whatsapp', message: 'Número sem WhatsApp' },
+      { pattern: 'invalid whatsapp', message: 'Número sem WhatsApp' },
+      { pattern: 'recipient not found', message: 'Número sem WhatsApp' },
+      { pattern: 'user not found', message: 'Número sem WhatsApp' },
+      { pattern: 'no whatsapp', message: 'Número sem WhatsApp' },
+      
+      // Mensagem não entregue (pode ser sem WhatsApp ou bloqueado)
+      { pattern: 'message undeliverable', message: 'Sem WhatsApp ou bloqueado' },
+      { pattern: 'undeliverable', message: 'Sem WhatsApp ou bloqueado' },
+      
+      // Bloqueios
+      { pattern: 'blocked', message: 'Bloqueado para receber' },
+      { pattern: 'spam', message: 'Bloqueado por spam' },
+      { pattern: 'opt out', message: 'Usuário optou por não receber' },
+      { pattern: 'opted out', message: 'Usuário optou por não receber' },
+      
+      // Número inválido
+      { pattern: 'invalid phone', message: 'Telefone inválido' },
+      { pattern: 'invalid number', message: 'Número inválido' },
+      { pattern: 'invalid', message: 'Número inválido' },
+      
+      // Limites e expiração
+      { pattern: 'rate limit', message: 'Limite de envio excedido' },
+      { pattern: 'template not found', message: 'Template não encontrado' },
+      { pattern: 'expired', message: 'Mensagem expirada' },
+      { pattern: 'timeout', message: 'Tempo esgotado' },
+      
+      // Falha genérica
+      { pattern: 'failed', message: 'Falha no envio' },
+    ];
+
+    for (const { pattern, message } of errorPatterns) {
+      if (lowerReason.includes(pattern)) {
+        return message;
       }
     }
 
