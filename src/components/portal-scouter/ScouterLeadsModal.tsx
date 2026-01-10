@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X, Check, MessageCircle, AlertCircle } from "lucide-react";
 import { getLeadPhotoUrl, needsPhotoSync } from '@/lib/leadPhotoUtils';
 import noPhotoPlaceholder from '@/assets/no-photo-placeholder.png';
 import { toast } from "sonner";
@@ -41,6 +41,8 @@ interface LeadData {
   photo_url: string | null;
   phone_normalized: string | null;
   ficha_confirmada: boolean | null;
+  template_status: string | null;
+  template_error_reason: string | null;
   // Campos de duplicado (preenchidos após verificação)
   has_duplicate?: boolean;
   is_duplicate_deleted?: boolean;
@@ -351,6 +353,69 @@ export function ScouterLeadsModal({
     return null;
   };
 
+  // Traduzir erros de template WhatsApp para português
+  const translateTemplateError = (reason: string | null): string => {
+    if (!reason) return 'Erro no envio';
+    
+    const errorMap: Record<string, string> = {
+      'low balance': 'Saldo insuficiente',
+      'message undeliverable': 'Não entregue',
+      'invalid phone': 'Telefone inválido',
+      'blocked': 'Número bloqueado',
+      'rate limit': 'Limite excedido',
+      'expired': 'Expirado',
+      'failed': 'Falhou',
+    };
+
+    const lowerReason = reason.toLowerCase();
+    for (const [key, value] of Object.entries(errorMap)) {
+      if (lowerReason.includes(key)) {
+        return value;
+      }
+    }
+
+    return 'Erro no envio';
+  };
+
+  const renderTemplateBadge = (lead: LeadData) => {
+    if (!lead.template_status) {
+      return null; // Nenhum template enviado ainda
+    }
+
+    // Template lido ou entregue = sucesso
+    if (lead.template_status === 'read' || lead.template_status === 'delivered') {
+      return (
+        <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs whitespace-nowrap">
+          <MessageCircle className="h-3 w-3 mr-1" />
+          WhatsApp Enviado
+        </Badge>
+      );
+    }
+
+    // Template falhou
+    if (lead.template_status === 'failed') {
+      const errorMessage = translateTemplateError(lead.template_error_reason);
+      return (
+        <Badge variant="destructive" className="text-xs whitespace-nowrap">
+          <AlertCircle className="h-3 w-3 mr-1" />
+          {errorMessage}
+        </Badge>
+      );
+    }
+
+    // Template enviado mas aguardando confirmação
+    if (lead.template_status === 'sent') {
+      return (
+        <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs whitespace-nowrap">
+          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+          Aguardando
+        </Badge>
+      );
+    }
+
+    return null;
+  };
+
   // Formatar endereço para exibição resumida
   const formatAddress = (fullAddress: string | null): string => {
     if (!fullAddress) return '-';
@@ -611,7 +676,8 @@ export function ScouterLeadsModal({
                         <Hash className="h-3 w-3" />
                         <span className="font-mono">{lead.lead_id}</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {renderTemplateBadge(lead)}
                         {renderPhotoBadge(lead)}
                         {renderConfirmadoBadge(lead)}
                         {renderDuplicateBadge(lead)}
@@ -688,6 +754,7 @@ export function ScouterLeadsModal({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 flex-wrap">
+                          {renderTemplateBadge(lead)}
                           {renderPhotoBadge(lead)}
                           {renderConfirmadoBadge(lead)}
                           {renderDuplicateBadge(lead)}

@@ -5085,6 +5085,8 @@ export type Database = {
           nome_responsavel: string
           phone_normalized: string
           photo_url: string
+          template_error_reason: string
+          template_status: string
         }[]
       }
       get_scouter_location_stats: { Args: never; Returns: Json }
