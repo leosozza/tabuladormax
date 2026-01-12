@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X, Check, MessageCircle, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X, Check, MessageCircle, AlertCircle, History } from "lucide-react";
 import { getLeadPhotoUrl, needsPhotoSync } from '@/lib/leadPhotoUtils';
 import noPhotoPlaceholder from '@/assets/no-photo-placeholder.png';
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { Progress } from "@/components/ui/progress";
 import { LeadActions } from "./LeadActions";
 import { LeadEditModal } from "./LeadEditModal";
+import { TemplateHistoryPopover } from "./TemplateHistoryPopover";
 
 interface ScouterLeadsModalProps {
   isOpen: boolean;
@@ -414,9 +415,30 @@ export function ScouterLeadsModal({
       return null; // Nenhum template enviado ainda
     }
 
+    const sendCount = lead.template_send_count || 0;
+    
+    // Wrapper com histórico (se houver pelo menos 1 envio)
+    const wrapWithHistory = (badge: React.ReactNode) => {
+      if (sendCount === 0) return badge;
+      
+      return (
+        <TemplateHistoryPopover leadId={lead.lead_id}>
+          <div className="inline-flex items-center gap-1 cursor-pointer group">
+            {badge}
+            {sendCount > 1 && (
+              <span className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors">
+                <History className="h-3 w-3 inline" />
+                {sendCount}
+              </span>
+            )}
+          </div>
+        </TemplateHistoryPopover>
+      );
+    };
+
     // Template lido ou entregue = sucesso
     if (lead.template_status === 'read' || lead.template_status === 'delivered') {
-      return (
+      return wrapWithHistory(
         <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs whitespace-nowrap">
           <MessageCircle className="h-3 w-3 mr-1" />
           WhatsApp Enviado
@@ -427,11 +449,10 @@ export function ScouterLeadsModal({
     // Template falhou
     if (lead.template_status === 'failed') {
       const errorMessage = translateTemplateError(lead.template_error_reason);
-      const sendCount = lead.template_send_count || 0;
       
       // Se já atingiu limite de reenvio (2 tentativas)
       if (sendCount >= 2) {
-        return (
+        return wrapWithHistory(
           <Badge variant="destructive" className="text-xs whitespace-nowrap">
             <AlertCircle className="h-3 w-3 mr-1" />
             {errorMessage} (limite)
@@ -439,7 +460,7 @@ export function ScouterLeadsModal({
         );
       }
       
-      return (
+      return wrapWithHistory(
         <Badge variant="destructive" className="text-xs whitespace-nowrap">
           <AlertCircle className="h-3 w-3 mr-1" />
           {errorMessage}
@@ -449,7 +470,7 @@ export function ScouterLeadsModal({
 
     // Template enviado mas aguardando confirmação
     if (lead.template_status === 'sent') {
-      return (
+      return wrapWithHistory(
         <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs whitespace-nowrap">
           <Loader2 className="h-3 w-3 mr-1 animate-spin" />
           Aguardando
