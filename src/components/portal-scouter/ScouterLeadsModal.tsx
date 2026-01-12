@@ -43,6 +43,7 @@ interface LeadData {
   ficha_confirmada: boolean | null;
   template_status: string | null;
   template_error_reason: string | null;
+  template_send_count: number | null;
   // Campos de duplicado (preenchidos após verificação)
   has_duplicate?: boolean;
   is_duplicate_deleted?: boolean;
@@ -426,6 +427,18 @@ export function ScouterLeadsModal({
     // Template falhou
     if (lead.template_status === 'failed') {
       const errorMessage = translateTemplateError(lead.template_error_reason);
+      const sendCount = lead.template_send_count || 0;
+      
+      // Se já atingiu limite de reenvio (2 tentativas)
+      if (sendCount >= 2) {
+        return (
+          <Badge variant="destructive" className="text-xs whitespace-nowrap">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            {errorMessage} (limite)
+          </Badge>
+        );
+      }
+      
       return (
         <Badge variant="destructive" className="text-xs whitespace-nowrap">
           <AlertCircle className="h-3 w-3 mr-1" />

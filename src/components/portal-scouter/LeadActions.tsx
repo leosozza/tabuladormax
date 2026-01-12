@@ -30,6 +30,8 @@ interface LeadActionsProps {
     celular: string | null;
     address: string | null;
     ficha_confirmada: boolean | null;
+    template_status: string | null;
+    template_send_count: number | null;
   };
   scouterBitrixId?: number;
   onEdit: () => void;
@@ -108,10 +110,13 @@ export function LeadActions({ lead, scouterBitrixId, onEdit, onActionComplete }:
             <Pencil className="h-4 w-4 mr-2" />
             Editar
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setIsResendDialogOpen(true)}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reenviar Confirmação
-          </DropdownMenuItem>
+          {/* Reenviar só se template falhou E ainda não atingiu limite (máx 2 envios) */}
+          {lead.template_status === 'failed' && (lead.template_send_count || 0) < 2 && (
+            <DropdownMenuItem onClick={() => setIsResendDialogOpen(true)}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reenviar Confirmação
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem 
             onClick={() => setIsDeleteDialogOpen(true)}

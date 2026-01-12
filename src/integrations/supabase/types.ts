@@ -5067,28 +5067,52 @@ export type Database = {
               nome_modelo: string
             }[]
           }
-      get_scouter_leads_simple: {
-        Args: {
-          p_date_from?: string
-          p_date_to?: string
-          p_filter_type?: string
-          p_project_id?: string
-          p_scouter_name: string
-        }
-        Returns: {
-          address: string
-          celular: string
-          criado: string
-          ficha_confirmada: boolean
-          lead_id: number
-          nome_modelo: string
-          nome_responsavel: string
-          phone_normalized: string
-          photo_url: string
-          template_error_reason: string
-          template_status: string
-        }[]
-      }
+      get_scouter_leads_simple:
+        | {
+            Args: {
+              p_date_from?: string
+              p_date_to?: string
+              p_filter_type?: string
+              p_project_id?: string
+              p_scouter_name: string
+            }
+            Returns: {
+              address: string
+              celular: string
+              criado: string
+              ficha_confirmada: boolean
+              lead_id: number
+              nome_modelo: string
+              nome_responsavel: string
+              phone_normalized: string
+              photo_url: string
+              template_error_reason: string
+              template_send_count: number
+              template_status: string
+            }[]
+          }
+        | {
+            Args: {
+              p_date_from?: string
+              p_date_to?: string
+              p_filter_type?: string
+              p_project_id?: string
+              p_scouter_name: string
+            }
+            Returns: {
+              address: string
+              celular: string
+              criado: string
+              ficha_confirmada: boolean
+              lead_id: number
+              nome_modelo: string
+              nome_responsavel: string
+              phone_normalized: string
+              photo_url: string
+              template_error_reason: string
+              template_status: string
+            }[]
+          }
       get_scouter_location_stats: { Args: never; Returns: Json }
       get_scouter_performance_data: {
         Args: {
