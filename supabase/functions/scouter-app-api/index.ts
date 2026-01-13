@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
         console.error(`[scouter-app-api] Scouter not found for bitrix_id: ${bitrixId}`);
         throw new Error("Scouter not found");
       }
-      return data.name;
+      return data.name.trim();
     };
 
     // Calculate date range based on preset
