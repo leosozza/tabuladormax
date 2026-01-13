@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X, Check, MessageCircle, AlertCircle, History, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, User, Hash, Search, CheckCircle2, ArrowUpDown, Camera, X, Check, MessageCircle, AlertCircle, History } from "lucide-react";
 import { getLeadPhotoUrl, needsPhotoSync } from '@/lib/leadPhotoUtils';
 import noPhotoPlaceholder from '@/assets/no-photo-placeholder.png';
 import { toast } from "sonner";
@@ -45,7 +45,6 @@ interface LeadData {
   template_status: string | null;
   template_error_reason: string | null;
   template_send_count: number | null;
-  total_count: number;
   // Campos de duplicado (preenchidos após verificação)
   has_duplicate?: boolean;
   is_duplicate_deleted?: boolean;
@@ -598,7 +597,7 @@ export function ScouterLeadsModal({
                       ) : checkProgress.phase === 'complete' ? (
                         <CheckCircle2 className="h-4 w-4" />
                       ) : (
-                        <Copy className="h-4 w-4" />
+                        <Search className="h-4 w-4" />
                       )}
                       <span className="hidden sm:inline">
                         {checkProgress.phase === 'complete' ? 'Verificado' : 'Verificar Duplicados'}
