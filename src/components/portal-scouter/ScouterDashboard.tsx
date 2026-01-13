@@ -148,10 +148,10 @@ export const ScouterDashboard = ({
 
   // Buscar projetos do scouter
   const { data: projects = [] } = useQuery({
-    queryKey: ['scouter-projects', scouterData.name],
+    queryKey: ['scouter-projects', scouterData.name.trim()],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_projects', {
-        p_scouter_name: scouterData.name
+        p_scouter_name: scouterData.name.trim()
       });
       if (error) throw error;
       return data || [];
@@ -160,10 +160,10 @@ export const ScouterDashboard = ({
 
   // Buscar estatísticas
   const { data: stats, isLoading, refetch } = useQuery({
-    queryKey: ['scouter-portal-stats', scouterData.name, start?.toISOString(), end?.toISOString(), projectId],
+    queryKey: ['scouter-portal-stats', scouterData.name.trim(), start?.toISOString(), end?.toISOString(), projectId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_portal_stats', {
-        p_scouter_name: scouterData.name,
+        p_scouter_name: scouterData.name.trim(),
         p_start_date: start?.toISOString() || null,
         p_end_date: end?.toISOString() || null,
         p_project_id: projectId
@@ -175,10 +175,10 @@ export const ScouterDashboard = ({
 
   // Buscar posição no ranking
   const { data: ranking } = useQuery({
-    queryKey: ['scouter-ranking', scouterData.name, start?.toISOString(), end?.toISOString()],
+    queryKey: ['scouter-ranking', scouterData.name.trim(), start?.toISOString(), end?.toISOString()],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_ranking_position', {
-        p_scouter_name: scouterData.name,
+        p_scouter_name: scouterData.name.trim(),
         p_start_date: start?.toISOString() || null,
         p_end_date: end?.toISOString() || null
       });
@@ -224,7 +224,7 @@ export const ScouterDashboard = ({
 
   const handleOpenAIAnalysis = async () => {
     setAiAnalysisOpen(true);
-    await generateAnalysis(scouterData.name, getPeriodLabel(), stats, ranking);
+    await generateAnalysis(scouterData.name.trim(), getPeriodLabel(), stats, ranking);
   };
 
   const handleCloseAIAnalysis = () => {

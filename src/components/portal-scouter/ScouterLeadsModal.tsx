@@ -85,10 +85,10 @@ export function ScouterLeadsModal({
 
   // Carregar leads filtrados por tipo de card
   const { data: leads, isLoading } = useQuery({
-    queryKey: ['scouter-leads-simple', scouterName, dateFrom, dateTo, projectId, filterType],
+    queryKey: ['scouter-leads-simple', scouterName.trim(), dateFrom, dateTo, projectId, filterType],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_leads_simple', {
-        p_scouter_name: scouterName,
+        p_scouter_name: scouterName.trim(),
         p_date_from: dateFrom?.toISOString() || null,
         p_date_to: dateTo?.toISOString() || null,
         p_project_id: projectId || null,
