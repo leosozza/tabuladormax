@@ -5083,13 +5083,17 @@ export type Database = {
         Returns: {
           address: string
           celular: string
+          compareceu: boolean
           criado: string
+          data_agendamento: string
+          etapa_funil: string
           ficha_confirmada: boolean
           lead_id: number
           nome_modelo: string
           nome_responsavel: string
           phone_normalized: string
           photo_url: string
+          projeto_comercial: string
           template_error_reason: string
           template_send_count: number
           template_status: string
@@ -5146,7 +5150,7 @@ export type Database = {
           p_scouter_name: string
         }
         Returns: {
-          position: number
+          rank_position: number
           scouter_name: string
           total_leads: number
         }[]

@@ -198,11 +198,11 @@ export const ScouterDashboard = ({
 
   const getRankingIcon = () => {
     if (!ranking) return <Trophy className="h-5 w-5 text-muted-foreground" />;
-    if (ranking.position === 1) {
+    if (ranking.rank_position === 1) {
       return <Trophy className="h-5 w-5 text-yellow-500" />;
-    } else if (ranking.position === 2) {
+    } else if (ranking.rank_position === 2) {
       return <Medal className="h-5 w-5 text-gray-400" />;
-    } else if (ranking.position === 3) {
+    } else if (ranking.rank_position === 3) {
       return <Medal className="h-5 w-5 text-amber-600" />;
     }
     return null;
@@ -226,7 +226,7 @@ export const ScouterDashboard = ({
     setAiAnalysisOpen(true);
     // Adaptar ranking para o formato esperado pela função de análise
     const rankingForAnalysis = ranking ? {
-      rank_position: ranking.position,
+      rank_position: ranking.rank_position,
       scouter_fichas: ranking.total_leads,
       total_scouters: 0
     } : undefined;
@@ -298,7 +298,7 @@ export const ScouterDashboard = ({
                   </div>
                   <div>
                     <p className="font-semibold text-lg">
-                      {ranking.position}º lugar no ranking
+                      {ranking.rank_position}º lugar no ranking
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Suas fichas: <span className="font-medium text-foreground">{ranking.total_leads}</span>
