@@ -5067,29 +5067,45 @@ export type Database = {
               nome_modelo: string
             }[]
           }
-      get_scouter_leads_simple: {
-        Args: {
-          p_date_from?: string
-          p_date_to?: string
-          p_filter_type?: string
-          p_project_id?: string
-          p_scouter_name: string
-        }
-        Returns: {
-          address: string
-          celular: string
-          criado: string
-          ficha_confirmada: boolean
-          lead_id: number
-          nome_modelo: string
-          nome_responsavel: string
-          phone_normalized: string
-          photo_url: string
-          template_error_reason: string
-          template_send_count: number
-          template_status: string
-        }[]
-      }
+      get_scouter_leads_simple:
+        | {
+            Args: {
+              p_date_from?: string
+              p_date_to?: string
+              p_filter_type?: string
+              p_project_id?: string
+              p_scouter_name: string
+            }
+            Returns: {
+              address: string
+              celular: string
+              criado: string
+              ficha_confirmada: boolean
+              lead_id: number
+              nome_modelo: string
+              nome_responsavel: string
+              phone_normalized: string
+              photo_url: string
+              template_error_reason: string
+              template_send_count: number
+              template_status: string
+            }[]
+          }
+        | {
+            Args: {
+              p_end_date?: string
+              p_filter_type?: string
+              p_limit?: number
+              p_offset?: number
+              p_project_id?: string
+              p_scouter_name: string
+              p_search?: string
+              p_sort_field?: string
+              p_sort_order?: string
+              p_start_date?: string
+            }
+            Returns: Json
+          }
       get_scouter_location_stats: { Args: never; Returns: Json }
       get_scouter_performance_data: {
         Args: {
@@ -5106,24 +5122,34 @@ export type Database = {
         Args: { p_scouter_id: string }
         Returns: Json
       }
-      get_scouter_portal_stats: {
-        Args: {
-          p_end_date?: string
-          p_project_id?: string
-          p_scouter_name: string
-          p_start_date?: string
-        }
-        Returns: {
-          agendados: number
-          com_foto: number
-          compareceram: number
-          confirmados: number
-          duplicados: number
-          pendentes: number
-          reagendar: number
-          total_leads: number
-        }[]
-      }
+      get_scouter_portal_stats:
+        | {
+            Args: {
+              p_end_date?: string
+              p_project_id?: string
+              p_scouter_name: string
+              p_start_date?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_end_date?: string
+              p_project_id?: string
+              p_scouter_name: string
+              p_start_date?: string
+            }
+            Returns: {
+              agendados: number
+              com_foto: number
+              compareceram: number
+              confirmados: number
+              duplicados: number
+              pendentes: number
+              reagendar: number
+              total_leads: number
+            }[]
+          }
       get_scouter_projects: {
         Args: { p_scouter_name: string }
         Returns: {
@@ -5133,20 +5159,30 @@ export type Database = {
           project_name: string
         }[]
       }
-      get_scouter_ranking_position: {
-        Args: {
-          p_end_date?: string
-          p_scouter_name: string
-          p_start_date?: string
-        }
-        Returns: {
-          first_place_fichas: number
-          first_place_name: string
-          rank_position: number
-          scouter_fichas: number
-          total_scouters: number
-        }[]
-      }
+      get_scouter_ranking_position:
+        | {
+            Args: {
+              p_end_date?: string
+              p_project_id?: string
+              p_scouter_name: string
+              p_start_date?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_end_date?: string
+              p_scouter_name: string
+              p_start_date?: string
+            }
+            Returns: {
+              first_place_fichas: number
+              first_place_name: string
+              rank_position: number
+              scouter_fichas: number
+              total_scouters: number
+            }[]
+          }
       get_scouter_timesheet: {
         Args: {
           p_end_date?: string
