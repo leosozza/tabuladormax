@@ -272,7 +272,6 @@ Deno.serve(async (req) => {
           p_scouter_name: scouterName,
           p_start_date: params?.start_date || dateRange.start,
           p_end_date: params?.end_date || dateRange.end,
-          p_project_id: params?.project_id || null,
         });
 
         if (error) throw error;
