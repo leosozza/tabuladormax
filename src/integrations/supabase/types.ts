@@ -5072,8 +5072,13 @@ export type Database = {
           p_date_from?: string
           p_date_to?: string
           p_filter_type?: string
+          p_limit?: number
+          p_offset?: number
           p_project_id?: string
           p_scouter_name: string
+          p_search?: string
+          p_sort_column?: string
+          p_sort_direction?: string
         }
         Returns: {
           address: string
@@ -5088,6 +5093,7 @@ export type Database = {
           template_error_reason: string
           template_send_count: number
           template_status: string
+          total_count: number
         }[]
       }
       get_scouter_location_stats: { Args: never; Returns: Json }
@@ -5108,10 +5114,10 @@ export type Database = {
       }
       get_scouter_portal_stats: {
         Args: {
-          p_end_date?: string
+          p_date_from?: string
+          p_date_to?: string
           p_project_id?: string
           p_scouter_name: string
-          p_start_date?: string
         }
         Returns: {
           agendados: number
@@ -5135,16 +5141,14 @@ export type Database = {
       }
       get_scouter_ranking_position: {
         Args: {
-          p_end_date?: string
+          p_date_from?: string
+          p_date_to?: string
           p_scouter_name: string
-          p_start_date?: string
         }
         Returns: {
-          first_place_fichas: number
-          first_place_name: string
-          rank_position: number
-          scouter_fichas: number
-          total_scouters: number
+          position: number
+          scouter_name: string
+          total_leads: number
         }[]
       }
       get_scouter_timesheet: {
