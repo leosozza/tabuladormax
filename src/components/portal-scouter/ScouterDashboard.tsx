@@ -163,10 +163,10 @@ export const ScouterDashboard = ({
     queryKey: ['scouter-portal-stats', scouterData.name, start?.toISOString(), end?.toISOString(), projectId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_portal_stats', {
-        p_scouter_name: scouterData.name,
-        p_start_date: start?.toISOString() || null,
-        p_end_date: end?.toISOString() || null,
-        p_project_id: projectId
+        p_scouter_name: scouterData.name.trim(),
+        p_date_from: start?.toISOString() || null,
+        p_date_to: end?.toISOString() || null,
+        p_project_id: projectId || null
       });
       if (error) throw error;
       return data?.[0] || null;
@@ -178,9 +178,9 @@ export const ScouterDashboard = ({
     queryKey: ['scouter-ranking', scouterData.name, start?.toISOString(), end?.toISOString()],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_ranking_position', {
-        p_scouter_name: scouterData.name,
-        p_start_date: start?.toISOString() || null,
-        p_end_date: end?.toISOString() || null
+        p_scouter_name: scouterData.name.trim(),
+        p_date_from: start?.toISOString() || null,
+        p_date_to: end?.toISOString() || null
       });
       if (error) throw error;
       return data?.[0] || null;
@@ -198,11 +198,11 @@ export const ScouterDashboard = ({
 
   const getRankingIcon = () => {
     if (!ranking) return <Trophy className="h-5 w-5 text-muted-foreground" />;
-    if (ranking.rank_position === 1) {
+    if (ranking.position === 1) {
       return <Trophy className="h-5 w-5 text-yellow-500" />;
-    } else if (ranking.rank_position === 2) {
+    } else if (ranking.position === 2) {
       return <Medal className="h-5 w-5 text-gray-400" />;
-    } else if (ranking.rank_position === 3) {
+    } else if (ranking.position === 3) {
       return <Medal className="h-5 w-5 text-amber-600" />;
     }
     return null;
@@ -224,7 +224,13 @@ export const ScouterDashboard = ({
 
   const handleOpenAIAnalysis = async () => {
     setAiAnalysisOpen(true);
-    await generateAnalysis(scouterData.name, getPeriodLabel(), stats, ranking);
+    // Adaptar ranking para o formato esperado pela função de análise
+    const rankingForAnalysis = ranking ? {
+      rank_position: ranking.position,
+      scouter_fichas: ranking.total_leads,
+      total_scouters: 0
+    } : undefined;
+    await generateAnalysis(scouterData.name, getPeriodLabel(), stats, rankingForAnalysis);
   };
 
   const handleCloseAIAnalysis = () => {
@@ -292,10 +298,10 @@ export const ScouterDashboard = ({
                   </div>
                   <div>
                     <p className="font-semibold text-lg">
-                      {ranking.rank_position}º lugar no ranking
+                      {ranking.position}º lugar no ranking
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Suas fichas: <span className="font-medium text-foreground">{ranking.scouter_fichas}</span>
+                      Suas fichas: <span className="font-medium text-foreground">{ranking.total_leads}</span>
                     </p>
                   </div>
                 </div>

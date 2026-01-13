@@ -45,6 +45,7 @@ interface LeadData {
   template_status: string | null;
   template_error_reason: string | null;
   template_send_count: number | null;
+  total_count: number;
   // Campos de duplicado (preenchidos após verificação)
   has_duplicate?: boolean;
   is_duplicate_deleted?: boolean;
