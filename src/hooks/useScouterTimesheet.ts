@@ -17,12 +17,12 @@ export function useScouterTimesheet(
   limit: number = 30
 ) {
   return useQuery({
-    queryKey: ["scouter-timesheet", scouterName, startDate, endDate, limit],
+    queryKey: ["scouter-timesheet", scouterName?.trim(), startDate, endDate, limit],
     queryFn: async () => {
       if (!scouterName) return [];
 
       const { data, error } = await supabase.rpc("get_scouter_timesheet", {
-        p_scouter_name: scouterName,
+        p_scouter_name: scouterName.trim(),
         p_start_date: startDate || null,
         p_end_date: endDate || null,
         p_limit: limit,
