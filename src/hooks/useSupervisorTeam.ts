@@ -51,10 +51,10 @@ export function useSupervisorTeam(
         }
       }
 
-      // Buscar o mapping do operador atual
+      // Buscar o mapping do operador atual - incluindo cargo_id
       const { data: currentMapping, error: currentError } = await supabase
         .from('agent_telemarketing_mapping')
-        .select('tabuladormax_user_id, supervisor_id')
+        .select('tabuladormax_user_id, supervisor_id, cargo_id')
         .eq('bitrix_telemarketing_id', supervisorBitrixId)
         .single();
 
@@ -68,14 +68,17 @@ export function useSupervisorTeam(
         };
       }
 
+      // Usar cargo_id do banco se disponível, senão usar o parâmetro
+      const effectiveCargo = (currentMapping as any).cargo_id || operatorCargo;
+
       // Determinar qual supervisor_id usar para buscar a equipe
       let supervisorUuid: string | null = null;
 
-      if (operatorCargo && ADJUNTO_CARGOS.includes(operatorCargo)) {
+      if (effectiveCargo && ADJUNTO_CARGOS.includes(effectiveCargo)) {
         // Supervisor Adjunto: herdar a equipe do supervisor principal
         // O supervisor_id do adjunto aponta para o supervisor principal
         supervisorUuid = currentMapping.supervisor_id;
-        console.log('[useSupervisorTeam] Supervisor Adjunto - herdando equipe do supervisor:', supervisorUuid);
+        console.log('[useSupervisorTeam] Supervisor Adjunto (cargo:', effectiveCargo, ') - herdando equipe do supervisor:', supervisorUuid);
       } else {
         // Supervisor principal: usar próprio tabuladormax_user_id
         supervisorUuid = currentMapping.tabuladormax_user_id;

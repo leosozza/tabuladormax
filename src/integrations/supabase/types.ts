@@ -136,6 +136,7 @@ export type Database = {
         Row: {
           bitrix_telemarketing_id: number
           bitrix_telemarketing_name: string | null
+          cargo_id: string | null
           chatwoot_agent_email: string | null
           chatwoot_agent_id: number | null
           commercial_project_id: string | null
@@ -149,6 +150,7 @@ export type Database = {
         Insert: {
           bitrix_telemarketing_id: number
           bitrix_telemarketing_name?: string | null
+          cargo_id?: string | null
           chatwoot_agent_email?: string | null
           chatwoot_agent_id?: number | null
           commercial_project_id?: string | null
@@ -162,6 +164,7 @@ export type Database = {
         Update: {
           bitrix_telemarketing_id?: number
           bitrix_telemarketing_name?: string | null
+          cargo_id?: string | null
           chatwoot_agent_email?: string | null
           chatwoot_agent_id?: number | null
           commercial_project_id?: string | null

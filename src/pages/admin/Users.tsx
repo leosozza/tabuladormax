@@ -30,6 +30,7 @@ interface UserWithRole {
   project_id?: string;
   supervisor_name?: string;
   supervisor_id?: string;
+  cargo_id?: string; // 10620=Supervisor, 10626=Supervisor Adj, 10627=Control Desk
 }
 
 interface CommercialProject {
@@ -410,7 +411,8 @@ export default function Users() {
         bitrix_telemarketing_name,
         bitrix_telemarketing_id,
         commercial_project_id,
-        supervisor_id
+        supervisor_id,
+        cargo_id
       `)
       .in('tabuladormax_user_id', userIds);
 
@@ -536,6 +538,7 @@ export default function Users() {
         project_id: mappingData?.commercial_project_id,
         supervisor_name: supervisorName,
         supervisor_id: mappingData?.supervisor_id,
+        cargo_id: (mappingData as any)?.cargo_id,
       };
     });
 
@@ -1019,6 +1022,15 @@ export default function Users() {
     }
   };
 
+  // Helper para obter o label do cargo baseado no cargo_id do Bitrix
+  const getCargoLabel = (user: UserWithRole): string => {
+    if (user.cargo_id === '10626') return 'Supervisor Adj';
+    if (user.cargo_id === '10627') return 'Control Desk';
+    if (user.cargo_id === '10620') return 'Supervisor';
+    // Fallback para role padrão
+    return user.role.charAt(0).toUpperCase() + user.role.slice(1);
+  };
+
   const toggleUserSelection = (userId: string) => {
     const newSelection = new Set(selectedUserIds);
     if (newSelection.has(userId)) {
@@ -1406,7 +1418,7 @@ export default function Users() {
                           <Badge variant={getRoleBadgeVariant(user.role)}>
                             <span className="flex items-center gap-1">
                               {getRoleIcon(user.role)}
-                              {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                              {getCargoLabel(user)}
                             </span>
                           </Badge>
                         </td>
