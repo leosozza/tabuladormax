@@ -85,14 +85,29 @@ Deno.serve(async (req) => {
       supervisorId,
       telemarketingId,
       telemarketingName,
+      cargoId, // Cargo do Bitrix: 10620=Supervisor, 10626=Supervisor Adj, 10627=Control Desk
     } = await req.json();
+
+    // Mapear roles especiais para cargo_id se não fornecido
+    if (!cargoId) {
+      if (role === 'supervisor_adjunto') {
+        cargoId = '10626';
+        role = 'supervisor'; // No banco, todos os supervisores usam 'supervisor'
+      } else if (role === 'control_desk') {
+        cargoId = '10627';
+        role = 'supervisor'; // Control Desk também tem acesso de supervisor
+      } else if (role === 'supervisor') {
+        cargoId = '10620';
+      }
+    }
 
     // Se é supervisor criando, aplicar restrições
     if (creatorRole === 'supervisor') {
-      // Supervisores só podem criar supervisores ou agents
-      if (!['supervisor', 'agent'].includes(role)) {
+      // Supervisores só podem criar supervisores, adjuntos, control desk ou agents
+      const allowedRoles = ['supervisor', 'supervisor_adjunto', 'control_desk', 'agent'];
+      if (!allowedRoles.includes(role)) {
         return new Response(
-          JSON.stringify({ error: 'Supervisores só podem criar supervisores ou agentes' }),
+          JSON.stringify({ error: 'Supervisores só podem criar supervisores, adjuntos ou agentes' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -113,10 +128,10 @@ Deno.serve(async (req) => {
         console.log('[create-supervisor-user] Supervisor forcing project:', projectId);
       }
 
-      // Se está criando agent, forçar o supervisor criador como supervisor do novo agent
-      if (role === 'agent') {
+      // Se está criando agent ou adjunto, forçar o supervisor criador como supervisor
+      if (role === 'agent' || role === 'supervisor_adjunto' || role === 'control_desk') {
         supervisorId = requestUserId;
-        console.log('[create-supervisor-user] Supervisor creating agent, setting supervisorId:', supervisorId);
+        console.log('[create-supervisor-user] Setting supervisorId:', supervisorId);
       }
     }
 
@@ -127,6 +142,7 @@ Deno.serve(async (req) => {
       projectId, 
       supervisorId, 
       telemarketingId,
+      cargoId,
       creatorRole
     });
 
@@ -199,13 +215,14 @@ Deno.serve(async (req) => {
         bitrix_telemarketing_id: telemarketingId || 0,
         bitrix_telemarketing_name: telemarketingName || displayName || email.split('@')[0],
         commercial_project_id: projectId,
+        cargo_id: cargoId || null, // Cargo do Bitrix
       };
 
-      // Se for agent, incluir supervisor_id
-      if (role === 'agent' && supervisorId) {
+      // Se for agent ou adjunto/control desk, incluir supervisor_id
+      if ((role === 'agent' || cargoId === '10626' || cargoId === '10627') && supervisorId) {
         mappingData.supervisor_id = supervisorId;
       } else {
-        // Se for supervisor, não tem supervisor
+        // Se for supervisor principal, não tem supervisor
         mappingData.supervisor_id = null;
       }
 
