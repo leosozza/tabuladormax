@@ -4719,6 +4719,25 @@ export type Database = {
         }
         Returns: Json
       }
+      get_area_comparecidos: {
+        Args: {
+          p_end_date?: string
+          p_project_id?: string
+          p_start_date?: string
+        }
+        Returns: {
+          address: string
+          data_compareceu: string
+          id: number
+          latitude: string
+          local_abordagem: string
+          longitude: string
+          name: string
+          projeto_comercial: string
+          scouter: string
+          total_count: number
+        }[]
+      }
       get_comparecidos_by_date:
         | {
             Args: {

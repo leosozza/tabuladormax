@@ -218,63 +218,36 @@ function GestaoAreaDeAbordagemContent() {
     refetchInterval: 30000,
   });
 
-  // Buscar leads comparecidos com geolocalização
+  // Buscar leads comparecidos com geolocalização via RPC (sem limite de 1000)
   const { data: comparecidosData, isLoading: comparecidosLoading } = useQuery({
     queryKey: ["area-comparecidos", filters],
     queryFn: async () => {
-      console.log(`🔍 Buscando leads comparecidos...`);
+      console.log(`🔍 Buscando leads comparecidos via RPC...`);
       
-      // Buscar leads com compareceu = true e coordenadas
-      const { data, error } = await supabase
-        .from("leads")
-        .select(`
-          id, name, address, local_abordagem, 
-          latitude, longitude, scouter, 
-          projeto_comercial, compareceu, commercial_project_id,
-          raw
-        `)
-        .eq("compareceu", true)
-        .not("latitude", "is", null)
-        .not("longitude", "is", null);
+      const { data, error } = await supabase.rpc("get_area_comparecidos", {
+        p_start_date: filters.dateFilter.startDate.toISOString(),
+        p_end_date: filters.dateFilter.endDate.toISOString(),
+        p_project_id: filters.projectId || null,
+      });
 
       if (error) {
         console.error("Erro ao buscar comparecidos:", error);
         throw error;
       }
 
-      // Filtrar por data de comparecimento (do JSON raw) e projeto
-      const filtered = (data || []).filter(lead => {
-        const rawData = lead.raw as Record<string, unknown> | null;
-        const dataCompStr = rawData?.UF_CRM_DATACOMPARECEU as string | undefined;
-        if (!dataCompStr) return false;
-        
-        const dataComp = new Date(dataCompStr);
-        const inDateRange = dataComp >= filters.dateFilter.startDate && 
-                           dataComp <= filters.dateFilter.endDate;
-        
-        // Filtro de projeto se selecionado
-        if (filters.projectId && lead.commercial_project_id !== filters.projectId) {
-          return false;
-        }
-        
-        return inDateRange;
-      });
+      const totalCount = data?.[0]?.total_count || 0;
+      console.log(`✅ ${totalCount} leads comparecidos no período (via RPC)`);
 
-      console.log(`✅ ${filtered.length} leads comparecidos no período`);
-
-      return filtered.map(lead => {
-        const rawData = lead.raw as Record<string, unknown> | null;
-        return {
-          id: lead.id,
-          name: lead.name || "Sem nome",
-          lat: Number(lead.latitude),
-          lng: Number(lead.longitude),
-          address: lead.address || lead.local_abordagem || "Sem endereço",
-          scouter: lead.scouter || undefined,
-          projectName: lead.projeto_comercial || undefined,
-          dataCompareceu: rawData?.UF_CRM_DATACOMPARECEU as string | undefined,
-        };
-      });
+      return (data || []).map(lead => ({
+        id: lead.id,
+        name: lead.name || "Sem nome",
+        lat: Number(lead.latitude),
+        lng: Number(lead.longitude),
+        address: lead.address || lead.local_abordagem || "Sem endereço",
+        scouter: lead.scouter || undefined,
+        projectName: lead.projeto_comercial || undefined,
+        dataCompareceu: lead.data_compareceu || undefined,
+      }));
     },
     enabled: showComparecidos,
     staleTime: 5 * 60 * 1000,
