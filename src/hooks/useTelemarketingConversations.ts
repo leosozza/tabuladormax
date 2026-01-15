@@ -29,7 +29,7 @@ interface UseTelemarketingConversationsOptions {
   agendamentoFilter?: string; // 'all' | 'today' | 'yesterday' | '3days' | '7days'
 }
 
-const SUPERVISOR_CARGO = '10620';
+import { isSupervisorCargo } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 
 // Helper para extrair telefones de forma robusta (JSON ou string)
 function extractPhones(lead: any): string[] {
@@ -112,7 +112,7 @@ export function useTelemarketingConversations(
       : bitrixTelemarketingIdOrOptions;
 
   const { bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds, agendamentoFilter } = options;
-  const isSupervisor = cargo === SUPERVISOR_CARGO;
+  const isSupervisor = cargo ? isSupervisorCargo(cargo) : false;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedConversations, setSelectedConversations] = useState<number[]>([]);
