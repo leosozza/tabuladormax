@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileDown, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { generateCSVReport, downloadFile, formatLeadsForExport } from "@/lib/gestao/reportGenerator";
+import { generateCSVReport, generateXLSXReport, downloadFile, downloadBlob, formatLeadsForExport } from "@/lib/gestao/reportGenerator";
 import { fetchAllLeads } from "@/lib/supabaseUtils";
 import { generateScouterReportPDF, type ScouterStats } from "@/services/scouterReportPDFService";
 import type { FilterValues } from "./ReportFilters";
@@ -16,6 +16,7 @@ interface ReportExportProps {
 
 export default function ReportExport({ filters }: ReportExportProps) {
   const [exporting, setExporting] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
 
   const { data: leadsData, isLoading } = useQuery({
@@ -84,11 +85,37 @@ export default function ReportExport({ filters }: ReportExportProps) {
     }
   };
 
-  const handleExportExcel = () => {
-    toast({
-      title: "Exportação Excel",
-      description: "Funcionalidade em desenvolvimento",
-    });
+  const handleExportExcel = async () => {
+    if (!leadsData || leadsData.length === 0) {
+      toast({
+        title: "Nenhum dado para exportar",
+        description: "Ajuste os filtros para obter resultados",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setExportingExcel(true);
+    try {
+      const formattedData = formatLeadsForExport(leadsData);
+      const xlsxBlob = await generateXLSXReport(formattedData, "Leads");
+      const filename = `relatorio-leads-${new Date().toISOString().split("T")[0]}.xlsx`;
+      downloadBlob(xlsxBlob, filename);
+      
+      toast({
+        title: "Exportação concluída!",
+        description: `${leadsData.length} leads exportados para Excel`,
+      });
+    } catch (error) {
+      console.error("Erro ao exportar Excel:", error);
+      toast({
+        title: "Erro na exportação",
+        description: "Não foi possível gerar o arquivo Excel",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingExcel(false);
+    }
   };
 
   const handleExportPDF = async () => {
@@ -220,10 +247,19 @@ export default function ReportExport({ filters }: ReportExportProps) {
             onClick={handleExportExcel} 
             className="w-full"
             variant="secondary"
-            disabled={isLoading || totalLeads === 0}
+            disabled={exportingExcel || isLoading || totalLeads === 0}
           >
-            <FileDown className="w-4 h-4 mr-2" />
-            Exportar Excel
+            {exportingExcel ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Exportando...
+              </>
+            ) : (
+              <>
+                <FileDown className="w-4 h-4 mr-2" />
+                Exportar Excel
+              </>
+            )}
           </Button>
         </CardContent>
       </Card>
