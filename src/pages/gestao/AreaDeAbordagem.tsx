@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X, Maximize2, Minimize2, CloudSun, Car } from "lucide-react";
+import { MapPin, Users, Target, BarChart3, Radio, Flame, Settings, Pencil, Square, Check, X, Maximize2, Minimize2, CloudSun, Car, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createDateFilter } from "@/lib/dateUtils";
@@ -22,6 +22,7 @@ import { WeatherForecast } from "@/components/gestao/WeatherForecast";
 import { TrafficInfo } from "@/components/gestao/TrafficInfo";
 import { RouteOptimizer } from "@/components/gestao/RouteOptimizer";
 import { POIMarkers } from "@/components/gestao/maps/POIMarkers";
+import { ComparecidosMarkers } from "@/components/gestao/maps/ComparecidosMarkers";
 import { RoutePolyline } from "@/components/gestao/maps/RoutePolyline";
 import { usePOIs, POICategory } from "@/hooks/usePOIs";
 import { POICategorySelector } from "@/components/gestao/maps/POICategorySelector";
@@ -64,6 +65,7 @@ function GestaoAreaDeAbordagemContent() {
   const [showTraffic, setShowTraffic] = useState(false);
   const [showWeatherForecast, setShowWeatherForecast] = useState(false);
   const [showPOIs, setShowPOIs] = useState(false);
+  const [showComparecidos, setShowComparecidos] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawMode, setDrawMode] = useState<'polygon' | 'rectangle'>('polygon');
   const [drawingPointsCount, setDrawingPointsCount] = useState(0);
@@ -216,6 +218,70 @@ function GestaoAreaDeAbordagemContent() {
     refetchInterval: 30000,
   });
 
+  // Buscar leads comparecidos com geolocalização
+  const { data: comparecidosData, isLoading: comparecidosLoading } = useQuery({
+    queryKey: ["area-comparecidos", filters],
+    queryFn: async () => {
+      console.log(`🔍 Buscando leads comparecidos...`);
+      
+      // Buscar leads com compareceu = true e coordenadas
+      const { data, error } = await supabase
+        .from("leads")
+        .select(`
+          id, name, address, local_abordagem, 
+          latitude, longitude, scouter, 
+          projeto_comercial, compareceu, commercial_project_id,
+          raw
+        `)
+        .eq("compareceu", true)
+        .not("latitude", "is", null)
+        .not("longitude", "is", null);
+
+      if (error) {
+        console.error("Erro ao buscar comparecidos:", error);
+        throw error;
+      }
+
+      // Filtrar por data de comparecimento (do JSON raw) e projeto
+      const filtered = (data || []).filter(lead => {
+        const rawData = lead.raw as Record<string, unknown> | null;
+        const dataCompStr = rawData?.UF_CRM_DATACOMPARECEU as string | undefined;
+        if (!dataCompStr) return false;
+        
+        const dataComp = new Date(dataCompStr);
+        const inDateRange = dataComp >= filters.dateFilter.startDate && 
+                           dataComp <= filters.dateFilter.endDate;
+        
+        // Filtro de projeto se selecionado
+        if (filters.projectId && lead.commercial_project_id !== filters.projectId) {
+          return false;
+        }
+        
+        return inDateRange;
+      });
+
+      console.log(`✅ ${filtered.length} leads comparecidos no período`);
+
+      return filtered.map(lead => {
+        const rawData = lead.raw as Record<string, unknown> | null;
+        return {
+          id: lead.id,
+          name: lead.name || "Sem nome",
+          lat: Number(lead.latitude),
+          lng: Number(lead.longitude),
+          address: lead.address || lead.local_abordagem || "Sem endereço",
+          scouter: lead.scouter || undefined,
+          projectName: lead.projeto_comercial || undefined,
+          dataCompareceu: rawData?.UF_CRM_DATACOMPARECEU as string | undefined,
+        };
+      });
+    },
+    enabled: showComparecidos,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const totalComparecidos = comparecidosData?.length || 0;
+
   const totalLeadsOnMap = leadsData?.length || 0;
   const totalScoutersActive = activeScoutersCount ?? 0;
   const totalAreasDrawn = drawnAreas.length;
@@ -255,8 +321,8 @@ function GestaoAreaDeAbordagemContent() {
         onChange={setFilters}
       />
 
-      {/* Métricas principais - Grid 2x2 no mobile */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
+      {/* Métricas principais - Grid responsivo */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4 mb-6">
           <Card className="p-2 sm:p-0">
             <CardHeader className="flex flex-row items-center justify-between p-2 sm:p-6 pb-1 sm:pb-2">
               <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
@@ -302,6 +368,21 @@ function GestaoAreaDeAbordagemContent() {
             </CardHeader>
             <CardContent className="p-2 sm:p-6 pt-0">
               <div className="text-xl sm:text-3xl font-bold">{totalScoutersActive}</div>
+            </CardContent>
+          </Card>
+
+          <Card className={`p-2 sm:p-0 ${showComparecidos ? 'ring-2 ring-emerald-500' : ''}`}>
+            <CardHeader className="flex flex-row items-center justify-between p-2 sm:p-6 pb-1 sm:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+                Comparecidos
+              </CardTitle>
+              <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
+            </CardHeader>
+            <CardContent className="p-2 sm:p-6 pt-0">
+              <div className="text-xl sm:text-3xl font-bold text-emerald-600">
+                {comparecidosLoading ? '...' : totalComparecidos}
+              </div>
+              <p className="text-xs text-muted-foreground">no período</p>
             </CardContent>
           </Card>
         </div>
@@ -363,6 +444,19 @@ function GestaoAreaDeAbordagemContent() {
                   <Label htmlFor="show-leads" className="flex items-center gap-1 cursor-pointer text-xs sm:text-sm">
                     <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
                     <span className="hidden xs:inline">Leads</span>
+                  </Label>
+                </div>
+
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Switch 
+                    checked={showComparecidos} 
+                    onCheckedChange={setShowComparecidos}
+                    id="show-comparecidos"
+                    className="scale-75 sm:scale-100"
+                  />
+                  <Label htmlFor="show-comparecidos" className="flex items-center gap-1 cursor-pointer text-xs sm:text-sm">
+                    <UserCheck className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-500" />
+                    <span className="hidden xs:inline">Comparecidos</span>
                   </Label>
                 </div>
 
@@ -539,6 +633,13 @@ function GestaoAreaDeAbordagemContent() {
               
               {/* POI Markers layer - agora usa allAreaPOIs */}
               <POIMarkers map={mapInstance} pois={allAreaPOIs} visible={showPOIs} />
+              
+              {/* Comparecidos Markers layer */}
+              <ComparecidosMarkers 
+                map={mapInstance} 
+                comparecidos={comparecidosData || []} 
+                visible={showComparecidos} 
+              />
               
               {/* Route polyline layer */}
               <RoutePolyline map={mapInstance} route={optimizedRoute} visible={!!optimizedRoute} />
