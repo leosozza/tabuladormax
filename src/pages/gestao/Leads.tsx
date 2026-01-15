@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, PlayCircle, Settings2, X } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Search, Download, PlayCircle, Settings2, X, FileText, FileSpreadsheet, ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { GestaoFiltersComponent } from "@/components/gestao/GestaoFilters";
@@ -25,6 +26,7 @@ import { TinderCardConfigModal } from "@/components/gestao/TinderCardConfigModal
 import { getFilterableField, resolveJoinFieldValue } from "@/lib/fieldFilterUtils";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import { useUserCommercialProject } from "@/hooks/useUserCommercialProject";
+import { generateXLSXReport, downloadBlob, downloadFile, generateCSVReport } from "@/lib/gestao/reportGenerator";
 let longPressTimer: number | null = null;
 type GestaoLeadsContentProps = {
   filters: GestaoFilters;
@@ -50,6 +52,9 @@ function GestaoLeadsContent({
 
   // Estado para controlar o modal de configuração do cartão
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  
+  // Estado para exportação
+  const [isExporting, setIsExporting] = useState(false);
 
   // Sistema de undo
   const {
@@ -563,36 +568,111 @@ function GestaoLeadsContent({
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isAnalysisMode, currentAnalysisIndex, isProcessingAction]);
-  const handleExport = () => {
-    if (!leads) return;
-    const headers = visibleFields.map(field => field.label);
-    const rows = leads.map(lead => visibleFields.map(field => {
-      // Lidar com campos aninhados no export
-      let value;
-      if (field.key.includes('.')) {
-        const [table, column] = field.key.split('.');
-        value = lead[table]?.[column];
-      } else {
-        value = lead[field.key];
-      }
+  // Função para buscar todos os leads para exportação (sem limite)
+  const fetchLeadsForExport = async () => {
+    const queryBuilder = supabase.from("leads")
+      .select("id, name, scouter, local_abordagem, address, celular, telefone_casa, telefone_trabalho, phone_normalized, etapa, ficha_confirmada, compareceu, valor_ficha, criado, qualidade_lead, commercial_projects:commercial_project_id(id,name,code)")
+      .order("criado", { ascending: false });
 
-      // Apply formatter if available
-      if (field.formatter) {
-        const formatted = field.formatter(value, lead);
-        // Se o formatter retorna um ReactNode, tentar extrair texto
-        return typeof formatted === 'string' ? formatted : value;
+    // Aplicar filtros de busca
+    if (searchTerm) {
+      const isNumeric = /^\d+$/.test(searchTerm);
+      if (isNumeric) {
+        queryBuilder.or(`name.ilike.%${searchTerm}%,id.eq.${searchTerm}`);
+      } else {
+        queryBuilder.or(`name.ilike.%${searchTerm}%`);
       }
-      return value || "-";
+    }
+
+    // Aplicar filtro de data
+    queryBuilder.gte("criado", filters.dateFilter.startDate.toISOString())
+      .lte("criado", filters.dateFilter.endDate.toISOString());
+
+    // Aplicar filtro de projeto
+    if (filters.projectId) {
+      queryBuilder.eq("commercial_project_id", filters.projectId);
+    }
+
+    // Aplicar filtro de scouter
+    if (filters.scouterId) {
+      queryBuilder.eq("scouter", filters.scouterId);
+    }
+
+    // Aplicar filtro de fonte
+    if (filters.fonte) {
+      queryBuilder.eq("fonte_normalizada", filters.fonte);
+    }
+
+    // Aplicar filtro de fotos
+    if (filters.photoFilter) {
+      queryBuilder.eq("cadastro_existe_foto", true);
+    }
+
+    const { data, error } = await queryBuilder;
+    if (error) throw error;
+    return data as any[];
+  };
+
+  // Formatar leads para exportação com todos os campos de telefone
+  const formatLeadsForExport = (leadsData: any[]) => {
+    return leadsData.map(lead => ({
+      ID: lead.id,
+      Nome: lead.name || "",
+      Scouter: lead.scouter || "",
+      "Projeto Comercial": lead.commercial_projects?.name || "",
+      "Local de Abordagem": lead.local_abordagem || "",
+      Endereço: lead.address || "",
+      Celular: lead.celular || "",
+      "Telefone Casa": lead.telefone_casa || "",
+      "Telefone Trabalho": lead.telefone_trabalho || "",
+      "Telefone Normalizado": lead.phone_normalized || "",
+      Status: lead.etapa || "",
+      "Ficha Confirmada": lead.ficha_confirmada ? "Sim" : "Não",
+      Compareceu: lead.compareceu ? "Sim" : "Não",
+      "Valor Ficha": lead.valor_ficha || "",
+      "Data Criação": lead.criado ? format(new Date(lead.criado), "dd/MM/yyyy") : "",
+      Qualidade: lead.qualidade_lead || "Não analisado",
     }));
-    const csv = [headers.join(","), ...rows.map(row => row.map(cell => `"${cell}"`).join(","))].join("\n");
-    const blob = new Blob([csv], {
-      type: "text/csv"
-    });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `leads_${format(new Date(), "yyyy-MM-dd")}.csv`;
-    a.click();
+  };
+
+  const handleExportCSV = async () => {
+    setIsExporting(true);
+    try {
+      const allLeads = await fetchLeadsForExport();
+      if (!allLeads || allLeads.length === 0) {
+        toast.error("Nenhum dado para exportar");
+        return;
+      }
+      const formattedData = formatLeadsForExport(allLeads);
+      const csvContent = await generateCSVReport(formattedData);
+      downloadFile(csvContent, `leads_${format(new Date(), "yyyy-MM-dd")}.csv`, "text/csv");
+      toast.success(`${allLeads.length} leads exportados para CSV`);
+    } catch (error) {
+      console.error("Erro ao exportar CSV:", error);
+      toast.error("Erro ao exportar dados");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    try {
+      const allLeads = await fetchLeadsForExport();
+      if (!allLeads || allLeads.length === 0) {
+        toast.error("Nenhum dado para exportar");
+        return;
+      }
+      const formattedData = formatLeadsForExport(allLeads);
+      const xlsxBlob = await generateXLSXReport(formattedData, "Leads");
+      downloadBlob(xlsxBlob, `leads_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+      toast.success(`${allLeads.length} leads exportados para Excel`);
+    } catch (error) {
+      console.error("Erro ao exportar Excel:", error);
+      toast.error("Erro ao exportar dados");
+    } finally {
+      setIsExporting(false);
+    }
   };
   const handleLeadClick = (lead: any) => {
     setSelectedLead(lead);
@@ -678,9 +758,28 @@ function GestaoLeadsContent({
             <Search className="h-4 w-4" />
           </Button>
           <LeadColumnSelector />
-          <Button onClick={handleExport} variant="outline" size="icon" className="h-8 w-8">
-            <Download className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1" disabled={isExporting}>
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportCSV}>
+                <FileText className="h-4 w-4 mr-2" />
+                Exportar CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportExcel}>
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Exportar Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {selectedLeadIds.size > 0 && <Button onClick={handleStartAnalysis} variant="default" size="sm">
             <PlayCircle className="h-4 w-4 mr-2" />
             <span className="hidden sm:inline">Análise </span>({selectedLeadIds.size})
