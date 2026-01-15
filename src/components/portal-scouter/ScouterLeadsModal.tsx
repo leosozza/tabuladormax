@@ -19,6 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { LeadActions } from "./LeadActions";
 import { LeadEditModal } from "./LeadEditModal";
 import { TemplateHistoryPopover } from "./TemplateHistoryPopover";
+import { StatusLegendPopover } from "./StatusLegendPopover";
 
 interface ScouterLeadsModalProps {
   isOpen: boolean;
@@ -741,6 +742,7 @@ export function ScouterLeadsModal({
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Hash className="h-3 w-3" />
                         <span className="font-mono">{lead.lead_id}</span>
+                        {paginatedLeads.indexOf(lead) === 0 && <StatusLegendPopover />}
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         {renderTemplateBadge(lead)}
@@ -795,7 +797,12 @@ export function ScouterLeadsModal({
                     <TableHead>Nome do Modelo</TableHead>
                     <TableHead className="w-32">Data Criação</TableHead>
                     <TableHead>Local de Abordagem</TableHead>
-                    <TableHead className="w-28">Status</TableHead>
+                    <TableHead className="w-28">
+                      <div className="flex items-center gap-1">
+                        Status
+                        <StatusLegendPopover />
+                      </div>
+                    </TableHead>
                     <TableHead className="w-16">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
