@@ -17,7 +17,7 @@ import { useOperatorRanking } from '@/hooks/useOperatorRanking';
 import { useComparecimentosRanking } from '@/hooks/useComparecimentosRanking';
 import { useTelemarketingHeartbeat } from '@/hooks/useTelemarketingHeartbeat';
 import UserMenu from '@/components/UserMenu';
-import { SUPERVISOR_CARGO } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
+import { isSupervisorCargo } from '@/components/portal-telemarketing/TelemarketingAccessKeyForm';
 import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 import MaxTalkWidget from '@/components/maxtalk/MaxTalkWidget';
 import { useQueryClient } from '@tanstack/react-query';
@@ -265,7 +265,7 @@ const PortalTelemarketingTabulador = () => {
     return <Navigate to={`/portal-telemarketing?redirect=${encodeURIComponent(redirectTarget)}`} replace />;
   }
 
-  const isSupervisor = context?.cargo === SUPERVISOR_CARGO;
+  const isSupervisor = context?.cargo ? isSupervisorCargo(context.cargo) : false;
 
   const handleClearCache = async () => {
     try {
@@ -356,7 +356,7 @@ const PortalTelemarketingTabulador = () => {
             <Headset className="w-4 h-4 text-muted-foreground" />
             <span className="font-medium">{context.name || 'Operador'}</span>
             <Badge variant="outline" className="text-xs">
-              {context.cargo === SUPERVISOR_CARGO ? 'Supervisor' : 'Agente'}
+              {isSupervisorCargo(context.cargo) ? 'Supervisor' : 'Agente'}
             </Badge>
           </div>
           
