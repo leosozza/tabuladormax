@@ -70,7 +70,7 @@ export function StatusLegendPopover() {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-80 p-3" 
+        className="w-80 p-3 z-[600]" 
         align="start"
         side="bottom"
       >
