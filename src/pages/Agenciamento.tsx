@@ -64,6 +64,7 @@ import { NegotiationDetailsDialog } from '@/components/agenciamento/NegotiationD
 import { NegotiationList } from '@/components/agenciamento/NegotiationList';
 import { NegotiationStats } from '@/components/agenciamento/NegotiationStats';
 import { NegotiationPipeline } from '@/components/agenciamento/NegotiationPipeline';
+import { ProducerQueueSidebar } from '@/components/agenciamento/ProducerQueueSidebar';
 import { AgenciamentoDashboard } from '@/components/agenciamento/AgenciamentoDashboard';
 import { CommercialProjectSelector } from '@/components/CommercialProjectSelector';
 import { MainLayout } from '@/components/layouts/MainLayout';
@@ -425,53 +426,61 @@ export default function Agenciamento() {
             </CardContent>
           </Card>
 
-          {/* Negotiations Display */}
-          {isLoading ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">Carregando negociações...</p>
-            </div>
-          ) : viewMode === 'pipeline' ? (
-            <NegotiationPipeline
-              negotiations={filteredNegotiations}
-              onCardClick={(negotiation) => setViewingNegotiation(negotiation)}
-            />
-          ) : filteredNegotiations.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">
-                  {searchTerm || statusFilter !== 'all'
-                    ? 'Nenhuma negociação encontrada com os filtros aplicados'
-                    : 'Nenhuma negociação cadastrada ainda'}
-                </p>
-              </CardContent>
-            </Card>
-          ) : viewMode === 'list' ? (
-            <NegotiationList
-              negotiations={filteredNegotiations}
-              onView={(negotiation) => setViewingNegotiation(negotiation)}
-              onEdit={(negotiation) => setEditingNegotiation(negotiation)}
-              onDelete={(id) => handleDelete(id)}
-              onApprove={(id) => approveMutation.mutate(id)}
-              onComplete={(id) => completeMutation.mutate(id)}
-              onCancel={(id) => cancelMutation.mutate(id)}
-            />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredNegotiations.map((negotiation) => (
-                <NegotiationCard
-                  key={negotiation.id}
-                  negotiation={negotiation}
-                  onView={() => setViewingNegotiation(negotiation)}
-                  onEdit={() => setEditingNegotiation(negotiation)}
-                  onDelete={() => handleDelete(negotiation.id)}
-                  onApprove={() => approveMutation.mutate(negotiation.id)}
-                  onComplete={() => completeMutation.mutate(negotiation.id)}
-                  onCancel={() => cancelMutation.mutate(negotiation.id)}
+          {/* Negotiations Display with Queue Sidebar */}
+          <div className="flex gap-4">
+            {/* Main Content */}
+            <div className="flex-1 min-w-0">
+              {isLoading ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">Carregando negociações...</p>
+                </div>
+              ) : viewMode === 'pipeline' ? (
+                <NegotiationPipeline
+                  negotiations={filteredNegotiations}
+                  onCardClick={(negotiation) => setViewingNegotiation(negotiation)}
                 />
-              ))}
+              ) : filteredNegotiations.length === 0 ? (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">
+                      {searchTerm || statusFilter !== 'all'
+                        ? 'Nenhuma negociação encontrada com os filtros aplicados'
+                        : 'Nenhuma negociação cadastrada ainda'}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : viewMode === 'list' ? (
+                <NegotiationList
+                  negotiations={filteredNegotiations}
+                  onView={(negotiation) => setViewingNegotiation(negotiation)}
+                  onEdit={(negotiation) => setEditingNegotiation(negotiation)}
+                  onDelete={(id) => handleDelete(id)}
+                  onApprove={(id) => approveMutation.mutate(id)}
+                  onComplete={(id) => completeMutation.mutate(id)}
+                  onCancel={(id) => cancelMutation.mutate(id)}
+                />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredNegotiations.map((negotiation) => (
+                    <NegotiationCard
+                      key={negotiation.id}
+                      negotiation={negotiation}
+                      onView={() => setViewingNegotiation(negotiation)}
+                      onEdit={() => setEditingNegotiation(negotiation)}
+                      onDelete={() => handleDelete(negotiation.id)}
+                      onApprove={() => approveMutation.mutate(negotiation.id)}
+                      onComplete={() => completeMutation.mutate(negotiation.id)}
+                      onCancel={() => cancelMutation.mutate(negotiation.id)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Producer Queue Sidebar */}
+            <ProducerQueueSidebar />
+          </div>
         </TabsContent>
 
         <TabsContent value="dashboard">
