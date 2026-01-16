@@ -76,7 +76,7 @@ export function ProducerSelectDialog({
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : filteredProducers?.length === 0 ? (
+            ) : !filteredProducers || filteredProducers.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                 <User className="h-8 w-8 mb-2" />
                 <p>Nenhum produtor encontrado</p>
