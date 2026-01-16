@@ -4765,6 +4765,10 @@ export type Database = {
       cleanup_expired_scouter_sessions: { Args: never; Returns: number }
       cleanup_old_rate_limits: { Args: never; Returns: number }
       cleanup_scouter_location_history: { Args: never; Returns: number }
+      count_admin_whatsapp_conversations: {
+        Args: { p_search?: string; p_window_filter?: string }
+        Returns: number
+      }
       count_leads_to_reprocess: {
         Args: {
           p_date_from?: string
@@ -4896,6 +4900,26 @@ export type Database = {
           period: string
           scouter: number
           total: number
+        }[]
+      }
+      get_admin_whatsapp_conversations: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_window_filter?: string
+        }
+        Returns: {
+          bitrix_id: string
+          last_customer_message_at: string
+          last_message_at: string
+          last_message_direction: string
+          last_message_preview: string
+          lead_id: number
+          lead_name: string
+          phone_number: string
+          total_messages: number
+          unread_count: number
         }[]
       }
       get_agendados_stats: {
