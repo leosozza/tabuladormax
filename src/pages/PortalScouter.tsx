@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AccessKeyForm } from '@/components/portal-scouter/AccessKeyForm';
 import { ScouterDashboard } from '@/components/portal-scouter/ScouterDashboard';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ScouterData {
   id: string;
@@ -24,6 +25,31 @@ const PortalScouter = () => {
       return null;
     }
   });
+
+  // Atualiza sessão se bitrix_id estiver faltando (sessões antigas)
+  useEffect(() => {
+    const updateSession = async () => {
+      if (scouterData && !scouterData.bitrix_id) {
+        try {
+          const { data, error } = await supabase
+            .from('scouters')
+            .select('bitrix_id')
+            .eq('id', scouterData.id)
+            .single();
+          
+          if (!error && data?.bitrix_id) {
+            const updatedData = { ...scouterData, bitrix_id: data.bitrix_id };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
+            setScouterData(updatedData);
+          }
+        } catch (err) {
+          console.error('Erro ao atualizar sessão:', err);
+        }
+      }
+    };
+    
+    updateSession();
+  }, [scouterData?.id]);
 
   const handleAccessGranted = (data: ScouterData) => {
     // Limpar contextos de outros portais para evitar conflitos de sessão
