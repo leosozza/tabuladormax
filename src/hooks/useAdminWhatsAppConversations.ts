@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 
 export interface AdminConversation {
   phone_number: string | null;
@@ -32,19 +32,22 @@ export const useAdminWhatsAppConversations = ({
   limit = 50
 }: UseAdminWhatsAppConversationsParams = {}) => {
   const queryClient = useQueryClient();
-  const [offset, setOffset] = useState(0);
 
-  // Reset offset when filters change
-  useEffect(() => {
-    setOffset(0);
-  }, [search, windowFilter]);
-
-  const { data: conversations, isLoading, error, refetch } = useQuery({
-    queryKey: ['admin-whatsapp-conversations', search, windowFilter, limit, offset],
-    queryFn: async () => {
+  // Use infinite query for proper pagination with accumulation
+  const {
+    data,
+    isLoading,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useInfiniteQuery({
+    queryKey: ['admin-whatsapp-conversations', search, windowFilter, limit],
+    queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await supabase.rpc('get_admin_whatsapp_conversations', {
         p_limit: limit,
-        p_offset: offset,
+        p_offset: pageParam,
         p_search: search || null,
         p_window_filter: windowFilter
       });
@@ -55,7 +58,7 @@ export const useAdminWhatsAppConversations = ({
       const now = new Date();
       const windowHours = 24;
 
-      return (data || []).map((conv: any): AdminConversation => {
+      const conversations = (data || []).map((conv: any): AdminConversation => {
         const lastCustomerMessage = conv.last_customer_message_at 
           ? new Date(conv.last_customer_message_at) 
           : null;
@@ -80,11 +83,25 @@ export const useAdminWhatsAppConversations = ({
           last_operator_photo_url: conv.last_operator_photo_url || null
         };
       });
+
+      return {
+        conversations,
+        nextOffset: pageParam + limit,
+        hasMore: conversations.length === limit
+      };
     },
-    staleTime: 30000, // 30 seconds
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextOffset : undefined,
+    initialPageParam: 0,
+    staleTime: 30000,
   });
 
-  // Get total count for pagination
+  // Flatten all pages into a single array
+  const conversations = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap(page => page.conversations);
+  }, [data]);
+
+  // Get total count for display
   const { data: totalCount } = useQuery({
     queryKey: ['admin-whatsapp-conversations-count', search, windowFilter],
     queryFn: async () => {
@@ -96,7 +113,7 @@ export const useAdminWhatsAppConversations = ({
       if (error) throw error;
       return Number(data) || 0;
     },
-    staleTime: 60000, // 1 minute
+    staleTime: 60000,
   });
 
   // Get stats
@@ -157,21 +174,20 @@ export const useAdminWhatsAppConversations = ({
   }, [queryClient]);
 
   const loadMore = useCallback(() => {
-    if (conversations && conversations.length >= limit) {
-      setOffset(prev => prev + limit);
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
-  }, [conversations, limit]);
-
-  const hasMore = totalCount ? offset + limit < totalCount : false;
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return {
-    conversations: conversations || [],
+    conversations,
     isLoading,
+    isLoadingMore: isFetchingNextPage,
     error,
     refetch,
     stats: stats || { total: 0, openWindows: 0, unread: 0 },
     totalCount: totalCount || 0,
     loadMore,
-    hasMore
+    hasMore: hasNextPage || false
   };
 };
