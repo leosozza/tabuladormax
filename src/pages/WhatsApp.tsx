@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function WhatsApp() {
   const navigate = useNavigate();
-  const { isAdmin, loading: accessLoading } = useDepartmentAccess();
+  const { canAccessAdmin, loading: accessLoading } = useDepartmentAccess();
   const [selectedConversation, setSelectedConversation] = useState<AdminConversation | null>(null);
 
   // Loading state
@@ -47,7 +47,7 @@ export default function WhatsApp() {
   }
 
   // Access denied - redirect to home
-  if (!isAdmin) {
+  if (!canAccessAdmin) {
     return (
       <TooltipProvider>
         <MainLayout
