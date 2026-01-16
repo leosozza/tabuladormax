@@ -72,9 +72,9 @@ serve(async (req) => {
           let extraFields = '';
           
           if (entityType.id === 1096) {
-            // Scouters: apenas ativos + campos de foto e chave de acesso
+            // Scouters: apenas ativos + campos de foto, chave de acesso e tier
             stageFilter = '&filter[stageId]=DT1096_210:NEW';
-            extraFields = '&select[]=ufCrm32_1739220520381&select[]=ufCrm32_1739219729812';
+            extraFields = '&select[]=ufCrm32_1739220520381&select[]=ufCrm32_1739219729812&select[]=ufCrm32_1759248377';
           } else if (entityType.id === 1144) {
             // Telemarketing: campos de chave de acesso, cargo, FOTO e projeto comercial (parentId1120)
             extraFields = '&select[]=ufCrm50Chavetele&select[]=ufCrm50Cargo&select[]=ufCrm50Fototele&select[]=parentId1120';
@@ -178,6 +178,7 @@ serve(async (req) => {
               bitrix_id: item.id,
               name: (item.title || `Scouter ${item.id}`).trim(),
               status: 'ativo',
+              tier: item.ufCrm32_1759248377 || null, // Campo de tier (UF_CRM_32_1759248377)
               updated_at: new Date().toISOString(),
             };
             

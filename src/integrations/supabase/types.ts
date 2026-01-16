@@ -3772,6 +3772,7 @@ export type Database = {
           photo_url: string | null
           responsible_user_id: string | null
           status: string
+          tier: string | null
           total_leads: number | null
           updated_at: string | null
           whatsapp: string | null
@@ -3793,6 +3794,7 @@ export type Database = {
           photo_url?: string | null
           responsible_user_id?: string | null
           status?: string
+          tier?: string | null
           total_leads?: number | null
           updated_at?: string | null
           whatsapp?: string | null
@@ -3814,6 +3816,7 @@ export type Database = {
           photo_url?: string | null
           responsible_user_id?: string | null
           status?: string
+          tier?: string | null
           total_leads?: number | null
           updated_at?: string | null
           whatsapp?: string | null
@@ -5757,6 +5760,7 @@ export type Database = {
           scouter_id: string
           scouter_name: string
           scouter_photo: string
+          scouter_tier: string
         }[]
       }
       validate_telemarketing_access_key: {
