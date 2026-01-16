@@ -256,7 +256,8 @@ export const ScouterDashboard = ({
     setIsLoadingHistory(true);
 
     try {
-      const { data, error } = await supabase
+      // 1. Buscar histórico de localizações
+      const { data: history, error } = await supabase
         .from('scouter_location_history')
         .select('latitude, longitude, address, recorded_at')
         .eq('scouter_bitrix_id', scouterData.bitrix_id)
@@ -267,7 +268,43 @@ export const ScouterDashboard = ({
 
       if (error) throw error;
 
-      setLocationHistory((data || []) as LocationPoint[]);
+      // 2. Buscar leads do scouter no período
+      const { data: leads } = await supabase
+        .from('leads')
+        .select('id, name, nome_modelo, criado')
+        .eq('scouter', scouterData.name)
+        .gte('criado', start.toISOString())
+        .lte('criado', end.toISOString())
+        .order('criado', { ascending: false })
+        .limit(200);
+
+      // 3. Associar leads aos pontos por proximidade de tempo (±2 minutos)
+      const usedLeadIds = new Set<number>();
+      const enrichedLocations: LocationPoint[] = (history || []).map(loc => {
+        const locTime = new Date(loc.recorded_at).getTime();
+        const matchingLead = leads?.find(lead => {
+          if (!lead.criado || usedLeadIds.has(lead.id)) return false;
+          const leadTime = new Date(lead.criado).getTime();
+          const timeDiff = Math.abs(locTime - leadTime);
+          return timeDiff <= 2 * 60 * 1000; // 2 minutos
+        });
+        
+        if (matchingLead) {
+          usedLeadIds.add(matchingLead.id);
+        }
+
+        return {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          address: loc.address || 'Endereço não disponível',
+          recorded_at: loc.recorded_at,
+          lead_id: matchingLead?.id,
+          lead_name: matchingLead?.name || undefined,
+          nome_modelo: matchingLead?.nome_modelo || undefined
+        };
+      });
+
+      setLocationHistory(enrichedLocations);
     } catch (error) {
       console.error('Erro ao buscar histórico de localização:', error);
       toast.error('Erro ao carregar histórico de rota');
