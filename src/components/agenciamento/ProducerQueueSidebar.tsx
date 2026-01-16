@@ -54,7 +54,8 @@ const STATUS_CONFIG = {
 function ProducerQueueItem({ producer, isNext }: { producer: ProducerInQueueView; isNext: boolean }) {
   const config = STATUS_CONFIG[producer.status];
   const StatusIcon = config.icon;
-  const initials = producer.producer_name
+  const producerName = producer.producer_name || 'Produtor';
+  const initials = producerName
     .split(' ')
     .map((n) => n[0])
     .join('')
@@ -90,7 +91,7 @@ function ProducerQueueItem({ producer, isNext }: { producer: ProducerInQueueView
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium truncate">{producer.producer_name}</span>
+          <span className="text-sm font-medium truncate">{producerName}</span>
           {producer.penalty_active && (
             <AlertTriangle className="h-3 w-3 text-destructive flex-shrink-0" />
           )}
