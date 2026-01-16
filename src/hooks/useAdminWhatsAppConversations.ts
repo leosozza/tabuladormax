@@ -16,19 +16,26 @@ export interface AdminConversation {
   is_window_open: boolean;
   last_operator_name: string | null;
   last_operator_photo_url: string | null;
+  lead_etapa: string | null;
+  response_status: 'waiting' | 'never' | 'replied' | null;
 }
 
 export type WindowFilter = 'all' | 'open' | 'closed';
+export type ResponseFilter = 'all' | 'waiting' | 'never' | 'replied';
 
 interface UseAdminWhatsAppConversationsParams {
   search?: string;
   windowFilter?: WindowFilter;
+  responseFilter?: ResponseFilter;
+  etapaFilter?: string | null;
   limit?: number;
 }
 
 export const useAdminWhatsAppConversations = ({
   search = '',
   windowFilter = 'all',
+  responseFilter = 'all',
+  etapaFilter = null,
   limit = 50
 }: UseAdminWhatsAppConversationsParams = {}) => {
   const queryClient = useQueryClient();
@@ -43,13 +50,15 @@ export const useAdminWhatsAppConversations = ({
     hasNextPage,
     isFetchingNextPage
   } = useInfiniteQuery({
-    queryKey: ['admin-whatsapp-conversations', search, windowFilter, limit],
+    queryKey: ['admin-whatsapp-conversations', search, windowFilter, responseFilter, etapaFilter, limit],
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await supabase.rpc('get_admin_whatsapp_conversations', {
         p_limit: limit,
         p_offset: pageParam,
         p_search: search || null,
-        p_window_filter: windowFilter
+        p_window_filter: windowFilter,
+        p_response_filter: responseFilter,
+        p_etapa_filter: etapaFilter || null
       });
 
       if (error) throw error;
@@ -80,7 +89,9 @@ export const useAdminWhatsAppConversations = ({
           total_messages: Number(conv.total_messages) || 0,
           is_window_open: isWindowOpen,
           last_operator_name: conv.last_operator_name || null,
-          last_operator_photo_url: conv.last_operator_photo_url || null
+          last_operator_photo_url: conv.last_operator_photo_url || null,
+          lead_etapa: conv.lead_etapa || null,
+          response_status: conv.response_status as 'waiting' | 'never' | 'replied' | null
         };
       });
 
@@ -103,11 +114,13 @@ export const useAdminWhatsAppConversations = ({
 
   // Get total count for display
   const { data: totalCount } = useQuery({
-    queryKey: ['admin-whatsapp-conversations-count', search, windowFilter],
+    queryKey: ['admin-whatsapp-conversations-count', search, windowFilter, responseFilter, etapaFilter],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('count_admin_whatsapp_conversations', {
         p_search: search || null,
-        p_window_filter: windowFilter
+        p_window_filter: windowFilter,
+        p_response_filter: responseFilter,
+        p_etapa_filter: etapaFilter || null
       });
 
       if (error) throw error;
