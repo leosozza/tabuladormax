@@ -8,6 +8,7 @@ interface ScouterData {
   name: string;
   photo: string | null;
   bitrix_id: number | null;
+  tier: string | null;
 }
 
 const STORAGE_KEY = 'scouter_session';
@@ -26,19 +27,23 @@ const PortalScouter = () => {
     }
   });
 
-  // Atualiza sessão se bitrix_id estiver faltando (sessões antigas)
+  // Atualiza sessão se bitrix_id ou tier estiverem faltando (sessões antigas)
   useEffect(() => {
     const updateSession = async () => {
-      if (scouterData && !scouterData.bitrix_id) {
+      if (scouterData && (!scouterData.bitrix_id || !scouterData.tier)) {
         try {
           const { data, error } = await supabase
             .from('scouters')
-            .select('bitrix_id')
+            .select('bitrix_id, tier')
             .eq('id', scouterData.id)
             .single();
           
-          if (!error && data?.bitrix_id) {
-            const updatedData = { ...scouterData, bitrix_id: data.bitrix_id };
+          if (!error && data) {
+            const updatedData = { 
+              ...scouterData, 
+              bitrix_id: data.bitrix_id || scouterData.bitrix_id,
+              tier: data.tier || scouterData.tier
+            };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
             setScouterData(updatedData);
           }

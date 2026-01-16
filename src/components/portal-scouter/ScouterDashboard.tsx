@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LogOut, RefreshCw, Trophy, Medal, Bot, CalendarIcon, Building, Check, MapPin } from 'lucide-react';
+import { LogOut, RefreshCw, Trophy, Medal, Bot, CalendarIcon, Building, Check, MapPin, Star, Crown, Gem, Award } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ScouterStatsCards } from './ScouterStatsCards';
 import { PhotoUploadDialog } from './PhotoUploadDialog';
@@ -26,9 +27,32 @@ interface ScouterDashboardProps {
     name: string;
     photo: string | null;
     bitrix_id: number | null;
+    tier: string | null;
   };
   onLogout: () => void;
 }
+
+// Configuração de cores e ícones por tier
+const TIER_CONFIG: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
+  // IDs numéricos do Bitrix (serão mapeados quando soubermos os valores exatos)
+  'premium': { label: 'Premium', className: 'bg-amber-100 text-amber-800 border-amber-300', icon: <Crown className="h-3 w-3" /> },
+  'senior': { label: 'Sênior', className: 'bg-purple-100 text-purple-800 border-purple-300', icon: <Gem className="h-3 w-3" /> },
+  'pleno': { label: 'Pleno', className: 'bg-blue-100 text-blue-800 border-blue-300', icon: <Award className="h-3 w-3" /> },
+  'junior': { label: 'Júnior', className: 'bg-green-100 text-green-800 border-green-300', icon: <Star className="h-3 w-3" /> },
+  'iniciante': { label: 'Iniciante', className: 'bg-gray-100 text-gray-700 border-gray-300', icon: <Star className="h-3 w-3" /> },
+};
+
+// Função para obter config do tier (normaliza o valor)
+const getTierConfig = (tier: string | null) => {
+  if (!tier) return null;
+  const normalized = tier.toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove acentos
+  return TIER_CONFIG[normalized] || { 
+    label: tier, 
+    className: 'bg-muted text-muted-foreground border-border', 
+    icon: <Star className="h-3 w-3" /> 
+  };
+};
 
 export type DateRangePreset = 'today' | 'yesterday' | 'week' | 'last7days' | 'month' | 'custom';
 
@@ -330,8 +354,22 @@ export const ScouterDashboard = ({
               </Avatar>
 
               {/* Info do scouter */}
-              <div className="flex flex-col">
-                <h1 className="font-bold text-lg">Olá, {scouterData.name}!</h1>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="font-bold text-lg">Olá, {scouterData.name}!</h1>
+                  {scouterData.tier && getTierConfig(scouterData.tier) && (
+                    <Badge 
+                      variant="outline" 
+                      className={cn(
+                        "text-xs font-medium gap-1 border",
+                        getTierConfig(scouterData.tier)?.className
+                      )}
+                    >
+                      {getTierConfig(scouterData.tier)?.icon}
+                      {getTierConfig(scouterData.tier)?.label}
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">Portal do Scouter</p>
                 
                 {/* Ranking badge */}
