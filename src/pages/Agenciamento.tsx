@@ -64,7 +64,7 @@ import { NegotiationDetailsDialog } from '@/components/agenciamento/NegotiationD
 import { NegotiationList } from '@/components/agenciamento/NegotiationList';
 import { NegotiationStats } from '@/components/agenciamento/NegotiationStats';
 import { NegotiationPipeline } from '@/components/agenciamento/NegotiationPipeline';
-import { ProducerQueueSidebar } from '@/components/agenciamento/ProducerQueueSidebar';
+import { ProducerQueueHeaderBar } from '@/components/agenciamento/ProducerQueueHeaderBar';
 import { AgenciamentoDashboard } from '@/components/agenciamento/AgenciamentoDashboard';
 import { CommercialProjectSelector } from '@/components/CommercialProjectSelector';
 import { MainLayout } from '@/components/layouts/MainLayout';
@@ -339,6 +339,9 @@ export default function Agenciamento() {
         </div>
       }
     >
+      {/* Producer Queue Header Bar - Collapsible */}
+      <ProducerQueueHeaderBar />
+
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pipeline' | 'dashboard')} className="space-y-6">
         <TabsList>
           <TabsTrigger value="pipeline" className="gap-2">
@@ -477,9 +480,6 @@ export default function Agenciamento() {
                 </div>
               )}
             </div>
-
-            {/* Producer Queue Sidebar */}
-            <ProducerQueueSidebar />
           </div>
         </TabsContent>
 
