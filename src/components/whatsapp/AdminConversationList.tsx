@@ -28,7 +28,7 @@ const RESPONSE_STATUS_CONFIG = {
 
 // Common etapa options for filter
 const ETAPA_OPTIONS = [
-  { value: '', label: 'Todas as fases' },
+  { value: 'all', label: 'Todas as fases' },
   { value: 'UC_DDVFX3', label: 'Lead a Qualificar' },
   { value: 'UC_AU7EMM', label: 'Triagem' },
   { value: 'UC_SARR07', label: 'Em Agendamento' },
@@ -51,7 +51,7 @@ export function AdminConversationList({
   const [search, setSearch] = useState('');
   const [windowFilter, setWindowFilter] = useState<WindowFilter>('all');
   const [responseFilter, setResponseFilter] = useState<ResponseFilter>('all');
-  const [etapaFilter, setEtapaFilter] = useState<string>('');
+  const [etapaFilter, setEtapaFilter] = useState<string>('all');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Debounce search
@@ -67,7 +67,7 @@ export function AdminConversationList({
     search: debouncedSearch,
     windowFilter,
     responseFilter,
-    etapaFilter: etapaFilter || null,
+    etapaFilter: etapaFilter === 'all' ? null : etapaFilter,
     limit: 50
   });
 
