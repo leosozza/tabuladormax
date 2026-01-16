@@ -256,15 +256,13 @@ export const ScouterDashboard = ({
     setIsLoadingHistory(true);
 
     try {
-      // 1. Buscar histórico de localizações
-      const { data: history, error } = await supabase
-        .from('scouter_location_history')
-        .select('latitude, longitude, address, recorded_at')
-        .eq('scouter_bitrix_id', scouterData.bitrix_id)
-        .gte('recorded_at', start.toISOString())
-        .lte('recorded_at', end.toISOString())
-        .order('recorded_at', { ascending: false })
-        .limit(100);
+      // 1. Buscar histórico de localizações via RPC (bypass RLS)
+      const { data: history, error } = await supabase.rpc('get_scouter_location_history', {
+        p_scouter_bitrix_id: scouterData.bitrix_id,
+        p_date_from: start.toISOString(),
+        p_date_to: end.toISOString(),
+        p_limit: 100
+      });
 
       if (error) throw error;
 
