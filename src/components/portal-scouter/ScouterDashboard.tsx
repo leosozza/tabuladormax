@@ -6,13 +6,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LogOut, RefreshCw, Trophy, Medal, Bot, CalendarIcon, Building, Check } from 'lucide-react';
+import { LogOut, RefreshCw, Trophy, Medal, Bot, CalendarIcon, Building, Check, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ScouterStatsCards } from './ScouterStatsCards';
 import { PhotoUploadDialog } from './PhotoUploadDialog';
 import { ScouterLeadsModal } from './ScouterLeadsModal';
 import { AIAnalysisModal } from './AIAnalysisModal';
 import { ScouterOnboardingGuide } from './ScouterOnboardingGuide';
+import { ScouterTimelineModal, LocationPoint } from '@/components/gestao/maps/ScouterTimelineModal';
 import { useScouterAIAnalysis } from '@/hooks/useScouterAIAnalysis';
 import { startOfDay, endOfDay, startOfWeek, startOfMonth, subDays, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -24,6 +25,7 @@ interface ScouterDashboardProps {
     id: string;
     name: string;
     photo: string | null;
+    bitrix_id: number | null;
   };
   onLogout: () => void;
 }
@@ -47,6 +49,11 @@ export const ScouterDashboard = ({
   // State para análise de IA
   const [aiAnalysisOpen, setAiAnalysisOpen] = useState(false);
   const { generateAnalysis, isAnalyzing, analysisResult, clearAnalysis } = useScouterAIAnalysis();
+
+  // State para histórico de rota
+  const [routeHistoryOpen, setRouteHistoryOpen] = useState(false);
+  const [locationHistory, setLocationHistory] = useState<LocationPoint[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // State para onboarding
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -238,7 +245,36 @@ export const ScouterDashboard = ({
     clearAnalysis();
   };
 
+  // Handler para abrir histórico de rota
+  const handleOpenRouteHistory = async () => {
+    if (!scouterData.bitrix_id) {
+      toast.error('ID do scouter não disponível para buscar histórico');
+      return;
+    }
 
+    setRouteHistoryOpen(true);
+    setIsLoadingHistory(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('scouter_location_history')
+        .select('latitude, longitude, address, recorded_at')
+        .eq('scouter_bitrix_id', scouterData.bitrix_id)
+        .gte('recorded_at', start.toISOString())
+        .lte('recorded_at', end.toISOString())
+        .order('recorded_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      setLocationHistory((data || []) as LocationPoint[]);
+    } catch (error) {
+      console.error('Erro ao buscar histórico de localização:', error);
+      toast.error('Erro ao carregar histórico de rota');
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -312,18 +348,33 @@ export const ScouterDashboard = ({
 
         {/* Filtros e Ações - Tudo em uma linha */}
         <div className="flex items-center justify-between gap-4">
-          {/* Botão Análise IA */}
-          <Button
-            data-tour="ai-analysis"
-            variant="default"
-            size="sm"
-            onClick={handleOpenAIAnalysis}
-            disabled={isAnalyzing || !stats}
-            className="gap-2"
-          >
-            <Bot className="h-4 w-4" />
-            Análise IA
-          </Button>
+          {/* Botões de Ação */}
+          <div className="flex items-center gap-2">
+            {/* Botão Análise IA */}
+            <Button
+              data-tour="ai-analysis"
+              variant="default"
+              size="sm"
+              onClick={handleOpenAIAnalysis}
+              disabled={isAnalyzing || !stats}
+              className="gap-2"
+            >
+              <Bot className="h-4 w-4" />
+              <span className="hidden sm:inline">Análise IA</span>
+            </Button>
+
+            {/* Botão Histórico de Rota */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenRouteHistory}
+              disabled={!scouterData.bitrix_id || isLoadingHistory}
+              className="gap-2"
+            >
+              <MapPin className="h-4 w-4" />
+              <span className="hidden sm:inline">Histórico</span>
+            </Button>
+          </div>
           
           {/* Filtros Desktop - Selects completos */}
           <div className="hidden md:flex items-center gap-3">
@@ -604,6 +655,15 @@ export const ScouterDashboard = ({
         scouterName={scouterData.name}
         periodLabel={getPeriodLabel()}
         metrics={analysisResult?.metrics}
+      />
+
+      {/* Modal de histórico de rota */}
+      <ScouterTimelineModal
+        open={routeHistoryOpen}
+        onOpenChange={setRouteHistoryOpen}
+        scouterName={scouterData.name}
+        scouterPhotoUrl={currentPhoto || undefined}
+        locations={locationHistory}
       />
 
       {/* Modal de leads */}

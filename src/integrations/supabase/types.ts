@@ -5739,6 +5739,7 @@ export type Database = {
       validate_scouter_access_key: {
         Args: { p_access_key: string }
         Returns: {
+          scouter_bitrix_id: number
           scouter_id: string
           scouter_name: string
           scouter_photo: string

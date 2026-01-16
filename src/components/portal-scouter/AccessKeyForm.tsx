@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface AccessKeyFormProps {
-  onAccessGranted: (data: { id: string; name: string; photo: string | null }) => void;
+  onAccessGranted: (data: { id: string; name: string; photo: string | null; bitrix_id: number | null }) => void;
 }
 
 export const AccessKeyForm = ({ onAccessGranted }: AccessKeyFormProps) => {
@@ -35,7 +35,8 @@ export const AccessKeyForm = ({ onAccessGranted }: AccessKeyFormProps) => {
         onAccessGranted({
           id: scouter.scouter_id,
           name: scouter.scouter_name,
-          photo: scouter.scouter_photo
+          photo: scouter.scouter_photo,
+          bitrix_id: scouter.scouter_bitrix_id
         });
         toast.success(`Bem-vindo, ${scouter.scouter_name}!`);
       } else {
