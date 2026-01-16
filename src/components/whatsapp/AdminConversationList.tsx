@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Search, MessageCircle, Clock, Filter, RefreshCw } from 'lucide-react';
+import { Search, MessageCircle, Clock, Filter, RefreshCw, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
@@ -203,6 +204,25 @@ export function AdminConversationList({
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {conv.phone_number}
                       </p>
+                    )}
+
+                    {/* Operator indicator */}
+                    {conv.last_operator_name && (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {conv.last_operator_photo_url ? (
+                          <Avatar className="h-4 w-4">
+                            <AvatarImage src={conv.last_operator_photo_url} alt={conv.last_operator_name} />
+                            <AvatarFallback className="text-[8px] bg-primary/10 text-primary">
+                              {getInitials(conv.last_operator_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                        ) : (
+                          <User className="h-3 w-3 text-muted-foreground" />
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {conv.last_operator_name}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </button>

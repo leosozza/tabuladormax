@@ -14,6 +14,8 @@ export interface AdminConversation {
   unread_count: number;
   total_messages: number;
   is_window_open: boolean;
+  last_operator_name: string | null;
+  last_operator_photo_url: string | null;
 }
 
 export type WindowFilter = 'all' | 'open' | 'closed';
@@ -73,7 +75,9 @@ export const useAdminWhatsAppConversations = ({
           last_customer_message_at: conv.last_customer_message_at,
           unread_count: Number(conv.unread_count) || 0,
           total_messages: Number(conv.total_messages) || 0,
-          is_window_open: isWindowOpen
+          is_window_open: isWindowOpen,
+          last_operator_name: conv.last_operator_name || null,
+          last_operator_photo_url: conv.last_operator_photo_url || null
         };
       });
     },

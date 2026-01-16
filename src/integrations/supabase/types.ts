@@ -4915,6 +4915,8 @@ export type Database = {
           last_message_at: string
           last_message_direction: string
           last_message_preview: string
+          last_operator_name: string
+          last_operator_photo_url: string
           lead_id: number
           lead_name: string
           phone_number: string
