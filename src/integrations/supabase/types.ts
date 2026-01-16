@@ -4766,7 +4766,12 @@ export type Database = {
       cleanup_old_rate_limits: { Args: never; Returns: number }
       cleanup_scouter_location_history: { Args: never; Returns: number }
       count_admin_whatsapp_conversations: {
-        Args: { p_search?: string; p_window_filter?: string }
+        Args: {
+          p_etapa_filter?: string
+          p_response_filter?: string
+          p_search?: string
+          p_window_filter?: string
+        }
         Returns: number
       }
       count_leads_to_reprocess: {
@@ -4904,8 +4909,10 @@ export type Database = {
       }
       get_admin_whatsapp_conversations: {
         Args: {
+          p_etapa_filter?: string
           p_limit?: number
           p_offset?: number
+          p_response_filter?: string
           p_search?: string
           p_window_filter?: string
         }
@@ -4917,9 +4924,11 @@ export type Database = {
           last_message_preview: string
           last_operator_name: string
           last_operator_photo_url: string
+          lead_etapa: string
           lead_id: number
           lead_name: string
           phone_number: string
+          response_status: string
           total_messages: number
           unread_count: number
         }[]

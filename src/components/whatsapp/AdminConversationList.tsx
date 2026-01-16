@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, MessageCircle, Clock, Filter, RefreshCw, User } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Search, MessageCircle, Clock, Filter, RefreshCw, User, MessageSquareWarning, MessageSquareOff, MessageSquareReply } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,9 +14,30 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { AdminConversation, WindowFilter, useAdminWhatsAppConversations } from '@/hooks/useAdminWhatsAppConversations';
+import { AdminConversation, WindowFilter, ResponseFilter, useAdminWhatsAppConversations } from '@/hooks/useAdminWhatsAppConversations';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { getEtapaStyle } from '@/lib/etapaColors';
+
+// Response status display config
+const RESPONSE_STATUS_CONFIG = {
+  waiting: { label: 'Aguardando resposta', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300', icon: MessageSquareWarning },
+  never: { label: 'Sem resposta', color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300', icon: MessageSquareOff },
+  replied: { label: 'Lead respondeu', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300', icon: MessageSquareReply }
+};
+
+// Common etapa options for filter
+const ETAPA_OPTIONS = [
+  { value: '', label: 'Todas as fases' },
+  { value: 'UC_DDVFX3', label: 'Lead a Qualificar' },
+  { value: 'UC_AU7EMM', label: 'Triagem' },
+  { value: 'UC_SARR07', label: 'Em Agendamento' },
+  { value: 'UC_QWPO2W', label: 'Agendados' },
+  { value: 'UC_MWJM5G', label: 'Retornar Ligação' },
+  { value: 'UC_DMLQB7', label: 'Reagendar' },
+  { value: 'UC_8WYI7Q', label: 'StandBy' },
+  { value: 'Lead convertido', label: 'Convertidos' },
+];
 
 interface AdminConversationListProps {
   selectedConversation: AdminConversation | null;
@@ -29,6 +50,8 @@ export function AdminConversationList({
 }: AdminConversationListProps) {
   const [search, setSearch] = useState('');
   const [windowFilter, setWindowFilter] = useState<WindowFilter>('all');
+  const [responseFilter, setResponseFilter] = useState<ResponseFilter>('all');
+  const [etapaFilter, setEtapaFilter] = useState<string>('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Debounce search
@@ -43,6 +66,8 @@ export function AdminConversationList({
   const { conversations, isLoading, isLoadingMore, stats, refetch, loadMore, hasMore, totalCount } = useAdminWhatsAppConversations({
     search: debouncedSearch,
     windowFilter,
+    responseFilter,
+    etapaFilter: etapaFilter || null,
     limit: 50
   });
 
@@ -115,16 +140,48 @@ export function AdminConversationList({
           />
         </div>
 
-        {/* Filter */}
-        <Select value={windowFilter} onValueChange={(v) => setWindowFilter(v as WindowFilter)}>
+        {/* Filters Row */}
+        <div className="flex gap-2">
+          {/* Window Filter */}
+          <Select value={windowFilter} onValueChange={(v) => setWindowFilter(v as WindowFilter)}>
+            <SelectTrigger className="flex-1">
+              <Clock className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Janela" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="open">Abertas (24h)</SelectItem>
+              <SelectItem value="closed">Fechadas</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Response Filter */}
+          <Select value={responseFilter} onValueChange={(v) => setResponseFilter(v as ResponseFilter)}>
+            <SelectTrigger className="flex-1">
+              <MessageSquareWarning className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Resposta" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="waiting">Aguardando</SelectItem>
+              <SelectItem value="never">Sem resposta</SelectItem>
+              <SelectItem value="replied">Respondeu</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Etapa Filter */}
+        <Select value={etapaFilter} onValueChange={setEtapaFilter}>
           <SelectTrigger className="w-full">
             <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Filtrar por janela" />
+            <SelectValue placeholder="Filtrar por fase" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas as conversas</SelectItem>
-            <SelectItem value="open">Janela aberta (24h)</SelectItem>
-            <SelectItem value="closed">Janela fechada</SelectItem>
+            {ETAPA_OPTIONS.map(opt => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -205,6 +262,34 @@ export function AdminConversationList({
                         {conv.phone_number}
                       </p>
                     )}
+
+                    {/* Etapa and Response Status badges */}
+                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                      {/* Etapa badge */}
+                      {conv.lead_etapa && (
+                        <span className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded",
+                          getEtapaStyle(conv.lead_etapa).bg,
+                          getEtapaStyle(conv.lead_etapa).text
+                        )}>
+                          {getEtapaStyle(conv.lead_etapa).label}
+                        </span>
+                      )}
+                      
+                      {/* Response status badge */}
+                      {conv.response_status && RESPONSE_STATUS_CONFIG[conv.response_status] && (
+                        <span className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5",
+                          RESPONSE_STATUS_CONFIG[conv.response_status].color
+                        )}>
+                          {(() => {
+                            const Icon = RESPONSE_STATUS_CONFIG[conv.response_status!].icon;
+                            return <Icon className="h-2.5 w-2.5" />;
+                          })()}
+                          {RESPONSE_STATUS_CONFIG[conv.response_status].label}
+                        </span>
+                      )}
+                    </div>
 
                     {/* Operator indicator */}
                     {conv.last_operator_name && (
