@@ -6,6 +6,7 @@ interface ScouterData {
   id: string;
   name: string;
   photo: string | null;
+  bitrix_id: number | null;
 }
 
 const STORAGE_KEY = 'scouter_session';
