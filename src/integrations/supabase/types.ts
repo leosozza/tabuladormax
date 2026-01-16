@@ -5369,6 +5369,20 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_scouter_location_history: {
+        Args: {
+          p_date_from: string
+          p_date_to: string
+          p_limit?: number
+          p_scouter_bitrix_id: number
+        }
+        Returns: {
+          address: string
+          latitude: number
+          longitude: number
+          recorded_at: string
+        }[]
+      }
       get_scouter_location_stats: { Args: never; Returns: Json }
       get_scouter_performance_data: {
         Args: {
