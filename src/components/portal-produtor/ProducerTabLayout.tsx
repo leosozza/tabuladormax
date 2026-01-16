@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { LogOut, User, Mic, Briefcase, Handshake, LayoutDashboard, ChevronLeft } from 'lucide-react';
+import { LogOut, User, Mic, Briefcase, Handshake, LayoutDashboard, ChevronLeft, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ProducerDealsTab, Deal } from './ProducerDealsTab';
 import { ProducerDashboardTab } from './ProducerDashboardTab';
 import { DealDetailView } from './DealDetailView';
+import { ProducerStatusControl } from './ProducerStatusControl';
+import { ProducerQueuePanel } from './ProducerQueuePanel';
+import { ProducerAttendanceTimer } from './ProducerAttendanceTimer';
+import { useProducerQueue } from '@/hooks/useProducerQueue';
 import { cn } from '@/lib/utils';
-
 interface ProducerTabLayoutProps {
   producerData: {
     id: string;
@@ -18,12 +21,13 @@ interface ProducerTabLayoutProps {
 }
 
 export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutProps) => {
-  const [activeView, setActiveView] = useState<'deals' | 'dashboard'>('deals');
+  const [activeView, setActiveView] = useState<'deals' | 'dashboard' | 'queue'>('deals');
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [dealActiveTab, setDealActiveTab] = useState<'perfil' | 'agenciar'>('perfil');
   const [assistantTrigger, setAssistantTrigger] = useState(0);
-
+  
+  const { isInAttendance, myStatus } = useProducerQueue(producerData.id);
   const handleCloseDeal = () => {
     setSelectedDeal(null);
     setDealActiveTab('perfil');
@@ -73,10 +77,20 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
             )}
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onLogout}>
-          <LogOut className="h-5 w-5" />
-        </Button>
+        <ProducerStatusControl producerId={producerData.id} onLogout={onLogout} />
       </header>
+      
+      {/* Timer de Atendimento (quando em atendimento) */}
+      {isInAttendance && selectedDeal && (
+        <div className="px-4 py-2 bg-muted/50">
+          <ProducerAttendanceTimer 
+            producerId={producerData.id}
+            dealId={selectedDeal.deal_id}
+            dealTitle={selectedDeal.title}
+            clientName={selectedDeal.client_name || undefined}
+          />
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto pb-24 pb-safe scrollbar-hide">
@@ -98,6 +112,11 @@ export const ProducerTabLayout = ({ producerData, onLogout }: ProducerTabLayoutP
             )}
             {activeView === 'dashboard' && (
               <ProducerDashboardTab producerId={producerData.id} />
+            )}
+            {activeView === 'queue' && (
+              <div className="p-4">
+                <ProducerQueuePanel producerId={producerData.id} />
+              </div>
             )}
           </>
         )}

@@ -3234,6 +3234,127 @@ export type Database = {
         }
         Relationships: []
       }
+      producer_attendance_log: {
+        Row: {
+          action: string
+          created_at: string
+          deal_id: string | null
+          duration_minutes: number | null
+          ended_at: string | null
+          id: string
+          notes: string | null
+          producer_id: string
+          queue_position_at: number | null
+          result: string | null
+          started_at: string | null
+          status_from: string | null
+          status_to: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          deal_id?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          producer_id: string
+          queue_position_at?: number | null
+          result?: string | null
+          started_at?: string | null
+          status_from?: string | null
+          status_to?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          deal_id?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          producer_id?: string
+          queue_position_at?: number | null
+          result?: string | null
+          started_at?: string | null
+          status_from?: string | null
+          status_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_attendance_log_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      producer_attendance_status: {
+        Row: {
+          average_attendance_time: number | null
+          consecutive_losses: number
+          created_at: string
+          current_deal_id: string | null
+          id: string
+          joined_queue_at: string | null
+          last_attendance_at: string | null
+          penalty_active: boolean
+          penalty_skips_remaining: number
+          producer_id: string
+          queue_position: number | null
+          status: Database["public"]["Enums"]["producer_attendance_status_enum"]
+          total_attendances: number
+          total_closed: number
+          total_lost: number
+          updated_at: string
+        }
+        Insert: {
+          average_attendance_time?: number | null
+          consecutive_losses?: number
+          created_at?: string
+          current_deal_id?: string | null
+          id?: string
+          joined_queue_at?: string | null
+          last_attendance_at?: string | null
+          penalty_active?: boolean
+          penalty_skips_remaining?: number
+          producer_id: string
+          queue_position?: number | null
+          status?: Database["public"]["Enums"]["producer_attendance_status_enum"]
+          total_attendances?: number
+          total_closed?: number
+          total_lost?: number
+          updated_at?: string
+        }
+        Update: {
+          average_attendance_time?: number | null
+          consecutive_losses?: number
+          created_at?: string
+          current_deal_id?: string | null
+          id?: string
+          joined_queue_at?: string | null
+          last_attendance_at?: string | null
+          penalty_active?: boolean
+          penalty_skips_remaining?: number
+          producer_id?: string
+          queue_position?: number | null
+          status?: Database["public"]["Enums"]["producer_attendance_status_enum"]
+          total_attendances?: number
+          total_closed?: number
+          total_lost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_attendance_status_current_deal_id_fkey"
+            columns: ["current_deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       producers: {
         Row: {
           access_key: string | null
@@ -4683,6 +4804,72 @@ export type Database = {
           leads_not_found: number
         }[]
       }
+      fn_calculate_queue_wait_time: {
+        Args: { p_producer_id: string }
+        Returns: {
+          clients_waiting: number
+          estimated_minutes: number
+          producers_ahead: number
+          producers_available: number
+          queue_pos: number
+        }[]
+      }
+      fn_get_next_available_producer: {
+        Args: never
+        Returns: {
+          has_penalty: boolean
+          producer_id: string
+          producer_name: string
+          queue_pos: number
+        }[]
+      }
+      fn_get_producer_queue: {
+        Args: never
+        Returns: {
+          average_time: number
+          consecutive_losses: number
+          conversion_rate: number
+          penalty_active: boolean
+          producer_id: string
+          producer_name: string
+          producer_photo: string
+          queue_pos: number
+          status: string
+          total_attendances: number
+        }[]
+      }
+      fn_producer_finish_attendance: {
+        Args: { p_producer_id: string; p_result: string }
+        Returns: {
+          message: string
+          new_position: number
+          penalty_applied: boolean
+          success: boolean
+        }[]
+      }
+      fn_producer_join_queue: {
+        Args: { p_producer_id: string }
+        Returns: {
+          message: string
+          new_position: number
+          success: boolean
+        }[]
+      }
+      fn_producer_leave_queue: {
+        Args: { p_producer_id: string; p_reason?: string }
+        Returns: {
+          message: string
+          success: boolean
+        }[]
+      }
+      fn_producer_start_attendance: {
+        Args: { p_deal_id: string; p_producer_id: string }
+        Returns: {
+          message: string
+          success: boolean
+        }[]
+      }
+      fn_recalculate_queue_positions: { Args: never; Returns: undefined }
       generate_api_key: {
         Args: {
           p_description?: string
@@ -5517,6 +5704,11 @@ export type Database = {
         | "analise"
       app_role: "admin" | "manager" | "agent" | "supervisor"
       permission_scope: "global" | "department" | "own"
+      producer_attendance_status_enum:
+        | "DISPONIVEL"
+        | "EM_ATENDIMENTO"
+        | "PAUSA"
+        | "INDISPONIVEL"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5652,6 +5844,12 @@ export const Constants = {
       ],
       app_role: ["admin", "manager", "agent", "supervisor"],
       permission_scope: ["global", "department", "own"],
+      producer_attendance_status_enum: [
+        "DISPONIVEL",
+        "EM_ATENDIMENTO",
+        "PAUSA",
+        "INDISPONIVEL",
+      ],
     },
   },
 } as const
