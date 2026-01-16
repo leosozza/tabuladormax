@@ -40,7 +40,7 @@ export function AdminConversationList({
     return () => clearTimeout(timer);
   };
 
-  const { conversations, isLoading, stats, refetch, loadMore, hasMore } = useAdminWhatsAppConversations({
+  const { conversations, isLoading, isLoadingMore, stats, refetch, loadMore, hasMore, totalCount } = useAdminWhatsAppConversations({
     search: debouncedSearch,
     windowFilter,
     limit: 50
@@ -234,8 +234,9 @@ export function AdminConversationList({
                   variant="ghost"
                   className="w-full mt-2"
                   onClick={loadMore}
+                  disabled={isLoadingMore}
                 >
-                  Carregar mais...
+                  {isLoadingMore ? 'Carregando...' : `Carregar mais (${conversations.length}/${totalCount})`}
                 </Button>
               )}
             </>
