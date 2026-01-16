@@ -44,7 +44,7 @@ export function useProducerQueueView() {
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
-  // Fetch waiting clients count (deals in reception stages)
+  // Fetch waiting clients count (deals in reception stages only: recepcao and ficha_preenchida)
   const {
     data: waitingClientsCount = 0,
     isLoading: isLoadingClients,
@@ -52,14 +52,14 @@ export function useProducerQueueView() {
   } = useQuery({
     queryKey: ['waiting-clients-count'],
     queryFn: async () => {
-      // Count deals in reception stages (recepcao_cadastro, ficha_preenchida)
+      // Count deals in reception stages ONLY (recepcao_cadastro and ficha_preenchida)
+      // These are the specific stage IDs for:
+      // - C1:UC_MKIQ0S = Recepção/Cadastro
+      // - C1:NEW = Ficha Preenchida
       const { count, error } = await supabase
         .from('deals')
         .select('*', { count: 'exact', head: true })
-        .in('stage_id', [
-          'C1:UC_MKIQ0S', // recepcao_cadastro
-          'C1:NEW',       // ficha_preenchida (or similar stage)
-        ]);
+        .in('stage_id', ['C1:UC_MKIQ0S', 'C1:NEW']);
       
       if (error) {
         console.error('Error fetching waiting clients:', error);
