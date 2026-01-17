@@ -27,25 +27,35 @@ const PortalScouter = () => {
     }
   });
 
-  // Atualiza sessão se bitrix_id ou tier estiverem faltando (sessões antigas)
+  // Atualiza sessão para sincronizar dados do banco (bitrix_id, tier, name)
   useEffect(() => {
     const updateSession = async () => {
-      if (scouterData && (!scouterData.bitrix_id || !scouterData.tier)) {
+      if (scouterData) {
         try {
           const { data, error } = await supabase
             .from('scouters')
-            .select('bitrix_id, tier')
+            .select('bitrix_id, tier, name')
             .eq('id', scouterData.id)
             .single();
           
           if (!error && data) {
-            const updatedData = { 
-              ...scouterData, 
-              bitrix_id: data.bitrix_id || scouterData.bitrix_id,
-              tier: data.tier || scouterData.tier
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
-            setScouterData(updatedData);
+            // Verificar se há diferenças para atualizar
+            const needsUpdate = 
+              data.bitrix_id !== scouterData.bitrix_id ||
+              data.tier !== scouterData.tier ||
+              data.name !== scouterData.name;
+            
+            if (needsUpdate) {
+              const updatedData = { 
+                ...scouterData, 
+                bitrix_id: data.bitrix_id || scouterData.bitrix_id,
+                tier: data.tier || scouterData.tier,
+                name: data.name || scouterData.name
+              };
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
+              setScouterData(updatedData);
+              console.log('Sessão atualizada com dados do banco:', updatedData);
+            }
           }
         } catch (err) {
           console.error('Erro ao atualizar sessão:', err);
