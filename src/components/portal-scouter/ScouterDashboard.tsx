@@ -197,7 +197,7 @@ export const ScouterDashboard = ({
         p_scouter_name: scouterData.name.trim(),
         p_date_from: start?.toISOString() || null,
         p_date_to: end?.toISOString() || null,
-        p_project_id: projectId || null
+        p_project_code: projectId || null
       });
       if (error) throw error;
       return data?.[0] || null;
@@ -539,8 +539,8 @@ export const ScouterDashboard = ({
               <SelectContent>
                 <SelectItem value="all">Todos os Projetos</SelectItem>
                 {projects.map((project) => (
-                  <SelectItem key={project.project_id} value={project.project_id}>
-                    {project.project_name} ({project.lead_count})
+                  <SelectItem key={project.project_code} value={project.project_code}>
+                    {project.project_code} ({project.lead_count})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -680,17 +680,17 @@ export const ScouterDashboard = ({
                   </Button>
                   {projects.map((project) => (
                     <Button
-                      key={project.project_id}
+                      key={project.project_code}
                       variant="ghost"
                       size="sm"
                       className={cn(
                         "justify-start font-normal",
-                        projectId === project.project_id && "bg-accent font-medium"
+                        projectId === project.project_code && "bg-accent font-medium"
                       )}
-                      onClick={() => setProjectId(project.project_id)}
+                      onClick={() => setProjectId(project.project_code)}
                     >
-                      {projectId === project.project_id && <Check className="h-4 w-4 mr-2" />}
-                      {project.project_name} ({project.lead_count})
+                      {projectId === project.project_code && <Check className="h-4 w-4 mr-2" />}
+                      {project.project_code} ({project.lead_count})
                     </Button>
                   ))}
                 </div>
