@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, MessageSquare, ArrowLeft, Check, CheckCheck, Clock } from 'lucide-react';
+import { RefreshCw, MessageSquare, ArrowLeft, Check, CheckCheck } from 'lucide-react';
 import { useWhatsAppMessages, WhatsAppMessage } from '@/hooks/useWhatsAppMessages';
 import { TemplateSelector } from './TemplateSelector';
 import { WindowIndicator } from './WindowIndicator';
@@ -38,33 +38,6 @@ function MessageStatus({ status }: { status: WhatsAppMessage['status'] }) {
   }
 }
 
-// Componente de countdown para rate limit
-function CooldownTimer({ getCooldownRemaining }: { getCooldownRemaining: () => number }) {
-  const [remaining, setRemaining] = useState(getCooldownRemaining());
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const newRemaining = getCooldownRemaining();
-      setRemaining(newRemaining);
-      if (newRemaining <= 0) {
-        clearInterval(interval);
-      }
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [getCooldownRemaining]);
-  
-  if (remaining <= 0) return null;
-  
-  return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-700 dark:text-amber-400">
-      <Clock className="w-4 h-4 animate-pulse" />
-      <span className="text-sm font-medium">
-        Aguarde {remaining}s para enviar novamente
-      </span>
-    </div>
-  );
-}
 
 export function ChatPanel({
   bitrixId,
@@ -87,9 +60,6 @@ export function ChatPanel({
     messages,
     loading,
     sending,
-    rateLimitedUntil,
-    getCooldownRemaining,
-    isInCooldown,
     fetchMessages,
     sendMessage,
     sendMedia,
@@ -129,9 +99,6 @@ export function ChatPanel({
 
   // Usar o status da janela do Gupshup ou fallback para props/default
   const windowStatus = propWindowStatus || gupshupWindowStatus || calculateWindowStatus(null);
-  
-  // Verificar se está em cooldown
-  const inCooldown = isInCooldown();
 
   const handleOpenInTelemarketing = () => {
     if (leadId) {
@@ -181,11 +148,10 @@ export function ChatPanel({
       console.log('[ChatPanelGupshup] handleSendMessage blocked - already sending');
       return false;
     }
-    if (!content.trim() || sending || inCooldown) {
+    if (!content.trim() || sending) {
       console.log('[ChatPanelGupshup] handleSendMessage blocked', { 
         hasMessage: !!content.trim(), 
-        sending,
-        inCooldown 
+        sending
       });
       return false;
     }
@@ -208,7 +174,7 @@ export function ChatPanel({
     caption?: string, 
     filename?: string
   ) => {
-    if (isSendingRef.current || sending || inCooldown) {
+    if (isSendingRef.current || sending) {
       console.log('[ChatPanelGupshup] handleSendMedia blocked');
       return false;
     }
@@ -227,8 +193,8 @@ export function ChatPanel({
 
   const handleSendTemplateWrapper = async (params: Parameters<typeof sendTemplate>[0]): Promise<boolean> => {
     // Proteção contra múltiplos envios
-    if (isSendingRef.current || inCooldown) {
-      console.log('[ChatPanelGupshup] handleSendTemplate blocked', { isSending: isSendingRef.current, inCooldown });
+    if (isSendingRef.current) {
+      console.log('[ChatPanelGupshup] handleSendTemplate blocked', { isSending: isSendingRef.current });
       return false;
     }
     
@@ -369,29 +335,19 @@ export function ChatPanel({
 
           {/* Área de input - FIXA no rodapé - SEM restrição de janela */}
           <div className="shrink-0 border-t p-3 bg-card space-y-2">
-            {/* Cooldown Timer */}
-            {inCooldown && (
-              <CooldownTimer getCooldownRemaining={getCooldownRemaining} />
-            )}
-
             {/* ChatInput sempre habilitado */}
             <ChatInput
               onSendText={handleSendMessage}
               onSendMedia={handleSendMedia}
               disabled={sending}
               isWindowOpen={true}
-              inCooldown={inCooldown}
+              inCooldown={false}
             />
           </div>
         </TabsContent>
 
         <TabsContent value="templates" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden data-[state=active]:flex">
-          {inCooldown && (
-            <div className="px-4 pt-4">
-              <CooldownTimer getCooldownRemaining={getCooldownRemaining} />
-            </div>
-          )}
-          <TemplateSelector onSendTemplate={handleSendTemplateWrapper} disabled={sending || inCooldown} />
+          <TemplateSelector onSendTemplate={handleSendTemplateWrapper} disabled={sending} />
         </TabsContent>
       </Tabs>
     </div>

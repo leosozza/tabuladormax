@@ -5,7 +5,6 @@ import { useWhatsAppMessages } from '@/hooks/useWhatsAppMessages';
 import { useGupshupWindowStatus } from '@/hooks/useGupshupWindowStatus';
 import { calculateWindowStatus, WindowStatus } from '@/lib/whatsappWindow';
 import { WhatsAppHeader } from './WhatsAppHeader';
-import { CooldownTimer } from './WhatsAppWindowBanner';
 import { WindowTimeCircle } from './WindowTimeCircle';
 import { WhatsAppMessageList } from './WhatsAppMessageList';
 import { WhatsAppInput, MediaType } from './WhatsAppInput';
@@ -32,7 +31,6 @@ export function WhatsAppChatContainer({
   commercialProjectId
 }: WhatsAppChatContainerProps) {
   const [activeTab, setActiveTab] = useState('messages');
-  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const hasMarkedAsReadRef = useRef(false);
   const isSendingRef = useRef(false);
 
@@ -40,8 +38,6 @@ export function WhatsAppChatContainer({
     messages,
     loading,
     sending,
-    getCooldownRemaining,
-    isInCooldown,
     fetchMessages,
     sendMessage,
     sendMedia,
@@ -58,25 +54,6 @@ export function WhatsAppChatContainer({
   });
 
   const windowStatus: WindowStatus = gupshupWindowStatus || calculateWindowStatus(null);
-  const inCooldown = isInCooldown();
-
-  // Update cooldown timer
-  useEffect(() => {
-    if (!inCooldown) {
-      setCooldownRemaining(0);
-      return;
-    }
-
-    const updateCooldown = () => {
-      const remaining = getCooldownRemaining();
-      setCooldownRemaining(remaining);
-      if (remaining <= 0) return;
-    };
-
-    updateCooldown();
-    const interval = setInterval(updateCooldown, 1000);
-    return () => clearInterval(interval);
-  }, [inCooldown, getCooldownRemaining]);
 
   // Mark messages as read
   useEffect(() => {
@@ -95,7 +72,7 @@ export function WhatsAppChatContainer({
 
   // Remover todas as restrições de isWindowOpen - deixar enviar sempre
   const handleSendMessage = async (content: string) => {
-    if (isSendingRef.current || !content.trim() || sending || inCooldown) return false;
+    if (isSendingRef.current || !content.trim() || sending) return false;
     isSendingRef.current = true;
     try {
       return await sendMessage(content);
@@ -105,7 +82,7 @@ export function WhatsAppChatContainer({
   };
 
   const handleSendMedia = async (mediaUrl: string, mediaType: MediaType, caption?: string, filename?: string) => {
-    if (isSendingRef.current || sending || inCooldown) return false;
+    if (isSendingRef.current || sending) return false;
     isSendingRef.current = true;
     try {
       return await sendMedia(mediaUrl, mediaType, caption, filename);
@@ -115,7 +92,7 @@ export function WhatsAppChatContainer({
   };
 
   const handleSendTemplate = async (params: Parameters<typeof sendTemplate>[0]): Promise<boolean> => {
-    if (isSendingRef.current || inCooldown) return false;
+    if (isSendingRef.current) return false;
     isSendingRef.current = true;
     try {
       return await sendTemplate(params);
@@ -125,7 +102,7 @@ export function WhatsAppChatContainer({
   };
 
   const handleSendLocation = async (latitude: number, longitude: number, name: string, address: string): Promise<boolean> => {
-    if (isSendingRef.current || sending || inCooldown) return false;
+    if (isSendingRef.current || sending) return false;
     isSendingRef.current = true;
     try {
       return await sendLocation(latitude, longitude, name, address);
@@ -165,7 +142,6 @@ export function WhatsAppChatContainer({
           onClose={onClose}
           rightContent={<WindowTimeCircle status={windowStatus} size="sm" />}
         />
-        {cooldownRemaining > 0 && <CooldownTimer remaining={cooldownRemaining} />}
       </div>
 
       {/* Tabs Container */}
@@ -173,7 +149,7 @@ export function WhatsAppChatContainer({
         {/* Tab list - Fixed position */}
         <div 
           className="absolute left-0 right-0 z-10 border-b px-4 bg-background"
-          style={{ top: headerHeight + (cooldownRemaining > 0 ? 36 : 0) }}
+          style={{ top: headerHeight }}
         >
           <TabsList className="grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="messages">Mensagens</TabsTrigger>
@@ -187,7 +163,7 @@ export function WhatsAppChatContainer({
           value="messages" 
           className="absolute left-0 right-0 overflow-hidden flex flex-col m-0 p-0"
           style={{ 
-            top: topOffset + (cooldownRemaining > 0 ? 36 : 0),
+            top: topOffset,
             bottom: 0
           }}
         >
@@ -203,7 +179,7 @@ export function WhatsAppChatContainer({
             onSendLocation={handleSendLocation}
             disabled={sending}
             isWindowOpen={true}
-            inCooldown={inCooldown}
+            inCooldown={false}
             projectId={commercialProjectId}
             chatMessages={messages.map(m => ({
               direction: m.direction,
@@ -218,11 +194,11 @@ export function WhatsAppChatContainer({
           value="templates" 
           className="absolute left-0 right-0 overflow-hidden m-0 p-0"
           style={{ 
-            top: topOffset + (cooldownRemaining > 0 ? 36 : 0),
+            top: topOffset,
             bottom: 0
           }}
         >
-          <TemplateSelector onSendTemplate={handleSendTemplate} disabled={sending || inCooldown} />
+          <TemplateSelector onSendTemplate={handleSendTemplate} disabled={sending} />
         </TabsContent>
 
         {/* Flows Tab Content */}
@@ -230,14 +206,14 @@ export function WhatsAppChatContainer({
           value="flows" 
           className="absolute left-0 right-0 overflow-hidden m-0 p-0"
           style={{ 
-            top: topOffset + (cooldownRemaining > 0 ? 36 : 0),
+            top: topOffset,
             bottom: 0
           }}
         >
           <WhatsAppFlowSelector 
             phoneNumber={phoneNumber} 
             bitrixId={bitrixId} 
-            disabled={sending || inCooldown} 
+            disabled={sending} 
           />
         </TabsContent>
       </Tabs>
