@@ -6,6 +6,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Mapeamento de IDs de tier do Bitrix para labels
+const TIER_MAP: Record<string, string> = {
+  '9006': 'Iniciante',
+  '9008': 'Pleno',
+  '9010': 'Premium',
+  '9012': 'Sênior',
+  '9014': 'Júnior',
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -173,12 +182,16 @@ serve(async (req) => {
             
             console.log(`👤 Sincronizando Scouter ${item.id} (${item.title}) - chave: ${accessKey || 'sem chave'}`);
             
+            // Resolver tier ID para label
+            const tierRaw = item.ufCrm32_1759248377 ? String(item.ufCrm32_1759248377) : null;
+            const tierLabel = tierRaw ? (TIER_MAP[tierRaw] || tierRaw) : null;
+            
             // Preparar dados para upsert
             const scouterData: Record<string, unknown> = {
               bitrix_id: item.id,
               name: (item.title || `Scouter ${item.id}`).trim(),
               status: 'ativo',
-              tier: item.ufCrm32_1759248377 || null, // Campo de tier (UF_CRM_32_1759248377)
+              tier: tierLabel, // Campo de tier resolvido para label
               updated_at: new Date().toISOString(),
             };
             
