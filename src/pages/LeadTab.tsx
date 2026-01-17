@@ -42,6 +42,7 @@ import { useOperatorRanking } from '@/hooks/useOperatorRanking';
 import { LeadSearchProgress } from "@/components/telemarketing/LeadSearchProgress";
 import { LeadPhotoGallery } from "@/components/shared/LeadPhotoGallery";
 import { LeadProfileStats, calculateAgeWithUnit } from "@/components/shared/LeadProfileStats";
+import { LeadQuickSelector } from "@/components/portal-telemarketing/LeadQuickSelector";
 
 // Profile é agora dinâmico, baseado nos field mappings
 type DynamicProfile = Record<string, unknown>;
@@ -336,6 +337,7 @@ const LeadTab = () => {
   const [observacaoTelemarketing, setObservacaoTelemarketing] = useState('');
   const [savingObservacao, setSavingObservacao] = useState(false);
   const [observacoesExpanded, setObservacoesExpanded] = useState(false);
+  const [showLeadSelector, setShowLeadSelector] = useState(false);
 
   // Hook para carregar categorias do banco
   const { data: buttonCategories = [] } = useButtonCategories();
@@ -1347,10 +1349,14 @@ const LeadTab = () => {
       if (leadId) {
         console.log('🔍 Carregando lead do query param:', leadId);
         await loadLeadById(leadId, true); // silent = true para não mostrar toast de erro
+      } else if (isPortalTelemarketing && portalContext?.bitrix_id) {
+        // Se estiver no portal telemarketing sem lead na URL, mostrar seletor
+        console.log('📋 Portal Telemarketing sem lead - exibindo seletor');
+        setShowLeadSelector(true);
       }
     };
     initialize();
-  }, [location.search]); // Reexecutar quando query param mudar
+  }, [location.search, isPortalTelemarketing, portalContext?.bitrix_id]); // Reexecutar quando query param mudar
 
   // Sincronizar com Bitrix ao sair da página
   useEffect(() => {
@@ -3601,6 +3607,19 @@ const LeadTab = () => {
         phoneNumber={String(profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number || '')}
         contactName={chatwootData?.name || String(profile['Nome'] || profile['Nome Modelo'] || 'Lead')}
       />
+
+      {/* Lead Quick Selector - Portal Telemarketing */}
+      {isPortalTelemarketing && portalContext?.bitrix_id && (
+        <LeadQuickSelector
+          open={showLeadSelector}
+          onClose={() => setShowLeadSelector(false)}
+          onSelectLead={(leadId) => {
+            setShowLeadSelector(false);
+            loadLeadById(leadId);
+          }}
+          operatorBitrixId={portalContext.bitrix_id}
+        />
+      )}
       </main>
     </div>;
 };
