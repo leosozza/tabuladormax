@@ -2,15 +2,15 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, History, CheckCircle2, XCircle, Clock, MessageCircle } from "lucide-react";
+import { Loader2, History, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface TemplateHistoryPopoverProps {
   leadId: number;
+  phoneNormalized?: string;
   children: React.ReactNode;
 }
 
@@ -19,32 +19,33 @@ interface TemplateAttempt {
   created_at: string;
   status: string;
   error_reason: string | null;
+  template_name: string | null;
 }
 
-export function TemplateHistoryPopover({ leadId, children }: TemplateHistoryPopoverProps) {
+export function TemplateHistoryPopover({ leadId, phoneNormalized, children }: TemplateHistoryPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const { data: attempts, isLoading } = useQuery({
-    queryKey: ['template-history', leadId],
+    queryKey: ['template-history', leadId, phoneNormalized],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('whatsapp_messages')
-        .select('id, created_at, status, metadata')
-        .eq('bitrix_id', leadId.toString())
-        .eq('direction', 'outbound')
-        .eq('message_type', 'template')
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // Usar a nova RPC que faz match inteligente por telefone (com/sem 9)
+      const { data, error } = await supabase.rpc('get_scouter_template_history', {
+        p_lead_id: leadId,
+        p_phone_normalized: phoneNormalized || '',
+        p_limit: 10
+      });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar histórico de templates:', error);
+        throw error;
+      }
 
-      return (data || []).map((msg) => ({
+      return (data || []).map((msg: any) => ({
         id: msg.id,
         created_at: msg.created_at,
         status: msg.status,
-        error_reason: (msg.metadata as Record<string, unknown>)?.payload
-          ? ((msg.metadata as Record<string, unknown>).payload as Record<string, unknown>)?.reason as string | null
-          : null,
+        error_reason: msg.error_reason,
+        template_name: msg.template_name,
       })) as TemplateAttempt[];
     },
     enabled: isOpen,

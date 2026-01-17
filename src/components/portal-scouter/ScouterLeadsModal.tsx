@@ -433,7 +433,7 @@ export function ScouterLeadsModal({
       if (sendCount === 0) return badge;
       
       return (
-        <TemplateHistoryPopover leadId={lead.lead_id}>
+        <TemplateHistoryPopover leadId={lead.lead_id} phoneNormalized={lead.phone_normalized || undefined}>
           <div className="inline-flex items-center gap-1 cursor-pointer group">
             {badge}
             {sendCount > 1 && (

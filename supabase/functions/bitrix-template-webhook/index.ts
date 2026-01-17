@@ -28,13 +28,23 @@ Deno.serve(async (req) => {
     let variables: string[] = [];
     let bitrix_id: string | undefined;
     let conversation_id: number | undefined;
+    let bitrix_id_source: string = 'not_found';
 
     // SEMPRE extrair query params da URL primeiro (funciona para GET e POST)
     // Bitrix Webhook envia POST mas os dados vêm na URL, não no body
     const url = new URL(req.url);
     const urlPhone = url.searchParams.get('phone_number');
     const urlTemplate = url.searchParams.get('template_name');
-    const urlBitrixId = url.searchParams.get('bitrix_id');
+    
+    // FASE C: Tentar múltiplos parâmetros para bitrix_id
+    const urlBitrixId = url.searchParams.get('bitrix_id') 
+      || url.searchParams.get('lead_id') 
+      || url.searchParams.get('id') 
+      || url.searchParams.get('DEAL_ID')
+      || url.searchParams.get('deal_id')
+      || url.searchParams.get('LEAD_ID')
+      || url.searchParams.get('ID');
+    
     const urlConvId = url.searchParams.get('conversation_id');
     
     // Extrair variáveis da URL (var1, var2, ... até var10)
@@ -67,6 +77,7 @@ Deno.serve(async (req) => {
       template_name = urlTemplate;
       variables = urlVariables;
       bitrix_id = urlBitrixId || undefined;
+      if (bitrix_id) bitrix_id_source = 'url_param';
       if (urlConvId) conversation_id = parseInt(urlConvId, 10);
       
       console.log('✅ Usando parâmetros da URL (modo Bitrix Webhook)');
@@ -83,6 +94,7 @@ Deno.serve(async (req) => {
         template_name = body.template_name || '';
         variables = body.variables || [];
         bitrix_id = body.bitrix_id;
+        if (bitrix_id) bitrix_id_source = 'json_body';
         conversation_id = body.conversation_id;
         
         console.log('📋 Dados POST JSON:', JSON.stringify({ phone_number, template_name, variables, bitrix_id, conversation_id }));
@@ -96,7 +108,18 @@ Deno.serve(async (req) => {
         
         phone_number = params.get('phone_number') || params.get('PHONE') || params.get('phone') || '';
         template_name = params.get('template_name') || params.get('TEMPLATE') || params.get('template') || '';
-        bitrix_id = params.get('bitrix_id') || params.get('BITRIX_ID') || undefined;
+        
+        // Tentar múltiplos parâmetros para bitrix_id
+        bitrix_id = params.get('bitrix_id') 
+          || params.get('BITRIX_ID') 
+          || params.get('lead_id') 
+          || params.get('LEAD_ID')
+          || params.get('id')
+          || params.get('ID')
+          || params.get('deal_id')
+          || params.get('DEAL_ID')
+          || undefined;
+        if (bitrix_id) bitrix_id_source = 'form_body';
         
         // Variáveis: var1, var2, ...
         for (let i = 1; i <= 10; i++) {
@@ -142,6 +165,38 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // FASE C: Se não tem bitrix_id, tentar lookup por telefone
+    if (!bitrix_id && normalizedPhone) {
+      console.log('🔍 Tentando lookup de lead por telefone...');
+      
+      // Gerar variações do telefone (com/sem 9)
+      const phoneVariations = getPhoneVariations(normalizedPhone);
+      console.log('📞 Variações de telefone:', phoneVariations);
+      
+      // Buscar lead mais recente nos últimos 7 dias com match de telefone
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const { data: matchedLead, error: lookupError } = await supabase
+        .from('leads')
+        .select('id, phone_normalized, name')
+        .in('phone_normalized', phoneVariations)
+        .gte('created_date', sevenDaysAgo.toISOString())
+        .order('created_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (lookupError) {
+        console.warn('⚠️ Erro no lookup por telefone:', lookupError);
+      } else if (matchedLead) {
+        bitrix_id = matchedLead.id.toString();
+        bitrix_id_source = 'phone_lookup';
+        console.log(`✅ Lead encontrado via telefone: ${bitrix_id} (${matchedLead.name})`);
+      } else {
+        console.log('⚠️ Nenhum lead encontrado para as variações de telefone');
+      }
+    }
+
     // Buscar template pelo element_name
     const { data: template, error: templateError } = await supabase
       .from('gupshup_templates')
@@ -155,6 +210,7 @@ Deno.serve(async (req) => {
       await registerMessage(supabase, {
         phone_number: normalizedPhone,
         bitrix_id,
+        bitrix_id_source,
         conversation_id,
         content: `[📋 Template: ${template_name}]`,
         template_name,
@@ -163,7 +219,7 @@ Deno.serve(async (req) => {
       });
       
       return new Response(
-        JSON.stringify({ success: true, warning: 'Template não encontrado, mensagem genérica registrada' }),
+        JSON.stringify({ success: true, warning: 'Template não encontrado, mensagem genérica registrada', bitrix_id_source }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -182,6 +238,7 @@ Deno.serve(async (req) => {
     await registerMessage(supabase, {
       phone_number: normalizedPhone,
       bitrix_id,
+      bitrix_id_source,
       conversation_id,
       content,
       template_name: template.element_name,
@@ -189,10 +246,10 @@ Deno.serve(async (req) => {
       variables
     });
 
-    console.log(`✅ Template ${template_name} registrado para ${normalizedPhone}`);
+    console.log(`✅ Template ${template_name} registrado para ${normalizedPhone} (bitrix_id: ${bitrix_id || 'N/A'}, source: ${bitrix_id_source})`);
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Template registrado com sucesso' }),
+      JSON.stringify({ success: true, message: 'Template registrado com sucesso', bitrix_id_source }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
@@ -239,9 +296,31 @@ function normalizePhone(phone: string): string {
   return limited;
 }
 
+// Gerar variações de telefone para match (com/sem 9)
+function getPhoneVariations(phone: string): string[] {
+  const variations: string[] = [phone];
+  
+  // Se tem 13 dígitos (55 + DDD + 9 + 8 dígitos), gerar versão sem o 9
+  if (phone.length === 13 && phone.startsWith('55')) {
+    // Remover o 5º dígito (o 9 após o DDD)
+    const without9 = phone.substring(0, 4) + phone.substring(5);
+    variations.push(without9);
+  }
+  
+  // Se tem 12 dígitos (55 + DDD + 8 dígitos), gerar versão com o 9
+  if (phone.length === 12 && phone.startsWith('55')) {
+    // Adicionar 9 após o DDD
+    const with9 = phone.substring(0, 4) + '9' + phone.substring(4);
+    variations.push(with9);
+  }
+  
+  return variations;
+}
+
 interface RegisterMessageParams {
   phone_number: string;
   bitrix_id?: string;
+  bitrix_id_source: string;
   conversation_id?: number;
   content: string;
   template_name: string;
@@ -269,6 +348,7 @@ async function registerMessage(supabase: any, data: RegisterMessageParams) {
         source: 'bitrix_webhook',
         template_display_name: data.template_display_name,
         variables: data.variables,
+        bitrix_id_source: data.bitrix_id_source,
         pending_since: now // Para matching no gupshup-webhook
       }
     });
@@ -278,7 +358,7 @@ async function registerMessage(supabase: any, data: RegisterMessageParams) {
     throw error;
   }
   
-  console.log(`✅ Mensagem registrada com status 'sent' para ${data.phone_number}`);
+  console.log(`✅ Mensagem registrada com status 'sent' para ${data.phone_number} (bitrix_id_source: ${data.bitrix_id_source})`);
 
   // Atualizar last_message no chatwoot_contacts
   if (data.bitrix_id) {

@@ -5415,6 +5415,31 @@ export type Database = {
               total_count: number
             }[]
           }
+        | {
+            Args: {
+              p_date_from?: string
+              p_date_to?: string
+              p_limit?: number
+              p_scouter_name: string
+              p_status?: string
+            }
+            Returns: {
+              additional_photos: Json
+              address: string
+              created_date: string
+              lat: number
+              lead_id: number
+              lead_name: string
+              lng: number
+              phone_normalized: string
+              photo_url: string
+              scouter_name: string
+              status: string
+              template_error_reason: string
+              template_send_count: number
+              template_status: string
+            }[]
+          }
       get_scouter_location_history: {
         Args: {
           p_date_from: string
@@ -5482,6 +5507,20 @@ export type Database = {
           rank_position: number
           scouter_name: string
           total_leads: number
+        }[]
+      }
+      get_scouter_template_history: {
+        Args: {
+          p_lead_id: number
+          p_limit?: number
+          p_phone_normalized: string
+        }
+        Returns: {
+          created_at: string
+          error_reason: string
+          id: string
+          status: string
+          template_name: string
         }[]
       }
       get_scouter_timesheet: {
