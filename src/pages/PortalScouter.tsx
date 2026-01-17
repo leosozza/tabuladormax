@@ -13,6 +13,21 @@ interface ScouterData {
 
 const STORAGE_KEY = 'scouter_session';
 
+// Mapeamento de IDs numéricos do Bitrix para labels legíveis
+const TIER_MAP: Record<string, string> = {
+  '9006': 'Iniciante',
+  '9008': 'Pleno',
+  '9010': 'Premium',
+  '9012': 'Sênior',
+  '9014': 'Júnior',
+};
+
+// Resolver tier numérico para label
+const resolveTier = (tier: string | null): string | null => {
+  if (!tier) return null;
+  return TIER_MAP[tier] || tier;
+};
+
 const PortalScouter = () => {
   const [scouterData, setScouterData] = useState<ScouterData | null>(() => {
     try {
@@ -39,17 +54,22 @@ const PortalScouter = () => {
             .single();
           
           if (!error && data) {
+            // Resolver tier do banco (pode vir como ID ou label)
+            const resolvedDbTier = resolveTier(data.tier);
+            // Resolver tier atual da sessão (pode ser ID legado)
+            const resolvedSessionTier = resolveTier(scouterData.tier);
+            
             // Verificar se há diferenças para atualizar
             const needsUpdate = 
               data.bitrix_id !== scouterData.bitrix_id ||
-              data.tier !== scouterData.tier ||
+              resolvedDbTier !== resolvedSessionTier ||
               data.name !== scouterData.name;
             
             if (needsUpdate) {
               const updatedData = { 
                 ...scouterData, 
                 bitrix_id: data.bitrix_id || scouterData.bitrix_id,
-                tier: data.tier || scouterData.tier,
+                tier: resolvedDbTier || resolvedSessionTier,
                 name: data.name || scouterData.name
               };
               localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
