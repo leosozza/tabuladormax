@@ -178,7 +178,7 @@ export const ScouterDashboard = ({
   const { start, end } = getDateRange();
 
   // Buscar projetos do scouter
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], refetch: refetchProjects } = useQuery({
     queryKey: ['scouter-projects', scouterData.name],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_projects', {
@@ -190,7 +190,7 @@ export const ScouterDashboard = ({
   });
 
   // Buscar estatísticas
-  const { data: stats, isLoading, refetch } = useQuery({
+  const { data: stats, isLoading, refetch: refetchStats } = useQuery({
     queryKey: ['scouter-portal-stats', scouterData.name, start?.toISOString(), end?.toISOString(), projectId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_portal_stats', {
@@ -205,7 +205,7 @@ export const ScouterDashboard = ({
   });
 
   // Buscar posição no ranking
-  const { data: ranking } = useQuery({
+  const { data: ranking, refetch: refetchRanking } = useQuery({
     queryKey: ['scouter-ranking', scouterData.name, start?.toISOString(), end?.toISOString()],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_ranking_position', {
@@ -217,6 +217,13 @@ export const ScouterDashboard = ({
       return data?.[0] || null;
     }
   });
+
+  // Função para atualizar todos os dados
+  const handleRefreshAll = async () => {
+    toast.loading('Atualizando dados...', { id: 'refresh-all' });
+    await Promise.all([refetchStats(), refetchRanking(), refetchProjects()]);
+    toast.success('Dados atualizados!', { id: 'refresh-all' });
+  };
 
   const handlePhotoUpdated = (newPhotoUrl: string) => {
     setCurrentPhoto(newPhotoUrl);
@@ -386,7 +393,7 @@ export const ScouterDashboard = ({
               <Button variant="ghost" size="icon" onClick={onLogout}>
                 <LogOut className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="outline" size="icon" onClick={() => refetch()}>
+              <Button variant="outline" size="icon" onClick={handleRefreshAll}>
                 <RefreshCw className="h-3.5 w-3.5" />
               </Button>
             </div>
