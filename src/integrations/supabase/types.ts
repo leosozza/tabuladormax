@@ -5386,6 +5386,21 @@ export type Database = {
             Args: {
               p_date_from?: string
               p_date_to?: string
+              p_page?: number
+              p_per_page?: number
+              p_project_code?: string
+              p_scouter_name: string
+              p_search?: string
+              p_sort_direction?: string
+              p_sort_field?: string
+              p_status?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_date_from?: string
+              p_date_to?: string
               p_filter_type?: string
               p_limit?: number
               p_offset?: number
@@ -5474,40 +5489,19 @@ export type Database = {
         Args: {
           p_date_from?: string
           p_date_to?: string
-          p_project_id?: string
+          p_project_code?: string
           p_scouter_name: string
         }
-        Returns: {
-          agendados: number
-          com_foto: number
-          compareceram: number
-          confirmados: number
-          duplicados: number
-          pendentes: number
-          reagendar: number
-          total_leads: number
-        }[]
+        Returns: Json
       }
-      get_scouter_projects: {
-        Args: { p_scouter_name: string }
-        Returns: {
-          lead_count: number
-          project_code: string
-          project_id: string
-          project_name: string
-        }[]
-      }
+      get_scouter_projects: { Args: { p_scouter_name: string }; Returns: Json }
       get_scouter_ranking_position: {
         Args: {
           p_date_from?: string
           p_date_to?: string
           p_scouter_name: string
         }
-        Returns: {
-          rank_position: number
-          scouter_name: string
-          total_leads: number
-        }[]
+        Returns: Json
       }
       get_scouter_template_history: {
         Args: {
