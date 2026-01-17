@@ -840,15 +840,23 @@ serve(async (req) => {
     const booleanFields = ['cadastro_existe_foto', 'presenca_confirmada', 'compareceu', 'ficha_confirmada'];
     
     for (const supabaseField of booleanFields) {
-      if (validatedData[supabaseField] !== undefined && validatedData[supabaseField] !== null) {
-        
+      const currentValue = validatedData[supabaseField];
+      
+      // ✅ CORREÇÃO: Se o valor já é boolean, não tentar reconverter
+      // Isso acontece quando o mapeamento dinâmico já converteu o enum na FASE 2
+      if (typeof currentValue === 'boolean') {
+        console.log(`✓ Campo ${supabaseField}: já é boolean (${currentValue}), pulando reconversão`);
+        continue;
+      }
+      
+      if (currentValue !== undefined && currentValue !== null) {
         // Descobrir qual campo do Bitrix está mapeado para este campo Supabase
         const bitrixField = SUPABASE_TO_BITRIX_ENUM[supabaseField] || 
                            appliedMappings.find((m: any) => m.supabase_field === supabaseField)?.bitrix_field;
         
         if (!bitrixField) continue; // Campo não mapeado, pular
         
-        const originalValue = validatedData[supabaseField];
+        const originalValue = currentValue;
         const conversion = convertBitrixEnumToBoolean(bitrixField, originalValue);
         
         if (conversion.hasError) {
