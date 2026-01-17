@@ -177,30 +177,54 @@ export const ScouterDashboard = ({
 
   const { start, end } = getDateRange();
 
+  // Tipo para projetos do scouter
+  interface ScouterProject {
+    code: string;
+    name: string;
+    lead_count: number;
+  }
+
   // Buscar projetos do scouter
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [] } = useQuery<ScouterProject[]>({
     queryKey: ['scouter-projects', scouterData.name],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_projects', {
         p_scouter_name: scouterData.name
       });
       if (error) throw error;
-      return data || [];
+      // Parse JSONB result
+      const parsed = data as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed as ScouterProject[];
+      }
+      return [];
     }
   });
 
+  // Tipo para estatísticas do portal
+  interface PortalStats {
+    total_leads: number;
+    com_foto: number;
+    confirmados: number;
+    agendados: number;
+    reagendar: number;
+    compareceram: number;
+    pendentes: number;
+    duplicados: number;
+  }
+
   // Buscar estatísticas
-  const { data: stats, isLoading, refetch } = useQuery({
+  const { data: stats, isLoading, refetch } = useQuery<PortalStats | null>({
     queryKey: ['scouter-portal-stats', scouterData.name, start?.toISOString(), end?.toISOString(), projectId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_scouter_portal_stats', {
         p_scouter_name: scouterData.name.trim(),
         p_date_from: start?.toISOString() || null,
         p_date_to: end?.toISOString() || null,
-        p_project_id: projectId || null
+        p_project_code: projectId || null
       });
       if (error) throw error;
-      return data?.[0] || null;
+      return data as unknown as PortalStats | null;
     }
   });
 
@@ -539,8 +563,8 @@ export const ScouterDashboard = ({
               <SelectContent>
                 <SelectItem value="all">Todos os Projetos</SelectItem>
                 {projects.map((project) => (
-                  <SelectItem key={project.project_id} value={project.project_id}>
-                    {project.project_name} ({project.lead_count})
+                  <SelectItem key={project.code} value={project.code}>
+                    {project.name} ({project.lead_count})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -680,17 +704,17 @@ export const ScouterDashboard = ({
                   </Button>
                   {projects.map((project) => (
                     <Button
-                      key={project.project_id}
+                      key={project.code}
                       variant="ghost"
                       size="sm"
                       className={cn(
                         "justify-start font-normal",
-                        projectId === project.project_id && "bg-accent font-medium"
+                        projectId === project.code && "bg-accent font-medium"
                       )}
-                      onClick={() => setProjectId(project.project_id)}
+                      onClick={() => setProjectId(project.code)}
                     >
-                      {projectId === project.project_id && <Check className="h-4 w-4 mr-2" />}
-                      {project.project_name} ({project.lead_count})
+                      {projectId === project.code && <Check className="h-4 w-4 mr-2" />}
+                      {project.name} ({project.lead_count})
                     </Button>
                   ))}
                 </div>
