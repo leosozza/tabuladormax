@@ -43,10 +43,6 @@ interface UseWhatsAppMessagesOptions {
 const SEND_DEBOUNCE_MS = 3000;
 // Limite máximo de envios por sessão
 const MAX_SENDS_PER_SESSION = 50;
-// Cooldown inicial após erro (60 segundos)
-const INITIAL_COOLDOWN_MS = 60000;
-// Cooldown máximo (5 minutos)
-const MAX_COOLDOWN_MS = 300000;
 // Key para lock cross-tab
 const SEND_LOCK_KEY = 'whatsapp_send_lock';
 
@@ -82,13 +78,11 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   const [loading, setLoading] = useState(false);
   const [loadingBitrix, setLoadingBitrix] = useState(false);
   const [sending, setSending] = useState(false);
-  const [rateLimitedUntil, setRateLimitedUntil] = useState<number>(0);
   const [usingBitrixFallback, setUsingBitrixFallback] = useState(false);
   
   const lastSendTimeRef = useRef<number>(0);
   const sendCountRef = useRef<number>(0);
   const mountedRef = useRef<boolean>(true);
-  const consecutiveFailsRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Cleanup on unmount
@@ -105,20 +99,6 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       logDebug('Hook unmounted');
     };
   }, []);
-
-  // Calcular tempo restante de cooldown
-  const getCooldownRemaining = useCallback(() => {
-    const now = Date.now();
-    if (rateLimitedUntil > now) {
-      return Math.ceil((rateLimitedUntil - now) / 1000);
-    }
-    return 0;
-  }, [rateLimitedUntil]);
-
-  // Verificar se está em cooldown
-  const isInCooldown = useCallback(() => {
-    return Date.now() < rateLimitedUntil;
-  }, [rateLimitedUntil]);
 
   // Buscar mensagens do Bitrix via sessionId
   const fetchBitrixMessages = useCallback(async (sessionId: number) => {
@@ -268,48 +248,12 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     }
   }, [bitrixId, phoneNumber, conversationId, fetchBitrixMessages]);
 
-  // Handler de erro com cooldown
-  const handleSendError = useCallback((error: any, context: string) => {
-    consecutiveFailsRef.current += 1;
-    
-    // Calcular cooldown com backoff exponencial
-    const cooldownMs = Math.min(
-      INITIAL_COOLDOWN_MS * Math.pow(1.5, consecutiveFailsRef.current - 1),
-      MAX_COOLDOWN_MS
-    );
-    const cooldownUntil = Date.now() + cooldownMs;
-    const cooldownSeconds = Math.ceil(cooldownMs / 1000);
-    
-    setRateLimitedUntil(cooldownUntil);
-    
-    logDebug('Send error - applying cooldown', { 
-      context, 
-      consecutiveFails: consecutiveFailsRef.current,
-      cooldownSeconds,
-      error: error?.message || error 
-    });
-    
-    toast.error(`⚠️ Erro ao enviar. Aguarde ${cooldownSeconds}s antes de tentar novamente.`, {
-      duration: 10000,
-    });
-    
-    return false;
-  }, []);
-
   const sendMessage = async (content: string): Promise<boolean> => {
     logDebug('sendMessage called', { content: content.substring(0, 50), phoneNumber });
     
     if (!phoneNumber || !content.trim()) {
       logDebug('sendMessage rejected: missing data');
       toast.error('Telefone e mensagem são obrigatórios');
-      return false;
-    }
-
-    // Verificar cooldown por rate limit
-    if (isInCooldown()) {
-      const waitSeconds = getCooldownRemaining();
-      logDebug('sendMessage rejected: in cooldown', { waitSeconds });
-      toast.warning(`Aguarde ${waitSeconds}s antes de enviar`);
       return false;
     }
 
@@ -372,34 +316,18 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         console.error('Erro ao enviar mensagem:', error);
         releaseSendLock();
         
-        // Check for auth error (401) or rate limit (429)
-        const errorMessage = error?.message || '';
-        const errorContext = (error as any)?.context;
-        
-        if (errorMessage.includes('401') || errorMessage.includes('Não autorizado')) {
-          return handleSendError(error, 'auth_error');
-        }
-        if (errorContext?.error?.includes('Limite') || errorContext?.blocked || errorMessage.includes('429')) {
-          return handleSendError(error, 'rate_limit');
-        }
-        
-        return handleSendError(error, 'unknown_error');
+        toast.error('Erro ao enviar mensagem');
+        return false;
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
         releaseSendLock();
-        
-        if (data.blocked || data.error?.includes('Limite') || data.error?.includes('401')) {
-          return handleSendError(data.error, 'api_error');
-        }
-        
         toast.error(data.error);
         return false;
       }
 
-      // Sucesso! Reset contador de falhas
-      consecutiveFailsRef.current = 0;
+      // Sucesso!
       releaseSendLock();
 
       // Adicionar mensagem otimisticamente
@@ -436,7 +364,8 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         return false;
       }
       
-      return handleSendError(error, 'catch_error');
+      toast.error('Erro ao enviar mensagem');
+      return false;
     } finally {
       setSending(false);
       abortControllerRef.current = null;
@@ -449,14 +378,6 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     if (!phoneNumber) {
       logDebug('sendTemplate rejected: missing phone');
       toast.error('Telefone é obrigatório');
-      return false;
-    }
-
-    // Verificar cooldown por rate limit
-    if (isInCooldown()) {
-      const waitSeconds = getCooldownRemaining();
-      logDebug('sendTemplate rejected: in cooldown', { waitSeconds });
-      toast.warning(`Aguarde ${waitSeconds}s antes de enviar`);
       return false;
     }
 
@@ -515,34 +436,18 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       if (error) {
         console.error('Erro ao enviar template:', error);
         releaseSendLock();
-        
-        const errorMessage = error?.message || '';
-        const errorContext = (error as any)?.context;
-        
-        if (errorMessage.includes('401') || errorMessage.includes('Não autorizado')) {
-          return handleSendError(error, 'auth_error');
-        }
-        if (errorContext?.error?.includes('Limite') || errorContext?.blocked || errorMessage.includes('429')) {
-          return handleSendError(error, 'rate_limit');
-        }
-        
-        return handleSendError(error, 'unknown_error');
+        toast.error('Erro ao enviar template');
+        return false;
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
         releaseSendLock();
-        
-        if (data.blocked || data.error?.includes('Limite') || data.error?.includes('401')) {
-          return handleSendError(data.error, 'api_error');
-        }
-        
         toast.error(data.error);
         return false;
       }
 
       // Sucesso!
-      consecutiveFailsRef.current = 0;
       releaseSendLock();
       
       toast.success('Template enviado');
@@ -557,7 +462,8 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         return false;
       }
       
-      return handleSendError(error, 'catch_error');
+      toast.error('Erro ao enviar template');
+      return false;
     } finally {
       setSending(false);
     }
@@ -574,14 +480,6 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     if (!phoneNumber) {
       logDebug('sendMedia rejected: missing phone');
       toast.error('Telefone é obrigatório');
-      return false;
-    }
-
-    // Verificar cooldown por rate limit
-    if (isInCooldown()) {
-      const waitSeconds = getCooldownRemaining();
-      logDebug('sendMedia rejected: in cooldown', { waitSeconds });
-      toast.warning(`Aguarde ${waitSeconds}s antes de enviar`);
       return false;
     }
 
@@ -642,34 +540,18 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       if (error) {
         console.error('Erro ao enviar mídia:', error);
         releaseSendLock();
-        
-        const errorMessage = error?.message || '';
-        const errorContext = (error as any)?.context;
-        
-        if (errorMessage.includes('401') || errorMessage.includes('Não autorizado')) {
-          return handleSendError(error, 'auth_error');
-        }
-        if (errorContext?.error?.includes('Limite') || errorContext?.blocked || errorMessage.includes('429')) {
-          return handleSendError(error, 'rate_limit');
-        }
-        
-        return handleSendError(error, 'unknown_error');
+        toast.error('Erro ao enviar mídia');
+        return false;
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
         releaseSendLock();
-        
-        if (data.blocked || data.error?.includes('Limite') || data.error?.includes('401')) {
-          return handleSendError(data.error, 'api_error');
-        }
-        
         toast.error(data.error);
         return false;
       }
 
       // Sucesso!
-      consecutiveFailsRef.current = 0;
       releaseSendLock();
 
       // Adicionar mensagem otimisticamente
@@ -705,7 +587,8 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         return false;
       }
       
-      return handleSendError(error, 'catch_error');
+      toast.error('Erro ao enviar mídia');
+      return false;
     } finally {
       setSending(false);
     }
@@ -722,14 +605,6 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     if (!phoneNumber) {
       logDebug('sendLocation rejected: missing phone');
       toast.error('Telefone é obrigatório');
-      return false;
-    }
-
-    // Verificar cooldown por rate limit
-    if (isInCooldown()) {
-      const waitSeconds = getCooldownRemaining();
-      logDebug('sendLocation rejected: in cooldown', { waitSeconds });
-      toast.warning(`Aguarde ${waitSeconds}s antes de enviar`);
       return false;
     }
 
@@ -790,34 +665,18 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       if (error) {
         console.error('Erro ao enviar localização:', error);
         releaseSendLock();
-        
-        const errorMessage = error?.message || '';
-        const errorContext = (error as any)?.context;
-        
-        if (errorMessage.includes('401') || errorMessage.includes('Não autorizado')) {
-          return handleSendError(error, 'auth_error');
-        }
-        if (errorContext?.error?.includes('Limite') || errorContext?.blocked || errorMessage.includes('429')) {
-          return handleSendError(error, 'rate_limit');
-        }
-        
-        return handleSendError(error, 'unknown_error');
+        toast.error('Erro ao enviar localização');
+        return false;
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
         releaseSendLock();
-        
-        if (data.blocked || data.error?.includes('Limite') || data.error?.includes('401')) {
-          return handleSendError(data.error, 'api_error');
-        }
-        
         toast.error(data.error);
         return false;
       }
 
       // Sucesso!
-      consecutiveFailsRef.current = 0;
       releaseSendLock();
 
       // Adicionar mensagem otimisticamente
@@ -857,7 +716,8 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         return false;
       }
       
-      return handleSendError(error, 'catch_error');
+      toast.error('Erro ao enviar localização');
+      return false;
     } finally {
       setSending(false);
     }
@@ -963,9 +823,6 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     messages: allMessages,
     loading: loading || loadingBitrix,
     sending,
-    rateLimitedUntil,
-    getCooldownRemaining,
-    isInCooldown,
     fetchMessages,
     sendMessage,
     sendMedia,
