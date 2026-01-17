@@ -314,8 +314,32 @@ serve(async (req) => {
       }
     }
 
+    // Se nenhuma foto foi sincronizada, retornar sucesso com array vazio (não erro)
+    // Isso acontece quando as fotos foram deletadas do Bitrix
     if (allPublicUrls.length === 0) {
-      throw new Error('Nenhuma foto foi sincronizada com sucesso');
+      console.log('⚠️ Nenhuma foto encontrada ou sincronizada - fotos podem ter sido deletadas do Bitrix');
+      
+      // Limpar o campo photo_url para não tentar sincronizar novamente
+      await supabase
+        .from('leads')
+        .update({ 
+          photo_url: null,
+          additional_photos: null
+        })
+        .eq('id', leadId);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          publicUrls: [],
+          leadId,
+          storagePaths: [],
+          totalSize: 0,
+          count: 0,
+          message: 'Nenhuma foto disponível no Bitrix'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Atualizar photo_url E additional_photos para cache

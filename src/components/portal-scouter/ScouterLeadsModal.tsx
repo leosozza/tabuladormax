@@ -134,12 +134,21 @@ export function ScouterLeadsModal({
         // Atualizar cache
         queryClient.invalidateQueries({ queryKey: ['scouter-leads-simple'] });
         
-        // Atualizar o lead atual com a nova URL da foto
+        // Atualizar o lead atual com a nova URL da foto (ou null se não houver)
         if (data?.publicUrls?.length > 0) {
           setPhotoPreviewLead(prev => prev ? {
             ...prev,
             photo_url: JSON.stringify(data.publicUrls)
           } : null);
+        } else {
+          // Nenhuma foto disponível no Bitrix - limpar preview
+          setPhotoPreviewLead(prev => prev ? {
+            ...prev,
+            photo_url: null
+          } : null);
+          if (data?.message) {
+            toast.info(data.message);
+          }
         }
       } catch (err: any) {
         console.error('Erro ao sincronizar foto:', err);
