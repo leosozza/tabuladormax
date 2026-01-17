@@ -5339,39 +5339,82 @@ export type Database = {
               nome_modelo: string
             }[]
           }
-      get_scouter_leads_simple: {
-        Args: {
-          p_date_from?: string
-          p_date_to?: string
-          p_filter_type?: string
-          p_limit?: number
-          p_offset?: number
-          p_project_id?: string
-          p_scouter_name: string
-          p_search?: string
-          p_sort_column?: string
-          p_sort_direction?: string
-        }
-        Returns: {
-          address: string
-          celular: string
-          compareceu: boolean
-          criado: string
-          data_agendamento: string
-          etapa_funil: string
-          ficha_confirmada: boolean
-          lead_id: number
-          nome_modelo: string
-          nome_responsavel: string
-          phone_normalized: string
-          photo_url: string
-          projeto_comercial: string
-          template_error_reason: string
-          template_send_count: number
-          template_status: string
-          total_count: number
-        }[]
-      }
+      get_scouter_leads_simple:
+        | {
+            Args: {
+              p_date_from?: string
+              p_date_to?: string
+              p_empreendimento?: string
+              p_limit?: number
+              p_offset?: number
+              p_scouter_ids?: number[]
+              p_search?: string
+              p_sort_direction?: string
+              p_sort_field?: string
+              p_status?: string
+              p_template_status?: string
+            }
+            Returns: {
+              assigned_by_id: number
+              assigned_by_name: string
+              bitrix_id: string
+              comments: string
+              created_at: string
+              date_create: string
+              email: string
+              empreendimento: string
+              id: number
+              last_activity_at: string
+              last_updated_at: string
+              name: string
+              phone: string
+              phone_normalized: string
+              raw: Json
+              source_description: string
+              source_id: string
+              status_id: string
+              template_error_reason: string
+              template_send_count: number
+              template_status: string
+              total_count: number
+              uf_crm_1736abordar: string
+              uf_crm_1741telefone2: string
+              updated_at: string
+            }[]
+          }
+        | {
+            Args: {
+              p_date_from?: string
+              p_date_to?: string
+              p_filter_type?: string
+              p_limit?: number
+              p_offset?: number
+              p_project_id?: string
+              p_scouter_name: string
+              p_search?: string
+              p_sort_column?: string
+              p_sort_direction?: string
+            }
+            Returns: {
+              address: string
+              celular: string
+              compareceu: boolean
+              criado: string
+              data_agendamento: string
+              etapa_funil: string
+              ficha_confirmada: boolean
+              lead_id: number
+              nome_modelo: string
+              nome_responsavel: string
+              phone_normalized: string
+              photo_url: string
+              projeto_comercial: string
+              template_error_reason: string
+              template_send_count: number
+              template_status: string
+              total_count: number
+            }[]
+          }
       get_scouter_location_history: {
         Args: {
           p_date_from: string
