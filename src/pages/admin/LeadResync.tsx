@@ -34,7 +34,13 @@ export default function LeadResync() {
     isLoading: isLoadingMissingSyncJobs, 
     refetch: refetchMissingSyncJobs,
     syncMissingLeads,
-    isSyncing: isSyncingMissing
+    isSyncing: isSyncingMissing,
+    cancelJob: cancelMissingJob,
+    isCancelling: isCancellingMissing,
+    terminateJob: terminateMissingJob,
+    isTerminating: isTerminatingMissing,
+    deleteJob: deleteMissingJob,
+    isDeleting: isDeletingMissing
   } = useMissingLeadsSyncJobs();
   
   const [filters, setFilters] = useState<JobFilters>({
@@ -95,10 +101,19 @@ export default function LeadResync() {
 
   // Handler para sincronizar leads faltantes
   const handleSyncMissingLeads = async () => {
+    // Usar formato local para evitar shift de timezone
+    const formatLocalDate = (date: Date | undefined): string | undefined => {
+      if (!date) return undefined;
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     syncMissingLeads({
       scouterName: missingScouterName.trim() || undefined,
-      dateFrom: missingDateRange.from?.toISOString().split('T')[0],
-      dateTo: missingDateRange.to?.toISOString().split('T')[0],
+      dateFrom: formatLocalDate(missingDateRange.from),
+      dateTo: formatLocalDate(missingDateRange.to),
       batchSize: 10
     });
   };
@@ -467,7 +482,13 @@ export default function LeadResync() {
         <MissingLeadsSyncHistory 
           jobs={missingSyncJobs} 
           isLoading={isLoadingMissingSyncJobs} 
-          onRefresh={refetchMissingSyncJobs} 
+          onRefresh={refetchMissingSyncJobs}
+          onCancel={cancelMissingJob}
+          onTerminate={terminateMissingJob}
+          onDelete={deleteMissingJob}
+          isCancelling={isCancellingMissing}
+          isTerminating={isTerminatingMissing}
+          isDeleting={isDeletingMissing}
         />
 
         <Card>

@@ -2851,14 +2851,18 @@ export type Database = {
           completed_at: string | null
           created_at: string | null
           created_by: string | null
+          cursor_start: number | null
           date_from: string | null
           date_to: string | null
           db_total: number | null
           error_count: number | null
           error_details: Json | null
           id: string
+          last_heartbeat_at: string | null
           missing_count: number | null
+          scanned_count: number | null
           scouter_name: string | null
+          stage: string | null
           started_at: string | null
           status: string
           synced_count: number | null
@@ -2869,14 +2873,18 @@ export type Database = {
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
+          cursor_start?: number | null
           date_from?: string | null
           date_to?: string | null
           db_total?: number | null
           error_count?: number | null
           error_details?: Json | null
           id?: string
+          last_heartbeat_at?: string | null
           missing_count?: number | null
+          scanned_count?: number | null
           scouter_name?: string | null
+          stage?: string | null
           started_at?: string | null
           status?: string
           synced_count?: number | null
@@ -2887,14 +2895,18 @@ export type Database = {
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
+          cursor_start?: number | null
           date_from?: string | null
           date_to?: string | null
           db_total?: number | null
           error_count?: number | null
           error_details?: Json | null
           id?: string
+          last_heartbeat_at?: string | null
           missing_count?: number | null
+          scanned_count?: number | null
           scouter_name?: string | null
+          stage?: string | null
           started_at?: string | null
           status?: string
           synced_count?: number | null

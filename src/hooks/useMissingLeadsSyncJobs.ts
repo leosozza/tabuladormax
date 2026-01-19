@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 export interface MissingLeadsSyncJob {
   id: string;
   status: 'running' | 'completed' | 'failed' | 'cancelled';
+  stage: string | null;
   scouter_name: string | null;
   date_from: string | null;
   date_to: string | null;
@@ -13,6 +14,9 @@ export interface MissingLeadsSyncJob {
   missing_count: number;
   synced_count: number;
   error_count: number;
+  scanned_count: number | null;
+  cursor_start: number | null;
+  last_heartbeat_at: string | null;
   error_details: any[];
   started_at: string;
   completed_at: string | null;
@@ -47,7 +51,7 @@ export function useMissingLeadsSyncJobs() {
       // Polling mais frequente se há job rodando
       const jobs = query.state.data as MissingLeadsSyncJob[] | undefined;
       const hasRunningJob = jobs?.some(j => j.status === 'running');
-      return hasRunningJob ? 3000 : 30000;
+      return hasRunningJob ? 2000 : 30000;
     }
   });
 
@@ -84,6 +88,69 @@ export function useMissingLeadsSyncJobs() {
     }
   });
 
+  // Cancelar job
+  const cancelMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { data, error } = await supabase.functions.invoke('sync-missing-leads', {
+        body: { action: 'cancel', jobId }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['missing-leads-sync-jobs'] });
+      toast.success('Job cancelado');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao cancelar job');
+    }
+  });
+
+  // Terminar job travado (marcar como falho)
+  const terminateMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { data, error } = await supabase.functions.invoke('sync-missing-leads', {
+        body: { action: 'terminate', jobId }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['missing-leads-sync-jobs'] });
+      toast.success('Job encerrado');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao encerrar job');
+    }
+  });
+
+  // Excluir job
+  const deleteMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { data, error } = await supabase.functions.invoke('sync-missing-leads', {
+        body: { action: 'delete', jobId }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['missing-leads-sync-jobs'] });
+      toast.success('Job excluído');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao excluir job');
+    }
+  });
+
   // Job ativo (se houver)
   const activeJob = jobs.find(j => j.status === 'running');
   const completedJobs = jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status));
@@ -96,6 +163,13 @@ export function useMissingLeadsSyncJobs() {
     refetch,
     syncMissingLeads: syncMutation.mutate,
     isSyncing: syncMutation.isPending,
-    syncResult: syncMutation.data
+    syncResult: syncMutation.data,
+    // Novas ações
+    cancelJob: cancelMutation.mutate,
+    isCancelling: cancelMutation.isPending,
+    terminateJob: terminateMutation.mutate,
+    isTerminating: terminateMutation.isPending,
+    deleteJob: deleteMutation.mutate,
+    isDeleting: deleteMutation.isPending
   };
 }
