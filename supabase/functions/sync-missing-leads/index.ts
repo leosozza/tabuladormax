@@ -97,11 +97,14 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
+  // Variável para armazenar o ID do job
+  let jobId: string | null = null;
+
+  try {
     let { scouterName, dateFrom, dateTo, batchSize = 10 } = await req.json();
 
     // FRONT A: Se não informar datas E não informar scouter, default para "hoje"
@@ -110,6 +113,27 @@ Deno.serve(async (req) => {
       dateFrom = today;
       dateTo = today;
       console.log(`📅 Datas não informadas - usando padrão "hoje" (${today})`);
+    }
+
+    // Criar registro do job no início
+    const { data: job, error: jobError } = await supabase
+      .from('missing_leads_sync_jobs')
+      .insert({
+        status: 'running',
+        scouter_name: scouterName?.trim() || null,
+        date_from: dateFrom || null,
+        date_to: dateTo || null,
+        started_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (jobError) {
+      console.error('❌ Erro ao criar job:', jobError);
+      // Continua mesmo se não conseguir criar o job (backward compatibility)
+    } else {
+      jobId = job.id;
+      console.log(`📝 Job criado: ${jobId}`);
     }
 
     // scouterName é opcional agora - se não informado, busca todos
@@ -197,9 +221,23 @@ Deno.serve(async (req) => {
     console.log(`📋 Total de leads no Bitrix para ${scouterLabel}: ${allBitrixIds.length}`);
 
     if (allBitrixIds.length === 0) {
+      // Atualizar job como completo (sem leads para processar)
+      if (jobId) {
+        await supabase.from('missing_leads_sync_jobs').update({
+          status: 'completed',
+          bitrix_total: 0,
+          db_total: 0,
+          missing_count: 0,
+          synced_count: 0,
+          error_count: 0,
+          completed_at: new Date().toISOString()
+        }).eq('id', jobId);
+      }
+
       return new Response(
         JSON.stringify({ 
           success: true, 
+          jobId,
           message: 'Nenhum lead encontrado no Bitrix com os filtros especificados',
           bitrixTotal: 0,
           dbTotal: 0,
@@ -229,9 +267,23 @@ Deno.serve(async (req) => {
     console.log(`📊 Leads no banco: ${existingIds.size} | Faltantes: ${missingIds.length}`);
 
     if (missingIds.length === 0) {
+      // Atualizar job como completo
+      if (jobId) {
+        await supabase.from('missing_leads_sync_jobs').update({
+          status: 'completed',
+          bitrix_total: allBitrixIds.length,
+          db_total: existingIds.size,
+          missing_count: 0,
+          synced_count: 0,
+          error_count: 0,
+          completed_at: new Date().toISOString()
+        }).eq('id', jobId);
+      }
+
       return new Response(
         JSON.stringify({ 
           success: true, 
+          jobId,
           message: 'Todos os leads já estão sincronizados',
           bitrixTotal: allBitrixIds.length,
           dbTotal: existingIds.size,
@@ -377,7 +429,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Registrar evento de sync
+    // Atualizar job como completo
+    if (jobId) {
+      await supabase.from('missing_leads_sync_jobs').update({
+        status: errors === 0 ? 'completed' : (synced > 0 ? 'completed' : 'failed'),
+        bitrix_total: allBitrixIds.length,
+        db_total: existingIds.size,
+        missing_count: missingIds.length,
+        synced_count: synced,
+        error_count: errors,
+        error_details: errorDetails.slice(0, 50), // Limitar a 50 erros no banco
+        completed_at: new Date().toISOString()
+      }).eq('id', jobId);
+    }
+
+    // Registrar evento de sync (manter para retrocompatibilidade)
     await supabase.from('sync_events').insert({
       event_type: 'sync_missing_leads',
       direction: 'bitrix_to_supabase',
@@ -390,6 +456,7 @@ Deno.serve(async (req) => {
       ╔════════════════════════════════════════════════════════════════
       ║ ✅ SINCRONIZAÇÃO DE LEADS FALTANTES CONCLUÍDA
       ╠════════════════════════════════════════════════════════════════
+      ║ Job ID: ${jobId}
       ║ Filtro: ${scouterLabel}
       ║ Total no Bitrix: ${allBitrixIds.length}
       ║ Já existentes: ${existingIds.size}
@@ -401,7 +468,8 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        success: true, 
+        success: true,
+        jobId,
         bitrixTotal: allBitrixIds.length,
         dbTotal: existingIds.size,
         missing: missingIds.length,
@@ -414,8 +482,18 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Erro geral:', error);
+
+    // Atualizar job como falho
+    if (jobId) {
+      await supabase.from('missing_leads_sync_jobs').update({
+        status: 'failed',
+        error_details: [{ error: error instanceof Error ? error.message : 'Unknown error', timestamp: new Date().toISOString() }],
+        completed_at: new Date().toISOString()
+      }).eq('id', jobId);
+    }
+
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error', jobId }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
