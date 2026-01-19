@@ -519,12 +519,14 @@ const LeadTab = () => {
     const nome = profile['nome_modelo'] || profile['name'] || chatwootData?.name;
     const hasName = nome && nome !== '—' && nome !== '';
     
-    const telefone = profile['custom_1759958661434'] || profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number;
+    // Incluir verificação do campo customizado no raw
+    const telefone = profile['custom_1759958661434'] || profile['Celular'] || profile['Telefone'] || 
+                     chatwootData?.phone_number || leadProfileData?.raw?.['UF_CRM_1748031605674'];
     const hasPhone = telefone && telefone !== '—' && telefone !== '';
     
     // Se falta nome ou telefone, considerar incompleto
     return !hasName || !hasPhone;
-  }, [chatwootData, profile]);
+  }, [chatwootData, profile, leadProfileData?.raw]);
 
   // Função para enriquecer lead do Bitrix (usada no banner)
   const handleEnrichLead = async () => {
@@ -547,7 +549,15 @@ const LeadTab = () => {
       const bitrixLead = data.dealData;
       const updates: Record<string, any> = {};
       if (bitrixLead.NAME) updates.name = bitrixLead.NAME;
-      if (bitrixLead.PHONE?.[0]?.VALUE) updates.celular = bitrixLead.PHONE[0].VALUE;
+      
+      // Verificar telefone - priorizar PHONE, fallback para campo customizado
+      if (bitrixLead.PHONE?.[0]?.VALUE) {
+        updates.celular = bitrixLead.PHONE[0].VALUE;
+      } else if (bitrixLead['UF_CRM_1748031605674']) {
+        updates.celular = String(bitrixLead['UF_CRM_1748031605674']);
+        console.log(`📞 Enriquecer: telefone de UF_CRM_1748031605674: ${updates.celular}`);
+      }
+      
       if (bitrixLead.SOURCE_ID) updates.fonte = bitrixLead.SOURCE_ID;
       if (bitrixLead.STATUS_ID) updates.etapa = bitrixLead.STATUS_ID;
       if (bitrixLead.ADDRESS) updates.local_abordagem = bitrixLead.ADDRESS;
@@ -849,14 +859,38 @@ const LeadTab = () => {
           updateStep(2, 'success', 'Não necessário', 0);
           const newProfile = mapSupabaseLeadToProfile(supabaseLead);
 
-          // Verificar telefone
+          // Verificar telefone - incluindo campo customizado UF_CRM_1748031605674
           const hasPhone = supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa;
-          if (!hasPhone) {
+          
+          // Também verificar no raw se existe telefone em campo customizado
+          const rawPhone = supabaseLead.raw?.['UF_CRM_1748031605674'];
+          
+          if (!hasPhone && rawPhone) {
+            // Telefone existe no raw mas não no celular - sincronizar
+            const phoneFromRaw = String(rawPhone);
+            newProfile['custom_1759958661434'] = phoneFromRaw;
+            await supabase.from('leads').update({
+              celular: phoneFromRaw
+            }).eq('id', Number(bitrixId));
+            console.log(`📞 Telefone extraído de UF_CRM_1748031605674: ${phoneFromRaw}`);
+          } else if (!hasPhone && !rawPhone) {
+            // Buscar do Bitrix
             try {
               const bitrixLead = await getLead(bitrixId);
               const phones = bitrixLead.PHONE;
+              let phoneNumber = '';
+              
               if (Array.isArray(phones) && phones.length > 0) {
-                const phoneNumber = phones[0].VALUE || '';
+                phoneNumber = phones[0].VALUE || '';
+              }
+              
+              // Fallback: verificar campo customizado do Bitrix
+              if (!phoneNumber && bitrixLead['UF_CRM_1748031605674']) {
+                phoneNumber = String(bitrixLead['UF_CRM_1748031605674']);
+                console.log(`📞 Telefone extraído de Bitrix UF_CRM_1748031605674: ${phoneNumber}`);
+              }
+              
+              if (phoneNumber) {
                 newProfile['custom_1759958661434'] = phoneNumber;
                 await supabase.from('leads').update({
                   celular: phoneNumber
@@ -872,7 +906,7 @@ const LeadTab = () => {
             name: supabaseLead.name || '',
             nome_modelo: supabaseLead.nome_modelo || supabaseLead.name || '',
             projeto_comercial: supabaseLead.projeto_comercial || '',
-            phone_number: supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa || '',
+            phone_number: supabaseLead.celular || supabaseLead.telefone_trabalho || supabaseLead.telefone_casa || supabaseLead.raw?.['UF_CRM_1748031605674'] || '',
             thumbnail: supabaseLead.photo_url || '',
             custom_attributes: {
               idbitrix: bitrixId
@@ -2396,7 +2430,7 @@ const LeadTab = () => {
               </>
             )}
             {/* Botão WhatsApp Gupshup - único botão de chat */}
-            {(chatwootData?.bitrix_id || profile['ID Bitrix']) && (profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number) && (
+            {(chatwootData?.bitrix_id || profile['ID Bitrix']) && (profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number || leadProfileData?.raw?.['UF_CRM_1748031605674']) && (
               <Button 
                 variant="outline" 
                 size="icon" 
@@ -3396,7 +3430,7 @@ const LeadTab = () => {
         open={whatsappGupshupOpen}
         onClose={() => setWhatsappGupshupOpen(false)}
         bitrixId={chatwootData?.bitrix_id || String(profile['ID Bitrix'] || '')}
-        phoneNumber={String(profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number || '')}
+        phoneNumber={String(profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number || leadProfileData?.raw?.['UF_CRM_1748031605674'] || '')}
         contactName={chatwootData?.name || String(profile['Nome'] || profile['Nome Modelo'] || 'Lead')}
       />
 
