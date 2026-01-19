@@ -92,6 +92,13 @@ const adminCategories: Record<string, CategoryConfig> = {
         description: 'Detectar loops de mensagens',
         color: 'bg-red-500/10 text-red-600 dark:text-red-400',
       },
+      {
+        path: '/admin/database-maintenance',
+        icon: HardDrive,
+        title: 'Manutenção do Banco',
+        description: 'Limpeza e otimização do banco de dados',
+        color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+      },
     ],
   },
   sync: {
@@ -141,13 +148,6 @@ const adminCategories: Record<string, CategoryConfig> = {
         title: 'Importação CSV',
         description: 'Importar leads via arquivo CSV',
         color: 'bg-green-500/10 text-green-600 dark:text-green-400',
-      },
-      {
-        path: '/admin/database-maintenance',
-        icon: HardDrive,
-        title: 'Manutenção do Banco',
-        description: 'Limpeza e otimização do banco de dados',
-        color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
       },
     ],
   },
