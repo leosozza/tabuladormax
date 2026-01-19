@@ -44,6 +44,44 @@ interface ConversionResult {
   errorMsg?: string;
 }
 
+/**
+ * Normaliza valores para conversão de enum boolean
+ * Trata casos onde o valor já chegou como string "true"/"false" ao invés de ID
+ */
+function normalizeEnumValue(value: any, enumMap: Record<string, boolean | null>): string | null {
+  if (value === null || value === undefined) return null;
+  
+  const valueStr = String(value).trim();
+  
+  // Se já é um ID de enum válido, usar diretamente
+  if (enumMap.hasOwnProperty(valueStr)) {
+    return valueStr;
+  }
+  
+  // Se é string "true"/"false" ou "1"/"0", encontrar o ID correspondente
+  const valueLower = valueStr.toLowerCase();
+  if (valueLower === 'true' || valueLower === '1') {
+    // Encontrar ID que mapeia para true
+    const trueId = Object.entries(enumMap).find(([_, v]) => v === true)?.[0];
+    if (trueId) {
+      console.log(`🔄 Convertendo "${valueStr}" → enum ID "${trueId}" (true)`);
+      return trueId;
+    }
+  }
+  
+  if (valueLower === 'false' || valueLower === '0') {
+    // Encontrar ID que mapeia para false
+    const falseId = Object.entries(enumMap).find(([_, v]) => v === false)?.[0];
+    if (falseId) {
+      console.log(`🔄 Convertendo "${valueStr}" → enum ID "${falseId}" (false)`);
+      return falseId;
+    }
+  }
+  
+  // Valor não reconhecido, retornar como está para gerar erro adequado
+  return valueStr;
+}
+
 function convertBitrixEnumToBoolean(
   bitrixField: string,
   value: any
@@ -51,12 +89,18 @@ function convertBitrixEnumToBoolean(
   // Se o campo tem mapeamento de enumeração
   if (BITRIX_ENUM_TO_BOOLEAN[bitrixField]) {
     const enumMap = BITRIX_ENUM_TO_BOOLEAN[bitrixField];
-    const valueStr = String(value).trim();
     
-    // Tentar mapear pelo ID da enumeração
-    if (enumMap.hasOwnProperty(valueStr)) {
+    // ✅ NOVO: Normalizar valor antes de converter (trata "true"/"false" como strings)
+    const normalizedValue = normalizeEnumValue(value, enumMap);
+    
+    if (normalizedValue === null) {
+      return { converted: null, hasError: false };
+    }
+    
+    // Tentar mapear pelo ID da enumeração (agora já normalizado)
+    if (enumMap.hasOwnProperty(normalizedValue)) {
       return {
-        converted: enumMap[valueStr],
+        converted: enumMap[normalizedValue],
         hasError: false
       };
     }
@@ -65,7 +109,7 @@ function convertBitrixEnumToBoolean(
     return {
       converted: null,
       hasError: true,
-      errorMsg: `ID de enumeração "${valueStr}" não encontrado no mapeamento de ${bitrixField}. IDs válidos: ${Object.keys(enumMap).join(', ')}`
+      errorMsg: `ID de enumeração "${normalizedValue}" não encontrado no mapeamento de ${bitrixField}. IDs válidos: ${Object.keys(enumMap).join(', ')}`
     };
   }
   
@@ -797,9 +841,18 @@ serve(async (req) => {
       // Array vazio = null
       if (value.length === 0) return null;
       
-      // Para age: pegar primeiro número
+      // Para age: validar com range 0-150 para evitar valores absurdos (timestamps, etc)
       if (fieldName === 'age') {
-        return typeof value[0] === 'number' ? value[0] : null;
+        const rawValue = value[0];
+        const ageValue = typeof rawValue === 'number' ? rawValue : 
+                         typeof rawValue === 'string' ? Number(rawValue) : null;
+        
+        // Validar range de idade (0-150)
+        if (ageValue === null || isNaN(ageValue) || ageValue < 0 || ageValue > 150) {
+          console.warn(`⚠️ Idade inválida descartada: ${rawValue} (fora do range 0-150)`);
+          return null; // Não tentar inserir idade inválida
+        }
+        return Math.round(ageValue);
       }
       
       // Para campos de texto: juntar com vírgula
