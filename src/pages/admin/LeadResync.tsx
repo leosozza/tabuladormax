@@ -18,10 +18,12 @@ import { useLeadResyncJobs, JobFilters } from '@/hooks/useLeadResyncJobs';
 import { useResyncFieldMappings } from '@/hooks/useResyncFieldMappings';
 import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
 import { ResyncFieldMappingDialog } from '@/components/resync/ResyncFieldMappingDialog';
-import { Play, Pause, Loader2, CheckCircle2, XCircle, Clock, AlertCircle, Ban, Trash2, Settings, Download, FileText, AlertTriangle, CalendarIcon } from 'lucide-react';
+import { Play, Pause, Loader2, CheckCircle2, XCircle, Clock, AlertCircle, Ban, Trash2, Settings, Download, FileText, AlertTriangle, CalendarIcon, RefreshCw, Search } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export default function LeadResync() {
   const { jobs, isLoading, createJob, processJob, pauseJob, resumeJob, cancelJob, deleteJob, isCreating, isProcessing, isCancelling, isDeleting } = useLeadResyncJobs();
@@ -42,6 +44,18 @@ export default function LeadResync() {
   const [showErrorsSheet, setShowErrorsSheet] = useState(false);
   const [selectedJobErrors, setSelectedJobErrors] = useState<any>(null);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+
+  // Estados para Sync Missing Leads
+  const [missingScouterName, setMissingScouterName] = useState('');
+  const [missingDateRange, setMissingDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [isSyncingMissing, setIsSyncingMissing] = useState(false);
+  const [missingSyncResult, setMissingSyncResult] = useState<{
+    bitrixTotal: number;
+    dbTotal: number;
+    missing: number;
+    synced: number;
+    errors: number;
+  } | null>(null);
 
   const activeJob = jobs.find(j => j.status === 'running' || j.status === 'paused');
   const completedJobs = jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status));
@@ -77,6 +91,50 @@ export default function LeadResync() {
     a.download = `resync-errors-${jobId}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Handler para sincronizar leads faltantes
+  const handleSyncMissingLeads = async () => {
+    if (!missingScouterName.trim()) {
+      toast.error('Informe o nome do Scouter');
+      return;
+    }
+
+    setIsSyncingMissing(true);
+    setMissingSyncResult(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-missing-leads', {
+        body: {
+          scouterName: missingScouterName.trim(),
+          dateFrom: missingDateRange.from?.toISOString().split('T')[0],
+          dateTo: missingDateRange.to?.toISOString().split('T')[0],
+          batchSize: 10
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      setMissingSyncResult(data);
+
+      if (data.synced > 0) {
+        toast.success(`${data.synced} leads sincronizados com sucesso!`);
+      } else if (data.missing === 0) {
+        toast.info('Todos os leads já estão sincronizados');
+      } else {
+        toast.warning(`Nenhum lead foi sincronizado (${data.errors} erros)`);
+      }
+    } catch (err: any) {
+      console.error('Erro ao sincronizar leads faltantes:', err);
+      toast.error(err.message || 'Erro ao sincronizar leads faltantes');
+    } finally {
+      setIsSyncingMissing(false);
+    }
   };
 
   const getErrorRate = (errorLeads: number, processedLeads: number) => {
@@ -310,6 +368,150 @@ export default function LeadResync() {
             </CardContent>
           </Card>
         )}
+
+        {/* Card de Sincronização de Leads Faltantes */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              Sincronizar Leads Faltantes
+            </CardTitle>
+            <CardDescription>
+              Busca leads que estão no Bitrix mas não chegaram ao sistema (ex: falha no webhook)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert>
+              <RefreshCw className="h-4 w-4" />
+              <AlertTitle>Como funciona?</AlertTitle>
+              <AlertDescription>
+                Esta ferramenta compara os leads do Bitrix (filtrados por scouter e data) com os leads no banco e importa apenas os que estão faltando.
+              </AlertDescription>
+            </Alert>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="missingScouterName">Nome do Scouter *</Label>
+                <Input
+                  id="missingScouterName"
+                  placeholder="Ex: Jhonleno"
+                  value={missingScouterName}
+                  onChange={(e) => setMissingScouterName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Período (opcional)</Label>
+                <div className="flex gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "flex-1 justify-start text-left font-normal",
+                          !missingDateRange.from && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {missingDateRange.from ? format(missingDateRange.from, "dd/MM", { locale: ptBR }) : "De"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={missingDateRange.from}
+                        onSelect={(date) => setMissingDateRange(prev => ({ ...prev, from: date }))}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "flex-1 justify-start text-left font-normal",
+                          !missingDateRange.to && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {missingDateRange.to ? format(missingDateRange.to, "dd/MM", { locale: ptBR }) : "Até"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={missingDateRange.to}
+                        onSelect={(date) => setMissingDateRange(prev => ({ ...prev, to: date }))}
+                        disabled={(date) => missingDateRange.from ? date < missingDateRange.from : false}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  {(missingDateRange.from || missingDateRange.to) && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setMissingDateRange({})}
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <Button
+              onClick={handleSyncMissingLeads}
+              disabled={isSyncingMissing || !missingScouterName.trim()}
+              className="w-full"
+            >
+              {isSyncingMissing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sincronizando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Buscar e Sincronizar Leads Faltantes
+                </>
+              )}
+            </Button>
+
+            {missingSyncResult && (
+              <div className="mt-4 p-4 rounded-lg bg-muted/50">
+                <h4 className="font-semibold mb-3">Resultado da Sincronização</h4>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold">{missingSyncResult.bitrixTotal}</div>
+                    <div className="text-xs text-muted-foreground">No Bitrix</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">{missingSyncResult.dbTotal}</div>
+                    <div className="text-xs text-muted-foreground">No Sistema</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-orange-500">{missingSyncResult.missing}</div>
+                    <div className="text-xs text-muted-foreground">Faltantes</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">{missingSyncResult.synced}</div>
+                    <div className="text-xs text-muted-foreground">Sincronizados</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-destructive">{missingSyncResult.errors}</div>
+                    <div className="text-xs text-muted-foreground">Erros</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader><CardTitle>Histórico de Resincronizações</CardTitle><CardDescription>Jobs completados, cancelados ou com falha</CardDescription></CardHeader>
