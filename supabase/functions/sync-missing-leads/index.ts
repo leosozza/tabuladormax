@@ -60,6 +60,38 @@ async function resolveSpaEntityName(
   return data?.title?.trim() || null;
 }
 
+// Helper para obter data de "hoje" no timezone do Brasil
+function getTodayBrazil(): string {
+  const now = new Date();
+  // Ajustar para UTC-3 (Brasil)
+  const brasilOffset = -3 * 60;
+  const localOffset = now.getTimezoneOffset();
+  const diff = brasilOffset - localOffset;
+  const brasilNow = new Date(now.getTime() + diff * 60 * 1000);
+  return brasilNow.toISOString().split('T')[0];
+}
+
+// Mapeia SOURCE_ID para uma descrição legível quando SOURCE_DESCRIPTION está vazio
+function mapSourceId(sourceId: string | null | undefined): string | null {
+  if (!sourceId) return null;
+  const mapping: Record<string, string> = {
+    'CALL': 'Ligação Receptivo',
+    'WEBFORM': 'Meta',
+    'CALLBACK': 'Callback',
+    'RC_GENERATOR': 'Gerador RC',
+    'STORE': 'Loja',
+    'OTHER': 'Outros',
+    'SELF': 'Manual',
+    'RECOMMENDATION': 'Indicação',
+    'TRADE_SHOW': 'Feira',
+    'WEB': 'Web',
+    'ADVERTISING': 'Publicidade',
+    'PARTNER': 'Parceiro',
+    'EMAIL': 'Email'
+  };
+  return mapping[sourceId] || sourceId;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -70,7 +102,15 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { scouterName, dateFrom, dateTo, batchSize = 10 } = await req.json();
+    let { scouterName, dateFrom, dateTo, batchSize = 10 } = await req.json();
+
+    // FRONT A: Se não informar datas E não informar scouter, default para "hoje"
+    if (!dateFrom && !dateTo && (!scouterName || !scouterName.trim())) {
+      const today = getTodayBrazil();
+      dateFrom = today;
+      dateTo = today;
+      console.log(`📅 Datas não informadas - usando padrão "hoje" (${today})`);
+    }
 
     // scouterName é opcional agora - se não informado, busca todos
     let scouterBitrixId: number | null = null;
@@ -144,8 +184,10 @@ Deno.serve(async (req) => {
         hasMore = false;
       }
 
-      // Limite de segurança - maior para busca global
-      const maxLimit = scouterBitrixId ? 2000 : 5000;
+      // FRONT A: Se tiver filtro de data, aumentar limite significativamente
+      // Se não tiver data (não deveria acontecer mais), manter limite conservador
+      const hasDateFilter = dateFrom || dateTo;
+      const maxLimit = hasDateFilter ? 50000 : (scouterBitrixId ? 2000 : 5000);
       if (allBitrixIds.length > maxLimit) {
         console.log(`⚠️ Limite de ${maxLimit} leads atingido`);
         hasMore = false;
@@ -257,6 +299,13 @@ Deno.serve(async (req) => {
               resolveSpaEntityName(supabase, 1154, projetoId)
             ]);
 
+            // FRONT D: Fallback para scouter quando ID existe mas nome não foi resolvido
+            let finalScouterName = resolvedScouterName;
+            if (!resolvedScouterName && scouterId) {
+              finalScouterName = `Scouter ID ${scouterId}`;
+              console.log(`⚠️ Scouter ${scouterId} não encontrado no cache, usando fallback`);
+            }
+
             // Resolver projeto comercial
             let commercialProjectId: string | null = null;
             if (projetoName) {
@@ -268,6 +317,17 @@ Deno.serve(async (req) => {
               commercialProjectId = project?.id || null;
             }
 
+            // FRONT B: Mapear fonte corretamente - priorizar SOURCE_DESCRIPTION, depois SOURCE_ID
+            const fonteValue = leadData.SOURCE_DESCRIPTION 
+              ? leadData.SOURCE_DESCRIPTION 
+              : mapSourceId(leadData.SOURCE_ID);
+
+            // FRONT C: Parsear data sem fallback perigoso
+            const parsedCriado = parseBrazilianDate(leadData.DATE_CREATE);
+            if (!parsedCriado) {
+              console.warn(`⚠️ Lead ${leadId}: DATE_CREATE inválido "${leadData.DATE_CREATE}" - usando null`);
+            }
+
             // Mapear dados
             const mappedLead = {
               id: Number(leadData.ID),
@@ -276,13 +336,13 @@ Deno.serve(async (req) => {
               address: leadData.ADDRESS || null,
               local_abordagem: leadData.ADDRESS_CITY || null,
               responsible: leadData.ASSIGNED_BY_NAME || null,
-              fonte: leadData.SOURCE_DESCRIPTION || null,
-              scouter: resolvedScouterName,
+              fonte: fonteValue,
+              scouter: finalScouterName,
               telemarketing: telemarketingName,
               bitrix_telemarketing_id: telemarketingId,
               commercial_project_id: commercialProjectId,
               valor_ficha: convertBitrixMoney(leadData.UF_CRM_VALORFICHA),
-              criado: parseBrazilianDate(leadData.DATE_CREATE) || new Date().toISOString(),
+              criado: parsedCriado, // FRONT C: Sem fallback perigoso - null é aceito
               sync_source: 'sync_missing',
               last_sync_at: new Date().toISOString(),
               raw: leadData
