@@ -4971,6 +4971,15 @@ export type Database = {
           unread_count: number
         }[]
       }
+      get_admin_whatsapp_stats: {
+        Args: never
+        Returns: {
+          last_refresh: string
+          open_windows: number
+          total_conversations: number
+          total_unread: number
+        }[]
+      }
       get_agendados_stats: {
         Args: {
           p_end_date: string
