@@ -72,37 +72,42 @@ Deno.serve(async (req) => {
 
     const { scouterName, dateFrom, dateTo, batchSize = 10 } = await req.json();
 
-    if (!scouterName) {
-      return new Response(
-        JSON.stringify({ error: 'scouterName é obrigatório' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // scouterName é opcional agora - se não informado, busca todos
+    let scouterBitrixId: number | null = null;
+    let scouterLabel = 'TODOS';
+
+    if (scouterName && scouterName.trim()) {
+      console.log(`🔍 Buscando leads faltantes para scouter: ${scouterName}`);
+
+      // Buscar o ID do scouter no Bitrix
+      const { data: spaData } = await supabase
+        .from('bitrix_spa_entities')
+        .select('bitrix_item_id')
+        .eq('entity_type_id', 1140) // Scouters entity type
+        .ilike('title', `%${scouterName.trim()}%`)
+        .maybeSingle();
+
+      if (!spaData) {
+        return new Response(
+          JSON.stringify({ error: `Scouter "${scouterName}" não encontrado no sistema` }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      scouterBitrixId = spaData.bitrix_item_id;
+      scouterLabel = scouterName.trim();
+      console.log(`📌 Scouter ID no Bitrix: ${scouterBitrixId}`);
+    } else {
+      console.log(`🔍 Buscando TODOS os leads faltantes (sem filtro de scouter)`);
     }
 
-    console.log(`🔍 Buscando leads faltantes para scouter: ${scouterName}`);
+    // Construir filtro dinamicamente
+    const filter: Record<string, any> = {};
 
-    // 1. Buscar o ID do scouter no Bitrix
-    const { data: spaData } = await supabase
-      .from('bitrix_spa_entities')
-      .select('bitrix_item_id')
-      .eq('entity_type_id', 1140) // Scouters entity type
-      .ilike('title', `%${scouterName}%`)
-      .maybeSingle();
-
-    if (!spaData) {
-      return new Response(
-        JSON.stringify({ error: `Scouter "${scouterName}" não encontrado no sistema` }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Só adiciona filtro de scouter se fornecido
+    if (scouterBitrixId) {
+      filter['PARENT_ID_1140'] = scouterBitrixId;
     }
-
-    const scouterBitrixId = spaData.bitrix_item_id;
-    console.log(`📌 Scouter ID no Bitrix: ${scouterBitrixId}`);
-
-    // 2. Buscar leads do Bitrix com filtro por scouter e data
-    const filter: Record<string, any> = {
-      'PARENT_ID_1140': scouterBitrixId // Filtrar por scouter
-    };
 
     // Filtrar por data se fornecido
     if (dateFrom) {
@@ -149,14 +154,15 @@ Deno.serve(async (req) => {
         hasMore = false;
       }
 
-      // Limite de segurança
-      if (allBitrixIds.length > 1000) {
-        console.log('⚠️ Limite de 1000 leads atingido');
+      // Limite de segurança - maior para busca global
+      const maxLimit = scouterBitrixId ? 2000 : 5000;
+      if (allBitrixIds.length > maxLimit) {
+        console.log(`⚠️ Limite de ${maxLimit} leads atingido`);
         hasMore = false;
       }
     }
 
-    console.log(`📋 Total de leads no Bitrix para ${scouterName}: ${allBitrixIds.length}`);
+    console.log(`📋 Total de leads no Bitrix para ${scouterLabel}: ${allBitrixIds.length}`);
 
     if (allBitrixIds.length === 0) {
       return new Response(
@@ -327,7 +333,7 @@ Deno.serve(async (req) => {
       ╔════════════════════════════════════════════════════════════════
       ║ ✅ SINCRONIZAÇÃO DE LEADS FALTANTES CONCLUÍDA
       ╠════════════════════════════════════════════════════════════════
-      ║ Scouter: ${scouterName}
+      ║ Filtro: ${scouterLabel}
       ║ Total no Bitrix: ${allBitrixIds.length}
       ║ Já existentes: ${existingIds.size}
       ║ Faltantes encontrados: ${missingIds.length}
