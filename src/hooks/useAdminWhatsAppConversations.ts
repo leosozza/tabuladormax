@@ -41,6 +41,9 @@ export const useAdminWhatsAppConversations = ({
   const queryClient = useQueryClient();
 
   // Use infinite query for proper pagination with accumulation
+  // Debug: log filter changes
+  console.log('[AdminWhatsApp] Filters:', { search, windowFilter, responseFilter, etapaFilter });
+
   const {
     data,
     isLoading,
@@ -52,6 +55,13 @@ export const useAdminWhatsAppConversations = ({
   } = useInfiniteQuery({
     queryKey: ['admin-whatsapp-conversations', search, windowFilter, responseFilter, etapaFilter, limit],
     queryFn: async ({ pageParam = 0 }) => {
+      console.log('[AdminWhatsApp] RPC call with:', { 
+        p_window_filter: windowFilter, 
+        p_response_filter: responseFilter,
+        p_etapa_filter: etapaFilter,
+        pageParam 
+      });
+      
       const { data, error } = await supabase.rpc('get_admin_whatsapp_conversations', {
         p_limit: limit,
         p_offset: pageParam,
