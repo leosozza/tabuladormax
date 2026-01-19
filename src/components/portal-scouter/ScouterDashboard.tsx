@@ -201,7 +201,9 @@ export const ScouterDashboard = ({
       });
       if (error) throw error;
       return data?.[0] || null;
-    }
+    },
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   // Buscar posição no ranking
