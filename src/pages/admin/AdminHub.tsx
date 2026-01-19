@@ -146,7 +146,7 @@ const adminCategories: Record<string, CategoryConfig> = {
         path: '/admin/database-maintenance',
         icon: HardDrive,
         title: 'Manutenção do Banco',
-        description: 'Limpeza e otimização do banco',
+        description: 'Limpeza e otimização do banco de dados',
         color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
       },
     ],

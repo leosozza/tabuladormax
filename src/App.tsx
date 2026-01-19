@@ -175,7 +175,8 @@ const App = () => (
             <Route path="/admin/bitrix-sync" element={<ProtectedRoute requireManager><BitrixSync /></ProtectedRoute>} />
             <Route path="/admin/spa-sync" element={<Navigate to="/admin/bitrix-sync" replace />} />
             <Route path="/admin/stage-mappings" element={<Navigate to="/admin/bitrix-sync" replace />} />
-            <Route path="/admin/database-maintenance" element={<ProtectedRoute requireAdmin><DatabaseMaintenance /></ProtectedRoute>} />
+            <Route path="/admin/database-maintenance" element={<ProtectedRoute requireManager><DatabaseMaintenance /></ProtectedRoute>} />
+            <Route path="/admin/manutencao-do-banco-de-dados" element={<Navigate to="/admin/database-maintenance" replace />} />
             <Route path="/admin/eventos_sincronizados" element={<Navigate to="/admin/sync-monitor" replace />} />
             <Route path="/admin/app-releases" element={<ProtectedRoute requireAdmin><AppReleases /></ProtectedRoute>} />
             <Route path="/admin/api-docs" element={<ProtectedRoute requireAdmin><ApiDocumentation /></ProtectedRoute>} />
