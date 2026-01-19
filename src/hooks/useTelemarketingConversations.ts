@@ -117,147 +117,175 @@ export function useTelemarketingConversations(
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedConversations, setSelectedConversations] = useState<number[]>([]);
 
-  // FASE 1: Buscar leads (rápido, sem timeout)
-  const { data: leadsData, isLoading: isLoadingLeads, refetch } = useQuery({
+  // FASE 1: Buscar leads (com timeout e retry otimizado)
+  const { data: leadsData, isLoading: isLoadingLeads, refetch, isError: isLeadsError } = useQuery({
     queryKey: ['telemarketing-leads', bitrixTelemarketingId, cargo, commercialProjectId, teamOperatorIds, agendamentoFilter],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!bitrixTelemarketingId) return { leads: [], phoneToLeadMap: {}, leadIdToPhoneFromMessages: {} };
 
       const dateRange = getAgendamentoDateRange(agendamentoFilter);
       let leads: any[] = [];
 
-      if (isSupervisor && teamOperatorIds !== undefined) {
-        if (teamOperatorIds.length === 0) {
-          return { leads: [], phoneToLeadMap: {}, leadIdToPhoneFromMessages: {} };
-        }
-        
-        let query = supabase
-          .from('leads')
-          .select(`
-            id,
-            name,
-            nome_modelo,
-            photo_url,
-            celular,
-            telefone_casa,
-            telefone_trabalho,
-            bitrix_telemarketing_id,
-            telemarketing,
-            conversation_id,
-            data_agendamento,
-            data_criacao_agendamento
-          `)
-          .in('bitrix_telemarketing_id', teamOperatorIds)
-          .order('updated_at', { ascending: false })
-          .limit(500);
-
-        if (dateRange) {
-          query = query
-            .not('data_criacao_agendamento', 'is', null)
-            .gte('data_criacao_agendamento', dateRange.start)
-            .lt('data_criacao_agendamento', dateRange.end);
-        }
-
-        const { data: teamLeads, error: teamError } = await query;
-        if (teamError) throw teamError;
-        leads = teamLeads || [];
-      } else {
-        let query = supabase
-          .from('leads')
-          .select(`
-            id,
-            name,
-            nome_modelo,
-            photo_url,
-            celular,
-            telefone_casa,
-            telefone_trabalho,
-            bitrix_telemarketing_id,
-            telemarketing,
-            conversation_id,
-            data_agendamento,
-            data_criacao_agendamento
-          `)
-          .eq('bitrix_telemarketing_id', bitrixTelemarketingId)
-          .order('updated_at', { ascending: false });
-
-        if (dateRange) {
-          query = query
-            .not('data_criacao_agendamento', 'is', null)
-            .gte('data_criacao_agendamento', dateRange.start)
-            .lt('data_criacao_agendamento', dateRange.end);
-        }
-
-        const { data: agentLeads, error: leadsError } = await query;
-        if (leadsError) throw leadsError;
-        leads = agentLeads || [];
-      }
-
-      if (leads.length === 0) {
-        return { leads: [], phoneToLeadMap: {}, leadIdToPhoneFromMessages: {} };
-      }
-
-      // Coletar telefones usando extrator robusto
-      const phoneToLeadMap: Record<string, typeof leads[0]> = {};
-      const leadIdsWithoutPhone: number[] = [];
-      
-      leads.forEach(lead => {
-        const phones = extractPhones(lead);
-        if (phones.length === 0) {
-          leadIdsWithoutPhone.push(lead.id);
-        }
-        phones.forEach(phone => {
-          phoneToLeadMap[phone] = lead;
-        });
+      // Timeout de 15s para evitar travamentos
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout ao buscar leads')), 15000);
       });
 
-      // Buscar telefones das mensagens para leads sem telefone
-      const leadIdToPhoneFromMessages: Record<number, string> = {};
-      
-      if (leadIdsWithoutPhone.length > 0) {
-        const { data: phonesFromMessages } = await supabase
-          .from('whatsapp_messages')
-          .select('bitrix_id, phone_number')
-          .in('bitrix_id', leadIdsWithoutPhone.map(String))
-          .order('created_at', { ascending: false });
+      const fetchLeads = async () => {
+        if (isSupervisor && teamOperatorIds !== undefined) {
+          if (teamOperatorIds.length === 0) {
+            return { leads: [], phoneToLeadMap: {}, leadIdToPhoneFromMessages: {} };
+          }
+          
+          let query = supabase
+            .from('leads')
+            .select(`
+              id,
+              name,
+              nome_modelo,
+              photo_url,
+              celular,
+              telefone_casa,
+              telefone_trabalho,
+              bitrix_telemarketing_id,
+              telemarketing,
+              conversation_id,
+              data_agendamento,
+              data_criacao_agendamento
+            `)
+            .in('bitrix_telemarketing_id', teamOperatorIds)
+            .order('updated_at', { ascending: false })
+            .limit(300); // Reduzido de 500 para 300 para melhor performance
 
-        if (phonesFromMessages) {
-          phonesFromMessages.forEach(msg => {
-            if (msg.bitrix_id && msg.phone_number) {
-              const leadId = parseInt(msg.bitrix_id, 10);
-              if (!leadIdToPhoneFromMessages[leadId]) {
-                const normalizedPhone = msg.phone_number.replace(/\D/g, '');
-                if (normalizedPhone.length >= 10) {
-                  leadIdToPhoneFromMessages[leadId] = normalizedPhone;
-                  const lead = leads.find(l => l.id === leadId);
-                  if (lead) {
-                    phoneToLeadMap[normalizedPhone] = lead;
+          if (dateRange) {
+            query = query
+              .not('data_criacao_agendamento', 'is', null)
+              .gte('data_criacao_agendamento', dateRange.start)
+              .lt('data_criacao_agendamento', dateRange.end);
+          }
+
+          const { data: teamLeads, error: teamError } = await query;
+          if (teamError) throw teamError;
+          leads = teamLeads || [];
+        } else {
+          let query = supabase
+            .from('leads')
+            .select(`
+              id,
+              name,
+              nome_modelo,
+              photo_url,
+              celular,
+              telefone_casa,
+              telefone_trabalho,
+              bitrix_telemarketing_id,
+              telemarketing,
+              conversation_id,
+              data_agendamento,
+              data_criacao_agendamento
+            `)
+            .eq('bitrix_telemarketing_id', bitrixTelemarketingId)
+            .order('updated_at', { ascending: false })
+            .limit(500);
+
+          if (dateRange) {
+            query = query
+              .not('data_criacao_agendamento', 'is', null)
+              .gte('data_criacao_agendamento', dateRange.start)
+              .lt('data_criacao_agendamento', dateRange.end);
+          }
+
+          const { data: agentLeads, error: leadsError } = await query;
+          if (leadsError) throw leadsError;
+          leads = agentLeads || [];
+        }
+
+        if (leads.length === 0) {
+          return { leads: [], phoneToLeadMap: {}, leadIdToPhoneFromMessages: {} };
+        }
+
+        // Coletar telefones usando extrator robusto
+        const phoneToLeadMap: Record<string, typeof leads[0]> = {};
+        const leadIdsWithoutPhone: number[] = [];
+        
+        leads.forEach(lead => {
+          const phones = extractPhones(lead);
+          if (phones.length === 0) {
+            leadIdsWithoutPhone.push(lead.id);
+          }
+          phones.forEach(phone => {
+            phoneToLeadMap[phone] = lead;
+          });
+        });
+
+        // Buscar telefones das mensagens para leads sem telefone (com timeout separado)
+        const leadIdToPhoneFromMessages: Record<number, string> = {};
+        
+        if (leadIdsWithoutPhone.length > 0 && leadIdsWithoutPhone.length <= 100) {
+          try {
+            const { data: phonesFromMessages } = await supabase
+              .from('whatsapp_messages')
+              .select('bitrix_id, phone_number')
+              .in('bitrix_id', leadIdsWithoutPhone.slice(0, 50).map(String))
+              .order('created_at', { ascending: false })
+              .limit(100);
+
+            if (phonesFromMessages) {
+              phonesFromMessages.forEach(msg => {
+                if (msg.bitrix_id && msg.phone_number) {
+                  const leadId = parseInt(msg.bitrix_id, 10);
+                  if (!leadIdToPhoneFromMessages[leadId]) {
+                    const normalizedPhone = msg.phone_number.replace(/\D/g, '');
+                    if (normalizedPhone.length >= 10) {
+                      leadIdToPhoneFromMessages[leadId] = normalizedPhone;
+                      const lead = leads.find(l => l.id === leadId);
+                      if (lead) {
+                        phoneToLeadMap[normalizedPhone] = lead;
+                      }
+                    }
                   }
                 }
-              }
+              });
             }
-          });
+          } catch (err) {
+            console.warn('Falha ao buscar telefones de mensagens, continuando sem eles:', err);
+          }
         }
-      }
 
-      return { leads, phoneToLeadMap, leadIdToPhoneFromMessages };
+        return { leads, phoneToLeadMap, leadIdToPhoneFromMessages };
+      };
+
+      // Race entre fetch e timeout
+      return Promise.race([fetchLeads(), timeoutPromise]);
     },
     enabled: !!bitrixTelemarketingId,
-    staleTime: 30000,
+    staleTime: 60000, // Cache por 60s ao invés de 30s
+    gcTime: 120000, // Manter em cache por 2 minutos
+    retry: 2, // Retry 2 vezes em caso de falha
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Backoff exponencial
   });
 
   // FASE 2: Buscar estatísticas de mensagens usando RPC (separado, pode falhar sem quebrar a lista)
   const phoneNumbers = Object.keys(leadsData?.phoneToLeadMap || {});
   
-  const { data: messageStats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ['telemarketing-message-stats', phoneNumbers],
+  const { data: messageStats, isLoading: isLoadingStats, isError: isStatsError } = useQuery({
+    queryKey: ['telemarketing-message-stats', phoneNumbers.slice(0, 200)], // Limitar a 200 telefones
     queryFn: async () => {
       if (phoneNumbers.length === 0) return {};
 
+      // Timeout de 10s para estatísticas (não crítico)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       try {
+        // Limitar a 200 telefones para evitar queries muito grandes
+        const limitedPhones = phoneNumbers.slice(0, 200);
+        
         const { data, error } = await supabase.rpc('get_whatsapp_message_stats', {
-          p_phone_numbers: phoneNumbers
+          p_phone_numbers: limitedPhones
         });
+
+        clearTimeout(timeoutId);
 
         if (error) {
           console.error('Erro ao buscar stats via RPC:', error);
@@ -282,13 +310,20 @@ export function useTelemarketingConversations(
 
         return stats;
       } catch (err) {
-        console.error('Erro ao buscar estatísticas de mensagens:', err);
+        clearTimeout(timeoutId);
+        if (err instanceof Error && err.name === 'AbortError') {
+          console.warn('Timeout ao buscar estatísticas de mensagens');
+        } else {
+          console.error('Erro ao buscar estatísticas de mensagens:', err);
+        }
         return {};
       }
     },
     enabled: phoneNumbers.length > 0,
-    staleTime: 15000,
+    staleTime: 60000, // Cache por 60s
+    gcTime: 120000,
     retry: 1,
+    retryDelay: 2000,
   });
 
   // Combinar leads com estatísticas
