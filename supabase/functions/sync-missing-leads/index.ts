@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
       const { data: spaData } = await supabase
         .from('bitrix_spa_entities')
         .select('bitrix_item_id')
-        .eq('entity_type_id', 1140) // Scouters entity type
+        .eq('entity_type_id', 1096) // Scouters entity type (correto)
         .ilike('title', `%${scouterName.trim()}%`)
         .maybeSingle();
 
@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
 
     // Só adiciona filtro de scouter se fornecido
     if (scouterBitrixId) {
-      filter['PARENT_ID_1140'] = scouterBitrixId;
+      filter['PARENT_ID_1096'] = scouterBitrixId;
     }
 
     // Filtrar por data se fornecido
@@ -250,12 +250,12 @@ Deno.serve(async (req) => {
 
           try {
             // Resolver SPAs
-            const scouterId = leadData.PARENT_ID_1140 ? Number(leadData.PARENT_ID_1140) : null;
+            const scouterId = leadData.PARENT_ID_1096 ? Number(leadData.PARENT_ID_1096) : null;
             const telemarketingId = leadData.PARENT_ID_1144 ? Number(leadData.PARENT_ID_1144) : null;
             const projetoId = leadData.PARENT_ID_1154 ? Number(leadData.PARENT_ID_1154) : null;
 
             const [resolvedScouterName, telemarketingName, projetoName] = await Promise.all([
-              resolveSpaEntityName(supabase, 1140, scouterId),
+              resolveSpaEntityName(supabase, 1096, scouterId),
               resolveSpaEntityName(supabase, 1144, telemarketingId),
               resolveSpaEntityName(supabase, 1154, projetoId)
             ]);
