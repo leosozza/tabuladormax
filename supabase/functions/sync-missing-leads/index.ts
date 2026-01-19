@@ -101,40 +101,30 @@ Deno.serve(async (req) => {
       console.log(`🔍 Buscando TODOS os leads faltantes (sem filtro de scouter)`);
     }
 
-    // Construir filtro dinamicamente
-    const filter: Record<string, any> = {};
-
-    // Só adiciona filtro de scouter se fornecido
-    if (scouterBitrixId) {
-      filter['PARENT_ID_1096'] = scouterBitrixId;
-    }
-
-    // Filtrar por data se fornecido
-    if (dateFrom) {
-      filter['>=DATE_CREATE'] = dateFrom;
-    }
-    if (dateTo) {
-      // Adicionar 1 dia ao dateTo para incluir o dia inteiro
-      const toDate = new Date(dateTo);
-      toDate.setDate(toDate.getDate() + 1);
-      filter['<DATE_CREATE'] = toDate.toISOString().split('T')[0];
-    }
-
     // Buscar todos os IDs do Bitrix
     const allBitrixIds: number[] = [];
     let start = 0;
-    const bitrixLimit = 50;
     let hasMore = true;
 
     while (hasMore) {
-      const params = new URLSearchParams({
-        select: JSON.stringify(['ID']),
-        filter: JSON.stringify(filter),
-        order: JSON.stringify({ ID: 'DESC' }),
-        start: String(start)
-      });
+      // Construir URL no formato correto para API Bitrix (igual ao bitrix-import-batch)
+      let url = `${BITRIX_BASE_URL}/crm.lead.list.json?select[]=ID&order[ID]=DESC&start=${start}`;
 
-      const response = await fetch(`${BITRIX_BASE_URL}/crm.lead.list?${params}`);
+      // Adicionar filtros dinamicamente
+      if (scouterBitrixId) {
+        url += `&filter[PARENT_ID_1096]=${scouterBitrixId}`;
+      }
+      if (dateFrom) {
+        url += `&filter[>=DATE_CREATE]=${encodeURIComponent(dateFrom + ' 00:00:00')}`;
+      }
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        toDate.setDate(toDate.getDate() + 1);
+        url += `&filter[<DATE_CREATE]=${encodeURIComponent(toDate.toISOString().split('T')[0] + ' 00:00:00')}`;
+      }
+
+      console.log(`🔗 URL Bitrix: ${url.substring(0, 100)}...`);
+      const response = await fetch(url);
       const result = await response.json();
 
       if (result.error) {
