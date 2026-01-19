@@ -143,6 +143,10 @@ export function useTelemarketingMetrics(
 ) {
   return useQuery({
     queryKey: ['telemarketing-metrics', period, operatorId, customStartDate?.toISOString(), customEndDate?.toISOString(), operatorIds?.join(',')],
+    staleTime: 60000, // Cache por 60s para reduzir carga no banco
+    gcTime: 120000,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
     queryFn: async (): Promise<TelemarketingMetrics> => {
       const { start, end } = getDateRange(period, customStartDate, customEndDate);
       const startStr = start.toISOString();
