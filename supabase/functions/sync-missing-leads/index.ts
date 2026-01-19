@@ -323,15 +323,15 @@ Deno.serve(async (req) => {
         url += `&filter[PARENT_ID_1096]=${scouterBitrixId}`;
       }
       if (dateFrom) {
-        // Formato YYYY-MM-DD 00:00:00 para incluir todo o dia
-        url += `&filter[>=DATE_CREATE]=${encodeURIComponent(dateFrom + ' 00:00:00')}`;
+        // Formato ISO: YYYY-MM-DDTHH:MM:SS para que o Bitrix interprete corretamente
+        url += `&filter[>=DATE_CREATE]=${encodeURIComponent(dateFrom + 'T00:00:00')}`;
       }
       if (dateTo) {
-        // Incluir dateTo: usar < dia seguinte
+        // Incluir dateTo: usar < dia seguinte às 00:00:00
         const toDate = new Date(dateTo + 'T00:00:00');
         toDate.setDate(toDate.getDate() + 1);
         const nextDay = toDate.toISOString().split('T')[0];
-        url += `&filter[<DATE_CREATE]=${encodeURIComponent(nextDay + ' 00:00:00')}`;
+        url += `&filter[<DATE_CREATE]=${encodeURIComponent(nextDay + 'T00:00:00')}`;
       }
 
       console.log(`🔗 URL Bitrix: ${url.substring(0, 120)}...`);
