@@ -2845,6 +2845,63 @@ export type Database = {
         }
         Relationships: []
       }
+      missing_leads_sync_jobs: {
+        Row: {
+          bitrix_total: number | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          date_from: string | null
+          date_to: string | null
+          db_total: number | null
+          error_count: number | null
+          error_details: Json | null
+          id: string
+          missing_count: number | null
+          scouter_name: string | null
+          started_at: string | null
+          status: string
+          synced_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          bitrix_total?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          db_total?: number | null
+          error_count?: number | null
+          error_details?: Json | null
+          id?: string
+          missing_count?: number | null
+          scouter_name?: string | null
+          started_at?: string | null
+          status?: string
+          synced_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          bitrix_total?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          db_total?: number | null
+          error_count?: number | null
+          error_details?: Json | null
+          id?: string
+          missing_count?: number | null
+          scouter_name?: string | null
+          started_at?: string | null
+          status?: string
+          synced_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       negotiation_documents: {
         Row: {
           created_at: string

@@ -16,18 +16,26 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useLeadResyncJobs, JobFilters } from '@/hooks/useLeadResyncJobs';
 import { useResyncFieldMappings } from '@/hooks/useResyncFieldMappings';
+import { useMissingLeadsSyncJobs } from '@/hooks/useMissingLeadsSyncJobs';
 import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
 import { ResyncFieldMappingDialog } from '@/components/resync/ResyncFieldMappingDialog';
+import { MissingLeadsSyncHistory } from '@/components/admin/MissingLeadsSyncHistory';
 import { Play, Pause, Loader2, CheckCircle2, XCircle, Clock, AlertCircle, Ban, Trash2, Settings, Download, FileText, AlertTriangle, CalendarIcon, RefreshCw, Search } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export default function LeadResync() {
   const { jobs, isLoading, createJob, processJob, pauseJob, resumeJob, cancelJob, deleteJob, isCreating, isProcessing, isCancelling, isDeleting } = useLeadResyncJobs();
   const { mappingNames } = useResyncFieldMappings();
+  const { 
+    jobs: missingSyncJobs, 
+    isLoading: isLoadingMissingSyncJobs, 
+    refetch: refetchMissingSyncJobs,
+    syncMissingLeads,
+    isSyncing: isSyncingMissing
+  } = useMissingLeadsSyncJobs();
   
   const [filters, setFilters] = useState<JobFilters>({
     addressNull: true,
@@ -48,14 +56,6 @@ export default function LeadResync() {
   // Estados para Sync Missing Leads
   const [missingScouterName, setMissingScouterName] = useState('');
   const [missingDateRange, setMissingDateRange] = useState<{ from?: Date; to?: Date }>({});
-  const [isSyncingMissing, setIsSyncingMissing] = useState(false);
-  const [missingSyncResult, setMissingSyncResult] = useState<{
-    bitrixTotal: number;
-    dbTotal: number;
-    missing: number;
-    synced: number;
-    errors: number;
-  } | null>(null);
 
   const activeJob = jobs.find(j => j.status === 'running' || j.status === 'paused');
   const completedJobs = jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status));
@@ -95,41 +95,12 @@ export default function LeadResync() {
 
   // Handler para sincronizar leads faltantes
   const handleSyncMissingLeads = async () => {
-    setIsSyncingMissing(true);
-    setMissingSyncResult(null);
-
-    try {
-      const { data, error } = await supabase.functions.invoke('sync-missing-leads', {
-        body: {
-          scouterName: missingScouterName.trim() || null, // null = busca todos
-          dateFrom: missingDateRange.from?.toISOString().split('T')[0],
-          dateTo: missingDateRange.to?.toISOString().split('T')[0],
-          batchSize: 10
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.error) {
-        toast.error(data.error);
-        return;
-      }
-
-      setMissingSyncResult(data);
-
-      if (data.synced > 0) {
-        toast.success(`${data.synced} leads sincronizados com sucesso!`);
-      } else if (data.missing === 0) {
-        toast.info('Todos os leads já estão sincronizados');
-      } else {
-        toast.warning(`Nenhum lead foi sincronizado (${data.errors} erros)`);
-      }
-    } catch (err: any) {
-      console.error('Erro ao sincronizar leads faltantes:', err);
-      toast.error(err.message || 'Erro ao sincronizar leads faltantes');
-    } finally {
-      setIsSyncingMissing(false);
-    }
+    syncMissingLeads({
+      scouterName: missingScouterName.trim() || undefined,
+      dateFrom: missingDateRange.from?.toISOString().split('T')[0],
+      dateTo: missingDateRange.to?.toISOString().split('T')[0],
+      batchSize: 10
+    });
   };
 
   const getErrorRate = (errorLeads: number, processedLeads: number) => {
@@ -489,36 +460,15 @@ export default function LeadResync() {
                 </>
               )}
             </Button>
-
-            {missingSyncResult && (
-              <div className="mt-4 p-4 rounded-lg bg-muted/50">
-                <h4 className="font-semibold mb-3">Resultado da Sincronização</h4>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-bold">{missingSyncResult.bitrixTotal}</div>
-                    <div className="text-xs text-muted-foreground">No Bitrix</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold">{missingSyncResult.dbTotal}</div>
-                    <div className="text-xs text-muted-foreground">No Sistema</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-orange-500">{missingSyncResult.missing}</div>
-                    <div className="text-xs text-muted-foreground">Faltantes</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-green-600">{missingSyncResult.synced}</div>
-                    <div className="text-xs text-muted-foreground">Sincronizados</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-destructive">{missingSyncResult.errors}</div>
-                    <div className="text-xs text-muted-foreground">Erros</div>
-                  </div>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
+
+        {/* Histórico de Sincronizações de Leads Faltantes */}
+        <MissingLeadsSyncHistory 
+          jobs={missingSyncJobs} 
+          isLoading={isLoadingMissingSyncJobs} 
+          onRefresh={refetchMissingSyncJobs} 
+        />
 
         <Card>
           <CardHeader><CardTitle>Histórico de Resincronizações</CardTitle><CardDescription>Jobs completados, cancelados ou com falha</CardDescription></CardHeader>
