@@ -67,15 +67,15 @@ async function checkSyncStatus(): Promise<HealthCheck> {
   const startTime = Date.now();
   
   try {
-    // Verifica eventos de sync recentes com Bitrix
+    // Verifica eventos de sync recentes com Bitrix (ambas direções)
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { data: events, error } = await supabase
       .from('sync_events')
-      .select('status')
+      .select('status, direction, error_message')
       .gte('created_at', oneHourAgo)
-      .eq('direction', 'bitrix')
+      .or('direction.eq.bitrix_to_supabase,direction.eq.supabase_to_bitrix')
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(500);
 
     const responseTime = Date.now() - startTime;
 
@@ -99,11 +99,23 @@ async function checkSyncStatus(): Promise<HealthCheck> {
       };
     }
 
+    // Calcula métricas por direção
+    const bitrixToSupabase = events.filter(e => e.direction === 'bitrix_to_supabase');
+    const supabaseToBitrix = events.filter(e => e.direction === 'supabase_to_bitrix');
+    
     const failedCount = events.filter(e => e.status === 'error').length;
     const failureRate = (failedCount / events.length) * 100;
+    
+    // Identifica o erro mais comum
+    const errorMessages = events
+      .filter(e => e.status === 'error' && e.error_message)
+      .map(e => e.error_message);
+    const commonError = errorMessages.length > 0 
+      ? errorMessages[0]?.substring(0, 50) + (errorMessages[0]?.length > 50 ? '...' : '')
+      : null;
 
     let status: HealthStatus = 'healthy';
-    let message = 'Sincronização com Bitrix operando normalmente';
+    let message = `Sincronização operando normalmente (${events.length} eventos, ${(100 - failureRate).toFixed(1)}% sucesso)`;
 
     if (failureRate > 50) {
       status = 'critical';
@@ -111,6 +123,9 @@ async function checkSyncStatus(): Promise<HealthCheck> {
     } else if (failureRate > 20) {
       status = 'warning';
       message = `Taxa de falha elevada: ${failureRate.toFixed(1)}%`;
+    } else if (failedCount > 0) {
+      // Erros baixos (< 20%) ainda mostram como healthy, mas com info
+      message = `${events.length} eventos (${failedCount} erros, ${(100 - failureRate).toFixed(1)}% sucesso)`;
     }
 
     return {
@@ -122,7 +137,18 @@ async function checkSyncStatus(): Promise<HealthCheck> {
       details: { 
         totalEvents: events.length, 
         failedCount, 
-        failureRate: failureRate.toFixed(2) 
+        failureRate: failureRate.toFixed(2),
+        byDirection: {
+          bitrix_to_supabase: {
+            total: bitrixToSupabase.length,
+            errors: bitrixToSupabase.filter(e => e.status === 'error').length
+          },
+          supabase_to_bitrix: {
+            total: supabaseToBitrix.length,
+            errors: supabaseToBitrix.filter(e => e.status === 'error').length
+          }
+        },
+        commonError
       }
     };
   } catch (error) {
