@@ -489,6 +489,5 @@ export function useTelemarketingMetrics(
       };
     },
     refetchInterval: 60000, // Refresh every minute
-    staleTime: 30000,
   });
 }

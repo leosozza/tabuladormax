@@ -113,7 +113,10 @@ export const useAdminWhatsAppConversations = ({
     },
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextOffset : undefined,
     initialPageParam: 0,
-    staleTime: 30000,
+    staleTime: 60000,
+    gcTime: 180000,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
   // Flatten all pages into a single array
@@ -122,7 +125,7 @@ export const useAdminWhatsAppConversations = ({
     return data.pages.flatMap(page => page.conversations);
   }, [data]);
 
-  // Get total count for display
+  // Get total count for display - only after initial load
   const { data: totalCount } = useQuery({
     queryKey: ['admin-whatsapp-conversations-count', search, windowFilter, responseFilter, etapaFilter],
     queryFn: async () => {
@@ -136,10 +139,12 @@ export const useAdminWhatsAppConversations = ({
       if (error) throw error;
       return Number(data) || 0;
     },
-    staleTime: 60000,
+    enabled: conversations.length > 0, // Only fetch after main data loads
+    staleTime: 120000,
+    gcTime: 180000,
   });
 
-  // Get stats
+  // Get stats - lazy load after main data
   const { data: stats } = useQuery({
     queryKey: ['admin-whatsapp-stats'],
     queryFn: async () => {
@@ -155,7 +160,7 @@ export const useAdminWhatsAppConversations = ({
         p_window_filter: 'open'
       });
 
-      // Get unread count
+      // Get unread count - simplified query
       const { count: unreadCount } = await supabase
         .from('whatsapp_messages')
         .select('*', { count: 'exact', head: true })
@@ -168,7 +173,9 @@ export const useAdminWhatsAppConversations = ({
         unread: unreadCount || 0
       };
     },
-    staleTime: 60000,
+    enabled: conversations.length > 0, // Only fetch after main data loads
+    staleTime: 120000,
+    gcTime: 180000,
   });
 
   // Real-time subscription
