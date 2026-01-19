@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, CheckCircle2, XCircle, Clock, FileText, Download, RefreshCw, AlertTriangle } from 'lucide-react';
-import { formatDistanceToNow, format, differenceInMinutes } from 'date-fns';
+import { Loader2, CheckCircle2, XCircle, Clock, FileText, Download, RefreshCw, AlertTriangle, Ban, Trash2 } from 'lucide-react';
+import { formatDistanceToNow, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState } from 'react';
 import { MissingLeadsSyncJob } from '@/hooks/useMissingLeadsSyncJobs';
@@ -15,38 +15,75 @@ interface MissingLeadsSyncHistoryProps {
   jobs: MissingLeadsSyncJob[];
   isLoading: boolean;
   onRefresh: () => void;
+  onCancel?: (jobId: string) => void;
+  onTerminate?: (jobId: string) => void;
+  onDelete?: (jobId: string) => void;
+  isCancelling?: boolean;
+  isTerminating?: boolean;
+  isDeleting?: boolean;
 }
 
-export function MissingLeadsSyncHistory({ jobs, isLoading, onRefresh }: MissingLeadsSyncHistoryProps) {
+// Formatar data sem problemas de timezone (YYYY-MM-DD -> DD/MM)
+function formatDateOnly(dateStr: string | null): string {
+  if (!dateStr) return '';
+  // dateStr vem como "YYYY-MM-DD"
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}`;
+  }
+  return dateStr;
+}
+
+export function MissingLeadsSyncHistory({ 
+  jobs, 
+  isLoading, 
+  onRefresh,
+  onCancel,
+  onTerminate,
+  onDelete,
+  isCancelling,
+  isTerminating,
+  isDeleting
+}: MissingLeadsSyncHistoryProps) {
   const [showErrorsSheet, setShowErrorsSheet] = useState(false);
   const [selectedJobErrors, setSelectedJobErrors] = useState<any[]>([]);
 
-  // Detectar jobs que podem estar travados (running há mais de 5 minutos)
+  // Detectar jobs que podem estar travados (running há mais de 5 minutos sem heartbeat recente)
   const isJobStalled = (job: MissingLeadsSyncJob) => {
     if (job.status !== 'running') return false;
-    const started = new Date(job.started_at);
-    const minutesRunning = differenceInMinutes(new Date(), started);
-    return minutesRunning > 5;
+    
+    // Verificar último heartbeat
+    const lastUpdate = job.last_heartbeat_at || job.started_at;
+    const minutesSinceUpdate = differenceInMinutes(new Date(), new Date(lastUpdate));
+    return minutesSinceUpdate > 3;
   };
 
   // Obter descrição de progresso para jobs running
   const getProgressInfo = (job: MissingLeadsSyncJob) => {
     if (job.status !== 'running') return null;
     
-    // Etapa 1: Coletando IDs do Bitrix
-    if (job.bitrix_total === 0) {
-      return { label: 'Buscando leads no Bitrix...', percent: 10 };
+    const stage = job.stage || 'pending';
+    
+    // Etapa 1: Listando IDs do Bitrix
+    if (stage === 'listing_bitrix' || (job.bitrix_total === 0 && stage !== 'completed')) {
+      const scanned = job.scanned_count || 0;
+      return { 
+        label: scanned > 0 ? `Listando... ${scanned.toLocaleString()} IDs` : 'Buscando leads no Bitrix...', 
+        percent: 10 
+      };
     }
     
     // Etapa 2: Comparando IDs
-    if (job.bitrix_total > 0 && job.missing_count === 0 && job.synced_count === 0) {
+    if (stage === 'comparing' || (job.bitrix_total > 0 && job.missing_count === 0 && job.synced_count === 0)) {
       return { label: `Comparando ${job.bitrix_total.toLocaleString()} IDs...`, percent: 30 };
     }
     
     // Etapa 3: Importando leads
-    if (job.missing_count > 0) {
+    if (stage === 'importing' || job.missing_count > 0) {
       const progress = job.synced_count + job.error_count;
-      const percent = Math.min(95, 30 + Math.round((progress / job.missing_count) * 65));
+      const percent = job.missing_count > 0 
+        ? Math.min(95, 30 + Math.round((progress / job.missing_count) * 65))
+        : 50;
       return { 
         label: `Importando... ${progress}/${job.missing_count}`, 
         percent 
@@ -80,12 +117,22 @@ export function MissingLeadsSyncHistory({ jobs, isLoading, onRefresh }: MissingL
   };
 
   const getFilterLabel = (job: MissingLeadsSyncJob) => {
-    if (job.scouter_name) return job.scouter_name;
-    if (job.date_from && job.date_to) {
-      return `${format(new Date(job.date_from), 'dd/MM', { locale: ptBR })} - ${format(new Date(job.date_to), 'dd/MM', { locale: ptBR })}`;
+    const parts: string[] = [];
+    
+    if (job.scouter_name) {
+      parts.push(job.scouter_name);
     }
-    if (job.date_from) return `A partir de ${format(new Date(job.date_from), 'dd/MM', { locale: ptBR })}`;
-    return 'TODOS';
+    
+    // Usar formatador que não sofre com timezone
+    if (job.date_from && job.date_to) {
+      parts.push(`${formatDateOnly(job.date_from)} - ${formatDateOnly(job.date_to)}`);
+    } else if (job.date_from) {
+      parts.push(`A partir de ${formatDateOnly(job.date_from)}`);
+    } else if (job.date_to) {
+      parts.push(`Até ${formatDateOnly(job.date_to)}`);
+    }
+    
+    return parts.length > 0 ? parts.join(' | ') : 'TODOS';
   };
 
   const downloadErrorLog = (errorDetails: any[], jobId: string) => {
@@ -97,6 +144,10 @@ export function MissingLeadsSyncHistory({ jobs, isLoading, onRefresh }: MissingL
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const canCancel = (job: MissingLeadsSyncJob) => job.status === 'running' && !isJobStalled(job);
+  const canTerminate = (job: MissingLeadsSyncJob) => job.status === 'running' && isJobStalled(job);
+  const canDelete = (job: MissingLeadsSyncJob) => ['completed', 'failed', 'cancelled'].includes(job.status);
 
   if (isLoading) {
     return (
@@ -164,6 +215,7 @@ export function MissingLeadsSyncHistory({ jobs, isLoading, onRefresh }: MissingL
             <TableBody>
               {jobs.map((job) => {
                 const progressInfo = getProgressInfo(job);
+                const stalled = isJobStalled(job);
                 
                 return (
                 <TableRow key={job.id} className={job.status === 'running' ? 'bg-muted/30' : ''}>
@@ -179,7 +231,14 @@ export function MissingLeadsSyncHistory({ jobs, isLoading, onRefresh }: MissingL
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">
-                    {formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: ptBR })}
+                    <div>
+                      {formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: ptBR })}
+                    </div>
+                    {job.last_heartbeat_at && job.status === 'running' && (
+                      <div className="text-xs text-muted-foreground">
+                        Atualizado {formatDistanceToNow(new Date(job.last_heartbeat_at), { addSuffix: true, locale: ptBR })}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <span className="text-sm font-medium">{getFilterLabel(job)}</span>
@@ -205,27 +264,73 @@ export function MissingLeadsSyncHistory({ jobs, isLoading, onRefresh }: MissingL
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
-                    {job.error_details && job.error_details.length > 0 && (
-                      <div className="flex justify-end gap-1">
+                    <div className="flex justify-end gap-1">
+                      {/* Botão Cancelar - para jobs running normais */}
+                      {canCancel(job) && onCancel && (
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          onClick={() => { 
-                            setSelectedJobErrors(job.error_details); 
-                            setShowErrorsSheet(true); 
-                          }}
+                          onClick={() => onCancel(job.id)}
+                          disabled={isCancelling}
+                          title="Cancelar"
                         >
-                          <FileText className="w-3 h-3" />
+                          {isCancelling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Ban className="w-3 h-3" />}
                         </Button>
+                      )}
+                      
+                      {/* Botão Encerrar - para jobs travados */}
+                      {canTerminate(job) && onTerminate && (
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          onClick={() => downloadErrorLog(job.error_details, job.id)}
+                          onClick={() => onTerminate(job.id)}
+                          disabled={isTerminating}
+                          className="text-orange-600 hover:text-orange-700"
+                          title="Encerrar (timeout)"
                         >
-                          <Download className="w-3 h-3" />
+                          {isTerminating ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
                         </Button>
-                      </div>
-                    )}
+                      )}
+                      
+                      {/* Botões de erro/download */}
+                      {job.error_details && job.error_details.length > 0 && (
+                        <>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => { 
+                              setSelectedJobErrors(job.error_details); 
+                              setShowErrorsSheet(true); 
+                            }}
+                            title="Ver erros"
+                          >
+                            <FileText className="w-3 h-3" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => downloadErrorLog(job.error_details, job.id)}
+                            title="Baixar log"
+                          >
+                            <Download className="w-3 h-3" />
+                          </Button>
+                        </>
+                      )}
+                      
+                      {/* Botão Excluir - para jobs finalizados */}
+                      {canDelete(job) && onDelete && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => onDelete(job.id)}
+                          disabled={isDeleting}
+                          className="text-muted-foreground hover:text-destructive"
+                          title="Excluir"
+                        >
+                          {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );

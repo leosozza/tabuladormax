@@ -63,7 +63,6 @@ async function resolveSpaEntityName(
 // Helper para obter data de "hoje" no timezone do Brasil
 function getTodayBrazil(): string {
   const now = new Date();
-  // Ajustar para UTC-3 (Brasil)
   const brasilOffset = -3 * 60;
   const localOffset = now.getTimezoneOffset();
   const diff = brasilOffset - localOffset;
@@ -92,6 +91,24 @@ function mapSourceId(sourceId: string | null | undefined): string | null {
   return mapping[sourceId] || sourceId;
 }
 
+// Atualizar heartbeat do job
+async function updateHeartbeat(supabase: any, jobId: string, updates: Record<string, any> = {}) {
+  await supabase.from('missing_leads_sync_jobs').update({
+    last_heartbeat_at: new Date().toISOString(),
+    ...updates
+  }).eq('id', jobId);
+}
+
+// Verificar se job foi cancelado
+async function isJobCancelled(supabase: any, jobId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('missing_leads_sync_jobs')
+    .select('status')
+    .eq('id', jobId)
+    .single();
+  return data?.status === 'cancelled';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -101,13 +118,98 @@ Deno.serve(async (req) => {
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // Variável para armazenar o ID do job
-  let jobId: string | null = null;
-
   try {
-    let { scouterName, dateFrom, dateTo, batchSize = 10 } = await req.json();
+    const body = await req.json();
+    const { action } = body;
 
-    // FRONT A: Se não informar datas E não informar scouter, default para "hoje"
+    // AÇÃO: Cancelar job
+    if (action === 'cancel') {
+      const { jobId } = body;
+      if (!jobId) {
+        return new Response(
+          JSON.stringify({ error: 'jobId é obrigatório' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('missing_leads_sync_jobs')
+        .update({
+          status: 'cancelled',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', jobId)
+        .in('status', ['running', 'pending']);
+
+      if (error) throw error;
+
+      console.log(`🚫 Job ${jobId} cancelado`);
+      return new Response(
+        JSON.stringify({ success: true, message: 'Job cancelado' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // AÇÃO: Excluir job
+    if (action === 'delete') {
+      const { jobId } = body;
+      if (!jobId) {
+        return new Response(
+          JSON.stringify({ error: 'jobId é obrigatório' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Só pode excluir jobs finalizados
+      const { error } = await supabase
+        .from('missing_leads_sync_jobs')
+        .delete()
+        .eq('id', jobId)
+        .in('status', ['completed', 'failed', 'cancelled']);
+
+      if (error) throw error;
+
+      console.log(`🗑️ Job ${jobId} excluído`);
+      return new Response(
+        JSON.stringify({ success: true, message: 'Job excluído' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // AÇÃO: Marcar job travado como falho
+    if (action === 'terminate') {
+      const { jobId } = body;
+      if (!jobId) {
+        return new Response(
+          JSON.stringify({ error: 'jobId é obrigatório' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('missing_leads_sync_jobs')
+        .update({
+          status: 'failed',
+          error_details: [{ error: 'Job marcado como falho manualmente (timeout)', timestamp: new Date().toISOString() }],
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', jobId)
+        .eq('status', 'running');
+
+      if (error) throw error;
+
+      console.log(`⚠️ Job ${jobId} marcado como falho`);
+      return new Response(
+        JSON.stringify({ success: true, message: 'Job marcado como falho' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // AÇÃO PADRÃO: Sincronizar
+    let { scouterName, dateFrom, dateTo, batchSize = 10 } = body;
+    let jobId: string | null = null;
+
+    // Se não informar datas E não informar scouter, default para "hoje"
     if (!dateFrom && !dateTo && (!scouterName || !scouterName.trim())) {
       const today = getTodayBrazil();
       dateFrom = today;
@@ -120,38 +222,45 @@ Deno.serve(async (req) => {
       .from('missing_leads_sync_jobs')
       .insert({
         status: 'running',
+        stage: 'listing_bitrix',
         scouter_name: scouterName?.trim() || null,
         date_from: dateFrom || null,
         date_to: dateTo || null,
-        started_at: new Date().toISOString()
+        started_at: new Date().toISOString(),
+        last_heartbeat_at: new Date().toISOString()
       })
       .select()
       .single();
 
     if (jobError) {
       console.error('❌ Erro ao criar job:', jobError);
-      // Continua mesmo se não conseguir criar o job (backward compatibility)
     } else {
       jobId = job.id;
       console.log(`📝 Job criado: ${jobId}`);
     }
 
-    // scouterName é opcional agora - se não informado, busca todos
+    // scouterName é opcional - se não informado, busca todos
     let scouterBitrixId: number | null = null;
     let scouterLabel = 'TODOS';
 
     if (scouterName && scouterName.trim()) {
       console.log(`🔍 Buscando leads faltantes para scouter: ${scouterName}`);
 
-      // Buscar o ID do scouter no Bitrix
       const { data: spaData } = await supabase
         .from('bitrix_spa_entities')
         .select('bitrix_item_id')
-        .eq('entity_type_id', 1096) // Scouters entity type (correto)
+        .eq('entity_type_id', 1096)
         .ilike('title', `%${scouterName.trim()}%`)
         .maybeSingle();
 
       if (!spaData) {
+        if (jobId) {
+          await supabase.from('missing_leads_sync_jobs').update({
+            status: 'failed',
+            error_details: [{ error: `Scouter "${scouterName}" não encontrado` }],
+            completed_at: new Date().toISOString()
+          }).eq('id', jobId);
+        }
         return new Response(
           JSON.stringify({ error: `Scouter "${scouterName}" não encontrado no sistema` }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -171,7 +280,16 @@ Deno.serve(async (req) => {
     let hasMore = true;
 
     while (hasMore) {
-      // Construir URL no formato correto para API Bitrix (igual ao bitrix-import-batch)
+      // Verificar cancelamento antes de cada iteração
+      if (jobId && await isJobCancelled(supabase, jobId)) {
+        console.log(`🚫 Job ${jobId} foi cancelado durante listagem`);
+        return new Response(
+          JSON.stringify({ success: false, message: 'Job cancelado', jobId }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Construir URL no formato correto para API Bitrix
       let url = `${BITRIX_BASE_URL}/crm.lead.list.json?select[]=ID&order[ID]=DESC&start=${start}`;
 
       // Adicionar filtros dinamicamente
@@ -179,15 +297,18 @@ Deno.serve(async (req) => {
         url += `&filter[PARENT_ID_1096]=${scouterBitrixId}`;
       }
       if (dateFrom) {
+        // Formato YYYY-MM-DD 00:00:00 para incluir todo o dia
         url += `&filter[>=DATE_CREATE]=${encodeURIComponent(dateFrom + ' 00:00:00')}`;
       }
       if (dateTo) {
-        const toDate = new Date(dateTo);
+        // Incluir dateTo: usar < dia seguinte
+        const toDate = new Date(dateTo + 'T00:00:00');
         toDate.setDate(toDate.getDate() + 1);
-        url += `&filter[<DATE_CREATE]=${encodeURIComponent(toDate.toISOString().split('T')[0] + ' 00:00:00')}`;
+        const nextDay = toDate.toISOString().split('T')[0];
+        url += `&filter[<DATE_CREATE]=${encodeURIComponent(nextDay + ' 00:00:00')}`;
       }
 
-      console.log(`🔗 URL Bitrix: ${url.substring(0, 100)}...`);
+      console.log(`🔗 URL Bitrix: ${url.substring(0, 120)}...`);
       const response = await fetch(url);
       const result = await response.json();
 
@@ -201,6 +322,14 @@ Deno.serve(async (req) => {
         allBitrixIds.push(Number(lead.ID));
       }
 
+      // Heartbeat a cada página
+      if (jobId && allBitrixIds.length % 500 === 0) {
+        await updateHeartbeat(supabase, jobId, {
+          scanned_count: allBitrixIds.length,
+          cursor_start: start
+        });
+      }
+
       // Verificar se há mais páginas
       if (result.next) {
         start = result.next;
@@ -208,8 +337,7 @@ Deno.serve(async (req) => {
         hasMore = false;
       }
 
-      // FRONT A: Se tiver filtro de data, aumentar limite significativamente
-      // Se não tiver data (não deveria acontecer mais), manter limite conservador
+      // Limites de segurança
       const hasDateFilter = dateFrom || dateTo;
       const maxLimit = hasDateFilter ? 50000 : (scouterBitrixId ? 2000 : 5000);
       if (allBitrixIds.length > maxLimit) {
@@ -220,18 +348,20 @@ Deno.serve(async (req) => {
 
     console.log(`📋 Total de leads no Bitrix para ${scouterLabel}: ${allBitrixIds.length}`);
 
-    // PROGRESSO PARCIAL: Atualizar job com total do Bitrix
+    // Atualizar job com total do Bitrix e mudar stage
     if (jobId) {
-      await supabase.from('missing_leads_sync_jobs').update({
-        bitrix_total: allBitrixIds.length
-      }).eq('id', jobId);
+      await updateHeartbeat(supabase, jobId, {
+        bitrix_total: allBitrixIds.length,
+        scanned_count: allBitrixIds.length,
+        stage: 'comparing'
+      });
     }
 
     if (allBitrixIds.length === 0) {
-      // Atualizar job como completo (sem leads para processar)
       if (jobId) {
         await supabase.from('missing_leads_sync_jobs').update({
           status: 'completed',
+          stage: 'completed',
           bitrix_total: 0,
           db_total: 0,
           missing_count: 0,
@@ -255,7 +385,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Verificar quais IDs já existem no banco (paginado para evitar limite de 1000)
+    // Verificar quais IDs já existem no banco (paginado para evitar limite de 1000)
     const existingIds = new Set<number>();
     const chunkSize = 500;
     
@@ -273,19 +403,20 @@ Deno.serve(async (req) => {
 
     console.log(`📊 Leads no banco: ${existingIds.size} | Faltantes: ${missingIds.length}`);
 
-    // PROGRESSO PARCIAL: Atualizar job com contagem do banco e faltantes
+    // Atualizar job com contagem do banco e faltantes
     if (jobId) {
-      await supabase.from('missing_leads_sync_jobs').update({
+      await updateHeartbeat(supabase, jobId, {
         db_total: existingIds.size,
-        missing_count: missingIds.length
-      }).eq('id', jobId);
+        missing_count: missingIds.length,
+        stage: 'importing'
+      });
     }
 
     if (missingIds.length === 0) {
-      // Atualizar job como completo
       if (jobId) {
         await supabase.from('missing_leads_sync_jobs').update({
           status: 'completed',
+          stage: 'completed',
           bitrix_total: allBitrixIds.length,
           db_total: existingIds.size,
           missing_count: 0,
@@ -309,7 +440,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Buscar e importar os leads faltantes em batches
+    // Buscar e importar os leads faltantes em batches
     const batches: number[][] = [];
     for (let i = 0; i < missingIds.length; i += batchSize) {
       batches.push(missingIds.slice(i, i + batchSize));
@@ -322,6 +453,22 @@ Deno.serve(async (req) => {
     let batchIndex = 0;
     for (const batch of batches) {
       batchIndex++;
+
+      // Verificar cancelamento antes de cada batch
+      if (jobId && await isJobCancelled(supabase, jobId)) {
+        console.log(`🚫 Job ${jobId} foi cancelado durante importação`);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            message: 'Job cancelado durante importação', 
+            jobId,
+            synced,
+            errors
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       console.log(`📦 Processando batch ${batchIndex}/${batches.length} (${batch.length} leads)...`);
 
       // Buscar leads do Bitrix em batch
@@ -368,7 +515,7 @@ Deno.serve(async (req) => {
               resolveSpaEntityName(supabase, 1154, projetoId)
             ]);
 
-            // FRONT D: Fallback para scouter quando ID existe mas nome não foi resolvido
+            // Fallback para scouter quando ID existe mas nome não foi resolvido
             let finalScouterName = resolvedScouterName;
             if (!resolvedScouterName && scouterId) {
               finalScouterName = `Scouter ID ${scouterId}`;
@@ -386,12 +533,12 @@ Deno.serve(async (req) => {
               commercialProjectId = project?.id || null;
             }
 
-            // FRONT B: Mapear fonte corretamente - priorizar SOURCE_DESCRIPTION, depois SOURCE_ID
+            // Mapear fonte - priorizar SOURCE_DESCRIPTION, depois SOURCE_ID
             const fonteValue = leadData.SOURCE_DESCRIPTION 
               ? leadData.SOURCE_DESCRIPTION 
               : mapSourceId(leadData.SOURCE_ID);
 
-            // FRONT C: Parsear data sem fallback perigoso
+            // Parsear data sem fallback perigoso
             const parsedCriado = parseBrazilianDate(leadData.DATE_CREATE);
             if (!parsedCriado) {
               console.warn(`⚠️ Lead ${leadId}: DATE_CREATE inválido "${leadData.DATE_CREATE}" - usando null`);
@@ -411,13 +558,13 @@ Deno.serve(async (req) => {
               bitrix_telemarketing_id: telemarketingId,
               commercial_project_id: commercialProjectId,
               valor_ficha: convertBitrixMoney(leadData.UF_CRM_VALORFICHA),
-              criado: parsedCriado, // FRONT C: Sem fallback perigoso - null é aceito
+              criado: parsedCriado,
               sync_source: 'sync_missing',
               last_sync_at: new Date().toISOString(),
               raw: leadData
             };
 
-            // UPSERT no Supabase (atualiza se existir, insere se não)
+            // UPSERT no Supabase
             const { error: insertError } = await supabase
               .from('leads')
               .upsert(mappedLead, { onConflict: 'id' });
@@ -437,27 +584,26 @@ Deno.serve(async (req) => {
           }
         }
 
-        // PROGRESSO PARCIAL: Atualizar contadores a cada batch
+        // Atualizar contadores a cada batch
         if (jobId) {
-          await supabase.from('missing_leads_sync_jobs').update({
+          await updateHeartbeat(supabase, jobId, {
             synced_count: synced,
             error_count: errors
-          }).eq('id', jobId);
+          });
         }
 
         // Pausa entre batches
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
 
       } catch (batchError: any) {
         console.error('❌ Erro no batch:', batchError);
         errors += batch.length;
         
-        // PROGRESSO PARCIAL: Atualizar mesmo em caso de erro
         if (jobId) {
-          await supabase.from('missing_leads_sync_jobs').update({
+          await updateHeartbeat(supabase, jobId, {
             synced_count: synced,
             error_count: errors
-          }).eq('id', jobId);
+          });
         }
       }
     }
@@ -466,17 +612,18 @@ Deno.serve(async (req) => {
     if (jobId) {
       await supabase.from('missing_leads_sync_jobs').update({
         status: errors === 0 ? 'completed' : (synced > 0 ? 'completed' : 'failed'),
+        stage: 'completed',
         bitrix_total: allBitrixIds.length,
         db_total: existingIds.size,
         missing_count: missingIds.length,
         synced_count: synced,
         error_count: errors,
-        error_details: errorDetails.slice(0, 50), // Limitar a 50 erros no banco
+        error_details: errorDetails.slice(0, 50),
         completed_at: new Date().toISOString()
       }).eq('id', jobId);
     }
 
-    // Registrar evento de sync (manter para retrocompatibilidade)
+    // Registrar evento de sync
     await supabase.from('sync_events').insert({
       event_type: 'sync_missing_leads',
       direction: 'bitrix_to_supabase',
@@ -516,17 +663,8 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('❌ Erro geral:', error);
 
-    // Atualizar job como falho
-    if (jobId) {
-      await supabase.from('missing_leads_sync_jobs').update({
-        status: 'failed',
-        error_details: [{ error: error instanceof Error ? error.message : 'Unknown error', timestamp: new Date().toISOString() }],
-        completed_at: new Date().toISOString()
-      }).eq('id', jobId);
-    }
-
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error', jobId }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
