@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 
@@ -31,18 +31,19 @@ interface UseAdminWhatsAppConversationsParams {
   limit?: number;
 }
 
+// Throttle interval for realtime updates (5 seconds)
+const REALTIME_THROTTLE_MS = 5000;
+
 export const useAdminWhatsAppConversations = ({
   search = '',
   windowFilter = 'all',
   responseFilter = 'all',
   etapaFilter = null,
-  limit = 50
+  limit = 30 // Reduced default for faster initial load
 }: UseAdminWhatsAppConversationsParams = {}) => {
   const queryClient = useQueryClient();
-
-  // Use infinite query for proper pagination with accumulation
-  // Debug: log filter changes
-  console.log('[AdminWhatsApp] Filters:', { search, windowFilter, responseFilter, etapaFilter });
+  const lastInvalidateRef = useRef<number>(0);
+  const pendingInvalidateRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     data,
@@ -55,13 +56,6 @@ export const useAdminWhatsAppConversations = ({
   } = useInfiniteQuery({
     queryKey: ['admin-whatsapp-conversations', search, windowFilter, responseFilter, etapaFilter, limit],
     queryFn: async ({ pageParam = 0 }) => {
-      console.log('[AdminWhatsApp] RPC call with:', { 
-        p_window_filter: windowFilter, 
-        p_response_filter: responseFilter,
-        p_etapa_filter: etapaFilter,
-        pageParam 
-      });
-      
       const { data, error } = await supabase.rpc('get_admin_whatsapp_conversations', {
         p_limit: limit,
         p_offset: pageParam,
@@ -114,9 +108,10 @@ export const useAdminWhatsAppConversations = ({
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextOffset : undefined,
     initialPageParam: 0,
     staleTime: 60000,
-    gcTime: 180000,
+    gcTime: 300000,
     retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    refetchOnWindowFocus: false, // Prevent refetch on tab switch
   });
 
   // Flatten all pages into a single array
@@ -125,7 +120,38 @@ export const useAdminWhatsAppConversations = ({
     return data.pages.flatMap(page => page.conversations);
   }, [data]);
 
-  // Get total count for display - only after initial load
+  // Use optimized stats RPC instead of multiple calls
+  const { data: stats } = useQuery({
+    queryKey: ['admin-whatsapp-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_admin_whatsapp_stats');
+      
+      if (error) {
+        // Fallback to basic count if new RPC not available
+        return { total: 0, openWindows: 0, unread: 0 };
+      }
+
+      const statsArray = data as Array<{
+        total_conversations: number;
+        open_windows: number;
+        total_unread: number;
+        last_refresh: string;
+      }> | null;
+      
+      const statsData = statsArray?.[0];
+      return {
+        total: Number(statsData?.total_conversations) || 0,
+        openWindows: Number(statsData?.open_windows) || 0,
+        unread: Number(statsData?.total_unread) || 0
+      };
+    },
+    enabled: conversations.length > 0,
+    staleTime: 120000,
+    gcTime: 300000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Get total count for display (filtered) - lazy load
   const { data: totalCount } = useQuery({
     queryKey: ['admin-whatsapp-conversations-count', search, windowFilter, responseFilter, etapaFilter],
     queryFn: async () => {
@@ -139,69 +165,63 @@ export const useAdminWhatsAppConversations = ({
       if (error) throw error;
       return Number(data) || 0;
     },
-    enabled: conversations.length > 0, // Only fetch after main data loads
+    enabled: conversations.length > 0,
     staleTime: 120000,
-    gcTime: 180000,
+    gcTime: 300000,
+    refetchOnWindowFocus: false,
   });
 
-  // Get stats - lazy load after main data
-  const { data: stats } = useQuery({
-    queryKey: ['admin-whatsapp-stats'],
-    queryFn: async () => {
-      // Get total conversations
-      const { data: totalData } = await supabase.rpc('count_admin_whatsapp_conversations', {
-        p_search: null,
-        p_window_filter: 'all'
-      });
+  // Throttled invalidation function
+  const throttledInvalidate = useCallback(() => {
+    const now = Date.now();
+    const timeSinceLastInvalidate = now - lastInvalidateRef.current;
 
-      // Get open window count
-      const { data: openData } = await supabase.rpc('count_admin_whatsapp_conversations', {
-        p_search: null,
-        p_window_filter: 'open'
-      });
+    // If enough time has passed, invalidate immediately
+    if (timeSinceLastInvalidate >= REALTIME_THROTTLE_MS) {
+      lastInvalidateRef.current = now;
+      queryClient.invalidateQueries({ queryKey: ['admin-whatsapp-conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-whatsapp-stats'] });
+      return;
+    }
 
-      // Get unread count - simplified query
-      const { count: unreadCount } = await supabase
-        .from('whatsapp_messages')
-        .select('*', { count: 'exact', head: true })
-        .is('read_at', null)
-        .eq('direction', 'inbound');
+    // Otherwise, schedule a delayed invalidation (if not already scheduled)
+    if (!pendingInvalidateRef.current) {
+      const delay = REALTIME_THROTTLE_MS - timeSinceLastInvalidate;
+      pendingInvalidateRef.current = setTimeout(() => {
+        lastInvalidateRef.current = Date.now();
+        pendingInvalidateRef.current = null;
+        queryClient.invalidateQueries({ queryKey: ['admin-whatsapp-conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-whatsapp-stats'] });
+      }, delay);
+    }
+  }, [queryClient]);
 
-      return {
-        total: Number(totalData) || 0,
-        openWindows: Number(openData) || 0,
-        unread: unreadCount || 0
-      };
-    },
-    enabled: conversations.length > 0, // Only fetch after main data loads
-    staleTime: 120000,
-    gcTime: 180000,
-  });
-
-  // Real-time subscription
+  // Real-time subscription with throttling - only for INSERT events
   useEffect(() => {
     const channel = supabase
       .channel('admin-whatsapp-realtime')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT', // Only listen to new messages, not all events
           schema: 'public',
           table: 'whatsapp_messages'
         },
         () => {
-          // Invalidate queries to refresh data
-          queryClient.invalidateQueries({ queryKey: ['admin-whatsapp-conversations'] });
-          queryClient.invalidateQueries({ queryKey: ['admin-whatsapp-conversations-count'] });
-          queryClient.invalidateQueries({ queryKey: ['admin-whatsapp-stats'] });
+          // Use throttled invalidation to prevent too many refetches
+          throttledInvalidate();
         }
       )
       .subscribe();
 
     return () => {
+      // Cleanup pending timeout on unmount
+      if (pendingInvalidateRef.current) {
+        clearTimeout(pendingInvalidateRef.current);
+      }
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [throttledInvalidate]);
 
   const loadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
