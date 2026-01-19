@@ -168,13 +168,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Verificar quais IDs já existem no banco
-    const { data: existingLeads } = await supabase
-      .from('leads')
-      .select('id')
-      .in('id', allBitrixIds);
-
-    const existingIds = new Set((existingLeads || []).map(l => l.id));
+    // 3. Verificar quais IDs já existem no banco (paginado para evitar limite de 1000)
+    const existingIds = new Set<number>();
+    const chunkSize = 500;
+    
+    for (let i = 0; i < allBitrixIds.length; i += chunkSize) {
+      const chunk = allBitrixIds.slice(i, i + chunkSize);
+      const { data: chunkLeads } = await supabase
+        .from('leads')
+        .select('id')
+        .in('id', chunk);
+      
+      (chunkLeads || []).forEach((l: { id: number }) => existingIds.add(l.id));
+    }
+    
     const missingIds = allBitrixIds.filter(id => !existingIds.has(id));
 
     console.log(`📊 Leads no banco: ${existingIds.size} | Faltantes: ${missingIds.length}`);
@@ -281,10 +288,10 @@ Deno.serve(async (req) => {
               raw: leadData
             };
 
-            // Inserir no Supabase
+            // UPSERT no Supabase (atualiza se existir, insere se não)
             const { error: insertError } = await supabase
               .from('leads')
-              .insert(mappedLead);
+              .upsert(mappedLead, { onConflict: 'id' });
 
             if (insertError) {
               console.error(`❌ Erro ao inserir lead ${leadId}:`, insertError);
