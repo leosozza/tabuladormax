@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AdminPageLayout } from '@/components/layouts/AdminPageLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
@@ -18,7 +20,9 @@ import {
   Activity,
   Loader2,
   Play,
-  Square
+  Square,
+  AlertCircle,
+  Copy
 } from 'lucide-react';
 
 interface MaintenanceStats {
@@ -37,10 +41,14 @@ interface MaintenanceStats {
   message_rate_limits: {
     total: number;
     older_than_7_days: number;
+    oldest_record: string | null;
+    newest_record: string | null;
   };
   leads: {
     total: number;
     with_sync_errors: number;
+    oldest_record: string | null;
+    newest_record: string | null;
   };
 }
 
@@ -58,9 +66,17 @@ interface CleanupProgress {
   iterations: number;
 }
 
+interface LoadError {
+  message: string;
+  code?: string;
+  details?: string;
+}
+
 export default function DatabaseMaintenance() {
   const [stats, setStats] = useState<MaintenanceStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<LoadError | null>(null);
+  const loadingRef = useRef(false);
   const [cleanupProgress, setCleanupProgress] = useState<Record<string, CleanupProgress>>({
     sync_events: { isRunning: false, totalDeleted: 0, remaining: 0, iterations: 0 },
     actions_log: { isRunning: false, totalDeleted: 0, remaining: 0, iterations: 0 },
@@ -69,22 +85,39 @@ export default function DatabaseMaintenance() {
   const [stopRequested, setStopRequested] = useState<Record<string, boolean>>({});
 
   const loadStats = useCallback(async () => {
+    // Prevent duplicate calls
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    
     setLoading(true);
+    setLoadError(null);
     try {
       const { data, error } = await supabase.rpc('get_maintenance_stats' as any);
       if (error) throw error;
       setStats(data as unknown as MaintenanceStats);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao carregar estatísticas:', error);
-      toast.error('Erro ao carregar estatísticas de manutenção');
+      setLoadError({
+        message: error?.message || 'Erro desconhecido ao carregar estatísticas',
+        code: error?.code,
+        details: JSON.stringify(error, null, 2)
+      });
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   }, []);
 
   useEffect(() => {
     loadStats();
   }, [loadStats]);
+
+  const copyErrorDetails = () => {
+    if (loadError?.details) {
+      navigator.clipboard.writeText(loadError.details);
+      toast.success('Detalhes copiados para a área de transferência');
+    }
+  };
 
   const runCleanupBatch = async (
     type: 'sync_events' | 'actions_log' | 'rate_limits',
@@ -295,6 +328,30 @@ export default function DatabaseMaintenance() {
       }
     >
       <div className="space-y-6">
+        {/* Error Alert */}
+        {loadError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Erro ao carregar estatísticas</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>{loadError.message}</p>
+              {loadError.code && (
+                <p className="text-xs opacity-80">Código: {loadError.code}</p>
+              )}
+              <div className="flex gap-2 mt-2">
+                <Button variant="outline" size="sm" onClick={loadStats}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Tentar novamente
+                </Button>
+                <Button variant="ghost" size="sm" onClick={copyErrorDetails}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copiar detalhes
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Resumo Geral */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
@@ -305,7 +362,11 @@ export default function DatabaseMaintenance() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Eventos de Sync</p>
-                  <p className="text-2xl font-bold">{formatNumber(stats?.sync_events?.total ?? 0)}</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <p className="text-2xl font-bold">{formatNumber(stats?.sync_events?.total ?? 0)}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -319,7 +380,11 @@ export default function DatabaseMaintenance() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Logs de Ações</p>
-                  <p className="text-2xl font-bold">{formatNumber(stats?.actions_log?.total ?? 0)}</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <p className="text-2xl font-bold">{formatNumber(stats?.actions_log?.total ?? 0)}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -333,7 +398,11 @@ export default function DatabaseMaintenance() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Rate Limits</p>
-                  <p className="text-2xl font-bold">{formatNumber(stats?.message_rate_limits?.total ?? 0)}</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <p className="text-2xl font-bold">{formatNumber(stats?.message_rate_limits?.total ?? 0)}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -347,7 +416,11 @@ export default function DatabaseMaintenance() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Leads com Erros</p>
-                  <p className="text-2xl font-bold">{formatNumber(stats?.leads?.with_sync_errors ?? 0)}</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <p className="text-2xl font-bold">{formatNumber(stats?.leads?.with_sync_errors ?? 0)}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
