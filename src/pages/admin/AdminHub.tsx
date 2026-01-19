@@ -36,6 +36,7 @@ import {
   Repeat,
   TestTube,
   Mic,
+  HardDrive,
 } from 'lucide-react';
 import { ResyncDateClosedButton } from '@/components/admin/ResyncDateClosedButton';
 import { AdminCategorySection, AdminOption } from '@/components/admin/AdminCategorySection';
@@ -140,6 +141,13 @@ const adminCategories: Record<string, CategoryConfig> = {
         title: 'Importação CSV',
         description: 'Importar leads via arquivo CSV',
         color: 'bg-green-500/10 text-green-600 dark:text-green-400',
+      },
+      {
+        path: '/admin/database-maintenance',
+        icon: HardDrive,
+        title: 'Manutenção do Banco',
+        description: 'Limpeza e otimização do banco',
+        color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
       },
     ],
   },

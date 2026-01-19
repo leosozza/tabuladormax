@@ -33,6 +33,7 @@ import LeadResync from "./pages/admin/LeadResync";
 import CsvImport from "./pages/admin/CsvImport";
 import LeadsReprocess from "./pages/admin/LeadsReprocess";
 import SyncErrors from "./pages/admin/SyncErrors";
+import DatabaseMaintenance from "./pages/admin/DatabaseMaintenance";
 
 import FieldManagement from "./pages/admin/FieldManagement";
 import TemplateManagement from "./pages/admin/TemplateManagement";
@@ -174,6 +175,8 @@ const App = () => (
             <Route path="/admin/bitrix-sync" element={<ProtectedRoute requireManager><BitrixSync /></ProtectedRoute>} />
             <Route path="/admin/spa-sync" element={<Navigate to="/admin/bitrix-sync" replace />} />
             <Route path="/admin/stage-mappings" element={<Navigate to="/admin/bitrix-sync" replace />} />
+            <Route path="/admin/database-maintenance" element={<ProtectedRoute requireAdmin><DatabaseMaintenance /></ProtectedRoute>} />
+            <Route path="/admin/eventos_sincronizados" element={<Navigate to="/admin/sync-monitor" replace />} />
             <Route path="/admin/app-releases" element={<ProtectedRoute requireAdmin><AppReleases /></ProtectedRoute>} />
             <Route path="/admin/api-docs" element={<ProtectedRoute requireAdmin><ApiDocumentation /></ProtectedRoute>} />
             <Route path="/admin/api-keys" element={<ProtectedRoute requireAdmin><ApiKeyManagement /></ProtectedRoute>} />
