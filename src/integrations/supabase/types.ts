@@ -4765,6 +4765,10 @@ export type Database = {
       }
       clean_corrupted_fonte: { Args: never; Returns: Json }
       clean_old_lead_search_cache: { Args: never; Returns: undefined }
+      cleanup_actions_log_batch: {
+        Args: { batch_size?: number; days_to_keep?: number }
+        Returns: Json
+      }
       cleanup_expired_scouter_sessions: { Args: never; Returns: number }
       cleanup_old_actions_log: {
         Args: { days_to_keep?: number }
@@ -4777,7 +4781,15 @@ export type Database = {
         Args: { days_to_keep?: number }
         Returns: number
       }
+      cleanup_rate_limits_batch: {
+        Args: { batch_size?: number; days_to_keep?: number }
+        Returns: Json
+      }
       cleanup_scouter_location_history: { Args: never; Returns: number }
+      cleanup_sync_events_batch: {
+        Args: { batch_size?: number; days_to_keep?: number }
+        Returns: Json
+      }
       count_admin_whatsapp_conversations: {
         Args: {
           p_etapa_filter?: string
@@ -5184,6 +5196,7 @@ export type Database = {
           is_nullable: string
         }[]
       }
+      get_maintenance_stats: { Args: never; Returns: Json }
       get_normalized_etapas: {
         Args: never
         Returns: {
