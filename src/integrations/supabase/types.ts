@@ -4766,7 +4766,17 @@ export type Database = {
       clean_corrupted_fonte: { Args: never; Returns: Json }
       clean_old_lead_search_cache: { Args: never; Returns: undefined }
       cleanup_expired_scouter_sessions: { Args: never; Returns: number }
-      cleanup_old_rate_limits: { Args: never; Returns: number }
+      cleanup_old_actions_log: {
+        Args: { days_to_keep?: number }
+        Returns: number
+      }
+      cleanup_old_rate_limits:
+        | { Args: never; Returns: number }
+        | { Args: { days_to_keep?: number }; Returns: number }
+      cleanup_old_sync_events: {
+        Args: { days_to_keep?: number }
+        Returns: number
+      }
       cleanup_scouter_location_history: { Args: never; Returns: number }
       count_admin_whatsapp_conversations: {
         Args: {
@@ -5794,6 +5804,13 @@ export type Database = {
           api_key: string
           key_id: string
           key_prefix: string
+        }[]
+      }
+      run_database_maintenance: {
+        Args: never
+        Returns: {
+          deleted_rows: number
+          table_name: string
         }[]
       }
       telemarketing_heartbeat: {
