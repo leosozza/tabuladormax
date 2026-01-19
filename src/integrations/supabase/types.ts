@@ -4700,6 +4700,19 @@ export type Database = {
       }
     }
     Views: {
+      mv_whatsapp_conversation_stats: {
+        Row: {
+          bitrix_id: string | null
+          last_customer_message_at: string | null
+          last_message_at: string | null
+          last_message_direction: string | null
+          last_message_preview: string | null
+          phone_number: string | null
+          total_messages: number | null
+          unread_count: number | null
+        }
+        Relationships: []
+      }
       scouter_daily_timesheet: {
         Row: {
           first_lead_time: string | null
@@ -5789,6 +5802,7 @@ export type Database = {
         Args: { p_batch_size?: number }
         Returns: Json
       }
+      refresh_whatsapp_stats: { Args: never; Returns: undefined }
       reprocess_leads_batch: {
         Args: {
           p_batch_size?: number
