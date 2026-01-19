@@ -8,6 +8,32 @@ const corsHeaders = {
 
 const BITRIX_BASE_URL = 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr';
 
+// Fetch com retry para erros de conexão HTTP/2
+async function fetchWithRetry(url: string, options?: RequestInit, maxRetries = 3): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      return response;
+    } catch (error: any) {
+      lastError = error;
+      const isConnectionError = error?.message?.includes('http2') || 
+                                 error?.message?.includes('connection') ||
+                                 error?.message?.includes('SendRequest');
+      
+      if (isConnectionError && attempt < maxRetries) {
+        console.log(`⚠️ Erro de conexão (tentativa ${attempt}/${maxRetries}), aguardando...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Backoff progressivo
+        continue;
+      }
+      throw error;
+    }
+  }
+  
+  throw lastError;
+}
+
 // Função para parsear datas brasileiras
 const parseBrazilianDate = (dateStr: string | null | undefined): string | null => {
   if (!dateStr) return null;
@@ -309,7 +335,7 @@ Deno.serve(async (req) => {
       }
 
       console.log(`🔗 URL Bitrix: ${url.substring(0, 120)}...`);
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       const result = await response.json();
 
       if (result.error) {
@@ -478,7 +504,7 @@ Deno.serve(async (req) => {
       });
 
       try {
-        const bitrixResponse = await fetch(`${BITRIX_BASE_URL}/batch`, {
+        const bitrixResponse = await fetchWithRetry(`${BITRIX_BASE_URL}/batch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ halt: 0, cmd: batchCommands })
