@@ -95,18 +95,13 @@ export default function LeadResync() {
 
   // Handler para sincronizar leads faltantes
   const handleSyncMissingLeads = async () => {
-    if (!missingScouterName.trim()) {
-      toast.error('Informe o nome do Scouter');
-      return;
-    }
-
     setIsSyncingMissing(true);
     setMissingSyncResult(null);
 
     try {
       const { data, error } = await supabase.functions.invoke('sync-missing-leads', {
         body: {
-          scouterName: missingScouterName.trim(),
+          scouterName: missingScouterName.trim() || null, // null = busca todos
           dateFrom: missingDateRange.from?.toISOString().split('T')[0],
           dateTo: missingDateRange.to?.toISOString().split('T')[0],
           batchSize: 10
@@ -391,10 +386,10 @@ export default function LeadResync() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="missingScouterName">Nome do Scouter *</Label>
+                <Label htmlFor="missingScouterName">Nome do Scouter (opcional)</Label>
                 <Input
                   id="missingScouterName"
-                  placeholder="Ex: Jhonleno"
+                  placeholder="Deixe vazio para buscar TODOS"
                   value={missingScouterName}
                   onChange={(e) => setMissingScouterName(e.target.value)}
                 />
@@ -465,9 +460,19 @@ export default function LeadResync() {
               </div>
             </div>
 
+            {!missingScouterName.trim() && (
+              <Alert variant="destructive" className="bg-orange-500/10 border-orange-500/50 text-orange-700">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Busca Global</AlertTitle>
+                <AlertDescription>
+                  Sem filtro de scouter, todos os leads do Bitrix serão verificados. Isso pode demorar alguns minutos.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Button
               onClick={handleSyncMissingLeads}
-              disabled={isSyncingMissing || !missingScouterName.trim()}
+              disabled={isSyncingMissing}
               className="w-full"
             >
               {isSyncingMissing ? (
@@ -478,7 +483,9 @@ export default function LeadResync() {
               ) : (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2" />
-                  Buscar e Sincronizar Leads Faltantes
+                  {missingScouterName.trim() 
+                    ? `Sincronizar Leads de ${missingScouterName.trim()}`
+                    : 'Sincronizar Todos os Leads Faltantes'}
                 </>
               )}
             </Button>
