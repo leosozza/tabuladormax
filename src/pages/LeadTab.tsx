@@ -547,15 +547,38 @@ const LeadTab = () => {
       }
       
       const bitrixLead = data.dealData;
+      const bitrixContact = data.contactData; // Dados do contato vinculado
       const updates: Record<string, any> = {};
-      if (bitrixLead.NAME) updates.name = bitrixLead.NAME;
       
-      // Verificar telefone - priorizar PHONE, fallback para campo customizado
+      // 1. Nome: Lead > Contato
+      if (bitrixLead.NAME) {
+        updates.name = bitrixLead.NAME;
+      } else if (bitrixContact?.NAME) {
+        const fullName = [bitrixContact.NAME, bitrixContact.SECOND_NAME, bitrixContact.LAST_NAME]
+          .filter(Boolean).join(' ');
+        if (fullName) {
+          updates.name = fullName;
+          console.log(`👤 Nome do contato vinculado: ${updates.name}`);
+        }
+      }
+      
+      // 2. Telefone: Lead > Contato > Campo customizado
       if (bitrixLead.PHONE?.[0]?.VALUE) {
         updates.celular = bitrixLead.PHONE[0].VALUE;
+      } else if (bitrixContact?.PHONE?.[0]?.VALUE) {
+        updates.celular = bitrixContact.PHONE[0].VALUE;
+        console.log(`📞 Telefone do contato vinculado: ${updates.celular}`);
       } else if (bitrixLead['UF_CRM_1748031605674']) {
         updates.celular = String(bitrixLead['UF_CRM_1748031605674']);
-        console.log(`📞 Enriquecer: telefone de UF_CRM_1748031605674: ${updates.celular}`);
+        console.log(`📞 Telefone de UF_CRM_1748031605674: ${updates.celular}`);
+      }
+      
+      // 3. Email: Lead > Contato
+      if (bitrixLead.EMAIL?.[0]?.VALUE) {
+        updates.email = bitrixLead.EMAIL[0].VALUE;
+      } else if (bitrixContact?.EMAIL?.[0]?.VALUE) {
+        updates.email = bitrixContact.EMAIL[0].VALUE;
+        console.log(`📧 Email do contato vinculado: ${updates.email}`);
       }
       
       if (bitrixLead.SOURCE_ID) updates.fonte = bitrixLead.SOURCE_ID;
@@ -2445,24 +2468,24 @@ const LeadTab = () => {
             )}
           </div>
           
-          {/* Banner de Dados Incompletos */}
+          {/* Banner Compacto de Dados Incompletos */}
           {isLeadDataIncomplete && (chatwootData?.bitrix_id || profile['ID Bitrix']) && (
-            <Alert className="w-full border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertTitle className="text-sm font-medium">Dados Incompletos</AlertTitle>
-              <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-1">
-                <span className="text-xs">Alguns dados do lead podem estar desatualizados ou ausentes.</span>
-                <Button 
-                  size="sm" 
-                  onClick={handleEnrichLead}
-                  disabled={searchLoading}
-                  className="bg-amber-600 hover:bg-amber-700 text-white h-7 text-xs"
-                >
-                  {searchLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                  Enriquecer do Bitrix
-                </Button>
-              </AlertDescription>
-            </Alert>
+            <div className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-md">
+              <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="text-xs font-medium">Dados incompletos</span>
+              </div>
+              <Button 
+                size="sm" 
+                variant="ghost"
+                onClick={handleEnrichLead}
+                disabled={searchLoading}
+                className="h-6 px-2 text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/50"
+              >
+                {searchLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                <span className="ml-1">Enriquecer</span>
+              </Button>
+            </div>
           )}
             
           {/* Foto do perfil com galeria */}
