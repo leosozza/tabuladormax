@@ -220,6 +220,13 @@ Deno.serve(async (req) => {
 
     console.log(`📋 Total de leads no Bitrix para ${scouterLabel}: ${allBitrixIds.length}`);
 
+    // PROGRESSO PARCIAL: Atualizar job com total do Bitrix
+    if (jobId) {
+      await supabase.from('missing_leads_sync_jobs').update({
+        bitrix_total: allBitrixIds.length
+      }).eq('id', jobId);
+    }
+
     if (allBitrixIds.length === 0) {
       // Atualizar job como completo (sem leads para processar)
       if (jobId) {
@@ -266,6 +273,14 @@ Deno.serve(async (req) => {
 
     console.log(`📊 Leads no banco: ${existingIds.size} | Faltantes: ${missingIds.length}`);
 
+    // PROGRESSO PARCIAL: Atualizar job com contagem do banco e faltantes
+    if (jobId) {
+      await supabase.from('missing_leads_sync_jobs').update({
+        db_total: existingIds.size,
+        missing_count: missingIds.length
+      }).eq('id', jobId);
+    }
+
     if (missingIds.length === 0) {
       // Atualizar job como completo
       if (jobId) {
@@ -304,8 +319,10 @@ Deno.serve(async (req) => {
     let errors = 0;
     const errorDetails: any[] = [];
 
+    let batchIndex = 0;
     for (const batch of batches) {
-      console.log(`📦 Processando batch de ${batch.length} leads faltantes...`);
+      batchIndex++;
+      console.log(`📦 Processando batch ${batchIndex}/${batches.length} (${batch.length} leads)...`);
 
       // Buscar leads do Bitrix em batch
       const batchCommands: Record<string, string> = {};
@@ -420,12 +437,28 @@ Deno.serve(async (req) => {
           }
         }
 
+        // PROGRESSO PARCIAL: Atualizar contadores a cada batch
+        if (jobId) {
+          await supabase.from('missing_leads_sync_jobs').update({
+            synced_count: synced,
+            error_count: errors
+          }).eq('id', jobId);
+        }
+
         // Pausa entre batches
         await new Promise(resolve => setTimeout(resolve, 500));
 
       } catch (batchError: any) {
         console.error('❌ Erro no batch:', batchError);
         errors += batch.length;
+        
+        // PROGRESSO PARCIAL: Atualizar mesmo em caso de erro
+        if (jobId) {
+          await supabase.from('missing_leads_sync_jobs').update({
+            synced_count: synced,
+            error_count: errors
+          }).eq('id', jobId);
+        }
       }
     }
 

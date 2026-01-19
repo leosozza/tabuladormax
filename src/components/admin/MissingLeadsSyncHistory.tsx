@@ -4,8 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, CheckCircle2, XCircle, Clock, FileText, Download, RefreshCw } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { Progress } from '@/components/ui/progress';
+import { Loader2, CheckCircle2, XCircle, Clock, FileText, Download, RefreshCw, AlertTriangle } from 'lucide-react';
+import { formatDistanceToNow, format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState } from 'react';
 import { MissingLeadsSyncJob } from '@/hooks/useMissingLeadsSyncJobs';
@@ -20,7 +21,54 @@ export function MissingLeadsSyncHistory({ jobs, isLoading, onRefresh }: MissingL
   const [showErrorsSheet, setShowErrorsSheet] = useState(false);
   const [selectedJobErrors, setSelectedJobErrors] = useState<any[]>([]);
 
-  const getStatusBadge = (status: string) => {
+  // Detectar jobs que podem estar travados (running há mais de 5 minutos)
+  const isJobStalled = (job: MissingLeadsSyncJob) => {
+    if (job.status !== 'running') return false;
+    const started = new Date(job.started_at);
+    const minutesRunning = differenceInMinutes(new Date(), started);
+    return minutesRunning > 5;
+  };
+
+  // Obter descrição de progresso para jobs running
+  const getProgressInfo = (job: MissingLeadsSyncJob) => {
+    if (job.status !== 'running') return null;
+    
+    // Etapa 1: Coletando IDs do Bitrix
+    if (job.bitrix_total === 0) {
+      return { label: 'Buscando leads no Bitrix...', percent: 10 };
+    }
+    
+    // Etapa 2: Comparando IDs
+    if (job.bitrix_total > 0 && job.missing_count === 0 && job.synced_count === 0) {
+      return { label: `Comparando ${job.bitrix_total.toLocaleString()} IDs...`, percent: 30 };
+    }
+    
+    // Etapa 3: Importando leads
+    if (job.missing_count > 0) {
+      const progress = job.synced_count + job.error_count;
+      const percent = Math.min(95, 30 + Math.round((progress / job.missing_count) * 65));
+      return { 
+        label: `Importando... ${progress}/${job.missing_count}`, 
+        percent 
+      };
+    }
+    
+    return { label: 'Processando...', percent: 50 };
+  };
+
+  const getStatusBadge = (job: MissingLeadsSyncJob) => {
+    const status = job.status;
+    const stalled = isJobStalled(job);
+    
+    if (status === 'running' && stalled) {
+      return (
+        <Badge variant="outline" className="flex items-center gap-1 border-orange-500 text-orange-600">
+          <AlertTriangle className="w-3 h-3" />
+          Possível timeout
+        </Badge>
+      );
+    }
+    
     const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ReactNode; label: string }> = {
       running: { variant: 'default', icon: <Loader2 className="w-3 h-3 animate-spin" />, label: 'Rodando' },
       completed: { variant: 'default', icon: <CheckCircle2 className="w-3 h-3" />, label: 'Completo' },
@@ -114,16 +162,33 @@ export function MissingLeadsSyncHistory({ jobs, isLoading, onRefresh }: MissingL
               </TableRow>
             </TableHeader>
             <TableBody>
-              {jobs.map((job) => (
-                <TableRow key={job.id}>
-                  <TableCell>{getStatusBadge(job.status)}</TableCell>
+              {jobs.map((job) => {
+                const progressInfo = getProgressInfo(job);
+                
+                return (
+                <TableRow key={job.id} className={job.status === 'running' ? 'bg-muted/30' : ''}>
+                  <TableCell>
+                    <div className="space-y-1">
+                      {getStatusBadge(job)}
+                      {progressInfo && (
+                        <div className="space-y-1">
+                          <div className="text-xs text-muted-foreground">{progressInfo.label}</div>
+                          <Progress value={progressInfo.percent} className="h-1 w-24" />
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm">
                     {formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: ptBR })}
                   </TableCell>
                   <TableCell>
                     <span className="text-sm font-medium">{getFilterLabel(job)}</span>
                   </TableCell>
-                  <TableCell className="text-right">{job.bitrix_total.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    {job.bitrix_total > 0 ? job.bitrix_total.toLocaleString() : (
+                      job.status === 'running' ? <Loader2 className="w-3 h-3 animate-spin inline" /> : '0'
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <span className={job.missing_count > 0 ? 'text-orange-500 font-medium' : ''}>
                       {job.missing_count.toLocaleString()}
@@ -163,7 +228,8 @@ export function MissingLeadsSyncHistory({ jobs, isLoading, onRefresh }: MissingL
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+              );
+              })}
             </TableBody>
           </Table>
         </CardContent>
