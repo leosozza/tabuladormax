@@ -5738,6 +5738,15 @@ export type Database = {
             Args: {
               p_end_date: string
               p_operator_id?: number
+              p_operator_ids?: number[]
+              p_start_date: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_end_date: string
+              p_operator_id?: number
               p_start_date: string
             }
             Returns: Json
