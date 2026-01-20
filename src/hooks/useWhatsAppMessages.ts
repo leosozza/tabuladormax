@@ -71,6 +71,16 @@ const releaseSendLock = () => {
   localStorage.removeItem(SEND_LOCK_KEY);
 };
 
+// Interface para erros de envio detalhados
+export interface SendErrorDetails {
+  message: string;
+  code: string;
+  canRetry: boolean;
+  requiresReconnect: boolean;
+  originalError?: any;
+  timestamp: number;
+}
+
 export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   const { bitrixId, phoneNumber, conversationId } = options;
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
@@ -79,11 +89,165 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   const [loadingBitrix, setLoadingBitrix] = useState(false);
   const [sending, setSending] = useState(false);
   const [usingBitrixFallback, setUsingBitrixFallback] = useState(false);
+  const [lastSendError, setLastSendError] = useState<SendErrorDetails | null>(null);
   
   const lastSendTimeRef = useRef<number>(0);
   const sendCountRef = useRef<number>(0);
   const mountedRef = useRef<boolean>(true);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const lastMessageContentRef = useRef<string>('');
+
+  // Função para mapear erro técnico para erro amigável
+  const mapErrorToDetails = (error: any): SendErrorDetails => {
+    const errorStr = typeof error === 'string' 
+      ? error 
+      : error?.message || error?.error || JSON.stringify(error);
+    
+    const errorLower = errorStr.toLowerCase();
+    
+    // Erros de sessão/autenticação
+    if (errorLower.includes('claim') || errorLower.includes('missing sub')) {
+      return {
+        message: 'Sua sessão expirou. Clique em "Reconectar" para continuar enviando.',
+        code: 'session_expired',
+        canRetry: false,
+        requiresReconnect: true,
+        originalError: error,
+        timestamp: Date.now(),
+      };
+    }
+    
+    if (errorLower.includes('jwt') || errorLower.includes('token')) {
+      return {
+        message: 'Token de acesso inválido. Reconecte sua sessão.',
+        code: 'jwt_invalid',
+        canRetry: false,
+        requiresReconnect: true,
+        originalError: error,
+        timestamp: Date.now(),
+      };
+    }
+    
+    if (errorLower.includes('401') || errorLower.includes('unauthorized') || errorLower.includes('não autorizado')) {
+      return {
+        message: 'Sessão inválida. Faça login novamente para enviar mensagens.',
+        code: 'auth_unauthorized',
+        canRetry: false,
+        requiresReconnect: true,
+        originalError: error,
+        timestamp: Date.now(),
+      };
+    }
+    
+    if (errorLower.includes('403') || errorLower.includes('forbidden')) {
+      return {
+        message: 'Você não tem permissão para enviar mensagens. Contate o supervisor.',
+        code: 'auth_forbidden',
+        canRetry: false,
+        requiresReconnect: false,
+        originalError: error,
+        timestamp: Date.now(),
+      };
+    }
+    
+    // Erros de rate limit
+    if (errorLower.includes('429') || errorLower.includes('rate limit') || errorLower.includes('too many')) {
+      return {
+        message: 'Muitas mensagens enviadas. Aguarde alguns minutos antes de tentar novamente.',
+        code: 'rate_limit',
+        canRetry: true,
+        requiresReconnect: false,
+        originalError: error,
+        timestamp: Date.now(),
+      };
+    }
+    
+    // Erros de número/telefone
+    if (errorLower.includes('phone') || errorLower.includes('number') || errorLower.includes('telefone')) {
+      if (errorLower.includes('invalid') || errorLower.includes('inválido')) {
+        return {
+          message: 'Número de telefone inválido. Verifique o número e tente novamente.',
+          code: 'phone_invalid',
+          canRetry: false,
+          requiresReconnect: false,
+          originalError: error,
+          timestamp: Date.now(),
+        };
+      }
+      if (errorLower.includes('blocked') || errorLower.includes('bloqueado')) {
+        return {
+          message: 'Este número está bloqueado para envio de mensagens.',
+          code: 'phone_blocked',
+          canRetry: false,
+          requiresReconnect: false,
+          originalError: error,
+          timestamp: Date.now(),
+        };
+      }
+    }
+    
+    // Erros de rede
+    if (errorLower.includes('network') || errorLower.includes('fetch') || errorLower.includes('connection')) {
+      return {
+        message: 'Falha na conexão com o servidor. Verifique sua internet e tente novamente.',
+        code: 'network_error',
+        canRetry: true,
+        requiresReconnect: false,
+        originalError: error,
+        timestamp: Date.now(),
+      };
+    }
+    
+    // Erros de servidor
+    if (errorLower.includes('500') || errorLower.includes('internal server')) {
+      return {
+        message: 'Erro no servidor. Aguarde alguns instantes e tente novamente.',
+        code: 'server_error',
+        canRetry: true,
+        requiresReconnect: false,
+        originalError: error,
+        timestamp: Date.now(),
+      };
+    }
+    
+    if (errorLower.includes('503') || errorLower.includes('unavailable')) {
+      return {
+        message: 'Sistema temporariamente indisponível. Tente novamente em alguns minutos.',
+        code: 'service_unavailable',
+        canRetry: true,
+        requiresReconnect: false,
+        originalError: error,
+        timestamp: Date.now(),
+      };
+    }
+    
+    // Erros de configuração
+    if (errorLower.includes('credentials') || errorLower.includes('gupshup')) {
+      return {
+        message: 'Sistema de mensagens indisponível. Contate o suporte técnico.',
+        code: 'config_error',
+        canRetry: false,
+        requiresReconnect: false,
+        originalError: error,
+        timestamp: Date.now(),
+      };
+    }
+    
+    // Erro genérico
+    return {
+      message: `Erro ao enviar mensagem: ${errorStr.substring(0, 100)}`,
+      code: 'unknown_error',
+      canRetry: true,
+      requiresReconnect: false,
+      originalError: error,
+      timestamp: Date.now(),
+    };
+  };
+
+  // Limpar erro
+  const clearSendError = useCallback(() => {
+    setLastSendError(null);
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -319,15 +483,14 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     if (!hasValidSession) {
       logDebug('sendMessage rejected: invalid session');
       releaseSendLock();
-      toast.error('Sessão expirada. Faça login novamente para enviar mensagens.', {
-        duration: 5000,
-        action: {
-          label: 'Reconectar',
-          onClick: () => window.location.reload()
-        }
-      });
+      lastMessageContentRef.current = content; // Guardar para retry
+      const errorDetails = mapErrorToDetails('Sessão expirada - missing sub claim');
+      setLastSendError(errorDetails);
       return false;
     }
+    
+    // Limpar erro anterior ao tentar enviar
+    setLastSendError(null);
 
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
@@ -357,43 +520,24 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       if (error) {
         console.error('Erro ao enviar mensagem:', error);
         releaseSendLock();
-        
-        // Verificar se é erro de autenticação
-        if (error.message?.includes('claim') || error.message?.includes('JWT') || error.message?.includes('401')) {
-          toast.error('Sessão expirada. Faça login novamente.', {
-            duration: 5000,
-            action: {
-              label: 'Reconectar',
-              onClick: () => window.location.reload()
-            }
-          });
-        } else {
-          toast.error('Erro ao enviar mensagem');
-        }
+        lastMessageContentRef.current = content;
+        const errorDetails = mapErrorToDetails(error.message || error);
+        setLastSendError(errorDetails);
         return false;
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
         releaseSendLock();
-        
-        // Verificar se é erro de autenticação
-        if (data.error.includes('claim') || data.error.includes('JWT') || data.error.includes('Unauthorized')) {
-          toast.error('Sessão expirada. Faça login novamente.', {
-            duration: 5000,
-            action: {
-              label: 'Reconectar',
-              onClick: () => window.location.reload()
-            }
-          });
-        } else {
-          toast.error(data.error);
-        }
+        lastMessageContentRef.current = content;
+        const errorDetails = mapErrorToDetails(data.error);
+        setLastSendError(errorDetails);
         return false;
       }
 
       // Sucesso!
       releaseSendLock();
+      lastMessageContentRef.current = '';
 
       // Adicionar mensagem otimisticamente
       const newMessage: WhatsAppMessage = {
@@ -417,6 +561,7 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       };
 
       setMessages(prev => [...prev, newMessage]);
+      setLastSendError(null); // Limpar qualquer erro anterior
       toast.success('Mensagem enviada');
       return true;
     } catch (error: any) {
@@ -429,7 +574,9 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         return false;
       }
       
-      toast.error('Erro ao enviar mensagem');
+      lastMessageContentRef.current = content;
+      const errorDetails = mapErrorToDetails(error);
+      setLastSendError(errorDetails);
       return false;
     } finally {
       setSending(false);
@@ -1012,5 +1159,8 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     sendTemplate,
     markAsRead,
     usingBitrixFallback,
+    lastSendError,
+    clearSendError,
+    lastMessageContent: lastMessageContentRef.current,
   };
 };
