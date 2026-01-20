@@ -17,12 +17,35 @@ import { TelemarketingSelector } from "@/components/TelemarketingSelector";
 import { CommercialProjectBitrixSelector } from "@/components/CommercialProjectBitrixSelector";
 import { AdminPageLayout } from "@/components/layouts/AdminPageLayout";
 
+type UserRoleType = 'admin' | 'manager' | 'supervisor' | 'supervisor_adjunto' | 'control_desk' | 'agent';
+
+// Roles que existem no banco de dados (enum app_role)
+type DatabaseRoleType = 'admin' | 'manager' | 'supervisor' | 'agent';
+
+// Mapeia roles visuais para roles do banco de dados
+const mapRoleToDatabase = (role: UserRoleType): DatabaseRoleType => {
+  if (role === 'supervisor_adjunto' || role === 'control_desk') {
+    return 'supervisor';
+  }
+  return role as DatabaseRoleType;
+};
+
+// Labels para exibição
+const ROLE_LABELS: Record<UserRoleType, string> = {
+  admin: 'Admin',
+  manager: 'Manager',
+  supervisor: 'Supervisor',
+  supervisor_adjunto: 'Supervisor Adjunto',
+  control_desk: 'Control Desk',
+  agent: 'Agent',
+};
+
 interface UserWithRole {
   id: string;
   email: string;
   display_name: string;
   created_at: string;
-  role: 'admin' | 'manager' | 'supervisor' | 'agent';
+  role: UserRoleType;
   department?: 'administrativo' | 'analise' | 'telemarketing' | 'scouters';
   telemarketing_name?: string;
   telemarketing_id?: number;
@@ -30,7 +53,7 @@ interface UserWithRole {
   project_id?: string;
   supervisor_name?: string;
   supervisor_id?: string;
-  cargo_id?: string; // 10620=Supervisor, 10626=Supervisor Adj, 10627=Control Desk
+  cargo_id?: string; // 10620=Supervisor, 10626=Supervisor Adj, 10627/10628=Control Desk
 }
 
 interface CommercialProject {
@@ -41,7 +64,7 @@ interface CommercialProject {
 export default function Users() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithRole[]>([]);
-  const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'manager' | 'supervisor' | 'agent' | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRoleType | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -55,7 +78,7 @@ export default function Users() {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'manager' | 'supervisor' | 'agent'>('agent');
+  const [newUserRole, setNewUserRole] = useState<UserRoleType>('agent');
   const [newUserDepartment, setNewUserDepartment] = useState<'administrativo' | 'analise' | 'telemarketing' | 'scouters'>('telemarketing');
   const [newUserProject, setNewUserProject] = useState("");
   const [newUserSupervisor, setNewUserSupervisor] = useState("");
@@ -75,7 +98,7 @@ export default function Users() {
   const [updatingName, setUpdatingName] = useState(false);
   
   // Edit role
-  const [newRole, setNewRole] = useState<'admin' | 'manager' | 'supervisor' | 'agent'>('agent');
+  const [newRole, setNewRole] = useState<UserRoleType>('agent');
   
   // Edit supervisor
   const [editSupervisorDialogOpen, setEditSupervisorDialogOpen] = useState(false);
@@ -577,7 +600,7 @@ export default function Users() {
         email: newUserEmail,
         password: tempPass,
         displayName: newUserName,
-        role: newUserRole,
+        role: mapRoleToDatabase(newUserRole), // Mapeia para role do banco
         department: newUserDepartment,
         projectId: newUserProject || null,
         supervisorId: supervisorId || null,
@@ -705,9 +728,12 @@ export default function Users() {
   const updateUserRole = async () => {
     setUpdatingName(true);
     try {
+      // Mapeia roles visuais (supervisor_adjunto, control_desk) para o role do banco (supervisor)
+      const dbRole = mapRoleToDatabase(newRole);
+      
       const { error } = await supabase
         .from('user_roles')
-        .upsert({ user_id: editingUserId, role: newRole }, { onConflict: 'user_id' });
+        .upsert({ user_id: editingUserId, role: dbRole }, { onConflict: 'user_id' });
 
       if (error) throw error;
       toast.success('Role atualizada com sucesso');
@@ -1760,6 +1786,8 @@ export default function Users() {
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="supervisor">Supervisor</SelectItem>
+                    <SelectItem value="supervisor_adjunto">Supervisor Adjunto</SelectItem>
+                    <SelectItem value="control_desk">Control Desk</SelectItem>
                     <SelectItem value="agent">Agent</SelectItem>
                   </SelectContent>
                 </Select>
