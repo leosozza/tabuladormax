@@ -163,6 +163,21 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
       // Perform Supabase Auth login/signup
       const authSuccess = await performSupabaseAuth(operatorData.bitrix_id, accessKey.trim());
       
+      // Guardar estado de autenticação no localStorage para diagnóstico
+      localStorage.setItem('telemarketing_auth_status', JSON.stringify({
+        bitrix_id: operatorData.bitrix_id,
+        auth_success: authSuccess,
+        timestamp: new Date().toISOString()
+      }));
+      
+      // Se auth falhou, avisar o operador mas permitir acesso limitado
+      if (!authSuccess) {
+        console.warn('[TM] Auth failed - operator will have limited WhatsApp functionality');
+        toast.warning('Login parcial: envio de mensagens WhatsApp pode não funcionar. Se tiver problemas, recarregue a página.', {
+          duration: 6000
+        });
+      }
+      
       // Sincronizar role do usuário baseado no cargo
       if (authSuccess) {
         const { data: { user } } = await supabase.auth.getUser();
