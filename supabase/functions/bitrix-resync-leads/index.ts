@@ -670,6 +670,18 @@ async function processBatch(supabase: any, jobId: string) {
           if (projectName) {
             mappedData['projeto_comercial'] = projectName;
           }
+          // Resolver commercial_project_id pelo code (projectId é o bitrix_item_id)
+          if (projectId) {
+            const { data: commercialProject } = await supabase
+              .from('commercial_projects')
+              .select('id')
+              .eq('code', String(projectId))
+              .eq('active', true)
+              .maybeSingle();
+            if (commercialProject) {
+              mappedData['commercial_project_id'] = commercialProject.id;
+            }
+          }
           if (tmName) {
             mappedData['telemarketing'] = tmName;
           }

@@ -530,15 +530,15 @@ Deno.serve(async (req) => {
           }
 
           try {
-            // Resolver SPAs
+            // Resolver SPAs - CORRIGIDO: PARENT_ID_1120 para projetos comerciais (não 1154)
             const scouterId = leadData.PARENT_ID_1096 ? Number(leadData.PARENT_ID_1096) : null;
             const telemarketingId = leadData.PARENT_ID_1144 ? Number(leadData.PARENT_ID_1144) : null;
-            const projetoId = leadData.PARENT_ID_1154 ? Number(leadData.PARENT_ID_1154) : null;
+            const projectBitrixId = leadData.PARENT_ID_1120 ? Number(leadData.PARENT_ID_1120) : null;
 
             const [resolvedScouterName, telemarketingName, projetoName] = await Promise.all([
               resolveSpaEntityName(supabase, 1096, scouterId),
               resolveSpaEntityName(supabase, 1144, telemarketingId),
-              resolveSpaEntityName(supabase, 1154, projetoId)
+              resolveSpaEntityName(supabase, 1120, projectBitrixId)
             ]);
 
             // Fallback para scouter quando ID existe mas nome não foi resolvido
@@ -548,15 +548,20 @@ Deno.serve(async (req) => {
               console.log(`⚠️ Scouter ${scouterId} não encontrado no cache, usando fallback`);
             }
 
-            // Resolver projeto comercial
+            // Resolver projeto comercial pelo code (bitrix_item_id)
             let commercialProjectId: string | null = null;
-            if (projetoName) {
+            if (projectBitrixId) {
               const { data: project } = await supabase
                 .from('commercial_projects')
                 .select('id')
-                .ilike('name', `%${projetoName}%`)
+                .eq('code', String(projectBitrixId))
+                .eq('active', true)
                 .maybeSingle();
               commercialProjectId = project?.id || null;
+              
+              if (!commercialProjectId) {
+                console.warn(`⚠️ Projeto comercial code=${projectBitrixId} não encontrado`);
+              }
             }
 
             // Mapear fonte - priorizar SOURCE_DESCRIPTION, depois SOURCE_ID
