@@ -248,6 +248,33 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     }
   }, [bitrixId, phoneNumber, conversationId, fetchBitrixMessages]);
 
+  // Verificar sessão Supabase antes de enviar - retorna true se válida
+  const verifySession = async (): Promise<boolean> => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error || !session) {
+        logDebug('Session verification failed', { error: error?.message, hasSession: !!session });
+        
+        // Tentar refresh do token
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshData?.session) {
+          logDebug('Session refresh failed', { error: refreshError?.message });
+          return false;
+        }
+        
+        logDebug('Session refreshed successfully');
+        return true;
+      }
+      
+      return true;
+    } catch (e) {
+      logDebug('Session verification error', { error: e });
+      return false;
+    }
+  };
+
   const sendMessage = async (content: string): Promise<boolean> => {
     logDebug('sendMessage called', { content: content.substring(0, 50), phoneNumber });
     
@@ -287,6 +314,21 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
+    // VERIFICAR SESSÃO ANTES DE ENVIAR
+    const hasValidSession = await verifySession();
+    if (!hasValidSession) {
+      logDebug('sendMessage rejected: invalid session');
+      releaseSendLock();
+      toast.error('Sessão expirada. Faça login novamente para enviar mensagens.', {
+        duration: 5000,
+        action: {
+          label: 'Reconectar',
+          onClick: () => window.location.reload()
+        }
+      });
+      return false;
+    }
+
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
     setSending(true);
@@ -316,14 +358,37 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         console.error('Erro ao enviar mensagem:', error);
         releaseSendLock();
         
-        toast.error('Erro ao enviar mensagem');
+        // Verificar se é erro de autenticação
+        if (error.message?.includes('claim') || error.message?.includes('JWT') || error.message?.includes('401')) {
+          toast.error('Sessão expirada. Faça login novamente.', {
+            duration: 5000,
+            action: {
+              label: 'Reconectar',
+              onClick: () => window.location.reload()
+            }
+          });
+        } else {
+          toast.error('Erro ao enviar mensagem');
+        }
         return false;
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
         releaseSendLock();
-        toast.error(data.error);
+        
+        // Verificar se é erro de autenticação
+        if (data.error.includes('claim') || data.error.includes('JWT') || data.error.includes('Unauthorized')) {
+          toast.error('Sessão expirada. Faça login novamente.', {
+            duration: 5000,
+            action: {
+              label: 'Reconectar',
+              onClick: () => window.location.reload()
+            }
+          });
+        } else {
+          toast.error(data.error);
+        }
         return false;
       }
 
@@ -411,6 +476,21 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
+    // VERIFICAR SESSÃO ANTES DE ENVIAR
+    const hasValidSession = await verifySession();
+    if (!hasValidSession) {
+      logDebug('sendTemplate rejected: invalid session');
+      releaseSendLock();
+      toast.error('Sessão expirada. Faça login novamente para enviar mensagens.', {
+        duration: 5000,
+        action: {
+          label: 'Reconectar',
+          onClick: () => window.location.reload()
+        }
+      });
+      return false;
+    }
+
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
     setSending(true);
@@ -436,14 +516,38 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       if (error) {
         console.error('Erro ao enviar template:', error);
         releaseSendLock();
-        toast.error('Erro ao enviar template');
+        
+        // Verificar se é erro de autenticação
+        if (error.message?.includes('claim') || error.message?.includes('JWT') || error.message?.includes('401')) {
+          toast.error('Sessão expirada. Faça login novamente.', {
+            duration: 5000,
+            action: {
+              label: 'Reconectar',
+              onClick: () => window.location.reload()
+            }
+          });
+        } else {
+          toast.error('Erro ao enviar template');
+        }
         return false;
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
         releaseSendLock();
-        toast.error(data.error);
+        
+        // Verificar se é erro de autenticação
+        if (data.error.includes('claim') || data.error.includes('JWT') || data.error.includes('Unauthorized')) {
+          toast.error('Sessão expirada. Faça login novamente.', {
+            duration: 5000,
+            action: {
+              label: 'Reconectar',
+              onClick: () => window.location.reload()
+            }
+          });
+        } else {
+          toast.error(data.error);
+        }
         return false;
       }
 
@@ -513,6 +617,21 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
+    // VERIFICAR SESSÃO ANTES DE ENVIAR
+    const hasValidSession = await verifySession();
+    if (!hasValidSession) {
+      logDebug('sendMedia rejected: invalid session');
+      releaseSendLock();
+      toast.error('Sessão expirada. Faça login novamente para enviar mensagens.', {
+        duration: 5000,
+        action: {
+          label: 'Reconectar',
+          onClick: () => window.location.reload()
+        }
+      });
+      return false;
+    }
+
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
     setSending(true);
@@ -540,14 +659,38 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       if (error) {
         console.error('Erro ao enviar mídia:', error);
         releaseSendLock();
-        toast.error('Erro ao enviar mídia');
+        
+        // Verificar se é erro de autenticação
+        if (error.message?.includes('claim') || error.message?.includes('JWT') || error.message?.includes('401')) {
+          toast.error('Sessão expirada. Faça login novamente.', {
+            duration: 5000,
+            action: {
+              label: 'Reconectar',
+              onClick: () => window.location.reload()
+            }
+          });
+        } else {
+          toast.error('Erro ao enviar mídia');
+        }
         return false;
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
         releaseSendLock();
-        toast.error(data.error);
+        
+        // Verificar se é erro de autenticação
+        if (data.error.includes('claim') || data.error.includes('JWT') || data.error.includes('Unauthorized')) {
+          toast.error('Sessão expirada. Faça login novamente.', {
+            duration: 5000,
+            action: {
+              label: 'Reconectar',
+              onClick: () => window.location.reload()
+            }
+          });
+        } else {
+          toast.error(data.error);
+        }
         return false;
       }
 
@@ -638,6 +781,21 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
+    // VERIFICAR SESSÃO ANTES DE ENVIAR
+    const hasValidSession = await verifySession();
+    if (!hasValidSession) {
+      logDebug('sendLocation rejected: invalid session');
+      releaseSendLock();
+      toast.error('Sessão expirada. Faça login novamente para enviar mensagens.', {
+        duration: 5000,
+        action: {
+          label: 'Reconectar',
+          onClick: () => window.location.reload()
+        }
+      });
+      return false;
+    }
+
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
     setSending(true);
@@ -665,14 +823,38 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       if (error) {
         console.error('Erro ao enviar localização:', error);
         releaseSendLock();
-        toast.error('Erro ao enviar localização');
+        
+        // Verificar se é erro de autenticação
+        if (error.message?.includes('claim') || error.message?.includes('JWT') || error.message?.includes('401')) {
+          toast.error('Sessão expirada. Faça login novamente.', {
+            duration: 5000,
+            action: {
+              label: 'Reconectar',
+              onClick: () => window.location.reload()
+            }
+          });
+        } else {
+          toast.error('Erro ao enviar localização');
+        }
         return false;
       }
 
       if (data?.error) {
         console.error('Erro da API:', data.error);
         releaseSendLock();
-        toast.error(data.error);
+        
+        // Verificar se é erro de autenticação
+        if (data.error.includes('claim') || data.error.includes('JWT') || data.error.includes('Unauthorized')) {
+          toast.error('Sessão expirada. Faça login novamente.', {
+            duration: 5000,
+            action: {
+              label: 'Reconectar',
+              onClick: () => window.location.reload()
+            }
+          });
+        } else {
+          toast.error(data.error);
+        }
         return false;
       }
 
