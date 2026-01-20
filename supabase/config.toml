@@ -293,3 +293,6 @@ verify_jwt = false
 
 [functions.elevenlabs-tts]
 verify_jwt = false
+
+[functions.admin-reset-telemarketing-password]
+verify_jwt = false
