@@ -17,7 +17,8 @@ serve(async (req) => {
     console.log('🔄 Sincronizando lista de telemarketing do Bitrix24...');
 
     // URL do webhook do Bitrix24 para buscar telemarketing com campos extras
-    const bitrixUrl = 'https://maxsystem.bitrix24.com.br/rest/9/85e3cex48z1zc0qp/crm.item.list.json?entityTypeId=1144&select[]=title&select[]=id&select[]=UF_CRM_50_CHAVETELE&select[]=UF_CRM_50_CARGO&start=-1';
+    // IMPORTANTE: Bitrix retorna campos custom em camelCase (ufCrm50Xxx), não uppercase
+    const bitrixUrl = 'https://maxsystem.bitrix24.com.br/rest/9/85e3cex48z1zc0qp/crm.item.list.json?entityTypeId=1144&select[]=title&select[]=id&select[]=ufCrm50Chavetele&select[]=ufCrm50Cargo&start=-1';
 
     // Buscar dados do Bitrix24
     const response = await fetch(bitrixUrl);
@@ -40,11 +41,12 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Processar cada item e fazer upsert na tabela telemarketing_operators
+    // IMPORTANTE: Campos custom do Bitrix vêm em camelCase (ufCrm50Xxx)
     const operatorsToUpsert = data.result.items.map((item: any) => ({
       bitrix_id: item.id,
       name: item.title,
-      access_key: item.UF_CRM_50_CHAVETELE || null,
-      cargo: item.UF_CRM_50_CARGO || 'agente',
+      access_key: item.ufCrm50Chavetele || null,
+      cargo: item.ufCrm50Cargo || '10618', // Default para Agente/Backoffice
       updated_at: new Date().toISOString()
     }));
 
