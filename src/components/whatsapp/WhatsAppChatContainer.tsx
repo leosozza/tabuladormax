@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MessageSquare } from 'lucide-react';
 import { useWhatsAppMessages } from '@/hooks/useWhatsAppMessages';
@@ -10,6 +10,7 @@ import { WhatsAppMessageList } from './WhatsAppMessageList';
 import { WhatsAppInput, MediaType } from './WhatsAppInput';
 import { TemplateSelector } from '@/components/gupshup/TemplateSelector';
 import { WhatsAppFlowSelector } from './WhatsAppFlowSelector';
+import { WhatsAppSendError } from './WhatsAppSendError';
 
 interface WhatsAppChatContainerProps {
   bitrixId?: string;
@@ -44,7 +45,10 @@ export function WhatsAppChatContainer({
     sendLocation,
     sendTemplate,
     markAsRead,
-    usingBitrixFallback
+    usingBitrixFallback,
+    lastSendError,
+    clearSendError,
+    lastMessageContent
   } = useWhatsAppMessages({ bitrixId, phoneNumber, conversationId });
 
   const { data: gupshupWindowStatus, refetch: refetchWindowStatus } = useGupshupWindowStatus({
@@ -69,6 +73,19 @@ export function WhatsAppChatContainer({
     fetchMessages();
     refetchWindowStatus();
   };
+
+  // Handler para reconectar sessão
+  const handleReconnect = useCallback(() => {
+    window.location.reload();
+  }, []);
+
+  // Handler para tentar novamente com a última mensagem
+  const handleRetry = useCallback(async () => {
+    if (lastMessageContent) {
+      clearSendError();
+      await sendMessage(lastMessageContent);
+    }
+  }, [lastMessageContent, clearSendError, sendMessage]);
 
   // Remover todas as restrições de isWindowOpen - deixar enviar sempre
   const handleSendMessage = async (content: string) => {
@@ -171,6 +188,16 @@ export function WhatsAppChatContainer({
           <div className="flex-1 overflow-y-auto">
             <WhatsAppMessageList messages={messages} loading={loading} usingBitrixFallback={usingBitrixFallback} />
           </div>
+
+          {/* Error banner - acima do input */}
+          {lastSendError && (
+            <WhatsAppSendError
+              error={lastSendError}
+              onClear={clearSendError}
+              onRetry={lastSendError.canRetry ? handleRetry : undefined}
+              onReconnect={lastSendError.requiresReconnect ? handleReconnect : undefined}
+            />
+          )}
 
           {/* Input - Fixed at bottom - SEM restrição de janela */}
           <WhatsAppInput
