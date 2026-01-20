@@ -81,9 +81,11 @@ interface TelemarketingMetrics {
   operatorPerformance: {
     name: string;
     bitrix_id?: number;
+    photo_url?: string | null;
     leads: number;
     confirmadas: number;
     agendamentos: number;
+    comparecimentos: number;
     leadsScouter: number;
     leadsMeta: number;
   }[];
@@ -170,15 +172,17 @@ export function useTelemarketingMetrics(
         };
       }
 
-      // Fetch operators to map ID -> Name
+      // Fetch operators to map ID -> Name and Photo
       const { data: operators } = await supabase
         .from('telemarketing_operators')
-        .select('bitrix_id, name');
+        .select('bitrix_id, name, photo_url');
 
       const operatorNameMap = new Map<number, string>();
+      const operatorPhotoMap = new Map<number, string | null>();
       operators?.forEach(op => {
         if (op.bitrix_id && op.name) {
           operatorNameMap.set(op.bitrix_id, op.name);
+          operatorPhotoMap.set(op.bitrix_id, op.photo_url || null);
         }
       });
 
@@ -348,16 +352,27 @@ export function useTelemarketingMetrics(
         };
       });
 
+      // Calcular comparecimentos por operador
+      const comparecimentosByOperator = new Map<number, number>();
+      comparecimentosLeads.forEach(lead => {
+        if (lead.bitrix_telemarketing_id) {
+          const current = comparecimentosByOperator.get(lead.bitrix_telemarketing_id) || 0;
+          comparecimentosByOperator.set(lead.bitrix_telemarketing_id, current + 1);
+        }
+      });
+
       // Operator performance vem da RPC (sem limite de 1000)
       const operatorPerformance = (metricsData?.operator_stats || []).map(op => ({
         bitrix_id: op.bitrix_telemarketing_id,
         name: op.name,
+        photo_url: operatorPhotoMap.get(op.bitrix_telemarketing_id) || null,
         leads: op.leads,
         confirmadas: op.confirmadas,
         agendamentos: op.agendamentos,
+        comparecimentos: comparecimentosByOperator.get(op.bitrix_telemarketing_id) || 0,
         leadsScouter: op.leads_scouter,
         leadsMeta: op.leads_meta,
-      })).slice(0, 10);
+      }));
       
       // Build available operators list from RPC data
       const availableOperators: OperatorInfo[] = (metricsData?.operator_stats || [])

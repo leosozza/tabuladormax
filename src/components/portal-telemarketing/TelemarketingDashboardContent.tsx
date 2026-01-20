@@ -18,6 +18,7 @@ import { ShareReportModal } from './ShareReportModal';
 import { AgendamentosPorDataModal } from './AgendamentosPorDataModal';
 import { ComparecimentosDetailModal } from './ComparecimentosDetailModal';
 import { TelemarketingAIAnalysisModal } from './TelemarketingAIAnalysisModal';
+import { OperatorMetricsGrid, OperatorCardData } from './OperatorMetricsGrid';
 import { useTelemarketingAIAnalysis } from '@/hooks/useTelemarketingAIAnalysis';
 import { useComparecimentosRanking, ComparecimentosPeriod } from '@/hooks/useComparecimentosRanking';
 import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
@@ -536,6 +537,30 @@ export function TelemarketingDashboardContent({
           </Card>
         ))}
       </div>
+
+      {/* Grid de Cards de Operadores - Only for Supervisors */}
+      {isSupervisor && metrics?.operatorPerformance && metrics.operatorPerformance.length > 0 && (
+        <OperatorMetricsGrid
+          operators={metrics.operatorPerformance.map(op => ({
+            bitrix_id: op.bitrix_id || 0,
+            name: op.name,
+            photo_url: op.photo_url,
+            leads: op.leads,
+            agendamentos: op.agendamentos,
+            confirmadas: op.confirmadas,
+            comparecimentos: op.comparecimentos,
+          }))}
+          selectedOperatorId={selectedOperator !== 'all' ? parseInt(selectedOperator) : null}
+          onOperatorClick={(bitrixId) => {
+            // Toggle: se já está selecionado, volta para "all"
+            if (selectedOperator === String(bitrixId)) {
+              setSelectedOperator('all');
+            } else {
+              setSelectedOperator(String(bitrixId));
+            }
+          }}
+        />
+      )}
 
       {/* Tabulação Cards - Clickable (igual aos KPIs principais) */}
       {metrics?.tabulacaoGroups && metrics.tabulacaoGroups.length > 0 && (
