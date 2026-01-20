@@ -44,6 +44,7 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
 
   const performSupabaseAuth = async (bitrixId: number, accessKeyValue: string) => {
     const password = accessKeyValue;
+    const email = `tele-${bitrixId}@maxfama.internal`;
 
     // 1. Verificar se já existe usuário vinculado no mapping
     const { data: existingMapping } = await supabase
@@ -53,8 +54,9 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
       .not('tabuladormax_user_id', 'is', null)
       .maybeSingle();
 
+    // Determinar email a usar
+    let targetEmail = email;
     if (existingMapping?.tabuladormax_user_id) {
-      // 2. Buscar email do usuário existente via profiles
       const { data: profile } = await supabase
         .from('profiles')
         .select('email')
@@ -62,68 +64,70 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
         .single();
       
       if (profile?.email) {
-        // 3. Tentar autenticar com email existente
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: profile.email,
-          password,
-        });
-        
-        if (signInData?.session) {
-          console.log('[TM] Signed in with existing user:', profile.email);
-          return true;
-        }
-        
-        console.warn('[TM] Failed to sign in with existing user:', signInError?.message);
-        // Não criar novo usuário se já existe um vinculado - evita duplicação
-        return false;
+        targetEmail = profile.email;
       }
     }
 
-    // 4. Fallback: usar email padrão (cria novo usuário se não existir)
-    const email = `tele-${bitrixId}@maxfama.internal`;
-
-    // Try to sign in first
+    // Tentar autenticar
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
+      email: targetEmail,
       password,
     });
 
     if (signInData?.session) {
-      console.log('[TM] Supabase auth: signed in successfully');
+      console.log('[TM] Signed in successfully:', targetEmail);
       return true;
     }
 
-    // If sign in fails, try to create the user
+    // Se falhou com credenciais inválidas, tentar auto-reset via admin
     if (signInError?.message?.includes('Invalid login credentials')) {
-      console.log('[TM] User does not exist, creating...');
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/portal-telemarketing`,
-          data: {
-            bitrix_id: bitrixId,
-            role: 'telemarketing_operator'
+      console.log('[TM] Login failed, attempting admin password reset...');
+      
+      try {
+        const { data: resetData, error: resetError } = await supabase.functions.invoke(
+          'admin-reset-telemarketing-password',
+          { body: { bitrix_id: bitrixId, new_password: password } }
+        );
+
+        if (resetError) {
+          console.error('[TM] Admin reset failed:', resetError);
+        } else if (resetData?.success) {
+          console.log('[TM] Admin reset successful, retrying login...');
+          
+          // Tentar login novamente após reset
+          const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+          if (retryData?.session) {
+            console.log('[TM] Login successful after admin reset');
+            return true;
           }
+          
+          console.warn('[TM] Login still failed after reset:', retryError?.message);
         }
-      });
-
-      if (signUpError) {
-        console.error('[TM] Error creating user:', signUpError);
-        return false;
+      } catch (err) {
+        console.error('[TM] Error calling admin reset:', err);
       }
+    }
 
-      // Try to sign in again after signup
-      if (signUpData?.user) {
-        const { error: retrySignInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        if (!retrySignInError) {
-          console.log('[TM] Supabase auth: created and signed in successfully');
-          return true;
-        }
+    // Fallback: tentar criar usuário diretamente
+    console.log('[TM] Attempting direct signup...');
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/portal-telemarketing`,
+        data: { bitrix_id: bitrixId, role: 'telemarketing_operator' }
+      }
+    });
+
+    if (!signUpError && signUpData?.user) {
+      const { data: finalData } = await supabase.auth.signInWithPassword({ email, password });
+      if (finalData?.session) {
+        console.log('[TM] Signup and login successful');
+        return true;
       }
     }
 
