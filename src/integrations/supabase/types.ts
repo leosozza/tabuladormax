@@ -5751,15 +5751,6 @@ export type Database = {
             }
             Returns: Json
           }
-        | {
-            Args: {
-              p_end_date: string
-              p_operator_id?: number
-              p_operator_ids?: number[]
-              p_start_date: string
-            }
-            Returns: Json
-          }
       get_telemarketing_whatsapp_messages: {
         Args: {
           p_lead_id?: number
