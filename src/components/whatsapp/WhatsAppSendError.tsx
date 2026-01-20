@@ -44,27 +44,27 @@ export const mapErrorToFriendlyMessage = (error: any): SendErrorDetails => {
   // Erros de sessão/autenticação
   if (errorLower.includes('claim') || errorLower.includes('missing sub')) {
     return {
-      message: 'Sua sessão expirou. Clique em "Reconectar" para continuar enviando.',
+      message: 'Não foi possível enviar após tentativa automática. Clique em "Reconectar" para restaurar sua sessão.',
       code: 'session_expired',
-      canRetry: false,
+      canRetry: true,
       requiresReconnect: true,
     };
   }
   
   if (errorLower.includes('jwt') || errorLower.includes('token')) {
     return {
-      message: 'Token de acesso inválido. Reconecte sua sessão.',
+      message: 'Token de acesso inválido. O sistema tentou reconectar automaticamente. Clique em "Reconectar" se o problema persistir.',
       code: 'jwt_invalid',
-      canRetry: false,
+      canRetry: true,
       requiresReconnect: true,
     };
   }
   
   if (errorLower.includes('401') || errorLower.includes('unauthorized') || errorLower.includes('não autorizado')) {
     return {
-      message: 'Sessão inválida. Faça login novamente para enviar mensagens.',
+      message: 'Sessão inválida após retry automático. Clique em "Reconectar" para restaurar o acesso.',
       code: 'auth_unauthorized',
-      canRetry: false,
+      canRetry: true,
       requiresReconnect: true,
     };
   }

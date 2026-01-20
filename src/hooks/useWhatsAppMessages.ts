@@ -412,30 +412,82 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     }
   }, [bitrixId, phoneNumber, conversationId, fetchBitrixMessages]);
 
-  // Verificar sessão Supabase antes de enviar - retorna true se válida
-  const verifySession = async (): Promise<boolean> => {
+  // Helper para identificar erros de autenticação
+  const isAuthError = (error: any): boolean => {
+    const errorStr = String(error?.message || error?.error || error).toLowerCase();
+    return errorStr.includes('claim') || 
+           errorStr.includes('jwt') || 
+           errorStr.includes('token') || 
+           errorStr.includes('401') || 
+           errorStr.includes('unauthorized') ||
+           errorStr.includes('missing sub');
+  };
+
+  // Refresh silencioso de sessão - tenta recuperar sem interromper o operador
+  const refreshSessionSilently = async (): Promise<boolean> => {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      logDebug('Attempting silent session refresh...');
       
-      if (error || !session) {
-        logDebug('Session verification failed', { error: error?.message, hasSession: !!session });
-        
-        // Tentar refresh do token
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError || !refreshData?.session) {
-          logDebug('Session refresh failed', { error: refreshError?.message });
-          return false;
-        }
-        
-        logDebug('Session refreshed successfully');
+      // Tentar refresh normal primeiro
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (!refreshError && refreshData?.session) {
+        logDebug('Session refreshed via Supabase');
         return true;
       }
       
-      return true;
-    } catch (e) {
-      logDebug('Session verification error', { error: e });
+      // Fallback: tentar re-autenticar com access_key do telemarketing
+      const authStatus = localStorage.getItem('telemarketing_auth_status');
+      if (authStatus) {
+        try {
+          const parsed = JSON.parse(authStatus);
+          if (parsed.accessKey && parsed.email) {
+            logDebug('Attempting re-auth via access_key');
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+              email: parsed.email,
+              password: parsed.accessKey,
+            });
+            
+            if (!signInError) {
+              logDebug('Session restored via access_key');
+              return true;
+            }
+          }
+        } catch {}
+      }
+      
+      logDebug('Silent refresh failed');
       return false;
+    } catch (e) {
+      logDebug('Silent refresh error', { error: e });
+      return false;
+    }
+  };
+
+  // Função de tentativa de envio (sem verificação prévia de sessão)
+  const attemptSendMessage = async (content: string): Promise<{ success: boolean; error?: any; data?: any }> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('gupshup-send-message', {
+        body: {
+          action: 'send_message',
+          phone_number: phoneNumber,
+          message: content.trim(),
+          bitrix_id: bitrixId,
+          conversation_id: conversationId,
+        },
+      });
+
+      if (error) {
+        return { success: false, error: error.message || error };
+      }
+
+      if (data?.error) {
+        return { success: false, error: data.error };
+      }
+
+      return { success: true, data };
+    } catch (e) {
+      return { success: false, error: e };
     }
   };
 
@@ -478,59 +530,51 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
-    // VERIFICAR SESSÃO ANTES DE ENVIAR
-    const hasValidSession = await verifySession();
-    if (!hasValidSession) {
-      logDebug('sendMessage rejected: invalid session');
-      releaseSendLock();
-      lastMessageContentRef.current = content; // Guardar para retry
-      const errorDetails = mapErrorToDetails('Sessão expirada - missing sub claim');
-      setLastSendError(errorDetails);
-      return false;
-    }
-    
-    // Limpar erro anterior ao tentar enviar
+    // Limpar erro anterior e guardar conteúdo para retry
     setLastSendError(null);
+    lastMessageContentRef.current = content;
 
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
     setSending(true);
-    logDebug('sendMessage starting', { sendCount: sendCountRef.current });
+    logDebug('sendMessage starting - ENVIE PRIMEIRO', { sendCount: sendCountRef.current });
     
     // Criar AbortController para cancelamento
     abortControllerRef.current = new AbortController();
     
     try {
-      const { data, error } = await supabase.functions.invoke('gupshup-send-message', {
-        body: {
-          action: 'send_message',
-          phone_number: phoneNumber,
-          message: content.trim(),
-          bitrix_id: bitrixId,
-          conversation_id: conversationId,
-        },
-      });
-
+      // TENTATIVA 1: Enviar diretamente sem verificar sessão
+      let result = await attemptSendMessage(content);
+      
       // Verificar se foi desmontado durante a requisição
       if (!mountedRef.current) {
         logDebug('sendMessage aborted: component unmounted');
+        releaseSendLock();
         return false;
       }
 
-      if (error) {
-        console.error('Erro ao enviar mensagem:', error);
-        releaseSendLock();
-        lastMessageContentRef.current = content;
-        const errorDetails = mapErrorToDetails(error.message || error);
-        setLastSendError(errorDetails);
-        return false;
+      // Se falhou por erro de auth, tentar refresh silencioso + retry
+      if (!result.success && isAuthError(result.error)) {
+        logDebug('Auth error detected, attempting silent refresh...', { error: result.error });
+        
+        const refreshed = await refreshSessionSilently();
+        
+        if (refreshed) {
+          logDebug('Session refreshed, retrying send...');
+          // TENTATIVA 2: Retry após refresh
+          result = await attemptSendMessage(content);
+          
+          if (result.success) {
+            logDebug('Retry succeeded after session refresh');
+          }
+        }
       }
 
-      if (data?.error) {
-        console.error('Erro da API:', data.error);
+      // Verificar resultado final
+      if (!result.success) {
+        console.error('Erro ao enviar mensagem:', result.error);
         releaseSendLock();
-        lastMessageContentRef.current = content;
-        const errorDetails = mapErrorToDetails(data.error);
+        const errorDetails = mapErrorToDetails(result.error);
         setLastSendError(errorDetails);
         return false;
       }
@@ -545,7 +589,7 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         phone_number: phoneNumber.replace(/\D/g, ''),
         bitrix_id: bitrixId || null,
         conversation_id: conversationId || null,
-        gupshup_message_id: data?.messageId || null,
+        gupshup_message_id: result.data?.messageId || null,
         direction: 'outbound',
         message_type: 'text',
         content: content.trim(),
@@ -561,7 +605,7 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       };
 
       setMessages(prev => [...prev, newMessage]);
-      setLastSendError(null); // Limpar qualquer erro anterior
+      setLastSendError(null);
       toast.success('Mensagem enviada');
       return true;
     } catch (error: any) {
@@ -574,7 +618,6 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         return false;
       }
       
-      lastMessageContentRef.current = content;
       const errorDetails = mapErrorToDetails(error);
       setLastSendError(errorDetails);
       return false;
@@ -623,20 +666,8 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
-    // VERIFICAR SESSÃO ANTES DE ENVIAR
-    const hasValidSession = await verifySession();
-    if (!hasValidSession) {
-      logDebug('sendTemplate rejected: invalid session');
-      releaseSendLock();
-      toast.error('Sessão expirada. Faça login novamente para enviar mensagens.', {
-        duration: 5000,
-        action: {
-          label: 'Reconectar',
-          onClick: () => window.location.reload()
-        }
-      });
-      return false;
-    }
+    // Limpar erro anterior
+    setLastSendError(null);
 
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
@@ -764,20 +795,8 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
-    // VERIFICAR SESSÃO ANTES DE ENVIAR
-    const hasValidSession = await verifySession();
-    if (!hasValidSession) {
-      logDebug('sendMedia rejected: invalid session');
-      releaseSendLock();
-      toast.error('Sessão expirada. Faça login novamente para enviar mensagens.', {
-        duration: 5000,
-        action: {
-          label: 'Reconectar',
-          onClick: () => window.location.reload()
-        }
-      });
-      return false;
-    }
+    // Limpar erro anterior
+    setLastSendError(null);
 
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
@@ -928,20 +947,8 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       return false;
     }
 
-    // VERIFICAR SESSÃO ANTES DE ENVIAR
-    const hasValidSession = await verifySession();
-    if (!hasValidSession) {
-      logDebug('sendLocation rejected: invalid session');
-      releaseSendLock();
-      toast.error('Sessão expirada. Faça login novamente para enviar mensagens.', {
-        duration: 5000,
-        action: {
-          label: 'Reconectar',
-          onClick: () => window.location.reload()
-        }
-      });
-      return false;
-    }
+    // Limpar erro anterior
+    setLastSendError(null);
 
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
