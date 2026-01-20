@@ -29,7 +29,7 @@ type StoredTelemarketingOperator = {
   commercial_project_id?: string;
 };
 
-const SUPERVISOR_CARGOS = ['10620', '10626', '10627'];
+const SUPERVISOR_CARGOS = ['10620', '10626', '10627', '10628'];
 const isSupervisorCargo = (cargo: string) => SUPERVISOR_CARGOS.includes(cargo);
 
 const BulkFlowSend = () => {

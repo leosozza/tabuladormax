@@ -10,10 +10,11 @@ import { toast } from 'sonner';
 export const SUPERVISOR_CARGO = '10620';
 export const SUPERVISOR_ADJUNTO_CARGO = '10626';
 export const CONTROL_DESK_CARGO = '10627';
+export const CONTROL_DESK_CARGO_ALT = '10628'; // Código alternativo usado pelo Bitrix
 export const AGENT_CARGO = '10618';
 
 // Todos os cargos com privilégios de supervisão
-export const SUPERVISOR_CARGOS = [SUPERVISOR_CARGO, SUPERVISOR_ADJUNTO_CARGO, CONTROL_DESK_CARGO];
+export const SUPERVISOR_CARGOS = [SUPERVISOR_CARGO, SUPERVISOR_ADJUNTO_CARGO, CONTROL_DESK_CARGO, CONTROL_DESK_CARGO_ALT];
 
 // Helper function para verificar se é cargo de supervisor
 export const isSupervisorCargo = (cargo: string): boolean => 
