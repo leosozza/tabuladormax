@@ -545,9 +545,12 @@ export function TelemarketingDashboardContent({
             bitrix_id: op.bitrix_id || 0,
             name: op.name,
             photo_url: op.photo_url,
-            leads: op.leads,
+            trabalhados: op.leadsScouter + op.leadsMeta,
             agendamentos: op.agendamentos,
-            confirmadas: op.confirmadas,
+            semInteresse: op.semInteresse || 0,
+            retorno: op.retorno || 0,
+            ligInterrompida: op.ligInterrompida || 0,
+            caixaPostal: op.caixaPostal || 0,
             comparecimentos: op.comparecimentos,
           }))}
           selectedOperatorId={selectedOperator !== 'all' ? parseInt(selectedOperator) : null}

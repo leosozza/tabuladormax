@@ -88,6 +88,11 @@ interface TelemarketingMetrics {
     comparecimentos: number;
     leadsScouter: number;
     leadsMeta: number;
+    // Novas métricas de tabulação
+    semInteresse: number;
+    retorno: number;
+    ligInterrompida: number;
+    caixaPostal: number;
   }[];
   scouterPerformance: ScouterPerformance[];
   statusDistribution: {
@@ -258,6 +263,11 @@ export function useTelemarketingMetrics(
           leads_scouter: number;
           leads_meta: number;
           taxa_conversao: number;
+          // Novas métricas de tabulação
+          sem_interesse: number;
+          retorno: number;
+          lig_interrompida: number;
+          caixa_postal: number;
         }>;
         tabulacao_stats: Array<{ status: string; count: number }>;
         scouter_stats: Array<{ name: string; total_leads: number; agendamentos: number }>;
@@ -372,6 +382,11 @@ export function useTelemarketingMetrics(
         comparecimentos: comparecimentosByOperator.get(op.bitrix_telemarketing_id) || 0,
         leadsScouter: op.leads_scouter,
         leadsMeta: op.leads_meta,
+        // Novas métricas de tabulação
+        semInteresse: op.sem_interesse || 0,
+        retorno: op.retorno || 0,
+        ligInterrompida: op.lig_interrompida || 0,
+        caixaPostal: op.caixa_postal || 0,
       }));
       
       // Build available operators list from RPC data
