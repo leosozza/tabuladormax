@@ -32,8 +32,8 @@ const modules = [
     description: 'Métricas em tempo real',
     icon: BarChart3,
     path: '/portal-telemarketing/dashboard',
-    gradient: 'from-chart-2/20 to-chart-2/5',
-    iconBg: 'bg-chart-2',
+    gradient: 'from-purple-500/20 to-purple-500/5',
+    iconBg: 'bg-purple-500',
     iconColor: 'text-white',
     supervisorOnly: false
   },
