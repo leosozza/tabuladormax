@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
-import { RefreshCw, X, Phone } from 'lucide-react';
+import { RefreshCw, X, Phone, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface WhatsAppHeaderProps {
   contactName: string;
@@ -9,6 +10,7 @@ interface WhatsAppHeaderProps {
   loading?: boolean;
   onRefresh?: () => void;
   onClose?: () => void;
+  onReconnect?: () => void;
   rightContent?: React.ReactNode;
 }
 
@@ -19,9 +21,19 @@ export function WhatsAppHeader({
   loading,
   onRefresh,
   onClose,
+  onReconnect,
   rightContent
 }: WhatsAppHeaderProps) {
   const navigate = useNavigate();
+
+  const handleReconnect = () => {
+    toast.info('Reconectando sessão...');
+    if (onReconnect) {
+      onReconnect();
+    } else {
+      window.location.reload();
+    }
+  };
 
   return (
     <div className="flex items-center justify-between p-4 border-b bg-card">
@@ -40,6 +52,16 @@ export function WhatsAppHeader({
       </div>
       <div className="flex items-center gap-2">
         {rightContent}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleReconnect}
+          className="gap-1.5 text-xs"
+          title="Reconectar sessão se houver problemas de envio"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          Reconectar
+        </Button>
         {bitrixId && (
           <Button
             variant="ghost"
