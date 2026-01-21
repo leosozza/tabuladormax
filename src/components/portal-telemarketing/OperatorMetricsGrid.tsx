@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { TelePodium } from './TelePodium';
-import { Star } from 'lucide-react';
 
 export interface OperatorCardData {
   bitrix_id: number;
@@ -36,54 +35,85 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-// Card especial para 4º lugar (menção honrosa)
-interface HonorableMentionProps {
+// Cores e labels para as posições do Top 5
+const positionStyles = [
+  { bg: 'bg-yellow-500', text: 'text-yellow-950', label: '1º Lugar', border: 'border-yellow-400' },
+  { bg: 'bg-gray-400', text: 'text-gray-950', label: '2º Lugar', border: 'border-gray-300' },
+  { bg: 'bg-orange-600', text: 'text-orange-50', label: '3º Lugar', border: 'border-orange-400' },
+  { bg: 'bg-slate-500', text: 'text-slate-50', label: '4º Lugar', border: 'border-slate-400' },
+  { bg: 'bg-slate-400', text: 'text-slate-900', label: '5º Lugar', border: 'border-slate-300' },
+];
+
+interface TopOperatorCardProps {
   operator: OperatorCardData;
+  position: number;
   onOperatorClick?: (bitrixId: number) => void;
   isSelected?: boolean;
 }
 
-function HonorableMention({ operator, onOperatorClick, isSelected }: HonorableMentionProps) {
+function TopOperatorCard({ operator, position, onOperatorClick, isSelected }: TopOperatorCardProps) {
+  const style = positionStyles[position - 1] || positionStyles[4];
+  
   return (
     <Card 
       className={cn(
-        "cursor-pointer transition-all hover:shadow-md border-dashed border-2",
-        isSelected ? "ring-2 ring-primary border-primary" : "hover:border-primary/50"
+        "w-[180px] cursor-pointer transition-all hover:shadow-lg",
+        isSelected ? "ring-2 ring-primary" : "hover:ring-1 hover:ring-primary/50"
       )}
       onClick={() => onOperatorClick?.(operator.bitrix_id)}
     >
-      <CardContent className="flex items-center gap-4 p-4">
-        <div className="relative">
-          <Avatar className="h-14 w-14 ring-2 ring-slate-400">
-            <AvatarImage 
-              src={operator.photo_url || undefined} 
-              alt={operator.name}
-              className="object-cover"
-            />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold">
-              {getInitials(operator.name)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="absolute -top-1 -right-1 bg-slate-500 rounded-full p-1">
-            <Star className="h-3 w-3 text-white" />
-          </div>
-        </div>
+      <CardContent className="p-3 text-center">
+        {/* Badge de Posição */}
+        <Badge className={cn("mb-2 text-xs", style.bg, style.text)}>
+          {style.label}
+        </Badge>
         
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Badge variant="secondary" className="text-xs">4º Lugar</Badge>
-            <span className="text-sm font-semibold truncate">{operator.name}</span>
+        {/* Avatar */}
+        <Avatar className={cn("h-16 w-16 mx-auto mb-2 border-3", style.border)}>
+          <AvatarImage 
+            src={operator.photo_url || undefined} 
+            alt={operator.name}
+            className="object-cover"
+          />
+          <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
+            {getInitials(operator.name)}
+          </AvatarFallback>
+        </Avatar>
+        
+        {/* Nome */}
+        <h4 className="font-semibold text-xs mb-2 truncate" title={operator.name}>
+          {operator.name}
+        </h4>
+        
+        {/* Métricas em Grid */}
+        <div className="space-y-1 text-[10px]">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">TRABALHADOS</span>
+            <span className="font-semibold tabular-nums">{operator.trabalhados}</span>
           </div>
-          <div className="flex gap-4 text-xs">
-            <span className="text-muted-foreground">
-              Trabalhados: <span className="font-semibold text-foreground">{operator.trabalhados}</span>
-            </span>
-            <span className="text-green-600 dark:text-green-400 font-semibold">
-              {operator.agendamentos} agendados
-            </span>
-            <span className="text-blue-600 dark:text-blue-400 font-semibold">
-              {operator.comparecimentos} comparecimentos
-            </span>
+          <div className="flex justify-between bg-green-100 dark:bg-green-900/30 rounded px-1 py-0.5">
+            <span className="text-green-700 dark:text-green-300 font-medium">AGENDADO</span>
+            <span className="font-bold tabular-nums text-green-700 dark:text-green-300">{operator.agendamentos}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">SEM INTERESSE</span>
+            <span className="font-semibold tabular-nums text-red-500">{operator.semInteresse}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">RETORNO</span>
+            <span className="font-semibold tabular-nums text-yellow-600">{operator.retorno}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">LIG. INTERR.</span>
+            <span className="font-semibold tabular-nums text-orange-500">{operator.ligInterrompida}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">CX. POSTAL</span>
+            <span className="font-semibold tabular-nums text-purple-500">{operator.caixaPostal}</span>
+          </div>
+          <div className="flex justify-between pt-1 border-t">
+            <span className="text-blue-600 dark:text-blue-400 font-medium">COMPARECIDO</span>
+            <span className="font-bold tabular-nums text-blue-600 dark:text-blue-400">{operator.comparecimentos}</span>
           </div>
         </div>
       </CardContent>
@@ -104,18 +134,18 @@ function RankingTable({ title, operators, startPosition, onOperatorClick, select
   
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="py-3 px-4 bg-muted/30">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      <CardHeader className="py-2 px-3 bg-muted/30">
+        <CardTitle className="text-xs font-medium">{title}</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10 text-center">Pos</TableHead>
-              <TableHead>Operador</TableHead>
-              <TableHead className="text-right w-16">Trab.</TableHead>
-              <TableHead className="text-right w-16 text-green-600">Agend.</TableHead>
-              <TableHead className="text-right w-16 text-blue-600">Comp.</TableHead>
+              <TableHead className="w-8 text-center text-xs">Pos</TableHead>
+              <TableHead className="text-xs">Operador</TableHead>
+              <TableHead className="text-right w-12 text-xs">Trab.</TableHead>
+              <TableHead className="text-right w-12 text-xs text-green-600">Ag.</TableHead>
+              <TableHead className="text-right w-12 text-xs text-blue-600">Cp.</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -132,33 +162,33 @@ function RankingTable({ title, operators, startPosition, onOperatorClick, select
                   )}
                   onClick={() => onOperatorClick?.(operator.bitrix_id)}
                 >
-                  <TableCell className="text-center font-medium text-muted-foreground">
+                  <TableCell className="text-center font-medium text-muted-foreground text-xs py-2">
                     {position}º
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="py-2">
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-8 w-8">
+                      <Avatar className="h-6 w-6">
                         <AvatarImage 
                           src={operator.photo_url || undefined} 
                           alt={operator.name}
                           className="object-cover"
                         />
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                        <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
                           {getInitials(operator.name)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-medium text-sm truncate max-w-[120px]" title={operator.name}>
+                      <span className="font-medium text-xs truncate max-w-[100px]" title={operator.name}>
                         {operator.name.split(' ')[0]}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right tabular-nums font-medium">
+                  <TableCell className="text-right tabular-nums font-medium text-xs py-2">
                     {operator.trabalhados}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums font-bold text-green-600 dark:text-green-400">
+                  <TableCell className="text-right tabular-nums font-bold text-green-600 dark:text-green-400 text-xs py-2">
                     {operator.agendamentos}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums font-bold text-blue-600 dark:text-blue-400">
+                  <TableCell className="text-right tabular-nums font-bold text-blue-600 dark:text-blue-400 text-xs py-2">
                     {operator.comparecimentos}
                   </TableCell>
                 </TableRow>
@@ -180,13 +210,14 @@ export function OperatorMetricsGrid({
     return null;
   }
 
-  // Ordenar operadores por agendamentos (maior métrica de sucesso)
+  // Ordenar operadores por agendamentos
   const sortedOperators = [...operators].sort((a, b) => 
     b.agendamentos - a.agendamentos
   );
   
-  // Separar Top 3 para pódio, 4º para menção honrosa, e restante para tabelas
-  const [first, second, third, fourth, ...remaining] = sortedOperators;
+  // Separar Top 5 para pódio e cards, restante para tabelas
+  const top5 = sortedOperators.slice(0, 5);
+  const remaining = sortedOperators.slice(5);
   
   // Dividir restante em duas colunas para tabelas
   const midpoint = Math.ceil(remaining.length / 2);
@@ -195,41 +226,41 @@ export function OperatorMetricsGrid({
 
   return (
     <div className="space-y-6">
-      {/* Pódio Visual para Top 3 */}
+      {/* Pódio Visual para Top 5 (apenas nome e agendados) */}
       <TelePodium 
-        first={first}
-        second={second}
-        third={third}
+        operators={sortedOperators}
         onOperatorClick={onOperatorClick}
         selectedOperatorId={selectedOperatorId}
       />
       
-      {/* Menção Honrosa - 4º Lugar */}
-      {fourth && (
-        <div className="max-w-2xl mx-auto">
-          <HonorableMention 
-            operator={fourth}
+      {/* Cards com métricas completas do Top 5 */}
+      <div className="flex justify-center gap-3 flex-wrap">
+        {top5.map((operator, index) => (
+          <TopOperatorCard 
+            key={operator.bitrix_id} 
+            operator={operator} 
+            position={index + 1}
             onOperatorClick={onOperatorClick}
-            isSelected={selectedOperatorId === fourth.bitrix_id}
+            isSelected={selectedOperatorId === operator.bitrix_id}
           />
-        </div>
-      )}
+        ))}
+      </div>
       
-      {/* Tabelas de Ranking */}
+      {/* Tabelas de Ranking para demais posições */}
       {remaining.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <RankingTable 
-            title={`5º - ${4 + leftTable.length}º posição`}
+            title={`6º - ${5 + leftTable.length}º posição`}
             operators={leftTable} 
-            startPosition={5}
+            startPosition={6}
             onOperatorClick={onOperatorClick}
             selectedOperatorId={selectedOperatorId}
           />
           {rightTable.length > 0 && (
             <RankingTable 
-              title={`${5 + leftTable.length}º - ${4 + remaining.length}º posição`}
+              title={`${6 + leftTable.length}º - ${5 + remaining.length}º posição`}
               operators={rightTable} 
-              startPosition={5 + leftTable.length}
+              startPosition={6 + leftTable.length}
               onOperatorClick={onOperatorClick}
               selectedOperatorId={selectedOperatorId}
             />
