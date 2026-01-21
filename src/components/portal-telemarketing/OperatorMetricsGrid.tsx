@@ -1,9 +1,11 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { TelePodium } from './TelePodium';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export interface OperatorCardData {
   bitrix_id: number;
@@ -121,83 +123,137 @@ function TopOperatorCard({ operator, position, onOperatorClick, isSelected }: To
   );
 }
 
-interface RankingTableProps {
-  title: string;
+// Carousel de Operadores com navegação por setas
+interface OperatorCarouselProps {
   operators: OperatorCardData[];
-  startPosition: number;
   onOperatorClick?: (bitrixId: number) => void;
   selectedOperatorId?: number | null;
 }
 
-function RankingTable({ title, operators, startPosition, onOperatorClick, selectedOperatorId }: RankingTableProps) {
+function OperatorCarousel({ operators, onOperatorClick, selectedOperatorId }: OperatorCarouselProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
   if (operators.length === 0) return null;
-  
+
+  const currentOperator = operators[currentIndex];
+  const position = currentIndex + 1;
+
+  const handlePrevious = () => {
+    setCurrentIndex((prev) => (prev === 0 ? operators.length - 1 : prev - 1));
+  };
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev === operators.length - 1 ? 0 : prev + 1));
+  };
+
+  const style = positionStyles[position - 1] || positionStyles[4];
+
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="py-2 px-3 bg-muted/30">
-        <CardTitle className="text-xs font-medium">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-8 text-center text-xs">Pos</TableHead>
-              <TableHead className="text-xs">Operador</TableHead>
-              <TableHead className="text-right w-12 text-xs">Trab.</TableHead>
-              <TableHead className="text-right w-12 text-xs text-green-600">Ag.</TableHead>
-              <TableHead className="text-right w-12 text-xs text-blue-600">Cp.</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {operators.map((operator, index) => {
-              const position = startPosition + index;
-              const isSelected = selectedOperatorId === operator.bitrix_id;
-              
-              return (
-                <TableRow 
-                  key={operator.bitrix_id}
-                  className={cn(
-                    "cursor-pointer transition-colors",
-                    isSelected ? "bg-primary/10" : "hover:bg-muted/50"
-                  )}
-                  onClick={() => onOperatorClick?.(operator.bitrix_id)}
-                >
-                  <TableCell className="text-center font-medium text-muted-foreground text-xs py-2">
-                    {position}º
-                  </TableCell>
-                  <TableCell className="py-2">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage 
-                          src={operator.photo_url || undefined} 
-                          alt={operator.name}
-                          className="object-cover"
-                        />
-                        <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
-                          {getInitials(operator.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium text-xs truncate max-w-[100px]" title={operator.name}>
-                        {operator.name.split(' ')[0]}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums font-medium text-xs py-2">
-                    {operator.trabalhados}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums font-bold text-green-600 dark:text-green-400 text-xs py-2">
-                    {operator.agendamentos}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums font-bold text-blue-600 dark:text-blue-400 text-xs py-2">
-                    {operator.comparecimentos}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <div className="flex items-center justify-center gap-4">
+      {/* Seta Esquerda */}
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-10 w-10 rounded-full shrink-0"
+        onClick={handlePrevious}
+      >
+        <ChevronLeft className="h-5 w-5" />
+      </Button>
+
+      {/* Card do Operador */}
+      <Card 
+        className={cn(
+          "w-[220px] cursor-pointer transition-all hover:shadow-lg animate-fade-in",
+          selectedOperatorId === currentOperator.bitrix_id ? "ring-2 ring-primary" : "hover:ring-1 hover:ring-primary/50"
+        )}
+        onClick={() => onOperatorClick?.(currentOperator.bitrix_id)}
+      >
+        <CardContent className="p-4 text-center">
+          {/* Badge de Posição */}
+          <Badge className={cn("mb-3 text-xs", style.bg, style.text)}>
+            {style.label}
+          </Badge>
+          
+          {/* Avatar */}
+          <Avatar className={cn("h-20 w-20 mx-auto mb-3 border-4", style.border)}>
+            <AvatarImage 
+              src={currentOperator.photo_url || undefined} 
+              alt={currentOperator.name}
+              className="object-cover"
+            />
+            <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl">
+              {getInitials(currentOperator.name)}
+            </AvatarFallback>
+          </Avatar>
+          
+          {/* Nome */}
+          <h4 className="font-semibold text-sm mb-3 truncate" title={currentOperator.name}>
+            {currentOperator.name}
+          </h4>
+          
+          {/* Métricas */}
+          <div className="space-y-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">TRABALHADOS</span>
+              <span className="font-semibold tabular-nums">{currentOperator.trabalhados}</span>
+            </div>
+            <div className="flex justify-between bg-green-100 dark:bg-green-900/30 rounded px-2 py-1">
+              <span className="text-green-700 dark:text-green-300 font-medium">AGENDADO</span>
+              <span className="font-bold tabular-nums text-green-700 dark:text-green-300">{currentOperator.agendamentos}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">SEM INTERESSE</span>
+              <span className="font-semibold tabular-nums text-red-500">{currentOperator.semInteresse}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">RETORNO</span>
+              <span className="font-semibold tabular-nums text-yellow-600">{currentOperator.retorno}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">LIG. INTERR.</span>
+              <span className="font-semibold tabular-nums text-orange-500">{currentOperator.ligInterrompida}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">CX. POSTAL</span>
+              <span className="font-semibold tabular-nums text-purple-500">{currentOperator.caixaPostal}</span>
+            </div>
+            <div className="flex justify-between pt-1.5 border-t">
+              <span className="text-blue-600 dark:text-blue-400 font-medium">COMPARECIDO</span>
+              <span className="font-bold tabular-nums text-blue-600 dark:text-blue-400">{currentOperator.comparecimentos}</span>
+            </div>
+          </div>
+
+          {/* Indicador de navegação */}
+          <div className="flex justify-center gap-1 mt-4">
+            {operators.map((_, idx) => (
+              <button
+                key={idx}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  idx === currentIndex 
+                    ? "w-4 bg-primary" 
+                    : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentIndex(idx);
+                }}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Seta Direita */}
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-10 w-10 rounded-full shrink-0"
+        onClick={handleNext}
+      >
+        <ChevronRight className="h-5 w-5" />
+      </Button>
+    </div>
   );
 }
 
@@ -215,14 +271,6 @@ export function OperatorMetricsGrid({
     b.agendamentos - a.agendamentos
   );
   
-  // Separar Top 5 para pódio e cards, restante para tabelas
-  const top5 = sortedOperators.slice(0, 5);
-  const remaining = sortedOperators.slice(5);
-  
-  // Dividir restante em duas colunas para tabelas
-  const midpoint = Math.ceil(remaining.length / 2);
-  const leftTable = remaining.slice(0, midpoint);
-  const rightTable = remaining.slice(midpoint);
 
   return (
     <div className="space-y-6">
@@ -233,40 +281,12 @@ export function OperatorMetricsGrid({
         selectedOperatorId={selectedOperatorId}
       />
       
-      {/* Cards com métricas completas do Top 5 */}
-      <div className="flex justify-center gap-3 flex-wrap">
-        {top5.map((operator, index) => (
-          <TopOperatorCard 
-            key={operator.bitrix_id} 
-            operator={operator} 
-            position={index + 1}
-            onOperatorClick={onOperatorClick}
-            isSelected={selectedOperatorId === operator.bitrix_id}
-          />
-        ))}
-      </div>
-      
-      {/* Tabelas de Ranking para demais posições */}
-      {remaining.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <RankingTable 
-            title={`6º - ${5 + leftTable.length}º posição`}
-            operators={leftTable} 
-            startPosition={6}
-            onOperatorClick={onOperatorClick}
-            selectedOperatorId={selectedOperatorId}
-          />
-          {rightTable.length > 0 && (
-            <RankingTable 
-              title={`${6 + leftTable.length}º - ${5 + remaining.length}º posição`}
-              operators={rightTable} 
-              startPosition={6 + leftTable.length}
-              onOperatorClick={onOperatorClick}
-              selectedOperatorId={selectedOperatorId}
-            />
-          )}
-        </div>
-      )}
+      {/* Carousel de Operadores com navegação */}
+      <OperatorCarousel 
+        operators={sortedOperators}
+        onOperatorClick={onOperatorClick}
+        selectedOperatorId={selectedOperatorId}
+      />
     </div>
   );
 }
