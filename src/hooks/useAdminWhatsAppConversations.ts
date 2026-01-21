@@ -21,6 +21,7 @@ export interface AdminConversation {
   deal_stage_id: string | null;
   deal_status: 'won' | 'lost' | 'open' | null;
   deal_category_id: string | null;
+  deal_count: number;
 }
 
 export type WindowFilter = 'all' | 'open' | 'closed';
@@ -105,7 +106,8 @@ export const useAdminWhatsAppConversations = ({
           response_status: conv.response_status as 'waiting' | 'never' | 'replied' | null,
           deal_stage_id: conv.deal_stage_id || null,
           deal_status: conv.deal_status as 'won' | 'lost' | 'open' | null,
-          deal_category_id: conv.deal_category_id || null
+          deal_category_id: conv.deal_category_id || null,
+          deal_count: Number(conv.deal_count) || 0
         };
       });
 

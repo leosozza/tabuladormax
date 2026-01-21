@@ -5029,6 +5029,7 @@ export type Database = {
         Returns: {
           bitrix_id: string
           deal_category_id: string
+          deal_count: number
           deal_stage_id: string
           deal_status: string
           last_customer_message_at: string
