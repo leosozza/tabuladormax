@@ -24,6 +24,7 @@ import { TelePodium } from './TelePodium';
 import { useTelemarketingAIAnalysis } from '@/hooks/useTelemarketingAIAnalysis';
 import { useComparecimentosRanking, ComparecimentosPeriod } from '@/hooks/useComparecimentosRanking';
 import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
+import { useOperatorRanking } from '@/hooks/useOperatorRanking';
 import { 
   generateTelemarketingReportPDF, 
   createShareableReport,
@@ -111,6 +112,11 @@ export function TelemarketingDashboardContent({
   const { ranking: comparecimentosRanking, isLoading: isComparecimentosLoading } = useComparecimentosRanking(
     operatorBitrixId || null,
     comparecimentosPeriod
+  );
+
+  // Hook para ranking de agendamentos (usado por agentes para ver sua posição)
+  const { position: myRankPosition, total: myAgendamentos, ranking: agendamentosRanking } = useOperatorRanking(
+    operatorBitrixId || null
   );
 
   const getDateRange = () => {
@@ -543,7 +549,7 @@ export function TelemarketingDashboardContent({
 
       {/* Layout 2 colunas: Pódio + KPIs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Coluna Esquerda: Pódio */}
+        {/* Coluna Esquerda: Pódio - Supervisores usam operatorPerformance, Agentes usam ranking */}
         {isSupervisor && metrics?.operatorPerformance && metrics.operatorPerformance.length > 0 && (
           <Card className="p-4">
             <TelePodium 
@@ -565,6 +571,41 @@ export function TelemarketingDashboardContent({
               }}
             />
           </Card>
+        )}
+
+        {/* Pódio para Agentes: usa o hook useOperatorRanking */}
+        {!isSupervisor && agendamentosRanking.length > 0 && (
+          <div className="space-y-4">
+            <Card className="p-4">
+              <TelePodium 
+                operators={agendamentosRanking.slice(0, 10).map(r => ({
+                  bitrix_id: r.bitrix_telemarketing_id,
+                  name: r.operator_name,
+                  photo_url: null,
+                  agendamentos: r.total,
+                }))}
+              />
+            </Card>
+            
+            {/* Card de Posição do Agente */}
+            {myRankPosition > 0 && (
+              <Card className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-500/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="p-3 rounded-full bg-yellow-500/20">
+                      <Trophy className="w-8 h-8 text-yellow-500" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{myRankPosition}º lugar</p>
+                      <p className="text-sm text-muted-foreground">
+                        Você tem <span className="font-semibold text-orange-600">{myAgendamentos}</span> agendamentos hoje
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
 
         {/* Coluna Direita: KPIs */}
