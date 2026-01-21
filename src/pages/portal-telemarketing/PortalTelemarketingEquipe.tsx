@@ -50,6 +50,7 @@ const PortalTelemarketingEquipe = () => {
           .from('telemarketing_operators')
           .select('bitrix_id')
           .eq('bitrix_id', context.bitrix_id)
+          .eq('status', 'ativo')
           .maybeSingle();
 
         if (error || !data) {
