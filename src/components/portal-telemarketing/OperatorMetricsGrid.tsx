@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { TelePodium } from './TelePodium';
-import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export interface OperatorCardData {
   bitrix_id: number;
@@ -295,13 +295,7 @@ export function OperatorMetricsGrid({
   
 
   return (
-    <div className="space-y-4">
-      {/* Título da Seção */}
-      <div className="flex items-center gap-2">
-        <Trophy className="h-5 w-5 text-yellow-500" />
-        <h3 className="text-base font-bold">Ranking de Operadores (por Agendamentos)</h3>
-      </div>
-      
+    <div className="space-y-6">
       {/* Carousel de Operadores com navegação */}
       <OperatorCarousel 
         operators={sortedOperators}
