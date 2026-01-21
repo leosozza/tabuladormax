@@ -37,14 +37,22 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-// Cores e labels para as posições do Top 5
+// Cores para as posições (estilos visuais)
 const positionStyles = [
-  { bg: 'bg-yellow-500', text: 'text-yellow-950', label: '1º Lugar', border: 'border-yellow-400' },
-  { bg: 'bg-gray-400', text: 'text-gray-950', label: '2º Lugar', border: 'border-gray-300' },
-  { bg: 'bg-orange-600', text: 'text-orange-50', label: '3º Lugar', border: 'border-orange-400' },
-  { bg: 'bg-slate-500', text: 'text-slate-50', label: '4º Lugar', border: 'border-slate-400' },
-  { bg: 'bg-slate-400', text: 'text-slate-900', label: '5º Lugar', border: 'border-slate-300' },
+  { bg: 'bg-yellow-500', text: 'text-yellow-950', border: 'border-yellow-400' },
+  { bg: 'bg-gray-400', text: 'text-gray-950', border: 'border-gray-300' },
+  { bg: 'bg-orange-600', text: 'text-orange-50', border: 'border-orange-400' },
+  { bg: 'bg-slate-500', text: 'text-slate-50', border: 'border-slate-400' },
+  { bg: 'bg-slate-400', text: 'text-slate-900', border: 'border-slate-300' },
 ];
+
+function getPositionStyle(position: number) {
+  const styleIndex = Math.min(position - 1, 4); // Usa estilo do 5º para posições >= 5
+  return {
+    ...positionStyles[styleIndex],
+    label: `${position}º Lugar`
+  };
+}
 
 interface TopOperatorCardProps {
   operator: OperatorCardData;
@@ -54,7 +62,7 @@ interface TopOperatorCardProps {
 }
 
 function TopOperatorCard({ operator, position, onOperatorClick, isSelected }: TopOperatorCardProps) {
-  const style = positionStyles[position - 1] || positionStyles[4];
+  const style = getPositionStyle(position);
   
   return (
     <Card 
@@ -167,7 +175,7 @@ function OperatorCarousel({ operators, onOperatorClick, selectedOperatorId }: Op
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {visibleOperators.map((operator, idx) => {
             const position = startIndex + idx + 1;
-            const style = positionStyles[position - 1] || positionStyles[4];
+            const style = getPositionStyle(position);
             
             return (
               <Card 
