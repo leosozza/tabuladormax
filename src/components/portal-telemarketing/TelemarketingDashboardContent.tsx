@@ -568,28 +568,76 @@ export function TelemarketingDashboardContent({
 
       {/* Grid de Cards de Operadores - Only for Supervisors */}
       {isSupervisor && metrics?.operatorPerformance && metrics.operatorPerformance.length > 0 && (
-        <OperatorMetricsGrid
-          operators={metrics.operatorPerformance.map(op => ({
-            bitrix_id: op.bitrix_id || 0,
-            name: op.name,
-            photo_url: op.photo_url,
-            trabalhados: op.leadsScouter + op.leadsMeta,
-            agendamentos: op.agendamentos,
-            semInteresse: op.semInteresse || 0,
-            retorno: op.retorno || 0,
-            ligInterrompida: op.ligInterrompida || 0,
-            caixaPostal: op.caixaPostal || 0,
-            comparecimentos: op.comparecimentos,
-          }))}
-          selectedOperatorId={selectedOperator !== 'all' ? parseInt(selectedOperator) : null}
-          onOperatorClick={(bitrixId) => {
-            if (selectedOperator === String(bitrixId)) {
-              setSelectedOperator('all');
-            } else {
-              setSelectedOperator(String(bitrixId));
-            }
-          }}
-        />
+        <>
+          <OperatorMetricsGrid
+            operators={metrics.operatorPerformance.map(op => ({
+              bitrix_id: op.bitrix_id || 0,
+              name: op.name,
+              photo_url: op.photo_url,
+              trabalhados: op.leadsScouter + op.leadsMeta,
+              agendamentos: op.agendamentos,
+              semInteresse: op.semInteresse || 0,
+              retorno: op.retorno || 0,
+              ligInterrompida: op.ligInterrompida || 0,
+              caixaPostal: op.caixaPostal || 0,
+              comparecimentos: op.comparecimentos,
+            }))}
+            selectedOperatorId={selectedOperator !== 'all' ? parseInt(selectedOperator) : null}
+            onOperatorClick={(bitrixId) => {
+              if (selectedOperator === String(bitrixId)) {
+                setSelectedOperator('all');
+              } else {
+                setSelectedOperator(String(bitrixId));
+              }
+            }}
+          />
+
+          {/* Ranking Table - below carousel */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Trophy className="w-5 h-5 text-yellow-500" />
+                Ranking de Operadores (por Agendamentos)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Operador</TableHead>
+                    <TableHead className="text-center">Agendamentos</TableHead>
+                    <TableHead className="text-center">Leads</TableHead>
+                    <TableHead className="text-center">Scouter</TableHead>
+                    <TableHead className="text-center">Meta</TableHead>
+                    <TableHead className="text-center">Conversão</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {metrics.operatorPerformance.map((op, index) => {
+                    const taxa = op.leads > 0 ? ((op.agendamentos / op.leads) * 100).toFixed(1) : '0.0';
+                    return (
+                      <TableRow key={op.name}>
+                        <TableCell>
+                          {index === 0 && <Badge className="bg-yellow-500">🥇</Badge>}
+                          {index === 1 && <Badge className="bg-gray-400">🥈</Badge>}
+                          {index === 2 && <Badge className="bg-orange-600">🥉</Badge>}
+                          {index > 2 && <span className="text-muted-foreground">{index + 1}</span>}
+                        </TableCell>
+                        <TableCell className="font-medium">{op.name}</TableCell>
+                        <TableCell className="text-center text-orange-600 font-bold">{op.agendamentos}</TableCell>
+                        <TableCell className="text-center">{op.leads}</TableCell>
+                        <TableCell className="text-center text-teal-600 dark:text-teal-400">{op.leadsScouter}</TableCell>
+                        <TableCell className="text-center text-blue-600 dark:text-blue-400">{op.leadsMeta}</TableCell>
+                        <TableCell className="text-center">{taxa}%</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* Tabulação Cards - Clickable (igual aos KPIs principais) */}
@@ -656,53 +704,6 @@ export function TelemarketingDashboardContent({
         />
       )}
 
-      {/* Ranking Table (only for supervisors) */}
-      {isSupervisor && metrics?.operatorPerformance && metrics.operatorPerformance.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Trophy className="w-5 h-5 text-yellow-500" />
-              Ranking de Operadores (por Agendamentos)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Operador</TableHead>
-                  <TableHead className="text-center">Agendamentos</TableHead>
-                  <TableHead className="text-center">Leads</TableHead>
-                  <TableHead className="text-center">Scouter</TableHead>
-                  <TableHead className="text-center">Meta</TableHead>
-                  <TableHead className="text-center">Conversão</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {metrics.operatorPerformance.map((op, index) => {
-                  const taxa = op.leads > 0 ? ((op.agendamentos / op.leads) * 100).toFixed(1) : '0.0';
-                  return (
-                    <TableRow key={op.name}>
-                      <TableCell>
-                        {index === 0 && <Badge className="bg-yellow-500">🥇</Badge>}
-                        {index === 1 && <Badge className="bg-gray-400">🥈</Badge>}
-                        {index === 2 && <Badge className="bg-orange-600">🥉</Badge>}
-                        {index > 2 && <span className="text-muted-foreground">{index + 1}</span>}
-                      </TableCell>
-                      <TableCell className="font-medium">{op.name}</TableCell>
-                      <TableCell className="text-center text-orange-600 font-bold">{op.agendamentos}</TableCell>
-                      <TableCell className="text-center">{op.leads}</TableCell>
-                      <TableCell className="text-center text-teal-600 dark:text-teal-400">{op.leadsScouter}</TableCell>
-                      <TableCell className="text-center text-blue-600 dark:text-blue-400">{op.leadsMeta}</TableCell>
-                      <TableCell className="text-center">{taxa}%</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Ranking de Comparecimentos (only for supervisors) */}
       {isSupervisor && (
