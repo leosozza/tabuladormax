@@ -168,10 +168,15 @@ export const TelemarketingAccessKeyForm = ({ onAccessGranted }: TelemarketingAcc
       // Perform Supabase Auth login/signup
       const authSuccess = await performSupabaseAuth(operatorData.bitrix_id, accessKey.trim());
       
-      // Guardar estado de autenticação no localStorage para diagnóstico
+      // Construir email do operador para refresh silencioso
+      const operatorEmail = `tm_${operatorData.bitrix_id}@tabuladormax.internal`;
+      
+      // Guardar estado de autenticação no localStorage para diagnóstico E refresh silencioso
       localStorage.setItem('telemarketing_auth_status', JSON.stringify({
         bitrix_id: operatorData.bitrix_id,
         auth_success: authSuccess,
+        email: operatorEmail,
+        accessKey: accessKey.trim(),
         timestamp: new Date().toISOString()
       }));
       
