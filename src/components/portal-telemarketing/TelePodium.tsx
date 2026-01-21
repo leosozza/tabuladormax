@@ -28,47 +28,42 @@ function getFirstName(name: string): string {
   return name.split(' ')[0];
 }
 
-// Configuração de cada posição do pódio
+// Configuração de cada posição do pódio - alturas maiores e mais proporcionais
 const positionConfig = {
   1: {
-    height: 'h-28',
-    avatarSize: 'h-16 w-16',
+    height: 'h-32',
+    avatarSize: 'h-14 w-14',
     ringColor: 'ring-yellow-400',
     bgGradient: 'bg-gradient-to-t from-yellow-500 to-yellow-400',
     textColor: 'text-yellow-900',
-    order: 'order-2',
   },
   2: {
-    height: 'h-22',
-    avatarSize: 'h-14 w-14',
-    ringColor: 'ring-gray-300',
+    height: 'h-24',
+    avatarSize: 'h-12 w-12',
+    ringColor: 'ring-gray-400',
     bgGradient: 'bg-gradient-to-t from-gray-400 to-gray-300',
     textColor: 'text-gray-900',
-    order: 'order-1',
   },
   3: {
-    height: 'h-18',
+    height: 'h-20',
     avatarSize: 'h-12 w-12',
     ringColor: 'ring-orange-400',
     bgGradient: 'bg-gradient-to-t from-orange-500 to-orange-400',
     textColor: 'text-orange-900',
-    order: 'order-3',
   },
   4: {
     height: 'h-14',
     avatarSize: 'h-10 w-10',
     ringColor: 'ring-slate-400',
-    bgGradient: 'bg-gradient-to-t from-slate-500 to-slate-400',
-    textColor: 'text-slate-900',
-    order: 'order-4',
+    bgGradient: 'bg-gradient-to-t from-slate-400 to-slate-300',
+    textColor: 'text-slate-800',
   },
   5: {
     height: 'h-12',
-    avatarSize: 'h-9 w-9',
+    avatarSize: 'h-10 w-10',
     ringColor: 'ring-slate-300',
-    bgGradient: 'bg-gradient-to-t from-slate-400 to-slate-300',
-    textColor: 'text-slate-800',
-    order: 'order-5',
+    bgGradient: 'bg-gradient-to-t from-slate-300 to-slate-200',
+    textColor: 'text-slate-700',
   },
 } as const;
 
@@ -82,20 +77,10 @@ interface PodiumPlaceProps {
 function PodiumPlace({ operator, position, onOperatorClick, isSelected }: PodiumPlaceProps) {
   const config = positionConfig[position];
 
-  // Altura customizada para cada posição
-  const heights: Record<number, string> = {
-    1: 'h-28',
-    2: 'h-[88px]',
-    3: 'h-[72px]',
-    4: 'h-14',
-    5: 'h-12',
-  };
-
   return (
     <div 
       className={cn(
         "flex flex-col items-center cursor-pointer transition-all duration-300 hover:scale-105",
-        position <= 3 ? config.order : '',
         isSelected && "scale-105"
       )}
       onClick={() => onOperatorClick?.(operator.bitrix_id)}
@@ -132,8 +117,8 @@ function PodiumPlace({ operator, position, onOperatorClick, isSelected }: Podium
       {/* Pedestal */}
       <div 
         className={cn(
-          "w-16 rounded-t-lg flex items-end justify-center pb-1",
-          heights[position],
+          "w-14 rounded-t-lg flex items-end justify-center pb-1",
+          config.height,
           config.bgGradient
         )}
       >
@@ -164,14 +149,22 @@ export function TelePodium({
         <h3 className="text-base font-bold">Top 5 Agendamentos</h3>
       </div>
 
-      {/* Pódio em linha única - ordem visual: 4º, 2º, 1º, 3º, 5º */}
-      <div className="flex items-end justify-center gap-1">
+      {/* Pódio em linha única - ordem visual: 4º, 5º, 2º, 1º, 3º (montanha) */}
+      <div className="flex items-end justify-center gap-2">
         {fourth && (
           <PodiumPlace 
             operator={fourth} 
             position={4} 
             onOperatorClick={onOperatorClick}
             isSelected={selectedOperatorId === fourth.bitrix_id}
+          />
+        )}
+        {fifth && (
+          <PodiumPlace 
+            operator={fifth} 
+            position={5} 
+            onOperatorClick={onOperatorClick}
+            isSelected={selectedOperatorId === fifth.bitrix_id}
           />
         )}
         {second && (
@@ -196,14 +189,6 @@ export function TelePodium({
             position={3} 
             onOperatorClick={onOperatorClick}
             isSelected={selectedOperatorId === third.bitrix_id}
-          />
-        )}
-        {fifth && (
-          <PodiumPlace 
-            operator={fifth} 
-            position={5} 
-            onOperatorClick={onOperatorClick}
-            isSelected={selectedOperatorId === fifth.bitrix_id}
           />
         )}
       </div>
