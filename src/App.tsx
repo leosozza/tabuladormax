@@ -82,6 +82,7 @@ import PortalTelemarketingTabulador from "./pages/portal-telemarketing/PortalTel
 import PortalTelemarketingDashboard from "./pages/portal-telemarketing/PortalTelemarketingDashboard";
 import PortalTelemarketingWhatsApp from "./pages/portal-telemarketing/PortalTelemarketingWhatsApp";
 import PortalTelemarketingEquipe from "./pages/portal-telemarketing/PortalTelemarketingEquipe";
+import PortalTelemarketingConfiguracoes from "./pages/portal-telemarketing/PortalTelemarketingConfiguracoes";
 import MaxTalk from "./pages/portal-telemarketing/MaxTalk";
 import BulkFlowSend from "./pages/portal-telemarketing/BulkFlowSend";
 
@@ -125,6 +126,7 @@ const App = () => (
           <Route path="/portal-telemarketing/dashboard" element={<PortalTelemarketingDashboard />} />
           <Route path="/portal-telemarketing/whatsapp" element={<PortalTelemarketingWhatsApp />} />
           <Route path="/portal-telemarketing/equipe" element={<PortalTelemarketingEquipe />} />
+          <Route path="/portal-telemarketing/configuracoes" element={<PortalTelemarketingConfiguracoes />} />
           <Route path="/portal-telemarketing/maxtalk" element={<MaxTalk />} />
           <Route path="/portal-telemarketing/envio-lote" element={<BulkFlowSend />} />
           <Route path="/relatorio/:shortCode" element={<TelemarketingReportPublic />} />

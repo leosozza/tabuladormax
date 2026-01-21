@@ -4,8 +4,7 @@ import {
   Phone, 
   BarChart3, 
   MessageSquare, 
-  MessageCircle,
-  Settings 
+  MessageCircle
 } from 'lucide-react';
 import { TelemarketingOperatorData } from './TelemarketingAccessKeyForm';
 
@@ -54,18 +53,8 @@ const modules = [
     color: 'text-blue-500',
     bgColor: 'bg-blue-500/10',
     supervisorOnly: false
-  },
-  // Módulo Equipe removido - agora acessa pelo KPI card "Equipe"
-  {
-    id: 'config',
-    title: 'Configurações',
-    description: 'Global system parameters',
-    icon: Settings,
-    path: '/portal-telemarketing/configuracoes',
-    color: 'text-muted-foreground',
-    bgColor: 'bg-muted',
-    supervisorOnly: true
   }
+  // Módulos Equipe e Configurações removidos - acessados via header/KPI
 ];
 
 export const TeleModuleGrid = ({ operatorData, isSupervisor }: TeleModuleGridProps) => {
