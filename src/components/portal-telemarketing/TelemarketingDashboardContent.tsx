@@ -614,7 +614,18 @@ export function TelemarketingDashboardContent({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {metrics.operatorPerformance.map((op, index) => {
+                  {[...metrics.operatorPerformance]
+                    .sort((a, b) => {
+                      // Primeiro critério: agendamentos (maior primeiro)
+                      if (b.agendamentos !== a.agendamentos) {
+                        return b.agendamentos - a.agendamentos;
+                      }
+                      // Desempate: taxa de conversão (maior primeiro)
+                      const taxaA = a.leads > 0 ? (a.agendamentos / a.leads) : 0;
+                      const taxaB = b.leads > 0 ? (b.agendamentos / b.leads) : 0;
+                      return taxaB - taxaA;
+                    })
+                    .map((op, index) => {
                     const taxa = op.leads > 0 ? ((op.agendamentos / op.leads) * 100).toFixed(1) : '0.0';
                     return (
                       <TableRow key={op.name}>
