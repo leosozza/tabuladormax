@@ -19,6 +19,7 @@ import { AgendamentosPorDataModal } from './AgendamentosPorDataModal';
 import { ComparecimentosDetailModal } from './ComparecimentosDetailModal';
 import { TelemarketingAIAnalysisModal } from './TelemarketingAIAnalysisModal';
 import { OperatorMetricsGrid, OperatorCardData } from './OperatorMetricsGrid';
+import { TelePodium } from './TelePodium';
 import { useTelemarketingAIAnalysis } from '@/hooks/useTelemarketingAIAnalysis';
 import { useComparecimentosRanking, ComparecimentosPeriod } from '@/hooks/useComparecimentosRanking';
 import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
@@ -512,30 +513,57 @@ export function TelemarketingDashboardContent({
         </div>
       </div>
 
-      {/* KPI Cards - Clickable */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {kpis.map((kpi) => (
-          <Card 
-            key={kpi.title} 
-            className={`relative overflow-hidden ${kpi.onClick ? 'cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all' : ''}`}
-            onClick={kpi.onClick}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${kpi.bgColor}`}>
-                  <kpi.icon className={`w-5 h-5 ${kpi.color}`} />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{kpi.value}</p>
-                  <p className="text-xs text-muted-foreground">{kpi.title}</p>
-                  {'subtitle' in kpi && kpi.subtitle && (
-                    <p className="text-[10px] text-muted-foreground/80 mt-0.5 truncate max-w-[140px]">{kpi.subtitle}</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
+      {/* Layout 2 colunas: Pódio + KPIs */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Coluna Esquerda: Pódio */}
+        {isSupervisor && metrics?.operatorPerformance && metrics.operatorPerformance.length > 0 && (
+          <Card className="p-4">
+            <TelePodium 
+              operators={[...metrics.operatorPerformance]
+                .sort((a, b) => b.agendamentos - a.agendamentos)
+                .map(op => ({
+                  bitrix_id: op.bitrix_id || 0,
+                  name: op.name,
+                  photo_url: op.photo_url,
+                  agendamentos: op.agendamentos,
+                }))}
+              selectedOperatorId={selectedOperator !== 'all' ? parseInt(selectedOperator) : null}
+              onOperatorClick={(bitrixId) => {
+                if (selectedOperator === String(bitrixId)) {
+                  setSelectedOperator('all');
+                } else {
+                  setSelectedOperator(String(bitrixId));
+                }
+              }}
+            />
           </Card>
-        ))}
+        )}
+
+        {/* Coluna Direita: KPIs */}
+        <div className="grid grid-cols-2 gap-3">
+          {kpis.map((kpi) => (
+            <Card 
+              key={kpi.title} 
+              className={`relative overflow-hidden ${kpi.onClick ? 'cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all' : ''}`}
+              onClick={kpi.onClick}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${kpi.bgColor}`}>
+                    <kpi.icon className={`w-5 h-5 ${kpi.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{kpi.value}</p>
+                    <p className="text-xs text-muted-foreground">{kpi.title}</p>
+                    {'subtitle' in kpi && kpi.subtitle && (
+                      <p className="text-[10px] text-muted-foreground/80 mt-0.5 truncate max-w-[140px]">{kpi.subtitle}</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       {/* Grid de Cards de Operadores - Only for Supervisors */}
@@ -555,7 +583,6 @@ export function TelemarketingDashboardContent({
           }))}
           selectedOperatorId={selectedOperator !== 'all' ? parseInt(selectedOperator) : null}
           onOperatorClick={(bitrixId) => {
-            // Toggle: se já está selecionado, volta para "all"
             if (selectedOperator === String(bitrixId)) {
               setSelectedOperator('all');
             } else {
