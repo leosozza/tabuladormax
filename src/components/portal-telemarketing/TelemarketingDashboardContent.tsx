@@ -574,7 +574,7 @@ export function TelemarketingDashboardContent({
               bitrix_id: op.bitrix_id || 0,
               name: op.name,
               photo_url: op.photo_url,
-              trabalhados: op.leadsScouter + op.leadsMeta,
+              trabalhados: op.leads,
               agendamentos: op.agendamentos,
               semInteresse: op.semInteresse || 0,
               retorno: op.retorno || 0,
