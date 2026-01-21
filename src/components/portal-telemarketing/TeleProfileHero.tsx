@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Camera } from 'lucide-react';
+import { LogOut, Camera, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +13,7 @@ interface TeleProfileHeroProps {
   isSupervisor: boolean;
   onLogout: () => void;
   onPhotoUpdated: (newPhotoUrl: string) => void;
+  onSettingsClick?: () => void;
 }
 
 export const TeleProfileHero = ({
@@ -21,7 +22,8 @@ export const TeleProfileHero = ({
   operatorBitrixId,
   isSupervisor,
   onLogout,
-  onPhotoUpdated
+  onPhotoUpdated,
+  onSettingsClick
 }: TeleProfileHeroProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
@@ -133,16 +135,29 @@ export const TeleProfileHero = ({
 
   return (
     <div className="bg-card py-8 px-4 relative">
-      {/* Botão de sair */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onLogout}
-        className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
-        title="Sair"
-      >
-        <LogOut className="w-5 h-5" />
-      </Button>
+      {/* Botões de configurações e sair */}
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        {onSettingsClick && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onSettingsClick}
+            className="text-muted-foreground hover:text-foreground"
+            title="Configurações"
+          >
+            <Settings className="w-5 h-5" />
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onLogout}
+          className="text-muted-foreground hover:text-foreground"
+          title="Sair"
+        >
+          <LogOut className="w-5 h-5" />
+        </Button>
+      </div>
 
       {/* Foto com borda e indicador online */}
       <div className="relative mx-auto w-fit">

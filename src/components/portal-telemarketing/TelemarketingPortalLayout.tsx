@@ -28,15 +28,22 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
     }
   };
 
-  const handleTeamClick = () => {
-    // Salvar contexto e navegar para página de equipe
+  const saveContextAndNavigate = (path: string) => {
     localStorage.setItem('telemarketing_context', JSON.stringify({
       bitrix_id: operatorData.bitrix_id,
       cargo: operatorData.cargo,
       name: operatorData.operator_name,
       commercial_project_id: operatorData.commercial_project_id
     }));
-    navigate('/portal-telemarketing/equipe');
+    navigate(path);
+  };
+
+  const handleTeamClick = () => {
+    saveContextAndNavigate('/portal-telemarketing/equipe');
+  };
+
+  const handleSettingsClick = () => {
+    saveContextAndNavigate('/portal-telemarketing/configuracoes');
   };
 
   return (
@@ -49,6 +56,7 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
         isSupervisor={isSupervisor}
         onLogout={onLogout}
         onPhotoUpdated={handlePhotoUpdated}
+        onSettingsClick={isSupervisor ? handleSettingsClick : undefined}
       />
 
       {/* KPI Cards */}
