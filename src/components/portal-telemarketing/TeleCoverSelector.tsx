@@ -17,6 +17,7 @@ const colorGroups = [
   { label: 'Roxo', patterns: ['purple-circles', 'purple-waves'] as CoverPattern[] },
   { label: 'Verde', patterns: ['green-dots', 'green-lines'] as CoverPattern[] },
   { label: 'Azul', patterns: ['blue-triangles', 'blue-grid'] as CoverPattern[] },
+  { label: 'Misto', patterns: ['mixed-bubbles', 'mixed-stripes', 'mixed-mosaic', 'mixed-flow'] as CoverPattern[] },
 ];
 
 export const TeleCoverSelector = ({
