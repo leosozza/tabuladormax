@@ -1064,6 +1064,23 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     fetchMessages();
   }, [fetchMessages]);
 
+  // Helper para formatar mensagem de erro assíncrono
+  const formatAsyncErrorMessage = (metadata: any): string => {
+    const errorCode = metadata?.error_code || metadata?.code;
+    const errorReason = metadata?.error_reason || metadata?.reason || '';
+    
+    if (errorCode === 470 || errorCode === '470' || errorReason.includes('24 hour')) {
+      return 'Janela de 24h expirada. Use um template para retomar contato.';
+    }
+    if (errorReason.includes('blocked') || errorReason.includes('spam')) {
+      return 'Número bloqueou mensagens ou marcou como spam.';
+    }
+    if (errorReason) {
+      return errorReason.substring(0, 60);
+    }
+    return 'Falha no envio da mensagem.';
+  };
+
   // Subscription realtime para novas mensagens
   useEffect(() => {
     if (!bitrixId && !phoneNumber && !conversationId) return;
@@ -1096,9 +1113,31 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
             });
           } else if (payload.eventType === 'UPDATE') {
             const updatedMsg = payload.new as WhatsAppMessage;
+            const oldMsg = payload.old as Partial<WhatsAppMessage>;
+            
+            // Atualizar mensagem na lista
             setMessages(prev =>
               prev.map(m => m.id === updatedMsg.id ? updatedMsg : m)
             );
+            
+            // Notificar se uma mensagem mudou para status 'failed' (erro assíncrono)
+            if (updatedMsg.status === 'failed' && oldMsg.status !== 'failed') {
+              logDebug('Async message failure detected', { 
+                messageId: updatedMsg.id, 
+                metadata: updatedMsg.metadata 
+              });
+              
+              toast.error(`Mensagem não entregue: ${formatAsyncErrorMessage(updatedMsg.metadata)}`, {
+                duration: 8000,
+                action: {
+                  label: 'Ver Templates',
+                  onClick: () => {
+                    // Disparar evento customizado para mudar aba
+                    window.dispatchEvent(new CustomEvent('whatsapp-switch-tab', { detail: 'templates' }));
+                  }
+                }
+              });
+            }
           }
         }
       )

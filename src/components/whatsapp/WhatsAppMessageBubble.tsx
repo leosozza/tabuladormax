@@ -1,13 +1,54 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Check, CheckCheck, MapPin, ExternalLink } from 'lucide-react';
+import { Check, CheckCheck, MapPin, ExternalLink, AlertTriangle, Clock } from 'lucide-react';
 import { WhatsAppMessage } from '@/hooks/useWhatsAppMessages';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 interface WhatsAppMessageBubbleProps {
   message: WhatsAppMessage;
 }
 
-function MessageStatus({ status }: { status: WhatsAppMessage['status'] }) {
+// Mapear erro para mensagem amigável
+function formatErrorReason(metadata: Record<string, any> | undefined): string {
+  if (!metadata) return 'Falha no envio';
+  
+  const errorCode = metadata.error_code || metadata.code;
+  const errorReason = metadata.error_reason || metadata.reason || '';
+  
+  // Erro 470 - Janela de 24h expirada
+  if (errorCode === 470 || errorCode === '470' || errorReason.includes('24 hour') || errorReason.includes('window')) {
+    return 'Janela de 24h expirada. Use um template para retomar contato.';
+  }
+  
+  // Erros de bloqueio/spam
+  if (errorReason.includes('blocked') || errorReason.includes('spam')) {
+    return 'Número bloqueou mensagens ou marcou como spam.';
+  }
+  
+  // Número inválido
+  if (errorReason.includes('invalid') && (errorReason.includes('phone') || errorReason.includes('number'))) {
+    return 'Número de telefone inválido.';
+  }
+  
+  // Rate limit
+  if (errorCode === 429 || errorReason.includes('rate limit')) {
+    return 'Limite de mensagens atingido. Aguarde alguns minutos.';
+  }
+  
+  // Número não está no WhatsApp
+  if (errorReason.includes('not on whatsapp') || errorReason.includes('not registered')) {
+    return 'Número não está registrado no WhatsApp.';
+  }
+  
+  // Mensagem genérica
+  if (errorReason) {
+    return errorReason.substring(0, 80);
+  }
+  
+  return 'Falha no envio da mensagem.';
+}
+
+function MessageStatus({ status, metadata }: { status: WhatsAppMessage['status']; metadata?: Record<string, any> }) {
   switch (status) {
     case 'sent':
       return <Check className="w-3 h-3 text-muted-foreground" />;
@@ -16,7 +57,20 @@ function MessageStatus({ status }: { status: WhatsAppMessage['status'] }) {
     case 'read':
       return <CheckCheck className="w-3 h-3 text-blue-500" />;
     case 'failed':
-      return <span className="text-xs text-red-500">Erro</span>;
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1 text-red-500">
+                <AlertTriangle className="w-3 h-3" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs">
+              <p className="text-xs">{formatErrorReason(metadata)}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
     default:
       return null;
   }
@@ -86,18 +140,28 @@ export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
   const isOutbound = message.direction === 'outbound';
   const isBitrixAutomation = message.sent_by === 'bitrix';
   const isLocation = message.message_type === 'location';
+  const isFailed = message.status === 'failed';
+
+  // Detectar se é erro 470 (janela expirada)
+  const isWindowExpiredError = isFailed && (
+    message.metadata?.error_code === 470 || 
+    message.metadata?.error_code === '470' ||
+    message.metadata?.error_reason?.includes('24 hour')
+  );
 
   return (
     <div className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[70%] rounded-lg px-4 py-2 ${
-        isBitrixAutomation
-          ? 'bg-sky-500 text-white'
-          : isOutbound
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-muted'
+        isFailed
+          ? 'bg-red-100 dark:bg-red-950/50 border border-red-300 dark:border-red-800 text-foreground'
+          : isBitrixAutomation
+            ? 'bg-sky-500 text-white'
+            : isOutbound
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted'
       }`}>
         {/* Sender info */}
-        <div className="text-sm font-medium mb-1 flex items-center gap-2">
+        <div className={`text-sm font-medium mb-1 flex items-center gap-2 ${isFailed ? 'text-red-700 dark:text-red-300' : ''}`}>
           {message.sender_name || (isOutbound ? 'Você' : 'Cliente')}
           {message.sent_by && isOutbound && (
             <span className="text-xs opacity-70">
@@ -128,6 +192,18 @@ export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
           <div className="whitespace-pre-wrap">{message.content}</div>
         )}
 
+        {/* Error reason badge for failed messages */}
+        {isFailed && (
+          <div className="text-xs bg-red-200/50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded px-2 py-1 mt-2 flex items-center gap-1.5">
+            {isWindowExpiredError ? (
+              <Clock className="h-3 w-3 shrink-0" />
+            ) : (
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+            )}
+            <span>{formatErrorReason(message.metadata)}</span>
+          </div>
+        )}
+
         {/* Media */}
         {message.media_url && !isLocation && (
           <div className="mt-2">
@@ -144,9 +220,9 @@ export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
         )}
 
         {/* Timestamp and status */}
-        <div className="flex items-center gap-1 text-xs opacity-70 mt-1">
+        <div className={`flex items-center gap-1 text-xs mt-1 ${isFailed ? 'text-red-600 dark:text-red-400' : 'opacity-70'}`}>
           {format(new Date(message.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}
-          {isOutbound && <MessageStatus status={message.status} />}
+          {isOutbound && <MessageStatus status={message.status} metadata={message.metadata} />}
         </div>
       </div>
     </div>

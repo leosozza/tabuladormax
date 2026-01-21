@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Clock, ArrowRight } from 'lucide-react';
 import { useWhatsAppMessages } from '@/hooks/useWhatsAppMessages';
 import { useGupshupWindowStatus } from '@/hooks/useGupshupWindowStatus';
 import { calculateWindowStatus, WindowStatus } from '@/lib/whatsappWindow';
@@ -11,6 +11,7 @@ import { WhatsAppInput, MediaType } from './WhatsAppInput';
 import { TemplateSelector } from '@/components/gupshup/TemplateSelector';
 import { WhatsAppFlowSelector } from './WhatsAppFlowSelector';
 import { WhatsAppSendError } from './WhatsAppSendError';
+import { Button } from '@/components/ui/button';
 
 interface WhatsAppChatContainerProps {
   bitrixId?: string;
@@ -68,6 +69,33 @@ export function WhatsAppChatContainer({
       markAsRead(unread.map(m => m.id));
     }
   }, [messages, markAsRead]);
+
+  // Detectar se a última mensagem falhou por janela expirada (erro 470)
+  const lastMessage470Failed = useMemo(() => {
+    // Pegar as últimas mensagens outbound
+    const outboundMessages = messages.filter(m => m.direction === 'outbound');
+    if (outboundMessages.length === 0) return false;
+    
+    const lastOutbound = outboundMessages[outboundMessages.length - 1];
+    if (lastOutbound.status !== 'failed') return false;
+    
+    const metadata = lastOutbound.metadata;
+    return metadata?.error_code === 470 || 
+           metadata?.error_code === '470' || 
+           metadata?.error_reason?.includes('24 hour');
+  }, [messages]);
+
+  // Listener para evento de mudança de aba (disparado pelo toast)
+  useEffect(() => {
+    const handleSwitchTab = (event: CustomEvent<string>) => {
+      setActiveTab(event.detail);
+    };
+    
+    window.addEventListener('whatsapp-switch-tab', handleSwitchTab as EventListener);
+    return () => {
+      window.removeEventListener('whatsapp-switch-tab', handleSwitchTab as EventListener);
+    };
+  }, []);
 
   const handleRefresh = () => {
     fetchMessages();
@@ -188,6 +216,32 @@ export function WhatsAppChatContainer({
           <div className="flex-1 overflow-y-auto">
             <WhatsAppMessageList messages={messages} loading={loading} usingBitrixFallback={usingBitrixFallback} />
           </div>
+
+          {/* Banner de janela expirada - quando última mensagem falhou com erro 470 */}
+          {lastMessage470Failed && (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mx-3 mb-2">
+              <div className="flex items-start gap-2">
+                <Clock className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-amber-800 dark:text-amber-200 text-sm font-medium">
+                    Janela de 24h expirada
+                  </p>
+                  <p className="text-amber-700 dark:text-amber-300 text-xs mt-1">
+                    O cliente não respondeu nas últimas 24 horas. Use um template aprovado para retomar o contato.
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="shrink-0 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                  onClick={() => setActiveTab('templates')}
+                >
+                  Ver Templates
+                  <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Error banner - acima do input */}
           {lastSendError && (
