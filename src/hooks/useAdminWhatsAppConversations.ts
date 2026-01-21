@@ -18,16 +18,21 @@ export interface AdminConversation {
   last_operator_photo_url: string | null;
   lead_etapa: string | null;
   response_status: 'waiting' | 'never' | 'replied' | null;
+  deal_stage_id: string | null;
+  deal_status: 'won' | 'lost' | 'open' | null;
+  deal_category_id: string | null;
 }
 
 export type WindowFilter = 'all' | 'open' | 'closed';
 export type ResponseFilter = 'all' | 'waiting' | 'never' | 'replied';
+export type DealStatusFilter = 'all' | 'won' | 'lost' | 'open' | 'no_deal';
 
 interface UseAdminWhatsAppConversationsParams {
   search?: string;
   windowFilter?: WindowFilter;
   responseFilter?: ResponseFilter;
   etapaFilter?: string | null;
+  dealStatusFilter?: DealStatusFilter;
   limit?: number;
 }
 
@@ -39,6 +44,7 @@ export const useAdminWhatsAppConversations = ({
   windowFilter = 'all',
   responseFilter = 'all',
   etapaFilter = null,
+  dealStatusFilter = 'all',
   limit = 30 // Reduced default for faster initial load
 }: UseAdminWhatsAppConversationsParams = {}) => {
   const queryClient = useQueryClient();
@@ -54,7 +60,7 @@ export const useAdminWhatsAppConversations = ({
     hasNextPage,
     isFetchingNextPage
   } = useInfiniteQuery({
-    queryKey: ['admin-whatsapp-conversations', search, windowFilter, responseFilter, etapaFilter, limit],
+    queryKey: ['admin-whatsapp-conversations', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, limit],
     queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await supabase.rpc('get_admin_whatsapp_conversations', {
         p_limit: limit,
@@ -62,7 +68,8 @@ export const useAdminWhatsAppConversations = ({
         p_search: search || null,
         p_window_filter: windowFilter,
         p_response_filter: responseFilter,
-        p_etapa_filter: etapaFilter || null
+        p_etapa_filter: etapaFilter || null,
+        p_deal_status_filter: dealStatusFilter
       });
 
       if (error) throw error;
@@ -95,7 +102,10 @@ export const useAdminWhatsAppConversations = ({
           last_operator_name: conv.last_operator_name || null,
           last_operator_photo_url: conv.last_operator_photo_url || null,
           lead_etapa: conv.lead_etapa || null,
-          response_status: conv.response_status as 'waiting' | 'never' | 'replied' | null
+          response_status: conv.response_status as 'waiting' | 'never' | 'replied' | null,
+          deal_stage_id: conv.deal_stage_id || null,
+          deal_status: conv.deal_status as 'won' | 'lost' | 'open' | null,
+          deal_category_id: conv.deal_category_id || null
         };
       });
 
@@ -153,13 +163,14 @@ export const useAdminWhatsAppConversations = ({
 
   // Get total count for display (filtered) - lazy load
   const { data: totalCount } = useQuery({
-    queryKey: ['admin-whatsapp-conversations-count', search, windowFilter, responseFilter, etapaFilter],
+    queryKey: ['admin-whatsapp-conversations-count', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('count_admin_whatsapp_conversations', {
         p_search: search || null,
         p_window_filter: windowFilter,
         p_response_filter: responseFilter,
-        p_etapa_filter: etapaFilter || null
+        p_etapa_filter: etapaFilter || null,
+        p_deal_status_filter: dealStatusFilter
       });
 
       if (error) throw error;
