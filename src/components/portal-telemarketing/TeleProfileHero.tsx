@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { LogOut, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { TelePhotoCropper } from './TelePhotoCropper';
 
 interface TeleProfileHeroProps {
   operatorName: string;
@@ -24,6 +24,8 @@ export const TeleProfileHero = ({
   onPhotoUpdated
 }: TeleProfileHeroProps) => {
   const [isUploading, setIsUploading] = useState(false);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -38,11 +40,11 @@ export const TeleProfileHero = ({
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
+    // Validar tipo de arquivo
     if (!file.type.startsWith('image/')) {
       toast({
         title: 'Erro',
@@ -52,7 +54,7 @@ export const TeleProfileHero = ({
       return;
     }
 
-    // Validate file size (max 5MB)
+    // Validar tamanho (máximo 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast({
         title: 'Erro',
@@ -62,26 +64,36 @@ export const TeleProfileHero = ({
       return;
     }
 
+    // Criar URL temporária para o cropper
+    const imageUrl = URL.createObjectURL(file);
+    setSelectedImage(imageUrl);
+    setCropperOpen(true);
+    
+    // Limpar input para permitir selecionar o mesmo arquivo novamente
+    e.target.value = '';
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setCropperOpen(false);
     setIsUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${operatorBitrixId}-${Date.now()}.${fileExt}`;
+      const fileName = `${operatorBitrixId}-${Date.now()}.jpg`;
       const filePath = `operator-photos/${fileName}`;
 
-      // Upload to storage
+      // Upload para o storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, croppedBlob, { upsert: true });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
+      // Obter URL pública
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      // Update database
+      // Atualizar banco de dados
       const { error: updateError } = await supabase
         .from('telemarketing_operators')
         .update({ photo_url: publicUrl })
@@ -96,7 +108,7 @@ export const TeleProfileHero = ({
         description: 'Foto atualizada com sucesso!'
       });
     } catch (error) {
-      console.error('Error uploading photo:', error);
+      console.error('Erro ao fazer upload da foto:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível atualizar a foto.',
@@ -104,12 +116,24 @@ export const TeleProfileHero = ({
       });
     } finally {
       setIsUploading(false);
+      if (selectedImage) {
+        URL.revokeObjectURL(selectedImage);
+        setSelectedImage(null);
+      }
+    }
+  };
+
+  const handleCropperClose = () => {
+    setCropperOpen(false);
+    if (selectedImage) {
+      URL.revokeObjectURL(selectedImage);
+      setSelectedImage(null);
     }
   };
 
   return (
-    <div className="bg-gradient-to-b from-[hsl(var(--primary)/0.3)] to-background py-8 px-4 relative">
-      {/* Logout button */}
+    <div className="bg-card py-8 px-4 relative">
+      {/* Botão de sair */}
       <Button
         variant="ghost"
         size="icon"
@@ -120,26 +144,33 @@ export const TeleProfileHero = ({
         <LogOut className="w-5 h-5" />
       </Button>
 
-      {/* Photo with border and online indicator */}
+      {/* Foto com borda e indicador online */}
       <div className="relative mx-auto w-fit">
         <button
           onClick={handlePhotoClick}
           disabled={isUploading}
           className="relative group cursor-pointer disabled:cursor-wait"
         >
-          <Avatar className="w-32 h-32 border-4 border-primary shadow-lg shadow-primary/20">
-            <AvatarImage src={operatorPhoto || undefined} alt={operatorName} />
-            <AvatarFallback className="bg-primary/20 text-primary text-3xl font-bold">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <div className="w-32 h-40 border-4 border-primary shadow-lg shadow-primary/20 rounded-lg overflow-hidden bg-primary/20">
+            {operatorPhoto ? (
+              <img 
+                src={operatorPhoto} 
+                alt={operatorName} 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-primary text-3xl font-bold">
+                {initials}
+              </div>
+            )}
+          </div>
           
-          {/* Camera overlay on hover */}
-          <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          {/* Overlay da câmera ao passar o mouse */}
+          <div className="absolute inset-0 rounded-lg bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <Camera className="w-8 h-8 text-white" />
           </div>
           
-          {/* Online indicator */}
+          {/* Indicador online */}
           <span className="absolute bottom-2 right-2 w-5 h-5 bg-green-500 rounded-full border-3 border-background animate-pulse" />
         </button>
         
@@ -152,7 +183,7 @@ export const TeleProfileHero = ({
         />
       </div>
 
-      {/* Name and role */}
+      {/* Nome e cargo */}
       <h1 className="text-2xl font-bold text-center mt-4 text-foreground">
         {operatorName}
       </h1>
@@ -160,13 +191,23 @@ export const TeleProfileHero = ({
         {isSupervisor ? 'SUPERVISOR' : 'AGENTE'}
       </p>
 
-      {/* Status badge */}
+      {/* Badge de status */}
       <div className="flex justify-center mt-4">
         <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
           <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse" />
-          System Active • Shift 1
+          Sistema Ativo • Turno 1
         </Badge>
       </div>
+
+      {/* Modal de recorte */}
+      {selectedImage && (
+        <TelePhotoCropper
+          imageSrc={selectedImage}
+          isOpen={cropperOpen}
+          onClose={handleCropperClose}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   );
 };
