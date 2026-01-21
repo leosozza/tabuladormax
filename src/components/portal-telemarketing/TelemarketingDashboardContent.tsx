@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Phone, Calendar as CalendarIcon, TrendingUp, Trophy, Loader2, Share2, FileDown, Link as LinkIcon, Users, CheckCircle, Bot, PartyPopper } from 'lucide-react';
+import { Phone, Calendar as CalendarIcon, TrendingUp, Trophy, Loader2, Share2, FileDown, Link as LinkIcon, Users, CheckCircle, Bot, PartyPopper, RefreshCw } from 'lucide-react';
 import { ApexBarChart } from '@/components/dashboard/charts/ApexBarChart';
 import { ApexHorizontalBarChart } from '@/components/dashboard/charts/ApexHorizontalBarChart';
 import { ApexLineChart } from '@/components/dashboard/charts/ApexLineChart';
@@ -45,7 +46,9 @@ export function TelemarketingDashboardContent({
   operatorCargo,
   commercialProjectId
 }: TelemarketingDashboardContentProps) {
+  const queryClient = useQueryClient();
   const [period, setPeriod] = useState<PeriodFilter>('today');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedOperator, setSelectedOperator] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<KpiType>('leads');
@@ -290,6 +293,19 @@ export function TelemarketingDashboardContent({
     clearAnalysis();
   };
 
+  const handleRefreshMetrics = async () => {
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['telemarketing-metrics'] });
+      toast.success('Métricas atualizadas!');
+    } catch (error) {
+      console.error('Erro ao atualizar métricas:', error);
+      toast.error('Erro ao atualizar métricas');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -397,9 +413,21 @@ export function TelemarketingDashboardContent({
     <div className="p-4 space-y-6">
       {/* Header with Filters and Export */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">
-          {isSupervisor ? 'Dashboard da Equipe' : 'Meu Dashboard'}
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold">
+            {isSupervisor ? 'Dashboard da Equipe' : 'Meu Dashboard'}
+          </h2>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefreshMetrics}
+            disabled={isRefreshing}
+            className="gap-2"
+          >
+            <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+            {isRefreshing ? 'Atualizando...' : 'Atualizar'}
+          </Button>
+        </div>
         
         <div className="flex items-center gap-2 flex-wrap">
           {/* Operator Filter - Only for Supervisors */}
