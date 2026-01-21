@@ -7,6 +7,7 @@ import {
   MessageCircle
 } from 'lucide-react';
 import { TelemarketingOperatorData } from './TelemarketingAccessKeyForm';
+import { cn } from '@/lib/utils';
 
 interface TeleModuleGridProps {
   operatorData: TelemarketingOperatorData;
@@ -17,44 +18,47 @@ const modules = [
   {
     id: 'tabulador',
     title: 'Tabulador',
-    description: 'Call categorization tool',
+    description: 'Categorização de chamadas',
     icon: Phone,
     path: '/portal-telemarketing/tabulador',
-    color: 'text-primary',
-    bgColor: 'bg-primary/10',
+    gradient: 'from-primary/20 to-primary/5',
+    iconBg: 'bg-primary',
+    iconColor: 'text-primary-foreground',
     supervisorOnly: false
   },
   {
     id: 'dashboard',
     title: 'Dashboard',
-    description: 'Real-time performance analytics',
+    description: 'Métricas em tempo real',
     icon: BarChart3,
     path: '/portal-telemarketing/dashboard',
-    color: 'text-chart-2',
-    bgColor: 'bg-chart-2/10',
+    gradient: 'from-chart-2/20 to-chart-2/5',
+    iconBg: 'bg-chart-2',
+    iconColor: 'text-white',
     supervisorOnly: false
   },
   {
     id: 'whatsapp',
     title: 'WhatsApp',
-    description: 'Messaging & Omnichannel',
+    description: 'Mensagens & Omnichannel',
     icon: MessageSquare,
     path: '/portal-telemarketing/whatsapp',
-    color: 'text-green-500',
-    bgColor: 'bg-green-500/10',
+    gradient: 'from-green-500/20 to-green-500/5',
+    iconBg: 'bg-green-500',
+    iconColor: 'text-white',
     supervisorOnly: false
   },
   {
     id: 'maxtalk',
     title: 'MaxTalk',
-    description: 'Internal VoIP Infrastructure',
+    description: 'Infraestrutura VoIP',
     icon: MessageCircle,
     path: '/portal-telemarketing/maxtalk',
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
+    gradient: 'from-blue-500/20 to-blue-500/5',
+    iconBg: 'bg-blue-500',
+    iconColor: 'text-white',
     supervisorOnly: false
   }
-  // Módulos Equipe e Configurações removidos - acessados via header/KPI
 ];
 
 export const TeleModuleGrid = ({ operatorData, isSupervisor }: TeleModuleGridProps) => {
@@ -75,33 +79,44 @@ export const TeleModuleGrid = ({ operatorData, isSupervisor }: TeleModuleGridPro
   return (
     <div className="px-4 pb-8 flex-1">
       {/* Section Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="font-semibold text-lg">Modules</h2>
-        <div className="flex gap-3">
-          <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            Activity
-          </button>
-          <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            History
-          </button>
-          <span className="text-xs font-medium text-primary">Quick Access</span>
-        </div>
+      <div className="flex justify-between items-center mb-5">
+        <h2 className="font-semibold text-lg">Módulos</h2>
+        <span className="text-xs font-medium text-primary">Acesso Rápido</span>
       </div>
 
-      {/* Modules Grid */}
-      <div className="grid grid-cols-2 gap-3">
-        {visibleModules.map((module) => (
+      {/* Modules Grid - Cards mais arredondados e modernos */}
+      <div className="grid grid-cols-2 gap-4">
+        {visibleModules.map((module, index) => (
           <Card 
             key={module.id}
-            className="cursor-pointer hover:shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] border-none bg-card/80"
+            className={cn(
+              "cursor-pointer transition-all duration-300 border-0 overflow-hidden",
+              "hover:shadow-xl hover:scale-[1.03] active:scale-[0.98]",
+              "rounded-2xl",
+              `bg-gradient-to-br ${module.gradient}`
+            )}
+            style={{
+              animationDelay: `${index * 50}ms`
+            }}
             onClick={() => saveContextAndNavigate(module.path)}
           >
-            <CardContent className="flex flex-col items-center py-6 px-3">
-              <div className={`w-12 h-12 rounded-xl ${module.bgColor} flex items-center justify-center mb-3`}>
-                <module.icon className={`w-6 h-6 ${module.color}`} />
+            <CardContent className="flex flex-col items-center py-7 px-4">
+              {/* Ícone maior com background */}
+              <div 
+                className={cn(
+                  "w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-lg",
+                  "transition-transform duration-300 hover:rotate-3",
+                  module.iconBg
+                )}
+              >
+                <module.icon className={cn("w-7 h-7", module.iconColor)} />
               </div>
-              <h3 className="font-medium text-sm">{module.title}</h3>
-              <p className="text-xs text-muted-foreground text-center mt-1 line-clamp-1">
+              
+              {/* Título */}
+              <h3 className="font-semibold text-base mb-1">{module.title}</h3>
+              
+              {/* Descrição */}
+              <p className="text-xs text-muted-foreground text-center line-clamp-2">
                 {module.description}
               </p>
             </CardContent>
