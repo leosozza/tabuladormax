@@ -137,36 +137,20 @@ export function TelePodium({
 }: TelePodiumProps) {
   if (!operators || operators.length === 0) return null;
 
-  // Pegar top 5
-  const top5 = operators.slice(0, 5);
-  const [first, second, third, fourth, fifth] = top5;
+  // Pegar top 3
+  const top3 = operators.slice(0, 3);
+  const [first, second, third] = top3;
 
   return (
     <div className="flex flex-col items-center py-4">
       {/* Título */}
       <div className="flex items-center gap-2 mb-4">
         <Trophy className="h-5 w-5 text-yellow-500" />
-        <h3 className="text-base font-bold">Top 5 Agendamentos</h3>
+        <h3 className="text-base font-bold">Top 3 Agendamentos</h3>
       </div>
 
-      {/* Pódio em linha única - ordem visual: 4º, 5º, 2º, 1º, 3º (montanha) */}
-      <div className="flex items-end justify-center gap-2">
-        {fourth && (
-          <PodiumPlace 
-            operator={fourth} 
-            position={4} 
-            onOperatorClick={onOperatorClick}
-            isSelected={selectedOperatorId === fourth.bitrix_id}
-          />
-        )}
-        {fifth && (
-          <PodiumPlace 
-            operator={fifth} 
-            position={5} 
-            onOperatorClick={onOperatorClick}
-            isSelected={selectedOperatorId === fifth.bitrix_id}
-          />
-        )}
+      {/* Pódio clássico - ordem visual: 2º, 1º, 3º */}
+      <div className="flex items-end justify-center gap-3">
         {second && (
           <PodiumPlace 
             operator={second} 
@@ -194,7 +178,7 @@ export function TelePodium({
       </div>
 
       {/* Base decorativa */}
-      <div className="w-full max-w-[400px] h-1.5 bg-gradient-to-r from-slate-300/50 via-yellow-400/50 to-slate-300/50 rounded-full mt-2" />
+      <div className="w-full max-w-[300px] h-1.5 bg-gradient-to-r from-slate-300/50 via-yellow-400/50 to-slate-300/50 rounded-full mt-2" />
     </div>
   );
 }
