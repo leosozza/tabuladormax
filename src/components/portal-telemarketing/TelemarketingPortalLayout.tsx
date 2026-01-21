@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TelemarketingOperatorData, isSupervisorCargo } from './TelemarketingAccessKeyForm';
 import { TeleProfileHero } from './TeleProfileHero';
 import { TeleKPICards } from './TeleKPICards';
@@ -12,6 +13,7 @@ interface TelemarketingPortalLayoutProps {
 export const TelemarketingPortalLayout = ({ operatorData, onLogout }: TelemarketingPortalLayoutProps) => {
   const [currentPhoto, setCurrentPhoto] = useState(operatorData.operator_photo);
   const isSupervisor = isSupervisorCargo(operatorData.cargo);
+  const navigate = useNavigate();
 
   const handlePhotoUpdated = (newPhotoUrl: string) => {
     setCurrentPhoto(newPhotoUrl);
@@ -24,6 +26,17 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
       data.operator_photo = newPhotoUrl;
       localStorage.setItem(storageKey, JSON.stringify(data));
     }
+  };
+
+  const handleTeamClick = () => {
+    // Salvar contexto e navegar para página de equipe
+    localStorage.setItem('telemarketing_context', JSON.stringify({
+      bitrix_id: operatorData.bitrix_id,
+      cargo: operatorData.cargo,
+      name: operatorData.operator_name,
+      commercial_project_id: operatorData.commercial_project_id
+    }));
+    navigate('/portal-telemarketing/equipe');
   };
 
   return (
@@ -43,6 +56,7 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
         commercialProjectId={operatorData.commercial_project_id}
         supervisorBitrixId={operatorData.bitrix_id}
         operatorCargo={operatorData.cargo}
+        onTeamClick={isSupervisor ? handleTeamClick : undefined}
       />
 
       {/* Module Grid */}

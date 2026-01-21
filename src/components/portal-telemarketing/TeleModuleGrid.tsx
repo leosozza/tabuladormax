@@ -4,8 +4,7 @@ import {
   Phone, 
   BarChart3, 
   MessageSquare, 
-  MessageCircle, 
-  Users, 
+  MessageCircle,
   Settings 
 } from 'lucide-react';
 import { TelemarketingOperatorData } from './TelemarketingAccessKeyForm';
@@ -56,16 +55,7 @@ const modules = [
     bgColor: 'bg-blue-500/10',
     supervisorOnly: false
   },
-  {
-    id: 'equipe',
-    title: 'Equipe',
-    description: 'Team monitoring & coaching',
-    icon: Users,
-    path: '/portal-telemarketing/equipe',
-    color: 'text-chart-3',
-    bgColor: 'bg-chart-3/10',
-    supervisorOnly: true
-  },
+  // Módulo Equipe removido - agora acessa pelo KPI card "Equipe"
   {
     id: 'config',
     title: 'Configurações',
