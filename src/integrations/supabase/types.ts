@@ -5032,6 +5032,7 @@ export type Database = {
           deal_count: number
           deal_stage_id: string
           deal_status: string
+          deal_title: string
           last_customer_message_at: string
           last_message_at: string
           last_message_direction: string

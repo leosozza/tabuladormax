@@ -271,9 +271,16 @@ export function AdminConversationList({
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium truncate">
-                        {conv.lead_name || conv.phone_number || 'Contato'}
-                      </span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium truncate">
+                          {conv.deal_title || conv.lead_name || conv.phone_number || 'Contato'}
+                        </span>
+                        {conv.deal_title && conv.lead_name && conv.deal_title !== conv.lead_name && (
+                          <span className="text-xs text-muted-foreground truncate">
+                            Resp: {conv.lead_name}
+                          </span>
+                        )}
+                      </div>
                       {conv.unread_count > 0 && (
                         <Badge variant="destructive" className="h-5 min-w-5 flex items-center justify-center text-xs">
                           {conv.unread_count}
