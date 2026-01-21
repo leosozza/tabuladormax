@@ -28,10 +28,14 @@ const PIPELINE_STATUSES: NegotiationStatus[] = [
 // Statuses that are considered "converted" (final/won stages)
 const CONVERTED_STATUSES: NegotiationStatus[] = ['negocios_fechados'];
 
+// Statuses that are considered "not closed" (lost/analysis stages)
+const NOT_CLOSED_STATUSES: NegotiationStatus[] = ['contrato_nao_fechado', 'analisar'];
+
 export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPipelineProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTargetStatus, setDropTargetStatus] = useState<NegotiationStatus | null>(null);
   const [showConvertedStages, setShowConvertedStages] = useState(false);
+  const [showNotClosedStages, setShowNotClosedStages] = useState(false);
   const [producerSelectOpen, setProducerSelectOpen] = useState(false);
   const [pendingTransition, setPendingTransition] = useState<{
     negotiationId: string;
@@ -40,11 +44,16 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
   } | null>(null);
   const queryClient = useQueryClient();
 
-  // Filter visible statuses based on showConvertedStages toggle
+  // Filter visible statuses based on toggles
   const visibleStatuses = useMemo(() => {
-    if (showConvertedStages) return PIPELINE_STATUSES;
-    return PIPELINE_STATUSES.filter(status => !CONVERTED_STATUSES.includes(status));
-  }, [showConvertedStages]);
+    return PIPELINE_STATUSES.filter(status => {
+      // Hide converted unless toggle is on
+      if (CONVERTED_STATUSES.includes(status) && !showConvertedStages) return false;
+      // Hide not closed unless toggle is on
+      if (NOT_CLOSED_STATUSES.includes(status) && !showNotClosedStages) return false;
+      return true;
+    });
+  }, [showConvertedStages, showNotClosedStages]);
 
   // Group negotiations by status
   const negotiationsByStatus = useMemo(() => {
@@ -235,18 +244,37 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
     );
   }, [negotiationsByStatus]);
 
+  // Count not closed negotiations
+  const notClosedCount = useMemo(() => {
+    return NOT_CLOSED_STATUSES.reduce((acc, status) => 
+      acc + (negotiationsByStatus[status]?.length || 0), 0
+    );
+  }, [negotiationsByStatus]);
+
   return (
     <div onDragEnd={handleDragEnd}>
-      {/* Toggle para mostrar/ocultar etapas convertidas */}
-      <div className="flex items-center justify-end gap-2 mb-4">
-        <Switch
-          id="show-converted"
-          checked={showConvertedStages}
-          onCheckedChange={setShowConvertedStages}
-        />
-        <Label htmlFor="show-converted" className="text-sm text-muted-foreground cursor-pointer">
-          Mostrar convertidos {convertedCount > 0 && `(${convertedCount})`}
-        </Label>
+      {/* Toggles para mostrar/ocultar etapas */}
+      <div className="flex items-center justify-end gap-6 mb-4">
+        <div className="flex items-center gap-2">
+          <Switch
+            id="show-not-closed"
+            checked={showNotClosedStages}
+            onCheckedChange={setShowNotClosedStages}
+          />
+          <Label htmlFor="show-not-closed" className="text-sm text-muted-foreground cursor-pointer">
+            Mostrar não convertidos {notClosedCount > 0 && `(${notClosedCount})`}
+          </Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="show-converted"
+            checked={showConvertedStages}
+            onCheckedChange={setShowConvertedStages}
+          />
+          <Label htmlFor="show-converted" className="text-sm text-muted-foreground cursor-pointer">
+            Mostrar convertidos {convertedCount > 0 && `(${convertedCount})`}
+          </Label>
+        </div>
       </div>
 
       <ScrollArea className="w-full">
