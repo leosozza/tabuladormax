@@ -165,7 +165,7 @@ export function TelePodium({
       </div>
 
       {/* Pódio em linha única - ordem visual: 4º, 2º, 1º, 3º, 5º */}
-      <div className="flex items-end justify-center gap-2">
+      <div className="flex items-end justify-center gap-1">
         {fourth && (
           <PodiumPlace 
             operator={fourth} 
