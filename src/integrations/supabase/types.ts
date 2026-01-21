@@ -4777,6 +4777,7 @@ export type Database = {
           last_message_direction: string | null
           last_message_preview: string | null
           phone_number: string | null
+          response_status: string | null
           total_messages: number | null
           unread_count: number | null
         }
