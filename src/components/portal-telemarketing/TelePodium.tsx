@@ -164,8 +164,16 @@ export function TelePodium({
         <h3 className="text-base font-bold">Top 5 Agendamentos</h3>
       </div>
 
-      {/* Pódio Principal (1º, 2º, 3º) */}
-      <div className="flex items-end justify-center gap-1 mb-2">
+      {/* Pódio em linha única - ordem visual: 4º, 2º, 1º, 3º, 5º */}
+      <div className="flex items-end justify-center gap-2">
+        {fourth && (
+          <PodiumPlace 
+            operator={fourth} 
+            position={4} 
+            onOperatorClick={onOperatorClick}
+            isSelected={selectedOperatorId === fourth.bitrix_id}
+          />
+        )}
         {second && (
           <PodiumPlace 
             operator={second} 
@@ -190,32 +198,18 @@ export function TelePodium({
             isSelected={selectedOperatorId === third.bitrix_id}
           />
         )}
+        {fifth && (
+          <PodiumPlace 
+            operator={fifth} 
+            position={5} 
+            onOperatorClick={onOperatorClick}
+            isSelected={selectedOperatorId === fifth.bitrix_id}
+          />
+        )}
       </div>
 
-      {/* 4º e 5º lugar lado a lado abaixo */}
-      {(fourth || fifth) && (
-        <div className="flex items-end justify-center gap-1 -mt-1">
-          {fourth && (
-            <PodiumPlace 
-              operator={fourth} 
-              position={4} 
-              onOperatorClick={onOperatorClick}
-              isSelected={selectedOperatorId === fourth.bitrix_id}
-            />
-          )}
-          {fifth && (
-            <PodiumPlace 
-              operator={fifth} 
-              position={5} 
-              onOperatorClick={onOperatorClick}
-              isSelected={selectedOperatorId === fifth.bitrix_id}
-            />
-          )}
-        </div>
-      )}
-
       {/* Base decorativa */}
-      <div className="w-full max-w-[280px] h-1.5 bg-gradient-to-r from-gray-300/50 via-yellow-400/50 to-orange-400/50 rounded-full mt-2" />
+      <div className="w-full max-w-[400px] h-1.5 bg-gradient-to-r from-slate-300/50 via-yellow-400/50 to-slate-300/50 rounded-full mt-2" />
     </div>
   );
 }
