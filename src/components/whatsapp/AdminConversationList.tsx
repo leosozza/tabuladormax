@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, MessageCircle, Clock, Filter, RefreshCw, User, MessageSquareWarning, MessageSquareOff, MessageSquareReply } from 'lucide-react';
+import { Search, MessageCircle, Clock, Filter, RefreshCw, User, MessageSquareWarning, MessageSquareOff, MessageSquareReply, Handshake } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,10 +14,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { AdminConversation, WindowFilter, ResponseFilter, useAdminWhatsAppConversations } from '@/hooks/useAdminWhatsAppConversations';
+import { AdminConversation, WindowFilter, ResponseFilter, DealStatusFilter, useAdminWhatsAppConversations } from '@/hooks/useAdminWhatsAppConversations';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getEtapaStyle } from '@/lib/etapaColors';
+
+// Deal status display config
+const DEAL_STATUS_CONFIG = {
+  won: { label: 'Contrato fechado', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300', icon: '✅' },
+  lost: { label: 'Não fechou', color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300', icon: '❌' },
+  open: { label: 'Em negociação', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300', icon: '🔄' }
+};
 
 // Response status display config
 const RESPONSE_STATUS_CONFIG = {
@@ -52,6 +59,7 @@ export function AdminConversationList({
   const [windowFilter, setWindowFilter] = useState<WindowFilter>('all');
   const [responseFilter, setResponseFilter] = useState<ResponseFilter>('all');
   const [etapaFilter, setEtapaFilter] = useState<string>('all');
+  const [dealStatusFilter, setDealStatusFilter] = useState<DealStatusFilter>('all');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Debounce search
@@ -68,6 +76,7 @@ export function AdminConversationList({
     windowFilter,
     responseFilter,
     etapaFilter: etapaFilter === 'all' ? null : etapaFilter,
+    dealStatusFilter,
     limit: 50
   });
 
@@ -170,20 +179,38 @@ export function AdminConversationList({
           </Select>
         </div>
 
-        {/* Etapa Filter */}
-        <Select value={etapaFilter} onValueChange={setEtapaFilter}>
-          <SelectTrigger className="w-full">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Filtrar por fase" />
-          </SelectTrigger>
-          <SelectContent>
-            {ETAPA_OPTIONS.map(opt => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Etapa and Deal Status Filters Row */}
+        <div className="flex gap-2">
+          {/* Etapa Filter */}
+          <Select value={etapaFilter} onValueChange={setEtapaFilter}>
+            <SelectTrigger className="flex-1">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Fase" />
+            </SelectTrigger>
+            <SelectContent>
+              {ETAPA_OPTIONS.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Deal Status Filter */}
+          <Select value={dealStatusFilter} onValueChange={(v) => setDealStatusFilter(v as DealStatusFilter)}>
+            <SelectTrigger className="flex-1">
+              <Handshake className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Contrato" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="won">✅ Contrato Fechado</SelectItem>
+              <SelectItem value="lost">❌ Não Fechou</SelectItem>
+              <SelectItem value="open">🔄 Em Negociação</SelectItem>
+              <SelectItem value="no_deal">📋 Sem Deal</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Conversation List */}
@@ -263,7 +290,7 @@ export function AdminConversationList({
                       </p>
                     )}
 
-                    {/* Etapa and Response Status badges */}
+                    {/* Etapa, Deal Status and Response Status badges */}
                     <div className="flex flex-wrap items-center gap-1 mt-1">
                       {/* Etapa badge */}
                       {conv.lead_etapa && (
@@ -273,6 +300,16 @@ export function AdminConversationList({
                           getEtapaStyle(conv.lead_etapa).text
                         )}>
                           {getEtapaStyle(conv.lead_etapa).label}
+                        </span>
+                      )}
+
+                      {/* Deal status badge */}
+                      {conv.deal_status && DEAL_STATUS_CONFIG[conv.deal_status] && (
+                        <span className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded",
+                          DEAL_STATUS_CONFIG[conv.deal_status].color
+                        )}>
+                          {DEAL_STATUS_CONFIG[conv.deal_status].icon} {DEAL_STATUS_CONFIG[conv.deal_status].label}
                         </span>
                       )}
                       
