@@ -548,7 +548,7 @@ export function TelemarketingDashboardContent({
               onClick={kpi.onClick}
             >
               <CardContent className="p-4">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col items-center text-center gap-2">
                   <div className={`p-2 rounded-lg ${kpi.bgColor}`}>
                     <kpi.icon className={`w-5 h-5 ${kpi.color}`} />
                   </div>
@@ -556,7 +556,7 @@ export function TelemarketingDashboardContent({
                     <p className="text-2xl font-bold">{kpi.value}</p>
                     <p className="text-xs text-muted-foreground">{kpi.title}</p>
                     {'subtitle' in kpi && kpi.subtitle && (
-                      <p className="text-[10px] text-muted-foreground/80 mt-0.5 truncate max-w-[140px]">{kpi.subtitle}</p>
+                      <p className="text-[10px] text-muted-foreground/80 mt-0.5">{kpi.subtitle}</p>
                     )}
                   </div>
                 </div>
