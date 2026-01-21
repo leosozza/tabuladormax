@@ -1,5 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Star, TrendingUp } from 'lucide-react';
 import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
 
 interface TeleKPICardsProps {
@@ -22,45 +20,25 @@ export const TeleKPICards = ({ commercialProjectId, supervisorBitrixId, operator
   const kpi = 92;
 
   const kpis = [
-    {
-      title: 'Team Size',
-      value: teamSize.toString(),
-      icon: Users,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10'
-    },
-    {
-      title: 'CSAT',
-      value: csat.toFixed(1),
-      icon: Star,
-      color: 'text-yellow-500',
-      bgColor: 'bg-yellow-500/10'
-    },
-    {
-      title: 'KPI',
-      value: `${kpi}%`,
-      icon: TrendingUp,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10'
-    }
+    { label: 'Team Size', value: teamSize.toString() },
+    { label: 'CSAT', value: csat.toFixed(1) },
+    { label: 'KPI', value: `${kpi}%` }
   ];
 
   return (
     <div className="grid grid-cols-3 gap-3 px-4 py-4">
-      {kpis.map((kpi) => (
-        <Card key={kpi.title} className="text-center border-none shadow-sm bg-card/50">
-          <CardHeader className="pb-1 pt-3 px-2">
-            <div className={`w-8 h-8 rounded-full ${kpi.bgColor} flex items-center justify-center mx-auto mb-1`}>
-              <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
-            </div>
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              {kpi.title}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 px-2">
-            <span className="text-2xl font-bold">{kpi.value}</span>
-          </CardContent>
-        </Card>
+      {kpis.map((item) => (
+        <div 
+          key={item.label} 
+          className="bg-card/50 rounded-xl p-4 text-center border border-border/50"
+        >
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+            {item.label}
+          </p>
+          <p className="text-2xl font-bold text-primary">
+            {item.value}
+          </p>
+        </div>
       ))}
     </div>
   );

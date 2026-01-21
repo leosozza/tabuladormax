@@ -1,8 +1,8 @@
+import { useState } from 'react';
 import { TelemarketingOperatorData, isSupervisorCargo } from './TelemarketingAccessKeyForm';
-import { TeleHeader } from './TeleHeader';
+import { TeleProfileHero } from './TeleProfileHero';
 import { TeleKPICards } from './TeleKPICards';
 import { TeleModuleGrid } from './TeleModuleGrid';
-import { TeleBottomNav } from './TeleBottomNav';
 
 interface TelemarketingPortalLayoutProps {
   operatorData: TelemarketingOperatorData;
@@ -10,16 +10,32 @@ interface TelemarketingPortalLayoutProps {
 }
 
 export const TelemarketingPortalLayout = ({ operatorData, onLogout }: TelemarketingPortalLayoutProps) => {
+  const [currentPhoto, setCurrentPhoto] = useState(operatorData.operator_photo);
   const isSupervisor = isSupervisorCargo(operatorData.cargo);
+
+  const handlePhotoUpdated = (newPhotoUrl: string) => {
+    setCurrentPhoto(newPhotoUrl);
+    
+    // Update localStorage
+    const storageKey = 'telemarketing_operator';
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      const data = JSON.parse(saved);
+      data.operator_photo = newPhotoUrl;
+      localStorage.setItem(storageKey, JSON.stringify(data));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <TeleHeader
+      {/* Profile Hero */}
+      <TeleProfileHero
         operatorName={operatorData.operator_name}
-        operatorPhoto={operatorData.operator_photo}
+        operatorPhoto={currentPhoto}
+        operatorBitrixId={operatorData.bitrix_id}
         isSupervisor={isSupervisor}
         onLogout={onLogout}
+        onPhotoUpdated={handlePhotoUpdated}
       />
 
       {/* KPI Cards */}
@@ -34,9 +50,6 @@ export const TelemarketingPortalLayout = ({ operatorData, onLogout }: Telemarket
         operatorData={operatorData}
         isSupervisor={isSupervisor}
       />
-
-      {/* Bottom Navigation */}
-      <TeleBottomNav isSupervisor={isSupervisor} />
     </div>
   );
 };
