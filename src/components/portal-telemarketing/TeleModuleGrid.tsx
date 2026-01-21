@@ -94,7 +94,7 @@ export const TeleModuleGrid = ({ operatorData, isSupervisor }: TeleModuleGridPro
   const visibleModules = modules.filter(m => !m.supervisorOnly || isSupervisor);
 
   return (
-    <div className="px-4 pb-24">
+    <div className="px-4 pb-8 flex-1">
       {/* Section Header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-semibold text-lg">Modules</h2>
