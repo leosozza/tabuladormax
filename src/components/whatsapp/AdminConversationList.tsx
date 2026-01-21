@@ -182,7 +182,13 @@ export function AdminConversationList({
         {/* Etapa and Deal Status Filters Row */}
         <div className="flex gap-2">
           {/* Etapa Filter */}
-          <Select value={etapaFilter} onValueChange={setEtapaFilter}>
+          <Select value={etapaFilter} onValueChange={(v) => {
+            setEtapaFilter(v);
+            // Reset deal filter when changing away from converted leads
+            if (v !== 'Lead convertido') {
+              setDealStatusFilter('all');
+            }
+          }}>
             <SelectTrigger className="flex-1">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Fase" />
@@ -196,20 +202,22 @@ export function AdminConversationList({
             </SelectContent>
           </Select>
 
-          {/* Deal Status Filter */}
-          <Select value={dealStatusFilter} onValueChange={(v) => setDealStatusFilter(v as DealStatusFilter)}>
-            <SelectTrigger className="flex-1">
-              <Handshake className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Contrato" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="won">✅ Contrato Fechado</SelectItem>
-              <SelectItem value="lost">❌ Não Fechou</SelectItem>
-              <SelectItem value="open">🔄 Em Negociação</SelectItem>
-              <SelectItem value="no_deal">📋 Sem Deal</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Deal Status Filter - Only show for converted leads */}
+          {etapaFilter === 'Lead convertido' && (
+            <Select value={dealStatusFilter} onValueChange={(v) => setDealStatusFilter(v as DealStatusFilter)}>
+              <SelectTrigger className="flex-1">
+                <Handshake className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Contrato" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="won">✅ Contrato Fechado</SelectItem>
+                <SelectItem value="lost">❌ Não Fechou</SelectItem>
+                <SelectItem value="open">🔄 Em Negociação</SelectItem>
+                <SelectItem value="no_deal">📋 Sem Deal</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
@@ -303,8 +311,8 @@ export function AdminConversationList({
                         </span>
                       )}
 
-                      {/* Deal status badge */}
-                      {conv.deal_status && DEAL_STATUS_CONFIG[conv.deal_status] && (
+                      {/* Deal status badge - only show for converted leads */}
+                      {etapaFilter === 'Lead convertido' && conv.deal_status && DEAL_STATUS_CONFIG[conv.deal_status] && (
                         <span className={cn(
                           "text-[10px] px-1.5 py-0.5 rounded",
                           DEAL_STATUS_CONFIG[conv.deal_status].color
