@@ -28,42 +28,34 @@ function getFirstName(name: string): string {
   return name.split(' ')[0];
 }
 
-// Configuração de cada posição do pódio - alturas maiores e mais proporcionais
+// Configuração de cada posição do pódio - tamanhos maiores e proporcionais
 const positionConfig = {
   1: {
-    height: 'h-32',
-    avatarSize: 'h-14 w-14',
+    height: 'h-28',
+    avatarSize: 'h-16 w-16',
+    pedestalWidth: 'w-20',
     ringColor: 'ring-yellow-400',
     bgGradient: 'bg-gradient-to-t from-yellow-500 to-yellow-400',
     textColor: 'text-yellow-900',
+    fontSize: 'text-xl',
   },
   2: {
-    height: 'h-24',
-    avatarSize: 'h-12 w-12',
+    height: 'h-20',
+    avatarSize: 'h-14 w-14',
+    pedestalWidth: 'w-18',
     ringColor: 'ring-gray-400',
     bgGradient: 'bg-gradient-to-t from-gray-400 to-gray-300',
     textColor: 'text-gray-900',
+    fontSize: 'text-lg',
   },
   3: {
-    height: 'h-20',
-    avatarSize: 'h-12 w-12',
+    height: 'h-16',
+    avatarSize: 'h-14 w-14',
+    pedestalWidth: 'w-18',
     ringColor: 'ring-orange-400',
     bgGradient: 'bg-gradient-to-t from-orange-500 to-orange-400',
     textColor: 'text-orange-900',
-  },
-  4: {
-    height: 'h-14',
-    avatarSize: 'h-10 w-10',
-    ringColor: 'ring-slate-400',
-    bgGradient: 'bg-gradient-to-t from-slate-400 to-slate-300',
-    textColor: 'text-slate-800',
-  },
-  5: {
-    height: 'h-12',
-    avatarSize: 'h-10 w-10',
-    ringColor: 'ring-slate-300',
-    bgGradient: 'bg-gradient-to-t from-slate-300 to-slate-200',
-    textColor: 'text-slate-700',
+    fontSize: 'text-lg',
   },
 } as const;
 
@@ -105,24 +97,24 @@ function PodiumPlace({ operator, position, onOperatorClick, isSelected }: Podium
       </Avatar>
 
       {/* Nome */}
-      <span className="text-xs font-semibold mb-0.5 text-center max-w-[70px] truncate" title={operator.name}>
+      <span className="text-sm font-semibold mb-1 text-center max-w-[90px] truncate" title={operator.name}>
         {getFirstName(operator.name)}
       </span>
 
       {/* Agendados */}
-      <span className="text-xs font-bold text-green-600 dark:text-green-400 mb-1">
+      <span className="text-sm font-bold text-green-600 dark:text-green-400 mb-2">
         {operator.agendamentos}
       </span>
 
       {/* Pedestal */}
       <div 
         className={cn(
-          "w-14 rounded-t-lg flex items-end justify-center pb-1",
+          "w-[72px] rounded-t-lg flex items-end justify-center pb-2",
           config.height,
           config.bgGradient
         )}
       >
-        <span className={cn("text-lg font-bold drop-shadow-sm", config.textColor)}>
+        <span className={cn("font-bold drop-shadow-sm", config.fontSize, config.textColor)}>
           {position}º
         </span>
       </div>
@@ -150,7 +142,7 @@ export function TelePodium({
       </div>
 
       {/* Pódio clássico - ordem visual: 2º, 1º, 3º */}
-      <div className="flex items-end justify-center gap-3">
+      <div className="flex items-end justify-center gap-4">
         {second && (
           <PodiumPlace 
             operator={second} 
@@ -178,7 +170,7 @@ export function TelePodium({
       </div>
 
       {/* Base decorativa */}
-      <div className="w-full max-w-[300px] h-1.5 bg-gradient-to-r from-slate-300/50 via-yellow-400/50 to-slate-300/50 rounded-full mt-2" />
+      <div className="w-full max-w-[320px] h-2 bg-gradient-to-r from-slate-300/50 via-yellow-400/50 to-slate-300/50 rounded-full mt-3" />
     </div>
   );
 }
