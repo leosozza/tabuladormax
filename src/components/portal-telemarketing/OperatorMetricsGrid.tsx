@@ -296,13 +296,6 @@ export function OperatorMetricsGrid({
 
   return (
     <div className="space-y-6">
-      {/* Pódio Visual para Top 5 (apenas nome e agendados) */}
-      <TelePodium 
-        operators={sortedOperators}
-        onOperatorClick={onOperatorClick}
-        selectedOperatorId={selectedOperatorId}
-      />
-      
       {/* Carousel de Operadores com navegação */}
       <OperatorCarousel 
         operators={sortedOperators}
