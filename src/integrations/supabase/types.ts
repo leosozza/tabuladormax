@@ -4873,26 +4873,16 @@ export type Database = {
         Args: { batch_size?: number; days_to_keep?: number }
         Returns: Json
       }
-      count_admin_whatsapp_conversations:
-        | {
-            Args: {
-              p_etapa_filter?: string
-              p_response_filter?: string
-              p_search?: string
-              p_window_filter?: string
-            }
-            Returns: number
-          }
-        | {
-            Args: {
-              p_deal_status_filter?: string
-              p_etapa_filter?: string
-              p_response_filter?: string
-              p_search?: string
-              p_window_filter?: string
-            }
-            Returns: number
-          }
+      count_admin_whatsapp_conversations: {
+        Args: {
+          p_deal_status_filter?: string
+          p_etapa_filter?: string
+          p_response_filter?: string
+          p_search?: string
+          p_window_filter?: string
+        }
+        Returns: number
+      }
       count_leads_to_reprocess: {
         Args: {
           p_date_from?: string
@@ -5026,63 +5016,36 @@ export type Database = {
           total: number
         }[]
       }
-      get_admin_whatsapp_conversations:
-        | {
-            Args: {
-              p_etapa_filter?: string
-              p_limit?: number
-              p_offset?: number
-              p_response_filter?: string
-              p_search?: string
-              p_window_filter?: string
-            }
-            Returns: {
-              bitrix_id: string
-              last_customer_message_at: string
-              last_message_at: string
-              last_message_direction: string
-              last_message_preview: string
-              last_operator_name: string
-              last_operator_photo_url: string
-              lead_etapa: string
-              lead_id: number
-              lead_name: string
-              phone_number: string
-              response_status: string
-              total_messages: number
-              unread_count: number
-            }[]
-          }
-        | {
-            Args: {
-              p_deal_status_filter?: string
-              p_etapa_filter?: string
-              p_limit?: number
-              p_offset?: number
-              p_response_filter?: string
-              p_search?: string
-              p_window_filter?: string
-            }
-            Returns: {
-              bitrix_id: string
-              deal_category_id: string
-              deal_stage_id: string
-              deal_status: string
-              last_customer_message_at: string
-              last_message_at: string
-              last_message_direction: string
-              last_message_preview: string
-              last_operator_name: string
-              last_operator_photo_url: string
-              lead_etapa: string
-              lead_id: number
-              lead_name: string
-              phone_number: string
-              response_status: string
-              total_messages: number
-              unread_count: number
-            }[]
-          }
+      get_admin_whatsapp_conversations: {
+        Args: {
+          p_deal_status_filter?: string
+          p_etapa_filter?: string
+          p_limit?: number
+          p_offset?: number
+          p_response_filter?: string
+          p_search?: string
+          p_window_filter?: string
+        }
+        Returns: {
+          bitrix_id: string
+          deal_category_id: string
+          deal_stage_id: string
+          deal_status: string
+          last_customer_message_at: string
+          last_message_at: string
+          last_message_direction: string
+          last_message_preview: string
+          last_operator_name: string
+          last_operator_photo_url: string
+          lead_etapa: string
+          lead_id: number
+          lead_name: string
+          phone_number: string
+          response_status: string
+          total_messages: number
+          unread_count: number
+        }[]
+      }
       get_admin_whatsapp_stats: {
         Args: never
         Returns: {
