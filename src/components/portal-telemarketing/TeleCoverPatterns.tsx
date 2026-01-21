@@ -4,7 +4,8 @@ export type CoverPattern =
   | 'circles' | 'lines' | 'dots' | 'waves' | 'triangles' | 'grid'
   | 'purple-circles' | 'purple-waves' 
   | 'green-dots' | 'green-lines'
-  | 'blue-triangles' | 'blue-grid';
+  | 'blue-triangles' | 'blue-grid'
+  | 'mixed-bubbles' | 'mixed-stripes' | 'mixed-mosaic' | 'mixed-flow';
 
 interface PatternProps {
   className?: string;
@@ -187,6 +188,75 @@ const BlueGridPattern = ({ className }: PatternProps) => (
   </svg>
 );
 
+// === PADRÕES MISTOS (4 CORES) ===
+const MixedBubblesPattern = ({ className }: PatternProps) => (
+  <svg className={cn("w-full h-full", className)} viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice">
+    {/* Teal */}
+    <circle cx="60" cy="50" r="45" fill="hsl(var(--primary))" fillOpacity="0.12" />
+    <circle cx="340" cy="160" r="25" fill="hsl(var(--primary))" fillOpacity="0.1" />
+    {/* Purple */}
+    <circle cx="150" cy="140" r="55" fill="#a855f7" fillOpacity="0.1" />
+    <circle cx="380" cy="40" r="20" fill="#7c3aed" fillOpacity="0.12" />
+    {/* Green */}
+    <circle cx="280" cy="80" r="40" fill="#22c55e" fillOpacity="0.11" />
+    <circle cx="30" cy="170" r="18" fill="#16a34a" fillOpacity="0.13" />
+    {/* Blue */}
+    <circle cx="200" cy="30" r="30" fill="#3b82f6" fillOpacity="0.12" />
+    <circle cx="100" cy="100" r="22" fill="#2563eb" fillOpacity="0.09" />
+  </svg>
+);
+
+const MixedStripesPattern = ({ className }: PatternProps) => (
+  <svg className={cn("w-full h-full", className)} viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice">
+    <rect x="0" y="0" width="400" height="50" fill="hsl(var(--primary))" fillOpacity="0.08" />
+    <rect x="0" y="50" width="400" height="50" fill="#a855f7" fillOpacity="0.08" />
+    <rect x="0" y="100" width="400" height="50" fill="#22c55e" fillOpacity="0.08" />
+    <rect x="0" y="150" width="400" height="50" fill="#3b82f6" fillOpacity="0.08" />
+    {/* Accent lines */}
+    <line x1="0" y1="25" x2="400" y2="25" stroke="hsl(var(--primary))" strokeWidth="1" strokeOpacity="0.15" />
+    <line x1="0" y1="75" x2="400" y2="75" stroke="#a855f7" strokeWidth="1" strokeOpacity="0.15" />
+    <line x1="0" y1="125" x2="400" y2="125" stroke="#22c55e" strokeWidth="1" strokeOpacity="0.15" />
+    <line x1="0" y1="175" x2="400" y2="175" stroke="#3b82f6" strokeWidth="1" strokeOpacity="0.15" />
+  </svg>
+);
+
+const MixedMosaicPattern = ({ className }: PatternProps) => (
+  <svg className={cn("w-full h-full", className)} viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice">
+    {/* Row 1 */}
+    <rect x="10" y="10" width="60" height="60" rx="8" fill="hsl(var(--primary))" fillOpacity="0.1" />
+    <rect x="80" y="20" width="50" height="50" rx="6" fill="#a855f7" fillOpacity="0.12" />
+    <rect x="140" y="5" width="70" height="70" rx="10" fill="#22c55e" fillOpacity="0.09" />
+    <rect x="220" y="15" width="55" height="55" rx="8" fill="#3b82f6" fillOpacity="0.11" />
+    <rect x="285" y="25" width="45" height="45" rx="6" fill="hsl(var(--primary))" fillOpacity="0.08" />
+    <rect x="340" y="10" width="50" height="65" rx="8" fill="#a855f7" fillOpacity="0.1" />
+    {/* Row 2 */}
+    <rect x="20" y="90" width="70" height="50" rx="8" fill="#3b82f6" fillOpacity="0.1" />
+    <rect x="100" y="100" width="55" height="55" rx="8" fill="#22c55e" fillOpacity="0.11" />
+    <rect x="165" y="85" width="60" height="65" rx="10" fill="#a855f7" fillOpacity="0.09" />
+    <rect x="235" y="95" width="50" height="50" rx="6" fill="hsl(var(--primary))" fillOpacity="0.12" />
+    <rect x="295" y="105" width="45" height="60" rx="8" fill="#3b82f6" fillOpacity="0.08" />
+    <rect x="350" y="90" width="40" height="55" rx="6" fill="#22c55e" fillOpacity="0.1" />
+  </svg>
+);
+
+const MixedFlowPattern = ({ className }: PatternProps) => (
+  <svg className={cn("w-full h-full", className)} viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="mixedFlowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.15" />
+        <stop offset="33%" stopColor="#a855f7" stopOpacity="0.12" />
+        <stop offset="66%" stopColor="#22c55e" stopOpacity="0.1" />
+        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.12" />
+      </linearGradient>
+    </defs>
+    <path d="M0,100 C80,40 160,140 240,80 S360,120 400,60 L400,200 L0,200 Z" fill="url(#mixedFlowGrad)" />
+    <path d="M0,140 C60,100 120,160 200,120 S320,150 400,110 L400,200 L0,200 Z" fill="hsl(var(--primary))" fillOpacity="0.06" />
+    <circle cx="80" cy="60" r="15" fill="#a855f7" fillOpacity="0.12" />
+    <circle cx="200" cy="100" r="12" fill="#22c55e" fillOpacity="0.14" />
+    <circle cx="320" cy="70" r="18" fill="#3b82f6" fillOpacity="0.1" />
+  </svg>
+);
+
 export const coverPatterns: Record<CoverPattern, { component: React.FC<PatternProps>; label: string; colorLabel: string }> = {
   // Primary (Teal/Cyan)
   circles: { component: CirclesPattern, label: 'Círculos', colorLabel: 'Teal' },
@@ -204,6 +274,11 @@ export const coverPatterns: Record<CoverPattern, { component: React.FC<PatternPr
   // Blue
   'blue-triangles': { component: BlueTrianglesPattern, label: 'Triângulos', colorLabel: 'Azul' },
   'blue-grid': { component: BlueGridPattern, label: 'Grade', colorLabel: 'Azul' },
+  // Mixed
+  'mixed-bubbles': { component: MixedBubblesPattern, label: 'Bolhas', colorLabel: 'Misto' },
+  'mixed-stripes': { component: MixedStripesPattern, label: 'Listras', colorLabel: 'Misto' },
+  'mixed-mosaic': { component: MixedMosaicPattern, label: 'Mosaico', colorLabel: 'Misto' },
+  'mixed-flow': { component: MixedFlowPattern, label: 'Fluxo', colorLabel: 'Misto' },
 };
 
 interface TeleCoverPatternProps {
