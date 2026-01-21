@@ -581,7 +581,7 @@ export function TelemarketingDashboardContent({
                 operators={agendamentosRanking.slice(0, 10).map(r => ({
                   bitrix_id: r.bitrix_telemarketing_id,
                   name: r.operator_name,
-                  photo_url: null,
+                  photo_url: r.photo_url,
                   agendamentos: r.total,
                 }))}
               />

@@ -14,6 +14,7 @@ function isAgendado(statusTabulacao: string | null): boolean {
 interface RankingEntry {
   bitrix_telemarketing_id: number;
   operator_name: string;
+  photo_url: string | null;
   total: number;
 }
 
@@ -33,15 +34,18 @@ export function useOperatorRanking(bitrixId: number | null): OperatorRankingResu
       const startStr = startOfDay(today).toISOString();
       const endStr = endOfDay(today).toISOString();
 
-      // Buscar nomes dos operadores
+      // Buscar nomes e fotos dos operadores
       const { data: operators } = await supabase
         .from('telemarketing_operators')
-        .select('bitrix_id, name');
+        .select('bitrix_id, name, photo_url');
 
-      const operatorNameMap = new Map<number, string>();
+      const operatorDataMap = new Map<number, { name: string; photo_url: string | null }>();
       operators?.forEach(op => {
         if (op.bitrix_id && op.name) {
-          operatorNameMap.set(op.bitrix_id, op.name);
+          operatorDataMap.set(op.bitrix_id, { 
+            name: op.name, 
+            photo_url: op.photo_url || null 
+          });
         }
       });
 
@@ -69,11 +73,15 @@ export function useOperatorRanking(bitrixId: number | null): OperatorRankingResu
 
       // Converter para array e ordenar
       const ranking: RankingEntry[] = Array.from(operatorMap.entries())
-        .map(([bitrix_telemarketing_id, total]) => ({
-          bitrix_telemarketing_id,
-          operator_name: operatorNameMap.get(bitrix_telemarketing_id) || `Operador ${bitrix_telemarketing_id}`,
-          total,
-        }))
+        .map(([bitrix_telemarketing_id, total]) => {
+          const operatorData = operatorDataMap.get(bitrix_telemarketing_id);
+          return {
+            bitrix_telemarketing_id,
+            operator_name: operatorData?.name || `Operador ${bitrix_telemarketing_id}`,
+            photo_url: operatorData?.photo_url || null,
+            total,
+          };
+        })
         .sort((a, b) => b.total - a.total);
 
       return ranking;
