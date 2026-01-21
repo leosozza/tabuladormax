@@ -18,6 +18,7 @@ import { AdminConversation, WindowFilter, ResponseFilter, DealStatusFilter, useA
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getEtapaStyle } from '@/lib/etapaColors';
+import { ClientDetailsModal } from './ClientDetailsModal';
 
 // Deal status display config
 const DEAL_STATUS_CONFIG = {
@@ -61,6 +62,13 @@ export function AdminConversationList({
   const [etapaFilter, setEtapaFilter] = useState<string>('all');
   const [dealStatusFilter, setDealStatusFilter] = useState<DealStatusFilter>('all');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedForDetails, setSelectedForDetails] = useState<AdminConversation | null>(null);
+
+  const handleDoubleClick = (conv: AdminConversation) => {
+    setSelectedForDetails(conv);
+    setDetailsModalOpen(true);
+  };
 
   // Debounce search
   const handleSearchChange = (value: string) => {
@@ -246,6 +254,7 @@ export function AdminConversationList({
                 <button
                   key={getConversationKey(conv)}
                   onClick={() => onSelectConversation(conv)}
+                  onDoubleClick={() => handleDoubleClick(conv)}
                   className={cn(
                     "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
                     "hover:bg-accent",
@@ -380,6 +389,13 @@ export function AdminConversationList({
           )}
         </div>
       </ScrollArea>
+
+      {/* Client Details Modal */}
+      <ClientDetailsModal
+        conversation={selectedForDetails}
+        open={detailsModalOpen}
+        onOpenChange={setDetailsModalOpen}
+      />
     </div>
   );
 }
