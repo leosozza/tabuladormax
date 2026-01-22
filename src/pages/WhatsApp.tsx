@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { BarChart3, Headset, MessageSquare, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { AdminConversationList } from '@/components/whatsapp/AdminConversationLi
 import { WhatsAppChatContainer } from '@/components/whatsapp/WhatsAppChatContainer';
 import { AdminConversation } from '@/hooks/useAdminWhatsAppConversations';
 import { Skeleton } from '@/components/ui/skeleton';
+import { WhatsAppNotificationBell } from '@/components/whatsapp/WhatsAppNotificationBell';
 
 export default function WhatsApp() {
   const navigate = useNavigate();
@@ -95,6 +96,33 @@ export default function WhatsApp() {
     );
   }
 
+  // Handle notification click to open conversation
+  const handleNotificationClick = useCallback((phoneNumber: string, bitrixId?: string) => {
+    // Create a minimal conversation object to select
+    setSelectedConversation({
+      phone_number: phoneNumber,
+      bitrix_id: bitrixId || null,
+      lead_name: null,
+      lead_id: null,
+      last_message_at: new Date().toISOString(),
+      last_message_preview: null,
+      last_message_direction: null,
+      last_customer_message_at: null,
+      unread_count: 0,
+      total_messages: 0,
+      is_window_open: false,
+      last_operator_name: null,
+      last_operator_photo_url: null,
+      lead_etapa: null,
+      response_status: null,
+      deal_stage_id: null,
+      deal_status: null,
+      deal_category_id: null,
+      deal_count: 0,
+      deal_title: null,
+    });
+  }, []);
+
   return (
     <TooltipProvider>
       <MainLayout
@@ -102,6 +130,9 @@ export default function WhatsApp() {
         subtitle="Central de Mensagens"
         actions={
           <div className="flex items-center gap-2">
+            {/* Notification Bell */}
+            <WhatsAppNotificationBell onNotificationClick={handleNotificationClick} />
+            
             <div className="flex items-center border rounded-md">
               <Tooltip>
                 <TooltipTrigger asChild>
