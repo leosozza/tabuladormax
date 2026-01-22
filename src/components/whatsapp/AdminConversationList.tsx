@@ -409,7 +409,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
 
               {/* Load more button */}
               {hasMore && (
-                <Button variant="ghost" className="w-full mt-2 text-black" onClick={loadMore} disabled={isLoadingMore}>
+                <Button variant="outline" className="w-full mt-2" onClick={loadMore} disabled={isLoadingMore}>
                   {isLoadingMore ? "Carregando..." : `Carregar mais conversas (${conversations.length}/${totalCount})`}
                 </Button>
               )}
