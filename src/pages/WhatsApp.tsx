@@ -21,6 +21,32 @@ export default function WhatsApp() {
   const { canAccessAdmin, loading: accessLoading } = useDepartmentAccess();
   const [selectedConversation, setSelectedConversation] = useState<AdminConversation | null>(null);
 
+  // Handle notification click to open conversation - MUST be before any early returns
+  const handleNotificationClick = useCallback((phoneNumber: string, bitrixId?: string) => {
+    setSelectedConversation({
+      phone_number: phoneNumber,
+      bitrix_id: bitrixId || null,
+      lead_name: null,
+      lead_id: null,
+      last_message_at: new Date().toISOString(),
+      last_message_preview: null,
+      last_message_direction: null,
+      last_customer_message_at: null,
+      unread_count: 0,
+      total_messages: 0,
+      is_window_open: false,
+      last_operator_name: null,
+      last_operator_photo_url: null,
+      lead_etapa: null,
+      response_status: null,
+      deal_stage_id: null,
+      deal_status: null,
+      deal_category_id: null,
+      deal_count: 0,
+      deal_title: null,
+    });
+  }, []);
+
   // Loading state
   if (accessLoading) {
     return (
@@ -95,33 +121,6 @@ export default function WhatsApp() {
       </TooltipProvider>
     );
   }
-
-  // Handle notification click to open conversation
-  const handleNotificationClick = useCallback((phoneNumber: string, bitrixId?: string) => {
-    // Create a minimal conversation object to select
-    setSelectedConversation({
-      phone_number: phoneNumber,
-      bitrix_id: bitrixId || null,
-      lead_name: null,
-      lead_id: null,
-      last_message_at: new Date().toISOString(),
-      last_message_preview: null,
-      last_message_direction: null,
-      last_customer_message_at: null,
-      unread_count: 0,
-      total_messages: 0,
-      is_window_open: false,
-      last_operator_name: null,
-      last_operator_photo_url: null,
-      lead_etapa: null,
-      response_status: null,
-      deal_stage_id: null,
-      deal_status: null,
-      deal_category_id: null,
-      deal_count: 0,
-      deal_title: null,
-    });
-  }, []);
 
   return (
     <TooltipProvider>
