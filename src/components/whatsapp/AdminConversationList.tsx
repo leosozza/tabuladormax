@@ -382,7 +382,7 @@ export function AdminConversationList({
                   onClick={loadMore}
                   disabled={isLoadingMore}
                 >
-                  {isLoadingMore ? 'Carregando...' : `Carregar mais (${conversations.length}/${totalCount})`}
+                  {isLoadingMore ? 'Carregando...' : `Carregar mais conversas (${conversations.length}/${totalCount})`}
                 </Button>
               )}
             </>
