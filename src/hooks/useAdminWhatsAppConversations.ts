@@ -28,6 +28,7 @@ export interface AdminConversation {
 export type WindowFilter = 'all' | 'open' | 'closed';
 export type ResponseFilter = 'all' | 'waiting' | 'never' | 'replied';
 export type DealStatusFilter = 'all' | 'won' | 'lost' | 'open' | 'no_deal';
+export type ClosedFilter = 'active' | 'closed' | 'all';
 
 interface UseAdminWhatsAppConversationsParams {
   search?: string;
@@ -35,6 +36,7 @@ interface UseAdminWhatsAppConversationsParams {
   responseFilter?: ResponseFilter;
   etapaFilter?: string | null;
   dealStatusFilter?: DealStatusFilter;
+  closedFilter?: ClosedFilter;
   limit?: number;
 }
 
@@ -47,6 +49,7 @@ export const useAdminWhatsAppConversations = ({
   responseFilter = 'all',
   etapaFilter = null,
   dealStatusFilter = 'all',
+  closedFilter = 'active',
   limit = 30 // Reduced default for faster initial load
 }: UseAdminWhatsAppConversationsParams = {}) => {
   const queryClient = useQueryClient();
@@ -62,10 +65,11 @@ export const useAdminWhatsAppConversations = ({
     hasNextPage,
     isFetchingNextPage
   } = useInfiniteQuery({
-    queryKey: ['admin-whatsapp-conversations', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, limit],
+    queryKey: ['admin-whatsapp-conversations', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, closedFilter, limit],
     queryFn: async ({ pageParam = 0 }) => {
-      const { data, error } = await supabase.rpc('get_admin_whatsapp_conversations', {
-        p_limit: limit,
+      // Fetch conversations
+      const { data: convData, error: convError } = await supabase.rpc('get_admin_whatsapp_conversations', {
+        p_limit: limit + 50, // Fetch more to account for filtering
         p_offset: pageParam,
         p_search: search || null,
         p_window_filter: windowFilter,
@@ -74,13 +78,26 @@ export const useAdminWhatsAppConversations = ({
         p_deal_status_filter: dealStatusFilter
       });
 
-      if (error) throw error;
+      if (convError) throw convError;
+
+      // Fetch active closures if filtering
+      let closedPhoneNumbers = new Set<string>();
+      if (closedFilter !== 'all') {
+        const { data: closuresData } = await supabase
+          .from('whatsapp_conversation_closures' as any)
+          .select('phone_number')
+          .is('reopened_at', null);
+        
+        if (closuresData) {
+          closedPhoneNumbers = new Set((closuresData as any[]).map(c => c.phone_number));
+        }
+      }
 
       // Calculate window status for each conversation
       const now = new Date();
       const windowHours = 24;
 
-      const conversations = (data || []).map((conv: any): AdminConversation => {
+      let conversations = (convData || []).map((conv: any): AdminConversation => {
         const lastCustomerMessage = conv.last_customer_message_at 
           ? new Date(conv.last_customer_message_at) 
           : null;
@@ -113,10 +130,20 @@ export const useAdminWhatsAppConversations = ({
         };
       });
 
+      // Apply closed filter
+      if (closedFilter === 'active') {
+        conversations = conversations.filter(c => !c.phone_number || !closedPhoneNumbers.has(c.phone_number));
+      } else if (closedFilter === 'closed') {
+        conversations = conversations.filter(c => c.phone_number && closedPhoneNumbers.has(c.phone_number));
+      }
+
+      // Limit to requested size
+      const limitedConversations = conversations.slice(0, limit);
+
       return {
-        conversations,
+        conversations: limitedConversations,
         nextOffset: pageParam + limit,
-        hasMore: conversations.length === limit
+        hasMore: conversations.length >= limit
       };
     },
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextOffset : undefined,
