@@ -1,50 +1,77 @@
-import { useState, useMemo } from 'react';
-import { Search, MessageCircle, Clock, Filter, RefreshCw, User, MessageSquareWarning, MessageSquareOff, MessageSquareReply, Handshake } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { useState, useMemo } from "react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import { AdminConversation, WindowFilter, ResponseFilter, DealStatusFilter, useAdminWhatsAppConversations } from '@/hooks/useAdminWhatsAppConversations';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { getEtapaStyle } from '@/lib/etapaColors';
-import { ClientDetailsModal } from './ClientDetailsModal';
+  Search,
+  MessageCircle,
+  Clock,
+  Filter,
+  RefreshCw,
+  User,
+  MessageSquareWarning,
+  MessageSquareOff,
+  MessageSquareReply,
+  Handshake,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import {
+  AdminConversation,
+  WindowFilter,
+  ResponseFilter,
+  DealStatusFilter,
+  useAdminWhatsAppConversations,
+} from "@/hooks/useAdminWhatsAppConversations";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { getEtapaStyle } from "@/lib/etapaColors";
+import { ClientDetailsModal } from "./ClientDetailsModal";
 
 // Deal status display config
 const DEAL_STATUS_CONFIG = {
-  won: { label: 'Contrato fechado', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300', icon: '✅' },
-  lost: { label: 'Não fechou', color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300', icon: '❌' },
-  open: { label: 'Em negociação', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300', icon: '🔄' }
+  won: {
+    label: "Contrato fechado",
+    color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+    icon: "✅",
+  },
+  lost: { label: "Não fechou", color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300", icon: "❌" },
+  open: { label: "Em negociação", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", icon: "🔄" },
 };
 
 // Response status display config
 const RESPONSE_STATUS_CONFIG = {
-  waiting: { label: 'Aguardando resposta', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300', icon: MessageSquareWarning },
-  never: { label: 'Sem resposta', color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300', icon: MessageSquareOff },
-  replied: { label: 'Lead respondeu', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300', icon: MessageSquareReply }
+  waiting: {
+    label: "Aguardando resposta",
+    color: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+    icon: MessageSquareWarning,
+  },
+  never: {
+    label: "Sem resposta",
+    color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+    icon: MessageSquareOff,
+  },
+  replied: {
+    label: "Lead respondeu",
+    color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+    icon: MessageSquareReply,
+  },
 };
 
 // Common etapa options for filter
 const ETAPA_OPTIONS = [
-  { value: 'all', label: 'Todas as fases' },
-  { value: 'UC_DDVFX3', label: 'Lead a Qualificar' },
-  { value: 'UC_AU7EMM', label: 'Triagem' },
-  { value: 'UC_SARR07', label: 'Em Agendamento' },
-  { value: 'UC_QWPO2W', label: 'Agendados' },
-  { value: 'UC_MWJM5G', label: 'Retornar Ligação' },
-  { value: 'UC_DMLQB7', label: 'Reagendar' },
-  { value: 'UC_8WYI7Q', label: 'StandBy' },
-  { value: 'Lead convertido', label: 'Convertidos' },
+  { value: "all", label: "Todas as fases" },
+  { value: "UC_DDVFX3", label: "Lead a Qualificar" },
+  { value: "UC_AU7EMM", label: "Triagem" },
+  { value: "UC_SARR07", label: "Em Agendamento" },
+  { value: "UC_QWPO2W", label: "Agendados" },
+  { value: "UC_MWJM5G", label: "Retornar Ligação" },
+  { value: "UC_DMLQB7", label: "Reagendar" },
+  { value: "UC_8WYI7Q", label: "StandBy" },
+  { value: "Lead convertido", label: "Convertidos" },
 ];
 
 interface AdminConversationListProps {
@@ -52,16 +79,13 @@ interface AdminConversationListProps {
   onSelectConversation: (conversation: AdminConversation) => void;
 }
 
-export function AdminConversationList({
-  selectedConversation,
-  onSelectConversation
-}: AdminConversationListProps) {
-  const [search, setSearch] = useState('');
-  const [windowFilter, setWindowFilter] = useState<WindowFilter>('all');
-  const [responseFilter, setResponseFilter] = useState<ResponseFilter>('all');
-  const [etapaFilter, setEtapaFilter] = useState<string>('all');
-  const [dealStatusFilter, setDealStatusFilter] = useState<DealStatusFilter>('all');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+export function AdminConversationList({ selectedConversation, onSelectConversation }: AdminConversationListProps) {
+  const [search, setSearch] = useState("");
+  const [windowFilter, setWindowFilter] = useState<WindowFilter>("all");
+  const [responseFilter, setResponseFilter] = useState<ResponseFilter>("all");
+  const [etapaFilter, setEtapaFilter] = useState<string>("all");
+  const [dealStatusFilter, setDealStatusFilter] = useState<DealStatusFilter>("all");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedForDetails, setSelectedForDetails] = useState<AdminConversation | null>(null);
 
@@ -79,17 +103,17 @@ export function AdminConversationList({
     return () => clearTimeout(timer);
   };
 
-  const { conversations, isLoading, isLoadingMore, stats, refetch, loadMore, hasMore, totalCount } = useAdminWhatsAppConversations({
-    search: debouncedSearch,
-    windowFilter,
-    responseFilter,
-    etapaFilter: etapaFilter === 'all' ? null : etapaFilter,
-    dealStatusFilter,
-    limit: 50
-  });
+  const { conversations, isLoading, isLoadingMore, stats, refetch, loadMore, hasMore, totalCount } =
+    useAdminWhatsAppConversations({
+      search: debouncedSearch,
+      windowFilter,
+      responseFilter,
+      etapaFilter: etapaFilter === "all" ? null : etapaFilter,
+      dealStatusFilter,
+      limit: 50,
+    });
 
-  const getConversationKey = (conv: AdminConversation) => 
-    conv.phone_number || conv.bitrix_id || 'unknown';
+  const getConversationKey = (conv: AdminConversation) => conv.phone_number || conv.bitrix_id || "unknown";
 
   const isSelected = (conv: AdminConversation) => {
     if (!selectedConversation) return false;
@@ -97,23 +121,23 @@ export function AdminConversationList({
   };
 
   const formatTime = (dateStr: string | null) => {
-    if (!dateStr) return '';
+    if (!dateStr) return "";
     try {
-      return formatDistanceToNow(new Date(dateStr), { 
-        addSuffix: true, 
-        locale: ptBR 
+      return formatDistanceToNow(new Date(dateStr), {
+        addSuffix: true,
+        locale: ptBR,
       });
     } catch {
-      return '';
+      return "";
     }
   };
 
   const getInitials = (name: string | null) => {
-    if (!name || name === 'Contato') return 'C';
+    if (!name || name === "Contato") return "C";
     return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
       .substring(0, 2)
       .toUpperCase();
   };
@@ -190,19 +214,22 @@ export function AdminConversationList({
         {/* Etapa and Deal Status Filters Row */}
         <div className="flex gap-2">
           {/* Etapa Filter */}
-          <Select value={etapaFilter} onValueChange={(v) => {
-            setEtapaFilter(v);
-            // Reset deal filter when changing away from converted leads
-            if (v !== 'Lead convertido') {
-              setDealStatusFilter('all');
-            }
-          }}>
+          <Select
+            value={etapaFilter}
+            onValueChange={(v) => {
+              setEtapaFilter(v);
+              // Reset deal filter when changing away from converted leads
+              if (v !== "Lead convertido") {
+                setDealStatusFilter("all");
+              }
+            }}
+          >
             <SelectTrigger className="flex-1">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Fase" />
             </SelectTrigger>
             <SelectContent>
-              {ETAPA_OPTIONS.map(opt => (
+              {ETAPA_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
                 </SelectItem>
@@ -211,7 +238,7 @@ export function AdminConversationList({
           </Select>
 
           {/* Deal Status Filter - Only show for converted leads */}
-          {etapaFilter === 'Lead convertido' && (
+          {etapaFilter === "Lead convertido" && (
             <Select value={dealStatusFilter} onValueChange={(v) => setDealStatusFilter(v as DealStatusFilter)}>
               <SelectTrigger className="flex-1">
                 <Handshake className="h-4 w-4 mr-2" />
@@ -258,23 +285,27 @@ export function AdminConversationList({
                   className={cn(
                     "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
                     "hover:bg-accent",
-                    isSelected(conv) && "bg-accent"
+                    isSelected(conv) && "bg-accent",
                   )}
                 >
                   {/* Avatar with window indicator */}
                   <div className="relative">
-                    <div className={cn(
-                      "h-10 w-10 rounded-full flex items-center justify-center text-sm font-medium",
-                      conv.is_window_open 
-                        ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                        : "bg-muted text-muted-foreground"
-                    )}>
+                    <div
+                      className={cn(
+                        "h-10 w-10 rounded-full flex items-center justify-center text-sm font-medium",
+                        conv.is_window_open
+                          ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
                       {getInitials(conv.lead_name)}
                     </div>
-                    <div className={cn(
-                      "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background",
-                      conv.is_window_open ? "bg-green-500" : "bg-muted-foreground"
-                    )} />
+                    <div
+                      className={cn(
+                        "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background",
+                        conv.is_window_open ? "bg-green-500" : "bg-muted-foreground",
+                      )}
+                    />
                   </div>
 
                   {/* Content */}
@@ -282,12 +313,10 @@ export function AdminConversationList({
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium truncate">
-                          {conv.deal_title || conv.lead_name || conv.phone_number || 'Contato'}
+                          {conv.deal_title || conv.lead_name || conv.phone_number || "Contato"}
                         </span>
                         {conv.deal_title && conv.lead_name && conv.deal_title !== conv.lead_name && (
-                          <span className="text-xs text-muted-foreground truncate">
-                            Resp: {conv.lead_name}
-                          </span>
+                          <span className="text-xs text-muted-foreground truncate">Resp: {conv.lead_name}</span>
                         )}
                       </div>
                       {conv.unread_count > 0 && (
@@ -296,11 +325,11 @@ export function AdminConversationList({
                         </Badge>
                       )}
                     </div>
-                    
+
                     <div className="flex items-center justify-between gap-2 mt-0.5">
                       <p className="text-xs text-muted-foreground truncate flex-1">
-                        {conv.last_message_direction === 'inbound' ? '← ' : '→ '}
-                        {conv.last_message_preview || 'Sem mensagens'}
+                        {conv.last_message_direction === "inbound" ? "← " : "→ "}
+                        {conv.last_message_preview || "Sem mensagens"}
                       </p>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatTime(conv.last_message_at)}
@@ -309,40 +338,46 @@ export function AdminConversationList({
 
                     {/* Phone number if different from name */}
                     {conv.lead_name && conv.phone_number && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {conv.phone_number}
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{conv.phone_number}</p>
                     )}
 
                     {/* Etapa, Deal Status and Response Status badges */}
                     <div className="flex flex-wrap items-center gap-1 mt-1">
                       {/* Etapa badge */}
                       {conv.lead_etapa && (
-                        <span className={cn(
-                          "text-[10px] px-1.5 py-0.5 rounded",
-                          getEtapaStyle(conv.lead_etapa).bg,
-                          getEtapaStyle(conv.lead_etapa).text
-                        )}>
+                        <span
+                          className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded",
+                            getEtapaStyle(conv.lead_etapa).bg,
+                            getEtapaStyle(conv.lead_etapa).text,
+                          )}
+                        >
                           {getEtapaStyle(conv.lead_etapa).label}
                         </span>
                       )}
 
                       {/* Deal status badge - only show for converted leads */}
-                      {etapaFilter === 'Lead convertido' && conv.deal_status && DEAL_STATUS_CONFIG[conv.deal_status] && (
-                        <span className={cn(
-                          "text-[10px] px-1.5 py-0.5 rounded",
-                          DEAL_STATUS_CONFIG[conv.deal_status].color
-                        )}>
-                          {DEAL_STATUS_CONFIG[conv.deal_status].icon} {DEAL_STATUS_CONFIG[conv.deal_status].label}
-                        </span>
-                      )}
-                      
+                      {etapaFilter === "Lead convertido" &&
+                        conv.deal_status &&
+                        DEAL_STATUS_CONFIG[conv.deal_status] && (
+                          <span
+                            className={cn(
+                              "text-[10px] px-1.5 py-0.5 rounded",
+                              DEAL_STATUS_CONFIG[conv.deal_status].color,
+                            )}
+                          >
+                            {DEAL_STATUS_CONFIG[conv.deal_status].icon} {DEAL_STATUS_CONFIG[conv.deal_status].label}
+                          </span>
+                        )}
+
                       {/* Response status badge */}
                       {conv.response_status && RESPONSE_STATUS_CONFIG[conv.response_status] && (
-                        <span className={cn(
-                          "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5",
-                          RESPONSE_STATUS_CONFIG[conv.response_status].color
-                        )}>
+                        <span
+                          className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5",
+                            RESPONSE_STATUS_CONFIG[conv.response_status].color,
+                          )}
+                        >
                           {(() => {
                             const Icon = RESPONSE_STATUS_CONFIG[conv.response_status!].icon;
                             return <Icon className="h-2.5 w-2.5" />;
@@ -365,9 +400,7 @@ export function AdminConversationList({
                         ) : (
                           <User className="h-3 w-3 text-muted-foreground" />
                         )}
-                        <span className="text-xs text-muted-foreground">
-                          {conv.last_operator_name}
-                        </span>
+                        <span className="text-xs text-muted-foreground">{conv.last_operator_name}</span>
                       </div>
                     )}
                   </div>
@@ -376,13 +409,8 @@ export function AdminConversationList({
 
               {/* Load more button */}
               {hasMore && (
-                <Button
-                  variant="ghost"
-                  className="w-full mt-2"
-                  onClick={loadMore}
-                  disabled={isLoadingMore}
-                >
-                  {isLoadingMore ? 'Carregando...' : `Carregar mais conversas (${conversations.length}/${totalCount})`}
+                <Button variant="ghost" className="w-full mt-2 text-black" onClick={loadMore} disabled={isLoadingMore}>
+                  {isLoadingMore ? "Carregando..." : `Carregar mais conversas (${conversations.length}/${totalCount})`}
                 </Button>
               )}
             </>
