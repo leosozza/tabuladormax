@@ -4767,6 +4767,42 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_operator_notifications: {
+        Row: {
+          bitrix_id: string | null
+          created_at: string | null
+          id: string
+          message: string | null
+          operator_id: string
+          phone_number: string | null
+          read_at: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          bitrix_id?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          operator_id: string
+          phone_number?: string | null
+          read_at?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          bitrix_id?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          operator_id?: string
+          phone_number?: string | null
+          read_at?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       mv_whatsapp_conversation_stats: {
