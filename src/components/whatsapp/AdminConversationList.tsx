@@ -10,6 +10,8 @@ import {
   MessageSquareOff,
   MessageSquareReply,
   Handshake,
+  CheckCircle2,
+  Archive,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,18 +20,23 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   AdminConversation,
   WindowFilter,
   ResponseFilter,
   DealStatusFilter,
+  ClosedFilter,
   useAdminWhatsAppConversations,
 } from "@/hooks/useAdminWhatsAppConversations";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getEtapaStyle } from "@/lib/etapaColors";
 import { ClientDetailsModal } from "./ClientDetailsModal";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 // Deal status display config
 const DEAL_STATUS_CONFIG = {
@@ -85,9 +92,25 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
   const [responseFilter, setResponseFilter] = useState<ResponseFilter>("all");
   const [etapaFilter, setEtapaFilter] = useState<string>("all");
   const [dealStatusFilter, setDealStatusFilter] = useState<DealStatusFilter>("all");
+  const [closedFilter, setClosedFilter] = useState<ClosedFilter>("active");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedForDetails, setSelectedForDetails] = useState<AdminConversation | null>(null);
+
+  // Fetch closed conversations count
+  const { data: closedCount = 0 } = useQuery({
+    queryKey: ['closed-conversations-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('whatsapp_conversation_closures' as any)
+        .select('*', { count: 'exact', head: true })
+        .is('reopened_at', null);
+      
+      if (error) return 0;
+      return count || 0;
+    },
+    staleTime: 60000,
+  });
 
   const handleDoubleClick = (conv: AdminConversation) => {
     setSelectedForDetails(conv);
@@ -110,6 +133,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
       responseFilter,
       etapaFilter: etapaFilter === "all" ? null : etapaFilter,
       dealStatusFilter,
+      closedFilter,
       limit: 50,
     });
 
@@ -253,6 +277,41 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
               </SelectContent>
             </Select>
           )}
+        </div>
+
+        {/* Closed Conversations Filter */}
+        <div className="flex items-center justify-between py-2 px-1 rounded-md bg-muted/50">
+          <div className="flex items-center gap-2">
+            <Archive className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              Encerradas
+              {closedCount > 0 && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {closedCount}
+                </Badge>
+              )}
+            </span>
+          </div>
+          <Select value={closedFilter} onValueChange={(v) => setClosedFilter(v as ClosedFilter)}>
+            <SelectTrigger className="w-32 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                  Ativas
+                </span>
+              </SelectItem>
+              <SelectItem value="closed">
+                <span className="flex items-center gap-1">
+                  <Archive className="h-3 w-3 text-muted-foreground" />
+                  Encerradas
+                </span>
+              </SelectItem>
+              <SelectItem value="all">Todas</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
