@@ -542,6 +542,27 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
     return;
   }
 
+  // ============================================
+  // REABERTURA AUTOMÁTICA DE CONVERSAS ENCERRADAS
+  // ============================================
+  const { data: activeClosure } = await supabase
+    .from('whatsapp_conversation_closures')
+    .select('id')
+    .eq('phone_number', normalizedPhone)
+    .is('reopened_at', null)
+    .maybeSingle();
+
+  if (activeClosure) {
+    console.log(`🔓 Conversa encerrada encontrada para ${normalizedPhone}. Reabrindo automaticamente...`);
+    
+    await supabase
+      .from('whatsapp_conversation_closures')
+      .update({ reopened_at: new Date().toISOString() })
+      .eq('id', activeClosure.id);
+    
+    console.log(`✅ Conversa reaberta automaticamente`);
+  }
+
   console.log(`📱 Mensagem recebida de ${normalizedPhone}`);
 
   // Buscar informações do contato/lead
