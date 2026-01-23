@@ -26,8 +26,8 @@ interface InviteAgentDialogProps {
 
 interface Operator {
   id: string;
-  full_name: string | null;
-  photo_url: string | null;
+  display_name: string | null;
+  email: string | null;
 }
 
 export function InviteAgentDialog({
@@ -47,11 +47,11 @@ export function InviteAgentDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, photo_url')
-        .order('full_name');
+        .select('id, display_name, email')
+        .order('display_name');
 
       if (error) throw error;
-      return (data || []) as unknown as Operator[];
+      return (data || []) as Operator[];
     },
     enabled: open,
   });
@@ -67,7 +67,8 @@ export function InviteAgentDialog({
     if (!search.trim()) return availableOperators;
     const searchLower = search.toLowerCase();
     return availableOperators.filter(op => 
-      op.full_name?.toLowerCase().includes(searchLower)
+      op.display_name?.toLowerCase().includes(searchLower) ||
+      op.email?.toLowerCase().includes(searchLower)
     );
   }, [availableOperators, search]);
 
@@ -86,7 +87,7 @@ export function InviteAgentDialog({
         phoneNumber,
         bitrixId,
         operatorId,
-        operatorName: operator?.full_name || undefined,
+        operatorName: operator?.display_name || undefined,
       });
     }
     setSelectedOperators([]);
@@ -94,9 +95,10 @@ export function InviteAgentDialog({
     onOpenChange(false);
   };
 
-  const getInitials = (name: string | null) => {
-    if (!name) return '?';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const getInitials = (name: string | null, email: string | null) => {
+    if (name) return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    if (email) return email.substring(0, 2).toUpperCase();
+    return '?';
   };
 
   return (
@@ -148,14 +150,20 @@ export function InviteAgentDialog({
                       onCheckedChange={() => toggleOperator(operator.id)}
                     />
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={operator.photo_url || undefined} />
-                      <AvatarFallback className="text-xs">
-                        {getInitials(operator.full_name)}
+                      <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                        {getInitials(operator.display_name, operator.email)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-sm font-medium">
-                      {operator.full_name || 'Sem nome'}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">
+                        {operator.display_name || 'Sem nome'}
+                      </span>
+                      {operator.email && (
+                        <span className="text-xs text-muted-foreground">
+                          {operator.email}
+                        </span>
+                      )}
+                    </div>
                   </label>
                 ))}
               </div>
