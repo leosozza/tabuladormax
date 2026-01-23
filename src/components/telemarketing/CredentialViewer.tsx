@@ -3,8 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Copy, ExternalLink, MessageCircle, Check, Download } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Copy, ExternalLink, MessageCircle, Check, Download, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CredentialViewerProps {
   open: boolean;
@@ -23,15 +25,19 @@ export function CredentialViewer({
 }: CredentialViewerProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [copied, setCopied] = useState(false);
+  const [customMessage, setCustomMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
-  // Reset phone when opening with new client data
+  // Reset phone and message when opening with new client data
   useEffect(() => {
-    if (open && clientPhone) {
-      // Clean the phone number
-      const cleanPhone = clientPhone.replace(/\D/g, '');
-      setPhoneNumber(cleanPhone);
+    if (open) {
+      if (clientPhone) {
+        const cleanPhone = clientPhone.replace(/\D/g, '');
+        setPhoneNumber(cleanPhone);
+      }
+      setCustomMessage(`Olá${clientName ? ` ${clientName}` : ''}! Segue sua credencial.`);
     }
-  }, [open, clientPhone]);
+  }, [open, clientPhone, clientName]);
 
   const handleCopyLink = async () => {
     try {
@@ -44,22 +50,61 @@ export function CredentialViewer({
     }
   };
 
+  const handleSendViaAPI = async () => {
+    if (!phoneNumber.trim()) {
+      toast.error('Digite um número de telefone');
+      return;
+    }
+
+    let phone = phoneNumber.replace(/\D/g, '');
+    if (!phone.startsWith('55')) {
+      phone = '55' + phone;
+    }
+
+    setIsSending(true);
+
+    try {
+      const response = await supabase.functions.invoke('gupshup-send-message', {
+        body: {
+          action: 'send_media',
+          phone_number: phone,
+          media_type: 'image',
+          media_url: credentialUrl,
+          caption: customMessage,
+          source: 'tabulador'
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Erro ao enviar');
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      toast.success('Credencial enviada com sucesso!');
+      onClose();
+    } catch (error: any) {
+      toast.error(`Erro: ${error.message}`);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const handleShareWhatsApp = () => {
     if (!phoneNumber.trim()) {
       toast.error('Digite um número de telefone');
       return;
     }
 
-    // Clean phone number and ensure it has country code
     let phone = phoneNumber.replace(/\D/g, '');
-    
-    // Add Brazil country code if not present
     if (!phone.startsWith('55')) {
       phone = '55' + phone;
     }
 
     const message = encodeURIComponent(
-      `Olá${clientName ? ` ${clientName}` : ''}! Segue sua credencial:\n${credentialUrl}`
+      `${customMessage}\n${credentialUrl}`
     );
 
     window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${message}`, '_blank');
@@ -98,7 +143,7 @@ export function CredentialViewer({
 
           {/* Phone Input */}
           <div className="space-y-2">
-            <Label htmlFor="phone">Enviar para (WhatsApp):</Label>
+            <Label htmlFor="phone">Telefone:</Label>
             <Input
               id="phone"
               type="tel"
@@ -107,12 +152,22 @@ export function CredentialViewer({
               onChange={(e) => setPhoneNumber(e.target.value)}
               className="font-mono"
             />
-            <p className="text-xs text-muted-foreground">
-              Número do cliente pré-preenchido. Edite se necessário.
-            </p>
           </div>
 
-          {/* Action Buttons */}
+          {/* Custom Message */}
+          <div className="space-y-2">
+            <Label htmlFor="message">Mensagem (opcional):</Label>
+            <Textarea
+              id="message"
+              placeholder="Digite uma mensagem..."
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              rows={2}
+              className="resize-none"
+            />
+          </div>
+
+          {/* Secondary Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
@@ -137,17 +192,34 @@ export function CredentialViewer({
             </Button>
           </div>
 
+          {/* Primary Action: Send via API */}
           <Button
-            onClick={handleShareWhatsApp}
+            onClick={handleSendViaAPI}
+            disabled={isSending}
             className="w-full bg-green-500 hover:bg-green-600 text-white"
           >
+            {isSending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4 mr-2" />
+            )}
+            {isSending ? 'Enviando...' : 'Enviar via WhatsApp (API)'}
+          </Button>
+
+          {/* Secondary: WhatsApp Web fallback */}
+          <Button
+            variant="outline"
+            onClick={handleShareWhatsApp}
+            className="w-full"
+          >
             <MessageCircle className="w-4 h-4 mr-2" />
-            Compartilhar via WhatsApp Web
+            Abrir WhatsApp Web
             <ExternalLink className="w-3 h-3 ml-2" />
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
-            Ao clicar, o WhatsApp Web abrirá com a mensagem pronta para enviar.
+            Use "Enviar via WhatsApp (API)" para enviar a imagem diretamente. 
+            Caso não funcione, use "Abrir WhatsApp Web" como alternativa.
           </p>
         </div>
       </DialogContent>
