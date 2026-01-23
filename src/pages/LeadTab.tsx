@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw, MessageSquare, Sparkles, FileText, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Edit, HelpCircle, Loader2, X, Settings, Plus, Minus, Search, Info, GripVertical, ChevronUp, ChevronDown, BarChart3, RefreshCw, MessageSquare, Sparkles, FileText, AlertTriangle, IdCard } from "lucide-react";
+import { CredentialViewer } from "@/components/telemarketing/CredentialViewer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import noPhotoPlaceholder from "@/assets/no-photo-placeholder.png";
@@ -337,6 +338,7 @@ const LeadTab = () => {
   const [observacaoTelemarketing, setObservacaoTelemarketing] = useState('');
   const [savingObservacao, setSavingObservacao] = useState(false);
   const [observacoesExpanded, setObservacoesExpanded] = useState(false);
+  const [credentialViewerOpen, setCredentialViewerOpen] = useState(false);
   
 
   // Hook para carregar categorias do banco
@@ -2466,6 +2468,18 @@ const LeadTab = () => {
                 </svg>
               </Button>
             )}
+            {/* Botão Credencial - abaixo do WhatsApp */}
+            {leadProfileData?.raw?.['UF_CRM_1762971213'] && (
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => setCredentialViewerOpen(true)} 
+                title="Ver Credencial"
+                className="h-8 w-8 md:h-10 md:w-10 bg-purple-500 text-white hover:bg-purple-600"
+              >
+                <IdCard className="w-3 h-3 md:w-4 md:h-4" />
+              </Button>
+            )}
           </div>
           
           {/* Banner Compacto de Dados Incompletos */}
@@ -3456,6 +3470,17 @@ const LeadTab = () => {
         phoneNumber={String(profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number || leadProfileData?.raw?.['UF_CRM_1748031605674'] || '')}
         contactName={chatwootData?.name || String(profile['Nome'] || profile['Nome Modelo'] || 'Lead')}
       />
+
+      {/* Modal de Credencial */}
+      {leadProfileData?.raw?.['UF_CRM_1762971213'] && (
+        <CredentialViewer
+          open={credentialViewerOpen}
+          onClose={() => setCredentialViewerOpen(false)}
+          credentialUrl={String(leadProfileData.raw['UF_CRM_1762971213'])}
+          clientPhone={String(profile['Celular'] || profile['Telefone'] || chatwootData?.phone_number || '')}
+          clientName={chatwootData?.name || String(profile['Nome'] || profile['Nome Modelo'] || '')}
+        />
+      )}
 
       </main>
     </div>;
