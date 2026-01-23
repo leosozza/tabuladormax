@@ -92,7 +92,7 @@ export function CredentialViewer({
     }
   };
 
-  const handleShareWhatsApp = () => {
+  const handleShareWhatsApp = async () => {
     if (!phoneNumber.trim()) {
       toast.error('Digite um número de telefone');
       return;
@@ -103,10 +103,27 @@ export function CredentialViewer({
       phone = '55' + phone;
     }
 
-    const message = encodeURIComponent(
-      `${customMessage}\n${credentialUrl}`
-    );
+    // 1. Download the image first
+    try {
+      const response = await fetch(credentialUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `credencial-${clientName || 'cliente'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Imagem baixada! Arraste-a para a conversa.');
+    } catch (e) {
+      console.error('Erro ao baixar imagem:', e);
+      toast.error('Erro ao baixar imagem');
+    }
 
+    // 2. Open WhatsApp Web with just the message (no link)
+    const message = encodeURIComponent(customMessage);
     window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${message}`, '_blank');
   };
 
