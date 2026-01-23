@@ -4704,6 +4704,75 @@ export type Database = {
           },
         ]
       }
+      whatsapp_conversation_closures: {
+        Row: {
+          bitrix_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closure_reason: string | null
+          created_at: string | null
+          id: string
+          phone_number: string
+          reopened_at: string | null
+        }
+        Insert: {
+          bitrix_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closure_reason?: string | null
+          created_at?: string | null
+          id?: string
+          phone_number: string
+          reopened_at?: string | null
+        }
+        Update: {
+          bitrix_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closure_reason?: string | null
+          created_at?: string | null
+          id?: string
+          phone_number?: string
+          reopened_at?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_conversation_participants: {
+        Row: {
+          bitrix_id: string | null
+          created_at: string | null
+          id: string
+          invited_at: string | null
+          invited_by: string | null
+          last_seen_at: string | null
+          operator_id: string
+          phone_number: string
+          role: string | null
+        }
+        Insert: {
+          bitrix_id?: string | null
+          created_at?: string | null
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          last_seen_at?: string | null
+          operator_id: string
+          phone_number: string
+          role?: string | null
+        }
+        Update: {
+          bitrix_id?: string | null
+          created_at?: string | null
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          last_seen_at?: string | null
+          operator_id?: string
+          phone_number?: string
+          role?: string | null
+        }
+        Relationships: []
+      }
       whatsapp_messages: {
         Row: {
           bitrix_id: string | null
