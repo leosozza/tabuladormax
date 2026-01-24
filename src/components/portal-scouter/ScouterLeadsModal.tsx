@@ -47,6 +47,7 @@ interface LeadData {
   template_error_reason: string | null;
   template_send_count: number | null;
   total_count: number;
+  age: number | null;
   // Campos de duplicado (preenchidos após verificação)
   has_duplicate?: boolean;
   is_duplicate_deleted?: boolean;
@@ -776,6 +777,11 @@ export function ScouterLeadsModal({
                         <span className="text-sm font-medium truncate">
                           {lead.nome_modelo || '-'}
                         </span>
+                        {lead.age && (
+                          <Badge variant="outline" className="text-xs ml-auto">
+                            {lead.age} anos
+                          </Badge>
+                        )}
                       </div>
                       
                       <div className="flex items-center gap-2">
@@ -804,6 +810,7 @@ export function ScouterLeadsModal({
                   <TableRow>
                     <TableHead className="w-20">ID</TableHead>
                     <TableHead>Nome do Modelo</TableHead>
+                    <TableHead className="w-16 text-center">Idade</TableHead>
                     <TableHead className="w-32">Data Criação</TableHead>
                     <TableHead>Local de Abordagem</TableHead>
                     <TableHead className="w-28">
@@ -823,6 +830,9 @@ export function ScouterLeadsModal({
                       </TableCell>
                       <TableCell>
                         {lead.nome_modelo || '-'}
+                      </TableCell>
+                      <TableCell className="text-sm text-center">
+                        {lead.age || '-'}
                       </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">
                         {lead.criado

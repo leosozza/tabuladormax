@@ -5614,6 +5614,7 @@ export type Database = {
             }
             Returns: {
               address: string
+              age: number
               celular: string
               compareceu: boolean
               criado: string
