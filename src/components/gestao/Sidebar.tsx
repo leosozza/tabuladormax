@@ -40,7 +40,7 @@ export default function GestaoSidebar({
     icon: Users
   }, {
     path: "/whatsapp",
-    label: "WhatsApp",
+    label: "Central de Atendimento",
     icon: MessageSquare,
     state: {
       from: 'scouter'

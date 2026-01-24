@@ -50,7 +50,7 @@ export default function WhatsApp() {
   // Loading state
   if (accessLoading) {
     return (
-      <MainLayout title="WhatsApp" subtitle="Carregando...">
+      <MainLayout title="Central de Atendimento" subtitle="Carregando...">
         <div className="flex h-[calc(100vh-12rem)]">
           <div className="w-80 border-r p-4 space-y-4">
             <Skeleton className="h-8 w-full" />
@@ -78,7 +78,7 @@ export default function WhatsApp() {
     return (
       <TooltipProvider>
         <MainLayout
-          title="WhatsApp"
+          title="Central de Atendimento"
           subtitle="Acesso restrito"
           actions={
             <div className="flex items-center gap-2">
@@ -125,7 +125,7 @@ export default function WhatsApp() {
   return (
     <TooltipProvider>
       <MainLayout
-        title="WhatsApp"
+        title="Central de Atendimento"
         subtitle="Central de Mensagens"
         actions={
           <div className="flex items-center gap-2">
