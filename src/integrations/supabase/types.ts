@@ -5601,16 +5601,16 @@ export type Database = {
           }
         | {
             Args: {
-              p_date_from?: string
-              p_date_to?: string
+              p_date_from: string
+              p_date_to: string
               p_filter_type?: string
               p_limit?: number
               p_offset?: number
               p_project_id?: string
               p_scouter_name: string
               p_search?: string
-              p_sort_column?: string
-              p_sort_direction?: string
+              p_sort_order?: string
+              p_status_filter?: string
             }
             Returns: {
               address: string
@@ -5631,31 +5631,6 @@ export type Database = {
               template_send_count: number
               template_status: string
               total_count: number
-            }[]
-          }
-        | {
-            Args: {
-              p_date_from?: string
-              p_date_to?: string
-              p_limit?: number
-              p_scouter_name: string
-              p_status?: string
-            }
-            Returns: {
-              additional_photos: Json
-              address: string
-              created_date: string
-              lat: number
-              lead_id: number
-              lead_name: string
-              lng: number
-              phone_normalized: string
-              photo_url: string
-              scouter_name: string
-              status: string
-              template_error_reason: string
-              template_send_count: number
-              template_status: string
             }[]
           }
       get_scouter_location_history: {
