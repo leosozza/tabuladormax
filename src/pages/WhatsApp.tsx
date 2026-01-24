@@ -156,7 +156,7 @@ export default function WhatsApp() {
       >
         <div className="flex h-full overflow-hidden bg-background">
           {/* Conversation List - Left Panel */}
-          <div className="w-96 lg:w-[28rem] xl:w-[32rem] flex-shrink-0">
+          <div className="w-96 lg:w-[28rem] xl:w-[32rem] flex-shrink-0 h-full overflow-y-auto border-r">
             <AdminConversationList
               selectedConversation={selectedConversation}
               onSelectConversation={setSelectedConversation}
