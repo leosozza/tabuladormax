@@ -37,6 +37,7 @@ import {
   TestTube,
   Mic,
   HardDrive,
+  Send,
 } from 'lucide-react';
 import { ResyncDateClosedButton } from '@/components/admin/ResyncDateClosedButton';
 import { AdminCategorySection, AdminOption } from '@/components/admin/AdminCategorySection';
@@ -148,6 +149,13 @@ const adminCategories: Record<string, CategoryConfig> = {
         title: 'Importação CSV',
         description: 'Importar leads via arquivo CSV',
         color: 'bg-green-500/10 text-green-600 dark:text-green-400',
+      },
+      {
+        path: '/admin/scouter-resend',
+        icon: Send,
+        title: 'Reenvio Mensagens Scouter',
+        description: 'Reenviar confirmações que falharam',
+        color: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
       },
     ],
   },
