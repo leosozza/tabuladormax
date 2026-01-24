@@ -3,7 +3,7 @@ import { SafeSidebarTrigger } from "@/components/SafeSidebarTrigger";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
+import { cn } from "@/lib/utils";
 interface MainLayoutProps {
   children: ReactNode;
   title?: string;
@@ -70,7 +70,10 @@ export function MainLayout({
       )}
 
       {/* Conteúdo principal com scroll */}
-      <main className="flex-1 overflow-auto">
+      <main className={cn(
+        "flex-1",
+        fullWidth ? "overflow-hidden" : "overflow-auto"
+      )}>
         <div className={fullWidth ? "h-full" : "container mx-auto p-3 md:p-6 max-w-screen-2xl"}>
           {children}
         </div>
