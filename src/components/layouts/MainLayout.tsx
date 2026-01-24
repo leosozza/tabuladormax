@@ -11,6 +11,7 @@ interface MainLayoutProps {
   actions?: ReactNode;
   showBackButton?: boolean;
   backTo?: string;
+  fullWidth?: boolean;
 }
 
 export function MainLayout({
@@ -20,6 +21,7 @@ export function MainLayout({
   actions,
   showBackButton = false,
   backTo = "/home-choice",
+  fullWidth = false,
 }: MainLayoutProps) {
   const navigate = useNavigate();
 
@@ -69,7 +71,7 @@ export function MainLayout({
 
       {/* Conteúdo principal com scroll */}
       <main className="flex-1 overflow-auto">
-        <div className="container mx-auto p-3 md:p-6 max-w-screen-2xl">
+        <div className={fullWidth ? "h-full" : "container mx-auto p-3 md:p-6 max-w-screen-2xl"}>
           {children}
         </div>
       </main>
