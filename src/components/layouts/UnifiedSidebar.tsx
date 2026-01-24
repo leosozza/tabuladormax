@@ -28,7 +28,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const mainNavItems = [
   { path: "/", label: "Dashboard Geral", icon: Home },
-  { path: "/whatsapp", label: "WhatsApp", icon: MessageSquare },
+  { path: "/whatsapp", label: "Central de Atendimento", icon: MessageSquare },
   { 
     path: "/telemarketing", 
     label: "Telemarketing", 
