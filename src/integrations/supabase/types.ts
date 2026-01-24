@@ -5265,6 +5265,34 @@ export type Database = {
           total_leads: number
         }[]
       }
+      get_failed_scouter_messages: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: {
+          criado: string
+          lead_id: number
+          lead_name: string
+          phone_normalized: string
+          pode_reenviar: boolean
+          projeto_comercial: string
+          scouter: string
+          total_envios: number
+          ultimo_erro: string
+          ultimo_erro_at: string
+        }[]
+      }
+      get_failed_scouter_messages_count: {
+        Args: { p_date_from?: string; p_date_to?: string }
+        Returns: {
+          limite_atingido: number
+          podem_reenviar: number
+          total_com_erro: number
+        }[]
+      }
       get_filtered_leads_count: {
         Args: {
           p_end_date?: string
