@@ -132,7 +132,50 @@ export function useScouterMessageResend() {
     }
 
     const leadIds = allLeads.map(l => l.lead_id);
-    return resendMutation.mutateAsync(leadIds);
+    
+    // Processar em lotes de 100 (limite da edge function)
+    const batchSize = 100;
+    const batches: number[][] = [];
+    
+    for (let i = 0; i < leadIds.length; i += batchSize) {
+      batches.push(leadIds.slice(i, i + batchSize));
+    }
+
+    let totalProcessed = 0;
+    let totalSkipped = 0;
+    let totalErrors = 0;
+
+    toast.info(`Processando ${batches.length} lote(s) de leads...`);
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      try {
+        const result = await resendMutation.mutateAsync(batch);
+        totalProcessed += result.summary.processed;
+        totalSkipped += result.summary.skipped;
+        totalErrors += result.summary.errors;
+        
+        if (batches.length > 1) {
+          toast.info(`Lote ${i + 1}/${batches.length} concluído`);
+        }
+      } catch (error) {
+        console.error(`Erro no lote ${i + 1}:`, error);
+        totalErrors += batch.length;
+      }
+    }
+
+    // Toast final com resumo
+    if (totalErrors === 0) {
+      toast.success(`✅ ${totalProcessed} leads reenviados com sucesso!`);
+    } else if (totalProcessed > 0) {
+      toast.warning(`⚠️ ${totalProcessed} reenviados, ${totalErrors} erros, ${totalSkipped} pulados`);
+    } else {
+      toast.error(`❌ Falha no reenvio: ${totalErrors} erros`);
+    }
+
+    // Invalidar queries para atualizar dados
+    queryClient.invalidateQueries({ queryKey: ['scouter-resend-counts'] });
+    queryClient.invalidateQueries({ queryKey: ['scouter-resend-leads'] });
   };
 
   const refetch = () => {
