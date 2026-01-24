@@ -123,14 +123,15 @@ export function useScouterMessageResend() {
   });
 
   const resendAll = async () => {
-    const eligibleLeads = leads?.filter(l => l.pode_reenviar) || [];
+    // Admin pode reenviar para TODOS, sem restrição de limite
+    const allLeads = leads || [];
     
-    if (eligibleLeads.length === 0) {
-      toast.info('Nenhum lead elegível para reenvio');
+    if (allLeads.length === 0) {
+      toast.info('Nenhum lead para reenvio');
       return;
     }
 
-    const leadIds = eligibleLeads.map(l => l.lead_id);
+    const leadIds = allLeads.map(l => l.lead_id);
     return resendMutation.mutateAsync(leadIds);
   };
 

@@ -238,12 +238,12 @@ export default function ScouterMessageResend() {
       )}
 
       {/* Botão de Ação */}
-      {counts.podem_reenviar > 0 && (
+      {counts.total_com_erro > 0 && (
         <div className="flex justify-center">
           <Button 
             size="lg" 
             onClick={() => setShowConfirmDialog(true)}
-            disabled={isResending || eligibleLeads.length === 0}
+            disabled={isResending || leads.length === 0}
             className="gap-2"
           >
             {isResending ? (
@@ -254,7 +254,7 @@ export default function ScouterMessageResend() {
             ) : (
               <>
                 <Send className="h-5 w-5" />
-                Reenviar Confirmação para Todos ({counts.podem_reenviar})
+                Reenviar Confirmação para Todos ({counts.total_com_erro})
               </>
             )}
           </Button>
@@ -349,15 +349,15 @@ export default function ScouterMessageResend() {
               <div className="space-y-4">
                 <p>
                   Você está prestes a reenviar a confirmação para{' '}
-                  <strong>{counts.podem_reenviar} leads</strong> que falharam por saldo insuficiente.
+                  <strong>{counts.total_com_erro} leads</strong> que falharam por saldo insuficiente.
                 </p>
                 
                 <div className="bg-muted p-4 rounded-lg space-y-2">
                   <p className="font-medium">O que vai acontecer:</p>
                   <ul className="list-disc list-inside text-sm space-y-1">
-                    <li>Todos os leads elegíveis serão movidos para "Triagem"</li>
+                    <li>Todos os leads serão movidos para "Triagem"</li>
                     <li>A automação do Bitrix reenviará as mensagens de confirmação</li>
-                    <li>Leads com 2+ tentativas anteriores serão ignorados</li>
+                    <li>Todos serão processados, independente de tentativas anteriores</li>
                   </ul>
                 </div>
 

@@ -79,17 +79,8 @@ serve(async (req) => {
         .eq('direction', 'outbound')
         .eq('message_type', 'template');
 
-      if ((sendCount || 0) >= 2) {
-        console.log(`⏭️ Lead ${lead.id} já tem ${sendCount} envios, pulando...`);
-        results.push({
-          leadId: lead.id,
-          success: false,
-          skipped: true,
-          skipReason: `Limite de 2 envios atingido (${sendCount} envios)`
-        });
-        skipped++;
-        continue;
-      }
+      // Admin pode reenviar para todos, sem limite
+      console.log(`📊 Lead ${lead.id} tem ${sendCount || 0} envios anteriores`);
 
       // Se já está em Triagem, pular
       if (lead.etapa === 'Triagem' || lead.etapa === 'UC_AU7EMM') {
