@@ -127,6 +127,7 @@ export default function WhatsApp() {
       <MainLayout
         title="Central de Atendimento"
         subtitle="Central de Mensagens"
+        fullWidth
         actions={
           <div className="flex items-center gap-2">
             {/* Notification Bell */}
@@ -153,7 +154,7 @@ export default function WhatsApp() {
           </div>
         }
       >
-        <div className="flex h-[calc(100vh-10rem)] rounded-lg border overflow-hidden bg-background">
+        <div className="flex h-full overflow-hidden bg-background">
           {/* Conversation List - Left Panel */}
           <div className="w-80 lg:w-96 flex-shrink-0">
             <AdminConversationList
