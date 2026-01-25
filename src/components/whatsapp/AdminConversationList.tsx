@@ -167,7 +167,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
   };
 
   return (
-    <div className="flex flex-col h-full border-r bg-card">
+    <div className="flex flex-col h-full min-h-0 bg-card">
       {/* Header with Stats */}
       <div className="p-4 border-b space-y-3">
         <div className="flex items-center justify-between">
@@ -316,7 +316,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
       </div>
 
       {/* Conversation List */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-2 space-y-1">
           {isLoading ? (
             // Loading skeletons

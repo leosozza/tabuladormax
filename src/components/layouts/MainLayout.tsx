@@ -26,10 +26,10 @@ export function MainLayout({
   const navigate = useNavigate();
 
   return (
-    <>
+    <div className="flex flex-col h-screen w-full overflow-hidden">
       {/* Header responsivo */}
       {(title || actions || showBackButton) && (
-        <header className="sticky top-0 z-[500] border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <header className="flex-shrink-0 sticky top-0 z-[500] border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex items-center gap-2 p-3 md:p-4">
             <SafeSidebarTrigger />
 
@@ -69,15 +69,17 @@ export function MainLayout({
         </header>
       )}
 
-      {/* Conteúdo principal com scroll */}
+      {/* Conteúdo principal - flex-1 com min-h-0 para permitir scroll interno */}
       <main className={cn(
-        "flex-1",
+        "flex-1 min-h-0",
         fullWidth ? "overflow-hidden" : "overflow-auto"
       )}>
-        <div className={fullWidth ? "h-full" : "container mx-auto p-3 md:p-6 max-w-screen-2xl"}>
+        <div className={cn(
+          fullWidth ? "h-full min-h-0" : "container mx-auto p-3 md:p-6 max-w-screen-2xl"
+        )}>
           {children}
         </div>
       </main>
-    </>
+    </div>
   );
 }
