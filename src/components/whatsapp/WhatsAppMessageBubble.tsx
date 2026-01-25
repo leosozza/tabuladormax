@@ -173,7 +173,7 @@ export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
         {/* Template badge */}
         {message.message_type === 'template' && message.template_name && (
           <div className="text-xs bg-background/20 rounded px-2 py-0.5 mb-1 inline-block">
-            📋 Template: {message.template_name}
+            📋 Template: {(message.metadata as any)?.template_display_name || message.template_name}
           </div>
         )}
 
@@ -188,8 +188,13 @@ export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
         {isLocation ? (
           <LocationPreview message={message} />
         ) : (
-          /* Regular Content */
-          <div className="whitespace-pre-wrap">{message.content}</div>
+          /* Regular Content - prefer rendered_content from metadata for templates */
+          <div className="whitespace-pre-wrap">
+            {message.message_type === 'template' && (message.metadata as any)?.rendered_content && 
+             !message.content?.includes((message.metadata as any)?.rendered_content?.substring(0, 20))
+              ? (message.metadata as any).rendered_content
+              : message.content}
+          </div>
         )}
 
         {/* Error reason badge for failed messages */}
