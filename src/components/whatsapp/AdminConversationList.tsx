@@ -137,7 +137,13 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
       limit: 50,
     });
 
-  const getConversationKey = (conv: AdminConversation) => conv.phone_number || conv.bitrix_id || "unknown";
+  const getConversationKey = (conv: AdminConversation) => {
+    // Combine phone_number + bitrix_id to ensure unique keys
+    // This prevents duplicates when same phone has entries with/without bitrix_id
+    const phone = conv.phone_number || '';
+    const bitrix = conv.bitrix_id || '';
+    return `${phone}-${bitrix}` || 'unknown';
+  };
 
   const isSelected = (conv: AdminConversation) => {
     if (!selectedConversation) return false;
