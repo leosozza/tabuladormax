@@ -274,30 +274,87 @@ function normalizePhone(phone: string): string {
   
   for (const p of phones) {
     const digits = p.replace(/\D/g, '');
-    
-    // Telefone válido tem pelo menos 10 dígitos
-    if (digits.length >= 10 && digits.length <= 13) {
-      // Já tem código do país
-      if (digits.startsWith('55') && digits.length >= 12) {
+    if (!digits) continue;
+
+    // ==============================
+    // Normalização BR (com 9º dígito)
+    // ==============================
+    // Casos suportados:
+    // - 55 + DDD + 9 + 8 dígitos (13) -> mantém
+    // - 55 + DDD + 8 dígitos (12) -> insere 9 se for provável celular (6-9)
+    // - DDD + 9 dígitos (11) -> prefixa 55
+    // - DDD + 8 dígitos (10) -> prefixa 55 e insere 9 se for provável celular (6-9)
+
+    // Já tem DDI Brasil
+    if (digits.startsWith('55')) {
+      if (digits.length === 12) {
+        const ddd = digits.substring(2, 4);
+        const local = digits.substring(4); // 8 dígitos
+        if (local.length === 8 && ['6', '7', '8', '9'].includes(local[0])) {
+          return `55${ddd}9${local}`;
+        }
         return digits;
       }
-      // Celular brasileiro (11 dígitos com 9 na posição correta)
-      if (digits.length === 11 && digits[2] === '9') {
-        return `55${digits}`;
+      if (digits.length === 13) {
+        return digits;
       }
-      // Fixo brasileiro (10 dígitos)
-      if (digits.length === 10) {
-        return `55${digits}`;
+
+      // Fallback: manter como veio se estiver num range minimamente razoável
+      if (digits.length >= 10 && digits.length <= 15) {
+        return digits;
       }
+      continue;
+    }
+    
+    // Telefone válido tem pelo menos 10 dígitos
+    if (digits.length === 11) {
+      // DDD + 9 dígitos (celular moderno)
+      return `55${digits}`;
+    }
+
+    if (digits.length === 10) {
+      // DDD + 8 dígitos (pode ser celular antigo ou fixo)
+      const ddd = digits.substring(0, 2);
+      const local = digits.substring(2); // 8 dígitos
+      if (local.length === 8 && ['6', '7', '8', '9'].includes(local[0])) {
+        return `55${ddd}9${local}`;
+      }
+      return `55${digits}`;
+    }
+
+    // Outros formatos: manter apenas dígitos, limitado
+    if (digits.length >= 10 && digits.length <= 13) {
+      return digits;
     }
   }
   
   // Fallback: pegar primeiro telefone e limitar a 13 dígitos
   const fallbackDigits = (phone || '').replace(/\D/g, '');
   const limited = fallbackDigits.substring(0, 13);
-  if (!limited.startsWith('55') && limited.length >= 10) {
-    return `55${limited.substring(0, 11)}`;
+
+  // Se vier BR sem DDI (DDD+8/9), tentar normalizar também
+  if (!limited.startsWith('55')) {
+    if (limited.length === 10) {
+      const ddd = limited.substring(0, 2);
+      const local = limited.substring(2);
+      if (local.length === 8 && ['6', '7', '8', '9'].includes(local[0])) {
+        return `55${ddd}9${local}`;
+      }
+      return `55${limited}`;
+    }
+    if (limited.length === 11) {
+      return `55${limited}`;
+    }
   }
+
+  if (limited.startsWith('55') && limited.length === 12) {
+    const ddd = limited.substring(2, 4);
+    const local = limited.substring(4);
+    if (local.length === 8 && ['6', '7', '8', '9'].includes(local[0])) {
+      return `55${ddd}9${local}`;
+    }
+  }
+
   return limited;
 }
 

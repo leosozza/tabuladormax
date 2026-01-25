@@ -26,8 +26,35 @@ const BITRIX_USER_ID = Deno.env.get('BITRIX_USER_ID') || '7';
 function normalizePhone(phone: string): string {
   const digits = (phone || '').replace(/\D/g, '');
   if (!digits) return '';
-  if (digits.startsWith('55')) return digits;
-  if (digits.length === 11 && digits[2] === '9') return `55${digits}`;
+
+  // Já tem DDI Brasil
+  if (digits.startsWith('55')) {
+    // 55 + DDD + 8 dígitos (celular antigo sem o 9)
+    if (digits.length === 12) {
+      const ddd = digits.substring(2, 4);
+      const local = digits.substring(4); // 8 dígitos
+      if (local.length === 8 && ['6', '7', '8', '9'].includes(local[0])) {
+        return `55${ddd}9${local}`;
+      }
+      return digits;
+    }
+    return digits;
+  }
+
+  // BR sem DDI
+  if (digits.length === 10) {
+    const ddd = digits.substring(0, 2);
+    const local = digits.substring(2);
+    if (local.length === 8 && ['6', '7', '8', '9'].includes(local[0])) {
+      return `55${ddd}9${local}`;
+    }
+    return `55${digits}`;
+  }
+  if (digits.length === 11) {
+    return `55${digits}`;
+  }
+
+  // Outros países / formatos: mantém dígitos
   return digits;
 }
 
