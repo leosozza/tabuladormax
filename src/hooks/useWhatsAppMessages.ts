@@ -1121,22 +1121,29 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
             );
             
             // Notificar se uma mensagem mudou para status 'failed' (erro assíncrono)
-            if (updatedMsg.status === 'failed' && oldMsg.status !== 'failed') {
-              logDebug('Async message failure detected', { 
-                messageId: updatedMsg.id, 
-                metadata: updatedMsg.metadata 
-              });
+            // Só notificar para mensagens criadas nos últimos 5 minutos para evitar
+            // toasts em massa durante backfills ou updates em lote
+            if (updatedMsg.status === 'failed') {
+              const msgCreatedAt = new Date(updatedMsg.created_at).getTime();
+              const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
               
-              toast.error(`Mensagem não entregue: ${formatAsyncErrorMessage(updatedMsg.metadata)}`, {
-                duration: 8000,
-                action: {
-                  label: 'Ver Templates',
-                  onClick: () => {
-                    // Disparar evento customizado para mudar aba
-                    window.dispatchEvent(new CustomEvent('whatsapp-switch-tab', { detail: 'templates' }));
+              if (msgCreatedAt > fiveMinutesAgo) {
+                logDebug('Async message failure detected', { 
+                  messageId: updatedMsg.id, 
+                  metadata: updatedMsg.metadata 
+                });
+                
+                toast.error(`Mensagem não entregue: ${formatAsyncErrorMessage(updatedMsg.metadata)}`, {
+                  duration: 8000,
+                  action: {
+                    label: 'Ver Templates',
+                    onClick: () => {
+                      // Disparar evento customizado para mudar aba
+                      window.dispatchEvent(new CustomEvent('whatsapp-switch-tab', { detail: 'templates' }));
+                    }
                   }
-                }
-              });
+                });
+              }
             }
           }
         }
