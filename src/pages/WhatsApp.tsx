@@ -154,9 +154,9 @@ export default function WhatsApp() {
           </div>
         }
       >
-        <div className="flex h-full overflow-hidden bg-background">
+        <div className="flex h-full min-h-0 overflow-hidden bg-background">
           {/* Conversation List - Left Panel */}
-          <div className="w-96 lg:w-[28rem] xl:w-[32rem] flex-shrink-0 h-full overflow-y-auto border-r">
+          <div className="w-96 lg:w-[28rem] xl:w-[32rem] flex-shrink-0 h-full min-h-0 overflow-hidden border-r">
             <AdminConversationList
               selectedConversation={selectedConversation}
               onSelectConversation={setSelectedConversation}
@@ -164,7 +164,7 @@ export default function WhatsApp() {
           </div>
 
           {/* Chat Container - Right Panel */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {selectedConversation ? (
               <WhatsAppChatContainer
                 phoneNumber={selectedConversation.phone_number || undefined}
