@@ -349,7 +349,8 @@ async function registerMessage(supabase: any, data: RegisterMessageParams) {
         template_display_name: data.template_display_name,
         variables: data.variables,
         bitrix_id_source: data.bitrix_id_source,
-        pending_since: now // Para matching no gupshup-webhook
+        pending_since: now, // Para matching no gupshup-webhook
+        rendered_content: data.content // Conteúdo renderizado para exibição
       }
     });
 

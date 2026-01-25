@@ -1114,7 +1114,38 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
       .limit(1)
       .maybeSingle();
     
-    // Criar mensagem como enviada por automação
+    // 🔍 Tentar extrair nome do template do payload (pode vir em diferentes lugares)
+    const templateNameFromPayload = (payload as any)?.template?.name 
+      || (payload as any)?.templateName 
+      || (payload as any)?.payload?.template?.name
+      || (payload as any)?.payload?.templateName;
+    
+    let templateContent = '[📋 Template enviado via automação Bitrix]';
+    let actualTemplateName = 'bitrix_automation';
+    let templateDisplayName: string | null = null;
+    
+    // Se temos nome do template, buscar conteúdo real na tabela gupshup_templates
+    if (templateNameFromPayload) {
+      console.log(`🔍 Tentando buscar template pelo nome: ${templateNameFromPayload}`);
+      const { data: templateData } = await supabase
+        .from('gupshup_templates')
+        .select('element_name, display_name, template_body')
+        .eq('element_name', templateNameFromPayload)
+        .maybeSingle();
+      
+      if (templateData && templateData.template_body) {
+        templateContent = templateData.template_body;
+        actualTemplateName = templateData.element_name;
+        templateDisplayName = templateData.display_name;
+        console.log(`✅ Template encontrado: ${templateData.display_name} - conteúdo real será exibido`);
+      } else {
+        console.log(`⚠️ Template "${templateNameFromPayload}" não encontrado na tabela gupshup_templates`);
+        templateContent = `[📋 Template: ${templateNameFromPayload}]`;
+        actualTemplateName = templateNameFromPayload;
+      }
+    }
+    
+    // Criar mensagem como enviada por automação (com conteúdo real se disponível)
     const { error: insertError } = await supabase
       .from('whatsapp_messages')
       .insert({
@@ -1124,8 +1155,8 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
         gupshup_message_id: messageId,
         direction: 'outbound',
         message_type: 'template',
-        content: '[📋 Template enviado via automação Bitrix]',
-        template_name: 'bitrix_automation',
+        content: templateContent,
+        template_name: actualTemplateName,
         status: statusMap[statusType] || statusType,
         sent_by: 'bitrix_automation',
         sender_name: 'Automação Bitrix',
@@ -1135,7 +1166,9 @@ async function handleMessageEvent(supabase: any, event: GupshupEvent) {
           ...payload,
           source: 'bitrix_automation_fallback',
           note: 'Mensagem detectada via callback - nenhuma pendente encontrada',
-          detected_at: new Date().toISOString()
+          detected_at: new Date().toISOString(),
+          template_display_name: templateDisplayName,
+          rendered_content: templateContent
         }
       });
     
