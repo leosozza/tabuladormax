@@ -76,12 +76,14 @@ Deno.serve(async (req) => {
       phone_number = urlPhone;
       template_name = urlTemplate;
       variables = urlVariables;
-      bitrix_id = urlBitrixId || undefined;
+      // Normalizar bitrix_id: remover caracteres não numéricos (ex: "407406_" -> "407406")
+      bitrix_id = urlBitrixId ? urlBitrixId.replace(/\D/g, '') : undefined;
+      if (bitrix_id && bitrix_id.length === 0) bitrix_id = undefined;
       if (bitrix_id) bitrix_id_source = 'url_param';
       if (urlConvId) conversation_id = parseInt(urlConvId, 10);
       
       console.log('✅ Usando parâmetros da URL (modo Bitrix Webhook)');
-    } 
+    }
     // Se não tem dados na URL e é POST, tentar extrair do body
     else if (req.method === 'POST') {
       const contentType = req.headers.get('content-type') || '';
@@ -110,7 +112,7 @@ Deno.serve(async (req) => {
         template_name = params.get('template_name') || params.get('TEMPLATE') || params.get('template') || '';
         
         // Tentar múltiplos parâmetros para bitrix_id
-        bitrix_id = params.get('bitrix_id') 
+        let rawBitrixId = params.get('bitrix_id') 
           || params.get('BITRIX_ID') 
           || params.get('lead_id') 
           || params.get('LEAD_ID')
@@ -119,6 +121,9 @@ Deno.serve(async (req) => {
           || params.get('deal_id')
           || params.get('DEAL_ID')
           || undefined;
+        // Normalizar: remover caracteres não numéricos (ex: "407406_" -> "407406")
+        bitrix_id = rawBitrixId ? rawBitrixId.replace(/\D/g, '') : undefined;
+        if (bitrix_id && bitrix_id.length === 0) bitrix_id = undefined;
         if (bitrix_id) bitrix_id_source = 'form_body';
         
         // Variáveis: var1, var2, ...
