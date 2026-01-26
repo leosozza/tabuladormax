@@ -353,7 +353,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                     isSelected(conv) && "bg-accent",
                   )}
                 >
-                  {/* Avatar with window indicator */}
+                  {/* Avatar with window indicator and response status dot */}
                   <div className="relative">
                     <div
                       className={cn(
@@ -365,48 +365,58 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                     >
                       {getInitials(conv.lead_name)}
                     </div>
+                    {/* Window status dot (bottom-right) */}
                     <div
                       className={cn(
                         "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background",
                         conv.is_window_open ? "bg-green-500" : "bg-muted-foreground",
                       )}
                     />
+                    {/* Response status dot (top-right) - only for waiting/never */}
+                    {conv.response_status === 'waiting' && (
+                      <div className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 border-2 border-background" />
+                    )}
+                    {conv.response_status === 'never' && (
+                      <div className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-background" />
+                    )}
                   </div>
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
+                    {/* Row 1: Name + Timestamp */}
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium truncate">
-                          {conv.deal_title || conv.lead_name || conv.phone_number || "Contato"}
-                        </span>
-                        {conv.deal_title && conv.lead_name && conv.deal_title !== conv.lead_name && (
-                          <span className="text-xs text-muted-foreground truncate">Resp: {conv.lead_name}</span>
-                        )}
-                      </div>
-                      {conv.unread_count > 0 && (
-                        <Badge variant="destructive" className="h-5 min-w-5 flex items-center justify-center text-xs">
-                          {conv.unread_count}
-                        </Badge>
-                      )}
+                      <span className="font-medium truncate flex-1 min-w-0">
+                        {conv.deal_title || conv.lead_name || conv.phone_number || "Contato"}
+                      </span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {formatTime(conv.last_message_at)}
+                      </span>
                     </div>
 
+                    {/* Row 2: Message preview + Unread badge */}
                     <div className="flex items-center justify-between gap-2 mt-0.5">
                       <p className="text-xs text-muted-foreground truncate flex-1">
                         {conv.last_message_direction === "inbound" ? "← " : "→ "}
                         {conv.last_message_preview || "Sem mensagens"}
                       </p>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {formatTime(conv.last_message_at)}
-                      </span>
+                      {conv.unread_count > 0 && (
+                        <Badge variant="default" className="bg-green-500 hover:bg-green-500 h-5 min-w-5 flex items-center justify-center text-xs text-white">
+                          {conv.unread_count}
+                        </Badge>
+                      )}
                     </div>
+
+                    {/* Responsible name if deal_title is shown */}
+                    {conv.deal_title && conv.lead_name && conv.deal_title !== conv.lead_name && (
+                      <span className="text-xs text-muted-foreground truncate block mt-0.5">Resp: {conv.lead_name}</span>
+                    )}
 
                     {/* Phone number if different from name */}
                     {conv.lead_name && conv.phone_number && (
                       <p className="text-xs text-muted-foreground mt-0.5">{conv.phone_number}</p>
                     )}
 
-                    {/* Etapa, Deal Status and Response Status badges */}
+                    {/* Etapa and Deal Status badges (without response status - now it's a dot) */}
                     <div className="flex flex-wrap items-center gap-1 mt-1">
                       {/* Etapa badge */}
                       {conv.lead_etapa && (
@@ -434,22 +444,6 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                             {DEAL_STATUS_CONFIG[conv.deal_status].icon} {DEAL_STATUS_CONFIG[conv.deal_status].label}
                           </span>
                         )}
-
-                      {/* Response status badge */}
-                      {conv.response_status && RESPONSE_STATUS_CONFIG[conv.response_status] && (
-                        <span
-                          className={cn(
-                            "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5",
-                            RESPONSE_STATUS_CONFIG[conv.response_status].color,
-                          )}
-                        >
-                          {(() => {
-                            const Icon = RESPONSE_STATUS_CONFIG[conv.response_status!].icon;
-                            return <Icon className="h-2.5 w-2.5" />;
-                          })()}
-                          {RESPONSE_STATUS_CONFIG[conv.response_status].label}
-                        </span>
-                      )}
                     </div>
 
                     {/* Operator indicator */}
