@@ -24,6 +24,7 @@ import {
   Smartphone,
   Loader2,
   BookOpen,
+  Bot,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -123,6 +124,13 @@ const adminOptions = [
     title: 'Documentação Técnica',
     description: 'Documentação técnica da aplicação',
     color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+  },
+  {
+    path: '/admin/ai-agents',
+    icon: Bot,
+    title: 'Agentes de IA',
+    description: 'Gerenciar agentes de IA para WhatsApp',
+    color: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400',
   },
 ];
 

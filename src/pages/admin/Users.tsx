@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, User as UserIcon, Key, Copy, Check, Edit2, Plus, Building2, Users as UsersIcon, Phone, Search, Briefcase } from "lucide-react";
+import { Shield, User as UserIcon, Key, Copy, Check, Edit2, Plus, Building2, Users as UsersIcon, Phone, Search, Briefcase, Bot } from "lucide-react";
+import { useAIAgents, useAgentOperatorAssignments } from "@/hooks/useAIAgents";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -136,6 +137,16 @@ export default function Users() {
   const [batchEditValue, setBatchEditValue] = useState("");
   const [batchEditLoading, setBatchEditLoading] = useState(false);
   const [batchEditSupervisors, setBatchEditSupervisors] = useState<UserWithRole[]>([]);
+
+  // AI Agent assignment
+  const [editAIAgentDialogOpen, setEditAIAgentDialogOpen] = useState(false);
+  const [editingAIAgentUser, setEditingAIAgentUser] = useState<UserWithRole | null>(null);
+  const [selectedAIAgentId, setSelectedAIAgentId] = useState<string>("");
+  const [savingAIAgent, setSavingAIAgent] = useState(false);
+  
+  // Load AI agents and assignments
+  const { agents: aiAgents, loading: loadingAIAgents } = useAIAgents();
+  const { assignments: aiAssignments, assignOperator, unassignOperator, fetchAssignments } = useAgentOperatorAssignments();
 
   useEffect(() => {
     checkUserRole();
@@ -1262,6 +1273,51 @@ export default function Users() {
     }
   };
 
+  // ===== AI AGENT FUNCTIONS =====
+  const getAssignedAgent = (user: UserWithRole) => {
+    if (!user.telemarketing_id) return null;
+    const assignment = aiAssignments.find(a => a.operator_bitrix_id === user.telemarketing_id && a.is_active);
+    return assignment?.agent || null;
+  };
+
+  const openEditAIAgentDialog = (user: UserWithRole) => {
+    if (!user.telemarketing_id) {
+      toast.error('Este usuário não tem operador Bitrix vinculado');
+      return;
+    }
+    setEditingAIAgentUser(user);
+    const currentAgent = getAssignedAgent(user);
+    setSelectedAIAgentId(currentAgent?.id || "none");
+    setEditAIAgentDialogOpen(true);
+  };
+
+  const handleSaveAIAgent = async () => {
+    if (!editingAIAgentUser?.telemarketing_id) return;
+    
+    setSavingAIAgent(true);
+    try {
+      if (selectedAIAgentId === "none") {
+        // Desvincular - encontrar assignment ativo
+        const currentAssignment = aiAssignments.find(
+          a => a.operator_bitrix_id === editingAIAgentUser.telemarketing_id && a.is_active
+        );
+        if (currentAssignment) {
+          await unassignOperator(currentAssignment.id);
+        }
+      } else {
+        // Vincular ao novo agente
+        await assignOperator(selectedAIAgentId, editingAIAgentUser.telemarketing_id);
+      }
+      setEditAIAgentDialogOpen(false);
+      await fetchAssignments();
+    } catch (error) {
+      console.error('Erro ao salvar agente:', error);
+      toast.error('Erro ao vincular agente');
+    } finally {
+      setSavingAIAgent(false);
+    }
+  };
+
   return (
     <AdminPageLayout
       title="Gerenciar Usuários"
@@ -1389,6 +1445,7 @@ export default function Users() {
                       <th className="p-3 text-left text-sm font-medium">Projeto</th>
                       <th className="p-3 text-left text-sm font-medium">Supervisor</th>
                       <th className="p-3 text-left text-sm font-medium">Telemarketing</th>
+                      <th className="p-3 text-left text-sm font-medium">Agente IA</th>
                       <th className="p-3 text-left text-sm font-medium">Função</th>
                       <th className="p-3 text-left text-sm font-medium">Ações</th>
                     </tr>
@@ -1435,6 +1492,23 @@ export default function Users() {
                          </td>
                         <td className="p-3 text-sm">
                           {user.telemarketing_name || <span className="text-muted-foreground">-</span>}
+                        </td>
+                        <td 
+                          className="p-3 text-sm cursor-pointer hover:bg-muted/30" 
+                          onDoubleClick={() => user.telemarketing_id && openEditAIAgentDialog(user)}
+                          title={user.telemarketing_id ? "Duplo clique para editar" : "Requer operador Bitrix"}
+                        >
+                          {(() => {
+                            const agent = getAssignedAgent(user);
+                            return agent ? (
+                              <Badge variant="outline" className="bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-300">
+                                <Bot className="w-3 h-3 mr-1" />
+                                {agent.name}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            );
+                          })()}
                         </td>
                         <td 
                           className="p-3 cursor-pointer" 
@@ -2114,6 +2188,61 @@ export default function Users() {
                 disabled={updatingDepartment}
               >
                 {updatingDepartment ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog para editar Agente de IA */}
+        <Dialog open={editAIAgentDialogOpen} onOpenChange={setEditAIAgentDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-fuchsia-500" />
+                Vincular Agente de IA
+              </DialogTitle>
+              <DialogDescription>
+                Selecione o agente de IA para o operador {editingAIAgentUser?.telemarketing_name || editingAIAgentUser?.display_name}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Agente de IA</Label>
+                <Select value={selectedAIAgentId} onValueChange={setSelectedAIAgentId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um agente" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[9999]">
+                    <SelectItem value="none">Nenhum (usar padrão)</SelectItem>
+                    {aiAgents.filter(a => a.is_active).map(agent => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {selectedAIAgentId === "none" 
+                    ? "O operador usará o prompt padrão do sistema" 
+                    : "O operador usará o treinamento específico deste agente"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setEditAIAgentDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSaveAIAgent}
+                disabled={savingAIAgent}
+              >
+                {savingAIAgent ? 'Salvando...' : 'Salvar'}
               </Button>
             </div>
           </DialogContent>
