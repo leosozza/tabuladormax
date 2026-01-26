@@ -1,135 +1,97 @@
 
-# Criar Página AI Playground
 
-## Problema Identificado
+# Migrar WhatsApp AI Assist para usar Groq
 
-A rota `/admin/ai-playground` está configurada no menu do AdminHub (linha 225-231) com o título "Playground IA" e descrição "Testar e experimentar modelos de IA", porém:
+## Problema
 
-- O componente da página não existe
-- A rota não está registrada no `App.tsx`
+A edge function `whatsapp-ai-assist` está causando erro 500 porque:
+1. Usa **exclusivamente** o Lovable AI Gateway
+2. O workspace está com créditos insuficientes (erro 402)
+3. Mesmo tendo `GROQ_API_KEY` configurada, a função não a utiliza
 
 ## Solução
 
-Criar uma página de Playground de IA que permite testar os modelos disponíveis no Lovable AI.
+Modificar a edge function para usar o **Groq** como provedor principal.
 
 ---
 
-## Arquivos a Criar/Modificar
+## Alterações
 
-| Arquivo | Ação |
-|---------|------|
-| `src/pages/admin/AIPlayground.tsx` | **Criar** - Componente da página |
-| `src/App.tsx` | **Modificar** - Adicionar rota |
+### Arquivo: `supabase/functions/whatsapp-ai-assist/index.ts`
 
----
+| Item | Antes | Depois |
+|------|-------|--------|
+| API Key | `LOVABLE_API_KEY` | `GROQ_API_KEY` |
+| URL | `ai.gateway.lovable.dev` | `api.groq.com/openai/v1` |
+| Modelo | `google/gemini-2.5-flash` | `llama-3.3-70b-versatile` |
 
-## Funcionalidades do Playground
+### Mudanças específicas:
 
-### Interface Principal
+**1. Trocar constantes (linhas 14-15):**
+```typescript
+// Antes
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 
-1. **Seletor de Modelo** - Dropdown com modelos disponíveis:
-   - google/gemini-2.5-pro
-   - google/gemini-2.5-flash
-   - google/gemini-2.5-flash-lite
-   - google/gemini-3-pro-preview
-   - google/gemini-3-flash-preview
-   - openai/gpt-5
-   - openai/gpt-5-mini
-   - openai/gpt-5-nano
-   - openai/gpt-5.2
-
-2. **Área de Prompt** - Textarea para digitar o prompt de teste
-
-3. **Parâmetros Opcionais**:
-   - Temperature (slider 0-1)
-   - Max Tokens (input numérico)
-   - System Prompt (textarea opcional)
-
-4. **Botão Enviar** - Envia o prompt para o modelo selecionado
-
-5. **Área de Resposta** - Exibe a resposta do modelo com:
-   - Conteúdo formatado (markdown)
-   - Tempo de resposta
-   - Tokens utilizados (se disponível)
-
-6. **Histórico** - Lista das últimas interações da sessão
-
----
-
-## Estrutura do Componente
-
-```text
-┌──────────────────────────────────────────────────────────────┐
-│  🧪 Playground IA                                            │
-│  Testar e experimentar modelos de IA                         │
-├──────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌─────────────────────────┐  ┌─────────────────────────┐   │
-│  │ Modelo                  │  │ Temperature: 0.7        │   │
-│  │ [google/gemini-2.5-pro▼]│  │ ═══════●════════════    │   │
-│  └─────────────────────────┘  └─────────────────────────┘   │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ System Prompt (opcional)                              │   │
-│  │ ┌──────────────────────────────────────────────────┐ │   │
-│  │ │ Você é um assistente...                          │ │   │
-│  │ └──────────────────────────────────────────────────┘ │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ Prompt                                                │   │
-│  │ ┌──────────────────────────────────────────────────┐ │   │
-│  │ │ Explique o que é machine learning...             │ │   │
-│  │ │                                                  │ │   │
-│  │ └──────────────────────────────────────────────────┘ │   │
-│  │                                    [🚀 Enviar]       │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ Resposta                                 ⏱️ 1.2s    │   │
-│  │ ┌──────────────────────────────────────────────────┐ │   │
-│  │ │ Machine learning é uma área da inteligência     │ │   │
-│  │ │ artificial que permite que sistemas...          │ │   │
-│  │ │                                                  │ │   │
-│  │ └──────────────────────────────────────────────────┘ │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+// Depois
+const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 ```
 
+**2. Atualizar validação da API key (linhas 25-31):**
+```typescript
+if (!GROQ_API_KEY) {
+  console.error('GROQ_API_KEY não configurada');
+  return new Response(
+    JSON.stringify({ error: 'API key do Groq não configurada' }),
+    { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+```
+
+**3. Atualizar chamadas de API (linhas 58-73 e 123-137):**
+- Trocar `AI_GATEWAY_URL` por `GROQ_API_URL`
+- Trocar `LOVABLE_API_KEY` por `GROQ_API_KEY`
+- Trocar modelo `google/gemini-2.5-flash` por `llama-3.3-70b-versatile`
+
+**4. Melhorar tratamento de erros (linhas 75-90 e 139-154):**
+- Adicionar tratamento específico para erro 402 (créditos/billing)
+- Log mais detalhado do erro
+
 ---
 
-## Detalhes Técnicos
+## Estrutura Final da Edge Function
 
-### 1. Criar `src/pages/admin/AIPlayground.tsx`
-
-O componente irá:
-- Usar `AdminPageLayout` para consistência visual
-- Chamar uma edge function para processar as requisições de IA
-- Manter estado local do histórico de conversas
-- Suportar markdown na renderização das respostas
-
-### 2. Criar ou reutilizar Edge Function
-
-Verificar se já existe uma edge function para chat com IA, ou criar uma específica para o playground que:
-- Recebe: modelo, prompt, systemPrompt, temperature
-- Retorna: resposta do modelo, tempo de execução
-
-### 3. Modificar `src/App.tsx`
-
-Adicionar a rota:
-```tsx
-import AIPlayground from './pages/admin/AIPlayground';
-
-// Na lista de rotas administrativas:
-<Route path="/admin/ai-playground" element={<ProtectedRoute requireAdmin><AIPlayground /></ProtectedRoute>} />
+```text
+whatsapp-ai-assist/index.ts
+├── Configuração
+│   ├── GROQ_API_KEY (secret)
+│   └── GROQ_API_URL (api.groq.com)
+├── Ação: generate
+│   ├── System prompt (atendimento WhatsApp)
+│   ├── Histórico de conversa
+│   └── Chamada Groq (llama-3.3-70b-versatile)
+└── Ação: improve
+    ├── System prompt (melhorar texto)
+    └── Chamada Groq (llama-3.3-70b-versatile)
 ```
 
 ---
 
 ## Benefícios
 
-1. **Teste rápido** - Administradores podem testar prompts antes de usar em produção
-2. **Comparação de modelos** - Facilita escolher o modelo ideal para cada caso
-3. **Debug** - Ajuda a entender comportamentos inesperados do AI
-4. **Documentação viva** - Serve como referência dos modelos disponíveis
+1. **Sem custo de créditos Lovable** - Groq usa sua própria API key
+2. **Modelo rápido** - Llama 3.3 70B é extremamente rápido no Groq
+3. **Gratuito** - Groq oferece tier gratuito generoso
+4. **Compatível** - API do Groq é compatível com OpenAI
+
+---
+
+## Verificação pós-deploy
+
+Após implementar:
+1. Acessar a Central de Atendimento (/whatsapp)
+2. Abrir uma conversa
+3. Clicar no botão de gerar sugestão de resposta
+4. Verificar se a resposta é gerada sem erro 500
+
