@@ -1,268 +1,82 @@
 
-# Refresh Automático de Token e Validação Pré-Envio
+# Correção do Timestamp na Lista de Conversas - Problema de CSS
 
-## Problema Atual
+## Diagnóstico
 
-O sistema atual tem `autoRefreshToken: true` no cliente Supabase, mas isso não é suficiente porque:
+Após investigação detalhada:
 
-1. **Token pode expirar entre refreshes** - O refresh automático ocorre em intervalos, não garante token válido no momento exato do envio
-2. **Operador inativo** - Se o operador ficou inativo por muito tempo, a sessão pode ter expirado completamente
-3. **Refresh silencioso falha** - O hook `useWhatsAppMessages` tenta refresh, mas só DEPOIS de uma falha (tarde demais)
+1. **Dados estão corretos** - O RPC `get_admin_whatsapp_conversations` retorna `last_message_at` com valores válidos (ex: `"2026-01-26T19:07:48.384923+00:00"`)
+2. **Hook está mapeando corretamente** - O campo é passado para o componente
+3. **O problema é CSS** - O layout flexbox está permitindo que o nome empurre o timestamp para fora da área visível
 
-## Solução Proposta
+## Causa Raiz
 
-### Estratégia: Validação Proativa + Bloqueio de Envio
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                    FLUXO DE ENVIO DE MENSAGEM                   │
-├─────────────────────────────────────────────────────────────────┤
-│  1. Operador clica "Enviar"                                     │
-│                    ↓                                            │
-│  2. Verificar sessão: supabase.auth.getSession()                │
-│                    ↓                                            │
-│  3. Token válido?                                               │
-│       ├── SIM → Continuar envio normalmente                     │
-│       └── NÃO → Tentar refresh automático                       │
-│                    ↓                                            │
-│  4. Refresh funcionou?                                          │
-│       ├── SIM → Continuar envio normalmente                     │
-│       └── NÃO → Tentar re-auth com access_key                   │
-│                    ↓                                            │
-│  5. Re-auth funcionou?                                          │
-│       ├── SIM → Continuar envio normalmente                     │
-│       └── NÃO → BLOQUEAR ENVIO + Mostrar modal de login         │
-└─────────────────────────────────────────────────────────────────┘
+O layout atual:
+```tsx
+<div className="flex items-center justify-between gap-2">
+  <span className="font-medium truncate flex-1 min-w-0">  <!-- Expande sem limite -->
+    {getDisplayTitle(conv)}
+  </span>
+  <span className="text-xs text-foreground/60 whitespace-nowrap shrink-0">  <!-- Não tem largura mínima -->
+    {formatShortTime(...)}
+  </span>
+</div>
 ```
+
+O problema: `flex-1` no nome faz ele ocupar todo espaço disponível, e apesar do `shrink-0` no timestamp, o container pai pode estar sendo comprimido pelo layout externo.
 
 ---
 
-## Alterações Técnicas
+## Solução
 
-### 1. Novo Hook: `useSessionGuard`
+### Alteração em `AdminConversationList.tsx`
 
-Criar um hook dedicado para gerenciar a validade da sessão:
-
-**Arquivo:** `src/hooks/useSessionGuard.ts`
-
-```typescript
-export function useSessionGuard() {
-  const [isSessionValid, setIsSessionValid] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showReloginModal, setShowReloginModal] = useState(false);
-  
-  // Verificar e garantir sessão válida
-  const ensureValidSession = async (): Promise<boolean> => {
-    // 1. Checar sessão atual
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session?.expires_at) {
-      const expiresAt = session.expires_at * 1000;
-      const now = Date.now();
-      const bufferMs = 60 * 1000; // 1 minuto de margem
-      
-      if (expiresAt - now > bufferMs) {
-        return true; // Sessão válida
-      }
-    }
-    
-    // 2. Tentar refresh
-    const { data: refreshData } = await supabase.auth.refreshSession();
-    if (refreshData?.session) {
-      return true;
-    }
-    
-    // 3. Tentar re-auth via access_key
-    const authStatus = localStorage.getItem('telemarketing_auth_status');
-    if (authStatus) {
-      const { email, accessKey } = JSON.parse(authStatus);
-      const { error } = await supabase.auth.signInWithPassword({ email, password: accessKey });
-      if (!error) {
-        return true;
-      }
-    }
-    
-    // 4. Falhou - mostrar modal de relogin
-    setShowReloginModal(true);
-    return false;
-  };
-  
-  return { isSessionValid, isRefreshing, showReloginModal, ensureValidSession, setShowReloginModal };
-}
-```
-
-### 2. Modal de Re-login
-
-Criar um modal que aparece quando a sessão não pode ser recuperada automaticamente:
-
-**Arquivo:** `src/components/whatsapp/SessionExpiredModal.tsx`
-
-```typescript
-export function SessionExpiredModal({ open, onRelogin }: Props) {
-  return (
-    <Dialog open={open}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Sessão Expirada</DialogTitle>
-          <DialogDescription>
-            Sua sessão expirou e não foi possível reconectar automaticamente.
-            Clique no botão abaixo para fazer login novamente.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button onClick={onRelogin}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Fazer Login Novamente
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-```
-
-### 3. Atualizar `useWhatsAppMessages`
-
-Modificar o hook para validar sessão ANTES de enviar:
-
-**Arquivo:** `src/hooks/useWhatsAppMessages.ts`
-
-Mudanças:
-- Adicionar verificação de sessão no início de `sendMessage()`
-- Se sessão inválida e não recuperável, retornar erro específico
-- Expor flag `sessionExpired` para o componente pai
-
-```typescript
-// Dentro de sendMessage():
-const sendMessage = async (content: string): Promise<boolean> => {
-  // NOVO: Validar sessão ANTES de tentar enviar
-  const sessionValid = await ensureValidSession();
-  if (!sessionValid) {
-    setLastSendError({
-      message: 'Sessão expirada. Faça login novamente para enviar mensagens.',
-      code: 'session_expired',
-      canRetry: false,
-      requiresReconnect: true,
-      timestamp: Date.now(),
-    });
-    return false;
-  }
-  
-  // ... resto do código de envio
-};
-```
-
-### 4. Atualizar `WhatsAppChatContainer`
-
-Integrar o modal de relogin:
-
-**Arquivo:** `src/components/whatsapp/WhatsAppChatContainer.tsx`
+**Linha ~535-542** - Ajustar o layout da Row 1:
 
 ```tsx
-import { SessionExpiredModal } from './SessionExpiredModal';
-
-// Dentro do componente:
-const [showReloginModal, setShowReloginModal] = useState(false);
-
-// Handler para relogin
-const handleRelogin = () => {
-  // Limpar dados de sessão
-  localStorage.removeItem('telemarketing_auth_status');
-  // Redirecionar para login
-  window.location.href = '/portal-telemarketing';
-};
-
-// Detectar erro de sessão expirada do hook
-useEffect(() => {
-  if (lastSendError?.code === 'session_expired') {
-    setShowReloginModal(true);
-  }
-}, [lastSendError]);
-
-// No JSX:
-<SessionExpiredModal 
-  open={showReloginModal} 
-  onRelogin={handleRelogin} 
-/>
+{/* Row 1: Name + Timestamp */}
+<div className="flex items-center gap-2 w-full">
+  <span className="font-medium truncate min-w-0 flex-1">
+    {getDisplayTitle(conv)}
+  </span>
+  <span className="text-xs text-foreground/60 whitespace-nowrap shrink-0 min-w-fit">
+    {conv.last_message_at ? formatShortTime(conv.last_message_at) : ''}
+  </span>
+</div>
 ```
+
+### Mudanças específicas:
+
+| Elemento | Antes | Depois |
+|----------|-------|--------|
+| Container | `justify-between` | `gap-2 w-full` (remove justify-between) |
+| Nome | `truncate flex-1 min-w-0` | `truncate min-w-0 flex-1` (mesmo, ordem ajustada) |
+| Timestamp | `shrink-0` | `shrink-0 min-w-fit` (adiciona min-w-fit) |
+
+### Por que funciona:
+
+1. **`min-w-fit`** no timestamp garante que ele nunca seja menor que seu conteúdo natural
+2. **`w-full`** no container garante que ele use toda a largura disponível
+3. O nome com `flex-1` preenche o espaço restante, mas o `min-w-fit` do timestamp tem prioridade
+4. `truncate` no nome corta com "..." quando necessário
 
 ---
 
-## Monitor de Sessão em Background
+## Arquivo a Modificar
 
-Adicionar um timer que verifica a validade da sessão periodicamente:
-
-```typescript
-// Em useSessionGuard:
-useEffect(() => {
-  const checkInterval = setInterval(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session?.expires_at) {
-      const expiresAt = session.expires_at * 1000;
-      const now = Date.now();
-      const warnThreshold = 5 * 60 * 1000; // 5 minutos
-      
-      if (expiresAt - now < warnThreshold && expiresAt - now > 0) {
-        // Sessão expirando em breve - fazer refresh proativo
-        await supabase.auth.refreshSession();
-      }
-    }
-  }, 60 * 1000); // Checar a cada 1 minuto
-  
-  return () => clearInterval(checkInterval);
-}, []);
-```
+- `src/components/whatsapp/AdminConversationList.tsx` (linhas 535-542)
 
 ---
 
-## Fluxo Visual para o Operador
+## Resultado Esperado
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│  CENÁRIO: Operador com sessão expirada tenta enviar mensagem   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. Operador digita mensagem e clica "Enviar"                   │
-│                                                                 │
-│  2. Sistema detecta sessão expirada                             │
-│     ↓                                                           │
-│  3. Tenta refresh automático (invisível para operador)          │
-│     ↓                                                           │
-│  4. Se refresh falhar:                                          │
-│     ┌─────────────────────────────────────────┐                 │
-│     │  ⚠️ Sessão Expirada                     │                 │
-│     │                                         │                 │
-│     │  Sua sessão expirou e não foi possível  │                 │
-│     │  reconectar automaticamente.            │                 │
-│     │                                         │                 │
-│     │  [ Fazer Login Novamente ]              │                 │
-│     └─────────────────────────────────────────┘                 │
-│                                                                 │
-│  5. Operador clica no botão → Redirecionado para login          │
-│                                                                 │
-│  6. Após login, volta para onde estava (preservar contexto)     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│ [L]  Lara                        16:08 │
+│  ●   → [Template enviado via...         │
+│      5511936666...                       │
+│      [StandBy]                           │
+└─────────────────────────────────────────┘
 ```
 
----
-
-## Arquivos a Criar/Modificar
-
-| Arquivo | Ação |
-|---------|------|
-| `src/hooks/useSessionGuard.ts` | Criar novo |
-| `src/components/whatsapp/SessionExpiredModal.tsx` | Criar novo |
-| `src/hooks/useWhatsAppMessages.ts` | Modificar (adicionar validação pré-envio) |
-| `src/components/whatsapp/WhatsAppChatContainer.tsx` | Modificar (integrar modal) |
-
----
-
-## Benefícios
-
-1. **Prevenção** - Valida sessão ANTES de tentar enviar, evitando erros
-2. **Automático** - Tenta recuperar sessão automaticamente em background
-3. **Transparente** - Operador só é interrompido quando realmente necessário
-4. **Contexto preservado** - Mensagem digitada não é perdida
-5. **UX clara** - Modal explica exatamente o que aconteceu e o que fazer
+O timestamp (16:08) sempre aparecerá no canto direito, mesmo quando o nome for longo.
