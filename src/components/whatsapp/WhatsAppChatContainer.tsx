@@ -23,6 +23,7 @@ interface WhatsAppChatContainerProps {
   onClose?: () => void;
   variant?: 'modal' | 'fullscreen';
   commercialProjectId?: string;
+  operatorBitrixId?: number;
 }
 
 export function WhatsAppChatContainer({
@@ -32,7 +33,8 @@ export function WhatsAppChatContainer({
   contactName,
   onClose,
   variant = 'modal',
-  commercialProjectId
+  commercialProjectId,
+  operatorBitrixId
 }: WhatsAppChatContainerProps) {
   const [activeTab, setActiveTab] = useState('messages');
   const hasMarkedAsReadRef = useRef(false);
@@ -291,6 +293,7 @@ export function WhatsAppChatContainer({
             isWindowOpen={true}
             inCooldown={false}
             projectId={commercialProjectId}
+            operatorBitrixId={operatorBitrixId}
             chatMessages={messages.map(m => ({
               direction: m.direction,
               content: m.content || '',

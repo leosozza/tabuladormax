@@ -132,6 +132,41 @@ export type Database = {
           },
         ]
       }
+      agent_operator_assignments: {
+        Row: {
+          agent_id: string
+          assigned_by: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          operator_bitrix_id: number
+        }
+        Insert: {
+          agent_id: string
+          assigned_by?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          operator_bitrix_id: number
+        }
+        Update: {
+          agent_id?: string
+          assigned_by?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          operator_bitrix_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_operator_assignments_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_telemarketing_mapping: {
         Row: {
           bitrix_telemarketing_id: number
@@ -237,6 +272,103 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agents: {
+        Row: {
+          ai_model: string | null
+          ai_provider: string | null
+          commercial_project_id: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          personality: string | null
+          system_prompt: string
+          updated_at: string | null
+        }
+        Insert: {
+          ai_model?: string | null
+          ai_provider?: string | null
+          commercial_project_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          personality?: string | null
+          system_prompt?: string
+          updated_at?: string | null
+        }
+        Update: {
+          ai_model?: string | null
+          ai_provider?: string | null
+          commercial_project_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          personality?: string | null
+          system_prompt?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agents_commercial_project_id_fkey"
+            columns: ["commercial_project_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agents_training: {
+        Row: {
+          agent_id: string
+          category: string | null
+          content: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          priority: number | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          category?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agents_training_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
             referencedColumns: ["id"]
           },
         ]
