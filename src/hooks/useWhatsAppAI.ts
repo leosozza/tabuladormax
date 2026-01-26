@@ -8,9 +8,14 @@ interface Message {
   sender_name?: string;
 }
 
+interface GenerateResponseResult {
+  response: string | null;
+  agentName: string | null;
+}
+
 interface UseWhatsAppAIReturn {
-  generateResponse: (messages: Message[], context?: string) => Promise<string | null>;
-  improveText: (text: string, context?: string) => Promise<string | null>;
+  generateResponse: (messages: Message[], context?: string, operatorBitrixId?: number) => Promise<GenerateResponseResult>;
+  improveText: (text: string, context?: string, operatorBitrixId?: number) => Promise<string | null>;
   isGenerating: boolean;
   isImproving: boolean;
 }
@@ -19,7 +24,11 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImproving, setIsImproving] = useState(false);
 
-  const generateResponse = useCallback(async (messages: Message[], context?: string): Promise<string | null> => {
+  const generateResponse = useCallback(async (
+    messages: Message[], 
+    context?: string,
+    operatorBitrixId?: number
+  ): Promise<GenerateResponseResult> => {
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('whatsapp-ai-assist', {
@@ -30,26 +39,34 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
             content: m.content,
           })),
           context,
+          operatorBitrixId,
         },
       });
 
       if (error) {
         console.error('Erro ao gerar resposta:', error);
         toast.error('Erro ao gerar resposta com IA');
-        return null;
+        return { response: null, agentName: null };
       }
 
-      return data?.response || null;
+      return { 
+        response: data?.response || null,
+        agentName: data?.agent_name || null
+      };
     } catch (err) {
       console.error('Erro ao gerar resposta:', err);
       toast.error('Erro ao conectar com IA');
-      return null;
+      return { response: null, agentName: null };
     } finally {
       setIsGenerating(false);
     }
   }, []);
 
-  const improveText = useCallback(async (text: string, context?: string): Promise<string | null> => {
+  const improveText = useCallback(async (
+    text: string, 
+    context?: string,
+    operatorBitrixId?: number
+  ): Promise<string | null> => {
     setIsImproving(true);
     try {
       const { data, error } = await supabase.functions.invoke('whatsapp-ai-assist', {
@@ -57,6 +74,7 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
           action: 'improve',
           text,
           context,
+          operatorBitrixId,
         },
       });
 

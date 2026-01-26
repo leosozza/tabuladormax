@@ -43,6 +43,7 @@ interface WhatsAppInputProps {
   inCooldown?: boolean;
   projectId?: string;
   chatMessages?: ChatMessage[];
+  operatorBitrixId?: number;
 }
 
 function formatTime(seconds: number): string {
@@ -66,7 +67,8 @@ export function WhatsAppInput({
   isWindowOpen, // Não usado para bloquear
   inCooldown,
   projectId,
-  chatMessages = []
+  chatMessages = [],
+  operatorBitrixId
 }: WhatsAppInputProps) {
   const [messageInput, setMessageInput] = useState('');
   const [mediaPreview, setMediaPreview] = useState<MediaPreview | null>(null);
@@ -91,10 +93,11 @@ export function WhatsAppInput({
       return;
     }
     
-    const response = await generateResponse(chatMessages);
-    if (response) {
-      setMessageInput(response);
-      toast.success('Resposta gerada!');
+    const result = await generateResponse(chatMessages, undefined, operatorBitrixId);
+    if (result.response) {
+      setMessageInput(result.response);
+      const agentInfo = result.agentName ? ` (Agente: ${result.agentName})` : '';
+      toast.success(`Resposta gerada!${agentInfo}`);
     }
   };
 
@@ -104,7 +107,7 @@ export function WhatsAppInput({
       return;
     }
     
-    const improved = await improveText(messageInput);
+    const improved = await improveText(messageInput, undefined, operatorBitrixId);
     if (improved) {
       setMessageInput(improved);
       toast.success('Texto melhorado!');

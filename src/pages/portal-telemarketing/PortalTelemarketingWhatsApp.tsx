@@ -628,6 +628,7 @@ const PortalTelemarketingWhatsApp = () => {
               variant="fullscreen"
               commercialProjectId={context?.commercial_project_id}
               conversationId={selectedConversation.conversation_id}
+              operatorBitrixId={context?.bitrix_id}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">

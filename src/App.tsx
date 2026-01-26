@@ -51,6 +51,7 @@ import SystemSettings from './pages/admin/SystemSettings';
 import ScouterMessageResend from './pages/admin/ScouterMessageResend';
 import AgenciamentoAssistantTraining from './pages/admin/AgenciamentoAssistantTraining';
 import AIPlayground from './pages/admin/AIPlayground';
+import AIAgents from './pages/admin/AIAgents';
 // Páginas do Gestão Scouter
 import GestaoHome from "./pages/gestao/Home";
 import GestaoLeads from "./pages/gestao/Leads";
@@ -193,6 +194,7 @@ const App = () => (
             <Route path="/admin/system-settings" element={<ProtectedRoute requireAdmin><SystemSettings /></ProtectedRoute>} />
             <Route path="/admin/agenciamento-training" element={<ProtectedRoute requireAdmin><AgenciamentoAssistantTraining /></ProtectedRoute>} />
             <Route path="/admin/ai-playground" element={<ProtectedRoute requireAdmin><AIPlayground /></ProtectedRoute>} />
+            <Route path="/admin/ai-agents" element={<ProtectedRoute requireAdmin><AIAgents /></ProtectedRoute>} />
             <Route path="/admin/scouter-resend" element={<ProtectedRoute requireManager><ScouterMessageResend /></ProtectedRoute>} />
             {/* Agenciamento */}
             <Route path="/agenciamento" element={<Agenciamento />} />
