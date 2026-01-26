@@ -1,39 +1,36 @@
 
-# Correção Completa do Layout da Lista de Conversas
+# Correção do Timestamp na Lista de Conversas
 
 ## Problema Identificado
 
-O código anterior foi parcialmente aplicado, mas o layout ainda não está funcionando conforme esperado. A imagem mostra:
-- Timestamp não aparece ao lado do nome
-- Preview da mensagem está na primeira linha (deveria ser o nome)
-- Badge de resposta aparece como texto em vez de dot
+O timestamp não aparece porque a função `formatDistanceToNow` gera textos longos como:
+- "há aproximadamente 2 minutos" (26 caracteres)
+- "há cerca de 1 hora" (18 caracteres)
+
+Isso ocupa muito espaço e pode não caber na área disponível, especialmente quando o nome do cliente é longo.
 
 ---
 
-## Mudanças Necessárias
+## Solução Proposta
 
-### 1. Garantir que o Nome Fique na Primeira Linha com Timestamp
+### 1. Usar Formato Compacto de Timestamp
 
-O código atual tem a estrutura correta, mas precisa garantir visibilidade do timestamp:
+Em vez de "há aproximadamente 2 minutos", usar formato curto:
+- Menos de 1 hora: `14:30` (horário exato)
+- Hoje: `14:30`
+- Ontem: `Ontem`
+- Esta semana: `Seg`, `Ter`, etc.
+- Mais antigo: `12/01`
 
-```text
-Linha 1: [Nome do Cliente]                    [há 2 min]
-Linha 2: [← Preview da mensagem...]               [2]
-Linha 3: [5511997000807]
-Linha 4: [Badge Etapa]
-Linha 5: [👤 Operador]
+Este formato é idêntico ao usado no WhatsApp real e ocupa muito menos espaço (máximo 5-6 caracteres).
+
+### 2. Garantir Largura Mínima para o Timestamp
+
+Adicionar `min-w-fit` ao span do timestamp para garantir que ele nunca seja cortado:
+
+```tsx
+<span className="text-xs text-foreground/60 whitespace-nowrap shrink-0 min-w-fit">
 ```
-
-### 2. Adicionar Cor Mais Visível ao Timestamp
-
-Atualmente está usando `text-muted-foreground` que pode ser muito sutil. Vou adicionar uma cor um pouco mais forte para garantir visibilidade.
-
-### 3. Confirmar Posicionamento dos Status Dots
-
-- **Dot verde (inferior direito do avatar)**: Janela 24h aberta
-- **Dot colorido (superior direito do avatar)**: Status de resposta
-  - Âmbar = Aguardando resposta
-  - Vermelho = Sem resposta
 
 ---
 
@@ -41,29 +38,45 @@ Atualmente está usando `text-muted-foreground` que pode ser muito sutil. Vou ad
 
 ### Arquivo: `src/components/whatsapp/AdminConversationList.tsx`
 
-**Mudança 1: Garantir flex-shrink-0 no timestamp (linhas 387-394)**
+**Mudança 1: Nova função `formatShortTime` (substituir `formatTime`)**
 
 ```tsx
-{/* Row 1: Name + Timestamp */}
-<div className="flex items-center justify-between gap-2">
-  <span className="font-medium truncate flex-1 min-w-0">
-    {conv.deal_title || conv.lead_name || conv.phone_number || "Contato"}
-  </span>
-  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-    {formatTime(conv.last_message_at)}
-  </span>
-</div>
+const formatShortTime = (dateStr: string | null) => {
+  if (!dateStr) return "";
+  try {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    // Hoje: mostrar horário (14:30)
+    if (diffDays === 0 && date.getDate() === now.getDate()) {
+      return format(date, 'HH:mm', { locale: ptBR });
+    }
+    
+    // Ontem
+    if (diffDays === 1 || (diffDays === 0 && date.getDate() !== now.getDate())) {
+      return 'Ontem';
+    }
+    
+    // Esta semana: dia da semana (Seg, Ter, etc)
+    if (diffDays < 7) {
+      return format(date, 'EEE', { locale: ptBR }); // "seg", "ter"
+    }
+    
+    // Mais antigo: data curta (12/01)
+    return format(date, 'dd/MM', { locale: ptBR });
+  } catch {
+    return "";
+  }
+};
 ```
 
-A adição de `shrink-0` garante que o timestamp nunca seja "esmagado" pelo nome longo.
-
-**Mudança 2: Verificar se last_message_at existe antes de mostrar**
-
-Adicionar fallback caso o campo esteja vazio:
+**Mudança 2: Usar `formatShortTime` no JSX**
 
 ```tsx
-<span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-  {conv.last_message_at ? formatTime(conv.last_message_at) : ''}
+<span className="text-xs text-foreground/60 whitespace-nowrap shrink-0">
+  {conv.last_message_at ? formatShortTime(conv.last_message_at) : ''}
 </span>
 ```
 
@@ -72,31 +85,32 @@ Adicionar fallback caso o campo esteja vazio:
 ## Resultado Visual Esperado
 
 ```text
-┌─────────────────────────────────────────────────┐
-│ [EL]  Elisângela                   há 5 min    │
-│  ●●   → Template enviado via...                 │
-│       5511992223277                             │
-│       [Agendados]                               │
-│       👤 Hayer Many                             │
-└─────────────────────────────────────────────────┘
-
-Legenda:
-● verde (inferior) = Janela 24h aberta
-● âmbar/vermelho (superior) = Status resposta
+┌─────────────────────────────────────────────┐
+│ [EL]  Elisângela                   14:30   │
+│  ●●   → [Template enviado]                  │
+│       5511992223277                         │
+│       [Agendados]                           │
+│       👤 Hayer Many                         │
+└─────────────────────────────────────────────┘
 ```
+
+O timestamp compacto (14:30, Ontem, Seg, 12/01) sempre caberá no espaço disponível.
 
 ---
 
-## Verificação Adicional
+## Importação Necessária
 
-Se após aplicar as mudanças o timestamp ainda não aparecer, pode ser necessário:
+Adicionar `format` ao import de `date-fns`:
 
-1. Forçar refresh do preview (Ctrl+Shift+R)
-2. Verificar se o componente está sendo recompilado corretamente
-3. Checar se não há CSS conflitante escondendo o elemento
+```tsx
+import { formatDistanceToNow, format } from 'date-fns';
+```
 
 ---
 
 ## Arquivos a Modificar
 
-- `src/components/whatsapp/AdminConversationList.tsx` (apenas ajustes de CSS)
+- `src/components/whatsapp/AdminConversationList.tsx`
+  - Adicionar `format` ao import
+  - Criar função `formatShortTime`
+  - Substituir chamada de `formatTime` por `formatShortTime`
