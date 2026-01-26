@@ -138,9 +138,7 @@ export default function WhatsApp() {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-l-none" onClick={() => navigate('/telemarketing')}>
-                    <Headset className="h-4 w-4" />
-                  </Button>
+                  
                 </TooltipTrigger>
                 <TooltipContent>Tabulador</TooltipContent>
               </Tooltip>
