@@ -202,6 +202,13 @@ const adminCategories: Record<string, CategoryConfig> = {
     color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
     options: [
       {
+        path: '/admin/ai-agents',
+        icon: Bot,
+        title: 'Agentes de IA',
+        description: 'Gerenciar agentes de IA para WhatsApp',
+        color: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400',
+      },
+      {
         path: '/admin/whatsapp-bot',
         icon: Bot,
         title: 'Bot WhatsApp',
