@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MessageSquare, Clock, ArrowRight } from 'lucide-react';
 import { useWhatsAppMessages } from '@/hooks/useWhatsAppMessages';
 import { useGupshupWindowStatus } from '@/hooks/useGupshupWindowStatus';
+import { useSessionGuard } from '@/hooks/useSessionGuard';
 import { calculateWindowStatus, WindowStatus } from '@/lib/whatsappWindow';
 import { WhatsAppHeader } from './WhatsAppHeader';
 import { WindowTimeCircle } from './WindowTimeCircle';
@@ -11,6 +12,7 @@ import { WhatsAppInput, MediaType } from './WhatsAppInput';
 import { TemplateSelector } from '@/components/gupshup/TemplateSelector';
 import { WhatsAppFlowSelector } from './WhatsAppFlowSelector';
 import { WhatsAppSendError } from './WhatsAppSendError';
+import { SessionExpiredModal } from './SessionExpiredModal';
 import { Button } from '@/components/ui/button';
 
 interface WhatsAppChatContainerProps {
@@ -35,6 +37,10 @@ export function WhatsAppChatContainer({
   const [activeTab, setActiveTab] = useState('messages');
   const hasMarkedAsReadRef = useRef(false);
   const isSendingRef = useRef(false);
+  const [showReloginModal, setShowReloginModal] = useState(false);
+
+  // Session guard para validação proativa
+  const { showReloginModal: sessionExpiredModal, setShowReloginModal: setSessionExpiredModal } = useSessionGuard();
 
   const {
     messages,
@@ -106,6 +112,29 @@ export function WhatsAppChatContainer({
   const handleReconnect = useCallback(() => {
     window.location.reload();
   }, []);
+
+  // Handler para relogin (sessão completamente expirada)
+  const handleRelogin = useCallback(() => {
+    // Limpar dados de sessão
+    localStorage.removeItem('telemarketing_auth_status');
+    localStorage.removeItem('telemarketing_context');
+    // Redirecionar para login
+    window.location.href = '/portal-telemarketing';
+  }, []);
+
+  // Detectar erro de sessão expirada do hook
+  useEffect(() => {
+    if (lastSendError?.code === 'session_expired') {
+      setShowReloginModal(true);
+    }
+  }, [lastSendError]);
+
+  // Sincronizar com sessionGuard
+  useEffect(() => {
+    if (sessionExpiredModal) {
+      setShowReloginModal(true);
+    }
+  }, [sessionExpiredModal]);
 
   // Handler para tentar novamente com a última mensagem
   const handleRetry = useCallback(async () => {
@@ -298,6 +327,13 @@ export function WhatsAppChatContainer({
           />
         </TabsContent>
       </Tabs>
+
+      {/* Modal de sessão expirada */}
+      <SessionExpiredModal 
+        open={showReloginModal} 
+        onRelogin={handleRelogin}
+        onClose={() => setShowReloginModal(false)}
+      />
     </div>
   );
 }
