@@ -532,11 +532,11 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     {/* Row 1: Name + Timestamp */}
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium truncate flex-1 min-w-0">
+                    <div className="flex items-center gap-2 w-full">
+                      <span className="font-medium truncate min-w-0 flex-1">
                         {getDisplayTitle(conv)}
                       </span>
-                      <span className="text-xs text-foreground/60 whitespace-nowrap shrink-0">
+                      <span className="text-xs text-foreground/60 whitespace-nowrap shrink-0 min-w-fit">
                         {conv.last_message_at ? formatShortTime(conv.last_message_at) : ''}
                       </span>
                     </div>
