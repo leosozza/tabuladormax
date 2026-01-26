@@ -89,6 +89,33 @@ export function WhatsAppInput({
 
   const { generateResponse, improveText, isGenerating, isImproving } = useWhatsAppAI();
 
+  // Buscar nome do agente vinculado ao usuário
+  const [assignedAgentName, setAssignedAgentName] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const fetchAssignedAgent = async () => {
+      if (!operatorBitrixId && !profileId) return;
+      
+      let query = supabase
+        .from('agent_operator_assignments')
+        .select('agent:ai_agents(name)')
+        .eq('is_active', true);
+      
+      if (operatorBitrixId) {
+        query = query.eq('operator_bitrix_id', operatorBitrixId);
+      } else if (profileId) {
+        query = query.eq('profile_id', profileId);
+      }
+      
+      const { data } = await query.maybeSingle();
+      if (data?.agent?.name) {
+        setAssignedAgentName(data.agent.name);
+      }
+    };
+    
+    fetchAssignedAgent();
+  }, [operatorBitrixId, profileId]);
+
   const handleGenerateAI = async () => {
     if (chatMessages.length === 0) {
       toast.error('Nenhuma mensagem na conversa');
@@ -475,7 +502,7 @@ export function WhatsAppInput({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Melhorar texto com IA</p>
+                <p>Melhorar texto com IA{assignedAgentName ? ` (${assignedAgentName})` : ''}</p>
               </TooltipContent>
             </Tooltip>
           ) : (
@@ -492,7 +519,7 @@ export function WhatsAppInput({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Gerar resposta com IA</p>
+                <p>Gerar resposta com IA{assignedAgentName ? ` (${assignedAgentName})` : ''}</p>
               </TooltipContent>
             </Tooltip>
           )}
