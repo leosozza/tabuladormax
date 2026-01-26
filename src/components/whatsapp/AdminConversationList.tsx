@@ -31,7 +31,7 @@ import {
   ClosedFilter,
   useAdminWhatsAppConversations,
 } from "@/hooks/useAdminWhatsAppConversations";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getEtapaStyle } from "@/lib/etapaColors";
 import { ClientDetailsModal } from "./ClientDetailsModal";
@@ -150,13 +150,31 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
     return getConversationKey(conv) === getConversationKey(selectedConversation);
   };
 
-  const formatTime = (dateStr: string | null) => {
+  const formatShortTime = (dateStr: string | null) => {
     if (!dateStr) return "";
     try {
-      return formatDistanceToNow(new Date(dateStr), {
-        addSuffix: true,
-        locale: ptBR,
-      });
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      // Hoje: mostrar horário (14:30)
+      if (diffDays === 0 && date.getDate() === now.getDate()) {
+        return format(date, 'HH:mm', { locale: ptBR });
+      }
+      
+      // Ontem
+      if (diffDays === 1 || (diffDays === 0 && date.getDate() !== now.getDate())) {
+        return 'Ontem';
+      }
+      
+      // Esta semana: dia da semana (Seg, Ter, etc)
+      if (diffDays < 7) {
+        return format(date, 'EEE', { locale: ptBR });
+      }
+      
+      // Mais antigo: data curta (12/01)
+      return format(date, 'dd/MM', { locale: ptBR });
     } catch {
       return "";
     }
@@ -419,7 +437,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                         {getDisplayTitle(conv)}
                       </span>
                       <span className="text-xs text-foreground/60 whitespace-nowrap shrink-0">
-                        {conv.last_message_at ? formatTime(conv.last_message_at) : ''}
+                        {conv.last_message_at ? formatShortTime(conv.last_message_at) : ''}
                       </span>
                     </div>
 
