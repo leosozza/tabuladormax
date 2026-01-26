@@ -71,9 +71,10 @@ async function getAgentAndTraining(operatorBitrixId: number): Promise<{ agent: A
     }
 
     const agent = assignment.agent as unknown as AgentData;
+    const allTrainings: TrainingData[] = [];
     
-    // Buscar treinamentos do agente
-    const { data: trainings, error: trainingError } = await supabase
+    // Buscar treinamentos específicos do agente (ai_agents_training)
+    const { data: agentTrainings, error: trainingError } = await supabase
       .from('ai_agents_training')
       .select('title, content, category, priority')
       .eq('agent_id', agent.id)
@@ -81,12 +82,40 @@ async function getAgentAndTraining(operatorBitrixId: number): Promise<{ agent: A
       .order('priority', { ascending: false });
 
     if (trainingError) {
-      console.error('Erro ao buscar treinamentos:', trainingError);
-      return { agent, trainings: [] };
+      console.error('Erro ao buscar treinamentos do agente:', trainingError);
+    } else if (agentTrainings) {
+      allTrainings.push(...agentTrainings);
     }
 
-    console.log(`Usando agente "${agent.name}" com ${trainings?.length || 0} treinamentos`);
-    return { agent, trainings: trainings || [] };
+    // Buscar treinamentos vinculados do sistema (agent_training_links -> ai_training_instructions)
+    const { data: linkedTrainings, error: linkedError } = await supabase
+      .from('agent_training_links')
+      .select(`
+        training:ai_training_instructions(title, content, category, priority, is_active)
+      `)
+      .eq('agent_id', agent.id);
+
+    if (linkedError) {
+      console.error('Erro ao buscar treinamentos vinculados:', linkedError);
+    } else if (linkedTrainings) {
+      for (const link of linkedTrainings) {
+        const training = link.training as unknown as { title: string; content: string | null; category: string | null; priority: number; is_active: boolean };
+        if (training && training.is_active && training.content) {
+          allTrainings.push({
+            title: training.title,
+            content: training.content,
+            category: training.category || 'geral',
+            priority: training.priority,
+          });
+        }
+      }
+    }
+
+    // Ordenar todos os treinamentos por prioridade
+    allTrainings.sort((a, b) => b.priority - a.priority);
+
+    console.log(`Usando agente "${agent.name}" com ${allTrainings.length} treinamentos (${agentTrainings?.length || 0} diretos + ${linkedTrainings?.length || 0} vinculados)`);
+    return { agent, trainings: allTrainings };
   } catch (err) {
     console.error('Erro ao buscar dados do agente:', err);
     return { agent: null, trainings: [] };
