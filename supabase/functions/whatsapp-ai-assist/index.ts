@@ -11,8 +11,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -22,10 +22,10 @@ serve(async (req) => {
   try {
     const { action, messages, text, context } = await req.json();
 
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY não configurada');
+    if (!GROQ_API_KEY) {
+      console.error('GROQ_API_KEY não configurada');
       return new Response(
-        JSON.stringify({ error: 'API key não configurada' }),
+        JSON.stringify({ error: 'API key do Groq não configurada' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -55,14 +55,14 @@ ${context ? `Contexto adicional: ${context}` : ''}`;
 
       userPrompt = 'Baseado na conversa acima, gere uma resposta adequada para o cliente.';
 
-      const response = await fetch(AI_GATEWAY_URL, {
+      const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: systemPrompt },
             ...conversationHistory,
@@ -74,12 +74,19 @@ ${context ? `Contexto adicional: ${context}` : ''}`;
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Erro no AI Gateway:', response.status, errorText);
+        console.error('Erro no Groq API:', response.status, errorText);
         
         if (response.status === 429) {
           return new Response(
             JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns segundos.' }),
             { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        if (response.status === 402) {
+          return new Response(
+            JSON.stringify({ error: 'Créditos insuficientes no Groq. Verifique sua conta.' }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         
@@ -120,14 +127,14 @@ ${context ? `Contexto adicional: ${context}` : ''}
 
 Retorne APENAS o texto melhorado, sem explicações.`;
 
-      const response = await fetch(AI_GATEWAY_URL, {
+      const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Melhore este texto: "${text}"` },
@@ -138,12 +145,19 @@ Retorne APENAS o texto melhorado, sem explicações.`;
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Erro no AI Gateway:', response.status, errorText);
+        console.error('Erro no Groq API:', response.status, errorText);
         
         if (response.status === 429) {
           return new Response(
             JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns segundos.' }),
             { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        if (response.status === 402) {
+          return new Response(
+            JSON.stringify({ error: 'Créditos insuficientes no Groq. Verifique sua conta.' }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         
