@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { RefreshCw, Settings, Eye } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { RefreshCw, Settings, Eye, Search, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ export default function TemplateManagement() {
   const [selectedTemplate, setSelectedTemplate] = useState<GupshupTemplate | null>(null);
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Buscar todos os templates
   const { data: templates, isLoading: templatesLoading, refetch: refetchTemplates } = useQuery({
@@ -136,6 +138,17 @@ export default function TemplateManagement() {
     permissionMutation.mutate({ userId, templateId, grant: !currentValue });
   };
 
+  const filteredTemplates = useMemo(() => {
+    if (!templates) return [];
+    if (!searchTerm.trim()) return templates;
+    
+    const term = searchTerm.toLowerCase();
+    return templates.filter(t => 
+      t.display_name.toLowerCase().includes(term) ||
+      t.element_name.toLowerCase().includes(term)
+    );
+  }, [templates, searchTerm]);
+
   const handleGrantAllDepartment = async (department: 'telemarketing' | 'scouters') => {
     if (!selectedTemplate) return;
 
@@ -183,6 +196,34 @@ export default function TemplateManagement() {
         </Button>
       </div>
 
+      {/* Campo de Busca */}
+      <div className="space-y-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar template por nome..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-10"
+          />
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+              onClick={() => setSearchTerm('')}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+        {searchTerm && (
+          <p className="text-sm text-muted-foreground">
+            Mostrando {filteredTemplates.length} de {templates?.length || 0} templates
+          </p>
+        )}
+      </div>
+
       {/* Lista de templates */}
       <div className="grid gap-4">
         {templatesLoading ? (
@@ -190,8 +231,8 @@ export default function TemplateManagement() {
             <RefreshCw className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
             <p className="text-muted-foreground mt-2">Carregando templates...</p>
           </div>
-        ) : templates && templates.length > 0 ? (
-          templates.map((template) => (
+        ) : filteredTemplates.length > 0 ? (
+          filteredTemplates.map((template) => (
             <Card key={template.id}>
               <CardHeader>
                 <div className="flex items-start justify-between">
