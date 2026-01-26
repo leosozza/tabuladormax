@@ -139,7 +139,8 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
-          operator_bitrix_id: number
+          operator_bitrix_id: number | null
+          profile_id: string | null
         }
         Insert: {
           agent_id: string
@@ -147,7 +148,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
-          operator_bitrix_id: number
+          operator_bitrix_id?: number | null
+          profile_id?: string | null
         }
         Update: {
           agent_id?: string
@@ -155,7 +157,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
-          operator_bitrix_id?: number
+          operator_bitrix_id?: number | null
+          profile_id?: string | null
         }
         Relationships: [
           {
@@ -163,6 +166,13 @@ export type Database = {
             columns: ["agent_id"]
             isOneToOne: false
             referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_operator_assignments_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
