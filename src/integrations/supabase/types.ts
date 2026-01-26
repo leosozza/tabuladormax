@@ -6121,6 +6121,7 @@ export type Database = {
           unread_messages: number
         }[]
       }
+      get_whatsapp_dashboard_stats: { Args: never; Returns: Json }
       get_whatsapp_message_stats: {
         Args: { p_phone_numbers: string[] }
         Returns: {
