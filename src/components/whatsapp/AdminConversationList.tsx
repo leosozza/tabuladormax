@@ -388,8 +388,8 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                       <span className="font-medium truncate flex-1 min-w-0">
                         {conv.deal_title || conv.lead_name || conv.phone_number || "Contato"}
                       </span>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {formatTime(conv.last_message_at)}
+                      <span className="text-xs text-foreground/60 whitespace-nowrap shrink-0">
+                        {conv.last_message_at ? formatTime(conv.last_message_at) : ''}
                       </span>
                     </div>
 
