@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search,
   MessageCircle,
@@ -12,6 +12,8 @@ import {
   Handshake,
   CheckCircle2,
   Archive,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AdminConversation,
   WindowFilter,
@@ -31,6 +34,51 @@ import {
   ClosedFilter,
   useAdminWhatsAppConversations,
 } from "@/hooks/useAdminWhatsAppConversations";
+
+// Storage key for persisting filters
+const FILTERS_STORAGE_KEY = 'whatsapp-admin-filters';
+const FILTERS_COLLAPSED_KEY = 'whatsapp-admin-filters-collapsed';
+
+interface SavedFilters {
+  windowFilter: WindowFilter;
+  responseFilter: ResponseFilter;
+  etapaFilter: string;
+  dealStatusFilter: DealStatusFilter;
+  closedFilter: ClosedFilter;
+}
+
+const loadSavedFilters = (): Partial<SavedFilters> => {
+  try {
+    const saved = localStorage.getItem(FILTERS_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveFilters = (filters: SavedFilters) => {
+  try {
+    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+const loadCollapsedState = (): boolean => {
+  try {
+    return localStorage.getItem(FILTERS_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+const saveCollapsedState = (collapsed: boolean) => {
+  try {
+    localStorage.setItem(FILTERS_COLLAPSED_KEY, String(collapsed));
+  } catch {
+    // Ignore storage errors
+  }
+};
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getEtapaStyle } from "@/lib/etapaColors";
@@ -87,15 +135,39 @@ interface AdminConversationListProps {
 }
 
 export function AdminConversationList({ selectedConversation, onSelectConversation }: AdminConversationListProps) {
+  // Load saved filters on mount
+  const savedFilters = loadSavedFilters();
+  
   const [search, setSearch] = useState("");
-  const [windowFilter, setWindowFilter] = useState<WindowFilter>("all");
-  const [responseFilter, setResponseFilter] = useState<ResponseFilter>("all");
-  const [etapaFilter, setEtapaFilter] = useState<string>("all");
-  const [dealStatusFilter, setDealStatusFilter] = useState<DealStatusFilter>("all");
-  const [closedFilter, setClosedFilter] = useState<ClosedFilter>("active");
+  const [windowFilter, setWindowFilter] = useState<WindowFilter>(savedFilters.windowFilter || "all");
+  const [responseFilter, setResponseFilter] = useState<ResponseFilter>(savedFilters.responseFilter || "all");
+  const [etapaFilter, setEtapaFilter] = useState<string>(savedFilters.etapaFilter || "all");
+  const [dealStatusFilter, setDealStatusFilter] = useState<DealStatusFilter>(savedFilters.dealStatusFilter || "all");
+  const [closedFilter, setClosedFilter] = useState<ClosedFilter>(savedFilters.closedFilter || "active");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedForDetails, setSelectedForDetails] = useState<AdminConversation | null>(null);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(loadCollapsedState());
+
+  // Persist filters whenever they change
+  useEffect(() => {
+    saveFilters({
+      windowFilter,
+      responseFilter,
+      etapaFilter,
+      dealStatusFilter,
+      closedFilter,
+    });
+  }, [windowFilter, responseFilter, etapaFilter, dealStatusFilter, closedFilter]);
+
+  // Persist collapsed state
+  useEffect(() => {
+    saveCollapsedState(filtersCollapsed);
+  }, [filtersCollapsed]);
+
+  // Check if any filter is active (not default)
+  const hasActiveFilters = windowFilter !== "all" || responseFilter !== "all" || 
+    etapaFilter !== "all" || dealStatusFilter !== "all" || closedFilter !== "active";
 
   // Fetch closed conversations count
   const { data: closedCount = 0 } = useQuery({
@@ -259,114 +331,142 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
           />
         </div>
 
-        {/* Filters Row */}
-        <div className="flex gap-2">
-          {/* Window Filter */}
-          <Select value={windowFilter} onValueChange={(v) => setWindowFilter(v as WindowFilter)}>
-            <SelectTrigger className="flex-1">
-              <Clock className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Janela" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              <SelectItem value="open">Abertas (24h)</SelectItem>
-              <SelectItem value="closed">Fechadas</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Response Filter */}
-          <Select value={responseFilter} onValueChange={(v) => setResponseFilter(v as ResponseFilter)}>
-            <SelectTrigger className="flex-1">
-              <MessageSquareWarning className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Resposta" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              <SelectItem value="waiting">Aguardando</SelectItem>
-              <SelectItem value="never">Sem resposta</SelectItem>
-              <SelectItem value="replied">Respondeu</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Etapa and Deal Status Filters Row */}
-        <div className="flex gap-2">
-          {/* Etapa Filter */}
-          <Select
-            value={etapaFilter}
-            onValueChange={(v) => {
-              setEtapaFilter(v);
-              // Reset deal filter when changing away from converted leads
-              if (v !== "Lead convertido") {
-                setDealStatusFilter("all");
-              }
-            }}
-          >
-            <SelectTrigger className="flex-1">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Fase" />
-            </SelectTrigger>
-            <SelectContent>
-              {ETAPA_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Deal Status Filter - Only show for converted leads */}
-          {etapaFilter === "Lead convertido" && (
-            <Select value={dealStatusFilter} onValueChange={(v) => setDealStatusFilter(v as DealStatusFilter)}>
-              <SelectTrigger className="flex-1">
-                <Handshake className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Contrato" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="won">✅ Contrato Fechado</SelectItem>
-                <SelectItem value="lost">❌ Não Fechou</SelectItem>
-                <SelectItem value="open">🔄 Em Negociação</SelectItem>
-                <SelectItem value="no_deal">📋 Sem Deal</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-
-        {/* Closed Conversations Filter */}
-        <div className="flex items-center justify-between py-2 px-1 rounded-md bg-muted/50">
-          <div className="flex items-center gap-2">
-            <Archive className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              Encerradas
-              {closedCount > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {closedCount}
-                </Badge>
+        {/* Collapsible Filters */}
+        <Collapsible open={!filtersCollapsed} onOpenChange={(open) => setFiltersCollapsed(!open)}>
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full flex items-center justify-between h-8 px-2"
+            >
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                <span className="text-sm">Filtros</span>
+                {hasActiveFilters && (
+                  <Badge variant="secondary" className="h-5 text-xs">
+                    Ativos
+                  </Badge>
+                )}
+              </div>
+              {filtersCollapsed ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
               )}
-            </span>
-          </div>
-          <Select value={closedFilter} onValueChange={(v) => setClosedFilter(v as ClosedFilter)}>
-            <SelectTrigger className="w-32 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">
-                <span className="flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3 text-green-500" />
-                  Ativas
-                </span>
-              </SelectItem>
-              <SelectItem value="closed">
-                <span className="flex items-center gap-1">
-                  <Archive className="h-3 w-3 text-muted-foreground" />
+            </Button>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent className="space-y-3 pt-2">
+            {/* Filters Row */}
+            <div className="flex gap-2">
+              {/* Window Filter */}
+              <Select value={windowFilter} onValueChange={(v) => setWindowFilter(v as WindowFilter)}>
+                <SelectTrigger className="flex-1">
+                  <Clock className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Janela" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="open">Abertas (24h)</SelectItem>
+                  <SelectItem value="closed">Fechadas</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Response Filter */}
+              <Select value={responseFilter} onValueChange={(v) => setResponseFilter(v as ResponseFilter)}>
+                <SelectTrigger className="flex-1">
+                  <MessageSquareWarning className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Resposta" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="waiting">Aguardando</SelectItem>
+                  <SelectItem value="never">Sem resposta</SelectItem>
+                  <SelectItem value="replied">Respondeu</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Etapa and Deal Status Filters Row */}
+            <div className="flex gap-2">
+              {/* Etapa Filter */}
+              <Select
+                value={etapaFilter}
+                onValueChange={(v) => {
+                  setEtapaFilter(v);
+                  // Reset deal filter when changing away from converted leads
+                  if (v !== "Lead convertido") {
+                    setDealStatusFilter("all");
+                  }
+                }}
+              >
+                <SelectTrigger className="flex-1">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Fase" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ETAPA_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Deal Status Filter - Only show for converted leads */}
+              {etapaFilter === "Lead convertido" && (
+                <Select value={dealStatusFilter} onValueChange={(v) => setDealStatusFilter(v as DealStatusFilter)}>
+                  <SelectTrigger className="flex-1">
+                    <Handshake className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Contrato" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="won">✅ Contrato Fechado</SelectItem>
+                    <SelectItem value="lost">❌ Não Fechou</SelectItem>
+                    <SelectItem value="open">🔄 Em Negociação</SelectItem>
+                    <SelectItem value="no_deal">📋 Sem Deal</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {/* Closed Conversations Filter */}
+            <div className="flex items-center justify-between py-2 px-1 rounded-md bg-muted/50">
+              <div className="flex items-center gap-2">
+                <Archive className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
                   Encerradas
+                  {closedCount > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {closedCount}
+                    </Badge>
+                  )}
                 </span>
-              </SelectItem>
-              <SelectItem value="all">Todas</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+              </div>
+              <Select value={closedFilter} onValueChange={(v) => setClosedFilter(v as ClosedFilter)}>
+                <SelectTrigger className="w-32 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3 text-green-500" />
+                      Ativas
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="closed">
+                    <span className="flex items-center gap-1">
+                      <Archive className="h-3 w-3 text-muted-foreground" />
+                      Encerradas
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       {/* Conversation List */}
