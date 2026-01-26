@@ -14,8 +14,8 @@ interface GenerateResponseResult {
 }
 
 interface UseWhatsAppAIReturn {
-  generateResponse: (messages: Message[], context?: string, operatorBitrixId?: number) => Promise<GenerateResponseResult>;
-  improveText: (text: string, context?: string, operatorBitrixId?: number) => Promise<string | null>;
+  generateResponse: (messages: Message[], context?: string, operatorBitrixId?: number, profileId?: string) => Promise<GenerateResponseResult>;
+  improveText: (text: string, context?: string, operatorBitrixId?: number, profileId?: string) => Promise<string | null>;
   isGenerating: boolean;
   isImproving: boolean;
 }
@@ -27,7 +27,8 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
   const generateResponse = useCallback(async (
     messages: Message[], 
     context?: string,
-    operatorBitrixId?: number
+    operatorBitrixId?: number,
+    profileId?: string
   ): Promise<GenerateResponseResult> => {
     setIsGenerating(true);
     try {
@@ -40,6 +41,7 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
           })),
           context,
           operatorBitrixId,
+          profileId,
         },
       });
 
@@ -65,7 +67,8 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
   const improveText = useCallback(async (
     text: string, 
     context?: string,
-    operatorBitrixId?: number
+    operatorBitrixId?: number,
+    profileId?: string
   ): Promise<string | null> => {
     setIsImproving(true);
     try {
@@ -75,6 +78,7 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
           text,
           context,
           operatorBitrixId,
+          profileId,
         },
       });
 
