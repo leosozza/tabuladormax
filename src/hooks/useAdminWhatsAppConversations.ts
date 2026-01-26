@@ -161,33 +161,37 @@ export const useAdminWhatsAppConversations = ({
     return data.pages.flatMap(page => page.conversations);
   }, [data]);
 
-  // Use optimized stats RPC instead of multiple calls
+  // Use filtered stats RPC - updates based on current filters
   const { data: stats } = useQuery({
-    queryKey: ['admin-whatsapp-stats'],
+    queryKey: ['admin-whatsapp-stats', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_admin_whatsapp_stats');
+      const { data, error } = await supabase.rpc('get_admin_whatsapp_filtered_stats', {
+        p_search: search || null,
+        p_window_filter: windowFilter,
+        p_response_filter: responseFilter,
+        p_etapa_filter: etapaFilter || null,
+        p_deal_status_filter: dealStatusFilter
+      });
       
       if (error) {
-        // Fallback to basic count if new RPC not available
+        console.error('Error fetching filtered stats:', error);
+        // Fallback to basic count if RPC fails
         return { total: 0, openWindows: 0, unread: 0 };
       }
 
-      const statsArray = data as Array<{
+      const statsData = (data as Array<{
         total_conversations: number;
         open_windows: number;
         total_unread: number;
-        last_refresh: string;
-      }> | null;
+      }> | null)?.[0];
       
-      const statsData = statsArray?.[0];
       return {
         total: Number(statsData?.total_conversations) || 0,
         openWindows: Number(statsData?.open_windows) || 0,
         unread: Number(statsData?.total_unread) || 0
       };
     },
-    enabled: conversations.length > 0,
-    staleTime: 120000,
+    staleTime: 60000,
     gcTime: 300000,
     refetchOnWindowFocus: false,
   });
