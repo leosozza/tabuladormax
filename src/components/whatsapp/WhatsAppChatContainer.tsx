@@ -14,6 +14,7 @@ import { WhatsAppFlowSelector } from './WhatsAppFlowSelector';
 import { WhatsAppSendError } from './WhatsAppSendError';
 import { SessionExpiredModal } from './SessionExpiredModal';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
 interface WhatsAppChatContainerProps {
   bitrixId?: string;
@@ -40,6 +41,16 @@ export function WhatsAppChatContainer({
   const hasMarkedAsReadRef = useRef(false);
   const isSendingRef = useRef(false);
   const [showReloginModal, setShowReloginModal] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+
+  // Buscar ID do usuário logado para usar com IA
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id);
+    };
+    getUser();
+  }, []);
 
   // Session guard para validação proativa
   const { showReloginModal: sessionExpiredModal, setShowReloginModal: setSessionExpiredModal } = useSessionGuard();
@@ -294,6 +305,7 @@ export function WhatsAppChatContainer({
             inCooldown={false}
             projectId={commercialProjectId}
             operatorBitrixId={operatorBitrixId}
+            profileId={currentUserId}
             chatMessages={messages.map(m => ({
               direction: m.direction,
               content: m.content || '',

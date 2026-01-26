@@ -44,6 +44,7 @@ interface WhatsAppInputProps {
   projectId?: string;
   chatMessages?: ChatMessage[];
   operatorBitrixId?: number;
+  profileId?: string;
 }
 
 function formatTime(seconds: number): string {
@@ -68,7 +69,8 @@ export function WhatsAppInput({
   inCooldown,
   projectId,
   chatMessages = [],
-  operatorBitrixId
+  operatorBitrixId,
+  profileId
 }: WhatsAppInputProps) {
   const [messageInput, setMessageInput] = useState('');
   const [mediaPreview, setMediaPreview] = useState<MediaPreview | null>(null);
@@ -93,7 +95,7 @@ export function WhatsAppInput({
       return;
     }
     
-    const result = await generateResponse(chatMessages, undefined, operatorBitrixId);
+    const result = await generateResponse(chatMessages, undefined, operatorBitrixId, profileId);
     if (result.response) {
       setMessageInput(result.response);
       const agentInfo = result.agentName ? ` (Agente: ${result.agentName})` : '';
@@ -107,7 +109,7 @@ export function WhatsAppInput({
       return;
     }
     
-    const improved = await improveText(messageInput, undefined, operatorBitrixId);
+    const improved = await improveText(messageInput, undefined, operatorBitrixId, profileId);
     if (improved) {
       setMessageInput(improved);
       toast.success('Texto melhorado!');
