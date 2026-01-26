@@ -491,12 +491,83 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     }
   };
 
+  // Validação proativa de sessão antes de enviar
+  const ensureValidSessionForSend = async (): Promise<boolean> => {
+    try {
+      logDebug('Validating session before send...');
+      
+      // 1. Verificar sessão atual
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.expires_at) {
+        const expiresAt = session.expires_at * 1000;
+        const now = Date.now();
+        const bufferMs = 60 * 1000; // 1 minuto de margem
+        
+        if (expiresAt - now > bufferMs) {
+          logDebug('Session is valid for send');
+          return true;
+        }
+      }
+      
+      logDebug('Session expired or expiring, attempting refresh...');
+      
+      // 2. Tentar refresh
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (!refreshError && refreshData?.session) {
+        logDebug('Session refreshed successfully');
+        return true;
+      }
+      
+      // 3. Tentar re-auth via access_key
+      const authStatus = localStorage.getItem('telemarketing_auth_status');
+      if (authStatus) {
+        try {
+          const parsed = JSON.parse(authStatus);
+          if (parsed.accessKey && parsed.email) {
+            logDebug('Attempting re-auth via access_key');
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+              email: parsed.email,
+              password: parsed.accessKey,
+            });
+            
+            if (!signInError) {
+              logDebug('Re-auth successful');
+              return true;
+            }
+          }
+        } catch {}
+      }
+      
+      logDebug('All session recovery attempts failed');
+      return false;
+    } catch (error) {
+      logDebug('ensureValidSessionForSend error', { error });
+      return false;
+    }
+  };
+
   const sendMessage = async (content: string): Promise<boolean> => {
     logDebug('sendMessage called', { content: content.substring(0, 50), phoneNumber });
     
     if (!phoneNumber || !content.trim()) {
       logDebug('sendMessage rejected: missing data');
       toast.error('Telefone e mensagem são obrigatórios');
+      return false;
+    }
+
+    // NOVA VALIDAÇÃO: Verificar sessão ANTES de enviar
+    const sessionValid = await ensureValidSessionForSend();
+    if (!sessionValid) {
+      logDebug('sendMessage rejected: session invalid');
+      setLastSendError({
+        message: 'Sessão expirada. Faça login novamente para enviar mensagens.',
+        code: 'session_expired',
+        canRetry: false,
+        requiresReconnect: true,
+        timestamp: Date.now(),
+      });
       return false;
     }
 
@@ -537,7 +608,7 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     lastSendTimeRef.current = now;
     sendCountRef.current += 1;
     setSending(true);
-    logDebug('sendMessage starting - ENVIE PRIMEIRO', { sendCount: sendCountRef.current });
+    logDebug('sendMessage starting', { sendCount: sendCountRef.current });
     
     // Criar AbortController para cancelamento
     abortControllerRef.current = new AbortController();
