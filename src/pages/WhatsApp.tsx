@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { BarChart3, Headset, MessageSquare, ShieldAlert } from 'lucide-react';
+import { BarChart3, Headset, MessageSquare, ShieldAlert, LayoutDashboard, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MainLayout } from '@/components/layouts/MainLayout';
 import {
@@ -136,11 +136,27 @@ export default function WhatsApp() {
             <div className="flex items-center border rounded-md">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-r-none" onClick={() => navigate('/dashboard')}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-r-none" onClick={() => navigate('/admin/whatsapp-dashboard')}>
+                    <LayoutDashboard className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Dashboard Central de Atendimento</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none border-x" onClick={() => navigate('/admin/ai-agents')}>
+                    <Bot className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Agentes de IA</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => navigate('/dashboard')}>
                     <BarChart3 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Dashboard</TooltipContent>
+                <TooltipContent>Dashboard Geral</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
