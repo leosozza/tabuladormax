@@ -162,6 +162,36 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
     }
   };
 
+  const getDisplayTitle = (conv: AdminConversation) =>
+    conv.deal_title || conv.lead_name || conv.phone_number || "Contato";
+
+  const formatPreviewText = (conv: AdminConversation) => {
+    const arrow = conv.last_message_direction === "inbound" ? "← " : "→ ";
+    const raw = (conv.last_message_preview || "").trim();
+
+    if (!raw) return `${arrow}Sem mensagens`;
+
+    // Keep server-provided labels (e.g. "[...]") as-is.
+    if (/^\[[^\]]+\]$/.test(raw)) return `${arrow}${raw}`;
+
+    // Hide long / multiline / markdown-like content (commonly templates) in the list.
+    const isMultiline = /[\r\n]/.test(raw);
+    const isVeryLong = raw.length > 160;
+    const looksLikeTemplateBody = /\*[^*]+\*/.test(raw) || /(^|\s)-\S/.test(raw);
+    if (isMultiline || isVeryLong || looksLikeTemplateBody) {
+      return `${arrow}[Template enviado]`;
+    }
+
+    // Normalize to a single clean line.
+    const cleaned = raw
+      .replace(/[\r\n]+/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/[*_`]+/g, "")
+      .trim();
+
+    return `${arrow}${cleaned}`;
+  };
+
   const getInitials = (name: string | null) => {
     if (!name || name === "Contato") return "C";
     return name
@@ -386,7 +416,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                     {/* Row 1: Name + Timestamp */}
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium truncate flex-1 min-w-0">
-                        {conv.deal_title || conv.lead_name || conv.phone_number || "Contato"}
+                        {getDisplayTitle(conv)}
                       </span>
                       <span className="text-xs text-foreground/60 whitespace-nowrap shrink-0">
                         {conv.last_message_at ? formatTime(conv.last_message_at) : ''}
@@ -396,8 +426,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                     {/* Row 2: Message preview + Unread badge */}
                     <div className="flex items-center justify-between gap-2 mt-0.5">
                       <p className="text-xs text-muted-foreground truncate flex-1">
-                        {conv.last_message_direction === "inbound" ? "← " : "→ "}
-                        {conv.last_message_preview || "Sem mensagens"}
+                        {formatPreviewText(conv)}
                       </p>
                       {conv.unread_count > 0 && (
                         <Badge variant="default" className="bg-green-500 hover:bg-green-500 h-5 min-w-5 flex items-center justify-center text-xs text-white">
@@ -412,7 +441,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                     )}
 
                     {/* Phone number if different from name */}
-                    {conv.lead_name && conv.phone_number && (
+                    {conv.phone_number && conv.phone_number !== getDisplayTitle(conv) && (
                       <p className="text-xs text-muted-foreground mt-0.5">{conv.phone_number}</p>
                     )}
 
