@@ -133,7 +133,7 @@ export default function Users() {
   // Batch edit
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [batchEditDialogOpen, setBatchEditDialogOpen] = useState(false);
-  const [batchEditField, setBatchEditField] = useState<'project' | 'supervisor' | 'role' | 'department'>('project');
+  const [batchEditField, setBatchEditField] = useState<'project' | 'supervisor' | 'role' | 'department' | 'ai_agent'>('project');
   const [batchEditValue, setBatchEditValue] = useState("");
   const [batchEditLoading, setBatchEditLoading] = useState(false);
   const [batchEditSupervisors, setBatchEditSupervisors] = useState<UserWithRole[]>([]);
@@ -1097,7 +1097,7 @@ export default function Users() {
     setBatchEditDialogOpen(true);
   };
 
-  const handleBatchEditFieldChange = async (field: 'project' | 'supervisor' | 'role' | 'department') => {
+  const handleBatchEditFieldChange = async (field: 'project' | 'supervisor' | 'role' | 'department' | 'ai_agent') => {
     setBatchEditField(field);
     setBatchEditValue("");
     
@@ -1123,6 +1123,8 @@ export default function Users() {
       const projectId = Array.from(projects)[0] as string;
       await loadSupervisorsForBatchEdit(projectId);
     }
+    
+    // Se escolheu ai_agent, não precisa carregar nada extra (já está no hook)
   };
 
   const loadSupervisorsForBatchEdit = async (projectId: string) => {
@@ -1260,6 +1262,33 @@ export default function Users() {
         }
         
         toast.success(`✅ Departamento atualizado para ${userIds.length} usuário(s)`);
+      } else if (batchEditField === 'ai_agent') {
+        // Atualizar agente IA para cada usuário
+        const selectedUsers = users.filter(u => selectedUserIds.has(u.id));
+        
+        for (const user of selectedUsers) {
+          const operatorId = user.telemarketing_id || undefined;
+          const profileId = !operatorId ? user.id : undefined;
+          
+          if (batchEditValue === "none") {
+            // Desvincular
+            const currentAssignment = aiAssignments.find(a => 
+              a.is_active && (
+                (operatorId && a.operator_bitrix_id === operatorId) ||
+                (profileId && a.profile_id === profileId)
+              )
+            );
+            if (currentAssignment) {
+              await unassignOperator(currentAssignment.id);
+            }
+          } else {
+            // Vincular ao agente selecionado
+            await assignOperator(batchEditValue, operatorId, profileId);
+          }
+        }
+        
+        await fetchAssignments();
+        toast.success(`✅ Agente IA atualizado para ${selectedUsers.length} usuário(s)`);
       }
 
       setBatchEditDialogOpen(false);
@@ -1275,16 +1304,18 @@ export default function Users() {
 
   // ===== AI AGENT FUNCTIONS =====
   const getAssignedAgent = (user: UserWithRole) => {
-    if (!user.telemarketing_id) return null;
-    const assignment = aiAssignments.find(a => a.operator_bitrix_id === user.telemarketing_id && a.is_active);
+    // Buscar por telemarketing_id OU por profile_id (user.id)
+    const assignment = aiAssignments.find(a => 
+      a.is_active && (
+        (user.telemarketing_id && a.operator_bitrix_id === user.telemarketing_id) ||
+        (a.profile_id === user.id)
+      )
+    );
     return assignment?.agent || null;
   };
 
   const openEditAIAgentDialog = (user: UserWithRole) => {
-    if (!user.telemarketing_id) {
-      toast.error('Este usuário não tem operador Bitrix vinculado');
-      return;
-    }
+    // Permitir edição mesmo sem operador Bitrix (usará profile_id)
     setEditingAIAgentUser(user);
     const currentAgent = getAssignedAgent(user);
     setSelectedAIAgentId(currentAgent?.id || "none");
@@ -1292,21 +1323,27 @@ export default function Users() {
   };
 
   const handleSaveAIAgent = async () => {
-    if (!editingAIAgentUser?.telemarketing_id) return;
+    if (!editingAIAgentUser) return;
+    
+    const operatorId = editingAIAgentUser.telemarketing_id || undefined;
+    const profileId = !operatorId ? editingAIAgentUser.id : undefined;
     
     setSavingAIAgent(true);
     try {
       if (selectedAIAgentId === "none") {
         // Desvincular - encontrar assignment ativo
-        const currentAssignment = aiAssignments.find(
-          a => a.operator_bitrix_id === editingAIAgentUser.telemarketing_id && a.is_active
+        const currentAssignment = aiAssignments.find(a => 
+          a.is_active && (
+            (operatorId && a.operator_bitrix_id === operatorId) ||
+            (profileId && a.profile_id === profileId)
+          )
         );
         if (currentAssignment) {
           await unassignOperator(currentAssignment.id);
         }
       } else {
         // Vincular ao novo agente
-        await assignOperator(selectedAIAgentId, editingAIAgentUser.telemarketing_id);
+        await assignOperator(selectedAIAgentId, operatorId, profileId);
       }
       setEditAIAgentDialogOpen(false);
       await fetchAssignments();
@@ -1495,8 +1532,8 @@ export default function Users() {
                         </td>
                         <td 
                           className="p-3 text-sm cursor-pointer hover:bg-muted/30" 
-                          onDoubleClick={() => user.telemarketing_id && openEditAIAgentDialog(user)}
-                          title={user.telemarketing_id ? "Duplo clique para editar" : "Requer operador Bitrix"}
+                          onDoubleClick={() => openEditAIAgentDialog(user)}
+                          title="Duplo clique para editar"
                         >
                           {(() => {
                             const agent = getAssignedAgent(user);
@@ -2036,7 +2073,7 @@ export default function Users() {
                 <Label>Campo a editar</Label>
                 <Select 
                   value={batchEditField} 
-                  onValueChange={(v: 'project' | 'supervisor' | 'role' | 'department') => handleBatchEditFieldChange(v)}
+                  onValueChange={(v: 'project' | 'supervisor' | 'role' | 'department' | 'ai_agent') => handleBatchEditFieldChange(v)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -2044,6 +2081,7 @@ export default function Users() {
                   <SelectContent>
                     <SelectItem value="project">Projeto Comercial</SelectItem>
                     <SelectItem value="supervisor">Supervisor</SelectItem>
+                    <SelectItem value="ai_agent">Agente de IA</SelectItem>
                     {currentUserRole === 'admin' && (
                       <>
                         <SelectItem value="role">Função</SelectItem>
@@ -2116,6 +2154,20 @@ export default function Users() {
                       <SelectItem value="analise">Análise</SelectItem>
                       <SelectItem value="telemarketing">Telemarketing</SelectItem>
                       <SelectItem value="scouters">Scouters</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {batchEditField === 'ai_agent' && (
+                  <Select value={batchEditValue} onValueChange={setBatchEditValue}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o agente de IA" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum (remover vínculo)</SelectItem>
+                      {aiAgents.filter(a => a.is_active).map(agent => (
+                        <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}

@@ -32,7 +32,8 @@ export interface AIAgentTraining {
 export interface AgentOperatorAssignment {
   id: string;
   agent_id: string;
-  operator_bitrix_id: number;
+  operator_bitrix_id: number | null;
+  profile_id: string | null;
   assigned_by: string | null;
   is_active: boolean;
   created_at: string;
@@ -278,24 +279,35 @@ export function useAgentOperatorAssignments() {
     }
   }, []);
 
-  const assignOperator = useCallback(async (agentId: string, operatorBitrixId: number) => {
+  const assignOperator = useCallback(async (agentId: string, operatorBitrixId?: number, profileId?: string) => {
     setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
       
-      // First, deactivate any existing assignment for this operator
-      await supabase
-        .from('agent_operator_assignments')
-        .update({ is_active: false })
-        .eq('operator_bitrix_id', operatorBitrixId)
-        .eq('is_active', true);
+      // First, deactivate any existing assignment for this operator/profile
+      if (operatorBitrixId) {
+        await supabase
+          .from('agent_operator_assignments')
+          .update({ is_active: false })
+          .eq('operator_bitrix_id', operatorBitrixId)
+          .eq('is_active', true);
+      }
+      
+      if (profileId) {
+        await supabase
+          .from('agent_operator_assignments')
+          .update({ is_active: false })
+          .eq('profile_id', profileId)
+          .eq('is_active', true);
+      }
 
       // Create new assignment
       const { error } = await supabase
         .from('agent_operator_assignments')
         .insert({
           agent_id: agentId,
-          operator_bitrix_id: operatorBitrixId,
+          operator_bitrix_id: operatorBitrixId || null,
+          profile_id: profileId || null,
           assigned_by: userData.user?.id || null,
           is_active: true
         });

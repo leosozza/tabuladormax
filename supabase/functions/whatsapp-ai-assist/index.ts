@@ -45,28 +45,49 @@ interface TrainingData {
   priority: number;
 }
 
-async function getAgentAndTraining(operatorBitrixId: number): Promise<{ agent: AgentData | null; trainings: TrainingData[] }> {
+async function getAgentAndTraining(operatorBitrixId?: number, profileId?: string): Promise<{ agent: AgentData | null; trainings: TrainingData[] }> {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Buscar agente vinculado ao operador
-    const { data: assignment, error: assignmentError } = await supabase
-      .from('agent_operator_assignments')
-      .select(`
-        agent_id,
-        agent:ai_agents(*)
-      `)
-      .eq('operator_bitrix_id', operatorBitrixId)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (assignmentError) {
-      console.error('Erro ao buscar vínculo operador-agente:', assignmentError);
-      return { agent: null, trainings: [] };
+    // Buscar agente vinculado ao operador (por bitrix_id ou profile_id)
+    let assignment = null;
+    
+    // Tentar primeiro por operator_bitrix_id
+    if (operatorBitrixId) {
+      const { data, error } = await supabase
+        .from('agent_operator_assignments')
+        .select(`
+          agent_id,
+          agent:ai_agents(*)
+        `)
+        .eq('operator_bitrix_id', operatorBitrixId)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (!error && data?.agent) {
+        assignment = data;
+      }
+    }
+    
+    // Se não encontrou por bitrix_id, tentar por profile_id
+    if (!assignment && profileId) {
+      const { data, error } = await supabase
+        .from('agent_operator_assignments')
+        .select(`
+          agent_id,
+          agent:ai_agents(*)
+        `)
+        .eq('profile_id', profileId)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (!error && data?.agent) {
+        assignment = data;
+      }
     }
 
     if (!assignment || !assignment.agent) {
-      console.log(`Operador ${operatorBitrixId} não tem agente vinculado, usando prompt padrão`);
+      console.log(`Operador ${operatorBitrixId || profileId} não tem agente vinculado, usando prompt padrão`);
       return { agent: null, trainings: [] };
     }
 
@@ -149,7 +170,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, messages, text, context, operatorBitrixId } = await req.json();
+    const { action, messages, text, context, operatorBitrixId, profileId } = await req.json();
 
     if (!GROQ_API_KEY) {
       console.error('GROQ_API_KEY não configurada');
@@ -159,12 +180,12 @@ serve(async (req) => {
       );
     }
 
-    // Buscar agente e treinamentos se operatorBitrixId foi fornecido
+    // Buscar agente e treinamentos se operatorBitrixId ou profileId foi fornecido
     let agent: AgentData | null = null;
     let trainings: TrainingData[] = [];
     
-    if (operatorBitrixId) {
-      const agentData = await getAgentAndTraining(operatorBitrixId);
+    if (operatorBitrixId || profileId) {
+      const agentData = await getAgentAndTraining(operatorBitrixId, profileId);
       agent = agentData.agent;
       trainings = agentData.trainings;
     }
