@@ -1,82 +1,135 @@
 
-# Correção do Timestamp na Lista de Conversas - Problema de CSS
+# Criar Página AI Playground
 
-## Diagnóstico
+## Problema Identificado
 
-Após investigação detalhada:
+A rota `/admin/ai-playground` está configurada no menu do AdminHub (linha 225-231) com o título "Playground IA" e descrição "Testar e experimentar modelos de IA", porém:
 
-1. **Dados estão corretos** - O RPC `get_admin_whatsapp_conversations` retorna `last_message_at` com valores válidos (ex: `"2026-01-26T19:07:48.384923+00:00"`)
-2. **Hook está mapeando corretamente** - O campo é passado para o componente
-3. **O problema é CSS** - O layout flexbox está permitindo que o nome empurre o timestamp para fora da área visível
-
-## Causa Raiz
-
-O layout atual:
-```tsx
-<div className="flex items-center justify-between gap-2">
-  <span className="font-medium truncate flex-1 min-w-0">  <!-- Expande sem limite -->
-    {getDisplayTitle(conv)}
-  </span>
-  <span className="text-xs text-foreground/60 whitespace-nowrap shrink-0">  <!-- Não tem largura mínima -->
-    {formatShortTime(...)}
-  </span>
-</div>
-```
-
-O problema: `flex-1` no nome faz ele ocupar todo espaço disponível, e apesar do `shrink-0` no timestamp, o container pai pode estar sendo comprimido pelo layout externo.
-
----
+- O componente da página não existe
+- A rota não está registrada no `App.tsx`
 
 ## Solução
 
-### Alteração em `AdminConversationList.tsx`
-
-**Linha ~535-542** - Ajustar o layout da Row 1:
-
-```tsx
-{/* Row 1: Name + Timestamp */}
-<div className="flex items-center gap-2 w-full">
-  <span className="font-medium truncate min-w-0 flex-1">
-    {getDisplayTitle(conv)}
-  </span>
-  <span className="text-xs text-foreground/60 whitespace-nowrap shrink-0 min-w-fit">
-    {conv.last_message_at ? formatShortTime(conv.last_message_at) : ''}
-  </span>
-</div>
-```
-
-### Mudanças específicas:
-
-| Elemento | Antes | Depois |
-|----------|-------|--------|
-| Container | `justify-between` | `gap-2 w-full` (remove justify-between) |
-| Nome | `truncate flex-1 min-w-0` | `truncate min-w-0 flex-1` (mesmo, ordem ajustada) |
-| Timestamp | `shrink-0` | `shrink-0 min-w-fit` (adiciona min-w-fit) |
-
-### Por que funciona:
-
-1. **`min-w-fit`** no timestamp garante que ele nunca seja menor que seu conteúdo natural
-2. **`w-full`** no container garante que ele use toda a largura disponível
-3. O nome com `flex-1` preenche o espaço restante, mas o `min-w-fit` do timestamp tem prioridade
-4. `truncate` no nome corta com "..." quando necessário
+Criar uma página de Playground de IA que permite testar os modelos disponíveis no Lovable AI.
 
 ---
 
-## Arquivo a Modificar
+## Arquivos a Criar/Modificar
 
-- `src/components/whatsapp/AdminConversationList.tsx` (linhas 535-542)
+| Arquivo | Ação |
+|---------|------|
+| `src/pages/admin/AIPlayground.tsx` | **Criar** - Componente da página |
+| `src/App.tsx` | **Modificar** - Adicionar rota |
 
 ---
 
-## Resultado Esperado
+## Funcionalidades do Playground
+
+### Interface Principal
+
+1. **Seletor de Modelo** - Dropdown com modelos disponíveis:
+   - google/gemini-2.5-pro
+   - google/gemini-2.5-flash
+   - google/gemini-2.5-flash-lite
+   - google/gemini-3-pro-preview
+   - google/gemini-3-flash-preview
+   - openai/gpt-5
+   - openai/gpt-5-mini
+   - openai/gpt-5-nano
+   - openai/gpt-5.2
+
+2. **Área de Prompt** - Textarea para digitar o prompt de teste
+
+3. **Parâmetros Opcionais**:
+   - Temperature (slider 0-1)
+   - Max Tokens (input numérico)
+   - System Prompt (textarea opcional)
+
+4. **Botão Enviar** - Envia o prompt para o modelo selecionado
+
+5. **Área de Resposta** - Exibe a resposta do modelo com:
+   - Conteúdo formatado (markdown)
+   - Tempo de resposta
+   - Tokens utilizados (se disponível)
+
+6. **Histórico** - Lista das últimas interações da sessão
+
+---
+
+## Estrutura do Componente
 
 ```text
-┌─────────────────────────────────────────┐
-│ [L]  Lara                        16:08 │
-│  ●   → [Template enviado via...         │
-│      5511936666...                       │
-│      [StandBy]                           │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  🧪 Playground IA                                            │
+│  Testar e experimentar modelos de IA                         │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌─────────────────────────┐  ┌─────────────────────────┐   │
+│  │ Modelo                  │  │ Temperature: 0.7        │   │
+│  │ [google/gemini-2.5-pro▼]│  │ ═══════●════════════    │   │
+│  └─────────────────────────┘  └─────────────────────────┘   │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ System Prompt (opcional)                              │   │
+│  │ ┌──────────────────────────────────────────────────┐ │   │
+│  │ │ Você é um assistente...                          │ │   │
+│  │ └──────────────────────────────────────────────────┘ │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Prompt                                                │   │
+│  │ ┌──────────────────────────────────────────────────┐ │   │
+│  │ │ Explique o que é machine learning...             │ │   │
+│  │ │                                                  │ │   │
+│  │ └──────────────────────────────────────────────────┘ │   │
+│  │                                    [🚀 Enviar]       │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Resposta                                 ⏱️ 1.2s    │   │
+│  │ ┌──────────────────────────────────────────────────┐ │   │
+│  │ │ Machine learning é uma área da inteligência     │ │   │
+│  │ │ artificial que permite que sistemas...          │ │   │
+│  │ │                                                  │ │   │
+│  │ └──────────────────────────────────────────────────┘ │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-O timestamp (16:08) sempre aparecerá no canto direito, mesmo quando o nome for longo.
+---
+
+## Detalhes Técnicos
+
+### 1. Criar `src/pages/admin/AIPlayground.tsx`
+
+O componente irá:
+- Usar `AdminPageLayout` para consistência visual
+- Chamar uma edge function para processar as requisições de IA
+- Manter estado local do histórico de conversas
+- Suportar markdown na renderização das respostas
+
+### 2. Criar ou reutilizar Edge Function
+
+Verificar se já existe uma edge function para chat com IA, ou criar uma específica para o playground que:
+- Recebe: modelo, prompt, systemPrompt, temperature
+- Retorna: resposta do modelo, tempo de execução
+
+### 3. Modificar `src/App.tsx`
+
+Adicionar a rota:
+```tsx
+import AIPlayground from './pages/admin/AIPlayground';
+
+// Na lista de rotas administrativas:
+<Route path="/admin/ai-playground" element={<ProtectedRoute requireAdmin><AIPlayground /></ProtectedRoute>} />
+```
+
+---
+
+## Benefícios
+
+1. **Teste rápido** - Administradores podem testar prompts antes de usar em produção
+2. **Comparação de modelos** - Facilita escolher o modelo ideal para cada caso
+3. **Debug** - Ajuda a entender comportamentos inesperados do AI
+4. **Documentação viva** - Serve como referência dos modelos disponíveis
