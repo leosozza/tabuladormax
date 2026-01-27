@@ -531,8 +531,8 @@ export function WhatsAppInput({
           onChange={(e) => setMessageInput(e.target.value)}
           onKeyDown={handleKeyPress}
           disabled={isDisabled || isRecording}
-          className={`min-h-[36px] max-h-[80px] resize-none flex-1 py-2 text-sm ${isDisabled ? 'opacity-50' : ''}`}
-          rows={1}
+          className={`min-h-[48px] max-h-[160px] resize-none flex-1 py-3 text-base leading-relaxed ${isDisabled ? 'opacity-50' : ''}`}
+          rows={2}
         />
 
         {/* Mic button - only show when NOT recording */}
