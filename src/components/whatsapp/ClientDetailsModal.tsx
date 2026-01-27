@@ -1,4 +1,4 @@
-import { Phone, User, Mail, MapPin, Calendar, Tag, Handshake, Clock, MessageSquare } from 'lucide-react';
+import { Phone, User, Mail, MapPin, Calendar, Tag, Handshake, Clock, MessageSquare, FileText, Hash } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -136,6 +136,28 @@ export function ClientDetailsModal({ conversation, open, onOpenChange }: ClientD
                       ({conversation.deal_count} negociações)
                     </p>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Contract Number - Only show when deal is WON */}
+            {conversation.deal_status === 'won' && conversation.contract_number && (
+              <div className="flex items-start gap-3">
+                <FileText className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Nº do Contrato</p>
+                  <p className="font-medium">{conversation.contract_number}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Maxsystem ID - Only show when deal is WON */}
+            {conversation.deal_status === 'won' && conversation.maxsystem_id && (
+              <div className="flex items-start gap-3">
+                <Hash className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">ID Maxsystem</p>
+                  <p className="font-medium">{conversation.maxsystem_id}</p>
                 </div>
               </div>
             )}
