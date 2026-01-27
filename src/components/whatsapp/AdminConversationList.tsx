@@ -261,15 +261,20 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
 
     if (!raw) return `${arrow}Sem mensagens`;
 
-    // Keep server-provided labels (e.g. "[...]") as-is.
-    if (/^\[[^\]]+\]$/.test(raw)) return `${arrow}${raw}`;
+    // Simplify verbose Bitrix template labels to just "[Template]"
+    if (raw.includes("Template enviado via automação") || raw.includes("📋 Template")) {
+      return `${arrow}[Template]`;
+    }
+
+    // Keep other short server-provided labels (e.g. "[...]") as-is.
+    if (/^\[[^\]]+\]$/.test(raw) && raw.length < 30) return `${arrow}${raw}`;
 
     // Hide long / multiline / markdown-like content (commonly templates) in the list.
     const isMultiline = /[\r\n]/.test(raw);
     const isVeryLong = raw.length > 160;
     const looksLikeTemplateBody = /\*[^*]+\*/.test(raw) || /(^|\s)-\S/.test(raw);
     if (isMultiline || isVeryLong || looksLikeTemplateBody) {
-      return `${arrow}[Template enviado]`;
+      return `${arrow}[Template]`;
     }
 
     // Normalize to a single clean line.
