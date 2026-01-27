@@ -496,7 +496,8 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                   onClick={() => onSelectConversation(conv)}
                   onDoubleClick={() => handleDoubleClick(conv)}
                   className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
+                    // min-w-0 + truncates below prevent horizontal overflow that can hide timestamp/badges
+                    "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors min-w-0",
                     "hover:bg-accent",
                     isSelected(conv) && "bg-accent",
                   )}
@@ -532,7 +533,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     {/* Row 1: Name + Timestamp */}
-                    <div className="flex items-center gap-2 w-full">
+                    <div className="flex items-center gap-2 w-full min-w-0">
                       <span className="font-medium truncate min-w-0 flex-1">
                         {getDisplayTitle(conv)}
                       </span>
@@ -542,12 +543,15 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                     </div>
 
                     {/* Row 2: Message preview + Unread badge */}
-                    <div className="flex items-center justify-between gap-2 mt-0.5">
-                      <p className="text-xs text-muted-foreground truncate flex-1">
+                    <div className="flex items-center justify-between gap-2 mt-0.5 min-w-0">
+                      <p className="text-xs text-muted-foreground truncate flex-1 min-w-0">
                         {formatPreviewText(conv)}
                       </p>
                       {conv.unread_count > 0 && (
-                        <Badge variant="default" className="bg-green-500 hover:bg-green-500 h-5 min-w-5 flex items-center justify-center text-xs text-white">
+                        <Badge
+                          variant="default"
+                          className="bg-green-500 hover:bg-green-500 h-5 min-w-5 shrink-0 flex items-center justify-center text-xs text-white"
+                        >
                           {conv.unread_count}
                         </Badge>
                       )}
@@ -560,7 +564,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
 
                     {/* Phone number if different from name */}
                     {conv.phone_number && conv.phone_number !== getDisplayTitle(conv) && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{conv.phone_number}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-full">{conv.phone_number}</p>
                     )}
 
                     {/* Etapa and Deal Status badges (without response status - now it's a dot) */}
@@ -595,7 +599,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
 
                     {/* Operator indicator */}
                     {conv.last_operator_name && (
-                      <div className="flex items-center gap-1.5 mt-1">
+                      <div className="flex items-center gap-1.5 mt-1 min-w-0">
                         {conv.last_operator_photo_url ? (
                           <Avatar className="h-4 w-4">
                             <AvatarImage src={conv.last_operator_photo_url} alt={conv.last_operator_name} />
@@ -606,7 +610,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                         ) : (
                           <User className="h-3 w-3 text-muted-foreground" />
                         )}
-                        <span className="text-xs text-muted-foreground">{conv.last_operator_name}</span>
+                        <span className="text-xs text-muted-foreground truncate min-w-0">{conv.last_operator_name}</span>
                       </div>
                     )}
                   </div>
