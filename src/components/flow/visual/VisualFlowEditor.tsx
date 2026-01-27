@@ -8,6 +8,8 @@ import ReactFlow, {
   Controls,
   MiniMap,
   Panel,
+  Connection,
+  EdgeChange,
   NodeTypes,
   ReactFlowInstance,
 } from 'reactflow';
@@ -105,6 +107,78 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
     setEdges,
   } = useFlowBuilder([], []);
 
+  // --- Branching support for template buttons (one handle per button) ---
+  const handleConnect = useCallback(
+    (params: Connection) => {
+      // Enforce 1 outgoing edge per button handle
+      if (params.source && params.sourceHandle?.startsWith('button-')) {
+        setEdges((eds) =>
+          eds.filter(
+            (e) => !(e.source === params.source && e.sourceHandle === params.sourceHandle)
+          )
+        );
+      }
+
+      onConnect(params);
+
+      // Persist nextStepId into the template config when connecting from a button handle
+      if (!params.source || !params.target || !params.sourceHandle?.startsWith('button-')) return;
+      const btnIndex = Number(params.sourceHandle.replace('button-', ''));
+      if (!Number.isFinite(btnIndex)) return;
+
+      const sourceNode = nodes.find((n) => n.id === params.source);
+      const step = sourceNode?.data as FlowStep | undefined;
+      if (!step || step.type !== 'gupshup_send_template') return;
+
+      const currentButtons = (step.config as any)?.buttons as Array<any> | undefined;
+      if (!currentButtons?.[btnIndex]) return;
+
+      const nextButtons = [...currentButtons];
+      nextButtons[btnIndex] = { ...nextButtons[btnIndex], nextStepId: params.target };
+
+      updateNodeData(params.source, {
+        config: { ...step.config, buttons: nextButtons },
+      });
+    },
+    [nodes, onConnect, setEdges, updateNodeData]
+  );
+
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      const removed = changes
+        .filter((c) => c.type === 'remove')
+        .map((c) => edges.find((e) => e.id === c.id))
+        .filter(Boolean);
+
+      // If a branching edge is removed, clear nextStepId in config
+      removed.forEach((edge) => {
+        if (!edge?.source || !edge.sourceHandle?.startsWith('button-')) return;
+        const btnIndex = Number(edge.sourceHandle.replace('button-', ''));
+        if (!Number.isFinite(btnIndex)) return;
+
+        const sourceNode = nodes.find((n) => n.id === edge.source);
+        const step = sourceNode?.data as FlowStep | undefined;
+        if (!step || step.type !== 'gupshup_send_template') return;
+
+        const currentButtons = (step.config as any)?.buttons as Array<any> | undefined;
+        if (!currentButtons?.[btnIndex]) return;
+
+        // Only clear if it was pointing to this same target
+        if (currentButtons[btnIndex]?.nextStepId !== edge.target) return;
+
+        const nextButtons = [...currentButtons];
+        nextButtons[btnIndex] = { ...nextButtons[btnIndex], nextStepId: '' };
+
+        updateNodeData(edge.source, {
+          config: { ...step.config, buttons: nextButtons },
+        });
+      });
+
+      onEdgesChange(changes);
+    },
+    [edges, nodes, onEdgesChange, updateNodeData]
+  );
+
   // Sync nodes/edges when initialSteps changes (e.g., editing a flow)
   useEffect(() => {
     const incomingHash = JSON.stringify(initialSteps ?? []);
@@ -187,8 +261,8 @@ export function VisualFlowEditor({ initialSteps, onChange }: VisualFlowEditorPro
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
+          onEdgesChange={handleEdgesChange}
+          onConnect={handleConnect}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
           onInit={setReactFlowInstance}

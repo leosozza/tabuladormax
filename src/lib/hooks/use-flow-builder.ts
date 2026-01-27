@@ -24,7 +24,8 @@ export function useFlowBuilder(initialNodes: Node[] = [], initialEdges: Edge[] =
     const id = `${type}-${Date.now()}`;
     const newNode: Node = {
       id,
-      type: type === 'tabular' || type === 'http_call' || type === 'wait' ? type : 'custom',
+      // Render dedicated node UIs when they exist in VisualFlowEditor.nodeTypes
+      type: type === 'tabular' || type === 'http_call' || type === 'wait' || type === 'gupshup_send_template' ? type : 'custom',
       position: position || { x: 250, y: nodes.length * 120 + 150 },
       data: {
         id,
@@ -40,11 +41,19 @@ export function useFlowBuilder(initialNodes: Node[] = [], initialEdges: Edge[] =
   }, [nodes.length, setNodes]);
 
   const updateNodeData = useCallback((nodeId: string, data: any) => {
+    // Atualiza o node dentro do array
     setNodes((nds) =>
       nds.map((node) =>
         node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
       )
     );
+
+    // IMPORTANT: mantém o selectedNode em sincronia; caso contrário, o painel
+    // de configuração continua renderizando dados antigos e parece que "não salvou".
+    setSelectedNode((prev) => {
+      if (!prev || prev.id !== nodeId) return prev;
+      return { ...prev, data: { ...(prev.data as any), ...data } };
+    });
   }, [setNodes]);
 
   const deleteNode = useCallback((nodeId: string) => {
