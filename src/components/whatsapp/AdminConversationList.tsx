@@ -14,6 +14,7 @@ import {
   Archive,
   ChevronDown,
   ChevronUp,
+  Headphones,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,10 @@ import { getEtapaStyle } from "@/lib/etapaColors";
 import { ClientDetailsModal } from "./ClientDetailsModal";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useMyInvitedConversations, InvitedConversation } from "@/hooks/useMyInvitedConversations";
+import { TagBadge } from "./TagBadge";
+import { PriorityBadge } from "./PrioritySelector";
+import { InvitedBadge } from "./InvitedBadge";
 
 // Deal status display config
 const DEAL_STATUS_CONFIG = {
@@ -113,6 +118,11 @@ const RESPONSE_STATUS_CONFIG = {
     label: "Lead respondeu",
     color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
     icon: MessageSquareReply,
+  },
+  in_progress: {
+    label: "Em Atendimento",
+    color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+    icon: Headphones,
   },
 };
 
@@ -208,6 +218,18 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
       closedFilter,
       limit: 50,
     });
+
+  // Fetch invited conversations for current user
+  const { data: myInvitedConversations = [] } = useMyInvitedConversations();
+  
+  // Create a map for quick lookup
+  const invitedConversationsMap = useMemo(() => {
+    const map = new Map<string, InvitedConversation>();
+    myInvitedConversations.forEach(inv => {
+      map.set(inv.phone_number, inv);
+    });
+    return map;
+  }, [myInvitedConversations]);
 
   const getConversationKey = (conv: AdminConversation) => {
     // Combine phone_number + bitrix_id to ensure unique keys
@@ -357,6 +379,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                   <SelectItem value="waiting">Aguardando</SelectItem>
                   <SelectItem value="never">Sem resposta</SelectItem>
                   <SelectItem value="replied">Respondeu</SelectItem>
+                  <SelectItem value="in_progress">Em Atendimento</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -464,18 +487,28 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
             </div>
           ) : (
             <>
-              {conversations.map((conv) => (
-                <button
-                  key={getConversationKey(conv)}
-                  onClick={() => onSelectConversation(conv)}
-                  onDoubleClick={() => handleDoubleClick(conv)}
-                  className={cn(
-                    // overflow-hidden + min-w-0 force child truncation to work correctly
-                    "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors min-w-0 overflow-hidden",
-                    "hover:bg-accent",
-                    isSelected(conv) && "bg-accent",
+              {conversations.map((conv) => {
+                const invitedInfo = conv.phone_number ? invitedConversationsMap.get(conv.phone_number) : null;
+                
+                return (
+                <div key={getConversationKey(conv)} className="relative">
+                  {/* Invited highlight badge - above the conversation */}
+                  {invitedInfo && invitedInfo.inviter_name && (
+                    <div className="px-3 pt-2">
+                      <InvitedBadge inviterName={invitedInfo.inviter_name} />
+                    </div>
                   )}
-                >
+                  <button
+                    onClick={() => onSelectConversation(conv)}
+                    onDoubleClick={() => handleDoubleClick(conv)}
+                    className={cn(
+                      // overflow-hidden + min-w-0 force child truncation to work correctly
+                      "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors min-w-0 overflow-hidden",
+                      "hover:bg-accent",
+                      isSelected(conv) && "bg-accent",
+                      invitedInfo && "ring-2 ring-purple-500/50 ring-inset",
+                    )}
+                  >
                   {/* Avatar with window indicator and response status dot */}
                   <div className="relative">
                     <div
@@ -534,8 +567,13 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                       <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-full">{conv.phone_number}</p>
                     )}
 
-                    {/* Etapa and Deal Status badges (without response status - now it's a dot) */}
+                    {/* Etapa, Deal Status, and Priority badges */}
                     <div className="flex flex-wrap items-center gap-1 mt-1">
+                      {/* Priority badge - show if invited with priority > 0 */}
+                      {invitedInfo && invitedInfo.priority > 0 && (
+                        <PriorityBadge priority={invitedInfo.priority} size="sm" />
+                      )}
+                      
                       {/* Etapa badge */}
                       {conv.lead_etapa && (
                         <span
@@ -582,7 +620,9 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                     )}
                   </div>
                 </button>
-              ))}
+                </div>
+              );
+              })}
 
               {/* Load more button */}
               {hasMore && (

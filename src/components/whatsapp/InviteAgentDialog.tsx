@@ -16,6 +16,8 @@ import { UserPlus, Loader2, Search, Users } from 'lucide-react';
 import { useInviteParticipant, useConversationParticipants } from '@/hooks/useConversationParticipants';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { PrioritySelector } from './PrioritySelector';
+import { Separator } from '@/components/ui/separator';
 
 interface InviteAgentDialogProps {
   open: boolean;
@@ -38,6 +40,7 @@ export function InviteAgentDialog({
 }: InviteAgentDialogProps) {
   const [search, setSearch] = useState('');
   const [selectedOperators, setSelectedOperators] = useState<string[]>([]);
+  const [priority, setPriority] = useState(0);
   const inviteParticipant = useInviteParticipant();
   const { data: currentParticipants = [] } = useConversationParticipants(phoneNumber);
 
@@ -88,10 +91,12 @@ export function InviteAgentDialog({
         bitrixId,
         operatorId,
         operatorName: operator?.display_name || undefined,
+        priority,
       });
     }
     setSelectedOperators([]);
     setSearch('');
+    setPriority(0);
     onOpenChange(false);
   };
 
@@ -171,9 +176,13 @@ export function InviteAgentDialog({
           </ScrollArea>
 
           {selectedOperators.length > 0 && (
-            <p className="text-sm text-muted-foreground">
-              {selectedOperators.length} operador(es) selecionado(s)
-            </p>
+            <>
+              <p className="text-sm text-muted-foreground">
+                {selectedOperators.length} operador(es) selecionado(s)
+              </p>
+              <Separator className="my-2" />
+              <PrioritySelector value={priority} onChange={setPriority} />
+            </>
           )}
         </div>
 
@@ -183,6 +192,7 @@ export function InviteAgentDialog({
             onClick={() => {
               setSelectedOperators([]);
               setSearch('');
+              setPriority(0);
               onOpenChange(false);
             }}
             disabled={inviteParticipant.isPending}
