@@ -1,63 +1,53 @@
 
 
-# Correcao dos Contadores e Horario na Lista de Conversas WhatsApp
+# Envio de Templates WhatsApp com Branching no Flow Builder
 
-## Problemas Identificados
+## Resumo
 
-### 1. Contador de Total Zerado/Errado
-A RPC `get_admin_whatsapp_filtered_stats` esta falhando com erro:
-```
-column d.deal_status does not exist
-```
-
-A RPC foi criada usando `d.deal_status` mas a tabela `deals` nao tem essa coluna. O status do deal e derivado da coluna `stage_id`:
-- `stage_id LIKE '%:WON'` = ganho
-- `stage_id LIKE '%:LOSE'` = perdido
-- Outros = em aberto
-
-### 2. Horario da Conversa Sumindo
-O horario aparece na linha 540 do `AdminConversationList.tsx`:
-```tsx
-{conv.last_message_at ? formatShortTime(conv.last_message_at) : ''}
-```
-
-Preciso verificar se `last_message_at` esta vindo como `null` em algum caso ou se e um problema de renderizacao.
-
-### 3. Ultima Mensagem Aparecendo Onde Nao Deveria
-Preciso investigar mais o contexto, mas pode estar relacionado ao preview da mensagem ou ao botao "Carregar mais".
+Adicionar um novo tipo de step `gupshup_send_template` no Flow Builder que permite:
+1. Selecionar um template aprovado do Gupshup
+2. Preencher as variaveis do template
+3. Configurar branching baseado nos botoes do template (quando aplicavel)
+4. Continuar o fluxo de acordo com a resposta do usuario
 
 ---
 
-## Solucao
+## Arquitetura da Solucao
 
-### Correcao 1: Atualizar RPC `get_admin_whatsapp_filtered_stats`
-
-Recriar a RPC usando a mesma logica de `stage_id` que a RPC `get_admin_whatsapp_conversations` usa:
-
-```sql
-CREATE OR REPLACE FUNCTION get_admin_whatsapp_filtered_stats(...)
-...
-  LEFT JOIN LATERAL (
-    SELECT 
-      COUNT(*)::bigint AS deal_count,
-      MAX(CASE WHEN d.stage_id LIKE '%:WON' THEN 1 ELSE 0 END) AS has_won,
-      MAX(CASE WHEN d.stage_id NOT LIKE '%:WON' AND d.stage_id NOT LIKE '%:LOSE' THEN 1 ELSE 0 END) AS has_open
-    FROM deals d
-    WHERE d.bitrix_lead_id = l.id::integer
-  ) deal_summary ON true
-...
-  AND (
-    p_deal_status_filter = 'all' OR
-    (p_deal_status_filter = 'won' AND deal_summary.has_won = 1) OR
-    (p_deal_status_filter = 'lost' AND deal_summary.deal_count > 0 AND deal_summary.has_won = 0 AND deal_summary.has_open = 0) OR
-    (p_deal_status_filter = 'open' AND deal_summary.has_open = 1 AND deal_summary.has_won = 0) OR
-    (p_deal_status_filter = 'no_deal' AND (deal_summary.deal_count IS NULL OR deal_summary.deal_count = 0))
-  )
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        FLOW BUILDER                                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  [Start]                                                                │
+│     │                                                                   │
+│     ▼                                                                   │
+│  ┌─────────────────────────────────────────┐                           │
+│  │  📋 Enviar Template                      │                           │
+│  │  Template: "Confirmar Presenca"          │                           │
+│  │  Variaveis: {{name}}, {{event}}          │                           │
+│  │  ┌────────────────────────────────────┐ │                           │
+│  │  │ Branches:                          │ │                           │
+│  │  │ ├─ [Confirmo presenca] → Step A   │ │                           │
+│  │  │ ├─ [Nao vou]          → Step B   │ │                           │
+│  │  │ └─ [Mais informacoes] → Step C   │ │                           │
+│  │  └────────────────────────────────────┘ │                           │
+│  └─────────────────────────────────────────┘                           │
+│     │          │          │                                             │
+│     ▼          ▼          ▼                                             │
+│  [Step A]   [Step B]   [Step C]                                        │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Correcao 2: Garantir Horario Visivel
+---
 
-Verificar se o campo `last_message_at` esta sendo retornado corretamente pela RPC. Se necessario, ajustar o CSS para garantir que o timestamp sempre apareca.
+## Arquivos a Criar
+
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/components/flow/visual/nodes/TemplateNode.tsx` | Componente visual do no de template |
+| `src/components/flow/visual/GupshupTemplatePicker.tsx` | Componente para selecionar template |
 
 ---
 
@@ -65,92 +55,356 @@ Verificar se o campo `last_message_at` esta sendo retornado corretamente pela RP
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| Nova migracao SQL | Recriar `get_admin_whatsapp_filtered_stats` com logica correta de `stage_id` |
+| `src/types/flow.ts` | Adicionar tipo `FlowStepGupshupSendTemplate` e interface de branching |
+| `src/components/flow/visual/NodePalette.tsx` | Adicionar opcao "WhatsApp: Template" |
+| `src/components/flow/visual/NodeConfigPanel.tsx` | Adicionar `GupshupSendTemplateConfig` |
+| `src/components/flow/visual/VisualFlowEditor.tsx` | Registrar `gupshup_send_template` no nodeTypes |
+| `src/lib/hooks/use-flow-builder.ts` | Adicionar config padrao para template |
+| `supabase/functions/flows-executor/index.ts` | Adicionar handler `executeGupshupSendTemplate` |
 
 ---
 
-## Detalhes Tecnicos
+## Detalhes de Implementacao
 
-A RPC corrigida usara a mesma estrutura de `LEFT JOIN LATERAL` que a RPC principal `get_admin_whatsapp_conversations` usa, garantindo consistencia nos filtros de deal status:
+### 1. Novo Tipo de Step
 
-```sql
-CREATE OR REPLACE FUNCTION get_admin_whatsapp_filtered_stats(
-  p_search TEXT DEFAULT NULL,
-  p_window_filter TEXT DEFAULT 'all',
-  p_response_filter TEXT DEFAULT 'all',
-  p_etapa_filter TEXT DEFAULT NULL,
-  p_deal_status_filter TEXT DEFAULT 'all'
-)
-RETURNS TABLE (
-  total_conversations BIGINT,
-  open_windows BIGINT,
-  total_unread BIGINT
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    COUNT(*)::BIGINT as total_conversations,
-    COUNT(*) FILTER (WHERE 
-      mv.last_customer_message_at IS NOT NULL AND 
-      mv.last_customer_message_at > NOW() - INTERVAL '24 hours'
-    )::BIGINT as open_windows,
-    COALESCE(SUM(mv.unread_count), 0)::BIGINT as total_unread
-  FROM mv_whatsapp_conversation_stats mv
-  LEFT JOIN leads l ON l.id = CASE 
-    WHEN mv.bitrix_id IS NOT NULL AND mv.bitrix_id ~ '^[0-9]+$' 
-    THEN mv.bitrix_id::bigint 
-    ELSE NULL 
-  END
-  LEFT JOIN LATERAL (
-    SELECT 
-      COUNT(*)::bigint AS deal_count,
-      MAX(CASE WHEN d.stage_id LIKE '%:WON' THEN 1 ELSE 0 END) AS has_won,
-      MAX(CASE WHEN d.stage_id NOT LIKE '%:WON' AND d.stage_id NOT LIKE '%:LOSE' THEN 1 ELSE 0 END) AS has_open
-    FROM deals d
-    WHERE d.bitrix_lead_id = l.id::integer
-  ) deal_summary ON true
-  WHERE mv.last_message_at > NOW() - INTERVAL '90 days'
-    AND (
-      p_search IS NULL OR p_search = '' OR
-      mv.phone_number ILIKE '%' || p_search || '%' OR
-      l.name ILIKE '%' || p_search || '%'
-    )
-    AND (
-      p_window_filter = 'all' OR
-      (p_window_filter = 'open' AND mv.last_customer_message_at > NOW() - INTERVAL '24 hours') OR
-      (p_window_filter = 'closed' AND (mv.last_customer_message_at IS NULL OR mv.last_customer_message_at <= NOW() - INTERVAL '24 hours'))
-    )
-    AND (
-      p_response_filter = 'all' OR
-      mv.response_status = p_response_filter
-    )
-    AND (
-      p_etapa_filter IS NULL OR p_etapa_filter = '' OR
-      (p_etapa_filter = 'Lead convertido' AND l.etapa IN ('Lead convertido', 'CONVERTED')) OR
-      l.etapa = p_etapa_filter
-    )
-    AND (
-      p_deal_status_filter = 'all' OR
-      (p_deal_status_filter = 'won' AND deal_summary.has_won = 1) OR
-      (p_deal_status_filter = 'lost' AND deal_summary.deal_count > 0 AND deal_summary.has_won = 0 AND deal_summary.has_open = 0) OR
-      (p_deal_status_filter = 'open' AND deal_summary.has_open = 1 AND deal_summary.has_won = 0) OR
-      (p_deal_status_filter = 'no_deal' AND (deal_summary.deal_count IS NULL OR deal_summary.deal_count = 0))
-    );
-END;
-$$;
+```typescript
+// Em src/types/flow.ts
+
+export interface TemplateButton {
+  id: string;
+  text: string;
+  nextStepId?: string; // ID do proximo step quando este botao for clicado
+}
+
+export interface FlowStepGupshupSendTemplate extends FlowStepBase {
+  type: 'gupshup_send_template';
+  config: {
+    template_id: string;              // ID do template no banco
+    template_name?: string;           // Nome para exibicao
+    variables: Array<{
+      index: number;
+      value: string;                  // Suporta {{variaveis}}
+    }>;
+    buttons?: TemplateButton[];       // Botoes do template com branching
+    wait_for_response?: boolean;      // Se true, aguarda resposta antes de continuar
+    timeout_seconds?: number;         // Timeout para resposta (default: 86400 = 24h)
+    timeout_step_id?: string;         // Step a executar em caso de timeout
+  };
+}
 ```
+
+### 2. Paleta de Nos
+
+Adicionar no `NodePalette.tsx`:
+
+```typescript
+{
+  type: 'gupshup_send_template' as const,
+  label: 'WhatsApp: Template',
+  description: 'Envia template HSM com botoes',
+  icon: FileText, // import de lucide-react
+}
+```
+
+### 3. Componente de Selecao de Template
+
+```tsx
+// GupshupTemplatePicker.tsx
+
+export function GupshupTemplatePicker({
+  selectedTemplateId,
+  onSelect
+}: {
+  selectedTemplateId?: string;
+  onSelect: (template: GupshupTemplate | null) => void;
+}) {
+  const { data: templates, isLoading } = useAllGupshupTemplates();
+  
+  // Extrair botoes do template_body (formato: | [Texto] |)
+  const extractButtons = (templateBody: string): string[] => {
+    const buttonRegex = /\| \[([^\]]+)\]/g;
+    const matches = [...templateBody.matchAll(buttonRegex)];
+    return matches.map(m => m[1]);
+  };
+  
+  return (
+    <Select value={selectedTemplateId} onValueChange={(id) => {
+      const template = templates?.find(t => t.id === id);
+      onSelect(template || null);
+    }}>
+      <SelectTrigger>
+        <SelectValue placeholder="Selecione um template..." />
+      </SelectTrigger>
+      <SelectContent>
+        {templates?.map(t => (
+          <SelectItem key={t.id} value={t.id}>
+            {t.display_name} ({t.category})
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+```
+
+### 4. Painel de Configuracao
+
+```tsx
+// Em NodeConfigPanel.tsx
+
+function GupshupSendTemplateConfig({
+  step,
+  updateConfig
+}: {
+  step: FlowStepGupshupSendTemplate;
+  updateConfig: (key: string, value: any) => void;
+}) {
+  const { data: templates } = useAllGupshupTemplates();
+  const selectedTemplate = templates?.find(t => t.id === step.config.template_id);
+  
+  // Extrair variaveis do template
+  const templateVariables = selectedTemplate?.variables || [];
+  
+  // Extrair botoes do template_body
+  const extractedButtons = useMemo(() => {
+    if (!selectedTemplate) return [];
+    const regex = /\| \[([^\]]+)\]/g;
+    const matches = [...selectedTemplate.template_body.matchAll(regex)];
+    return matches.map((m, i) => ({ id: `btn_${i}`, text: m[1] }));
+  }, [selectedTemplate]);
+  
+  return (
+    <div className="space-y-4">
+      {/* Seletor de Template */}
+      <div>
+        <Label>Template *</Label>
+        <GupshupTemplatePicker
+          selectedTemplateId={step.config.template_id}
+          onSelect={(template) => {
+            updateConfig('template_id', template?.id || '');
+            updateConfig('template_name', template?.display_name || '');
+            // Auto-preencher variaveis vazias
+            if (template?.variables) {
+              updateConfig('variables', template.variables.map(v => ({
+                index: v.index,
+                value: ''
+              })));
+            }
+            // Auto-preencher botoes
+            if (template) {
+              const btns = extractButtons(template.template_body);
+              updateConfig('buttons', btns.map((text, i) => ({
+                id: `btn_${i}`,
+                text,
+                nextStepId: ''
+              })));
+            }
+          }}
+        />
+      </div>
+      
+      {/* Preview do Template */}
+      {selectedTemplate && (
+        <div className="p-3 bg-muted rounded-lg text-sm">
+          <pre className="whitespace-pre-wrap">{selectedTemplate.template_body}</pre>
+        </div>
+      )}
+      
+      {/* Variaveis */}
+      {templateVariables.length > 0 && (
+        <div>
+          <Label>Variaveis</Label>
+          {templateVariables.map((v, i) => (
+            <div key={i} className="flex gap-2 mt-2">
+              <Badge variant="outline">{`{{${v.index}}}`}</Badge>
+              <Input
+                value={step.config.variables?.[i]?.value || ''}
+                onChange={(e) => {
+                  const vars = [...(step.config.variables || [])];
+                  vars[i] = { index: v.index, value: e.target.value };
+                  updateConfig('variables', vars);
+                }}
+                placeholder={v.example || v.name}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* Branching por Botoes */}
+      {extractedButtons.length > 0 && (
+        <div>
+          <Label>Branching por Resposta</Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Configure qual step executar quando o cliente clicar em cada botao
+          </p>
+          {extractedButtons.map((btn, i) => (
+            <Card key={i} className="p-3 mt-2">
+              <div className="flex items-center gap-2">
+                <Badge className="whitespace-nowrap">{btn.text}</Badge>
+                <Input
+                  value={step.config.buttons?.[i]?.nextStepId || ''}
+                  onChange={(e) => {
+                    const btns = [...(step.config.buttons || [])];
+                    btns[i] = { ...btns[i], id: btn.id, text: btn.text, nextStepId: e.target.value };
+                    updateConfig('buttons', btns);
+                  }}
+                  placeholder="ID do proximo step (ou vazio)"
+                  className="text-sm"
+                />
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+      
+      {/* Opcoes de Espera */}
+      <div className="flex items-center gap-2">
+        <Checkbox
+          checked={step.config.wait_for_response || false}
+          onCheckedChange={(checked) => updateConfig('wait_for_response', checked)}
+        />
+        <Label className="text-sm">Aguardar resposta do cliente</Label>
+      </div>
+    </div>
+  );
+}
+```
+
+### 5. Edge Function - Executor
+
+Adicionar no `flows-executor/index.ts`:
+
+```typescript
+// Adicionar ao switch case
+case 'gupshup_send_template':
+  stepResult = await executeGupshupSendTemplate(
+    step, leadId, context, supabaseAdmin, supabaseUrl, supabaseServiceKey
+  );
+  break;
+
+// Nova funcao
+async function executeGupshupSendTemplate(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any,
+  supabaseUrl: string,
+  supabaseServiceKey: string
+) {
+  const { template_id, variables = [], buttons = [], wait_for_response } = step.config;
+  
+  if (!template_id) {
+    throw new Error('template_id e obrigatorio');
+  }
+  
+  // Obter telefone
+  let targetPhone = context.phone_number;
+  if (!targetPhone && leadId) {
+    const { data: lead } = await supabaseAdmin
+      .from('leads')
+      .select('celular, telefone_casa, phone_normalized')
+      .eq('id', leadId)
+      .single();
+    targetPhone = lead?.phone_normalized || lead?.celular || lead?.telefone_casa;
+  }
+  
+  if (!targetPhone) {
+    throw new Error('Nao foi possivel determinar o telefone');
+  }
+  
+  // Resolver variaveis
+  const resolvedVariables = variables.map(v => 
+    replacePlaceholders(v.value || '', leadId, context)
+  );
+  
+  console.log(`📤 Enviando template ${template_id} para ${targetPhone}`);
+  
+  // Chamar gupshup-send-message com action send_template
+  const response = await fetch(`${supabaseUrl}/functions/v1/gupshup-send-message`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${supabaseServiceKey}`
+    },
+    body: JSON.stringify({
+      action: 'send_template',
+      phone_number: targetPhone,
+      template_id: template_id,
+      variables: resolvedVariables,
+      bitrix_id: leadId?.toString(),
+      source: 'flow_executor'
+    })
+  });
+  
+  const result = await response.json();
+  
+  if (!response.ok || result.error) {
+    throw new Error(result.error || `Erro ao enviar template: ${response.status}`);
+  }
+  
+  console.log(`✅ Template enviado: ${result.messageId}`);
+  
+  return {
+    messageId: result.messageId,
+    phone: targetPhone,
+    template_id,
+    variables: resolvedVariables,
+    buttons: buttons.map(b => b.text),
+    waiting_for_response: wait_for_response
+  };
+}
+```
+
+### 6. Branching - Fase Futura (Webhook)
+
+Para implementar o branching completo onde o fluxo aguarda a resposta do cliente:
+
+1. O step `gupshup_send_template` com `wait_for_response: true` salva o estado do fluxo na tabela `flows_pending_responses`
+2. O webhook `gupshup-webhook` ao receber resposta de botao:
+   - Busca se existe fluxo pendente para aquele telefone
+   - Identifica qual botao foi clicado
+   - Retoma o fluxo a partir do `nextStepId` configurado
+
+Esta fase requer:
+- Nova tabela `flows_pending_responses`
+- Modificacao no `gupshup-webhook` para detectar respostas de botao
+- Modificacao no `flows-executor` para pausar/retomar fluxos
 
 ---
 
 ## Resultado Esperado
 
-Apos a correcao:
-- O badge com icone de conversa (total) mostrara a quantidade correta de conversas filtradas
-- O badge "X abertas" mostrara janelas abertas dentro do filtro
-- O badge "nao lidas" mostrara mensagens nao lidas dentro do filtro
-- O horario continuara visivel (ja funciona, so precisa confirmar apos correcao da RPC)
+1. **Nova opcao no painel**: "WhatsApp: Template" aparece na paleta de nos
+2. **Selecao de template**: Usuario seleciona template aprovado via dropdown
+3. **Preview visual**: Mostra o corpo do template com placeholders
+4. **Variaveis**: Campos para preencher cada `{{1}}`, `{{2}}`, etc.
+5. **Botoes detectados**: Sistema extrai automaticamente botoes do template
+6. **Branching configuravel**: Usuario pode definir qual step executar para cada resposta
+
+---
+
+## Fluxo de Uso
+
+1. Arrasta "WhatsApp: Template" para o canvas
+2. Seleciona template "Confirmar Presenca"
+3. Preenche variaveis: `{{1}} = {{lead.nome}}`, `{{2}} = Ribeirao Preto`
+4. Ve os botoes extraidos: [Confirmo presenca], [Nao vou]
+5. Configura branching:
+   - "Confirmo presenca" → vai para step "Atualizar Bitrix para Confirmado"
+   - "Nao vou" → vai para step "Atualizar Bitrix para Cancelado"
+6. Salva o flow
+
+---
+
+## Resumo Tecnico das Alteracoes
+
+| Componente | Alteracao |
+|------------|-----------|
+| **Tipos** | Novo `FlowStepGupshupSendTemplate` com config de template, variaveis e botoes |
+| **UI** | Novo no na paleta + configurador com picker de template e branching |
+| **Visual** | Novo componente `TemplateNode.tsx` para exibir preview no canvas |
+| **Executor** | Nova funcao `executeGupshupSendTemplate` que envia via edge function |
+| **Hook** | Novo default config para `gupshup_send_template` |
 
