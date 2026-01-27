@@ -1,11 +1,18 @@
 // ============================================
 // Template Node - Visual node for WhatsApp templates
+// Shows separate output handles for each button
 // ============================================
 
 import { memo } from 'react';
 import { Handle, Position } from 'reactflow';
 import { FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+
+interface TemplateButton {
+  id: string;
+  text: string;
+  nextStepId?: string;
+}
 
 interface TemplateNodeProps {
   data: {
@@ -16,7 +23,7 @@ interface TemplateNodeProps {
       template_name?: string;
       template_id?: string;
       variables?: Array<{ index: number; value: string }>;
-      buttons?: Array<{ id: string; text: string; nextStepId?: string }>;
+      buttons?: TemplateButton[];
     };
   };
   selected?: boolean;
@@ -25,7 +32,7 @@ interface TemplateNodeProps {
 export const TemplateNode = memo(({ data, selected }: TemplateNodeProps) => {
   const templateName = data.config?.template_name || 'Selecionar template...';
   const variablesCount = data.config?.variables?.filter(v => v.value)?.length || 0;
-  const buttonsCount = data.config?.buttons?.length || 0;
+  const buttons = data.config?.buttons || [];
 
   return (
     <div
@@ -46,24 +53,37 @@ export const TemplateNode = memo(({ data, selected }: TemplateNodeProps) => {
           <div className="text-xs text-muted-foreground truncate mt-0.5">
             {templateName}
           </div>
-          {(variablesCount > 0 || buttonsCount > 0) && (
-            <div className="flex gap-1 mt-1.5 flex-wrap">
-              {variablesCount > 0 && (
-                <Badge variant="outline" className="text-xs px-1.5 py-0">
-                  {variablesCount} vars
-                </Badge>
-              )}
-              {buttonsCount > 0 && (
-                <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                  {buttonsCount} botões
-                </Badge>
-              )}
-            </div>
+          {variablesCount > 0 && (
+            <Badge variant="outline" className="text-xs px-1.5 py-0 mt-1">
+              {variablesCount} vars
+            </Badge>
           )}
         </div>
       </div>
 
-      <Handle type="source" position={Position.Bottom} className="!bg-primary" />
+      {/* Buttons section with individual handles */}
+      {buttons.length > 0 ? (
+        <div className="mt-3 pt-2 border-t border-border/50 space-y-1.5">
+          <div className="text-xs text-muted-foreground font-medium mb-1">Botões:</div>
+          {buttons.map((btn, index) => (
+            <div 
+              key={btn.id || index} 
+              className="relative flex items-center justify-between gap-2 text-xs bg-muted/50 rounded px-2 py-1.5"
+            >
+              <span className="truncate flex-1">{btn.text}</span>
+              <Handle
+                type="source"
+                position={Position.Right}
+                id={`button-${index}`}
+                className="!bg-green-500 !w-2.5 !h-2.5 !right-[-6px]"
+                style={{ top: 'auto', position: 'relative', transform: 'none' }}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Handle type="source" position={Position.Bottom} className="!bg-primary" />
+      )}
     </div>
   );
 });
