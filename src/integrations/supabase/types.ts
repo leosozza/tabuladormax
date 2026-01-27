@@ -2153,6 +2153,62 @@ export type Database = {
         }
         Relationships: []
       }
+      flow_pending_responses: {
+        Row: {
+          buttons: Json | null
+          context: Json | null
+          created_at: string
+          expires_at: string
+          flow_id: string
+          id: string
+          lead_id: number | null
+          phone_number: string
+          responded_at: string | null
+          response_button_id: string | null
+          run_id: string
+          status: string
+          step_id: string
+        }
+        Insert: {
+          buttons?: Json | null
+          context?: Json | null
+          created_at?: string
+          expires_at?: string
+          flow_id: string
+          id?: string
+          lead_id?: number | null
+          phone_number: string
+          responded_at?: string | null
+          response_button_id?: string | null
+          run_id: string
+          status?: string
+          step_id: string
+        }
+        Update: {
+          buttons?: Json | null
+          context?: Json | null
+          created_at?: string
+          expires_at?: string
+          flow_id?: string
+          id?: string
+          lead_id?: number | null
+          phone_number?: string
+          responded_at?: string | null
+          response_button_id?: string | null
+          run_id?: string
+          status?: string
+          step_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flow_pending_responses_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       flow_triggers: {
         Row: {
           ativo: boolean | null
