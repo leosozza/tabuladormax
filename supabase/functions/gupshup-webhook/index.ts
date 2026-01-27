@@ -771,7 +771,7 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
     content = (payload.payload as any)?.text || (payload.payload as any)?.postbackText || '[Botão clicado]';
     console.log(`👆 Cliente clicou no botão: "${content}"`);
     
-    // 🔄 VERIFICAR FLOW TRIGGERS
+    // 🔄 VERIFICAR FLOW TRIGGERS (triggers manuais por keyword)
     await checkAndExecuteFlowTrigger(supabase, supabaseUrl, supabaseServiceKey, {
       triggerType: 'button_click',
       buttonText: content,
@@ -780,6 +780,9 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
       conversationId: conversationId,
       commercialProjectId: commercialProjectId
     });
+    
+    // 🔀 VERIFICAR E RETOMAR FLUXOS PAUSADOS (branching de templates)
+    await resumePausedFlow(supabaseUrl, supabaseServiceKey, normalizedPhone, content, (payload.payload as any)?.id);
   }
 
   // Download e upload de mídia para Supabase Storage
@@ -1015,6 +1018,50 @@ async function checkAndExecuteFlowTrigger(
     }
   } catch (err) {
     console.error('❌ Erro em checkAndExecuteFlowTrigger:', err);
+  }
+}
+
+// ============================================
+// Retomar fluxo pausado quando cliente clica em botão
+// ============================================
+async function resumePausedFlow(
+  supabaseUrl: string,
+  supabaseServiceKey: string,
+  phoneNumber: string,
+  buttonText: string,
+  buttonId?: string
+): Promise<void> {
+  try {
+    console.log(`🔀 Verificando fluxos pausados para ${phoneNumber}, botão: "${buttonText}"`);
+    
+    // Chamar edge function flows-resume em background
+    fetch(`${supabaseUrl}/functions/v1/flows-resume`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`
+      },
+      body: JSON.stringify({
+        phoneNumber,
+        buttonText,
+        buttonId
+      })
+    }).then(async (res) => {
+      if (res.ok) {
+        const result = await res.json();
+        if (result.resumed) {
+          console.log(`✅ Fluxo retomado com sucesso: ${result.buttonMatched} → ${result.nextStepId || 'sem branch'}`);
+        } else {
+          console.log(`ℹ️ Nenhum fluxo pausado para retomar: ${result.reason || ''}`);
+        }
+      } else {
+        console.error(`❌ Erro ao retomar fluxo:`, await res.text());
+      }
+    }).catch(err => {
+      console.error(`❌ Erro ao chamar flows-resume:`, err);
+    });
+  } catch (err) {
+    console.error('❌ Erro em resumePausedFlow:', err);
   }
 }
 

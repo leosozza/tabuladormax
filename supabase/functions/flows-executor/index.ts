@@ -213,7 +213,35 @@ Deno.serve(async (req) => {
               break;
             
             case 'gupshup_send_template':
-              stepResult = await executeGupshupSendTemplate(step, leadId, context, supabaseAdmin, supabaseUrl, supabaseServiceKey);
+              stepResult = await executeGupshupSendTemplate(step, leadId, context, supabaseAdmin, supabaseUrl, supabaseServiceKey, flowId, runId);
+              // Se o fluxo foi pausado para aguardar resposta, interromper execução
+              if (stepResult?.paused) {
+                addLog(step.id, step.nome, 'info', 'Fluxo pausado aguardando resposta do cliente', stepResult);
+                resultado.steps.push({ stepId: step.id, success: true, result: stepResult, paused: true });
+                
+                // Atualizar status do flow run para 'paused'
+                await supabaseAdmin
+                  .from('flows_runs')
+                  .update({
+                    status: 'paused',
+                    logs: logs,
+                    resultado: { ...resultado, paused_at_step: step.id, paused_step_index: i }
+                  })
+                  .eq('id', runId);
+                
+                // Retornar imediatamente sem completar o fluxo
+                return new Response(
+                  JSON.stringify({
+                    runId,
+                    status: 'paused',
+                    message: 'Fluxo pausado aguardando resposta do cliente',
+                    pausedAtStep: step.id,
+                    logs,
+                    resultado
+                  }),
+                  { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                );
+              }
               break;
             
             case 'supabase_query':
@@ -892,15 +920,18 @@ async function executeGupshupSendButtons(
 }
 
 // Gupshup Send Template - Envia template HSM via WhatsApp
+// Pode pausar o fluxo se wait_for_response = true para aguardar resposta do cliente
 async function executeGupshupSendTemplate(
   step: FlowStep,
   leadId: number | undefined,
   context: Record<string, any>,
   supabaseAdmin: any,
   supabaseUrl: string,
-  supabaseServiceKey: string
+  supabaseServiceKey: string,
+  flowId?: string,
+  runId?: string
 ) {
-  const { template_id, variables = [], buttons = [], wait_for_response, phone_number } = step.config;
+  const { template_id, variables = [], buttons = [], wait_for_response, timeout_seconds, timeout_step_id, phone_number } = step.config;
   
   if (!template_id) {
     throw new Error('template_id é obrigatório para gupshup_send_template');
@@ -926,13 +957,16 @@ async function executeGupshupSendTemplate(
     throw new Error('Não foi possível determinar o telefone do destinatário');
   }
   
+  // Normalizar telefone (remover formatação)
+  const normalizedPhone = (targetPhone || '').replace(/\D/g, '');
+  
   // Resolver variáveis do template
   const resolvedVariables = variables.map((v: { index: number; value: string }) => {
     const resolved = replacePlaceholders(v.value || '', leadId, context);
     return resolved;
   });
   
-  console.log(`📤 Enviando template ${template_id} para ${targetPhone} com ${resolvedVariables.length} variáveis`);
+  console.log(`📤 Enviando template ${template_id} para ${normalizedPhone} com ${resolvedVariables.length} variáveis`);
   
   // Chamar gupshup-send-message com action send_template
   const response = await fetch(`${supabaseUrl}/functions/v1/gupshup-send-message`, {
@@ -943,7 +977,7 @@ async function executeGupshupSendTemplate(
     },
     body: JSON.stringify({
       action: 'send_template',
-      phone_number: targetPhone,
+      phone_number: normalizedPhone,
       template_id: template_id,
       variables: resolvedVariables,
       bitrix_id: leadId?.toString(),
@@ -959,13 +993,33 @@ async function executeGupshupSendTemplate(
   
   console.log(`✅ Template enviado: ${result.messageId}`);
   
+  // Se wait_for_response = true, salvar estado na tabela flow_pending_responses
+  if (wait_for_response && flowId && runId) {
+    const expiresAt = new Date(Date.now() + (timeout_seconds || 86400) * 1000).toISOString();
+    
+    console.log(`⏸️ Pausando fluxo. Aguardando resposta de ${normalizedPhone} até ${expiresAt}`);
+    
+    await supabaseAdmin.from('flow_pending_responses').insert({
+      flow_id: flowId,
+      run_id: runId,
+      step_id: step.id,
+      phone_number: normalizedPhone,
+      lead_id: leadId,
+      context: context,
+      buttons: buttons, // Salva os botões para match posterior
+      expires_at: expiresAt,
+      status: 'pending'
+    });
+  }
+  
   return {
     messageId: result.messageId,
-    phone: targetPhone,
+    phone: normalizedPhone,
     template_id,
     variables: resolvedVariables,
     buttons: buttons.map((b: any) => b.text),
-    waiting_for_response: wait_for_response
+    waiting_for_response: wait_for_response,
+    paused: wait_for_response && flowId && runId
   };
 }
 
