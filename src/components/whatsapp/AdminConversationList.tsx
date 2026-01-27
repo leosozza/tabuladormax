@@ -255,37 +255,6 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
   const getDisplayTitle = (conv: AdminConversation) =>
     conv.deal_title || conv.lead_name || conv.phone_number || "Contato";
 
-  const formatPreviewText = (conv: AdminConversation) => {
-    const arrow = conv.last_message_direction === "inbound" ? "← " : "→ ";
-    const raw = (conv.last_message_preview || "").trim();
-
-    if (!raw) return `${arrow}Sem mensagens`;
-
-    // Simplify verbose Bitrix template labels to just "[Template]"
-    if (raw.includes("Template enviado via automação") || raw.includes("📋 Template")) {
-      return `${arrow}[Template]`;
-    }
-
-    // Keep other short server-provided labels (e.g. "[...]") as-is.
-    if (/^\[[^\]]+\]$/.test(raw) && raw.length < 30) return `${arrow}${raw}`;
-
-    // Hide long / multiline / markdown-like content (commonly templates) in the list.
-    const isMultiline = /[\r\n]/.test(raw);
-    const isVeryLong = raw.length > 160;
-    const looksLikeTemplateBody = /\*[^*]+\*/.test(raw) || /(^|\s)-\S/.test(raw);
-    if (isMultiline || isVeryLong || looksLikeTemplateBody) {
-      return `${arrow}[Template]`;
-    }
-
-    // Normalize to a single clean line.
-    const cleaned = raw
-      .replace(/[\r\n]+/g, " ")
-      .replace(/\s+/g, " ")
-      .replace(/[*_`]+/g, "")
-      .trim();
-
-    return `${arrow}${cleaned}`;
-  };
 
   const getInitials = (name: string | null) => {
     if (!name || name === "Contato") return "C";
@@ -537,21 +506,11 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    {/* Row 1: Name + Timestamp */}
+                    {/* Row 1: Name + Unread badge + Timestamp */}
                     <div className="flex items-center gap-2 w-full min-w-0">
                       <span className="font-medium truncate min-w-0 flex-1">
                         {getDisplayTitle(conv)}
                       </span>
-                      <span className="text-xs text-foreground/60 whitespace-nowrap shrink-0 min-w-fit">
-                        {conv.last_message_at ? formatShortTime(conv.last_message_at) : ''}
-                      </span>
-                    </div>
-
-                    {/* Row 2: Message preview + Unread badge */}
-                    <div className="flex items-center justify-between gap-2 mt-0.5 min-w-0">
-                      <p className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-                        {formatPreviewText(conv)}
-                      </p>
                       {conv.unread_count > 0 && (
                         <Badge
                           variant="default"
@@ -560,6 +519,9 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                           {conv.unread_count}
                         </Badge>
                       )}
+                      <span className="text-xs text-foreground/60 whitespace-nowrap shrink-0 min-w-fit">
+                        {conv.last_message_at ? formatShortTime(conv.last_message_at) : ''}
+                      </span>
                     </div>
 
                     {/* Responsible name if deal_title is shown */}
