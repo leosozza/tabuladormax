@@ -197,7 +197,12 @@ export function NodeConfigPanel({ selectedNode, onUpdate, onDelete }: NodeConfig
 
               {/* Gupshup Send Template */}
               {step.type === 'gupshup_send_template' && (
-                <GupshupSendTemplateConfig step={step as FlowStepGupshupSendTemplate} updateConfig={updateConfig} />
+                <GupshupSendTemplateConfig 
+                  step={step as FlowStepGupshupSendTemplate} 
+                  updateConfig={updateConfig}
+                  onUpdate={onUpdate}
+                  nodeId={selectedNode.id}
+                />
               )}
             </div>
           </div>
@@ -932,7 +937,17 @@ function GupshupSendButtonsConfig({ step, updateConfig }: { step: FlowStepGupshu
 }
 
 // Gupshup Send Template Config
-function GupshupSendTemplateConfig({ step, updateConfig }: { step: FlowStepGupshupSendTemplate; updateConfig: (key: string, value: any) => void }) {
+function GupshupSendTemplateConfig({ 
+  step, 
+  updateConfig,
+  onUpdate,
+  nodeId 
+}: { 
+  step: FlowStepGupshupSendTemplate; 
+  updateConfig: (key: string, value: any) => void;
+  onUpdate: (nodeId: string, updates: Partial<FlowStep>) => void;
+  nodeId: string;
+}) {
   const { data: templates } = useAllGupshupTemplates();
   const selectedTemplate = templates?.find(t => t.id === step.config.template_id);
   
@@ -942,36 +957,50 @@ function GupshupSendTemplateConfig({ step, updateConfig }: { step: FlowStepGupsh
     ? extractVariablesFromTemplate(selectedTemplate.template_body)
     : [];
   
-  // Extract buttons from template_body
-  const extractedButtons = selectedTemplate 
-    ? extractButtonsFromTemplate(selectedTemplate.template_body)
-    : [];
+  // Extract buttons from template_body - use saved config first, then extract from template
+  const extractedButtons = step.config.buttons?.length > 0
+    ? step.config.buttons.map(b => b.text)
+    : (selectedTemplate ? extractButtonsFromTemplate(selectedTemplate.template_body) : []);
+
+  // Batch update function to update multiple config keys at once - uses onUpdate directly
+  const updateConfigBatch = (updates: Record<string, any>) => {
+    onUpdate(nodeId, {
+      config: { ...step.config, ...updates }
+    } as Partial<FlowStep>);
+  };
 
   const handleTemplateSelect = (template: any) => {
     if (!template) {
-      updateConfig('template_id', '');
-      updateConfig('template_name', '');
-      updateConfig('variables', []);
-      updateConfig('buttons', []);
+      // Clear all at once using a batch update
+      updateConfigBatch({
+        template_id: '',
+        template_name: '',
+        variables: [],
+        buttons: []
+      });
       return;
     }
 
-    updateConfig('template_id', template.id);
-    updateConfig('template_name', template.display_name);
-    
     // Auto-populate variables
     const vars = template.variables?.length > 0 
       ? template.variables.map((v: any) => ({ index: v.index, value: '' }))
       : extractVariablesFromTemplate(template.template_body).map(idx => ({ index: idx, value: '' }));
-    updateConfig('variables', vars);
     
-    // Auto-populate buttons
+    // Auto-populate buttons from template_body
     const btns = extractButtonsFromTemplate(template.template_body);
-    updateConfig('buttons', btns.map((text, i) => ({
+    const buttonConfigs = btns.map((text, i) => ({
       id: `btn_${i}`,
       text,
       nextStepId: ''
-    })));
+    }));
+
+    // Update all config at once to prevent state overwrites
+    updateConfigBatch({
+      template_id: template.id,
+      template_name: template.display_name,
+      variables: vars,
+      buttons: buttonConfigs
+    });
   };
 
   const updateVariable = (index: number, value: string) => {
