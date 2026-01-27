@@ -40,7 +40,9 @@ export default function WhatsApp() {
       deal_status: null,
       deal_category_id: null,
       deal_count: 0,
-      deal_title: null
+      deal_title: null,
+      contract_number: null,
+      maxsystem_id: null
     });
   }, []);
 

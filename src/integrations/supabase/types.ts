@@ -5469,6 +5469,7 @@ export type Database = {
         }
         Returns: {
           bitrix_id: string
+          contract_number: string
           deal_category_id: string
           deal_count: number
           deal_stage_id: string
@@ -5483,6 +5484,7 @@ export type Database = {
           lead_etapa: string
           lead_id: number
           lead_name: string
+          maxsystem_id: string
           phone_number: string
           response_status: string
           total_messages: number

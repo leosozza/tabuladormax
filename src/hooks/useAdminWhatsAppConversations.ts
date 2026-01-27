@@ -23,6 +23,8 @@ export interface AdminConversation {
   deal_category_id: string | null;
   deal_count: number;
   deal_title: string | null;
+  contract_number: string | null;
+  maxsystem_id: string | null;
 }
 
 export type WindowFilter = 'all' | 'open' | 'closed';
@@ -126,7 +128,9 @@ export const useAdminWhatsAppConversations = ({
           deal_status: conv.deal_status as 'won' | 'lost' | 'open' | null,
           deal_category_id: conv.deal_category_id || null,
           deal_count: Number(conv.deal_count) || 0,
-          deal_title: conv.deal_title || null
+          deal_title: conv.deal_title || null,
+          contract_number: conv.contract_number || null,
+          maxsystem_id: conv.maxsystem_id || null
         };
       });
 
