@@ -240,6 +240,7 @@ export interface NegotiationFilters {
   clientId?: string;
   createdBy?: string;
   created_by?: string;
+  pipeline_id?: string;
 }
 
 // Payment method labels

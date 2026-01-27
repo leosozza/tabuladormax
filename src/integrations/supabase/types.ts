@@ -3349,6 +3349,7 @@ export type Database = {
           notes: string | null
           payment_frequency: string | null
           payment_methods: Json | null
+          pipeline_id: string | null
           rejection_reason: string | null
           start_date: string | null
           status: string | null
@@ -3383,6 +3384,7 @@ export type Database = {
           notes?: string | null
           payment_frequency?: string | null
           payment_methods?: Json | null
+          pipeline_id?: string | null
           rejection_reason?: string | null
           start_date?: string | null
           status?: string | null
@@ -3417,6 +3419,7 @@ export type Database = {
           notes?: string | null
           payment_frequency?: string | null
           payment_methods?: Json | null
+          pipeline_id?: string | null
           rejection_reason?: string | null
           start_date?: string | null
           status?: string | null
@@ -3555,6 +3558,36 @@ export type Database = {
           name?: string
           resource?: string
           scope?: Database["public"]["Enums"]["permission_scope"]
+        }
+        Relationships: []
+      }
+      pipeline_configs: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          stage_mapping: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id: string
+          is_active?: boolean | null
+          name: string
+          stage_mapping?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          stage_mapping?: Json
+          updated_at?: string | null
         }
         Relationships: []
       }

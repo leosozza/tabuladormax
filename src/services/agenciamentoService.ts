@@ -301,10 +301,16 @@ export async function listNegotiations(filters?: NegotiationFilters): Promise<Ne
       *,
       deals:deal_id (
         bitrix_deal_id,
+        category_id,
         raw
       )
     `)
     .order('created_at', { ascending: false });
+
+  // Filter by pipeline_id
+  if (filters?.pipeline_id) {
+    query = query.eq('pipeline_id', filters.pipeline_id);
+  }
 
   if (filters?.status && filters.status.length > 0) {
     query = query.in('status', filters.status);

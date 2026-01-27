@@ -1,5 +1,6 @@
 // Agenciamento (Negotiations) Main Page
 // Complete negotiation management interface with Bitrix realtime sync
+// Supports multiple pipelines with dynamic stage mapping
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -66,10 +67,12 @@ import { NegotiationStats } from '@/components/agenciamento/NegotiationStats';
 import { NegotiationPipeline } from '@/components/agenciamento/NegotiationPipeline';
 import { ProducerQueueHeaderBar } from '@/components/agenciamento/ProducerQueueHeaderBar';
 import { AgenciamentoDashboard } from '@/components/agenciamento/AgenciamentoDashboard';
+import { PipelineSelector } from '@/components/agenciamento/PipelineSelector';
 import { CommercialProjectSelector } from '@/components/CommercialProjectSelector';
 import { MainLayout } from '@/components/layouts/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
+import { usePipelineConfig } from '@/hooks/usePipelines';
 
 type ViewMode = 'pipeline' | 'grid' | 'list';
 
@@ -83,15 +86,29 @@ export default function Agenciamento() {
   const [commercialProjectId, setCommercialProjectId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'pipeline' | 'dashboard'>('pipeline');
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Pipeline selection - persisted in localStorage
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string>(() => {
+    return localStorage.getItem('agenciamento-pipeline') || '1';
+  });
+
+  // Get pipeline config for dynamic stage mapping
+  const { data: pipelineConfig } = usePipelineConfig(selectedPipelineId);
 
   const queryClient = useQueryClient();
 
-  // Realtime listener para atualizações do Bitrix
+  // Save pipeline selection to localStorage
   useEffect(() => {
-    console.log('📡 Configurando listener realtime para negotiations...');
+    localStorage.setItem('agenciamento-pipeline', selectedPipelineId);
+  }, [selectedPipelineId]);
+
+  // Realtime listener para atualizações do Bitrix (negotiations e deals)
+  useEffect(() => {
+    console.log(`📡 Configurando listener realtime para pipeline ${selectedPipelineId}...`);
     
     const channel = supabase
-      .channel('negotiations-realtime')
+      .channel(`agenciamento-realtime-${selectedPipelineId}`)
+      // Listen to negotiations changes
       .on(
         'postgres_changes',
         {
@@ -100,19 +117,24 @@ export default function Agenciamento() {
           table: 'negotiations'
         },
         (payload) => {
-          console.log('📥 Evento realtime recebido:', payload.eventType, payload);
+          const newData = payload.new as any;
+          // Filter by pipeline_id if set
+          if (newData?.pipeline_id && newData.pipeline_id !== selectedPipelineId) {
+            console.log(`⏭️ Ignorando evento de outra pipeline: ${newData.pipeline_id}`);
+            return;
+          }
+          
+          console.log('📥 Evento realtime (negotiations):', payload.eventType);
           
           // Invalidar cache para recarregar dados
           queryClient.invalidateQueries({ queryKey: ['negotiations'] });
           
           // Mostrar toast de atualização
           if (payload.eventType === 'UPDATE') {
-            const newData = payload.new as any;
             toast.info(`Negociação "${newData?.title || 'atualizada'}" sincronizada do Bitrix`, {
               duration: 3000,
             });
           } else if (payload.eventType === 'INSERT') {
-            const newData = payload.new as any;
             toast.success(`Nova negociação "${newData?.title || ''}" recebida do Bitrix`, {
               duration: 3000,
             });
@@ -123,6 +145,23 @@ export default function Agenciamento() {
           }
         }
       )
+      // Listen to deals changes for the selected pipeline
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'deals',
+          filter: `category_id=eq.${selectedPipelineId}`
+        },
+        (payload) => {
+          console.log('📥 Evento realtime (deals):', payload.eventType);
+          
+          // Invalidar cache para recarregar dados
+          queryClient.invalidateQueries({ queryKey: ['negotiations'] });
+          queryClient.invalidateQueries({ queryKey: ['deals'] });
+        }
+      )
       .subscribe((status) => {
         console.log('📡 Status do canal realtime:', status);
       });
@@ -131,7 +170,7 @@ export default function Agenciamento() {
       console.log('📡 Removendo listener realtime...');
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, selectedPipelineId]);
 
   // Sync from Bitrix mutation
   const syncFromBitrixMutation = useMutation({
@@ -191,13 +230,14 @@ export default function Agenciamento() {
     }
   };
 
-  // Fetch negotiations
+  // Fetch negotiations filtered by pipeline
   const { data: negotiations = [], isLoading } = useQuery({
-    queryKey: ['negotiations', statusFilter, commercialProjectId],
+    queryKey: ['negotiations', statusFilter, selectedPipelineId],
     queryFn: () =>
-      listNegotiations(
-        statusFilter !== 'all' ? { status: [statusFilter] } : undefined
-      ),
+      listNegotiations({
+        status: statusFilter !== 'all' ? [statusFilter] : undefined,
+        pipeline_id: selectedPipelineId,
+      }),
   });
 
   // Create mutation
@@ -359,6 +399,14 @@ export default function Agenciamento() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-wrap gap-4">
+                {/* Pipeline Selector */}
+                <div className="w-[180px]">
+                  <PipelineSelector
+                    value={selectedPipelineId}
+                    onChange={setSelectedPipelineId}
+                  />
+                </div>
+
                 {/* Commercial Project Filter */}
                 <div className="w-[200px]">
                   <CommercialProjectSelector
