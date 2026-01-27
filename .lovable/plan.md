@@ -1,247 +1,153 @@
 
-# Sincronização em Tempo Real com Bitrix + Suporte Multi-Pipeline
+# Sincronização Automática de Pipelines do Bitrix
 
-## Situação Atual
+## Problema Identificado
 
-O sistema de agenciamento atualmente:
-- Só suporta a Pipeline **Pinheiros** (categoria_id = 1)
-- Já tem realtime funcionando na tabela `negotiations` mas NÃO na tabela `deals`
-- O webhook `bitrix-deal-webhook` recebe eventos do Bitrix mas NÃO filtra por pipeline
-- O mapeamento de stages está hardcoded para categoria 1 (C1:NEW, C1:WON, etc)
-- Pipeline **Carrão** (categoria_id = 30) já tem dados (58 deals) mas não aparece na UI
-- Pipeline 8 também existe (4 deals)
+O Bitrix possui várias pipelines (vistas na imagem):
+- Central de Agendamento
+- Agencia Carrão
+- Pinheiros
+- SNTV
+- GC Models Black
+- Escola Prada
+- Escola de Modelo
 
-## Dados Existentes por Pipeline
-
-| Pipeline | Categoria | Deals | Stages |
-|----------|-----------|-------|--------|
-| Pinheiros | 1 | 951 | C1:NEW, C1:UC_O2KDK6, C1:EXECUTING, C1:WON, C1:LOSE, C1:UC_MKIQ0S |
-| Carrão | 30 | 58 | C30:WON, C30:LOSE, ... |
-| Outra | 8 | 4 | C8:NEW, C8:PREPARATION, C8:UC_W27VUC |
+Porém no sistema só existem **3 cadastradas** na tabela `pipeline_configs`:
+| ID | Nome |
+|----|------|
+| 1 | Pinheiros |
+| 30 | Carrão |
+| 8 | Pipeline 8 |
 
 ---
 
-## Arquitetura da Solucao
+## Solução Proposta
+
+Criar uma Edge Function que busca automaticamente todas as pipelines do Bitrix e cadastra no sistema.
+
+---
+
+## Arquitetura
 
 ```text
-┌───────────────────────────────────────────────────────────────────────────────────┐
-│                        FLUXO DE SINCRONIZACAO REALTIME                            │
-├───────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                   │
-│   BITRIX24                                                                        │
-│      │                                                                            │
-│      ▼                                                                            │
-│   ┌────────────────────┐       ┌────────────────────┐       ┌─────────────────┐  │
-│   │ bitrix-deal-webhook│──────▶│    deals (DB)      │──────▶│  Realtime       │  │
-│   │ - Detecta pipeline │       │ - category_id      │       │  - deals        │  │
-│   │ - Mapeia stages    │       │ - stage_id         │       │  - negotiations │  │
-│   └────────────────────┘       └────────────────────┘       └─────────────────┘  │
-│                                         │                            │            │
-│                                         ▼                            ▼            │
-│                                ┌────────────────────┐      ┌─────────────────┐   │
-│                                │  negotiations (DB) │      │  Frontend       │   │
-│                                │  - pipeline_id NEW │◀─────│  - Filtro por   │   │
-│                                │  - status          │      │    pipeline     │   │
-│                                └────────────────────┘      └─────────────────┘   │
-│                                                                                   │
-└───────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                     SINCRONIZACAO DE PIPELINES DO BITRIX                     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌─────────────────────┐       ┌─────────────────────┐                     │
+│   │  sync-pipelines     │──────▶│  Bitrix API         │                     │
+│   │  Edge Function      │       │  crm.category.list  │                     │
+│   │                     │◀──────│  crm.status.list    │                     │
+│   └─────────────────────┘       └─────────────────────┘                     │
+│            │                                                                 │
+│            ▼                                                                 │
+│   ┌─────────────────────┐       ┌─────────────────────┐                     │
+│   │  pipeline_configs   │──────▶│  PipelineSelector   │                     │
+│   │  (Banco de Dados)   │       │  (Frontend)         │                     │
+│   └─────────────────────┘       └─────────────────────┘                     │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Mudancas Necessarias
+## Implementacao
 
-### 1. Banco de Dados
+### 1. Nova Edge Function: `sync-pipelines-from-bitrix`
 
-**Adicionar coluna `pipeline_id` nas tabelas:**
-- `negotiations.pipeline_id` (text) - Para filtrar por pipeline na UI
-- Index para performance em queries filtradas
+Funcionalidade:
+- Chama API `crm.category.list` do Bitrix para listar todas as pipelines de negócios
+- Para cada pipeline, chama `crm.status.list` para buscar os stages disponíveis
+- Cria mapeamento automático de stages para status internos
+- Insere ou atualiza registros na tabela `pipeline_configs`
 
-**Criar tabela de configuracao de pipelines:**
-```sql
-CREATE TABLE pipeline_configs (
-  id text PRIMARY KEY, -- '1', '30', '8'
-  name text NOT NULL,  -- 'Pinheiros', 'Carrão'
-  description text,
-  stage_mapping jsonb, -- Mapeamento de stages para status internos
-  is_active boolean DEFAULT true,
-  created_at timestamp DEFAULT now()
-);
+Mapeamento automático de stages:
+```text
+Stage contém "NEW"       → recepcao_cadastro
+Stage contém "PREPARAT"  → ficha_preenchida
+Stage contém "EXECUT"    → atendimento_produtor
+Stage contém "WON"       → negocios_fechados
+Stage contém "LOSE"      → contrato_nao_fechado
+Outros                   → analisar
 ```
 
-### 2. Mapeamento de Stages por Pipeline
+### 2. Atualizar `sync-negotiations-from-bitrix`
 
-Cada pipeline tem suas proprias stages no Bitrix. O mapeamento precisa ser dinamico:
+Modificar para:
+- Aceitar parâmetro `category_id` opcional
+- Se não informado, sincronizar todas as pipelines ativas
+- Usar mapeamento dinâmico da tabela `pipeline_configs`
 
-| Pipeline | Stage Bitrix | Status Interno |
-|----------|--------------|----------------|
-| Pinheiros (1) | C1:NEW | recepcao_cadastro |
-| Pinheiros (1) | C1:UC_O2KDK6 | ficha_preenchida |
-| Pinheiros (1) | C1:EXECUTING | atendimento_produtor |
-| Pinheiros (1) | C1:WON | negocios_fechados |
-| Pinheiros (1) | C1:LOSE | contrato_nao_fechado |
-| Pinheiros (1) | C1:UC_MKIQ0S | analisar |
-| Carrão (30) | C30:NEW | recepcao_cadastro |
-| Carrão (30) | C30:WON | negocios_fechados |
-| Carrão (30) | C30:LOSE | contrato_nao_fechado |
-| ... | ... | ... |
+### 3. Botão de Sincronização na UI
 
-### 3. Edge Functions a Modificar
-
-**bitrix-deal-webhook:**
-- Extrair `CATEGORY_ID` do deal
-- Usar mapeamento dinamico baseado na pipeline
-- Popular `pipeline_id` na negotiation criada
-
-**sync-negotiations-from-bitrix:**
-- Aceitar parametro `category_id` para filtrar por pipeline
-- Usar mapeamento correto de stages por pipeline
-
-**sync-deal-to-bitrix:**
-- Buscar `pipeline_id` da negotiation/deal
-- Usar mapeamento correto para converter status → stage
-
-### 4. Frontend - Pagina Agenciamento
-
-**Filtro por Pipeline:**
-- Adicionar seletor de pipeline no topo da pagina
-- Filtrar negotiations pela pipeline selecionada
-- Persistir selecao no localStorage
-
-**Realtime Melhorado:**
-- Adicionar listener na tabela `deals` (alem de `negotiations`)
-- Filtrar eventos por pipeline_id para evitar ruido
-
-**UI de Pipeline:**
-- Mostrar nome da pipeline no header
-- Stages podem variar por pipeline (flexibilizar `PIPELINE_STATUSES`)
-
-### 5. Sincronizacao Bidirecional
-
-**Bitrix → Supabase (webhook):**
-- Quando deal muda de stage no Bitrix, atualiza negotiation local
-- Ja funciona, precisa adicionar filtro por pipeline
-
-**Supabase → Bitrix (ao mover card):**
-- Quando usuario move card no kanban, atualiza deal no Bitrix
-- Precisa usar mapeamento correto por pipeline
+Adicionar na página Agenciamento:
+- Botão "Sincronizar Pipelines" no dropdown de ações
+- Chama a edge function `sync-pipelines-from-bitrix`
+- Atualiza o seletor de pipelines automaticamente
 
 ---
 
 ## Arquivos a Criar
 
-| Arquivo | Descricao |
+| Arquivo | Descrição |
 |---------|-----------|
-| `src/hooks/usePipelines.ts` | Hook para buscar/gerenciar configuracoes de pipeline |
-| `src/components/agenciamento/PipelineSelector.tsx` | Componente de selecao de pipeline |
+| `supabase/functions/sync-pipelines-from-bitrix/index.ts` | Edge Function para buscar e cadastrar pipelines do Bitrix |
 
 ---
 
 ## Arquivos a Modificar
 
-| Arquivo | Alteracao |
+| Arquivo | Alteração |
 |---------|-----------|
-| `supabase/functions/bitrix-deal-webhook/index.ts` | Adicionar mapeamento dinamico por pipeline |
-| `supabase/functions/sync-negotiations-from-bitrix/index.ts` | Filtro por category_id e mapeamento dinamico |
-| `supabase/functions/sync-deal-to-bitrix/index.ts` | Buscar pipeline e usar mapeamento correto |
-| `src/pages/Agenciamento.tsx` | Adicionar seletor de pipeline, listener realtime em deals |
-| `src/services/agenciamentoService.ts` | Adicionar filtro por pipeline_id |
-| `src/types/agenciamento.ts` | Adicionar pipeline_id ao tipo Negotiation |
-| `src/components/agenciamento/NegotiationPipeline.tsx` | Receber config de stages por pipeline |
+| `supabase/functions/sync-negotiations-from-bitrix/index.ts` | Aceitar category_id como parâmetro, usar mapeamento dinâmico |
+| `src/pages/Agenciamento.tsx` | Adicionar botão para sincronizar pipelines |
 
 ---
 
-## Detalhes Tecnicos
+## Fluxo da Edge Function
 
-### Mapeamento Dinamico de Stages
+```text
+1. Chamar crm.category.list?entityTypeId=2 (deals)
+   → Retorna: [{ID: 1, NAME: "Pinheiros"}, {ID: 30, NAME: "Agencia Carrão"}, ...]
 
-O mapeamento sera armazenado na tabela `pipeline_configs`:
+2. Para cada categoria, chamar crm.status.list?filter[ENTITY_ID]=DEAL_STAGE_{ID}
+   → Retorna stages: [{STATUS_ID: "C1:NEW", NAME: "Recepção"}, ...]
 
-```json
-// Pipeline Pinheiros (1)
-{
-  "stages": {
-    "C1:NEW": "recepcao_cadastro",
-    "C1:UC_O2KDK6": "ficha_preenchida",
-    "C1:EXECUTING": "atendimento_produtor",
-    "C1:WON": "negocios_fechados",
-    "C1:LOSE": "contrato_nao_fechado",
-    "C1:UC_MKIQ0S": "analisar"
-  },
-  "reverse": {
-    "recepcao_cadastro": "C1:NEW",
-    "ficha_preenchida": "C1:UC_O2KDK6",
-    "atendimento_produtor": "C1:EXECUTING",
-    "negocios_fechados": "C1:WON",
-    "contrato_nao_fechado": "C1:LOSE",
-    "analisar": "C1:UC_MKIQ0S"
-  }
-}
+3. Gerar mapeamento automático baseado nos nomes dos stages
 
-// Pipeline Carrão (30)
-{
-  "stages": {
-    "C30:NEW": "recepcao_cadastro",
-    "C30:WON": "negocios_fechados",
-    "C30:LOSE": "contrato_nao_fechado"
-  },
-  "reverse": {
-    "recepcao_cadastro": "C30:NEW",
-    "negocios_fechados": "C30:WON",
-    "contrato_nao_fechado": "C30:LOSE"
-  }
-}
-```
-
-### Realtime Filtering
-
-```typescript
-// Agenciamento.tsx - Listener com filtro por pipeline
-useEffect(() => {
-  const channel = supabase
-    .channel('deals-negotiations-realtime')
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'deals',
-      filter: `category_id=eq.${selectedPipelineId}` // Filtro por pipeline
-    }, handleDealChange)
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'negotiations'
-    }, handleNegotiationChange)
-    .subscribe();
-}, [selectedPipelineId]);
-```
-
-### Migracao de Dados Existentes
-
-```sql
--- Adicionar pipeline_id baseado no deal
-UPDATE negotiations n
-SET pipeline_id = d.category_id
-FROM deals d
-WHERE n.deal_id = d.id
-AND n.pipeline_id IS NULL;
+4. Upsert na tabela pipeline_configs:
+   - id = category.ID
+   - name = category.NAME
+   - stage_mapping = { stages: {...}, reverse: {...} }
 ```
 
 ---
 
-## Ordem de Implementacao
+## Exemplo de Resultado Esperado
 
-1. **Banco de Dados** - Criar tabela pipeline_configs, adicionar coluna pipeline_id
-2. **Popular Mapeamentos** - Inserir configuracoes para pipelines 1, 30, 8
-3. **Edge Functions** - Atualizar webhook e sync para usar mapeamento dinamico
-4. **Frontend** - Adicionar seletor de pipeline e realtime em deals
-5. **Migracao** - Popular pipeline_id nos registros existentes
+Após sincronização, a tabela `pipeline_configs` terá:
+
+| ID | Nome | Stages |
+|----|------|--------|
+| 1 | Pinheiros | C1:NEW, C1:UC_O2KDK6, C1:EXECUTING, ... |
+| 30 | Agencia Carrão | C30:NEW, C30:WON, C30:LOSE, ... |
+| 8 | SNTV | C8:NEW, C8:PREPARATION, ... |
+| X | GC Models Black | CX:NEW, CX:WON, ... |
+| Y | Escola Prada | CY:NEW, CY:WON, ... |
+| Z | Escola de Modelo | CZ:NEW, CZ:WON, ... |
+| W | Central de Agendamento | CW:NEW, CW:WON, ... |
 
 ---
 
-## Beneficios
+## Interface Atualizada
 
-- Suporte a **multiplas pipelines** (Pinheiros, Carrão, futuras)
-- **Mapeamento flexivel** de stages por pipeline
-- **Realtime completo** - updates em deals e negotiations
-- **Acoes context-aware** - ao mover card, usa stage correta da pipeline
-- Facil adicionar novas pipelines sem alterar codigo
+O PipelineSelector passará a mostrar todas as pipelines sincronizadas do Bitrix, permitindo ao usuário selecionar qualquer uma delas para visualizar os deals correspondentes.
+
+---
+
+## Benefícios
+
+- Não precisa cadastrar pipelines manualmente
+- Mapeamento de stages automático e inteligente
+- Sincronização pode ser reexecutada a qualquer momento
+- Novas pipelines do Bitrix aparecem automaticamente no sistema
