@@ -13,7 +13,8 @@ import {
   Tag, 
   UserPlus, 
   Users,
-  Workflow
+  Workflow,
+  FileText
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { FlowStepType } from '@/types/flow';
@@ -24,6 +25,12 @@ interface NodePaletteProps {
 
 const nodeTypes = [
   // ✅ WHATSAPP / GUPSHUP
+  {
+    type: 'gupshup_send_template' as const,
+    label: 'WhatsApp: Template',
+    description: 'Envia template HSM com botões',
+    icon: FileText,
+  },
   {
     type: 'gupshup_send_text' as const,
     label: 'WhatsApp: Texto',

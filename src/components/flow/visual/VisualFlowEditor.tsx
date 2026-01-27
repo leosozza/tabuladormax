@@ -26,6 +26,7 @@ import { WaitNode } from './nodes/WaitNode';
 import { CustomNode } from './nodes/CustomNode';
 import { SendMessageNode } from './nodes/SendMessageNode';
 import { ConditionNode } from './nodes/ConditionNode';
+import { TemplateNode } from './nodes/TemplateNode';
 import { NodePalette } from './NodePalette';
 import { NodeConfigPanel } from './NodeConfigPanel';
 import { VariablePicker } from './VariablePicker';
@@ -49,6 +50,7 @@ const nodeTypes: NodeTypes = {
   gupshup_send_text: CustomNode,
   gupshup_send_image: CustomNode,
   gupshup_send_buttons: CustomNode,
+  gupshup_send_template: TemplateNode,
 };
 
 interface VisualFlowEditorProps {
