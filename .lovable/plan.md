@@ -1,410 +1,383 @@
 
-
-# Envio de Templates WhatsApp com Branching no Flow Builder
+# Novos Tipos de Steps para o Flow Builder
 
 ## Resumo
 
-Adicionar um novo tipo de step `gupshup_send_template` no Flow Builder que permite:
-1. Selecionar um template aprovado do Gupshup
-2. Preencher as variaveis do template
-3. Configurar branching baseado nos botoes do template (quando aplicavel)
-4. Continuar o fluxo de acordo com a resposta do usuario
+Implementar 6 novos tipos de steps para o Flow Builder:
+1. **Notificacao** - Envia notificacao interna para usuarios
+2. **Notificacao de Transferencia** - Notifica usuario de transferencia de conversa
+3. **Atribuir Agente de IA** - Vincula um agente de IA a conversa
+4. **Transferir Agente Humano** - Transfere conversa para usuario especifico
+5. **Encerrar Conversa** - Marca conversa como encerrada
+6. **Programar Acao** - Agenda execucao futura baseada em data fixa ou campo do lead
 
 ---
 
-## Arquitetura da Solucao
+## Arquitetura
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        FLOW BUILDER                                      │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  [Start]                                                                │
-│     │                                                                   │
-│     ▼                                                                   │
-│  ┌─────────────────────────────────────────┐                           │
-│  │  📋 Enviar Template                      │                           │
-│  │  Template: "Confirmar Presenca"          │                           │
-│  │  Variaveis: {{name}}, {{event}}          │                           │
-│  │  ┌────────────────────────────────────┐ │                           │
-│  │  │ Branches:                          │ │                           │
-│  │  │ ├─ [Confirmo presenca] → Step A   │ │                           │
-│  │  │ ├─ [Nao vou]          → Step B   │ │                           │
-│  │  │ └─ [Mais informacoes] → Step C   │ │                           │
-│  │  └────────────────────────────────────┘ │                           │
-│  └─────────────────────────────────────────┘                           │
-│     │          │          │                                             │
-│     ▼          ▼          ▼                                             │
-│  [Step A]   [Step B]   [Step C]                                        │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          NOVOS NOS DO FLOW BUILDER                           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐  │
+│  │  🔔 Notificacao     │  │  📢 Transf. Notif   │  │  🤖 Agente IA       │  │
+│  │  Tipo: notifica     │  │  Tipo: notifica +   │  │  Tipo: selecao de   │  │
+│  │  usuarios internos  │  │  transferencia      │  │  ai_agents          │  │
+│  └─────────────────────┘  └─────────────────────┘  └─────────────────────┘  │
+│                                                                              │
+│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐  │
+│  │  👤 Agente Humano   │  │  ✅ Encerrar Conv   │  │  📅 Programar Acao  │  │
+│  │  Tipo: selecao de   │  │  Tipo: fecha        │  │  Tipo: data fixa ou │  │
+│  │  profiles           │  │  conversa           │  │  campo do lead      │  │
+│  └─────────────────────┘  └─────────────────────┘  └─────────────────────┘  │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Arquivos a Criar
+## 1. Tipos de Step (src/types/flow.ts)
+
+### Novos tipos a adicionar ao FlowStepType:
+
+```typescript
+export type FlowStepType = 
+  // ... tipos existentes ...
+  | 'notification'           // Notificacao interna
+  | 'transfer_notification'  // Notificacao de transferencia
+  | 'assign_ai_agent'        // Atribuir Agente de IA
+  | 'transfer_human_agent'   // Transferir para Agente Humano
+  | 'close_conversation'     // Encerrar Conversa
+  | 'schedule_action';       // Programar Acao
+```
+
+### Novas interfaces:
+
+```typescript
+// Notificacao interna para usuarios
+export interface FlowStepNotification extends FlowStepBase {
+  type: 'notification';
+  config: {
+    title: string;
+    message: string;
+    target_users: string[]; // UUIDs dos profiles
+    notification_type: 'info' | 'warning' | 'success' | 'error';
+  };
+}
+
+// Notificacao de transferencia
+export interface FlowStepTransferNotification extends FlowStepBase {
+  type: 'transfer_notification';
+  config: {
+    target_user_id: string; // UUID do profile
+    message?: string;       // Mensagem opcional
+  };
+}
+
+// Atribuir Agente de IA
+export interface FlowStepAssignAIAgent extends FlowStepBase {
+  type: 'assign_ai_agent';
+  config: {
+    ai_agent_id: string;    // UUID do ai_agents
+    ai_agent_name?: string; // Nome para exibicao
+  };
+}
+
+// Transferir para Agente Humano
+export interface FlowStepTransferHumanAgent extends FlowStepBase {
+  type: 'transfer_human_agent';
+  config: {
+    target_user_id: string;    // UUID do profile
+    target_user_name?: string; // Nome para exibicao
+    notify_user?: boolean;     // Enviar notificacao?
+  };
+}
+
+// Encerrar Conversa
+export interface FlowStepCloseConversation extends FlowStepBase {
+  type: 'close_conversation';
+  config: {
+    closure_reason?: string; // Motivo opcional
+  };
+}
+
+// Programar Acao
+export interface FlowStepScheduleAction extends FlowStepBase {
+  type: 'schedule_action';
+  config: {
+    schedule_type: 'fixed_date' | 'lead_field'; // Tipo de agendamento
+    fixed_date?: string;                        // Data/hora fixa (ISO string)
+    lead_field?: string;                        // Campo do lead (ex: 'data_agendamento')
+    offset_days?: number;                       // Dias antes/depois (-1 = dia anterior)
+    offset_hours?: number;                      // Hora do dia para executar
+    target_flow_id?: string;                    // Flow a executar (opcional, senao continua)
+    target_step_id?: string;                    // Step especifico a executar
+  };
+}
+```
+
+---
+
+## 2. Arquivos a Criar
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `src/components/flow/visual/nodes/TemplateNode.tsx` | Componente visual do no de template |
-| `src/components/flow/visual/GupshupTemplatePicker.tsx` | Componente para selecionar template |
+| `src/components/flow/visual/pickers/UserPicker.tsx` | Componente para selecionar usuarios (profiles) |
+| `src/components/flow/visual/pickers/AIAgentPicker.tsx` | Componente para selecionar agentes de IA |
+| `src/components/flow/visual/pickers/LeadFieldPicker.tsx` | Componente para selecionar campos do lead |
 
 ---
 
-## Arquivos a Modificar
+## 3. Arquivos a Modificar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/types/flow.ts` | Adicionar tipo `FlowStepGupshupSendTemplate` e interface de branching |
-| `src/components/flow/visual/NodePalette.tsx` | Adicionar opcao "WhatsApp: Template" |
-| `src/components/flow/visual/NodeConfigPanel.tsx` | Adicionar `GupshupSendTemplateConfig` |
-| `src/components/flow/visual/VisualFlowEditor.tsx` | Registrar `gupshup_send_template` no nodeTypes |
-| `src/lib/hooks/use-flow-builder.ts` | Adicionar config padrao para template |
-| `supabase/functions/flows-executor/index.ts` | Adicionar handler `executeGupshupSendTemplate` |
+| `src/types/flow.ts` | Adicionar novos tipos e interfaces |
+| `src/components/flow/visual/NodePalette.tsx` | Adicionar 6 novos nos na paleta |
+| `src/components/flow/visual/NodeConfigPanel.tsx` | Adicionar configuradores para cada tipo |
+| `src/lib/hooks/use-flow-builder.ts` | Adicionar configs padrao para novos tipos |
+| `supabase/functions/flows-executor/index.ts` | Adicionar handlers para cada tipo |
 
 ---
 
-## Detalhes de Implementacao
+## 4. Migracao de Banco de Dados
 
-### 1. Novo Tipo de Step
+### Nova tabela `flow_scheduled_actions`:
 
-```typescript
-// Em src/types/flow.ts
+```sql
+CREATE TABLE public.flow_scheduled_actions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  flow_id uuid REFERENCES public.flows(id) ON DELETE CASCADE,
+  run_id uuid,
+  step_id text NOT NULL,
+  lead_id bigint,
+  phone_number text,
+  scheduled_for timestamp with time zone NOT NULL,
+  status text DEFAULT 'pending' CHECK (status IN ('pending', 'executed', 'cancelled', 'failed')),
+  target_flow_id uuid REFERENCES public.flows(id),
+  target_step_id text,
+  context jsonb DEFAULT '{}',
+  created_at timestamp with time zone DEFAULT now(),
+  executed_at timestamp with time zone,
+  error_message text
+);
 
-export interface TemplateButton {
-  id: string;
-  text: string;
-  nextStepId?: string; // ID do proximo step quando este botao for clicado
-}
-
-export interface FlowStepGupshupSendTemplate extends FlowStepBase {
-  type: 'gupshup_send_template';
-  config: {
-    template_id: string;              // ID do template no banco
-    template_name?: string;           // Nome para exibicao
-    variables: Array<{
-      index: number;
-      value: string;                  // Suporta {{variaveis}}
-    }>;
-    buttons?: TemplateButton[];       // Botoes do template com branching
-    wait_for_response?: boolean;      // Se true, aguarda resposta antes de continuar
-    timeout_seconds?: number;         // Timeout para resposta (default: 86400 = 24h)
-    timeout_step_id?: string;         // Step a executar em caso de timeout
-  };
-}
+CREATE INDEX idx_flow_scheduled_actions_pending ON flow_scheduled_actions(scheduled_for) 
+  WHERE status = 'pending';
+CREATE INDEX idx_flow_scheduled_actions_phone ON flow_scheduled_actions(phone_number);
 ```
 
-### 2. Paleta de Nos
+---
 
-Adicionar no `NodePalette.tsx`:
+## 5. Detalhes de Implementacao
+
+### 5.1 NodePalette.tsx - Novos Nos
 
 ```typescript
+// Adicionar ao array nodeTypes:
+
+// GERENCIAMENTO
 {
-  type: 'gupshup_send_template' as const,
-  label: 'WhatsApp: Template',
-  description: 'Envia template HSM com botoes',
-  icon: FileText, // import de lucide-react
-}
+  type: 'notification' as const,
+  label: 'Notificacao',
+  description: 'Notifica usuarios internos',
+  icon: Bell,
+},
+{
+  type: 'transfer_notification' as const,
+  label: 'Notificar Transferencia',
+  description: 'Avisa usuario de transferencia',
+  icon: Send,
+},
+{
+  type: 'assign_ai_agent' as const,
+  label: 'Atribuir Agente IA',
+  description: 'Vincula agente de IA',
+  icon: Bot,
+},
+{
+  type: 'transfer_human_agent' as const,
+  label: 'Transferir Humano',
+  description: 'Transfere para usuario',
+  icon: UserCheck,
+},
+{
+  type: 'close_conversation' as const,
+  label: 'Encerrar Conversa',
+  description: 'Marca conversa como encerrada',
+  icon: CheckCircle,
+},
+{
+  type: 'schedule_action' as const,
+  label: 'Programar Acao',
+  description: 'Agenda acao para data futura',
+  icon: CalendarClock,
+},
 ```
 
-### 3. Componente de Selecao de Template
+### 5.2 Configuradores no NodeConfigPanel.tsx
 
-```tsx
-// GupshupTemplatePicker.tsx
+#### NotificationConfig:
+- Campo de titulo (texto)
+- Campo de mensagem (textarea com placeholders)
+- Seletor multiplo de usuarios (UserPicker)
+- Tipo de notificacao (info/warning/success/error)
 
-export function GupshupTemplatePicker({
-  selectedTemplateId,
-  onSelect
-}: {
-  selectedTemplateId?: string;
-  onSelect: (template: GupshupTemplate | null) => void;
-}) {
-  const { data: templates, isLoading } = useAllGupshupTemplates();
-  
-  // Extrair botoes do template_body (formato: | [Texto] |)
-  const extractButtons = (templateBody: string): string[] => {
-    const buttonRegex = /\| \[([^\]]+)\]/g;
-    const matches = [...templateBody.matchAll(buttonRegex)];
-    return matches.map(m => m[1]);
-  };
-  
-  return (
-    <Select value={selectedTemplateId} onValueChange={(id) => {
-      const template = templates?.find(t => t.id === id);
-      onSelect(template || null);
-    }}>
-      <SelectTrigger>
-        <SelectValue placeholder="Selecione um template..." />
-      </SelectTrigger>
-      <SelectContent>
-        {templates?.map(t => (
-          <SelectItem key={t.id} value={t.id}>
-            {t.display_name} ({t.category})
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-```
+#### TransferNotificationConfig:
+- Seletor de usuario destino (UserPicker)
+- Campo de mensagem opcional
 
-### 4. Painel de Configuracao
+#### AssignAIAgentConfig:
+- Seletor de agente de IA (AIAgentPicker)
+- Lista busca da tabela `ai_agents`
 
-```tsx
-// Em NodeConfigPanel.tsx
+#### TransferHumanAgentConfig:
+- Seletor de usuario destino (UserPicker)
+- Checkbox "Notificar usuario"
 
-function GupshupSendTemplateConfig({
-  step,
-  updateConfig
-}: {
-  step: FlowStepGupshupSendTemplate;
-  updateConfig: (key: string, value: any) => void;
-}) {
-  const { data: templates } = useAllGupshupTemplates();
-  const selectedTemplate = templates?.find(t => t.id === step.config.template_id);
-  
-  // Extrair variaveis do template
-  const templateVariables = selectedTemplate?.variables || [];
-  
-  // Extrair botoes do template_body
-  const extractedButtons = useMemo(() => {
-    if (!selectedTemplate) return [];
-    const regex = /\| \[([^\]]+)\]/g;
-    const matches = [...selectedTemplate.template_body.matchAll(regex)];
-    return matches.map((m, i) => ({ id: `btn_${i}`, text: m[1] }));
-  }, [selectedTemplate]);
-  
-  return (
-    <div className="space-y-4">
-      {/* Seletor de Template */}
-      <div>
-        <Label>Template *</Label>
-        <GupshupTemplatePicker
-          selectedTemplateId={step.config.template_id}
-          onSelect={(template) => {
-            updateConfig('template_id', template?.id || '');
-            updateConfig('template_name', template?.display_name || '');
-            // Auto-preencher variaveis vazias
-            if (template?.variables) {
-              updateConfig('variables', template.variables.map(v => ({
-                index: v.index,
-                value: ''
-              })));
-            }
-            // Auto-preencher botoes
-            if (template) {
-              const btns = extractButtons(template.template_body);
-              updateConfig('buttons', btns.map((text, i) => ({
-                id: `btn_${i}`,
-                text,
-                nextStepId: ''
-              })));
-            }
-          }}
-        />
-      </div>
-      
-      {/* Preview do Template */}
-      {selectedTemplate && (
-        <div className="p-3 bg-muted rounded-lg text-sm">
-          <pre className="whitespace-pre-wrap">{selectedTemplate.template_body}</pre>
-        </div>
-      )}
-      
-      {/* Variaveis */}
-      {templateVariables.length > 0 && (
-        <div>
-          <Label>Variaveis</Label>
-          {templateVariables.map((v, i) => (
-            <div key={i} className="flex gap-2 mt-2">
-              <Badge variant="outline">{`{{${v.index}}}`}</Badge>
-              <Input
-                value={step.config.variables?.[i]?.value || ''}
-                onChange={(e) => {
-                  const vars = [...(step.config.variables || [])];
-                  vars[i] = { index: v.index, value: e.target.value };
-                  updateConfig('variables', vars);
-                }}
-                placeholder={v.example || v.name}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-      
-      {/* Branching por Botoes */}
-      {extractedButtons.length > 0 && (
-        <div>
-          <Label>Branching por Resposta</Label>
-          <p className="text-xs text-muted-foreground mb-2">
-            Configure qual step executar quando o cliente clicar em cada botao
-          </p>
-          {extractedButtons.map((btn, i) => (
-            <Card key={i} className="p-3 mt-2">
-              <div className="flex items-center gap-2">
-                <Badge className="whitespace-nowrap">{btn.text}</Badge>
-                <Input
-                  value={step.config.buttons?.[i]?.nextStepId || ''}
-                  onChange={(e) => {
-                    const btns = [...(step.config.buttons || [])];
-                    btns[i] = { ...btns[i], id: btn.id, text: btn.text, nextStepId: e.target.value };
-                    updateConfig('buttons', btns);
-                  }}
-                  placeholder="ID do proximo step (ou vazio)"
-                  className="text-sm"
-                />
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-      
-      {/* Opcoes de Espera */}
-      <div className="flex items-center gap-2">
-        <Checkbox
-          checked={step.config.wait_for_response || false}
-          onCheckedChange={(checked) => updateConfig('wait_for_response', checked)}
-        />
-        <Label className="text-sm">Aguardar resposta do cliente</Label>
-      </div>
-    </div>
-  );
-}
-```
+#### CloseConversationConfig:
+- Campo de motivo do encerramento (opcional)
 
-### 5. Edge Function - Executor
+#### ScheduleActionConfig:
+- Radio: "Data fixa" ou "Campo do lead"
+- Se data fixa: DateTimePicker
+- Se campo do lead:
+  - Seletor de campo (LeadFieldPicker com campos de data)
+  - Offset em dias (-1, 0, +1, etc)
+  - Hora do dia para executar
+- Seletor de flow/step a executar (opcional)
 
-Adicionar no `flows-executor/index.ts`:
+### 5.3 Pickers Auxiliares
 
+#### UserPicker.tsx:
 ```typescript
-// Adicionar ao switch case
-case 'gupshup_send_template':
-  stepResult = await executeGupshupSendTemplate(
-    step, leadId, context, supabaseAdmin, supabaseUrl, supabaseServiceKey
-  );
-  break;
-
-// Nova funcao
-async function executeGupshupSendTemplate(
-  step: FlowStep,
-  leadId: number | undefined,
-  context: Record<string, any>,
-  supabaseAdmin: any,
-  supabaseUrl: string,
-  supabaseServiceKey: string
-) {
-  const { template_id, variables = [], buttons = [], wait_for_response } = step.config;
-  
-  if (!template_id) {
-    throw new Error('template_id e obrigatorio');
-  }
-  
-  // Obter telefone
-  let targetPhone = context.phone_number;
-  if (!targetPhone && leadId) {
-    const { data: lead } = await supabaseAdmin
-      .from('leads')
-      .select('celular, telefone_casa, phone_normalized')
-      .eq('id', leadId)
-      .single();
-    targetPhone = lead?.phone_normalized || lead?.celular || lead?.telefone_casa;
-  }
-  
-  if (!targetPhone) {
-    throw new Error('Nao foi possivel determinar o telefone');
-  }
-  
-  // Resolver variaveis
-  const resolvedVariables = variables.map(v => 
-    replacePlaceholders(v.value || '', leadId, context)
-  );
-  
-  console.log(`📤 Enviando template ${template_id} para ${targetPhone}`);
-  
-  // Chamar gupshup-send-message com action send_template
-  const response = await fetch(`${supabaseUrl}/functions/v1/gupshup-send-message`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${supabaseServiceKey}`
-    },
-    body: JSON.stringify({
-      action: 'send_template',
-      phone_number: targetPhone,
-      template_id: template_id,
-      variables: resolvedVariables,
-      bitrix_id: leadId?.toString(),
-      source: 'flow_executor'
-    })
-  });
-  
-  const result = await response.json();
-  
-  if (!response.ok || result.error) {
-    throw new Error(result.error || `Erro ao enviar template: ${response.status}`);
-  }
-  
-  console.log(`✅ Template enviado: ${result.messageId}`);
-  
-  return {
-    messageId: result.messageId,
-    phone: targetPhone,
-    template_id,
-    variables: resolvedVariables,
-    buttons: buttons.map(b => b.text),
-    waiting_for_response: wait_for_response
-  };
-}
+// Busca profiles com display_name e email
+// Suporta selecao unica ou multipla
+// Mostra avatar quando disponivel
 ```
 
-### 6. Branching - Fase Futura (Webhook)
+#### AIAgentPicker.tsx:
+```typescript
+// Busca ai_agents com id, name, description
+// Mostra descricao do agente
+```
 
-Para implementar o branching completo onde o fluxo aguarda a resposta do cliente:
-
-1. O step `gupshup_send_template` com `wait_for_response: true` salva o estado do fluxo na tabela `flows_pending_responses`
-2. O webhook `gupshup-webhook` ao receber resposta de botao:
-   - Busca se existe fluxo pendente para aquele telefone
-   - Identifica qual botao foi clicado
-   - Retoma o fluxo a partir do `nextStepId` configurado
-
-Esta fase requer:
-- Nova tabela `flows_pending_responses`
-- Modificacao no `gupshup-webhook` para detectar respostas de botao
-- Modificacao no `flows-executor` para pausar/retomar fluxos
-
----
-
-## Resultado Esperado
-
-1. **Nova opcao no painel**: "WhatsApp: Template" aparece na paleta de nos
-2. **Selecao de template**: Usuario seleciona template aprovado via dropdown
-3. **Preview visual**: Mostra o corpo do template com placeholders
-4. **Variaveis**: Campos para preencher cada `{{1}}`, `{{2}}`, etc.
-5. **Botoes detectados**: Sistema extrai automaticamente botoes do template
-6. **Branching configuravel**: Usuario pode definir qual step executar para cada resposta
+#### LeadFieldPicker.tsx:
+```typescript
+// Lista campos do lead que sao datas:
+// - data_agendamento
+// - data_criacao_agendamento
+// - data_retorno_ligacao
+// - data_analise
+// - data_confirmacao_ficha
+// - criado
+```
 
 ---
 
-## Fluxo de Uso
+## 6. Edge Function - Novos Handlers
 
-1. Arrasta "WhatsApp: Template" para o canvas
-2. Seleciona template "Confirmar Presenca"
-3. Preenche variaveis: `{{1}} = {{lead.nome}}`, `{{2}} = Ribeirao Preto`
-4. Ve os botoes extraidos: [Confirmo presenca], [Nao vou]
-5. Configura branching:
-   - "Confirmo presenca" → vai para step "Atualizar Bitrix para Confirmado"
-   - "Nao vou" → vai para step "Atualizar Bitrix para Cancelado"
-6. Salva o flow
+### executeNotification:
+- Insere na tabela `notifications` (se existir) ou loga para usuarios
+- Envia via Realtime para usuarios online
+
+### executeTransferNotification:
+- Busca usuario destino
+- Cria notificacao de transferencia
+- Atualiza `whatsapp_conversations.assigned_to`
+
+### executeAssignAIAgent:
+- Busca agente de IA
+- Atualiza `agent_operator_assignments` para o telefone
+- Registra no contexto do flow
+
+### executeTransferHumanAgent:
+- Atualiza `whatsapp_conversations.assigned_to`
+- Marca `needs_attention = true`, `status = 'pending_agent'`
+- Opcionalmente notifica usuario
+
+### executeCloseConversation:
+- Insere registro em `whatsapp_conversation_closures`
+- Com phone_number e closure_reason
+
+### executeScheduleAction:
+- Calcula data de execucao:
+  - Se `fixed_date`: usa diretamente
+  - Se `lead_field`: busca valor do campo, aplica offset
+- Insere em `flow_scheduled_actions`
+- Retorna imediatamente (nao bloqueia flow)
 
 ---
 
-## Resumo Tecnico das Alteracoes
+## 7. Campos do Lead Disponiveis para Agendamento
 
-| Componente | Alteracao |
-|------------|-----------|
-| **Tipos** | Novo `FlowStepGupshupSendTemplate` com config de template, variaveis e botoes |
-| **UI** | Novo no na paleta + configurador com picker de template e branching |
-| **Visual** | Novo componente `TemplateNode.tsx` para exibir preview no canvas |
-| **Executor** | Nova funcao `executeGupshupSendTemplate` que envia via edge function |
-| **Hook** | Novo default config para `gupshup_send_template` |
+| Campo | Tipo | Descricao |
+|-------|------|-----------|
+| `data_agendamento` | date | Data do agendamento |
+| `data_criacao_agendamento` | timestamp | Quando agendamento foi criado |
+| `data_retorno_ligacao` | timestamp | Data para retornar ligacao |
+| `data_analise` | timestamp | Data da analise |
+| `data_confirmacao_ficha` | timestamp | Data de confirmacao da ficha |
+| `data_criacao_ficha` | timestamp | Data de criacao da ficha |
+| `criado` | timestamp | Data de criacao do lead |
 
+---
+
+## 8. Fluxo de Uso - Programar Acao
+
+Exemplo: Enviar lembrete 1 dia antes do agendamento as 9h
+
+1. Arrasta "Programar Acao" para o canvas
+2. Seleciona "Campo do lead"
+3. Escolhe campo: `data_agendamento`
+4. Define offset: `-1 dia`
+5. Define hora: `09:00`
+6. Seleciona flow de lembrete ou step especifico
+
+### Execucao:
+- Quando o flow roda, calcula: `data_agendamento - 1 dia + 09:00`
+- Insere em `flow_scheduled_actions` com `scheduled_for`
+- Um cron job (a configurar) processa acoes pendentes
+
+---
+
+## 9. Executor de Acoes Agendadas
+
+### Novo Edge Function: `flows-scheduler`:
+- Roda via cron a cada minuto
+- Busca `flow_scheduled_actions` onde `scheduled_for <= now() AND status = 'pending'`
+- Para cada acao:
+  - Executa o flow/step configurado
+  - Atualiza status para 'executed' ou 'failed'
+
+### Cron Job (pg_cron):
+```sql
+SELECT cron.schedule(
+  'flow-scheduler-minute',
+  '* * * * *',
+  $$
+  SELECT net.http_post(
+    url:='https://[PROJECT_ID].supabase.co/functions/v1/flows-scheduler',
+    headers:='{"Authorization": "Bearer [ANON_KEY]"}'::jsonb
+  );
+  $$
+);
+```
+
+---
+
+## Resumo de Entregaveis
+
+| Item | Tipo | Prioridade |
+|------|------|------------|
+| Tipos em flow.ts | Tipos | Alta |
+| NodePalette novos nos | UI | Alta |
+| NodeConfigPanel configs | UI | Alta |
+| UserPicker | Componente | Alta |
+| AIAgentPicker | Componente | Alta |
+| LeadFieldPicker | Componente | Media |
+| Handlers no flows-executor | Backend | Alta |
+| Tabela flow_scheduled_actions | Banco | Media |
+| Edge Function flows-scheduler | Backend | Media |
+| Cron job de agendamento | Infraestrutura | Media |
