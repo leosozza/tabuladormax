@@ -1,6 +1,7 @@
 // Edge Function para receber webhooks do Bitrix24 para DEALS
 // Recebe atualizações de deals do Bitrix e sincroniza no Supabase
 // Também cria negociações automáticas quando um novo deal é criado
+// Suporta múltiplas pipelines com mapeamento dinâmico de stages
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -10,27 +11,40 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Mapeamento de Stage do Bitrix → Status da Negociação
-const BITRIX_STAGE_TO_STATUS: Record<string, string> = {
-  'NEW': 'inicial',
-  'PREPARATION': 'ficha_preenchida',
-  'PREPAYMENT_INVOICE': 'atendimento_produtor',
-  'EXECUTING': 'atendimento_produtor',
-  'FINAL_INVOICE': 'atendimento_produtor',
-  'WON': 'realizado',
-  'LOSE': 'nao_realizado',
-  'APOLOGY': 'nao_realizado',
-  // Stages da categoria 1 (Agenciamento)
-  'C1:NEW': 'inicial',                    // Recepção - Cadastro atendimento
-  'C1:UC_O2KDK6': 'ficha_preenchida',     // Fichas Preenchidas
-  'C1:UC_MKIQ0S': 'atendimento_produtor', // Atendimento Produtor
-  'C1:PREPARATION': 'ficha_preenchida',
-  'C1:PREPAYMENT_INVOICE': 'atendimento_produtor',
+// Fallback mapping - used when pipeline config not found
+const DEFAULT_STAGE_TO_STATUS: Record<string, string> = {
+  'C1:NEW': 'recepcao_cadastro',
+  'C1:UC_O2KDK6': 'ficha_preenchida',
   'C1:EXECUTING': 'atendimento_produtor',
-  'C1:FINAL_INVOICE': 'atendimento_produtor',
-  'C1:WON': 'realizado',
-  'C1:LOSE': 'nao_realizado',
+  'C1:WON': 'negocios_fechados',
+  'C1:LOSE': 'contrato_nao_fechado',
+  'C1:UC_MKIQ0S': 'analisar',
+  'NEW': 'recepcao_cadastro',
+  'PREPARATION': 'ficha_preenchida',
+  'EXECUTING': 'atendimento_produtor',
+  'WON': 'negocios_fechados',
+  'LOSE': 'contrato_nao_fechado',
 };
+
+// Get stage mapping from pipeline config
+async function getStageToStatusMapping(supabase: any, categoryId: string | null): Promise<Record<string, string>> {
+  if (!categoryId) {
+    return DEFAULT_STAGE_TO_STATUS;
+  }
+
+  const { data: config } = await supabase
+    .from('pipeline_configs')
+    .select('stage_mapping')
+    .eq('id', categoryId)
+    .maybeSingle();
+
+  if (config?.stage_mapping?.stages) {
+    // Merge with defaults for fallback
+    return { ...DEFAULT_STAGE_TO_STATUS, ...config.stage_mapping.stages };
+  }
+
+  return DEFAULT_STAGE_TO_STATUS;
+}
 
 interface BitrixDealWebhookPayload {
   event: string;
@@ -255,6 +269,12 @@ serve(async (req) => {
 
     console.log('✅ Deal salvo com sucesso:', upsertedDeal.id);
 
+    // Get pipeline_id from deal's category_id
+    const pipelineId = deal.CATEGORY_ID ? String(deal.CATEGORY_ID) : '1';
+
+    // Get dynamic stage mapping for this pipeline
+    const stageToStatus = await getStageToStatusMapping(supabase, pipelineId);
+
     // Verificar se já existe negociação para este deal
     const { data: existingNegotiation } = await supabase
       .from('negotiations')
@@ -266,12 +286,13 @@ serve(async (req) => {
       console.log(`📋 Negociação existente encontrada: ${existingNegotiation.id}`);
       
       // Atualizar status da negociação baseado no stage do Bitrix
-      const newStatus = BITRIX_STAGE_TO_STATUS[deal.STAGE_ID];
-      if (newStatus && newStatus !== existingNegotiation.status) {
+      const newStatus = stageToStatus[deal.STAGE_ID] || 'recepcao_cadastro';
+      if (newStatus !== existingNegotiation.status) {
         const { error: updateError } = await supabase
           .from('negotiations')
           .update({ 
             status: newStatus,
+            pipeline_id: pipelineId,
             updated_at: new Date().toISOString()
           })
           .eq('id', existingNegotiation.id);
@@ -279,14 +300,14 @@ serve(async (req) => {
         if (updateError) {
           console.warn('⚠️ Erro ao atualizar status da negociação:', updateError);
         } else {
-          console.log(`✅ Status da negociação atualizado: ${existingNegotiation.status} → ${newStatus}`);
+          console.log(`✅ Status da negociação atualizado: ${existingNegotiation.status} → ${newStatus} (pipeline: ${pipelineId})`);
         }
       }
     } else {
       // Criar nova negociação automaticamente
       console.log('🆕 Criando nova negociação para o deal...');
       
-      const negotiationStatus = BITRIX_STAGE_TO_STATUS[deal.STAGE_ID] || 'inicial';
+      const negotiationStatus = stageToStatus[deal.STAGE_ID] || 'recepcao_cadastro';
       const baseValue = deal.OPPORTUNITY ? parseFloat(deal.OPPORTUNITY) : 0;
       
       const negotiationData = {
@@ -297,6 +318,7 @@ serve(async (req) => {
         client_phone: clientPhone,
         client_email: clientEmail,
         status: negotiationStatus,
+        pipeline_id: pipelineId,
         base_value: baseValue,
         total_value: baseValue,
         start_date: new Date().toISOString(),
@@ -314,7 +336,7 @@ serve(async (req) => {
         console.error('❌ Erro ao criar negociação:', negotiationError);
         // Não lançar erro, apenas logar - o deal foi salvo com sucesso
       } else {
-        console.log(`✅ Nova negociação criada: ${newNegotiation.id} (status: ${negotiationStatus})`);
+        console.log(`✅ Nova negociação criada: ${newNegotiation.id} (status: ${negotiationStatus}, pipeline: ${pipelineId})`);
       }
     }
 

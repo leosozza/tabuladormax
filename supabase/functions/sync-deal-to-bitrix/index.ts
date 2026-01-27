@@ -7,15 +7,41 @@ const corsHeaders = {
 
 const BITRIX_WEBHOOK_URL = 'https://maxsystem.bitrix24.com.br/rest/7/338m945lx9ifjjnr'
 
-// Map negotiation status to Bitrix deal stage (Categoria 1 - Pinheiros)
-// Mapeamento CORRETO com Stage IDs reais do Bitrix
-const STATUS_TO_STAGE: Record<string, string> = {
-  recepcao_cadastro: 'C1:NEW',           // Recepção - Cadastro atendimento
-  ficha_preenchida: 'C1:UC_O2KDK6',      // Ficha Preenchida
-  atendimento_produtor: 'C1:EXECUTING',  // Atendimento Produtor
-  negocios_fechados: 'C1:WON',           // Negócios Fechados
-  contrato_nao_fechado: 'C1:LOSE',       // Contrato não fechado
-  analisar: 'C1:UC_MKIQ0S',              // Analisar
+// Fallback mapping - used when pipeline config not found
+const DEFAULT_STATUS_TO_STAGE: Record<string, string> = {
+  recepcao_cadastro: 'C1:NEW',
+  ficha_preenchida: 'C1:UC_O2KDK6',
+  atendimento_produtor: 'C1:EXECUTING',
+  negocios_fechados: 'C1:WON',
+  contrato_nao_fechado: 'C1:LOSE',
+  analisar: 'C1:UC_MKIQ0S',
+}
+
+interface PipelineConfig {
+  id: string;
+  stage_mapping: {
+    stages: Record<string, string>;
+    reverse: Record<string, string>;
+  };
+}
+
+// Get stage mapping from pipeline config
+async function getStageMapping(supabase: any, pipelineId: string | null): Promise<Record<string, string>> {
+  if (!pipelineId) {
+    return DEFAULT_STATUS_TO_STAGE;
+  }
+
+  const { data: config } = await supabase
+    .from('pipeline_configs')
+    .select('stage_mapping')
+    .eq('id', pipelineId)
+    .maybeSingle();
+
+  if (config?.stage_mapping?.reverse) {
+    return config.stage_mapping.reverse;
+  }
+
+  return DEFAULT_STATUS_TO_STAGE;
 }
 
 Deno.serve(async (req) => {
@@ -30,34 +56,41 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { negotiation_id, deal_id, status, fields } = await req.json()
+    const { negotiation_id, deal_id, status, fields, pipeline_id } = await req.json()
 
-    console.log(`[sync-deal-to-bitrix] Syncing deal ${deal_id}, status: ${status}`)
+    console.log(`[sync-deal-to-bitrix] Syncing deal ${deal_id}, status: ${status}, pipeline: ${pipeline_id}`)
 
-    // Get deal info
+    // Get deal info and pipeline_id
     let bitrixDealId: number | null = null
+    let pipelineId: string | null = pipeline_id || null
 
     if (deal_id) {
       const { data: deal } = await supabase
         .from('deals')
-        .select('bitrix_deal_id')
+        .select('bitrix_deal_id, category_id')
         .eq('id', deal_id)
         .single()
 
       if (deal) {
         bitrixDealId = deal.bitrix_deal_id
+        if (!pipelineId && deal.category_id) {
+          pipelineId = String(deal.category_id)
+        }
       }
     }
 
     if (!bitrixDealId && negotiation_id) {
       const { data: negotiation } = await supabase
         .from('negotiations')
-        .select('bitrix_deal_id')
+        .select('bitrix_deal_id, pipeline_id')
         .eq('id', negotiation_id)
         .single()
 
       if (negotiation) {
         bitrixDealId = negotiation.bitrix_deal_id
+        if (!pipelineId && negotiation.pipeline_id) {
+          pipelineId = negotiation.pipeline_id
+        }
       }
     }
 
@@ -68,15 +101,17 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Get dynamic stage mapping based on pipeline
+    const statusToStage = await getStageMapping(supabase, pipelineId)
+
     // Prepare update fields
     const updateFields: Record<string, any> = { ...fields }
 
-    // Map status to stage
-    if (status && STATUS_TO_STAGE[status]) {
-      updateFields.STAGE_ID = STATUS_TO_STAGE[status]
-      console.log(`[sync-deal-to-bitrix] Mapping status "${status}" to stage "${STATUS_TO_STAGE[status]}"`)
+    // Map status to stage using dynamic mapping
+    if (status && statusToStage[status]) {
+      updateFields.STAGE_ID = statusToStage[status]
+      console.log(`[sync-deal-to-bitrix] Mapping status "${status}" to stage "${statusToStage[status]}" (pipeline: ${pipelineId})`)
     }
-
     // Update in Bitrix
     const response = await fetch(`${BITRIX_WEBHOOK_URL}/crm.deal.update.json`, {
       method: 'POST',
