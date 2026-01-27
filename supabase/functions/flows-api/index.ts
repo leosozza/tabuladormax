@@ -119,8 +119,7 @@ Deno.serve(async (req) => {
         nome: body.nome,
         descricao: body.descricao || null,
         steps: body.steps,
-        ativo: body.ativo !== undefined ? body.ativo : true,
-        criado_por: userId
+        ativo: body.ativo !== undefined ? body.ativo : true
       };
 
       const { data, error } = await supabaseAdmin
