@@ -578,7 +578,7 @@ const PortalTelemarketingWhatsApp = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <p className="text-xs text-muted-foreground truncate">
-                            {conv.last_message_preview || conv.phone_number || 'Sem telefone'}
+                            {conv.phone_number || 'Sem telefone'}
                           </p>
                           {isSupervisor && conv.telemarketing_name && (
                             <p className="text-[10px] text-purple-500 truncate">
