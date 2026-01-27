@@ -52,6 +52,25 @@ export function convertStepsToEdges(steps: FlowStep[]): Edge[] {
       animated: true
     });
   }
+
+  // Add branching edges for template buttons (sourceHandle = button-{index})
+  for (const step of steps) {
+    if (step.type !== 'gupshup_send_template') continue;
+
+    const buttons = (step.config as any)?.buttons as Array<{ nextStepId?: string }> | undefined;
+    if (!buttons?.length) continue;
+
+    buttons.forEach((btn, index) => {
+      if (!btn?.nextStepId) return;
+      edges.push({
+        id: `e-${step.id}-button-${index}-${btn.nextStepId}`,
+        source: step.id,
+        sourceHandle: `button-${index}`,
+        target: btn.nextStepId,
+        animated: true,
+      });
+    });
+  }
   
   return edges;
 }

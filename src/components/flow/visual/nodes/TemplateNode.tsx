@@ -34,10 +34,15 @@ export const TemplateNode = memo(({ data, selected }: TemplateNodeProps) => {
   const variablesCount = data.config?.variables?.filter(v => v.value)?.length || 0;
   const buttons = data.config?.buttons || [];
 
+  // Layout constants to place a distinct handle for each button.
+  // We keep each button row a fixed height so handles align predictably.
+  const BUTTON_ROW_HEIGHT_PX = 30;
+  const BUTTONS_SECTION_TOP_PX = 108; // tuned to sit just below the header + divider
+
   return (
     <div
       className={`
-        px-4 py-3 rounded-lg border-2 bg-card min-w-[200px] max-w-[280px]
+        relative px-4 py-3 rounded-lg border-2 bg-card min-w-[200px] max-w-[280px]
         ${selected ? 'border-primary shadow-lg' : 'border-border'}
         transition-all duration-200
       `}
@@ -45,7 +50,7 @@ export const TemplateNode = memo(({ data, selected }: TemplateNodeProps) => {
       <Handle type="target" position={Position.Top} className="!bg-primary" />
       
       <div className="flex items-start gap-2">
-        <div className="p-2 rounded-md bg-green-500/10 text-green-600">
+        <div className="p-2 rounded-md bg-primary/10 text-primary">
           <FileText className="h-4 w-4" />
         </div>
         <div className="flex-1 min-w-0">
@@ -68,17 +73,24 @@ export const TemplateNode = memo(({ data, selected }: TemplateNodeProps) => {
           {buttons.map((btn, index) => (
             <div 
               key={btn.id || index} 
-              className="relative flex items-center justify-between gap-2 text-xs bg-muted/50 rounded px-2 py-1.5"
+              className="flex items-center justify-between gap-2 text-xs bg-muted/50 rounded px-2 h-[30px]"
             >
               <span className="truncate flex-1">{btn.text}</span>
-              <Handle
-                type="source"
-                position={Position.Right}
-                id={`button-${index}`}
-                className="!bg-green-500 !w-2.5 !h-2.5 !right-[-6px]"
-                style={{ top: 'auto', position: 'relative', transform: 'none' }}
-              />
             </div>
+          ))}
+
+          {/* Render the handles absolutely, one per button row */}
+          {buttons.map((btn, index) => (
+            <Handle
+              key={`handle-${btn.id || index}`}
+              type="source"
+              position={Position.Right}
+              id={`button-${index}`}
+              className="!bg-primary !w-2.5 !h-2.5 !right-[-6px]"
+              style={{
+                top: BUTTONS_SECTION_TOP_PX + (index * BUTTON_ROW_HEIGHT_PX) + (BUTTON_ROW_HEIGHT_PX / 2),
+              }}
+            />
           ))}
         </div>
       ) : (
