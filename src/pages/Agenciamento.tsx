@@ -72,7 +72,7 @@ import { CommercialProjectSelector } from '@/components/CommercialProjectSelecto
 import { MainLayout } from '@/components/layouts/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { usePipelineConfig } from '@/hooks/usePipelines';
+import { usePipelineConfig, usePipelines } from '@/hooks/usePipelines';
 
 type ViewMode = 'pipeline' | 'grid' | 'list';
 
@@ -86,6 +86,7 @@ export default function Agenciamento() {
   const [commercialProjectId, setCommercialProjectId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'pipeline' | 'dashboard'>('pipeline');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncingPipelines, setIsSyncingPipelines] = useState(false);
   
   // Pipeline selection - persisted in localStorage
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>(() => {
@@ -94,6 +95,7 @@ export default function Agenciamento() {
 
   // Get pipeline config for dynamic stage mapping
   const { data: pipelineConfig } = usePipelineConfig(selectedPipelineId);
+  const { refetch: refetchPipelines } = usePipelines();
 
   const queryClient = useQueryClient();
 
@@ -230,6 +232,35 @@ export default function Agenciamento() {
     }
   };
 
+  // Sync pipelines from Bitrix
+  const handleSyncPipelines = async () => {
+    setIsSyncingPipelines(true);
+    try {
+      toast.info('Buscando pipelines do Bitrix...', { duration: 3000 });
+      
+      const response = await supabase.functions.invoke('sync-pipelines-from-bitrix');
+      
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+      
+      const data = response.data;
+      
+      if (data.success) {
+        toast.success(`Pipelines sincronizadas: ${data.created} novas, ${data.updated} atualizadas`);
+        // Refresh pipelines list
+        refetchPipelines();
+        queryClient.invalidateQueries({ queryKey: ['pipeline-configs'] });
+      } else {
+        throw new Error(data.error || 'Erro desconhecido');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao sincronizar pipelines');
+    } finally {
+      setIsSyncingPipelines(false);
+    }
+  };
+
   // Fetch negotiations filtered by pipeline
   const { data: negotiations = [], isLoading } = useQuery({
     queryKey: ['negotiations', statusFilter, selectedPipelineId],
@@ -356,6 +387,14 @@ export default function Agenciamento() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem 
+                onClick={handleSyncPipelines}
+                disabled={isSyncingPipelines}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isSyncingPipelines ? 'animate-spin' : ''}`} />
+                Sincronizar Pipelines
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => handleSyncFromBitrix('active_only')}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Atualizar Status dos Ativos
