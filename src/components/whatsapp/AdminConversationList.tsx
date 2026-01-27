@@ -208,7 +208,7 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
     return () => clearTimeout(timer);
   };
 
-  const { conversations, isLoading, isLoadingMore, stats, refetch, loadMore, hasMore, totalCount } =
+  const { conversations, isLoading, isLoadingMore, error, stats, refetch, loadMore, hasMore, totalCount } =
     useAdminWhatsAppConversations({
       search: debouncedSearch,
       windowFilter,
@@ -480,6 +480,29 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                 </div>
               </div>
             ))
+          ) : error ? (
+            // Error state with retry option
+            <div className="text-center py-8 px-4">
+              <MessageCircle className="h-12 w-12 mx-auto mb-3 text-destructive opacity-70" />
+              <p className="text-destructive font-medium mb-2">
+                Não foi possível carregar as conversas
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refetch()}
+                className="mb-3"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Tentar novamente
+              </Button>
+              <details className="text-left text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                <summary className="cursor-pointer mb-1">Detalhes técnicos</summary>
+                <code className="break-all">
+                  {error instanceof Error ? error.message : String(error)}
+                </code>
+              </details>
+            </div>
           ) : conversations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <MessageCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />

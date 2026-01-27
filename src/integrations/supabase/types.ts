@@ -5282,6 +5282,8 @@ export type Database = {
           is_window_open: boolean | null
           last_customer_message_at: string | null
           last_message_at: string | null
+          last_message_direction: string | null
+          last_message_preview: string | null
           last_operator_message_at: string | null
           phone_number: string | null
           response_status: string | null
