@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, X, Phone, RotateCcw, CheckCircle2, UserPlus, RotateCw, Tag } from 'lucide-react';
+import { RefreshCw, X, Phone, RotateCcw, CheckCircle2, UserPlus, RotateCw, Tag, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useConversationClosure, useReopenConversation } from '@/hooks/useCloseConversation';
+import { useMyParticipation } from '@/hooks/useMyParticipation';
 import { CloseConversationDialog } from './CloseConversationDialog';
+import { ResolveParticipationDialog } from './ResolveParticipationDialog';
 import { InviteAgentDialog } from './InviteAgentDialog';
 import { ConversationParticipants } from './ConversationParticipants';
 import { ConversationTagsManager } from './ConversationTagsManager';
@@ -35,10 +37,12 @@ export function WhatsAppHeader({
 }: WhatsAppHeaderProps) {
   const navigate = useNavigate();
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [tagsDialogOpen, setTagsDialogOpen] = useState(false);
   
   const { data: closure } = useConversationClosure(phoneNumber);
+  const { data: myParticipation } = useMyParticipation(phoneNumber);
   const { data: conversationTags = [] } = useConversationTags(phoneNumber);
   const reopenConversation = useReopenConversation();
   
@@ -128,6 +132,20 @@ export function WhatsAppHeader({
             )
           )}
           
+          {/* Resolve My Participation Button - shown when user is invited participant */}
+          {phoneNumber && myParticipation && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setResolveDialogOpen(true)}
+              className="gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+              title="Marcar sua participação como resolvida"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              Resolvido
+            </Button>
+          )}
+          
           {/* Tags Button */}
           {phoneNumber && (
             <Button
@@ -205,6 +223,16 @@ export function WhatsAppHeader({
             bitrixId={bitrixId}
             contactName={contactName}
           />
+          {myParticipation && (
+            <ResolveParticipationDialog
+              open={resolveDialogOpen}
+              onOpenChange={setResolveDialogOpen}
+              phoneNumber={phoneNumber}
+              participationId={myParticipation.id}
+              contactName={contactName}
+              onResolved={onClose}
+            />
+          )}
           <InviteAgentDialog
             open={inviteDialogOpen}
             onOpenChange={setInviteDialogOpen}
