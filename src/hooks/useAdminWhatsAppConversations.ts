@@ -28,7 +28,7 @@ export interface AdminConversation {
 }
 
 export type WindowFilter = 'all' | 'open' | 'closed';
-export type ResponseFilter = 'all' | 'waiting' | 'never' | 'replied';
+export type ResponseFilter = 'all' | 'waiting' | 'never' | 'replied' | 'in_progress';
 export type DealStatusFilter = 'all' | 'won' | 'lost' | 'open' | 'no_deal';
 export type ClosedFilter = 'active' | 'closed' | 'all';
 

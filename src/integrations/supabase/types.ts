@@ -5080,9 +5080,11 @@ export type Database = {
           id: string
           invited_at: string | null
           invited_by: string | null
+          inviter_name: string | null
           last_seen_at: string | null
           operator_id: string
           phone_number: string
+          priority: number | null
           role: string | null
         }
         Insert: {
@@ -5091,9 +5093,11 @@ export type Database = {
           id?: string
           invited_at?: string | null
           invited_by?: string | null
+          inviter_name?: string | null
           last_seen_at?: string | null
           operator_id: string
           phone_number: string
+          priority?: number | null
           role?: string | null
         }
         Update: {
@@ -5102,10 +5106,71 @@ export type Database = {
           id?: string
           invited_at?: string | null
           invited_by?: string | null
+          inviter_name?: string | null
           last_seen_at?: string | null
           operator_id?: string
           phone_number?: string
+          priority?: number | null
           role?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_conversation_tag_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          bitrix_id: string | null
+          id: string
+          phone_number: string
+          tag_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          bitrix_id?: string | null
+          id?: string
+          phone_number: string
+          tag_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          bitrix_id?: string | null
+          id?: string
+          phone_number?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversation_tag_assignments_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversation_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_conversation_tags: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -5213,10 +5278,11 @@ export type Database = {
       mv_whatsapp_conversation_stats: {
         Row: {
           bitrix_id: string | null
+          is_closed: boolean | null
+          is_window_open: boolean | null
           last_customer_message_at: string | null
           last_message_at: string | null
-          last_message_direction: string | null
-          last_message_preview: string | null
+          last_operator_message_at: string | null
           phone_number: string | null
           response_status: string | null
           total_messages: number | null
@@ -5585,6 +5651,16 @@ export type Database = {
         }
         Returns: Json
       }
+      get_conversation_tags: {
+        Args: { p_phone_number: string }
+        Returns: {
+          assigned_at: string
+          assigned_by: string
+          color: string
+          id: string
+          name: string
+        }[]
+      }
       get_conversion_funnel_data: {
         Args: {
           p_end_date?: string
@@ -5781,6 +5857,17 @@ export type Database = {
         }[]
       }
       get_maintenance_stats: { Args: never; Returns: Json }
+      get_my_invited_conversations: {
+        Args: { p_operator_id: string }
+        Returns: {
+          bitrix_id: string
+          invited_at: string
+          invited_by: string
+          inviter_name: string
+          phone_number: string
+          priority: number
+        }[]
+      }
       get_normalized_etapas: {
         Args: never
         Returns: {

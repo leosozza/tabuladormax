@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, X, Phone, RotateCcw, CheckCircle2, UserPlus, RotateCw } from 'lucide-react';
+import { RefreshCw, X, Phone, RotateCcw, CheckCircle2, UserPlus, RotateCw, Tag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useConversationClosure, useReopenConversation } from '@/hooks/useCloseConversation';
 import { CloseConversationDialog } from './CloseConversationDialog';
 import { InviteAgentDialog } from './InviteAgentDialog';
 import { ConversationParticipants } from './ConversationParticipants';
+import { ConversationTagsManager } from './ConversationTagsManager';
+import { useConversationTags } from '@/hooks/useConversationTags';
+import { TagBadge } from './TagBadge';
 
 interface WhatsAppHeaderProps {
   contactName: string;
@@ -33,8 +36,10 @@ export function WhatsAppHeader({
   const navigate = useNavigate();
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [tagsDialogOpen, setTagsDialogOpen] = useState(false);
   
   const { data: closure } = useConversationClosure(phoneNumber);
+  const { data: conversationTags = [] } = useConversationTags(phoneNumber);
   const reopenConversation = useReopenConversation();
   
   const isClosed = !!closure;
@@ -76,6 +81,17 @@ export function WhatsAppHeader({
             <p className="text-xs text-muted-foreground">
               {phoneNumber || `Lead #${bitrixId}`}
             </p>
+            {/* Display conversation tags */}
+            {conversationTags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {conversationTags.slice(0, 3).map((tag) => (
+                  <TagBadge key={tag.id} name={tag.name} color={tag.color} size="sm" />
+                ))}
+                {conversationTags.length > 3 && (
+                  <span className="text-[10px] text-muted-foreground">+{conversationTags.length - 3}</span>
+                )}
+              </div>
+            )}
           </div>
           
           {/* Participants */}
@@ -110,6 +126,20 @@ export function WhatsAppHeader({
                 Encerrar
               </Button>
             )
+          )}
+          
+          {/* Tags Button */}
+          {phoneNumber && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTagsDialogOpen(true)}
+              className="gap-1.5 text-xs"
+              title="Gerenciar etiquetas"
+            >
+              <Tag className="w-3.5 h-3.5" />
+              Etiquetas
+            </Button>
           )}
           
           {/* Invite Agent Button */}
@@ -178,6 +208,12 @@ export function WhatsAppHeader({
           <InviteAgentDialog
             open={inviteDialogOpen}
             onOpenChange={setInviteDialogOpen}
+            phoneNumber={phoneNumber}
+            bitrixId={bitrixId}
+          />
+          <ConversationTagsManager
+            open={tagsDialogOpen}
+            onOpenChange={setTagsDialogOpen}
             phoneNumber={phoneNumber}
             bitrixId={bitrixId}
           />

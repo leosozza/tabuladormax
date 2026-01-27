@@ -52,13 +52,26 @@ export const useInviteParticipant = () => {
       bitrixId,
       operatorId,
       operatorName,
+      priority = 0,
     }: {
       phoneNumber: string;
       bitrixId?: string;
       operatorId: string;
       operatorName?: string;
+      priority?: number;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // Get current user's display name for inviter_name
+      let inviterName = null;
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', user.id)
+          .single() as { data: { display_name: string | null } | null; error: any };
+        inviterName = profile?.display_name || null;
+      }
       
       // Insert participant
       const { data, error } = await supabase
@@ -68,6 +81,8 @@ export const useInviteParticipant = () => {
           bitrix_id: bitrixId || null,
           operator_id: operatorId,
           invited_by: user?.id || null,
+          inviter_name: inviterName,
+          priority: priority,
           role: 'participant',
         })
         .select()
