@@ -14,7 +14,13 @@ import {
   UserPlus, 
   Users,
   Workflow,
-  FileText
+  FileText,
+  Bell,
+  Send,
+  Bot,
+  UserCheck,
+  CheckCircle,
+  CalendarClock
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { FlowStepType } from '@/types/flow';
@@ -134,6 +140,43 @@ const nodeTypes = [
     label: 'Atribuir Time',
     description: 'Atribui ao time',
     icon: Users,
+  },
+  // GERENCIAMENTO
+  {
+    type: 'notification' as const,
+    label: 'Notificação',
+    description: 'Notifica usuários internos',
+    icon: Bell,
+  },
+  {
+    type: 'transfer_notification' as const,
+    label: 'Notificar Transferência',
+    description: 'Avisa usuário de transferência',
+    icon: Send,
+  },
+  {
+    type: 'assign_ai_agent' as const,
+    label: 'Atribuir Agente IA',
+    description: 'Vincula agente de IA',
+    icon: Bot,
+  },
+  {
+    type: 'transfer_human_agent' as const,
+    label: 'Transferir Humano',
+    description: 'Transfere para usuário',
+    icon: UserCheck,
+  },
+  {
+    type: 'close_conversation' as const,
+    label: 'Encerrar Conversa',
+    description: 'Marca conversa como encerrada',
+    icon: CheckCircle,
+  },
+  {
+    type: 'schedule_action' as const,
+    label: 'Programar Ação',
+    description: 'Agenda ação para data futura',
+    icon: CalendarClock,
   },
 ];
 

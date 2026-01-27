@@ -2209,6 +2209,72 @@ export type Database = {
           },
         ]
       }
+      flow_scheduled_actions: {
+        Row: {
+          context: Json | null
+          created_at: string | null
+          error_message: string | null
+          executed_at: string | null
+          flow_id: string | null
+          id: string
+          lead_id: number | null
+          phone_number: string | null
+          run_id: string | null
+          scheduled_for: string
+          status: string | null
+          step_id: string
+          target_flow_id: string | null
+          target_step_id: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          flow_id?: string | null
+          id?: string
+          lead_id?: number | null
+          phone_number?: string | null
+          run_id?: string | null
+          scheduled_for: string
+          status?: string | null
+          step_id: string
+          target_flow_id?: string | null
+          target_step_id?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          flow_id?: string | null
+          id?: string
+          lead_id?: number | null
+          phone_number?: string | null
+          run_id?: string | null
+          scheduled_for?: string
+          status?: string | null
+          step_id?: string
+          target_flow_id?: string | null
+          target_step_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flow_scheduled_actions_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flow_scheduled_actions_target_flow_id_fkey"
+            columns: ["target_flow_id"]
+            isOneToOne: false
+            referencedRelation: "flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       flow_triggers: {
         Row: {
           ativo: boolean | null

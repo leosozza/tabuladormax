@@ -114,6 +114,13 @@ function getDefaultLabel(type: FlowStepType): string {
     add_label: 'Adicionar Label',
     assign_agent: 'Atribuir Agente',
     assign_team: 'Atribuir Time',
+    // New management types
+    notification: 'Notificação',
+    transfer_notification: 'Notificar Transferência',
+    assign_ai_agent: 'Atribuir Agente IA',
+    transfer_human_agent: 'Transferir Humano',
+    close_conversation: 'Encerrar Conversa',
+    schedule_action: 'Programar Ação',
   };
   return labels[type] || type;
 }
@@ -219,6 +226,38 @@ function getDefaultConfig(type: FlowStepType): unknown {
     assign_team: {
       conversationId: '{{conversation.id}}',
       teamId: '',
+    },
+    // New management types
+    notification: {
+      title: '',
+      message: '',
+      target_users: [],
+      notification_type: 'info',
+    },
+    transfer_notification: {
+      target_user_id: '',
+      message: '',
+    },
+    assign_ai_agent: {
+      ai_agent_id: '',
+      ai_agent_name: '',
+    },
+    transfer_human_agent: {
+      target_user_id: '',
+      target_user_name: '',
+      notify_user: true,
+    },
+    close_conversation: {
+      closure_reason: '',
+    },
+    schedule_action: {
+      schedule_type: 'fixed_date',
+      fixed_date: '',
+      lead_field: '',
+      offset_days: 0,
+      offset_hours: 9,
+      target_flow_id: '',
+      target_step_id: '',
     },
   };
   return configs[type] || {};
