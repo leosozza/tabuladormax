@@ -496,8 +496,8 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
                   onClick={() => onSelectConversation(conv)}
                   onDoubleClick={() => handleDoubleClick(conv)}
                   className={cn(
-                    // min-w-0 + truncates below prevent horizontal overflow that can hide timestamp/badges
-                    "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors min-w-0",
+                    // overflow-hidden + min-w-0 force child truncation to work correctly
+                    "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors min-w-0 overflow-hidden",
                     "hover:bg-accent",
                     isSelected(conv) && "bg-accent",
                   )}
