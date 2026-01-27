@@ -1,192 +1,121 @@
 
-# Sistema Avançado de Gestão de Conversas WhatsApp
+Objetivo: fazer uma revisão profunda e corrigir por que a rota **/whatsapp** não carrega conversas.
 
-## Resumo das Funcionalidades
+## Diagnóstico (causa raiz confirmada)
+A lista não carrega porque a chamada do backend que busca conversas está falhando:
 
-Este plano adiciona 4 novas funcionalidades à Central de Atendimento:
+- Request: `rpc/get_admin_whatsapp_conversations`
+- Status: **400**
+- Erro: **`column s.last_message_preview does not exist`**
 
-1. **Status "Em Atendimento"** - Automático quando agente humano responde
-2. **Sistema de Etiquetas** - Tags coloridas para categorizar conversas
-3. **Prioridade de Atendimento** - Nível 0-5 ao convidar agentes
-4. **Destaque de Convites** - Indicador visual para conversas onde o agente foi convidado
+Ou seja: a função `get_admin_whatsapp_conversations` está selecionando campos que **não existem mais** na materialized view `mv_whatsapp_conversation_stats`.
 
----
+### Evidência técnica (o que está quebrado)
+A função atual (backend) faz:
+- `SELECT s.last_message_preview, s.last_message_direction ... FROM mv_whatsapp_conversation_stats s`
 
-## 1. Novo Status "Em Atendimento"
+Mas a view atual tem apenas:
+- `phone_number`, `bitrix_id`, `last_customer_message_at`, `last_operator_message_at`, `last_message_at`, `unread_count`, `total_messages`, `response_status`, `is_window_open`, `is_closed`
+e **não** possui `last_message_preview` e `last_message_direction`.
 
-### Lógica
-- Quando um operador humano envia uma mensagem (`sent_by = 'operador'`), a conversa automaticamente muda para status `in_progress`
-- Novo filtro no dropdown de "Status de Resposta"
+Isso ocorreu porque a migration `20260127210600_d6099b22-7dfa-4858-a11c-f2fc80a60c83.sql` recriou a view para suportar `in_progress`, mas removeu (sem querer) os campos de preview/direction que o frontend depende.
 
-### Alteracoes no Banco
-```text
-Nova coluna em mv_whatsapp_conversation_stats:
-- attendance_status: 'idle' | 'in_progress' | 'waiting' | 'closed'
+## Estratégia de correção
+Corrigir a view para voltar a expor as colunas esperadas **sem perder** o status “Em Atendimento”.
 
-Trigger: Ao detectar mensagem outbound de operador humano, 
-marca a conversa como 'in_progress'
-```
-
-### Filtro no Frontend
-Adicionar opção ao filtro de Response:
-- Todas
-- Aguardando
-- Sem resposta  
-- Respondeu
-- **Em Atendimento** (novo)
+### Resultado esperado após correção
+- `/whatsapp` volta a listar conversas imediatamente
+- filtros (“Todos / Aguardando / Sem resposta / Respondeu / Em Atendimento”) voltam a funcionar
+- preview da última mensagem e direção voltam a aparecer sem quebrar as queries
 
 ---
 
-## 2. Sistema de Etiquetas (Tags)
+## Plano de implementação
 
-### Nova Tabela: `whatsapp_conversation_tags`
-```text
-id: UUID
-name: TEXT (ex: "Urgente", "VIP", "Reclamação")
-color: TEXT (ex: "#FF5733", "#3B82F6")
-created_by: UUID (referência ao operador)
-created_at: TIMESTAMP
-```
+### 1) Backend: recriar `mv_whatsapp_conversation_stats` com colunas completas (fix principal)
+Criar uma migration que:
+1. **DROP + CREATE** da `mv_whatsapp_conversation_stats` contendo estas colunas (mínimo necessário):
+   - `phone_number`
+   - `bitrix_id`
+   - `last_message_at`
+   - `last_customer_message_at`
+   - `last_operator_message_at`
+   - `unread_count`
+   - `total_messages`
+   - `last_message_preview`  ✅ (reintroduzir)
+   - `last_message_direction` ✅ (reintroduzir)
+   - `response_status` ✅ (manter + incluir `in_progress`)
+   - `is_window_open`
+   - `is_closed`
 
-### Nova Tabela: `whatsapp_conversation_tag_assignments`
-```text
-id: UUID
-phone_number: TEXT
-bitrix_id: TEXT (nullable)
-tag_id: UUID (referência à tag)
-assigned_by: UUID
-assigned_at: TIMESTAMP
-```
+2. Calcular `last_message_preview` e `last_message_direction` com agregação ordenada (padrão já usado nas migrations antigas), por exemplo:
+   - preview: `(array_agg(preview_value ORDER BY created_at DESC))[1]`
+   - direction: `(array_agg(direction ORDER BY created_at DESC))[1]`
 
-### Interface
-- Botão de etiqueta no header da conversa
-- Modal para selecionar/criar etiquetas
-- Tags exibidas na lista de conversas (badges coloridos)
-- Filtro por etiqueta na lista
+3. Manter a regra do “Em Atendimento”:
+   - `in_progress` quando existe mensagem outbound com `sent_by='operador'` mais recente que a última inbound.
 
----
+4. Recriar índices importantes:
+   - unique `(phone_number, bitrix_id)` (ou `(phone_number, COALESCE(bitrix_id,''))` se quisermos mais robusto com NULL)
+   - `response_status`
+   - `is_window_open`
+   - `is_closed`
+   - (recomendado) `last_message_at DESC` para performance da lista
 
-## 3. Prioridade de Atendimento
+5. Reaplicar permissões (GRANT SELECT) e finalizar com um refresh (ou já criar com dados; refresh extra é opcional).
 
-### Alteração na Tabela `whatsapp_conversation_participants`
-```text
-Nova coluna: priority INTEGER DEFAULT 0 (0-5)
-```
-
-### Interface de Convite
-- Slider ou select para escolher prioridade (0-5)
-- 0 = Baixa, 5 = Urgente
-- Exibir na notificação do agente
-
-### Lista de Conversas
-- Badge visual indicando prioridade (cores: cinza -> vermelho)
-- Ordenação opcional por prioridade
+**Por que isso resolve:** a RPC `get_admin_whatsapp_conversations` volta a encontrar `s.last_message_preview` e `s.last_message_direction`, deixando de retornar 400.
 
 ---
 
-## 4. Destaque de Convites para Agentes
-
-### Lógica
-- Quando um agente é convidado, a conversa aparece destacada na sua lista
-- Mostrar badge "Você foi convidado" + nome de quem convidou
-
-### Implementação
-
-**Nova Query/Hook**: `useMyInvitedConversations`
-- Busca conversas onde o operador logado está em `whatsapp_conversation_participants`
-
-**Visual na Lista**:
-```text
-┌────────────────────────────────────────────────┐
-│ 🔔 CONVIDADO POR: João Silva                   │
-│ ├─ [Avatar] Nome do Cliente    🟢2   14:30    │
-│ │           5535991234567                      │
-│ │           [StandBy] [🔴 Prioridade: 5]       │
-│ └────────────────────────────────────────────  │
-└────────────────────────────────────────────────┘
-```
-
-### Alteração na Tabela de Participantes
-```text
-Adicionar: inviter_name TEXT (desnormalizado para performance)
-```
+### 2) Backend: validação pós-migration (checagem profunda)
+Após recriar a view, validar com queries de leitura (sem depender do front):
+1. Conferir colunas via `pg_attribute` para garantir que preview/direction existem.
+2. Rodar:
+   - `select * from get_admin_whatsapp_conversations(10,0,null,'all','all',null,'all');`
+   e confirmar:
+   - retorna **200/sem erro**
+   - campos `last_message_preview` e `last_message_direction` vêm preenchidos
+3. Confirmar também:
+   - `get_admin_whatsapp_filtered_stats` e `count_admin_whatsapp_conversations` continuam OK (não devem quebrar, pois já usam colunas existentes)
 
 ---
 
-## Arquivos a Criar/Modificar
+### 3) Frontend: melhorar feedback quando o backend falha (hardening)
+Hoje, quando a RPC quebra, o usuário vê “Nenhuma conversa encontrada”, o que mascara o problema.
 
-### Banco de Dados (Migrations)
-| Arquivo | Descrição |
-|---------|-----------|
-| Nova migration | Criar tabelas de tags e assignments |
-| Nova migration | Adicionar `priority` e `inviter_name` em participants |
-| Atualizar MV | Adicionar `attendance_status` na materialized view |
-| Atualizar RPCs | Incluir dados de convite e prioridade |
+Alterar `src/components/whatsapp/AdminConversationList.tsx` para:
+1. Usar o `error` vindo do `useAdminWhatsAppConversations`.
+2. Se `error` existir, renderizar um estado de erro:
+   - “Não foi possível carregar as conversas”
+   - Botão “Tentar novamente” (chama `refetch()`)
+   - Detalhe do erro em um `<details>` (apenas para admins), por exemplo `error.message`
 
-### Frontend - Novos Componentes
-| Componente | Descrição |
-|------------|-----------|
-| `ConversationTagsManager.tsx` | Modal para gerenciar etiquetas |
-| `TagBadge.tsx` | Badge colorido de etiqueta |
-| `PrioritySelector.tsx` | Seletor de prioridade 0-5 |
-| `InvitedBadge.tsx` | Indicador de convite |
-
-### Frontend - Modificações
-| Arquivo | Alteração |
-|---------|-----------|
-| `useAdminWhatsAppConversations.ts` | Adicionar campos de prioridade e convite |
-| `InviteAgentDialog.tsx` | Adicionar seletor de prioridade |
-| `AdminConversationList.tsx` | Exibir tags, prioridade e destaque de convite |
-| `WhatsAppHeader.tsx` | Botão de gerenciar etiquetas |
-
-### Hooks Novos
-| Hook | Descrição |
-|------|-----------|
-| `useConversationTags.ts` | CRUD de etiquetas |
-| `useMyInvitedConversations.ts` | Conversas onde fui convidado |
+Isso não é o fix principal, mas evita “apagões silenciosos” no futuro.
 
 ---
 
-## Fluxo de Dados
-
-```text
-1. Agente A convida Agente B para conversa com Cliente X
-   ↓
-2. Agente A seleciona prioridade (ex: 4 - Alta)
-   ↓
-3. Sistema insere em whatsapp_conversation_participants:
-   - operator_id: B
-   - invited_by: A
-   - inviter_name: "Agente A"
-   - priority: 4
-   ↓
-4. Sistema cria notificação para Agente B
-   ↓
-5. Agente B vê conversa destacada na sua lista:
-   - Badge "Convidado por: Agente A"
-   - Badge de prioridade vermelho (4)
-   ↓
-6. Agente B responde → status muda para "Em Atendimento"
-```
+### 4) Verificação manual na UI (critério de aceite)
+Após as correções:
+1. Abrir `/whatsapp`
+2. Confirmar:
+   - conversas aparecem
+   - preview e timestamp aparecem
+   - filtros funcionam
+   - “Em Atendimento” aparece quando o último envio outbound humano for mais recente que o inbound
+3. Confirmar no Network do navegador:
+   - `rpc/get_admin_whatsapp_conversations` retorna 200
 
 ---
 
-## Estimativa de Complexidade
-
-| Funcionalidade | Complexidade | Prioridade |
-|----------------|--------------|------------|
-| Status "Em Atendimento" | Média | Alta |
-| Sistema de Etiquetas | Alta | Média |
-| Prioridade de Atendimento | Baixa | Alta |
-| Destaque de Convites | Média | Alta |
-
-**Total estimado**: ~4-5 iterações de desenvolvimento
+## Riscos e cuidados
+- Recriar materialized view pode demorar alguns segundos dependendo do volume; é o caminho mais rápido e seguro para restaurar compatibilidade.
+- Precisamos manter o cálculo de preview compatível com mensagens sem `content` (ex.: mídia). Vamos definir fallback (“[Mídia]”, “image”, etc.) para não ficar preview vazio.
 
 ---
 
-## Considerações de Performance
+## Entregáveis (o que será alterado)
+1. Uma migration nova corrigindo a `mv_whatsapp_conversation_stats`.
+2. Pequena melhoria de UI no `AdminConversationList` para exibir erro real quando existir.
 
-1. **Desnormalização**: Armazenar `inviter_name` diretamente para evitar JOINs extras
-2. **Índices**: Criar índices em `tag_id`, `phone_number` para buscas rápidas
-3. **Cache**: Usar React Query com `staleTime` adequado para tags (raramente mudam)
-4. **Materialized View**: Atualizar MV para incluir contagem de tags e status de atendimento
+Se você aprovar, eu executo essa correção começando pelo backend (que é o que está impedindo o carregamento agora).
