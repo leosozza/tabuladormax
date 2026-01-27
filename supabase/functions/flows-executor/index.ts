@@ -13,7 +13,7 @@ const corsHeaders = {
 
 interface FlowStep {
   id: string;
-  type: 'tabular' | 'bitrix_connector' | 'supabase_connector' | 'supabase_query' | 'chatwoot_connector' | 'n8n_connector' | 'http_call' | 'wait' | 'bitrix_get_field' | 'gupshup_send_text' | 'gupshup_send_image' | 'gupshup_send_buttons' | 'condition' | 'assign_agent';
+  type: 'tabular' | 'bitrix_connector' | 'supabase_connector' | 'supabase_query' | 'chatwoot_connector' | 'n8n_connector' | 'http_call' | 'wait' | 'bitrix_get_field' | 'gupshup_send_text' | 'gupshup_send_image' | 'gupshup_send_buttons' | 'gupshup_send_template' | 'condition' | 'assign_agent';
   nome: string;
   config: any;
 }
@@ -210,6 +210,10 @@ Deno.serve(async (req) => {
             
             case 'gupshup_send_buttons':
               stepResult = await executeGupshupSendButtons(step, leadId, context, supabaseAdmin, supabaseUrl, supabaseServiceKey);
+              break;
+            
+            case 'gupshup_send_template':
+              stepResult = await executeGupshupSendTemplate(step, leadId, context, supabaseAdmin, supabaseUrl, supabaseServiceKey);
               break;
             
             case 'supabase_query':
@@ -884,6 +888,84 @@ async function executeGupshupSendButtons(
     phone: targetPhone,
     message: resolvedMessage.substring(0, 100),
     buttons: buttons.map((b: any) => b.title || b.text)
+  };
+}
+
+// Gupshup Send Template - Envia template HSM via WhatsApp
+async function executeGupshupSendTemplate(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any,
+  supabaseUrl: string,
+  supabaseServiceKey: string
+) {
+  const { template_id, variables = [], buttons = [], wait_for_response, phone_number } = step.config;
+  
+  if (!template_id) {
+    throw new Error('template_id é obrigatório para gupshup_send_template');
+  }
+  
+  // Obter telefone
+  let targetPhone = phone_number;
+  if (!targetPhone && leadId) {
+    const { data: lead } = await supabaseAdmin
+      .from('leads')
+      .select('celular, telefone_casa, phone_normalized')
+      .eq('id', leadId)
+      .single();
+    
+    targetPhone = lead?.phone_normalized || lead?.celular || lead?.telefone_casa;
+  }
+  
+  if (!targetPhone && context.phone_number) {
+    targetPhone = context.phone_number;
+  }
+  
+  if (!targetPhone) {
+    throw new Error('Não foi possível determinar o telefone do destinatário');
+  }
+  
+  // Resolver variáveis do template
+  const resolvedVariables = variables.map((v: { index: number; value: string }) => {
+    const resolved = replacePlaceholders(v.value || '', leadId, context);
+    return resolved;
+  });
+  
+  console.log(`📤 Enviando template ${template_id} para ${targetPhone} com ${resolvedVariables.length} variáveis`);
+  
+  // Chamar gupshup-send-message com action send_template
+  const response = await fetch(`${supabaseUrl}/functions/v1/gupshup-send-message`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${supabaseServiceKey}`
+    },
+    body: JSON.stringify({
+      action: 'send_template',
+      phone_number: targetPhone,
+      template_id: template_id,
+      variables: resolvedVariables,
+      bitrix_id: leadId?.toString(),
+      source: 'flow_executor'
+    })
+  });
+  
+  const result = await response.json();
+  
+  if (!response.ok || result.error) {
+    throw new Error(result.error || `Erro ao enviar template: ${response.status}`);
+  }
+  
+  console.log(`✅ Template enviado: ${result.messageId}`);
+  
+  return {
+    messageId: result.messageId,
+    phone: targetPhone,
+    template_id,
+    variables: resolvedVariables,
+    buttons: buttons.map((b: any) => b.text),
+    waiting_for_response: wait_for_response
   };
 }
 

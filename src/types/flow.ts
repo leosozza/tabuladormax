@@ -17,6 +17,7 @@ export type FlowStepType =
   | 'gupshup_send_text'
   | 'gupshup_send_image'
   | 'gupshup_send_buttons'
+  | 'gupshup_send_template'
   | 'condition'
   | 'schedule_message'
   | 'update_contact'
@@ -280,6 +281,34 @@ export interface FlowStepGupshupSendButtons extends FlowStepBase {
 }
 
 /**
+ * Template button for branching
+ */
+export interface TemplateButton {
+  id: string;
+  text: string;
+  nextStepId?: string;
+}
+
+/**
+ * Gupshup Send Template - sends HSM template via WhatsApp with optional branching
+ */
+export interface FlowStepGupshupSendTemplate extends FlowStepBase {
+  type: 'gupshup_send_template';
+  config: {
+    template_id: string;
+    template_name?: string;
+    variables: Array<{
+      index: number;
+      value: string;
+    }>;
+    buttons?: TemplateButton[];
+    wait_for_response?: boolean;
+    timeout_seconds?: number;
+    timeout_step_id?: string;
+  };
+}
+
+/**
  * Union type for all flow steps
  */
 export type FlowStep = 
@@ -294,6 +323,7 @@ export type FlowStep =
   | FlowStepGupshupSendText
   | FlowStepGupshupSendImage
   | FlowStepGupshupSendButtons
+  | FlowStepGupshupSendTemplate
   | FlowStepCondition
   | FlowStepScheduleMessage
   | FlowStepUpdateContact

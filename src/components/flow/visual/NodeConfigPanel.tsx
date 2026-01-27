@@ -33,9 +33,12 @@ import type {
   FlowStepBitrixGetField,
   FlowStepGupshupSendText,
   FlowStepGupshupSendImage,
-  FlowStepGupshupSendButtons
+  FlowStepGupshupSendButtons,
+  FlowStepGupshupSendTemplate
 } from '@/types/flow';
 import { Checkbox } from '@/components/ui/checkbox';
+import { GupshupTemplatePicker, extractButtonsFromTemplate, extractVariablesFromTemplate } from './GupshupTemplatePicker';
+import { useAllGupshupTemplates } from '@/hooks/useGupshupTemplates';
 
 interface NodeConfigPanelProps {
   selectedNode: Node | null;
@@ -190,6 +193,11 @@ export function NodeConfigPanel({ selectedNode, onUpdate, onDelete }: NodeConfig
               {/* Gupshup Send Buttons */}
               {step.type === 'gupshup_send_buttons' && (
                 <GupshupSendButtonsConfig step={step as FlowStepGupshupSendButtons} updateConfig={updateConfig} />
+              )}
+
+              {/* Gupshup Send Template */}
+              {step.type === 'gupshup_send_template' && (
+                <GupshupSendTemplateConfig step={step as FlowStepGupshupSendTemplate} updateConfig={updateConfig} />
               )}
             </div>
           </div>
@@ -918,6 +926,164 @@ function GupshupSendButtonsConfig({ step, updateConfig }: { step: FlowStepGupshu
             Adicionar Botão
           </Button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Gupshup Send Template Config
+function GupshupSendTemplateConfig({ step, updateConfig }: { step: FlowStepGupshupSendTemplate; updateConfig: (key: string, value: any) => void }) {
+  const { data: templates } = useAllGupshupTemplates();
+  const selectedTemplate = templates?.find(t => t.id === step.config.template_id);
+  
+  // Extract variables from template
+  const templateVariables = selectedTemplate?.variables || [];
+  const templateVariableIndices = selectedTemplate 
+    ? extractVariablesFromTemplate(selectedTemplate.template_body)
+    : [];
+  
+  // Extract buttons from template_body
+  const extractedButtons = selectedTemplate 
+    ? extractButtonsFromTemplate(selectedTemplate.template_body)
+    : [];
+
+  const handleTemplateSelect = (template: any) => {
+    if (!template) {
+      updateConfig('template_id', '');
+      updateConfig('template_name', '');
+      updateConfig('variables', []);
+      updateConfig('buttons', []);
+      return;
+    }
+
+    updateConfig('template_id', template.id);
+    updateConfig('template_name', template.display_name);
+    
+    // Auto-populate variables
+    const vars = template.variables?.length > 0 
+      ? template.variables.map((v: any) => ({ index: v.index, value: '' }))
+      : extractVariablesFromTemplate(template.template_body).map(idx => ({ index: idx, value: '' }));
+    updateConfig('variables', vars);
+    
+    // Auto-populate buttons
+    const btns = extractButtonsFromTemplate(template.template_body);
+    updateConfig('buttons', btns.map((text, i) => ({
+      id: `btn_${i}`,
+      text,
+      nextStepId: ''
+    })));
+  };
+
+  const updateVariable = (index: number, value: string) => {
+    const vars = [...(step.config.variables || [])];
+    const existingIdx = vars.findIndex(v => v.index === index);
+    if (existingIdx >= 0) {
+      vars[existingIdx] = { ...vars[existingIdx], value };
+    } else {
+      vars.push({ index, value });
+    }
+    updateConfig('variables', vars);
+  };
+
+  const updateButtonBranch = (btnIndex: number, nextStepId: string) => {
+    const btns = [...(step.config.buttons || [])];
+    if (btns[btnIndex]) {
+      btns[btnIndex] = { ...btns[btnIndex], nextStepId };
+    }
+    updateConfig('buttons', btns);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Template Selector */}
+      <div>
+        <Label className="text-xs">Template *</Label>
+        <GupshupTemplatePicker
+          selectedTemplateId={step.config.template_id}
+          onSelect={handleTemplateSelect}
+        />
+      </div>
+
+      {/* Template Preview */}
+      {selectedTemplate && (
+        <div className="p-3 bg-muted rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <Badge variant="outline" className="text-xs">{selectedTemplate.category}</Badge>
+            <Badge variant="secondary" className="text-xs">{selectedTemplate.language_code}</Badge>
+          </div>
+          <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
+            {selectedTemplate.template_body}
+          </pre>
+        </div>
+      )}
+
+      {/* Variables */}
+      {(templateVariables.length > 0 || templateVariableIndices.length > 0) && (
+        <div>
+          <Label className="text-xs">Variáveis do Template</Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Preencha os valores para cada placeholder
+          </p>
+          {(templateVariables.length > 0 ? templateVariables : templateVariableIndices.map(idx => ({ index: idx, name: `Variável ${idx}`, example: '' }))).map((v: any, i: number) => {
+            const varValue = step.config.variables?.find(sv => sv.index === v.index)?.value || '';
+            return (
+              <div key={i} className="flex gap-2 mt-2 items-center">
+                <Badge variant="outline" className="shrink-0">{`{{${v.index}}}`}</Badge>
+                <Input
+                  value={varValue}
+                  onChange={(e) => updateVariable(v.index, e.target.value)}
+                  placeholder={v.example || v.name || `Valor para {{${v.index}}}`}
+                  className="text-sm flex-1"
+                />
+              </div>
+            );
+          })}
+          <p className="text-xs text-muted-foreground mt-2">
+            💡 Use {'{{lead.nome}}'}, {'{{lead_id}}'} ou variáveis do contexto
+          </p>
+        </div>
+      )}
+
+      {/* Button Branching */}
+      {extractedButtons.length > 0 && (
+        <div>
+          <Label className="text-xs">Branching por Resposta</Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Configure qual step executar quando o cliente clicar em cada botão
+          </p>
+          {extractedButtons.map((btnText, i) => {
+            const btn = step.config.buttons?.[i];
+            return (
+              <Card key={i} className="p-3 mt-2">
+                <div className="flex items-center gap-2">
+                  <Badge className="whitespace-nowrap shrink-0">{btnText}</Badge>
+                  <span className="text-xs text-muted-foreground">→</span>
+                  <Input
+                    value={btn?.nextStepId || ''}
+                    onChange={(e) => updateButtonBranch(i, e.target.value)}
+                    placeholder="ID do próximo step (ou vazio)"
+                    className="text-sm flex-1"
+                  />
+                </div>
+              </Card>
+            );
+          })}
+          <p className="text-xs text-muted-foreground mt-2">
+            ⚠️ Branching requer implementação futura do webhook de respostas
+          </p>
+        </div>
+      )}
+
+      {/* Wait for response */}
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="wait_for_response"
+          checked={step.config.wait_for_response || false}
+          onCheckedChange={(checked) => updateConfig('wait_for_response', checked)}
+        />
+        <Label htmlFor="wait_for_response" className="text-xs">
+          Aguardar resposta do cliente (pausa o fluxo)
+        </Label>
       </div>
     </div>
   );

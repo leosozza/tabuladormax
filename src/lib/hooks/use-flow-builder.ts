@@ -98,6 +98,7 @@ function getDefaultLabel(type: FlowStepType): string {
     gupshup_send_text: 'WhatsApp: Texto',
     gupshup_send_image: 'WhatsApp: Imagem',
     gupshup_send_buttons: 'WhatsApp: Botões',
+    gupshup_send_template: 'WhatsApp: Template',
     condition: 'Condição',
     schedule_message: 'Agendar Mensagem',
     update_contact: 'Atualizar Contato',
@@ -167,6 +168,13 @@ function getDefaultConfig(type: FlowStepType): unknown {
     gupshup_send_image: {
       image_url: '{{credencial_url}}',
       caption: 'Sua credencial está pronta!',
+    },
+    gupshup_send_template: {
+      template_id: '',
+      template_name: '',
+      variables: [],
+      buttons: [],
+      wait_for_response: false,
     },
     gupshup_send_buttons: {
       message: 'Escolha uma opção:',
