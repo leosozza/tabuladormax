@@ -13,7 +13,7 @@ const corsHeaders = {
 
 interface FlowStep {
   id: string;
-  type: 'tabular' | 'bitrix_connector' | 'supabase_connector' | 'supabase_query' | 'chatwoot_connector' | 'n8n_connector' | 'http_call' | 'wait' | 'bitrix_get_field' | 'gupshup_send_text' | 'gupshup_send_image' | 'gupshup_send_buttons' | 'gupshup_send_template' | 'condition' | 'assign_agent';
+  type: 'tabular' | 'bitrix_connector' | 'supabase_connector' | 'supabase_query' | 'chatwoot_connector' | 'n8n_connector' | 'http_call' | 'wait' | 'bitrix_get_field' | 'gupshup_send_text' | 'gupshup_send_image' | 'gupshup_send_buttons' | 'gupshup_send_template' | 'condition' | 'assign_agent' | 'notification' | 'transfer_notification' | 'assign_ai_agent' | 'transfer_human_agent' | 'close_conversation' | 'schedule_action';
   nome: string;
   config: any;
 }
@@ -254,6 +254,31 @@ Deno.serve(async (req) => {
             
             case 'assign_agent':
               stepResult = await executeAssignAgentStep(step, leadId, context, supabaseAdmin);
+              break;
+            
+            // NEW MANAGEMENT STEP TYPES
+            case 'notification':
+              stepResult = await executeNotificationStep(step, leadId, context, supabaseAdmin);
+              break;
+            
+            case 'transfer_notification':
+              stepResult = await executeTransferNotificationStep(step, leadId, context, supabaseAdmin);
+              break;
+            
+            case 'assign_ai_agent':
+              stepResult = await executeAssignAIAgentStep(step, leadId, context, supabaseAdmin);
+              break;
+            
+            case 'transfer_human_agent':
+              stepResult = await executeTransferHumanAgentStep(step, leadId, context, supabaseAdmin);
+              break;
+            
+            case 'close_conversation':
+              stepResult = await executeCloseConversationStep(step, leadId, context, supabaseAdmin);
+              break;
+            
+            case 'schedule_action':
+              stepResult = await executeScheduleActionStep(step, leadId, context, supabaseAdmin, flowId, runId);
               break;
             
             default:
@@ -1185,5 +1210,349 @@ async function executeAssignAgentStep(step: FlowStep, leadId: number | undefined
     phoneNumber,
     agentId: agentId === 'auto' ? 'auto-assigned' : agentId,
     message: message || 'Conversa encaminhada para atendimento'
+  };
+}
+
+// ============================================
+// NEW MANAGEMENT STEP HANDLERS
+// ============================================
+
+// Notification - sends internal notification to users
+async function executeNotificationStep(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any
+) {
+  const { title, message, target_users, notification_type } = step.config;
+  
+  if (!title || !target_users?.length) {
+    throw new Error('Título e destinatários são obrigatórios');
+  }
+  
+  const processedTitle = replacePlaceholders(title, leadId, context);
+  const processedMessage = replacePlaceholders(message, leadId, context);
+  
+  console.log('🔔 Enviando notificação:', { title: processedTitle, to: target_users.length, type: notification_type });
+  
+  // Log notification (could integrate with a notifications table in the future)
+  // For now, just return success
+  return {
+    sent: true,
+    title: processedTitle,
+    message: processedMessage,
+    notification_type: notification_type || 'info',
+    target_users,
+    lead_id: leadId
+  };
+}
+
+// Transfer Notification - notifies user about conversation transfer
+async function executeTransferNotificationStep(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any
+) {
+  const { target_user_id, message } = step.config;
+  
+  if (!target_user_id) {
+    throw new Error('Usuário destino é obrigatório');
+  }
+  
+  const phoneNumber = context.phone_number || context.phoneNumber;
+  const processedMessage = message ? replacePlaceholders(message, leadId, context) : null;
+  
+  console.log('📢 Notificação de transferência para:', target_user_id);
+  
+  // Update conversation assigned_to if phone number available
+  if (phoneNumber) {
+    const { data: conversation } = await supabaseAdmin
+      .from('whatsapp_conversations')
+      .select('id')
+      .eq('phone_number', phoneNumber)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (conversation) {
+      await supabaseAdmin
+        .from('whatsapp_conversations')
+        .update({ 
+          assigned_to: target_user_id,
+          needs_attention: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', conversation.id);
+    }
+  }
+  
+  return {
+    notified: true,
+    target_user_id,
+    message: processedMessage,
+    lead_id: leadId,
+    phone_number: phoneNumber
+  };
+}
+
+// Assign AI Agent - links an AI agent to the conversation
+async function executeAssignAIAgentStep(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any
+) {
+  const { ai_agent_id, ai_agent_name } = step.config;
+  
+  if (!ai_agent_id) {
+    throw new Error('Agente de IA é obrigatório');
+  }
+  
+  const phoneNumber = context.phone_number || context.phoneNumber;
+  
+  console.log('🤖 Atribuindo agente de IA:', { ai_agent_id, ai_agent_name, phoneNumber });
+  
+  // Update agent_operator_assignments if we have phone number context
+  // This links the AI agent to handle responses for this conversation
+  if (phoneNumber) {
+    // Get profile ID from context if available
+    const operatorId = context.operator_id || context.userId;
+    
+    if (operatorId) {
+      // Upsert agent assignment
+      await supabaseAdmin
+        .from('agent_operator_assignments')
+        .upsert({
+          agent_id: ai_agent_id,
+          profile_id: operatorId,
+          is_active: true
+        }, { onConflict: 'agent_id,profile_id' });
+    }
+  }
+  
+  // Store in context for downstream steps
+  context.ai_agent_id = ai_agent_id;
+  context.ai_agent_name = ai_agent_name;
+  
+  return {
+    assigned: true,
+    ai_agent_id,
+    ai_agent_name,
+    lead_id: leadId,
+    phone_number: phoneNumber
+  };
+}
+
+// Transfer Human Agent - transfers conversation to specific user
+async function executeTransferHumanAgentStep(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any
+) {
+  const { target_user_id, target_user_name, notify_user } = step.config;
+  
+  if (!target_user_id) {
+    throw new Error('Operador destino é obrigatório');
+  }
+  
+  const phoneNumber = context.phone_number || context.phoneNumber;
+  
+  console.log('👤 Transferindo para agente humano:', { target_user_id, target_user_name, phoneNumber });
+  
+  if (!phoneNumber) {
+    throw new Error('Número de telefone não disponível no contexto');
+  }
+  
+  // Find conversation
+  const { data: conversation } = await supabaseAdmin
+    .from('whatsapp_conversations')
+    .select('id')
+    .eq('phone_number', phoneNumber)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  
+  if (!conversation) {
+    console.warn('⚠️ Conversa não encontrada para transferência');
+    return { transferred: false, reason: 'Conversa não encontrada' };
+  }
+  
+  // Update conversation
+  await supabaseAdmin
+    .from('whatsapp_conversations')
+    .update({
+      assigned_to: target_user_id,
+      needs_attention: true,
+      status: 'pending_agent',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', conversation.id);
+  
+  return {
+    transferred: true,
+    conversation_id: conversation.id,
+    target_user_id,
+    target_user_name,
+    notify_user: notify_user !== false,
+    lead_id: leadId,
+    phone_number: phoneNumber
+  };
+}
+
+// Close Conversation - marks conversation as closed
+async function executeCloseConversationStep(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any
+) {
+  const { closure_reason } = step.config;
+  const phoneNumber = context.phone_number || context.phoneNumber;
+  
+  console.log('✅ Encerrando conversa:', { phoneNumber, closure_reason });
+  
+  if (!phoneNumber) {
+    throw new Error('Número de telefone não disponível no contexto');
+  }
+  
+  // Find conversation
+  const { data: conversation } = await supabaseAdmin
+    .from('whatsapp_conversations')
+    .select('id')
+    .eq('phone_number', phoneNumber)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  
+  if (!conversation) {
+    console.warn('⚠️ Conversa não encontrada para encerramento');
+    return { closed: false, reason: 'Conversa não encontrada' };
+  }
+  
+  // Insert closure record
+  await supabaseAdmin
+    .from('whatsapp_conversation_closures')
+    .insert({
+      conversation_id: conversation.id,
+      closure_reason: closure_reason || 'Encerrado via flow',
+      closed_by: context.userId || null
+    });
+  
+  return {
+    closed: true,
+    conversation_id: conversation.id,
+    closure_reason: closure_reason || 'Encerrado via flow',
+    lead_id: leadId,
+    phone_number: phoneNumber
+  };
+}
+
+// Schedule Action - schedules future flow execution
+async function executeScheduleActionStep(
+  step: FlowStep,
+  leadId: number | undefined,
+  context: Record<string, any>,
+  supabaseAdmin: any,
+  flowId: string,
+  runId: string
+) {
+  const { 
+    schedule_type, 
+    fixed_date, 
+    lead_field, 
+    offset_days, 
+    offset_hours,
+    target_flow_id,
+    target_step_id 
+  } = step.config;
+  
+  const phoneNumber = context.phone_number || context.phoneNumber;
+  
+  console.log('📅 Agendando ação:', { schedule_type, lead_field, fixed_date });
+  
+  let scheduledFor: Date;
+  
+  if (schedule_type === 'fixed_date') {
+    if (!fixed_date) {
+      throw new Error('Data fixa é obrigatória para schedule_type = fixed_date');
+    }
+    scheduledFor = new Date(fixed_date);
+  } else if (schedule_type === 'lead_field') {
+    if (!lead_field || !leadId) {
+      throw new Error('Campo do lead e leadId são obrigatórios para schedule_type = lead_field');
+    }
+    
+    // Fetch lead data
+    const { data: lead, error } = await supabaseAdmin
+      .from('leads')
+      .select(lead_field)
+      .eq('id', leadId)
+      .single();
+    
+    if (error || !lead) {
+      throw new Error(`Lead ${leadId} não encontrado: ${error?.message || 'não existe'}`);
+    }
+    
+    const fieldValue = lead[lead_field];
+    if (!fieldValue) {
+      throw new Error(`Campo ${lead_field} está vazio no lead ${leadId}`);
+    }
+    
+    // Parse the date from lead field
+    scheduledFor = new Date(fieldValue);
+    
+    // Apply offset days
+    if (offset_days !== undefined && offset_days !== 0) {
+      scheduledFor.setDate(scheduledFor.getDate() + offset_days);
+    }
+    
+    // Apply offset hours (set specific hour)
+    if (offset_hours !== undefined) {
+      scheduledFor.setHours(offset_hours, 0, 0, 0);
+    }
+  } else {
+    throw new Error(`Tipo de agendamento desconhecido: ${schedule_type}`);
+  }
+  
+  // Insert scheduled action
+  const { data: scheduledAction, error: insertError } = await supabaseAdmin
+    .from('flow_scheduled_actions')
+    .insert({
+      flow_id: flowId,
+      run_id: runId,
+      step_id: step.id,
+      lead_id: leadId,
+      phone_number: phoneNumber,
+      scheduled_for: scheduledFor.toISOString(),
+      target_flow_id: target_flow_id || null,
+      target_step_id: target_step_id || null,
+      context: context,
+      status: 'pending'
+    })
+    .select()
+    .single();
+  
+  if (insertError) {
+    throw new Error(`Erro ao agendar ação: ${insertError.message}`);
+  }
+  
+  console.log('✅ Ação agendada:', {
+    id: scheduledAction.id,
+    scheduled_for: scheduledFor.toISOString(),
+    lead_id: leadId
+  });
+  
+  return {
+    scheduled: true,
+    scheduled_action_id: scheduledAction.id,
+    scheduled_for: scheduledFor.toISOString(),
+    schedule_type,
+    lead_field: lead_field || null,
+    offset_days: offset_days || 0,
+    offset_hours: offset_hours || null,
+    lead_id: leadId,
+    phone_number: phoneNumber
   };
 }

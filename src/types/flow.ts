@@ -23,7 +23,14 @@ export type FlowStepType =
   | 'update_contact'
   | 'add_label'
   | 'assign_agent'
-  | 'assign_team';
+  | 'assign_team'
+  // New management types
+  | 'notification'
+  | 'transfer_notification'
+  | 'assign_ai_agent'
+  | 'transfer_human_agent'
+  | 'close_conversation'
+  | 'schedule_action';
 
 /**
  * Trigger types for flows
@@ -311,6 +318,79 @@ export interface FlowStepGupshupSendTemplate extends FlowStepBase {
 /**
  * Union type for all flow steps
  */
+/**
+ * Notification step - sends internal notification to users
+ */
+export interface FlowStepNotification extends FlowStepBase {
+  type: 'notification';
+  config: {
+    title: string;
+    message: string;
+    target_users: string[]; // UUIDs dos profiles
+    notification_type: 'info' | 'warning' | 'success' | 'error';
+  };
+}
+
+/**
+ * Transfer notification step - notifies user about conversation transfer
+ */
+export interface FlowStepTransferNotification extends FlowStepBase {
+  type: 'transfer_notification';
+  config: {
+    target_user_id: string; // UUID do profile
+    message?: string;
+  };
+}
+
+/**
+ * Assign AI Agent step - links an AI agent to the conversation
+ */
+export interface FlowStepAssignAIAgent extends FlowStepBase {
+  type: 'assign_ai_agent';
+  config: {
+    ai_agent_id: string;
+    ai_agent_name?: string;
+  };
+}
+
+/**
+ * Transfer Human Agent step - transfers conversation to a specific user
+ */
+export interface FlowStepTransferHumanAgent extends FlowStepBase {
+  type: 'transfer_human_agent';
+  config: {
+    target_user_id: string;
+    target_user_name?: string;
+    notify_user?: boolean;
+  };
+}
+
+/**
+ * Close Conversation step - marks conversation as closed
+ */
+export interface FlowStepCloseConversation extends FlowStepBase {
+  type: 'close_conversation';
+  config: {
+    closure_reason?: string;
+  };
+}
+
+/**
+ * Schedule Action step - schedules future execution based on fixed date or lead field
+ */
+export interface FlowStepScheduleAction extends FlowStepBase {
+  type: 'schedule_action';
+  config: {
+    schedule_type: 'fixed_date' | 'lead_field';
+    fixed_date?: string; // ISO string
+    lead_field?: string; // e.g., 'data_agendamento'
+    offset_days?: number; // -1 = day before, 0 = same day
+    offset_hours?: number; // Hour of day to execute
+    target_flow_id?: string;
+    target_step_id?: string;
+  };
+}
+
 export type FlowStep = 
   | FlowStepTabular 
   | FlowStepBitrixConnector
@@ -329,7 +409,14 @@ export type FlowStep =
   | FlowStepUpdateContact
   | FlowStepAddLabel
   | FlowStepAssignAgent
-  | FlowStepAssignTeam;
+  | FlowStepAssignTeam
+  // New management step types
+  | FlowStepNotification
+  | FlowStepTransferNotification
+  | FlowStepAssignAIAgent
+  | FlowStepTransferHumanAgent
+  | FlowStepCloseConversation
+  | FlowStepScheduleAction;
 
 /**
  * Flow definition

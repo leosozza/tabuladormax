@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Plus, X } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { N8NWorkflowPicker } from './N8NWorkflowPicker';
+import { UserPicker, AIAgentPicker, LeadFieldPicker } from './pickers';
 import type { 
   FlowStep, 
   FlowStepTabular,
@@ -34,11 +35,19 @@ import type {
   FlowStepGupshupSendText,
   FlowStepGupshupSendImage,
   FlowStepGupshupSendButtons,
-  FlowStepGupshupSendTemplate
+  FlowStepGupshupSendTemplate,
+  // New management step types
+  FlowStepNotification,
+  FlowStepTransferNotification,
+  FlowStepAssignAIAgent,
+  FlowStepTransferHumanAgent,
+  FlowStepCloseConversation,
+  FlowStepScheduleAction
 } from '@/types/flow';
 import { Checkbox } from '@/components/ui/checkbox';
 import { GupshupTemplatePicker, extractButtonsFromTemplate, extractVariablesFromTemplate } from './GupshupTemplatePicker';
 import { useAllGupshupTemplates } from '@/hooks/useGupshupTemplates';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface NodeConfigPanelProps {
   selectedNode: Node | null;
@@ -203,6 +212,36 @@ export function NodeConfigPanel({ selectedNode, onUpdate, onDelete }: NodeConfig
                   onUpdate={onUpdate}
                   nodeId={selectedNode.id}
                 />
+              )}
+
+              {/* Notification */}
+              {step.type === 'notification' && (
+                <NotificationConfig step={step as FlowStepNotification} updateConfig={updateConfig} />
+              )}
+
+              {/* Transfer Notification */}
+              {step.type === 'transfer_notification' && (
+                <TransferNotificationConfig step={step as FlowStepTransferNotification} updateConfig={updateConfig} />
+              )}
+
+              {/* Assign AI Agent */}
+              {step.type === 'assign_ai_agent' && (
+                <AssignAIAgentConfig step={step as FlowStepAssignAIAgent} updateConfig={updateConfig} />
+              )}
+
+              {/* Transfer Human Agent */}
+              {step.type === 'transfer_human_agent' && (
+                <TransferHumanAgentConfig step={step as FlowStepTransferHumanAgent} updateConfig={updateConfig} />
+              )}
+
+              {/* Close Conversation */}
+              {step.type === 'close_conversation' && (
+                <CloseConversationConfig step={step as FlowStepCloseConversation} updateConfig={updateConfig} />
+              )}
+
+              {/* Schedule Action */}
+              {step.type === 'schedule_action' && (
+                <ScheduleActionConfig step={step as FlowStepScheduleAction} updateConfig={updateConfig} />
               )}
             </div>
           </div>
@@ -1114,6 +1153,264 @@ function GupshupSendTemplateConfig({
           Aguardar resposta do cliente (pausa o fluxo)
         </Label>
       </div>
+    </div>
+  );
+}
+
+// ============================================
+// NEW MANAGEMENT STEP CONFIGS
+// ============================================
+
+// Notification Config
+function NotificationConfig({ step, updateConfig }: { 
+  step: FlowStepNotification; 
+  updateConfig: (key: string, value: any) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">Título *</Label>
+        <Input
+          value={step.config.title || ''}
+          onChange={(e) => updateConfig('title', e.target.value)}
+          placeholder="Título da notificação"
+          className="text-sm"
+        />
+      </div>
+      <div>
+        <Label className="text-xs">Mensagem *</Label>
+        <Textarea
+          value={step.config.message || ''}
+          onChange={(e) => updateConfig('message', e.target.value)}
+          placeholder="Conteúdo da notificação. Use {{lead.nome}}, {{lead_id}}, etc."
+          rows={3}
+        />
+      </div>
+      <div>
+        <Label className="text-xs">Tipo</Label>
+        <Select 
+          value={step.config.notification_type || 'info'} 
+          onValueChange={(val) => updateConfig('notification_type', val)}
+        >
+          <SelectTrigger className="text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="info">ℹ️ Informação</SelectItem>
+            <SelectItem value="success">✅ Sucesso</SelectItem>
+            <SelectItem value="warning">⚠️ Aviso</SelectItem>
+            <SelectItem value="error">❌ Erro</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label className="text-xs">Destinatários *</Label>
+        <UserPicker
+          value={step.config.target_users || []}
+          onChange={(val) => updateConfig('target_users', val)}
+          multiple
+          placeholder="Selecionar usuários"
+        />
+      </div>
+    </div>
+  );
+}
+
+// Transfer Notification Config
+function TransferNotificationConfig({ step, updateConfig }: { 
+  step: FlowStepTransferNotification; 
+  updateConfig: (key: string, value: any) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">Usuário Destino *</Label>
+        <UserPicker
+          value={step.config.target_user_id || ''}
+          onChange={(val) => updateConfig('target_user_id', val)}
+          placeholder="Selecionar usuário"
+        />
+      </div>
+      <div>
+        <Label className="text-xs">Mensagem (opcional)</Label>
+        <Textarea
+          value={step.config.message || ''}
+          onChange={(e) => updateConfig('message', e.target.value)}
+          placeholder="Mensagem adicional para o usuário"
+          rows={2}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Assign AI Agent Config
+function AssignAIAgentConfig({ step, updateConfig }: { 
+  step: FlowStepAssignAIAgent; 
+  updateConfig: (key: string, value: any) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">Agente de IA *</Label>
+        <AIAgentPicker
+          value={step.config.ai_agent_id || ''}
+          onChange={(agentId, agentName) => {
+            updateConfig('ai_agent_id', agentId);
+            updateConfig('ai_agent_name', agentName);
+          }}
+          placeholder="Selecionar agente IA"
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        💡 O agente de IA selecionado será vinculado a esta conversa para respostas automatizadas.
+      </p>
+    </div>
+  );
+}
+
+// Transfer Human Agent Config
+function TransferHumanAgentConfig({ step, updateConfig }: { 
+  step: FlowStepTransferHumanAgent; 
+  updateConfig: (key: string, value: any) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">Operador Destino *</Label>
+        <UserPicker
+          value={step.config.target_user_id || ''}
+          onChange={(val) => {
+            updateConfig('target_user_id', typeof val === 'string' ? val : val[0]);
+          }}
+          placeholder="Selecionar operador"
+        />
+      </div>
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="notify_user"
+          checked={step.config.notify_user !== false}
+          onCheckedChange={(checked) => updateConfig('notify_user', checked)}
+        />
+        <Label htmlFor="notify_user" className="text-xs">
+          Notificar o operador sobre a transferência
+        </Label>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        💡 A conversa será marcada como "pendente" para atendimento humano.
+      </p>
+    </div>
+  );
+}
+
+// Close Conversation Config
+function CloseConversationConfig({ step, updateConfig }: { 
+  step: FlowStepCloseConversation; 
+  updateConfig: (key: string, value: any) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">Motivo do Encerramento (opcional)</Label>
+        <Textarea
+          value={step.config.closure_reason || ''}
+          onChange={(e) => updateConfig('closure_reason', e.target.value)}
+          placeholder="Ex: Atendimento finalizado, Cliente não respondeu, etc."
+          rows={2}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        ⚠️ Encerrar a conversa remove ela dos contadores de pendência. Uma nova mensagem do cliente reabrirá automaticamente.
+      </p>
+    </div>
+  );
+}
+
+// Schedule Action Config
+function ScheduleActionConfig({ step, updateConfig }: { 
+  step: FlowStepScheduleAction; 
+  updateConfig: (key: string, value: any) => void;
+}) {
+  const scheduleType = step.config.schedule_type || 'fixed_date';
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">Tipo de Agendamento</Label>
+        <RadioGroup
+          value={scheduleType}
+          onValueChange={(val) => updateConfig('schedule_type', val)}
+          className="flex gap-4 mt-1"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="fixed_date" id="fixed_date" />
+            <Label htmlFor="fixed_date" className="text-xs">Data Fixa</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="lead_field" id="lead_field" />
+            <Label htmlFor="lead_field" className="text-xs">Campo do Lead</Label>
+          </div>
+        </RadioGroup>
+      </div>
+
+      {scheduleType === 'fixed_date' && (
+        <div>
+          <Label className="text-xs">Data e Hora *</Label>
+          <Input
+            type="datetime-local"
+            value={step.config.fixed_date || ''}
+            onChange={(e) => updateConfig('fixed_date', e.target.value)}
+            className="text-sm"
+          />
+        </div>
+      )}
+
+      {scheduleType === 'lead_field' && (
+        <>
+          <div>
+            <Label className="text-xs">Campo de Data do Lead *</Label>
+            <LeadFieldPicker
+              value={step.config.lead_field || ''}
+              onChange={(val) => updateConfig('lead_field', val)}
+              placeholder="Selecionar campo"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Offset (dias)</Label>
+              <Input
+                type="number"
+                value={step.config.offset_days ?? 0}
+                onChange={(e) => updateConfig('offset_days', parseInt(e.target.value) || 0)}
+                placeholder="-1 = dia anterior"
+                className="text-sm"
+              />
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                -1 = dia anterior, 0 = mesmo dia
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs">Hora do Dia</Label>
+              <Input
+                type="number"
+                min="0"
+                max="23"
+                value={step.config.offset_hours ?? 9}
+                onChange={(e) => updateConfig('offset_hours', parseInt(e.target.value) || 9)}
+                placeholder="9"
+                className="text-sm"
+              />
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Hora (0-23) para executar
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        💡 A ação será agendada para execução futura. Use para lembretes automáticos antes de agendamentos.
+      </p>
     </div>
   );
 }
