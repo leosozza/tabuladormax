@@ -545,6 +545,223 @@ async function processBotResponse(
 }
 
 // ============================================
+// Auto-Resposta com Agente de IA
+// ============================================
+interface AutoRespondFilters {
+  etapas?: string[];
+  response_status?: string[];
+  window_status?: 'all' | 'open' | 'closed';
+}
+
+async function processAutoRespondAgent(
+  supabase: any,
+  supabaseUrl: string,
+  supabaseServiceKey: string,
+  phoneNumber: string,
+  message: string,
+  leadId: number | null,
+  leadEtapa: string | null,
+  operatorBitrixId: number | null
+): Promise<{ responded: boolean }> {
+  try {
+    console.log(`🤖 Verificando auto-resposta para ${phoneNumber}...`);
+
+    // 1. Buscar agentes com auto_respond_enabled = true
+    const { data: agents, error: agentsError } = await supabase
+      .from('ai_agents')
+      .select('*')
+      .eq('is_active', true)
+      .eq('auto_respond_enabled', true);
+
+    if (agentsError || !agents?.length) {
+      console.log('ℹ️ Nenhum agente com auto-resposta ativa');
+      return { responded: false };
+    }
+
+    // Buscar stats da conversa para verificar janela e status
+    const { data: convStats } = await supabase
+      .from('mv_whatsapp_conversation_stats')
+      .select('is_window_open, response_status, is_closed')
+      .eq('phone_number', phoneNumber)
+      .maybeSingle();
+
+    const isWindowOpen = convStats?.is_window_open ?? true;
+    const responseStatus = convStats?.response_status || 'waiting';
+    const isClosed = convStats?.is_closed ?? false;
+
+    // Se conversa encerrada, não responder
+    if (isClosed) {
+      console.log(`⏭️ Conversa encerrada para ${phoneNumber}, ignorando auto-resposta`);
+      return { responded: false };
+    }
+
+    // 2. Encontrar agente que atende os filtros
+    let selectedAgent = null;
+    for (const agent of agents) {
+      const filters: AutoRespondFilters = agent.auto_respond_filters || {};
+
+      // Verificar filtro de etapas
+      if (filters.etapas?.length && leadEtapa) {
+        const normalizedEtapa = leadEtapa === 'CONVERTED' ? 'Lead convertido' : leadEtapa;
+        if (!filters.etapas.includes(leadEtapa) && !filters.etapas.includes(normalizedEtapa)) {
+          console.log(`⏭️ Agente ${agent.name}: etapa ${leadEtapa} não está nos filtros`);
+          continue;
+        }
+      }
+
+      // Verificar filtro de status de resposta
+      if (filters.response_status?.length && !filters.response_status.includes(responseStatus)) {
+        console.log(`⏭️ Agente ${agent.name}: status ${responseStatus} não está nos filtros`);
+        continue;
+      }
+
+      // Verificar filtro de janela
+      if (filters.window_status === 'open' && !isWindowOpen) {
+        console.log(`⏭️ Agente ${agent.name}: janela fechada`);
+        continue;
+      }
+
+      selectedAgent = agent;
+      break;
+    }
+
+    if (!selectedAgent) {
+      console.log('ℹ️ Nenhum agente atende os filtros');
+      return { responded: false };
+    }
+
+    console.log(`✅ Agente selecionado: ${selectedAgent.name}`);
+
+    // 3. Verificar cooldown
+    const cooldownMinutes = selectedAgent.auto_respond_cooldown_minutes || 5;
+    const cooldownTime = new Date();
+    cooldownTime.setMinutes(cooldownTime.getMinutes() - cooldownMinutes);
+
+    const { data: recentResponses } = await supabase
+      .from('ai_auto_response_log')
+      .select('id')
+      .eq('phone_number', phoneNumber)
+      .eq('agent_id', selectedAgent.id)
+      .gte('created_at', cooldownTime.toISOString())
+      .limit(1);
+
+    if (recentResponses?.length) {
+      console.log(`⏭️ Cooldown ativo: já respondeu nos últimos ${cooldownMinutes} minutos`);
+      return { responded: false };
+    }
+
+    // 4. Verificar limite máximo de respostas
+    const maxResponses = selectedAgent.max_auto_responses_per_conversation || 10;
+
+    const { count: totalResponses } = await supabase
+      .from('ai_auto_response_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('phone_number', phoneNumber)
+      .eq('agent_id', selectedAgent.id);
+
+    if ((totalResponses || 0) >= maxResponses) {
+      console.log(`⏭️ Limite máximo de ${maxResponses} respostas atingido`);
+      return { responded: false };
+    }
+
+    // 5. Buscar histórico de mensagens para contexto
+    const { data: recentMessages } = await supabase
+      .from('whatsapp_messages')
+      .select('direction, content, created_at')
+      .eq('phone_number', phoneNumber)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    const conversationHistory = (recentMessages || [])
+      .reverse()
+      .map((m: any) => ({
+        role: m.direction === 'inbound' ? 'user' : 'assistant',
+        content: m.content,
+      }));
+
+    // 6. Chamar whatsapp-ai-assist para gerar resposta
+    const startTime = Date.now();
+    const aiResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-ai-assist`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        action: 'generate',
+        messages: conversationHistory,
+        operatorBitrixId: operatorBitrixId,
+        context: `Auto-resposta automática. Lead ID: ${leadId}, Etapa: ${leadEtapa}. Seja proativo e objetivo.`,
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      console.error('❌ Erro ao gerar resposta com IA:', await aiResponse.text());
+      return { responded: false };
+    }
+
+    const aiResult = await aiResponse.json();
+    const generatedMessage = aiResult.response;
+
+    if (!generatedMessage) {
+      console.error('❌ IA não gerou resposta');
+      return { responded: false };
+    }
+
+    console.log(`🤖 Resposta gerada: "${generatedMessage.substring(0, 50)}..."`);
+
+    // 7. Enviar mensagem via Gupshup
+    const sendResult = await sendGupshupMessage(phoneNumber, generatedMessage);
+    const responseTime = Date.now() - startTime;
+
+    if (sendResult?.status !== 'submitted') {
+      console.error('❌ Erro ao enviar mensagem');
+      return { responded: false };
+    }
+
+    // 8. Salvar mensagem no banco
+    await supabase
+      .from('whatsapp_messages')
+      .insert({
+        phone_number: phoneNumber,
+        bitrix_id: leadId?.toString(),
+        gupshup_message_id: sendResult.messageId,
+        direction: 'outbound',
+        message_type: 'text',
+        content: generatedMessage,
+        status: 'sent',
+        sender_name: `${selectedAgent.name} (Auto)`,
+        metadata: {
+          auto_response: true,
+          agent_id: selectedAgent.id,
+          agent_name: selectedAgent.name,
+          response_time_ms: responseTime,
+        },
+      });
+
+    // 9. Registrar no log de auto-resposta
+    await supabase
+      .from('ai_auto_response_log')
+      .insert({
+        agent_id: selectedAgent.id,
+        phone_number: phoneNumber,
+        bitrix_id: leadId?.toString(),
+        trigger_type: 'inbound_message',
+        input_message: message,
+        output_message: generatedMessage,
+        response_time_ms: responseTime,
+      });
+
+    console.log(`✅ Auto-resposta enviada por ${selectedAgent.name}`);
+    return { responded: true };
+
+  } catch (error) {
+    console.error('❌ Erro em processAutoRespondAgent:', error);
+    return { responded: false };
+  }
+}
+
+// ============================================
 // Handle Inbound Message
 // ============================================
 async function handleInboundMessage(supabase: any, event: GupshupEvent, supabaseUrl: string, supabaseServiceKey: string) {
@@ -828,6 +1045,25 @@ async function handleInboundMessage(supabase: any, event: GupshupEvent, supabase
         unread_count: (contact.unread_count || 0) + 1,
       })
       .eq('bitrix_id', contact.bitrix_id);
+  }
+
+  // ============================================
+  // AUTO-RESPOSTA COM AGENTE DE IA
+  // ============================================
+  const autoRespondResult = await processAutoRespondAgent(
+    supabase,
+    supabaseUrl,
+    supabaseServiceKey,
+    normalizedPhone,
+    content,
+    lead?.id || null,
+    lead?.etapa || null,
+    bitrixTelemarketingId
+  );
+
+  if (autoRespondResult.responded) {
+    console.log('✅ Agente de IA respondeu automaticamente');
+    return;
   }
 
   // ============================================

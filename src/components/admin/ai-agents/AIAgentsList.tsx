@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Bot, Edit, Trash2, GraduationCap, Power } from 'lucide-react';
+import { Plus, Bot, Edit, Trash2, GraduationCap, Power, Zap } from 'lucide-react';
 import { useAIAgents, AIAgent } from '@/hooks/useAIAgents';
 import { AIAgentFormDialog } from './AIAgentFormDialog';
+import { AIAgentAutoRespondConfig } from './AIAgentAutoRespondConfig';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,10 +23,11 @@ interface AIAgentsListProps {
 }
 
 export function AIAgentsList({ onSelectForTraining }: AIAgentsListProps) {
-  const { agents, loading, saving, createAgent, updateAgent, deleteAgent } = useAIAgents();
+  const { agents, loading, saving, createAgent, updateAgent, deleteAgent, fetchAgents } = useAIAgents();
   const [showForm, setShowForm] = useState(false);
   const [editingAgent, setEditingAgent] = useState<AIAgent | null>(null);
   const [deletingAgent, setDeletingAgent] = useState<AIAgent | null>(null);
+  const [expandedAutoRespond, setExpandedAutoRespond] = useState<string | null>(null);
 
   const handleCreate = () => {
     setEditingAgent(null);
@@ -114,9 +116,17 @@ export function AIAgentsList({ onSelectForTraining }: AIAgentsListProps) {
                     <Bot className="h-5 w-5 text-primary" />
                     <CardTitle className="text-base">{agent.name}</CardTitle>
                   </div>
-                  <Badge variant={agent.is_active ? 'default' : 'secondary'}>
-                    {agent.is_active ? 'Ativo' : 'Inativo'}
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    {(agent as any).auto_respond_enabled && (
+                      <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-700">
+                        <Zap className="h-3 w-3" />
+                        Auto
+                      </Badge>
+                    )}
+                    <Badge variant={agent.is_active ? 'default' : 'secondary'}>
+                      {agent.is_active ? 'Ativo' : 'Inativo'}
+                    </Badge>
+                  </div>
                 </div>
                 <CardDescription className="line-clamp-2">
                   {agent.description || 'Sem descrição'}
@@ -171,6 +181,12 @@ export function AIAgentsList({ onSelectForTraining }: AIAgentsListProps) {
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
+
+                {/* Auto-Respond Config */}
+                <AIAgentAutoRespondConfig 
+                  agent={agent} 
+                  onUpdate={fetchAgents} 
+                />
               </CardContent>
             </Card>
           ))}
