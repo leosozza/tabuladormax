@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, Clock, ArrowRight } from 'lucide-react';
+import { MessageSquare, Clock, ArrowRight, StickyNote } from 'lucide-react';
 import { useWhatsAppMessages } from '@/hooks/useWhatsAppMessages';
 import { useGupshupWindowStatus } from '@/hooks/useGupshupWindowStatus';
 import { useSessionGuard } from '@/hooks/useSessionGuard';
+import { useMyParticipation } from '@/hooks/useMyParticipation';
 import { calculateWindowStatus, WindowStatus } from '@/lib/whatsappWindow';
 import { WhatsAppHeader } from './WhatsAppHeader';
 import { WindowTimeCircle } from './WindowTimeCircle';
@@ -13,6 +14,8 @@ import { TemplateSelector } from '@/components/gupshup/TemplateSelector';
 import { WhatsAppFlowSelector } from './WhatsAppFlowSelector';
 import { WhatsAppSendError } from './WhatsAppSendError';
 import { SessionExpiredModal } from './SessionExpiredModal';
+import { InternalNotesPanel } from './InternalNotesPanel';
+import { ResolutionHistory } from './ResolutionHistory';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -70,6 +73,9 @@ export function WhatsAppChatContainer({
     clearSendError,
     lastMessageContent
   } = useWhatsAppMessages({ bitrixId, phoneNumber, conversationId });
+
+  // Verificar se usuário é participante convidado (para mostrar notas internas)
+  const { data: myParticipation } = useMyParticipation(phoneNumber);
 
   const { data: gupshupWindowStatus, refetch: refetchWindowStatus } = useGupshupWindowStatus({
     phoneNumber,
@@ -238,8 +244,12 @@ export function WhatsAppChatContainer({
           className="absolute left-0 right-0 z-10 border-b px-4 bg-background"
           style={{ top: headerHeight }}
         >
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className="grid w-full max-w-lg grid-cols-4">
             <TabsTrigger value="messages">Mensagens</TabsTrigger>
+            <TabsTrigger value="notes" className="gap-1">
+              <StickyNote className="h-3 w-3" />
+              Notas
+            </TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
             <TabsTrigger value="flows">Flows</TabsTrigger>
           </TabsList>
@@ -257,6 +267,9 @@ export function WhatsAppChatContainer({
           {/* Message list - scrollable area */}
           <div className="flex-1 overflow-y-auto">
             <WhatsAppMessageList messages={messages} loading={loading} usingBitrixFallback={usingBitrixFallback} />
+            
+            {/* Histórico de resoluções - mostrado abaixo das mensagens */}
+            {phoneNumber && <ResolutionHistory phoneNumber={phoneNumber} />}
           </div>
 
           {/* Banner de janela expirada - quando última mensagem falhou com erro 470 */}
@@ -312,6 +325,24 @@ export function WhatsAppChatContainer({
               sender_name: m.sender_name,
             }))}
           />
+        </TabsContent>
+
+        {/* Notes Tab Content */}
+        <TabsContent 
+          value="notes" 
+          className="absolute left-0 right-0 overflow-hidden m-0 p-0"
+          style={{ 
+            top: topOffset,
+            bottom: 0
+          }}
+        >
+          {phoneNumber ? (
+            <InternalNotesPanel phoneNumber={phoneNumber} bitrixId={bitrixId} />
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <p>Selecione uma conversa para ver notas internas</p>
+            </div>
+          )}
         </TabsContent>
 
         {/* Templates Tab Content */}

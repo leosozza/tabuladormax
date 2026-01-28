@@ -5174,6 +5174,54 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_internal_notes: {
+        Row: {
+          author_id: string
+          author_name: string | null
+          bitrix_id: string | null
+          content: string
+          created_at: string | null
+          id: string
+          phone_number: string
+          target_operator_id: string | null
+        }
+        Insert: {
+          author_id: string
+          author_name?: string | null
+          bitrix_id?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          phone_number: string
+          target_operator_id?: string | null
+        }
+        Update: {
+          author_id?: string
+          author_name?: string | null
+          bitrix_id?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          phone_number?: string
+          target_operator_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_internal_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_internal_notes_target_operator_id_fkey"
+            columns: ["target_operator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_messages: {
         Row: {
           bitrix_id: string | null
@@ -5272,6 +5320,60 @@ export type Database = {
           type?: string
         }
         Relationships: []
+      }
+      whatsapp_participation_resolutions: {
+        Row: {
+          bitrix_id: string | null
+          id: string
+          invited_by: string | null
+          inviter_name: string | null
+          operator_id: string
+          operator_name: string | null
+          phone_number: string
+          priority: number | null
+          resolution_notes: string | null
+          resolved_at: string | null
+        }
+        Insert: {
+          bitrix_id?: string | null
+          id?: string
+          invited_by?: string | null
+          inviter_name?: string | null
+          operator_id: string
+          operator_name?: string | null
+          phone_number: string
+          priority?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+        }
+        Update: {
+          bitrix_id?: string | null
+          id?: string
+          invited_by?: string | null
+          inviter_name?: string | null
+          operator_id?: string
+          operator_name?: string | null
+          phone_number?: string
+          priority?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_participation_resolutions_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_participation_resolutions_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
