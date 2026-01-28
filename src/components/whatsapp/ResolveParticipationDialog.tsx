@@ -37,6 +37,7 @@ export function ResolveParticipationDialog({
     await resolveParticipation.mutateAsync({
       phoneNumber,
       participationId,
+      notes: notes.trim() || undefined,
     });
     setNotes('');
     onOpenChange(false);

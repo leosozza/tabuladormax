@@ -5,3 +5,6 @@ export { WhatsAppMessageList } from './WhatsAppMessageList';
 export { WhatsAppMessageBubble } from './WhatsAppMessageBubble';
 export { WhatsAppInput, type MediaType } from './WhatsAppInput';
 export { WhatsAppWindowBanner, CooldownTimer } from './WhatsAppWindowBanner';
+export { WhatsAppNotificationBell } from './WhatsAppNotificationBell';
+export { InternalNotesPanel } from './InternalNotesPanel';
+export { ResolutionHistory } from './ResolutionHistory';

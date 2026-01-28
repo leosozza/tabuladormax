@@ -14,6 +14,7 @@ import { ThemeSelector } from '@/components/portal-telemarketing/ThemeSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
+import { WhatsAppNotificationBell } from '@/components/whatsapp/WhatsAppNotificationBell';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -407,6 +408,45 @@ const PortalTelemarketingWhatsApp = () => {
               Supervisor
             </Badge>
           )}
+          
+          {/* Sino de Notificações */}
+          <WhatsAppNotificationBell 
+            onNotificationClick={(notificationPhoneNumber, notificationBitrixId) => {
+              // Buscar conversa existente ou criar objeto mínimo
+              const conv = conversations.find(c => 
+                c.phone_number?.replace(/\D/g, '') === notificationPhoneNumber.replace(/\D/g, '')
+              );
+              if (conv) {
+                // Relaxar filtros para garantir visibilidade
+                setWindowFilter('all');
+                setShowOldConversations(true);
+                setSelectedConversation(conv);
+                toast.success(`Abrindo conversa: ${conv.lead_name}`);
+              } else if (notificationBitrixId) {
+                // Criar objeto mínimo de conversa
+                const minimalConv: TelemarketingConversation = {
+                  lead_id: parseInt(notificationBitrixId, 10),
+                  bitrix_id: notificationBitrixId,
+                  lead_name: notificationPhoneNumber,
+                  phone_number: notificationPhoneNumber,
+                  photo_url: null,
+                  conversation_id: null,
+                  last_message_at: null,
+                  last_message_preview: null,
+                  unread_count: 0,
+                  telemarketing_name: null,
+                  windowStatus: null,
+                  nome_modelo: null,
+                  last_customer_message_at: null,
+                };
+                setWindowFilter('all');
+                setShowOldConversations(true);
+                setSelectedConversation(minimalConv);
+                toast.info('Carregando conversa...');
+              }
+            }}
+          />
+          
           <Button 
             variant="outline" 
             size="sm"
