@@ -294,6 +294,9 @@ verify_jwt = false
 [functions.elevenlabs-tts]
 verify_jwt = false
 
+[functions.ai-window-proactive]
+verify_jwt = false
+
 [functions.generate-training-from-conversations]
 verify_jwt = false
 

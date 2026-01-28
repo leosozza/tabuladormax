@@ -329,44 +329,65 @@ export type Database = {
         Row: {
           ai_model: string | null
           ai_provider: string | null
+          auto_respond_cooldown_minutes: number | null
+          auto_respond_enabled: boolean | null
+          auto_respond_filters: Json | null
           commercial_project_id: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
           id: string
           is_active: boolean | null
+          max_auto_responses_per_conversation: number | null
           name: string
           personality: string | null
           system_prompt: string
           updated_at: string | null
+          window_proactive_enabled: boolean | null
+          window_proactive_hours: number | null
+          window_proactive_message: string | null
         }
         Insert: {
           ai_model?: string | null
           ai_provider?: string | null
+          auto_respond_cooldown_minutes?: number | null
+          auto_respond_enabled?: boolean | null
+          auto_respond_filters?: Json | null
           commercial_project_id?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
+          max_auto_responses_per_conversation?: number | null
           name: string
           personality?: string | null
           system_prompt?: string
           updated_at?: string | null
+          window_proactive_enabled?: boolean | null
+          window_proactive_hours?: number | null
+          window_proactive_message?: string | null
         }
         Update: {
           ai_model?: string | null
           ai_provider?: string | null
+          auto_respond_cooldown_minutes?: number | null
+          auto_respond_enabled?: boolean | null
+          auto_respond_filters?: Json | null
           commercial_project_id?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
+          max_auto_responses_per_conversation?: number | null
           name?: string
           personality?: string | null
           system_prompt?: string
           updated_at?: string | null
+          window_proactive_enabled?: boolean | null
+          window_proactive_hours?: number | null
+          window_proactive_message?: string | null
         }
         Relationships: [
           {
@@ -415,6 +436,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ai_agents_training_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_auto_response_log: {
+        Row: {
+          agent_id: string | null
+          bitrix_id: string | null
+          created_at: string | null
+          id: string
+          input_message: string | null
+          output_message: string | null
+          phone_number: string
+          response_time_ms: number | null
+          tokens_used: number | null
+          trigger_type: string
+        }
+        Insert: {
+          agent_id?: string | null
+          bitrix_id?: string | null
+          created_at?: string | null
+          id?: string
+          input_message?: string | null
+          output_message?: string | null
+          phone_number: string
+          response_time_ms?: number | null
+          tokens_used?: number | null
+          trigger_type: string
+        }
+        Update: {
+          agent_id?: string | null
+          bitrix_id?: string | null
+          created_at?: string | null
+          id?: string
+          input_message?: string | null
+          output_message?: string | null
+          phone_number?: string
+          response_time_ms?: number | null
+          tokens_used?: number | null
+          trigger_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_auto_response_log_agent_id_fkey"
             columns: ["agent_id"]
             isOneToOne: false
             referencedRelation: "ai_agents"
