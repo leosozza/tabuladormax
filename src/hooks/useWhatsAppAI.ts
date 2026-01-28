@@ -32,10 +32,12 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
   ): Promise<GenerateResponseResult> => {
     setIsGenerating(true);
     try {
+      // Enviar mais contexto para a IA entender melhor a conversa
+      const MAX_CONTEXT_MESSAGES = 50;
       const { data, error } = await supabase.functions.invoke('whatsapp-ai-assist', {
         body: {
           action: 'generate',
-          messages: messages.slice(-10).map(m => ({
+          messages: messages.slice(-MAX_CONTEXT_MESSAGES).map(m => ({
             role: m.direction === 'inbound' ? 'user' : 'assistant',
             content: m.content,
           })),
