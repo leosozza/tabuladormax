@@ -1,121 +1,207 @@
 
-Objetivo: fazer uma revisão profunda e corrigir por que a rota **/whatsapp** não carrega conversas.
 
-## Diagnóstico (causa raiz confirmada)
-A lista não carrega porque a chamada do backend que busca conversas está falhando:
+# Correção: Persistência de Dados no Formulário de Cadastro
 
-- Request: `rpc/get_admin_whatsapp_conversations`
-- Status: **400**
-- Erro: **`column s.last_message_preview does not exist`**
+## Problema Principal
+Quando o cliente preenche o formulário e ocorre qualquer erro no envio, **todos os dados digitados são perdidos**. Isso é crítico porque o cliente precisa preencher tudo novamente.
 
-Ou seja: a função `get_admin_whatsapp_conversations` está selecionando campos que **não existem mais** na materialized view `mv_whatsapp_conversation_stats`.
+## Solução: Auto-save com localStorage
 
-### Evidência técnica (o que está quebrado)
-A função atual (backend) faz:
-- `SELECT s.last_message_preview, s.last_message_direction ... FROM mv_whatsapp_conversation_stats s`
+### Como vai funcionar:
+1. **Salvar automaticamente** a cada vez que o cliente digitar algo (com delay de 500ms para não sobrecarregar)
+2. **Ao reabrir a página** com dados salvos, mostrar opção de restaurar
+3. **Limpar os dados salvos** apenas quando o envio for bem-sucedido
+4. **Expiração automática** de dados com mais de 24 horas
 
-Mas a view atual tem apenas:
-- `phone_number`, `bitrix_id`, `last_customer_message_at`, `last_operator_message_at`, `last_message_at`, `unread_count`, `total_messages`, `response_status`, `is_window_open`, `is_closed`
-e **não** possui `last_message_preview` e `last_message_direction`.
+### Fluxo do Usuário Após Correção:
 
-Isso ocorreu porque a migration `20260127210600_d6099b22-7dfa-4858-a11c-f2fc80a60c83.sql` recriou a view para suportar `in_progress`, mas removeu (sem querer) os campos de preview/direction que o frontend depende.
-
-## Estratégia de correção
-Corrigir a view para voltar a expor as colunas esperadas **sem perder** o status “Em Atendimento”.
-
-### Resultado esperado após correção
-- `/whatsapp` volta a listar conversas imediatamente
-- filtros (“Todos / Aguardando / Sem resposta / Respondeu / Em Atendimento”) voltam a funcionar
-- preview da última mensagem e direção voltam a aparecer sem quebrar as queries
-
----
-
-## Plano de implementação
-
-### 1) Backend: recriar `mv_whatsapp_conversation_stats` com colunas completas (fix principal)
-Criar uma migration que:
-1. **DROP + CREATE** da `mv_whatsapp_conversation_stats` contendo estas colunas (mínimo necessário):
-   - `phone_number`
-   - `bitrix_id`
-   - `last_message_at`
-   - `last_customer_message_at`
-   - `last_operator_message_at`
-   - `unread_count`
-   - `total_messages`
-   - `last_message_preview`  ✅ (reintroduzir)
-   - `last_message_direction` ✅ (reintroduzir)
-   - `response_status` ✅ (manter + incluir `in_progress`)
-   - `is_window_open`
-   - `is_closed`
-
-2. Calcular `last_message_preview` e `last_message_direction` com agregação ordenada (padrão já usado nas migrations antigas), por exemplo:
-   - preview: `(array_agg(preview_value ORDER BY created_at DESC))[1]`
-   - direction: `(array_agg(direction ORDER BY created_at DESC))[1]`
-
-3. Manter a regra do “Em Atendimento”:
-   - `in_progress` quando existe mensagem outbound com `sent_by='operador'` mais recente que a última inbound.
-
-4. Recriar índices importantes:
-   - unique `(phone_number, bitrix_id)` (ou `(phone_number, COALESCE(bitrix_id,''))` se quisermos mais robusto com NULL)
-   - `response_status`
-   - `is_window_open`
-   - `is_closed`
-   - (recomendado) `last_message_at DESC` para performance da lista
-
-5. Reaplicar permissões (GRANT SELECT) e finalizar com um refresh (ou já criar com dados; refresh extra é opcional).
-
-**Por que isso resolve:** a RPC `get_admin_whatsapp_conversations` volta a encontrar `s.last_message_preview` e `s.last_message_direction`, deixando de retornar 400.
+```text
+1. Cliente abre /cadastro?deal=61028
+   ↓
+2. Sistema verifica localStorage
+   ↓
+3. [Se houver dados salvos] → Mostrar toast:
+   "Encontramos dados não salvos. Deseja restaurar?"
+   [Restaurar] [Descartar]
+   ↓
+4. Cliente preenche/edita campos
+   ↓ (auto-save a cada mudança - 500ms debounce)
+5. Dados salvos no localStorage automaticamente
+   ↓
+6. Cliente clica "Salvar"
+   ↓
+7. [Se ERRO] → Mostra erro + DADOS PRESERVADOS
+              → Cliente corrige e tenta novamente
+   ↓
+8. [Se SUCESSO] → Deal atualizado no Bitrix
+               → Etapa muda para UC_O2KDK6 (Ficha Preenchida)
+               → localStorage limpo
+               → Redireciona para /cadastro/sucesso
+```
 
 ---
 
-### 2) Backend: validação pós-migration (checagem profunda)
-Após recriar a view, validar com queries de leitura (sem depender do front):
-1. Conferir colunas via `pg_attribute` para garantir que preview/direction existem.
-2. Rodar:
-   - `select * from get_admin_whatsapp_conversations(10,0,null,'all','all',null,'all');`
-   e confirmar:
-   - retorna **200/sem erro**
-   - campos `last_message_preview` e `last_message_direction` vêm preenchidos
-3. Confirmar também:
-   - `get_admin_whatsapp_filtered_stats` e `count_admin_whatsapp_conversations` continuam OK (não devem quebrar, pois já usam colunas existentes)
+## Implementação Técnica
+
+### Arquivo: `src/pages/cadastro/CadastroFicha.tsx`
+
+### 1. Adicionar constantes para localStorage
+```typescript
+const STORAGE_KEY_PREFIX = 'cadastro_form_data_';
+const STORAGE_EXPIRY_HOURS = 24;
+
+const getStorageKey = () => {
+  if (bitrixEntityType && bitrixEntityId) {
+    return `${STORAGE_KEY_PREFIX}${bitrixEntityType}_${bitrixEntityId}`;
+  }
+  return `${STORAGE_KEY_PREFIX}new`;
+};
+```
+
+### 2. Função para salvar no localStorage
+```typescript
+const saveToLocalStorage = (data: FormData) => {
+  const key = getStorageKey();
+  const payload = {
+    timestamp: new Date().toISOString(),
+    data: data
+  };
+  localStorage.setItem(key, JSON.stringify(payload));
+};
+```
+
+### 3. Função para restaurar do localStorage
+```typescript
+const getFromLocalStorage = (): FormData | null => {
+  const key = getStorageKey();
+  const stored = localStorage.getItem(key);
+  if (!stored) return null;
+  
+  try {
+    const parsed = JSON.parse(stored);
+    const timestamp = new Date(parsed.timestamp);
+    const hoursDiff = (Date.now() - timestamp.getTime()) / (1000 * 60 * 60);
+    
+    // Expirar dados com mais de 24h
+    if (hoursDiff > STORAGE_EXPIRY_HOURS) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    
+    return parsed.data;
+  } catch {
+    return null;
+  }
+};
+```
+
+### 4. useEffect para auto-save (debounce 500ms)
+```typescript
+useEffect(() => {
+  // Não salvar durante loading inicial ou se não tiver ID
+  if (isLoadingData || !hasLoadedInitialData) return;
+  
+  const timeoutId = setTimeout(() => {
+    saveToLocalStorage(formData);
+  }, 500);
+  
+  return () => clearTimeout(timeoutId);
+}, [formData, isLoadingData, hasLoadedInitialData]);
+```
+
+### 5. Verificar dados salvos ao carregar
+```typescript
+useEffect(() => {
+  if (hasLoadedInitialData && bitrixEntityId) {
+    const savedData = getFromLocalStorage();
+    if (savedData) {
+      toast({
+        title: 'Dados não salvos encontrados',
+        description: 'Encontramos dados que você preencheu anteriormente.',
+        action: (
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => {
+              setFormData(savedData);
+              toast({ title: 'Dados restaurados!' });
+            }}>
+              Restaurar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => {
+              clearLocalStorage();
+              toast({ title: 'Dados descartados' });
+            }}>
+              Descartar
+            </Button>
+          </div>
+        )
+      });
+    }
+  }
+}, [hasLoadedInitialData, bitrixEntityId]);
+```
+
+### 6. Limpar localStorage apenas no sucesso
+No `handleSubmit`, após sucesso:
+```typescript
+// Linha ~1096-1098
+setSubmitStatus('Concluído!');
+
+// ✅ LIMPAR localStorage apenas no sucesso
+const storageKey = getStorageKey();
+localStorage.removeItem(storageKey);
+
+setTimeout(() => {
+  navigate('/cadastro/sucesso');
+}, 300);
+```
 
 ---
 
-### 3) Frontend: melhorar feedback quando o backend falha (hardening)
-Hoje, quando a RPC quebra, o usuário vê “Nenhuma conversa encontrada”, o que mascara o problema.
+## Estrutura dos Dados Salvos
 
-Alterar `src/components/whatsapp/AdminConversationList.tsx` para:
-1. Usar o `error` vindo do `useAdminWhatsAppConversations`.
-2. Se `error` existir, renderizar um estado de erro:
-   - “Não foi possível carregar as conversas”
-   - Botão “Tentar novamente” (chama `refetch()`)
-   - Detalhe do erro em um `<details>` (apenas para admins), por exemplo `error.message`
-
-Isso não é o fix principal, mas evita “apagões silenciosos” no futuro.
-
----
-
-### 4) Verificação manual na UI (critério de aceite)
-Após as correções:
-1. Abrir `/whatsapp`
-2. Confirmar:
-   - conversas aparecem
-   - preview e timestamp aparecem
-   - filtros funcionam
-   - “Em Atendimento” aparece quando o último envio outbound humano for mais recente que o inbound
-3. Confirmar no Network do navegador:
-   - `rpc/get_admin_whatsapp_conversations` retorna 200
+```json
+{
+  "cadastro_form_data_deal_61028": {
+    "timestamp": "2026-01-28T14:30:00Z",
+    "data": {
+      "nomeResponsavel": "Elaine",
+      "telefoneResponsavel": "+5511970132425",
+      "nomeModelo": "Luisa vitoria da silva Porto altino",
+      "cpf": "123.456.789-00",
+      ...
+    }
+  }
+}
+```
 
 ---
 
-## Riscos e cuidados
-- Recriar materialized view pode demorar alguns segundos dependendo do volume; é o caminho mais rápido e seguro para restaurar compatibilidade.
-- Precisamos manter o cálculo de preview compatível com mensagens sem `content` (ex.: mídia). Vamos definir fallback (“[Mídia]”, “image”, etc.) para não ficar preview vazio.
+## Testes de Validação
+
+Após implementação, verificar:
+
+| Cenário | Resultado Esperado |
+|---------|-------------------|
+| Preencher form, dar erro no envio | Dados preservados, pode tentar novamente |
+| Preencher form, fechar aba, reabrir | Toast perguntando se quer restaurar |
+| Preencher form, recarregar página (F5) | Toast perguntando se quer restaurar |
+| Salvar com sucesso | localStorage limpo, redireciona para sucesso |
+| Dados com mais de 24h | Ignorados automaticamente |
 
 ---
 
-## Entregáveis (o que será alterado)
-1. Uma migration nova corrigindo a `mv_whatsapp_conversation_stats`.
-2. Pequena melhoria de UI no `AdminConversationList` para exibir erro real quando existir.
+## Arquivos a Modificar
 
-Se você aprovar, eu executo essa correção começando pelo backend (que é o que está impedindo o carregamento agora).
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/pages/cadastro/CadastroFicha.tsx` | Adicionar toda a lógica de localStorage |
+
+---
+
+## Benefícios
+
+1. **Sem perda de dados** - Mesmo com erro de rede ou servidor
+2. **Experiência melhor** - Cliente não precisa preencher tudo novamente
+3. **Recuperação automática** - Se fechar o navegador por engano
+4. **Limpeza automática** - Dados antigos (>24h) são descartados
+
