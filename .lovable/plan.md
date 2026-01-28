@@ -1,207 +1,277 @@
 
+# Sistema de Notificações e Mensagens Internas para WhatsApp Telemarketing
 
-# Correção: Persistência de Dados no Formulário de Cadastro
+## Problemas Identificados
 
-## Problema Principal
-Quando o cliente preenche o formulário e ocorre qualquer erro no envio, **todos os dados digitados são perdidos**. Isso é crítico porque o cliente precisa preencher tudo novamente.
+### 1. Notificações Não Chegam para Operadores do Telemarketing
+**Causa raiz**: O sistema de notificações (`whatsapp_operator_notifications`) usa o `operator_id` que é um UUID da tabela `profiles`. Quando um admin convida um agente, ele está buscando na tabela `profiles` e criando notificações com esse UUID. Porém, os operadores de telemarketing logados via `/portal-telemarketing` podem não ter a sininho de notificações visível nessa rota - a página `PortalTelemarketingWhatsApp.tsx` não tem o componente `WhatsAppNotificationBell`.
 
-## Solução: Auto-save com localStorage
+### 2. Falta de Notificações no Portal de Telemarketing
+A página `/portal-telemarketing/whatsapp` não possui o componente de sino de notificações (`WhatsAppNotificationBell`), então mesmo que a notificação seja criada no banco, o operador não a vê.
 
-### Como vai funcionar:
-1. **Salvar automaticamente** a cada vez que o cliente digitar algo (com delay de 500ms para não sobrecarregar)
-2. **Ao reabrir a página** com dados salvos, mostrar opção de restaurar
-3. **Limpar os dados salvos** apenas quando o envio for bem-sucedido
-4. **Expiração automática** de dados com mais de 24 horas
+### 3. Falta de Mensagens Internas (Anônimas)
+Não existe um sistema de "mensagens internas" entre agentes. Toda mensagem enviada vai para o cliente. Precisamos criar um canal de comunicação interno que:
+- Não seja enviado ao cliente (não passa pelo Gupshup)
+- Fique visível apenas para operadores participantes
+- Permita comunicação sobre o atendimento
 
-### Fluxo do Usuário Após Correção:
+### 4. Resolução Sem Histórico
+Quando um agente convidado marca como "resolvido", ele é simplesmente removido da tabela de participantes. Não há registro do que foi resolvido ou notas - o campo `notes` no dialog existe mas não é salvo.
 
-```text
-1. Cliente abre /cadastro?deal=61028
-   ↓
-2. Sistema verifica localStorage
-   ↓
-3. [Se houver dados salvos] → Mostrar toast:
-   "Encontramos dados não salvos. Deseja restaurar?"
-   [Restaurar] [Descartar]
-   ↓
-4. Cliente preenche/edita campos
-   ↓ (auto-save a cada mudança - 500ms debounce)
-5. Dados salvos no localStorage automaticamente
-   ↓
-6. Cliente clica "Salvar"
-   ↓
-7. [Se ERRO] → Mostra erro + DADOS PRESERVADOS
-              → Cliente corrige e tenta novamente
-   ↓
-8. [Se SUCESSO] → Deal atualizado no Bitrix
-               → Etapa muda para UC_O2KDK6 (Ficha Preenchida)
-               → localStorage limpo
-               → Redireciona para /cadastro/sucesso
-```
+### 5. Nome do Agente nas Mensagens
+As mensagens já mostram `sender_name`, mas precisamos garantir que o nome correto do operador de telemarketing apareça.
 
 ---
 
-## Implementação Técnica
+## Plano de Implementação
 
-### Arquivo: `src/pages/cadastro/CadastroFicha.tsx`
+### Parte 1: Adicionar Sino de Notificações no Portal Telemarketing
 
-### 1. Adicionar constantes para localStorage
-```typescript
-const STORAGE_KEY_PREFIX = 'cadastro_form_data_';
-const STORAGE_EXPIRY_HOURS = 24;
+**Arquivo**: `src/pages/portal-telemarketing/PortalTelemarketingWhatsApp.tsx`
 
-const getStorageKey = () => {
-  if (bitrixEntityType && bitrixEntityId) {
-    return `${STORAGE_KEY_PREFIX}${bitrixEntityType}_${bitrixEntityId}`;
-  }
-  return `${STORAGE_KEY_PREFIX}new`;
-};
-```
+1. Importar o componente `WhatsAppNotificationBell`
+2. Adicionar no header da página
+3. Implementar handler para quando clicar na notificação, abrir a conversa correspondente
 
-### 2. Função para salvar no localStorage
-```typescript
-const saveToLocalStorage = (data: FormData) => {
-  const key = getStorageKey();
-  const payload = {
-    timestamp: new Date().toISOString(),
-    data: data
-  };
-  localStorage.setItem(key, JSON.stringify(payload));
-};
-```
+**Código a adicionar no header (após linha ~400)**:
+```tsx
+import { WhatsAppNotificationBell } from '@/components/whatsapp/WhatsAppNotificationBell';
 
-### 3. Função para restaurar do localStorage
-```typescript
-const getFromLocalStorage = (): FormData | null => {
-  const key = getStorageKey();
-  const stored = localStorage.getItem(key);
-  if (!stored) return null;
-  
-  try {
-    const parsed = JSON.parse(stored);
-    const timestamp = new Date(parsed.timestamp);
-    const hoursDiff = (Date.now() - timestamp.getTime()) / (1000 * 60 * 60);
-    
-    // Expirar dados com mais de 24h
-    if (hoursDiff > STORAGE_EXPIRY_HOURS) {
-      localStorage.removeItem(key);
-      return null;
-    }
-    
-    return parsed.data;
-  } catch {
-    return null;
-  }
-};
-```
-
-### 4. useEffect para auto-save (debounce 500ms)
-```typescript
-useEffect(() => {
-  // Não salvar durante loading inicial ou se não tiver ID
-  if (isLoadingData || !hasLoadedInitialData) return;
-  
-  const timeoutId = setTimeout(() => {
-    saveToLocalStorage(formData);
-  }, 500);
-  
-  return () => clearTimeout(timeoutId);
-}, [formData, isLoadingData, hasLoadedInitialData]);
-```
-
-### 5. Verificar dados salvos ao carregar
-```typescript
-useEffect(() => {
-  if (hasLoadedInitialData && bitrixEntityId) {
-    const savedData = getFromLocalStorage();
-    if (savedData) {
-      toast({
-        title: 'Dados não salvos encontrados',
-        description: 'Encontramos dados que você preencheu anteriormente.',
-        action: (
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => {
-              setFormData(savedData);
-              toast({ title: 'Dados restaurados!' });
-            }}>
-              Restaurar
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => {
-              clearLocalStorage();
-              toast({ title: 'Dados descartados' });
-            }}>
-              Descartar
-            </Button>
-          </div>
-        )
+// No header, após o Badge de Supervisor:
+<WhatsAppNotificationBell 
+  onNotificationClick={(phoneNumber, bitrixId) => {
+    // Buscar ou criar objeto de conversa e selecionar
+    const conv = conversations.find(c => 
+      c.phone_number?.replace(/\D/g, '') === phoneNumber.replace(/\D/g, '')
+    );
+    if (conv) {
+      setSelectedConversation(conv);
+    } else {
+      // Criar objeto mínimo para abrir conversa
+      setSelectedConversation({
+        lead_id: parseInt(bitrixId || '0', 10),
+        bitrix_id: bitrixId || '',
+        lead_name: phoneNumber,
+        phone_number: phoneNumber,
+        // ... outros campos
       });
     }
-  }
-}, [hasLoadedInitialData, bitrixEntityId]);
-```
-
-### 6. Limpar localStorage apenas no sucesso
-No `handleSubmit`, após sucesso:
-```typescript
-// Linha ~1096-1098
-setSubmitStatus('Concluído!');
-
-// ✅ LIMPAR localStorage apenas no sucesso
-const storageKey = getStorageKey();
-localStorage.removeItem(storageKey);
-
-setTimeout(() => {
-  navigate('/cadastro/sucesso');
-}, 300);
+  }}
+/>
 ```
 
 ---
 
-## Estrutura dos Dados Salvos
+### Parte 2: Sistema de Mensagens Internas (Notas entre Agentes)
 
-```json
-{
-  "cadastro_form_data_deal_61028": {
-    "timestamp": "2026-01-28T14:30:00Z",
-    "data": {
-      "nomeResponsavel": "Elaine",
-      "telefoneResponsavel": "+5511970132425",
-      "nomeModelo": "Luisa vitoria da silva Porto altino",
-      "cpf": "123.456.789-00",
-      ...
-    }
-  }
+#### 2.1 Criar nova tabela para notas internas
+
+**Migration SQL**:
+```sql
+CREATE TABLE whatsapp_internal_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  phone_number TEXT NOT NULL,
+  bitrix_id TEXT,
+  author_id UUID REFERENCES profiles(id) NOT NULL,
+  author_name TEXT,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  -- Opcional: destinatário específico (NULL = todos os participantes)
+  target_operator_id UUID REFERENCES profiles(id)
+);
+
+-- Índices
+CREATE INDEX idx_internal_notes_phone ON whatsapp_internal_notes(phone_number);
+CREATE INDEX idx_internal_notes_created ON whatsapp_internal_notes(created_at DESC);
+
+-- RLS
+ALTER TABLE whatsapp_internal_notes ENABLE ROW LEVEL SECURITY;
+
+-- Política: participantes podem ver notas da conversa
+CREATE POLICY "Participantes podem ver notas" ON whatsapp_internal_notes
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM whatsapp_conversation_participants p
+    WHERE p.phone_number = whatsapp_internal_notes.phone_number
+    AND p.operator_id = auth.uid()
+  )
+  OR
+  author_id = auth.uid()
+);
+
+-- Política: usuários autenticados podem criar notas
+CREATE POLICY "Usuários podem criar notas" ON whatsapp_internal_notes
+FOR INSERT WITH CHECK (auth.uid() = author_id);
+```
+
+#### 2.2 Criar hook para gerenciar notas internas
+
+**Novo arquivo**: `src/hooks/useInternalNotes.ts`
+```typescript
+// Funções:
+// - useInternalNotes(phoneNumber): buscar notas
+// - useSendInternalNote(): criar nova nota
+// - Realtime subscription para novas notas
+```
+
+#### 2.3 Adicionar aba ou seção de notas internas no chat
+
+**Arquivo**: `src/components/whatsapp/WhatsAppChatContainer.tsx`
+
+Adicionar uma nova aba "Notas Internas" ou um botão que abre um painel lateral/modal onde agentes podem:
+- Ver histórico de notas entre participantes
+- Adicionar nova nota (não enviada ao cliente)
+- Notificar outros participantes
+
+---
+
+### Parte 3: Resolver com Notas (Histórico de Resolução)
+
+#### 3.1 Criar tabela de histórico de resolução
+
+**Migration SQL**:
+```sql
+CREATE TABLE whatsapp_participation_resolutions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  phone_number TEXT NOT NULL,
+  bitrix_id TEXT,
+  operator_id UUID REFERENCES profiles(id) NOT NULL,
+  operator_name TEXT,
+  resolution_notes TEXT,
+  resolved_at TIMESTAMPTZ DEFAULT now(),
+  invited_by UUID,
+  inviter_name TEXT,
+  priority INTEGER
+);
+
+CREATE INDEX idx_resolutions_phone ON whatsapp_participation_resolutions(phone_number);
+CREATE INDEX idx_resolutions_date ON whatsapp_participation_resolutions(resolved_at DESC);
+
+-- RLS
+ALTER TABLE whatsapp_participation_resolutions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Participantes podem ver resoluções" ON whatsapp_participation_resolutions
+FOR SELECT USING (true); -- Público para participantes verem histórico
+
+CREATE POLICY "Usuários podem criar" ON whatsapp_participation_resolutions
+FOR INSERT WITH CHECK (auth.uid() = operator_id);
+```
+
+#### 3.2 Atualizar hook de resolução
+
+**Arquivo**: `src/hooks/useMyParticipation.ts`
+
+Modificar `useResolveMyParticipation` para:
+1. Salvar as notas na nova tabela antes de deletar
+2. Copiar dados do participante (invited_by, priority, etc.)
+
+```typescript
+mutationFn: async ({ phoneNumber, participationId, notes }) => {
+  // 1. Buscar dados do participante antes de deletar
+  const { data: participation } = await supabase
+    .from('whatsapp_conversation_participants')
+    .select('*')
+    .eq('id', participationId)
+    .single();
+  
+  // 2. Inserir histórico de resolução
+  await supabase.from('whatsapp_participation_resolutions').insert({
+    phone_number: phoneNumber,
+    bitrix_id: participation?.bitrix_id,
+    operator_id: user.id,
+    operator_name: profile?.display_name,
+    resolution_notes: notes,
+    invited_by: participation?.invited_by,
+    inviter_name: participation?.inviter_name,
+    priority: participation?.priority,
+  });
+  
+  // 3. Deletar participação
+  await supabase
+    .from('whatsapp_conversation_participants')
+    .delete()
+    .eq('id', participationId);
 }
 ```
 
----
+#### 3.3 Mostrar histórico de resoluções
 
-## Testes de Validação
-
-Após implementação, verificar:
-
-| Cenário | Resultado Esperado |
-|---------|-------------------|
-| Preencher form, dar erro no envio | Dados preservados, pode tentar novamente |
-| Preencher form, fechar aba, reabrir | Toast perguntando se quer restaurar |
-| Preencher form, recarregar página (F5) | Toast perguntando se quer restaurar |
-| Salvar com sucesso | localStorage limpo, redireciona para sucesso |
-| Dados com mais de 24h | Ignorados automaticamente |
+Criar componente `ResolutionHistory` que mostra quem já resolveu e o que foi feito, visível para todos os participantes da conversa.
 
 ---
 
-## Arquivos a Modificar
+### Parte 4: Garantir Nome do Agente nas Mensagens
 
+O sistema já salva `sender_name` nas mensagens. Precisamos garantir que:
+
+1. No edge function `gupshup-send-message`, o nome do operador seja buscado corretamente
+2. Na exibição (`WhatsAppMessageBubble.tsx`), o nome apareça claramente
+
+**Verificar/Atualizar**: `supabase/functions/gupshup-send-message/index.ts`
+- Buscar nome do operador pelo `user.id` na tabela `profiles` ou `agent_telemarketing_mapping`
+
+---
+
+## Resumo de Arquivos a Modificar/Criar
+
+### Novos Arquivos:
+| Arquivo | Descrição |
+|---------|-----------|
+| `src/hooks/useInternalNotes.ts` | Hook para notas internas entre agentes |
+| `src/components/whatsapp/InternalNotesPanel.tsx` | Painel de notas internas |
+| `src/components/whatsapp/ResolutionHistory.tsx` | Histórico de resoluções |
+
+### Arquivos a Modificar:
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/pages/cadastro/CadastroFicha.tsx` | Adicionar toda a lógica de localStorage |
+| `src/pages/portal-telemarketing/PortalTelemarketingWhatsApp.tsx` | Adicionar sino de notificações |
+| `src/hooks/useMyParticipation.ts` | Salvar notas de resolução |
+| `src/components/whatsapp/ResolveParticipationDialog.tsx` | Passar notas para o hook |
+| `src/components/whatsapp/WhatsAppChatContainer.tsx` | Adicionar aba/botão de notas internas |
+| `src/components/whatsapp/WhatsAppHeader.tsx` | Mostrar histórico de resoluções |
+
+### Migrations (Backend):
+1. Criar tabela `whatsapp_internal_notes`
+2. Criar tabela `whatsapp_participation_resolutions`
+3. Habilitar realtime para notas internas
 
 ---
 
-## Benefícios
+## Fluxo Após Implementação
 
-1. **Sem perda de dados** - Mesmo com erro de rede ou servidor
-2. **Experiência melhor** - Cliente não precisa preencher tudo novamente
-3. **Recuperação automática** - Se fechar o navegador por engano
-4. **Limpeza automática** - Dados antigos (>24h) são descartados
+```text
+1. Admin em /whatsapp convida operador de telemarketing
+   ↓
+2. Notificação criada em whatsapp_operator_notifications
+   ↓
+3. Operador em /portal-telemarketing/whatsapp vê sino com badge
+   ↓
+4. Operador clica → abre conversa do cliente
+   ↓
+5. Operador pode:
+   - Responder cliente (mensagem normal - vai pelo Gupshup)
+   - Enviar nota interna (não vai para cliente)
+   ↓
+6. Ao resolver, operador clica "Resolvido"
+   ↓
+7. Dialog pede notas → salva em whatsapp_participation_resolutions
+   ↓
+8. Operador original vê histórico: "Fulano resolveu: [notas]"
+   ↓
+9. Operador original continua atendimento com contexto
+```
 
+---
+
+## Detalhes Técnicos
+
+### Notificações Realtime
+O hook `useWhatsAppNotifications` já tem subscription realtime para `INSERT` em `whatsapp_operator_notifications`. Só precisamos adicionar o componente na página.
+
+### Notas Internas vs Mensagens
+As notas internas ficam em tabela separada (`whatsapp_internal_notes`) e nunca passam pelo Gupshup. São renderizadas com estilo diferente (ex: fundo amarelo, ícone de nota) para diferenciar de mensagens reais.
+
+### Identificação do Operador
+O sistema usa `agent_telemarketing_mapping` para vincular:
+- `tabuladormax_user_id` (UUID do profiles) → `bitrix_telemarketing_id`
+- Isso permite buscar o nome do operador para exibir nas mensagens
