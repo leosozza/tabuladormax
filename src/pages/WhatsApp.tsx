@@ -19,7 +19,13 @@ export default function WhatsApp() {
   const [selectedConversation, setSelectedConversation] = useState<AdminConversation | null>(null);
 
   // Handle notification click to open conversation - MUST be before any early returns
+  // Also store phone to highlight in list even if filtered out
+  const [highlightedPhone, setHighlightedPhone] = useState<string | null>(null);
+
   const handleNotificationClick = useCallback((phoneNumber: string, bitrixId?: string) => {
+    // Store the phone to highlight in list
+    setHighlightedPhone(phoneNumber);
+    
     setSelectedConversation({
       phone_number: phoneNumber,
       bitrix_id: bitrixId || null,
@@ -149,7 +155,12 @@ export default function WhatsApp() {
         <div className="flex h-full min-h-0 overflow-hidden bg-background">
           {/* Conversation List - Left Panel */}
           <div className="w-96 lg:w-[28rem] xl:w-[32rem] flex-shrink-0 h-full min-h-0 overflow-hidden border-r">
-            <AdminConversationList selectedConversation={selectedConversation} onSelectConversation={setSelectedConversation} />
+            <AdminConversationList 
+              selectedConversation={selectedConversation} 
+              onSelectConversation={setSelectedConversation}
+              highlightedPhone={highlightedPhone}
+              onClearHighlight={() => setHighlightedPhone(null)}
+            />
           </div>
 
           {/* Chat Container - Right Panel */}
