@@ -1,9 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+
+// ========================================================================
+// CONSTANTES PARA PERSISTÊNCIA LOCAL (localStorage)
+// ========================================================================
+const STORAGE_KEY_PREFIX = 'cadastro_form_data_';
+const STORAGE_EXPIRY_HOURS = 24;
 import { FormSection } from '@/components/cadastro/FormSection';
 import { FormField } from '@/components/cadastro/FormField';
 import { DateSelectField } from '@/components/cadastro/DateSelectField';
@@ -382,6 +388,69 @@ export default function CadastroFicha() {
     cpf?: string;
   }>({});
   
+  // Ref para controlar se o toast de restauração já foi mostrado
+  const hasShownRestoreToast = useRef(false);
+
+  // ========================================================================
+  // FUNÇÕES DE PERSISTÊNCIA LOCAL (localStorage)
+  // ========================================================================
+  
+  const getStorageKey = useCallback(() => {
+    if (bitrixEntityType && bitrixEntityId) {
+      return `${STORAGE_KEY_PREFIX}${bitrixEntityType}_${bitrixEntityId}`;
+    }
+    return `${STORAGE_KEY_PREFIX}new`;
+  }, [bitrixEntityType, bitrixEntityId]);
+
+  const saveToLocalStorage = useCallback((data: FormData) => {
+    try {
+      const key = getStorageKey();
+      const payload = {
+        timestamp: new Date().toISOString(),
+        data: data
+      };
+      localStorage.setItem(key, JSON.stringify(payload));
+      console.log('💾 Dados salvos no localStorage:', key);
+    } catch (error) {
+      console.error('❌ Erro ao salvar no localStorage:', error);
+    }
+  }, [getStorageKey]);
+
+  const getFromLocalStorage = useCallback((): FormData | null => {
+    try {
+      const key = getStorageKey();
+      const stored = localStorage.getItem(key);
+      if (!stored) return null;
+      
+      const parsed = JSON.parse(stored);
+      const timestamp = new Date(parsed.timestamp);
+      const hoursDiff = (Date.now() - timestamp.getTime()) / (1000 * 60 * 60);
+      
+      // Expirar dados com mais de 24h
+      if (hoursDiff > STORAGE_EXPIRY_HOURS) {
+        localStorage.removeItem(key);
+        console.log('🗑️ Dados expirados removidos:', key);
+        return null;
+      }
+      
+      console.log('📦 Dados encontrados no localStorage:', key, `(${hoursDiff.toFixed(1)}h atrás)`);
+      return parsed.data;
+    } catch (error) {
+      console.error('❌ Erro ao ler localStorage:', error);
+      return null;
+    }
+  }, [getStorageKey]);
+
+  const clearLocalStorage = useCallback(() => {
+    try {
+      const key = getStorageKey();
+      localStorage.removeItem(key);
+      console.log('🗑️ localStorage limpo:', key);
+    } catch (error) {
+      console.error('❌ Erro ao limpar localStorage:', error);
+    }
+  }, [getStorageKey]);
+  
   // Estado para opções dinâmicas dos selects baseadas nos dealFields do Bitrix
   const [dynamicOptions, setDynamicOptions] = useState<{
     corPele: Array<{ value: string; label: string }>;
@@ -756,6 +825,69 @@ export default function CadastroFicha() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ========================================================================
+  // AUTO-SAVE: Salvar dados no localStorage a cada mudança (debounce 500ms)
+  // ========================================================================
+  useEffect(() => {
+    // Não salvar durante loading inicial ou se não tiver ID
+    if (isLoadingData || !hasLoadedInitialData || !bitrixEntityId) return;
+    
+    const timeoutId = setTimeout(() => {
+      saveToLocalStorage(formData);
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [formData, isLoadingData, hasLoadedInitialData, bitrixEntityId, saveToLocalStorage]);
+
+  // ========================================================================
+  // RESTAURAÇÃO: Verificar dados salvos ao carregar página
+  // ========================================================================
+  useEffect(() => {
+    // Só verificar após carregar dados do Bitrix e ter um ID
+    if (!hasLoadedInitialData || !bitrixEntityId || hasShownRestoreToast.current) return;
+    
+    const savedData = getFromLocalStorage();
+    if (savedData) {
+      hasShownRestoreToast.current = true;
+      
+      toast({
+        title: '📋 Dados não salvos encontrados',
+        description: 'Encontramos dados que você preencheu anteriormente. Deseja restaurar?',
+        duration: 15000, // 15 segundos para o usuário decidir
+        action: (
+          <div className="flex gap-2 mt-2">
+            <Button 
+              size="sm" 
+              onClick={() => {
+                setFormData(prev => ({ ...prev, ...savedData }));
+                toast({ 
+                  title: '✅ Dados restaurados!',
+                  description: 'Os dados anteriores foram carregados no formulário.'
+                });
+              }}
+              className="bg-primary hover:bg-primary/90"
+            >
+              Restaurar
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => {
+                clearLocalStorage();
+                toast({ 
+                  title: 'Dados descartados',
+                  description: 'Os dados anteriores foram removidos.'
+                });
+              }}
+            >
+              Descartar
+            </Button>
+          </div>
+        )
+      });
+    }
+  }, [hasLoadedInitialData, bitrixEntityId, getFromLocalStorage, clearLocalStorage, toast]);
+
   // Load existing data from route parameters OR query params
   useEffect(() => {
     // Evitar re-carregar se já carregou
@@ -1091,6 +1223,10 @@ export default function CadastroFicha() {
         }
 
         setSubmitStatus('Concluído!');
+        
+        // ✅ LIMPAR localStorage apenas no sucesso
+        clearLocalStorage();
+        console.log('✅ Formulário salvo com sucesso, localStorage limpo');
         
         // Pequeno delay para mostrar "Concluído" antes de navegar
         setTimeout(() => {
