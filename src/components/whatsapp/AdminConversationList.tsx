@@ -142,9 +142,16 @@ const ETAPA_OPTIONS = [
 interface AdminConversationListProps {
   selectedConversation: AdminConversation | null;
   onSelectConversation: (conversation: AdminConversation) => void;
+  highlightedPhone?: string | null;
+  onClearHighlight?: () => void;
 }
 
-export function AdminConversationList({ selectedConversation, onSelectConversation }: AdminConversationListProps) {
+export function AdminConversationList({ 
+  selectedConversation, 
+  onSelectConversation,
+  highlightedPhone,
+  onClearHighlight 
+}: AdminConversationListProps) {
   // Load saved filters on mount
   const savedFilters = loadSavedFilters();
   
@@ -158,6 +165,22 @@ export function AdminConversationList({ selectedConversation, onSelectConversati
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedForDetails, setSelectedForDetails] = useState<AdminConversation | null>(null);
   const [filtersCollapsed, setFiltersCollapsed] = useState(loadCollapsedState());
+
+  // When a highlighted phone comes from notification, reset filters to show it
+  useEffect(() => {
+    if (highlightedPhone) {
+      // Reset filters to "all" to ensure the conversation is visible
+      setWindowFilter("all");
+      setResponseFilter("all");
+      setEtapaFilter("all");
+      setDealStatusFilter("all");
+      setClosedFilter("all");
+      setSearch("");
+      setDebouncedSearch("");
+      // Clear the highlight after resetting filters
+      onClearHighlight?.();
+    }
+  }, [highlightedPhone, onClearHighlight]);
 
   // Persist filters whenever they change
   useEffect(() => {
