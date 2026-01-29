@@ -13,6 +13,8 @@ import { ConversationParticipants } from './ConversationParticipants';
 import { ConversationTagsManager } from './ConversationTagsManager';
 import { useConversationTags } from '@/hooks/useConversationTags';
 import { TagBadge } from './TagBadge';
+import { CallResultDialog } from './CallResultDialog';
+import { CallHistoryPopover } from './CallHistoryPopover';
 
 interface WhatsAppHeaderProps {
   contactName: string;
@@ -40,6 +42,7 @@ export function WhatsAppHeader({
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [tagsDialogOpen, setTagsDialogOpen] = useState(false);
+  const [callResultDialogOpen, setCallResultDialogOpen] = useState(false);
   
   const { data: closure } = useConversationClosure(phoneNumber);
   const { data: myParticipation } = useMyParticipation(phoneNumber);
@@ -79,6 +82,11 @@ export function WhatsAppHeader({
     window.location.href = sipUri;
     
     toast.info('Iniciando chamada no MicroSIP...');
+    
+    // Abrir dialog para registrar resultado após um breve delay
+    setTimeout(() => {
+      setCallResultDialogOpen(true);
+    }, 1500);
   };
 
   return (
@@ -121,6 +129,9 @@ export function WhatsAppHeader({
         </div>
         <div className="flex items-center gap-2">
           {rightContent}
+          
+          {/* Call History Popover */}
+          <CallHistoryPopover phoneNumber={phoneNumber} />
           
           {/* Click-to-Call Button */}
           {phoneNumber && (
@@ -276,6 +287,13 @@ export function WhatsAppHeader({
             onOpenChange={setTagsDialogOpen}
             phoneNumber={phoneNumber}
             bitrixId={bitrixId}
+          />
+          <CallResultDialog
+            open={callResultDialogOpen}
+            onOpenChange={setCallResultDialogOpen}
+            phoneNumber={phoneNumber}
+            bitrixId={bitrixId}
+            contactName={contactName}
           />
         </>
       )}

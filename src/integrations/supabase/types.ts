@@ -4299,6 +4299,45 @@ export type Database = {
         }
         Relationships: []
       }
+      sip_call_logs: {
+        Row: {
+          bitrix_id: string | null
+          call_duration_seconds: number | null
+          call_result: string
+          contact_name: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          operator_id: string | null
+          operator_name: string | null
+          phone_number: string
+        }
+        Insert: {
+          bitrix_id?: string | null
+          call_duration_seconds?: number | null
+          call_result: string
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          operator_id?: string | null
+          operator_name?: string | null
+          phone_number: string
+        }
+        Update: {
+          bitrix_id?: string | null
+          call_duration_seconds?: number | null
+          call_result?: string
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          operator_id?: string | null
+          operator_name?: string | null
+          phone_number?: string
+        }
+        Relationships: []
+      }
       sync_events: {
         Row: {
           created_at: string | null
