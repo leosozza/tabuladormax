@@ -55,6 +55,26 @@ const AI_PROVIDERS: AIProvider[] = [
   },
 ];
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+class AllProvidersFailedError extends Error {
+  status: number;
+  providerErrors: Array<{ provider: string; status?: number; reason?: string }>;
+
+  constructor(
+    message: string,
+    status: number,
+    providerErrors: Array<{ provider: string; status?: number; reason?: string }>
+  ) {
+    super(message);
+    this.name = 'AllProvidersFailedError';
+    this.status = status;
+    this.providerErrors = providerErrors;
+  }
+}
+
 // ============================================
 // Função de Chamada com Fallback
 // ============================================
@@ -64,7 +84,7 @@ async function callAIWithFallback(
   userPrompt: string,
   maxTokens: number = 4000
 ): Promise<{ content: string; provider: string }> {
-  const errors: string[] = [];
+  const providerErrors: Array<{ provider: string; status?: number; reason?: string }> = [];
 
   for (const provider of AI_PROVIDERS) {
     const apiKey = Deno.env.get(provider.apiKeyEnv);
@@ -74,55 +94,90 @@ async function callAIWithFallback(
     }
 
     try {
-      console.log(`🤖 Tentando ${provider.name} (${provider.model})...`);
+      // Retry leve para 429 (rate limit). 402 (sem créditos) não deve ser refeito.
+      const max429Retries = 2;
+      for (let attempt = 0; attempt <= max429Retries; attempt++) {
+        console.log(`🤖 Tentando ${provider.name} (${provider.model})... (tentativa ${attempt + 1}/${max429Retries + 1})`);
 
-      const response = await fetch(provider.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: provider.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          max_tokens: maxTokens,
-        }),
-      });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25_000);
 
-      if (response.status === 402 || response.status === 429) {
-        const errorText = await response.text();
-        console.log(`⚠️ ${provider.name} retornou ${response.status}, tentando próximo...`);
-        errors.push(`${provider.name}: ${response.status}`);
-        continue; // Tentar próximo provedor
-      }
+        let response: Response;
+        try {
+          response = await fetch(provider.baseUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: provider.model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+              ],
+              max_tokens: maxTokens,
+            }),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ ${provider.name} erro:`, response.status, errorText);
-        errors.push(`${provider.name}: ${response.status}`);
-        continue;
-      }
+        if (response.status === 429 && attempt < max429Retries) {
+          // Backoff exponencial com jitter curto
+          const backoffMs = 800 * Math.pow(2, attempt) + Math.floor(Math.random() * 400);
+          console.log(`⏳ ${provider.name} rate limit (429). Aguardando ${backoffMs}ms e tentando novamente...`);
+          await response.text(); // consumir body
+          await sleep(backoffMs);
+          continue;
+        }
 
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || '';
+        if (response.status === 402 || response.status === 429) {
+          const errorText = await response.text();
+          console.log(`⚠️ ${provider.name} retornou ${response.status}, tentando próximo...`);
+          providerErrors.push({ provider: provider.name, status: response.status, reason: errorText?.slice?.(0, 200) });
+          break; // próximo provedor
+        }
 
-      if (content) {
-        console.log(`✅ Sucesso com ${provider.name}`);
-        return { content, provider: provider.name };
-      } else {
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`❌ ${provider.name} erro:`, response.status, errorText);
+          providerErrors.push({ provider: provider.name, status: response.status, reason: errorText?.slice?.(0, 200) });
+          break;
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content || '';
+
+        if (content) {
+          console.log(`✅ Sucesso com ${provider.name}`);
+          return { content, provider: provider.name };
+        }
+
         console.log(`⚠️ ${provider.name} retornou resposta vazia, tentando próximo...`);
-        errors.push(`${provider.name}: resposta vazia`);
+        providerErrors.push({ provider: provider.name, reason: 'resposta vazia' });
+        break;
       }
     } catch (err) {
       console.error(`❌ Erro ao chamar ${provider.name}:`, err);
-      errors.push(`${provider.name}: ${err instanceof Error ? err.message : 'erro desconhecido'}`);
+      providerErrors.push({
+        provider: provider.name,
+        reason: err instanceof Error ? err.message : 'erro desconhecido',
+      });
     }
   }
 
-  throw new Error(`Todos os provedores falharam: ${errors.join(', ')}`);
+  const statuses = providerErrors.map((e) => e.status).filter((s): s is number => typeof s === 'number');
+  const all429 = statuses.length > 0 && statuses.every((s) => s === 429);
+  const all402 = statuses.length > 0 && statuses.every((s) => s === 402);
+  const finalStatus = all429 ? 429 : all402 ? 402 : 503;
+
+  const summary = providerErrors
+    .map((e) => (e.status ? `${e.provider}: ${e.status}` : `${e.provider}: erro`))
+    .join(', ');
+
+  throw new AllProvidersFailedError(`Todos os provedores falharam: ${summary}`, finalStatus, providerErrors);
 }
 
 // ============================================
@@ -227,9 +282,23 @@ Gere um texto de treinamento completo baseado nos padrões observados nessas con
     );
   } catch (error) {
     console.error('❌ Erro no generate-training-from-conversations:', error);
+
+    const status = error instanceof AllProvidersFailedError ? error.status : 500;
+    const providerErrors = error instanceof AllProvidersFailedError ? error.providerErrors : undefined;
+
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        provider_errors: providerErrors,
+      }),
+      {
+        status,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          ...(status === 429 ? { 'Retry-After': '2' } : {}),
+        },
+      }
     );
   }
 });
