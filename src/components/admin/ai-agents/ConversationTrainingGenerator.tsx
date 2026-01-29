@@ -158,24 +158,33 @@ export function ConversationTrainingGenerator({ agents }: ConversationTrainingGe
     setIsSaving(true);
 
     try {
-      const { error } = await supabase.from('ai_agents_training').insert({
+      const { data, error } = await supabase.from('ai_agents_training').insert({
         agent_id: selectedAgentId,
         title: trainingTitle,
         content: generatedTraining,
         category: 'conversas',
         priority: 50,
         is_active: true,
-      });
+      }).select();
 
       if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        toast.error('Erro ao salvar: verifique suas permissões de administrador');
+        return;
+      }
 
       toast.success('Treinamento salvo com sucesso!');
       setGeneratedTraining('');
       setTrainingTitle('');
       setSelectedPhones(new Set());
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao salvar treinamento:', err);
-      toast.error('Erro ao salvar treinamento');
+      if (err?.code === '42501') {
+        toast.error('Sem permissão para salvar. Contate um administrador.');
+      } else {
+        toast.error('Erro ao salvar treinamento');
+      }
     } finally {
       setIsSaving(false);
     }
