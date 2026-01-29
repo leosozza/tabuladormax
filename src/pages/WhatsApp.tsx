@@ -1,10 +1,16 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { BarChart3, Headset, MessageSquare, ShieldAlert, LayoutDashboard, Bot, RotateCcw } from 'lucide-react';
+import { BarChart3, Headset, MessageSquare, ShieldAlert, LayoutDashboard, Bot, RotateCcw, RefreshCw, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { MainLayout } from '@/components/layouts/MainLayout';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useDepartmentAccess } from '@/hooks/useDepartmentAccess';
 import { AdminConversationList } from '@/components/whatsapp/AdminConversationList';
 import { WhatsAppChatContainer } from '@/components/whatsapp/WhatsAppChatContainer';
@@ -122,21 +128,36 @@ export default function WhatsApp() {
     window.location.reload();
   };
 
+  const handleRefresh = () => {
+    toast.info('Atualizando dados...');
+    window.location.reload();
+  };
+
   return <TooltipProvider>
       <MainLayout title="Central de Atendimento" subtitle="Central de Mensagens" fullWidth actions={<div className="flex items-center gap-2">
             {/* Notification Bell */}
             <WhatsAppNotificationBell onNotificationClick={handleNotificationClick} />
             
-            {/* Reconnect Button - next to notification bell */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleReconnect} className="gap-1.5 text-xs">
+            {/* Reconnect/Refresh Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
                   <RotateCcw className="w-3.5 h-3.5" />
-                  Reconectar
+                  Ações
+                  <ChevronDown className="w-3 h-3" />
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>Reconectar sessão se houver problemas de envio</TooltipContent>
-            </Tooltip>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleReconnect} className="gap-2">
+                  <RotateCcw className="w-4 h-4" />
+                  Reconectar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleRefresh} className="gap-2">
+                  <RefreshCw className="w-4 h-4" />
+                  Atualizar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             <div className="flex items-center border rounded-md">
               <Tooltip>
