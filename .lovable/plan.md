@@ -1,248 +1,250 @@
 
-# Plano de Melhorias - Central de Atendimento WhatsApp
+# Plano de Implementação - Itens Restantes
 
-## Resumo Executivo
-
-Este plano aborda 14 melhorias identificadas para otimizar o fluxo de atendimento via WhatsApp, categorizadas em automações, filtros, sincronização e interface.
-
----
-
-## 1. Melhorias de Automação
-
-### 1.1 Encerramento Automático por Resposta (Não fez cadastro / Ver perfil)
-
-**Situação atual**: O encerramento de conversas é manual.
-
-**Implementação proposta**:
-- Criar trigger no banco de dados que monitora mensagens de templates específicos
-- Quando template com resultado "Não fez cadastro" (ID 8998) ou "Ver perfil" for enviado, encerrar conversa automaticamente
-- Inserir registro em `whatsapp_conversation_closures` com motivo "Auto: Não fez cadastro" ou "Auto: Ver perfil"
-
-**Arquivos a modificar**:
-- `supabase/migrations/` - Nova migration com trigger
-- `supabase/functions/gupshup-webhook/index.ts` - Lógica adicional após envio de template
-
-### 1.2 Reabertura Automática de Conversas Encerradas
-
-**Situacao atual**: JÁ IMPLEMENTADO. O código em `gupshup-webhook/index.ts` (linhas 789-807) já reabvre conversas automaticamente quando cliente envia nova mensagem.
-
-**Ação necessária**: Apenas verificar se está funcionando corretamente em produção.
+## Visão Geral
+Este plano cobre os 6 itens pendentes de média e baixa prioridade do plano de melhorias da Central de Atendimento WhatsApp.
 
 ---
 
-## 2. Melhorias de Filtros
+## Item 1: Encerramento Automático por Template Específico (Média Prioridade)
 
-### 2.1 Clarificação do Filtro "Respondeu"
+### Contexto
+Quando templates de "Não fez cadastro" (ID 8998) ou "Ver perfil" são enviados, a conversa deve ser encerrada automaticamente.
 
-**Situação atual**: O filtro `response_status` tem 4 estados:
-- `waiting`: Aguardando resposta do operador (cliente mandou, operador não respondeu)
-- `never`: Nunca respondemos ao cliente
-- `replied`: Operador/sistema respondeu
-- `in_progress`: Em atendimento (operador respondeu, aguardando cliente)
+### Implementação
+**Arquivo:** `supabase/functions/gupshup-send-message/index.ts`
 
-**Problema reportado**: Algumas respostas não estão subindo no filtro "Respondeu".
+Após o envio bem-sucedido de um template, verificar se o template_id corresponde aos templates de encerramento e inserir registro em `whatsapp_conversation_closures`:
 
-**Diagnóstico necessário**:
-- Verificar a materialized view `mv_whatsapp_conversation_stats`
-- Conferir se mensagens automáticas (Bitrix/Flow) estão sendo contadas como "replied"
-- Verificar se a RPC `get_admin_whatsapp_conversations` está filtrando corretamente
+```typescript
+// Após salvar mensagem de template com sucesso
+const AUTO_CLOSE_TEMPLATE_IDS = ['8998']; // IDs de templates que encerram conversa
 
-**Implementação**:
-- Revisar lógica de `response_status` na view para garantir que TODAS as respostas (operador + automação) sejam contadas
-- Adicionar logs para debug temporário
-
-### 2.2 Filtro por Etiqueta (Tags)
-
-**Situação atual**: Sistema de tags existe (`whatsapp_conversation_tags`), mas não há filtro na listagem.
-
-**Implementação proposta**:
-- Adicionar parâmetro `p_tag_filter` na RPC `get_admin_whatsapp_conversations`
-- Adicionar SELECT com dropdown de tags em `AdminConversationList.tsx`
-- JOIN com tabela `whatsapp_conversation_tag_assignments`
-
-**Arquivos a modificar**:
-- `supabase/migrations/` - Atualizar RPC
-- `src/components/whatsapp/AdminConversationList.tsx` - Novo filtro UI
-- `src/hooks/useAdminWhatsAppConversations.ts` - Novo parâmetro
-
-### 2.3 Filtro por Atribuição (Supervisão, Gerente, Produtor)
-
-**Situação atual**: Não existe filtro por operador atribuído ou convidado.
-
-**Implementação proposta**:
-- Adicionar filtro `p_assigned_operator_id` na RPC
-- Cruzar com tabela `whatsapp_conversation_participants` e campo `bitrix_telemarketing_id` de leads
-- UI: Dropdown com lista de operadores
-
-**Arquivos a modificar**:
-- `supabase/migrations/` - Atualizar RPC
-- `src/components/whatsapp/AdminConversationList.tsx` - Novo filtro
-- `src/hooks/useAdminWhatsAppConversations.ts` - Novo parâmetro
-
-### 2.4 Filtro Combinado por Status (Encerrada, Em andamento, etc)
-
-**Situação atual**: Existe filtro `closedFilter` com opções: ativas, encerradas, todas.
-
-**Melhoria proposta**:
-- Expandir para incluir "Em andamento" (in_progress)
-- Combinar com response_status para visão mais granular
-
----
-
-## 3. Melhorias de Sincronização
-
-### 3.1 Sincronização de Nome do Bitrix para Connect
-
-**Situação atual**: O webhook `bitrix-webhook` sincroniza leads, incluindo o campo `name`.
-
-**Problema reportado**: Edições de nome no Bitrix não refletem no Connect.
-
-**Diagnóstico**:
-- Verificar se webhook de UPDATE está sendo disparado pelo Bitrix
-- Conferir se campo `name` está sendo atualizado no UPSERT
-
-**Implementação**:
-- Garantir que webhook Bitrix dispare em eventos `ONCRMLEADUPDATE`
-- Adicionar log explícito para mudanças de nome
-- Forçar atualização do campo `name` mesmo que outros campos não mudem
-
-**Arquivos a modificar**:
-- `supabase/functions/bitrix-webhook/index.ts` - Log e validação de nome
-
-### 3.2 Prevenção de Conversas Duplicadas
-
-**Situação atual**: Código já faz deduplicação por `phone_normalized`, mas ainda gera duplicatas.
-
-**Diagnóstico necessário**:
-- Verificar se telefones estão sendo normalizados consistentemente
-- Checar se há race conditions na criação de mensagens
-
-**Implementação**:
-- Adicionar constraint UNIQUE mais rigorosa
-- Implementar normalização unificada em todos os pontos de entrada
-- Criar função de "merge" de conversas duplicadas
-
----
-
-## 4. Melhorias de Interface
-
-### 4.1 Botão "Resolvido" para Operadores Convidados
-
-**Situação atual**: JÁ EXISTE. O componente `ResolveParticipationDialog.tsx` permite marcar participação como resolvida.
-
-**Verificação**: Confirmar que botão está visível no header quando operador é participante convidado.
-
-### 4.2 Status "URGENTE" Visível
-
-**Situação atual**: Sistema de prioridade existe (0-5), sendo 5 = "Urgente".
-
-**Implementação proposta**:
-- Adicionar badge vermelho "URGENTE" quando `priority = 5`
-- Mostrar no topo da lista de conversas
-- Adicionar ícone de alerta (AlertTriangle)
-
-**Arquivos a modificar**:
-- `src/components/whatsapp/AdminConversationList.tsx` - Badge visual
-- `src/components/whatsapp/InvitedConversationsSection.tsx` - Highlight urgente
-
-### 4.3 Exibir Informação de Retribuição do Convidado
-
-**Situação atual**: Notas de resolução são salvas em `whatsapp_participation_resolutions`.
-
-**Implementação proposta**:
-- Mostrar histórico de resoluções na conversa
-- Adicionar ícone/badge indicando que há notas do convidado
-- Tooltip ou popover com detalhes
-
-**Arquivos a modificar**:
-- `src/components/whatsapp/ResolutionHistory.tsx` - Exibir na conversa
-- `src/components/whatsapp/WhatsAppHeader.tsx` - Indicador visual
-
-### 4.4 Mostrar Histórico Completo de Mensagens (Tele)
-
-**Situação atual**: Mensagens são buscadas por `phone_number` via RPC `get_telemarketing_whatsapp_messages`.
-
-**Problema reportado**: Algumas conversas não mostram histórico completo.
-
-**Diagnóstico**:
-- Verificar se RPC tem LIMIT muito restritivo
-- Conferir se telefone está normalizado corretamente
-
-**Implementação**:
-- Aumentar limite do RPC ou implementar paginação
-- Adicionar botão "Carregar mensagens anteriores"
-
-### 4.5 Correção: Conversas Encerradas Ainda Aparecem como Ativas
-
-**Situação atual**: Filtro `closedFilter = 'active'` deveria excluir encerradas.
-
-**Diagnóstico**:
-- Verificar se query está buscando corretamente `reopened_at IS NULL`
-- Conferir se há delay na atualização do cache
-
-**Implementação**:
-- Revisar lógica no hook `useAdminWhatsAppConversations.ts`
-- Garantir invalidação de cache após encerramento
-
----
-
-## 5. Detalhes Técnicos
-
-### Migrations Necessárias
-
-```text
-1. Trigger para encerramento automático por resposta específica
-2. Atualização da RPC get_admin_whatsapp_conversations com novos filtros:
-   - p_tag_filter: TEXT[] (IDs de tags)
-   - p_assigned_operator_id: UUID (filtrar por operador)
-3. Índices otimizados para novos filtros
+if (AUTO_CLOSE_TEMPLATE_IDS.includes(template_id)) {
+  await supabase.from('whatsapp_conversation_closures').insert({
+    phone_number: normalizedPhone,
+    bitrix_id: bitrix_id || null,
+    closed_by: user_id || null,
+    closure_reason: 'template',
+    closure_notes: `Auto-encerrado: Template ${template_id}`,
+  });
+}
 ```
 
-### Componentes Frontend a Modificar
+### Identificar IDs dos Templates
+- Buscar na tabela `gupshup_templates` os templates corretos de "Não fez cadastro" e "Ver perfil"
+- Confirmar com usuário quais templates devem acionar o encerramento automático
 
-```text
-1. AdminConversationList.tsx
-   - Novo filtro por Tag (dropdown multi-select)
-   - Novo filtro por Operador atribuído
-   - Badge URGENTE para prioridade 5
-   
-2. WhatsAppHeader.tsx
-   - Indicador de notas de resolução do convidado
-   
-3. useAdminWhatsAppConversations.ts
-   - Novos parâmetros de filtro (tagFilter, operatorFilter)
+---
+
+## Item 2: Filtro por Operador Atribuído/Convidado (Média Prioridade)
+
+### Implementação Backend (Migração SQL)
+Atualizar a RPC `get_admin_whatsapp_conversations` para adicionar parâmetro de filtro por operador:
+
+```sql
+CREATE OR REPLACE FUNCTION get_admin_whatsapp_conversations(
+  p_limit INTEGER DEFAULT 50,
+  p_offset INTEGER DEFAULT 0,
+  p_search TEXT DEFAULT NULL,
+  p_window_filter TEXT DEFAULT 'all',
+  p_response_filter TEXT DEFAULT 'all',
+  p_etapa_filter TEXT DEFAULT NULL,
+  p_deal_status_filter TEXT DEFAULT 'all',
+  p_tag_filter TEXT[] DEFAULT NULL,
+  p_operator_filter UUID DEFAULT NULL  -- NOVO
+)
+-- Adicionar filtro no WHERE:
+AND (p_operator_filter IS NULL OR EXISTS (
+  SELECT 1 FROM whatsapp_conversation_participants wcp
+  WHERE wcp.phone_number = s.phone_number
+    AND wcp.operator_id = p_operator_filter
+    AND wcp.resolved_at IS NULL
+))
 ```
 
-### Edge Functions a Modificar
+### Implementação Frontend
+**Arquivo:** `src/components/whatsapp/AdminConversationList.tsx`
 
-```text
-1. gupshup-webhook/index.ts
-   - Encerramento automático após resposta específica
-   - Log melhorado para debug de response_status
+1. Adicionar estado para filtro de operador
+2. Buscar lista de operadores participantes de conversas
+3. Adicionar dropdown de seleção de operador
 
-2. bitrix-webhook/index.ts
-   - Garantir sincronização de campo name em updates
+**Arquivo:** `src/hooks/useAdminWhatsAppConversations.ts`
+
+1. Adicionar parâmetro `operatorFilter` ao hook
+2. Passar para as RPCs
+
+---
+
+## Item 3: Sincronização de Nome do Bitrix (Média Prioridade)
+
+### Diagnóstico
+O webhook Bitrix já recebe eventos de UPDATE e faz UPSERT. O problema pode ser:
+1. Campo `name` não está sendo atualizado no UPSERT
+2. Webhook não está sendo disparado para eventos de UPDATE
+
+### Implementação
+**Arquivo:** `supabase/functions/bitrix-webhook/index.ts`
+
+Adicionar log explícito para rastrear mudanças de nome:
+
+```typescript
+// Antes do UPSERT
+const { data: existingLead } = await supabase
+  .from('leads')
+  .select('name')
+  .eq('id', leadId)
+  .maybeSingle();
+
+if (existingLead && existingLead.name !== leadData.name) {
+  console.log(`📝 Nome atualizado: "${existingLead.name}" → "${leadData.name}"`);
+}
+```
+
+Garantir que o campo `name` está no objeto de update conflict:
+
+```typescript
+.upsert(leadData, { 
+  onConflict: 'id',
+  ignoreDuplicates: false  // Força update mesmo se dados existem
+})
 ```
 
 ---
 
-## 6. Priorização Sugerida
+## Item 4: Exibir Histórico de Resoluções na Conversa (Baixa Prioridade)
 
-| Prioridade | Item | Impacto | Esforço |
-|------------|------|---------|---------|
-| Alta | Filtro por Etiqueta | Alto | Médio |
-| Alta | Badge URGENTE | Alto | Baixo |
-| Alta | Correção encerradas como ativas | Alto | Baixo |
-| Média | Encerramento automático | Médio | Médio |
-| Média | Filtro por atribuição | Médio | Médio |
-| Média | Sincronização nome Bitrix | Médio | Baixo |
-| Baixa | Histórico completo | Baixo | Médio |
-| Baixa | Info retribuição convidado | Baixo | Baixo |
+### Status Atual
+O componente `ResolutionHistory.tsx` já existe e exibe as resoluções. 
+O hook `useResolutionHistory` já busca dados de `whatsapp_participation_resolutions`.
+
+### Implementação
+**Arquivo:** `src/components/whatsapp/WhatsAppChatContainer.tsx`
+
+O componente `ResolutionHistory` já está importado e usado (linha 20, 102).
+Verificar se está sendo renderizado corretamente na aba de notas ou no header.
+
+**Melhoria sugerida:** Adicionar indicador visual no header quando há resoluções:
+
+```tsx
+// No WhatsAppHeader.tsx
+const { data: resolutions = [] } = useResolutionHistory(phoneNumber);
+
+{resolutions.length > 0 && (
+  <Badge variant="secondary" className="gap-1 text-xs bg-blue-100 text-blue-700">
+    <UserCheck className="h-3 w-3" />
+    {resolutions.length} resolução(ões)
+  </Badge>
+)}
+```
 
 ---
 
-## 7. Itens Já Implementados (Apenas Verificar)
+## Item 5: Mostrar Histórico Completo de Mensagens (Baixa Prioridade)
 
-1. **Reabertura automática**: Código existe em `gupshup-webhook` (linhas 789-807)
-2. **Botão Resolvido**: Componente `ResolveParticipationDialog.tsx` existe
-3. **Status Em Atendimento**: Filtro `in_progress` já existe no dropdown
+### Diagnóstico
+Verificar a RPC `get_telemarketing_whatsapp_messages` para identificar limites.
+
+### Implementação
+1. Aumentar LIMIT da RPC de 100 para 500 ou implementar paginação
+2. Adicionar botão "Carregar mensagens anteriores" no `WhatsAppMessageList.tsx`
+
+```tsx
+{hasMoreMessages && (
+  <Button 
+    variant="ghost" 
+    size="sm" 
+    onClick={loadMoreMessages}
+    disabled={loadingMore}
+  >
+    <ChevronUp className="h-4 w-4 mr-1" />
+    Carregar mensagens anteriores
+  </Button>
+)}
+```
+
+---
+
+## Item 6: Prevenção de Conversas Duplicadas (Baixa Prioridade)
+
+### Diagnóstico
+Verificar se há race conditions na criação de mensagens e se a normalização de telefone está sendo aplicada consistentemente.
+
+### Implementação
+1. **Migration SQL:** Adicionar constraint UNIQUE mais rigorosa em `whatsapp_messages`
+2. **Função de Normalização:** Garantir que `normalizePhone()` seja idêntica em todos os pontos de entrada
+3. **Merge de Duplicatas:** Criar RPC para identificar e mesclar conversas duplicadas
+
+```sql
+-- Identificar duplicatas
+SELECT phone_number, COUNT(*) as variations
+FROM (
+  SELECT DISTINCT RIGHT(phone_number, 9) as phone_number
+  FROM whatsapp_messages
+) sub
+GROUP BY phone_number
+HAVING COUNT(*) > 1;
+```
+
+---
+
+## Resumo de Arquivos a Modificar
+
+| Item | Arquivos | Tipo |
+|------|----------|------|
+| 1. Encerramento Automático | `gupshup-send-message/index.ts` | Edge Function |
+| 2. Filtro por Operador | `AdminConversationList.tsx`, `useAdminWhatsAppConversations.ts`, Nova Migration | Frontend + DB |
+| 3. Sincronização Nome | `bitrix-webhook/index.ts` | Edge Function |
+| 4. Histórico Resoluções | `WhatsAppHeader.tsx` | Frontend |
+| 5. Histórico Completo | `WhatsAppMessageList.tsx`, RPC `get_telemarketing_whatsapp_messages` | Frontend + DB |
+| 6. Deduplicação | Nova Migration, `gupshup-webhook/index.ts` | DB + Edge Function |
+
+---
+
+## Ordem de Implementação Sugerida
+
+1. **Item 1** - Encerramento automático (impacto médio, esforço baixo)
+2. **Item 2** - Filtro por operador (impacto médio, esforço médio)
+3. **Item 3** - Sincronização nome (diagnóstico + correção)
+4. **Item 4** - Indicador de resoluções (impacto baixo, esforço baixo)
+5. **Item 5** - Histórico completo (impacto baixo, esforço médio)
+6. **Item 6** - Deduplicação (requer análise de dados existentes)
+
+---
+
+## Seção Técnica Detalhada
+
+### Diagrama de Fluxo - Encerramento Automático
+
+```text
+[Operador envia template]
+        ↓
+[gupshup-send-message] → [Gupshup API]
+        ↓
+[Template enviado com sucesso]
+        ↓
+[Verificar se template_id está em AUTO_CLOSE_TEMPLATES]
+        ↓ (Sim)
+[INSERT em whatsapp_conversation_closures]
+        ↓
+[Conversa encerrada automaticamente]
+```
+
+### Queries para Diagnóstico
+
+```sql
+-- Verificar templates de encerramento
+SELECT id, element_name, template_id 
+FROM gupshup_templates 
+WHERE element_name ILIKE '%cadastro%' 
+   OR element_name ILIKE '%perfil%';
+
+-- Verificar conversas duplicadas
+SELECT RIGHT(phone_number, 9) as phone_suffix, 
+       COUNT(DISTINCT phone_number) as variations
+FROM whatsapp_messages
+GROUP BY RIGHT(phone_number, 9)
+HAVING COUNT(DISTINCT phone_number) > 1
+LIMIT 20;
+```
