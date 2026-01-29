@@ -1,96 +1,108 @@
 
-# Plano: Corrigir Salvamento de Treinamentos por Conversa
+# Plano: Cadastrar Provedores Faltantes e Adicionar Sistema de Níveis
 
-## Problema Identificado
+## Situação Atual
 
-Detectei **dois problemas** que impedem a visualização do treinamento gerado:
+A tabela `ai_providers` tem apenas **7 provedores**:
+- Anthropic Claude
+- Groq (Gratuito)
+- Lovable AI
+- OpenAI
+- OpenRouter
+- Together AI
+- xAI Grok
 
-### 1. Categoria 'conversas' não existe nos mapeamentos da interface
-O `ConversationTrainingGenerator.tsx` salva treinamentos com `category: 'conversas'`, mas essa categoria não existe em:
-- `AIAgentTrainingList.tsx` → `CATEGORY_LABELS` e `CATEGORY_COLORS`
-- `AIAgentTrainingFormDialog.tsx` → `CATEGORIES`
-
-Isso faz com que treinamentos com essa categoria não exibam a badge corretamente.
-
-### 2. RLS pode bloquear INSERT para usuários não-admin
-A política `"Admins can manage ai_agents_training"` exige `has_role(auth.uid(), 'admin')`. Se o usuário logado não tiver essa role, o INSERT falha silenciosamente (sem erro visível no frontend).
-
-**Evidência**: O edge function retornou sucesso (`✅ Treinamento gerado com sucesso usando Cerebras`), mas não há treinamentos com categoria 'conversas' no banco.
+Os provedores mencionados (SambaNova, Cerebras, DeepSeek, Google Studio) **não foram cadastrados**.
 
 ## Alterações Necessárias
 
-### Arquivo 1: `src/components/admin/ai-agents/AIAgentTrainingList.tsx`
-Adicionar categoria `'conversas'` aos mapeamentos:
+### 1. Adicionar Coluna `tier` na Tabela `ai_providers`
 
-```typescript
-const CATEGORY_LABELS: Record<string, string> = {
-  saudacao: 'Saudação',
-  produtos: 'Produtos',
-  objecoes: 'Objeções',
-  fechamento: 'Fechamento',
-  faq: 'FAQ',
-  geral: 'Geral',
-  conversas: 'Conversas',  // ← NOVO
-};
+Criar uma nova coluna para classificar os provedores em níveis:
 
-const CATEGORY_COLORS: Record<string, string> = {
-  // ... existentes ...
-  conversas: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',  // ← NOVO
-};
+```sql
+ALTER TABLE ai_providers 
+ADD COLUMN tier text DEFAULT 'standard' 
+CHECK (tier IN ('free', 'standard', 'professional'));
+
+COMMENT ON COLUMN ai_providers.tier IS 'Nível do provedor: free (gratuito), standard (padrão), professional (profissional)';
 ```
 
-### Arquivo 2: `src/components/admin/ai-agents/AIAgentTrainingFormDialog.tsx`
-Adicionar categoria ao seletor:
+### 2. Inserir Provedores Faltantes
 
-```typescript
-const CATEGORIES = [
-  // ... existentes ...
-  { value: 'conversas', label: 'Conversas', description: 'Gerado a partir de conversas de operadores' },
-];
+Cadastrar os 4 provedores que faltam:
+
+| Provedor | Nome Interno | Tier | Modelos |
+|----------|--------------|------|---------|
+| SambaNova | sambanova | free | Llama 3.1 70B, Llama 3.1 405B |
+| Cerebras | cerebras | free | Llama 3.3 70B |
+| DeepSeek | deepseek | free | DeepSeek Chat, DeepSeek Reasoner |
+| Google AI Studio | google-studio | free | Gemini 2.5 Flash, Gemini 2.5 Pro |
+
+### 3. Atualizar Provedores Existentes com Tier
+
+```sql
+UPDATE ai_providers SET tier = 'free' WHERE name IN ('groq', 'sambanova', 'cerebras', 'deepseek', 'google-studio');
+UPDATE ai_providers SET tier = 'standard' WHERE name IN ('lovable', 'together', 'openrouter');
+UPDATE ai_providers SET tier = 'professional' WHERE name IN ('openai', 'anthropic', 'xai');
 ```
 
-### Arquivo 3: `src/components/admin/ai-agents/ConversationTrainingGenerator.tsx`
-Melhorar tratamento de erros no `handleSave`:
+### 4. Atualizar Interface para Mostrar Níveis
 
-```typescript
-const handleSave = async () => {
-  // ... validações existentes ...
+Modificar `AIAgentFormDialog.tsx` para agrupar provedores por tier com badges coloridas:
 
-  try {
-    const { data, error } = await supabase.from('ai_agents_training').insert({...}).select();
-
-    if (error) throw error;
-    
-    if (!data || data.length === 0) {
-      toast.error('Erro ao salvar: verifique suas permissões de administrador');
-      return;
-    }
-
-    toast.success('Treinamento salvo com sucesso!');
-    // ... limpar estado ...
-  } catch (err: any) {
-    console.error('Erro ao salvar treinamento:', err);
-    if (err?.code === '42501') {
-      toast.error('Sem permissão para salvar. Contate um administrador.');
-    } else {
-      toast.error('Erro ao salvar treinamento');
-    }
-  } finally {
-    setIsSaving(false);
-  }
-};
+```
+Gratuito (verde):     Groq, SambaNova, Cerebras, DeepSeek, Google Studio
+Standard (azul):      Lovable AI, Together AI, OpenRouter
+Profissional (roxo):  OpenAI, Anthropic, xAI Grok
 ```
 
-## Resumo das Alterações
+### 5. Atualizar Interface do Provedor
 
-| Arquivo | Mudança |
-|---------|---------|
-| `AIAgentTrainingList.tsx` | Adicionar 'conversas' em `CATEGORY_LABELS` e `CATEGORY_COLORS` |
-| `AIAgentTrainingFormDialog.tsx` | Adicionar 'conversas' no array `CATEGORIES` |
-| `ConversationTrainingGenerator.tsx` | Melhorar tratamento de erros + usar `.select()` para detectar falhas de RLS |
+Adicionar visual diferenciado no Select:
+
+```typescript
+// Badge colorida ao lado do nome do provedor
+{provider.tier === 'free' && <Badge className="bg-green-500">Gratuito</Badge>}
+{provider.tier === 'standard' && <Badge className="bg-blue-500">Standard</Badge>}
+{provider.tier === 'professional' && <Badge className="bg-purple-500">Pro</Badge>}
+```
+
+## Arquivos a Modificar
+
+| Arquivo | Alteração |
+|---------|-----------|
+| Migration SQL | Adicionar coluna `tier` |
+| Migration SQL | Inserir SambaNova, Cerebras, DeepSeek, Google Studio |
+| Migration SQL | Atualizar tier dos provedores existentes |
+| `AIAgentFormDialog.tsx` | Exibir badge de tier no Select |
+| `AIAgentFormDialog.tsx` | Agrupar provedores por tier |
+
+## Dados dos Novos Provedores
+
+**SambaNova**
+- base_url: `https://api.sambanova.ai/v1/chat/completions`
+- models: `[{"id": "Meta-Llama-3.1-70B-Instruct", "name": "Llama 3.1 70B"}, {"id": "Meta-Llama-3.1-405B-Instruct", "name": "Llama 3.1 405B"}]`
+- tier: free
+
+**Cerebras**
+- base_url: `https://api.cerebras.ai/v1/chat/completions`
+- models: `[{"id": "llama-3.3-70b", "name": "Llama 3.3 70B"}]`
+- tier: free
+
+**DeepSeek**
+- base_url: `https://api.deepseek.com/v1/chat/completions`
+- models: `[{"id": "deepseek-chat", "name": "DeepSeek Chat"}, {"id": "deepseek-reasoner", "name": "DeepSeek Reasoner"}]`
+- tier: free
+
+**Google AI Studio**
+- base_url: `https://generativelanguage.googleapis.com/v1beta`
+- models: `[{"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash"}, {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro"}]`
+- tier: free
 
 ## Resultado Esperado
 
-1. Treinamentos salvos com categoria 'conversas' aparecerão com badge amarela
-2. Erros de permissão serão exibidos claramente ao usuário
-3. O usuário saberá se precisa contatar um administrador para obter permissões
+1. **11 provedores** disponíveis no formulário de edição
+2. Cada provedor mostrará **badge colorida** indicando seu nível
+3. Provedores agrupados por tier para fácil identificação
+4. Usuários saberão quais são gratuitos vs pagos
