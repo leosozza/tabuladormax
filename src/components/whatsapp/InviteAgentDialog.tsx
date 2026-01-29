@@ -12,12 +12,19 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
-import { UserPlus, Loader2, Search, Users } from 'lucide-react';
+import { UserPlus, Loader2, Search, Users, Building2 } from 'lucide-react';
 import { useInviteParticipant, useConversationParticipants } from '@/hooks/useConversationParticipants';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PrioritySelector } from './PrioritySelector';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface InviteAgentDialogProps {
   open: boolean;
@@ -30,6 +37,13 @@ interface Operator {
   id: string;
   display_name: string | null;
   email: string | null;
+  department?: string | null;
+}
+
+interface Department {
+  id: string;
+  name: string;
+  code: string;
 }
 
 export function InviteAgentDialog({
@@ -41,20 +55,52 @@ export function InviteAgentDialog({
   const [search, setSearch] = useState('');
   const [selectedOperators, setSelectedOperators] = useState<string[]>([]);
   const [priority, setPriority] = useState(0);
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const inviteParticipant = useInviteParticipant();
   const { data: currentParticipants = [] } = useConversationParticipants(phoneNumber);
 
-  // Fetch available operators
-  const { data: operators = [], isLoading } = useQuery({
-    queryKey: ['available-operators'],
+  // Fetch departments
+  const { data: departments = [] } = useQuery({
+    queryKey: ['departments-list'],
     queryFn: async () => {
       const { data, error } = await supabase
+        .from('departments')
+        .select('id, name, code')
+        .eq('active', true)
+        .order('sort_order');
+
+      if (error) throw error;
+      return (data || []) as Department[];
+    },
+    enabled: open,
+  });
+
+  // Fetch available operators with their departments
+  const { data: operators = [], isLoading } = useQuery({
+    queryKey: ['available-operators-with-departments'],
+    queryFn: async () => {
+      // First get all profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, display_name, email')
         .order('display_name');
 
-      if (error) throw error;
-      return (data || []) as Operator[];
+      if (profilesError) throw profilesError;
+
+      // Then get user departments
+      const { data: userDepts, error: deptsError } = await supabase
+        .from('user_departments')
+        .select('user_id, department');
+
+      if (deptsError) throw deptsError;
+
+      // Map departments to users
+      const deptMap = new Map(userDepts?.map(ud => [ud.user_id, ud.department]) || []);
+      
+      return (profiles || []).map(p => ({
+        ...p,
+        department: deptMap.get(p.id) || null
+      })) as Operator[];
     },
     enabled: open,
   });
@@ -65,15 +111,26 @@ export function InviteAgentDialog({
     return operators.filter(op => !participantIds.has(op.id));
   }, [operators, currentParticipants]);
 
-  // Filter by search
+  // Filter by department first, then by search
   const filteredOperators = useMemo(() => {
-    if (!search.trim()) return availableOperators;
-    const searchLower = search.toLowerCase();
-    return availableOperators.filter(op => 
-      op.display_name?.toLowerCase().includes(searchLower) ||
-      op.email?.toLowerCase().includes(searchLower)
-    );
-  }, [availableOperators, search]);
+    let filtered = availableOperators;
+    
+    // Filter by department
+    if (departmentFilter && departmentFilter !== 'all') {
+      filtered = filtered.filter(op => op.department === departmentFilter);
+    }
+    
+    // Filter by search
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(op => 
+        op.display_name?.toLowerCase().includes(searchLower) ||
+        op.email?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    return filtered;
+  }, [availableOperators, departmentFilter, search]);
 
   const toggleOperator = (operatorId: string) => {
     setSelectedOperators(prev => 
@@ -97,6 +154,7 @@ export function InviteAgentDialog({
     setSelectedOperators([]);
     setSearch('');
     setPriority(0);
+    setDepartmentFilter('all');
     onOpenChange(false);
   };
 
@@ -121,14 +179,30 @@ export function InviteAgentDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar operadores..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar operadores..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+              <SelectTrigger className="w-[160px]">
+                <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Departamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.code}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <ScrollArea className="h-[300px] rounded-md border p-2">
@@ -193,6 +267,7 @@ export function InviteAgentDialog({
               setSelectedOperators([]);
               setSearch('');
               setPriority(0);
+              setDepartmentFilter('all');
               onOpenChange(false);
             }}
             disabled={inviteParticipant.isPending}
