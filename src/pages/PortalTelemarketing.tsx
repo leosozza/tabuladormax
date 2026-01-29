@@ -135,7 +135,7 @@ const PortalTelemarketing = () => {
     console.groupEnd();
   }, [operatorData, redirectTo, navigate]);
 
-  // Refresh automático da foto do operador
+  // Refresh automático da foto do operador ao carregar
   useEffect(() => {
     const refreshOperatorPhoto = async () => {
       if (!operatorData) return;
@@ -145,7 +145,7 @@ const PortalTelemarketing = () => {
       try {
         const { data, error } = await supabase
           .from('telemarketing_operators')
-          .select('photo_url')
+          .select('photo_url, updated_at')
           .eq('bitrix_id', operatorData.bitrix_id)
           .single();
         
@@ -154,8 +154,9 @@ const PortalTelemarketing = () => {
           return;
         }
         
+        // Sempre atualizar se a foto do banco for diferente
         if (data?.photo_url && data.photo_url !== operatorData.operator_photo) {
-          console.log(`${prefix} updating operator photo from DB`);
+          console.log(`${prefix} updating operator photo from DB:`, data.photo_url);
           const updatedData = { ...operatorData, operator_photo: data.photo_url };
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
           setOperatorData(updatedData);
@@ -165,7 +166,13 @@ const PortalTelemarketing = () => {
       }
     };
     
+    // Executar imediatamente e também quando a página ganha foco
     refreshOperatorPhoto();
+    
+    const handleFocus = () => refreshOperatorPhoto();
+    window.addEventListener('focus', handleFocus);
+    
+    return () => window.removeEventListener('focus', handleFocus);
   }, [operatorData?.bitrix_id]);
 
   const handleAccessGranted = (data: TelemarketingOperatorData) => {

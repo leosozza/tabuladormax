@@ -90,21 +90,28 @@ export const TeleProfileHero = ({
     setCropperOpen(false);
     setIsUploading(true);
     try {
-      const fileName = `${operatorBitrixId}-${Date.now()}.jpg`;
-      const filePath = `operator-photos/${fileName}`;
+      const fileName = `telemarketing-${operatorBitrixId}-${Date.now()}.jpg`;
 
+      // Upload para o bucket telemarketing-photos
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, croppedBlob, { upsert: true });
+        .from('telemarketing-photos')
+        .upload(fileName, croppedBlob, { 
+          upsert: true,
+          contentType: 'image/jpeg'
+        });
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
+        .from('telemarketing-photos')
+        .getPublicUrl(fileName);
 
+      // Atualizar foto no banco com timestamp para evitar cache
       const { error: updateError } = await supabase
         .from('telemarketing_operators')
-        .update({ photo_url: publicUrl })
+        .update({ 
+          photo_url: publicUrl,
+          updated_at: new Date().toISOString()
+        })
         .eq('bitrix_id', operatorBitrixId);
       if (updateError) throw updateError;
 
