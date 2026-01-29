@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, X, RotateCcw, CheckCircle2, UserPlus, RotateCw, Tag, UserCheck, PhoneCall, Server } from 'lucide-react';
+import { X, RotateCw, CheckCircle2, UserPlus, Tag, UserCheck, PhoneCall, Server, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useConversationClosure, useReopenConversation } from '@/hooks/useCloseConversation';
@@ -52,14 +52,6 @@ export function WhatsAppHeader({
   } = useConversationTags(phoneNumber);
   const reopenConversation = useReopenConversation();
   const isClosed = !!closure;
-  const handleReconnect = () => {
-    toast.info('Reconectando sessão...');
-    if (onReconnect) {
-      onReconnect();
-    } else {
-      window.location.reload();
-    }
-  };
   const handleReopen = () => {
     if (phoneNumber) {
       reopenConversation.mutate(phoneNumber);
@@ -117,12 +109,6 @@ export function WhatsAppHeader({
         </div>
         <div className="flex items-center gap-2">
           {rightContent}
-          
-          {/* Reconnect Button - next to notification bell */}
-          <Button variant="outline" size="sm" onClick={handleReconnect} className="gap-1.5 text-xs" title="Reconectar sessão se houver problemas de envio">
-            <RotateCcw className="w-3.5 h-3.5" />
-            Reconectar
-          </Button>
           
           {/* Call History Popover */}
           <CallHistoryPopover phoneNumber={phoneNumber} />
