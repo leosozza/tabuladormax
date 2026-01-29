@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, MessageSquare, Search, Loader2, Users, CalendarDays, Send, Clock } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Search, Loader2, Users, CalendarDays, Send, Clock, UserPlus } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTelemarketingConversations, TelemarketingConversation } from '@/hooks/useTelemarketingConversations';
 import { useState, useEffect, useMemo } from 'react';
@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useSupervisorTeam } from '@/hooks/useSupervisorTeam';
 import { WhatsAppNotificationBell } from '@/components/whatsapp/WhatsAppNotificationBell';
+import { useMyInvitedConversations, InvitedConversation } from '@/hooks/useMyInvitedConversations';
 
 interface TelemarketingContext {
   bitrix_id: number;
@@ -30,6 +31,13 @@ type StoredTelemarketingOperator = {
   operator_photo?: string | null;
   commercial_project_id?: string;
 };
+
+// Extended interface para conversas que podem ser convidadas
+interface ExtendedTelemarketingConversation extends TelemarketingConversation {
+  isInvited?: boolean;
+  inviterName?: string | null;
+  invitedPriority?: number;
+}
 
 // Cargos com privilégios de supervisão
 const SUPERVISOR_CARGOS = ['10620', '10626', '10627', '10628'];
@@ -150,7 +158,7 @@ const PortalTelemarketingWhatsApp = () => {
     return [parseInt(selectedAgentFilter, 10)];
   }, [isSupervisor, selectedAgentFilter, teamOperatorIds]);
 
-  const {
+const {
     conversations,
     isLoading,
     isLoadingStats,
@@ -165,29 +173,83 @@ const PortalTelemarketingWhatsApp = () => {
     agendamentoFilter,
   });
 
+  // Buscar conversas convidadas
+  const { data: invitedConversations = [], isLoading: isLoadingInvited } = useMyInvitedConversations();
+
+  // Mesclar conversas normais com convidadas
+  const allConversations: ExtendedTelemarketingConversation[] = useMemo(() => {
+    // Converter conversas convidadas para o mesmo formato
+    const invitedAsConv: ExtendedTelemarketingConversation[] = invitedConversations.map((inv: InvitedConversation) => ({
+      lead_id: parseInt(inv.bitrix_id || '0', 10),
+      bitrix_id: inv.bitrix_id || '',
+      lead_name: `Conversa ${inv.phone_number.slice(-4)}`,
+      nome_modelo: '',
+      phone_number: inv.phone_number,
+      photo_url: null,
+      last_message_at: inv.invited_at,
+      last_customer_message_at: null,
+      last_message_preview: null,
+      unread_count: 0,
+      windowStatus: null as any,
+      telemarketing_name: undefined,
+      conversation_id: undefined,
+      data_agendamento: null,
+      isInvited: true,
+      inviterName: inv.inviter_name,
+      invitedPriority: inv.priority,
+    }));
+
+    // Evitar duplicatas (já está na lista normal E foi convidado)
+    const existingPhones = new Set(conversations.map(c => c.phone_number?.replace(/\D/g, '')));
+    const onlyInvited = invitedAsConv.filter(c => 
+      !existingPhones.has(c.phone_number?.replace(/\D/g, ''))
+    );
+
+    // Marcar conversas normais que também são convidadas
+    const normalWithInviteFlag: ExtendedTelemarketingConversation[] = conversations.map(conv => {
+      const inviteInfo = invitedConversations.find((inv: InvitedConversation) => 
+        inv.phone_number?.replace(/\D/g, '') === conv.phone_number?.replace(/\D/g, '')
+      );
+      return {
+        ...conv,
+        isInvited: !!inviteInfo,
+        inviterName: inviteInfo?.inviter_name || null,
+        invitedPriority: inviteInfo?.priority,
+      };
+    });
+
+    // Juntar: conversas normais + convidadas exclusivas
+    return [...normalWithInviteFlag, ...onlyInvited];
+  }, [conversations, invitedConversations]);
+
   // Filtragem local: janela e conversas antigas
   const displayedConversations = useMemo(() => {
-    let filtered = conversations;
+    let filtered = allConversations;
     
     // Se ainda está carregando estatísticas, não aplicar filtros de janela/data
     // (pois windowStatus e last_message_at ainda podem estar incompletos)
+    // EXCETO para conversas convidadas que devem sempre aparecer
     if (isLoadingStats) {
       return filtered;
     }
     
-    // Filtrar por janela
+    // Filtrar por janela (conversas convidadas sempre passam no filtro "open")
     if (windowFilter === 'open') {
-      filtered = filtered.filter(c => c.windowStatus?.isOpen);
+      filtered = filtered.filter(c => c.windowStatus?.isOpen || c.isInvited);
     } else if (windowFilter === 'closed') {
-      filtered = filtered.filter(c => c.windowStatus && !c.windowStatus.isOpen);
+      filtered = filtered.filter(c => (c.windowStatus && !c.windowStatus.isOpen) && !c.isInvited);
     }
     
     // Ocultar conversas com mais de 7 dias (a menos que toggle ativado)
+    // Conversas convidadas sempre aparecem
     if (!showOldConversations) {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       
       filtered = filtered.filter(c => {
+        // Conversas convidadas sempre aparecem
+        if (c.isInvited) return true;
+        
         // Se não tem last_message_at, verificar se tem windowStatus aberto
         // (indica que tem mensagem recente do cliente)
         if (!c.last_message_at) {
@@ -199,13 +261,23 @@ const PortalTelemarketingWhatsApp = () => {
     
     // IMPORTANTE: Sempre incluir a conversa selecionada (para deep links)
     if (selectedConversation && !filtered.some(c => c.lead_id === selectedConversation.lead_id)) {
-      filtered = [selectedConversation, ...filtered];
+      filtered = [selectedConversation as ExtendedTelemarketingConversation, ...filtered];
     }
     
-    return filtered;
-  }, [conversations, windowFilter, showOldConversations, isLoadingStats, selectedConversation]);
+    // Ordenar: conversas convidadas com prioridade alta primeiro
+    return filtered.sort((a, b) => {
+      // Conversas convidadas com prioridade vêm primeiro
+      if (a.isInvited && b.isInvited) {
+        return (b.invitedPriority || 0) - (a.invitedPriority || 0);
+      }
+      if (a.isInvited) return -1;
+      if (b.isInvited) return 1;
+      return 0; // Manter ordem original para as demais
+    });
+  }, [allConversations, windowFilter, showOldConversations, isLoadingStats, selectedConversation]);
 
-  const hiddenCount = conversations.length - displayedConversations.length;
+  const hiddenCount = allConversations.length - displayedConversations.length;
+  const invitedCount = displayedConversations.filter(c => c.isInvited).length;
 
   // Deep link: auto-selecionar conversa quando vier ?lead=... ou ?phone=...
   useEffect(() => {
@@ -608,7 +680,15 @@ const PortalTelemarketingWhatsApp = () => {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <p className="font-medium text-sm truncate">{conv.lead_name}</p>
+                        <div className="flex items-center gap-1">
+                          <p className="font-medium text-sm truncate">{conv.lead_name}</p>
+                          {conv.isInvited && (
+                            <Badge variant="outline" className="h-4 text-[9px] px-1 bg-blue-500/10 text-blue-600 border-blue-500/20 flex-shrink-0">
+                              <UserPlus className="w-2.5 h-2.5 mr-0.5" />
+                              Convidado
+                            </Badge>
+                          )}
+                        </div>
                         {conv.last_message_at && (
                           <span className="text-xs text-muted-foreground">
                             {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: ptBR })}
@@ -620,7 +700,12 @@ const PortalTelemarketingWhatsApp = () => {
                           <p className="text-xs text-muted-foreground truncate">
                             {conv.phone_number || 'Sem telefone'}
                           </p>
-                          {isSupervisor && conv.telemarketing_name && (
+                          {conv.isInvited && conv.inviterName && (
+                            <p className="text-[10px] text-blue-500 truncate">
+                              Convidado por: {conv.inviterName}
+                            </p>
+                          )}
+                          {isSupervisor && conv.telemarketing_name && !conv.isInvited && (
                             <p className="text-[10px] text-purple-500 truncate">
                               Agente: {conv.telemarketing_name}
                             </p>
@@ -642,16 +727,24 @@ const PortalTelemarketingWhatsApp = () => {
 
           {/* Footer com contagem */}
           <div className="p-2 border-t text-xs text-muted-foreground text-center space-y-1">
-            <div>{displayedConversations.length} conversa{displayedConversations.length !== 1 ? 's' : ''}</div>
+            <div className="flex items-center justify-center gap-2">
+              <span>{displayedConversations.length} conversa{displayedConversations.length !== 1 ? 's' : ''}</span>
+              {invitedCount > 0 && (
+                <Badge variant="outline" className="h-4 text-[9px] px-1 bg-blue-500/10 text-blue-600 border-blue-500/20">
+                  <UserPlus className="w-2.5 h-2.5 mr-0.5" />
+                  {invitedCount} convidada{invitedCount !== 1 ? 's' : ''}
+                </Badge>
+              )}
+            </div>
             {hiddenCount > 0 && (
               <div className="text-[10px]">
                 ({hiddenCount} oculta{hiddenCount !== 1 ? 's' : ''})
               </div>
             )}
-            {isLoadingStats && (
+            {(isLoadingStats || isLoadingInvited) && (
               <div className="flex items-center justify-center gap-1 text-[10px]">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                Carregando prévias...
+                Carregando...
               </div>
             )}
           </div>

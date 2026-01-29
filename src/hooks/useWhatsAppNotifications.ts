@@ -20,8 +20,23 @@ export const useWhatsAppNotifications = () => {
   const { data: notifications = [], isLoading, refetch } = useQuery({
     queryKey: ['whatsapp-notifications'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      // Tentar obter usuário atual
+      let { data: { user } } = await supabase.auth.getUser();
+      
+      // Se não tem usuário, tentar refresh da sessão
+      if (!user) {
+        console.warn('[Notifications] No authenticated user, attempting session refresh...');
+        
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshData?.session?.user) {
+          console.error('[Notifications] Session refresh failed - notifications will not load', refreshError);
+          return [];
+        }
+        
+        user = refreshData.session.user;
+        console.log('[Notifications] Session refreshed successfully for:', user.id);
+      }
 
       const { data, error } = await supabase
         .from('whatsapp_operator_notifications' as any)
@@ -30,7 +45,11 @@ export const useWhatsAppNotifications = () => {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[Notifications] Error fetching notifications:', error);
+        throw error;
+      }
+      
       return (data || []) as unknown as WhatsAppNotification[];
     },
     staleTime: 30000,
