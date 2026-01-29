@@ -5,6 +5,7 @@ import { useWhatsAppMessages } from '@/hooks/useWhatsAppMessages';
 import { useGupshupWindowStatus } from '@/hooks/useGupshupWindowStatus';
 import { useSessionGuard } from '@/hooks/useSessionGuard';
 import { useMyParticipation } from '@/hooks/useMyParticipation';
+import { useUnreadInternalNotes } from '@/hooks/useUnreadInternalNotes';
 import { calculateWindowStatus, WindowStatus } from '@/lib/whatsappWindow';
 import { WhatsAppHeader } from './WhatsAppHeader';
 import { WindowTimeCircle } from './WindowTimeCircle';
@@ -17,7 +18,9 @@ import { SessionExpiredModal } from './SessionExpiredModal';
 import { InternalNotesPanel } from './InternalNotesPanel';
 import { ResolutionHistory } from './ResolutionHistory';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 interface WhatsAppChatContainerProps {
   bitrixId?: string;
@@ -76,6 +79,9 @@ export function WhatsAppChatContainer({
 
   // Verificar se usuário é participante convidado (para mostrar notas internas)
   const { data: myParticipation } = useMyParticipation(phoneNumber);
+
+  // Hook para notas não lidas - passa true quando tab "notes" está ativo
+  const { unreadCount, hasUnread } = useUnreadInternalNotes(phoneNumber, activeTab === 'notes');
 
   const { data: gupshupWindowStatus, refetch: refetchWindowStatus } = useGupshupWindowStatus({
     phoneNumber,
@@ -246,9 +252,25 @@ export function WhatsAppChatContainer({
         >
           <TabsList className="grid w-full max-w-lg grid-cols-4">
             <TabsTrigger value="messages">Mensagens</TabsTrigger>
-            <TabsTrigger value="notes" className="gap-1">
-              <StickyNote className="h-3 w-3" />
+            <TabsTrigger 
+              value="notes" 
+              className={cn(
+                "gap-1 relative",
+                hasUnread && activeTab !== 'notes' && "animate-pulse"
+              )}
+            >
+              <StickyNote className={cn(
+                "h-3 w-3",
+                hasUnread && activeTab !== 'notes' && "text-amber-500"
+              )} />
               Notas
+              {hasUnread && activeTab !== 'notes' && (
+                <Badge 
+                  className="absolute -top-1 -right-1 h-5 min-w-5 px-1 text-xs bg-amber-500 text-white animate-bounce"
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
             <TabsTrigger value="flows">Flows</TabsTrigger>
