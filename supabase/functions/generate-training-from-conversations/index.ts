@@ -40,6 +40,13 @@ const AI_PROVIDERS: AIProvider[] = [
     isFree: true,
   },
   {
+    name: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/chat/completions',
+    apiKeyEnv: 'DEEPSEEK_API_KEY',
+    model: 'deepseek-chat',
+    isFree: true,
+  },
+  {
     name: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
     apiKeyEnv: 'OPENROUTER_API_KEY',
