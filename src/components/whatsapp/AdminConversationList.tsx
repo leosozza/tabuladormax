@@ -267,6 +267,47 @@ export function AdminConversationList({
     return `${phone}-${bitrix}` || 'unknown';
   };
 
+  // Merge invited conversations into main list (avoiding duplicates)
+  const mergedConversations = useMemo(() => {
+    // Create a set of existing conversation keys for quick lookup
+    const existingKeys = new Set(conversations.map(c => getConversationKey(c)));
+    
+    // Convert invited conversations that are NOT already in the main list
+    const invitedAsAdmin: AdminConversation[] = myInvitedConversationsFull
+      .filter(inv => !existingKeys.has(`${inv.phone_number}-${inv.bitrix_id || ''}`))
+      .map(inv => ({
+        phone_number: inv.phone_number,
+        bitrix_id: inv.bitrix_id,
+        lead_name: inv.lead_name,
+        lead_id: inv.bitrix_id ? parseInt(inv.bitrix_id, 10) || null : null,
+        last_message_at: inv.last_message_at || '',
+        last_message_preview: inv.last_message_preview,
+        last_message_direction: null,
+        last_customer_message_at: null,
+        unread_count: inv.unread_count,
+        total_messages: 0,
+        is_window_open: inv.is_window_open,
+        last_operator_name: null,
+        last_operator_photo_url: null,
+        lead_etapa: inv.lead_etapa,
+        response_status: inv.response_status as 'waiting' | 'never' | 'replied' | null,
+        deal_stage_id: null,
+        deal_status: null,
+        deal_category_id: null,
+        deal_count: 0,
+        deal_title: null,
+        contract_number: null,
+        maxsystem_id: null,
+      }));
+    
+    // Merge and sort by last_message_at (most recent first)
+    return [...conversations, ...invitedAsAdmin].sort((a, b) => {
+      const dateA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+      const dateB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+      return dateB - dateA;
+    });
+  }, [conversations, myInvitedConversationsFull]);
+
   const isSelected = (conv: AdminConversation) => {
     if (!selectedConversation) return false;
     return getConversationKey(conv) === getConversationKey(selectedConversation);
@@ -545,7 +586,7 @@ export function AdminConversationList({
             </div>
           ) : (
             <>
-              {conversations.map((conv) => {
+              {mergedConversations.map((conv) => {
                 const invitedInfo = conv.phone_number ? invitedConversationsMap.get(conv.phone_number) : null;
                 
                 return (
