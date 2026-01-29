@@ -1440,41 +1440,32 @@ export default function Users() {
         <Tabs 
           value={filterDepartment} 
           onValueChange={(v) => {
-            setFilterDepartment(v as 'telemarketing' | 'scouters' | 'administrativo');
+            setFilterDepartment(v);
             setSelectedUserIds(new Set()); // Limpar seleção ao trocar de tab
           }}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="telemarketing" className="flex items-center gap-2">
-              <Phone className="w-4 h-4" />
-              Telemarketing
-              <Badge variant="secondary" className="ml-1">
-                {users.filter(u => (u.department || 'telemarketing') === 'telemarketing').length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="scouters" className="flex items-center gap-2">
-              <Search className="w-4 h-4" />
-              Scouters
-              <Badge variant="secondary" className="ml-1">
-                {users.filter(u => u.department === 'scouters').length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="administrativo" className="flex items-center gap-2">
-              <Briefcase className="w-4 h-4" />
-              Administrativo
-              <Badge variant="secondary" className="ml-1">
-                {users.filter(u => u.department === 'administrativo').length}
-              </Badge>
-            </TabsTrigger>
+          <TabsList className={`grid w-full mb-4`} style={{ gridTemplateColumns: `repeat(${dynamicDepartments.length || 3}, 1fr)` }}>
+            {dynamicDepartments.map(dept => (
+              <TabsTrigger key={dept.id} value={dept.code} className="flex items-center gap-2">
+                {dept.code === 'telemarketing' && <Phone className="w-4 h-4" />}
+                {dept.code === 'scouters' && <Search className="w-4 h-4" />}
+                {dept.code === 'administrativo' && <Briefcase className="w-4 h-4" />}
+                {dept.code === 'cobranca' && <Building2 className="w-4 h-4" />}
+                {dept.code === 'analise' && <Search className="w-4 h-4" />}
+                {!['telemarketing', 'scouters', 'administrativo', 'cobranca', 'analise'].includes(dept.code) && <UsersIcon className="w-4 h-4" />}
+                {dept.name}
+                <Badge variant="secondary" className="ml-1">
+                  {users.filter(u => (u.department || 'telemarketing') === dept.code).length}
+                </Badge>
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           <Card>
             <CardHeader>
               <CardTitle>
-                {filterDepartment === 'telemarketing' && 'Usuários de Telemarketing'}
-                {filterDepartment === 'scouters' && 'Usuários Scouters'}
-                {filterDepartment === 'administrativo' && 'Usuários Administrativos'}
+                Usuários - {dynamicDepartments.find(d => d.code === filterDepartment)?.name || filterDepartment}
               </CardTitle>
               <CardDescription>
                 Total de {filteredUsers.length} usuário{filteredUsers.length !== 1 ? 's' : ''} {filterProject || filterRole ? 'filtrado(s)' : ''}
