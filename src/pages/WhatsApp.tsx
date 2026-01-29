@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { BarChart3, Headset, MessageSquare, ShieldAlert, LayoutDashboard, Bot } from 'lucide-react';
+import { BarChart3, Headset, MessageSquare, ShieldAlert, LayoutDashboard, Bot, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import { MainLayout } from '@/components/layouts/MainLayout';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDepartmentAccess } from '@/hooks/useDepartmentAccess';
@@ -116,10 +117,26 @@ export default function WhatsApp() {
         </MainLayout>
       </TooltipProvider>;
   }
+  const handleReconnect = () => {
+    toast.info('Reconectando sessão...');
+    window.location.reload();
+  };
+
   return <TooltipProvider>
       <MainLayout title="Central de Atendimento" subtitle="Central de Mensagens" fullWidth actions={<div className="flex items-center gap-2">
             {/* Notification Bell */}
             <WhatsAppNotificationBell onNotificationClick={handleNotificationClick} />
+            
+            {/* Reconnect Button - next to notification bell */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={handleReconnect} className="gap-1.5 text-xs">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Reconectar
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Reconectar sessão se houver problemas de envio</TooltipContent>
+            </Tooltip>
             
             <div className="flex items-center border rounded-md">
               <Tooltip>
