@@ -47,6 +47,20 @@ const AI_PROVIDERS: AIProvider[] = [
     isFree: true,
   },
   {
+    name: 'Cerebras',
+    baseUrl: 'https://api.cerebras.ai/v1/chat/completions',
+    apiKeyEnv: 'CEREBRAS_API_KEY',
+    model: 'llama-3.3-70b',
+    isFree: true,
+  },
+  {
+    name: 'SambaNova',
+    baseUrl: 'https://api.sambanova.ai/v1/chat/completions',
+    apiKeyEnv: 'SAMBANOVA_API_KEY',
+    model: 'Meta-Llama-3.1-70B-Instruct',
+    isFree: true,
+  },
+  {
     name: 'Kimi',
     baseUrl: 'https://api.moonshot.ai/v1/chat/completions',
     apiKeyEnv: 'KIMI_API_KEY',
