@@ -148,7 +148,9 @@ export function WhatsAppHeader({
           {bitrixId && <Button variant="ghost" size="icon" onClick={() => navigate(`/portal-telemarketing/tabulador?lead=${bitrixId}`)} title="Abrir Tabulador">
               <Server className="w-4 h-4" />
             </Button>}
-          {onRefresh}
+          {onRefresh && <Button variant="ghost" size="icon" onClick={onRefresh} title="Atualizar">
+              <RefreshCw className="w-4 h-4" />
+            </Button>}
           {onClose && <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="w-4 h-4" />
             </Button>}
