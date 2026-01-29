@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, Clock, ArrowRight, StickyNote } from 'lucide-react';
+import { MessageSquare, Clock, ArrowRight, StickyNote, Database } from 'lucide-react';
 import { useWhatsAppMessages } from '@/hooks/useWhatsAppMessages';
 import { useGupshupWindowStatus } from '@/hooks/useGupshupWindowStatus';
 import { useSessionGuard } from '@/hooks/useSessionGuard';
@@ -16,6 +16,7 @@ import { WhatsAppFlowSelector } from './WhatsAppFlowSelector';
 import { WhatsAppSendError } from './WhatsAppSendError';
 import { SessionExpiredModal } from './SessionExpiredModal';
 import { InternalNotesPanel } from './InternalNotesPanel';
+import { CustomerDataPanel } from './CustomerDataPanel';
 import { ResolutionHistory } from './ResolutionHistory';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -250,7 +251,7 @@ export function WhatsAppChatContainer({
           className="absolute left-0 right-0 z-10 border-b px-4 bg-background"
           style={{ top: headerHeight }}
         >
-          <TabsList className="grid w-full max-w-lg grid-cols-4">
+          <TabsList className="grid w-full max-w-2xl grid-cols-5">
             <TabsTrigger value="messages">Mensagens</TabsTrigger>
             <TabsTrigger 
               value="notes" 
@@ -274,6 +275,10 @@ export function WhatsAppChatContainer({
             </TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
             <TabsTrigger value="flows">Flows</TabsTrigger>
+            <TabsTrigger value="data" className="gap-1">
+              <Database className="h-3 w-3" />
+              Dados
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -393,6 +398,24 @@ export function WhatsAppChatContainer({
             bitrixId={bitrixId} 
             disabled={sending} 
           />
+        </TabsContent>
+
+        {/* Data Tab Content */}
+        <TabsContent 
+          value="data" 
+          className="absolute left-0 right-0 overflow-hidden m-0 p-0"
+          style={{ 
+            top: topOffset,
+            bottom: 0
+          }}
+        >
+          {phoneNumber ? (
+            <CustomerDataPanel phoneNumber={phoneNumber} bitrixId={bitrixId} />
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <p>Selecione uma conversa para ver os dados</p>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
