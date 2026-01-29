@@ -33,6 +33,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { AIAgent } from '@/hooks/useAIAgents';
 import { Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 
 interface AIProviderModel {
@@ -48,7 +49,14 @@ interface AIProvider {
   models: AIProviderModel[];
   default_model: string | null;
   is_active: boolean;
+  tier: 'free' | 'standard' | 'professional';
 }
+
+const TIER_CONFIG = {
+  free: { label: 'Gratuito', className: 'bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30' },
+  standard: { label: 'Standard', className: 'bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30' },
+  professional: { label: 'Pro', className: 'bg-purple-500/20 text-purple-700 dark:text-purple-400 border-purple-500/30' },
+};
 
 const formSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(255),
@@ -85,17 +93,22 @@ function useAIProviders() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ai_providers')
-        .select('id, name, display_name, models, default_model, is_active')
+        .select('id, name, display_name, models, default_model, is_active, tier')
         .eq('is_active', true)
         .order('display_name');
       
       if (error) throw error;
       
-      // Parse models from JSON
-      return (data || []).map((provider) => ({
+      // Parse models from JSON and sort by tier
+      const providers = (data || []).map((provider) => ({
         ...provider,
         models: (provider.models as unknown as AIProviderModel[]) || [],
+        tier: (provider.tier as 'free' | 'standard' | 'professional') || 'standard',
       })) as AIProvider[];
+      
+      // Sort by tier priority: free first, then standard, then professional
+      const tierOrder = { free: 0, standard: 1, professional: 2 };
+      return providers.sort((a, b) => tierOrder[a.tier] - tierOrder[b.tier]);
     },
   });
 }
@@ -274,7 +287,12 @@ export function AIAgentFormDialog({
                       <SelectContent>
                         {providers.map((p) => (
                           <SelectItem key={p.name} value={p.name}>
-                            {p.display_name}
+                            <div className="flex items-center gap-2">
+                              <span>{p.display_name}</span>
+                              <Badge variant="outline" className={`text-xs px-1.5 py-0 ${TIER_CONFIG[p.tier]?.className}`}>
+                                {TIER_CONFIG[p.tier]?.label}
+                              </Badge>
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>

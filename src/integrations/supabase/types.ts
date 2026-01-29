@@ -503,6 +503,7 @@ export type Database = {
           name: string
           requires_api_key: boolean | null
           supports_tools: boolean | null
+          tier: string | null
           updated_at: string | null
         }
         Insert: {
@@ -517,6 +518,7 @@ export type Database = {
           name: string
           requires_api_key?: boolean | null
           supports_tools?: boolean | null
+          tier?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -531,6 +533,7 @@ export type Database = {
           name?: string
           requires_api_key?: boolean | null
           supports_tools?: boolean | null
+          tier?: string | null
           updated_at?: string | null
         }
         Relationships: []
