@@ -87,9 +87,11 @@ import { ClientDetailsModal } from "./ClientDetailsModal";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMyInvitedConversations, InvitedConversation } from "@/hooks/useMyInvitedConversations";
+import { useMyInvitedConversationsFull } from "@/hooks/useMyInvitedConversationsFull";
 import { TagBadge } from "./TagBadge";
 import { PriorityBadge } from "./PrioritySelector";
 import { InvitedBadge } from "./InvitedBadge";
+import { InvitedConversationsSection } from "./InvitedConversationsSection";
 
 // Deal status display config
 const DEAL_STATUS_CONFIG = {
@@ -242,8 +244,11 @@ export function AdminConversationList({
       limit: 50,
     });
 
-  // Fetch invited conversations for current user
+  // Fetch invited conversations for current user (basic - for highlighting)
   const { data: myInvitedConversations = [] } = useMyInvitedConversations();
+  
+  // Fetch full invited conversations (for dedicated section)
+  const { data: myInvitedConversationsFull = [] } = useMyInvitedConversationsFull();
   
   // Create a map for quick lookup
   const invitedConversationsMap = useMemo(() => {
@@ -488,6 +493,13 @@ export function AdminConversationList({
           </CollapsibleContent>
         </Collapsible>
       </div>
+
+      {/* Invited Conversations Section - Always visible at top */}
+      <InvitedConversationsSection
+        invitedConversations={myInvitedConversationsFull}
+        onSelectConversation={onSelectConversation}
+        selectedConversation={selectedConversation}
+      />
 
       {/* Conversation List */}
       <ScrollArea className="flex-1 min-h-0">

@@ -6040,6 +6040,24 @@ export type Database = {
           priority: number
         }[]
       }
+      get_my_invited_conversations_full: {
+        Args: { p_operator_id: string }
+        Returns: {
+          bitrix_id: string
+          invited_at: string
+          invited_by: string
+          inviter_name: string
+          is_window_open: boolean
+          last_message_at: string
+          last_message_preview: string
+          lead_etapa: string
+          lead_name: string
+          phone_number: string
+          priority: number
+          response_status: string
+          unread_count: number
+        }[]
+      }
       get_normalized_etapas: {
         Args: never
         Returns: {
