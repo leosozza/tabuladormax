@@ -1,98 +1,122 @@
 
-# Plano: Integração Click-to-Call com MicroSIP
+# Plano: Sincronizar Departamentos e Funções Dinâmicas no Gerenciamento de Usuários
 
-## Resumo
+## Problema Identificado
 
-Adicionar botão "Ligar" no header da Central de Atendimento que, ao ser clicado, abre o MicroSIP (ou outro softphone SIP instalado) com o número do contato já preenchido, utilizando o protocolo `sip:` URI.
+Existe uma **inconsistência de arquitetura** entre as páginas de permissões e usuários:
 
-## Como Funciona
+| Página | Fonte de Dados | Valores Disponíveis |
+|--------|----------------|---------------------|
+| `/admin/permissions` | Tabelas dinâmicas (`departments`, `custom_roles`) | Cobrança, Central Atendimento (novos) |
+| `/admin/users` | ENUMs hardcoded + tipos TypeScript | Apenas: telemarketing, scouters, administrativo, analise |
 
-O protocolo `sip:` funciona de forma similar ao `mailto:` - quando o navegador encontra um link como `sip:5511999999999@sip.falefacil.com.br`, ele abre o aplicativo de telefone SIP padrão registrado no sistema operacional (no caso, o MicroSIP).
+### Detalhes Técnicos
 
-```text
-+------------------+     sip: URI      +------------------+
-|  Central de      |------------------>|  MicroSIP        |
-|  Atendimento     |                   |  (Softphone)     |
-|  (Browser)       |                   |                  |
-+------------------+                   +------------------+
-                                              |
-                                              | SIP Protocol
-                                              v
-                                       +------------------+
-                                       |  Fale Fácil      |
-                                       |  SIP PBX         |
-                                       +------------------+
+**Departamentos:**
+- Tabela `departments` contém: Administrativo, Cobrança, Scouters, Telemarketing
+- ENUM `app_department` no banco: telemarketing, scouters, administrativo, analise
+- Tabela `user_departments.department` usa o tipo `app_department` (ENUM fixo)
+
+**Funções:**
+- Tabela `custom_roles` contém: admin, agent, central_de_atendimento, manager, supervisor
+- ENUM `app_role` no banco: admin, manager, agent, supervisor
+- Tabela `user_roles.role` usa o tipo `app_role` (ENUM fixo)
+
+## Solução Proposta
+
+Modificar a página `/admin/users` para buscar departamentos e funções **dinamicamente** das tabelas `departments` e `custom_roles`, em vez de usar valores hardcoded.
+
+### Fase 1: Alterações no Banco de Dados
+
+1. **Alterar coluna `user_departments.department`** de ENUM para TEXT (ou referência UUID)
+2. **Alterar coluna `user_roles.role`** de ENUM para TEXT (ou referência UUID)
+3. **Adicionar constraint** para validar que os valores existam nas tabelas dinâmicas
+
+```sql
+-- Alterar user_departments para usar TEXT com foreign key
+ALTER TABLE public.user_departments 
+  ALTER COLUMN department TYPE TEXT;
+
+-- Adicionar FK para departments.code
+ALTER TABLE public.user_departments
+  ADD CONSTRAINT fk_user_department_code
+  FOREIGN KEY (department) REFERENCES departments(code) ON UPDATE CASCADE;
+
+-- Similar para user_roles -> custom_roles.name
+ALTER TABLE public.user_roles
+  ALTER COLUMN role TYPE TEXT;
 ```
 
-## Implementação
+### Fase 2: Alterações no Frontend (Users.tsx)
 
-### Arquivo: `src/components/whatsapp/WhatsAppHeader.tsx`
+1. **Remover tipos hardcoded** das linhas 21-42, 50, 83, 121
+2. **Adicionar states** para departamentos e funções dinâmicas
+3. **Carregar dados** no useEffect das tabelas `departments` e `custom_roles`
+4. **Substituir SelectItems hardcoded** por mapeamento dinâmico em:
+   - Linha 1690-1701 (Create User - Department)
+   - Linha 1653-1670 (Create User - Role)
+   - Linha 1896-1904 (Edit Role Dialog)
+   - Linha 2134-2144 (Batch Edit - Role)
+   - Linha 2147-2158 (Batch Edit - Department)
+   - Linha 2220-2225 (Edit Department Dialog)
 
-Adicionar botão "Ligar" ao lado dos outros botões de ação:
+### Fase 3: Código das Alterações
+
+**Novos estados:**
 
 ```typescript
-// Nova função para iniciar chamada
-const handleClickToCall = () => {
-  if (!phoneNumber) return;
-  
-  // Formatar número (remover caracteres especiais, manter apenas dígitos)
-  const cleanNumber = phoneNumber.replace(/\D/g, '');
-  
-  // Domínio SIP da Fale Fácil
-  const sipDomain = 'sip.falefacilvoip.com.br';
-  
-  // Construir URI SIP
-  const sipUri = `sip:${cleanNumber}@${sipDomain}`;
-  
-  // Abrir no softphone
-  window.location.href = sipUri;
-  
-  toast.info('Iniciando chamada no MicroSIP...');
+const [dynamicDepartments, setDynamicDepartments] = useState<Array<{id: string, name: string, code: string}>>([]);
+const [dynamicRoles, setDynamicRoles] = useState<Array<{id: string, name: string, label: string}>>([]);
+```
+
+**Carregamento dinâmico:**
+
+```typescript
+const loadDynamicOptions = async () => {
+  const [{ data: deps }, { data: roles }] = await Promise.all([
+    supabase.from('departments').select('id, name, code').order('name'),
+    supabase.from('custom_roles').select('id, name, label').order('name')
+  ]);
+  setDynamicDepartments(deps || []);
+  setDynamicRoles(roles || []);
 };
 ```
 
-**Posição do botão**: Entre as informações do contato e os botões de ação (antes do "Encerrar").
-
-**Estilo**: Botão verde com ícone de telefone para destacar a ação de ligação.
-
-### Alterações no Código
-
-| Local | Alteração |
-|-------|-----------|
-| Linha 4 | Adicionar import `PhoneCall` do lucide-react |
-| Linha 63 | Adicionar função `handleClickToCall` |
-| Linha 104-106 | Inserir novo botão após `rightContent` |
-
-### Visual do Botão
+**Select dinâmico (exemplo):**
 
 ```tsx
-<Button
-  variant="default"
-  size="sm"
-  onClick={handleClickToCall}
-  className="gap-1.5 text-xs bg-green-600 hover:bg-green-700"
-  title="Ligar via MicroSIP"
->
-  <PhoneCall className="w-3.5 h-3.5" />
-  Ligar
-</Button>
+<Select value={newUserDepartment} onValueChange={setNewUserDepartment}>
+  <SelectTrigger>
+    <SelectValue placeholder="Selecione o departamento" />
+  </SelectTrigger>
+  <SelectContent>
+    {dynamicDepartments.map(dept => (
+      <SelectItem key={dept.id} value={dept.code}>
+        {dept.name}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
 ```
 
-## Requisitos
+## Arquivos a Modificar
 
-1. **MicroSIP instalado** no computador do operador
-2. **MicroSIP configurado** como aplicativo padrão para links `sip:`
-3. **Conta SIP configurada** no MicroSIP (já feito conforme screenshot)
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/pages/admin/Users.tsx` | Substituir hardcoded por dados dinâmicos |
+| Migration SQL | Alterar colunas de ENUM para TEXT com FK |
 
-## Configuração no MicroSIP
+## Impacto
 
-O operador precisa garantir que:
-1. MicroSIP está registrado como handler de URIs `sip:`
-2. A conta SIP da Fale Fácil está configurada e conectada
-3. Headset/microfone funcionando
+- Departamentos e funções criados em `/admin/permissions` aparecerão automaticamente em `/admin/users`
+- Dados existentes serão preservados (migração compatível)
+- Sistema mais flexível para adicionar novos departamentos/funções
 
-## Notas Técnicas
+## Resumo das Mudanças
 
-- O domínio SIP `sip.falefacilvoip.com.br` será usado como padrão
-- Se necessário, futuramente pode-se adicionar configuração por operador para domínios diferentes
-- Funciona em Windows, Mac e Linux (desde que tenha softphone SIP instalado)
+```text
+1. Migration: ENUM -> TEXT com FK para departments/custom_roles
+2. Users.tsx: Carregar options de departments e custom_roles
+3. Users.tsx: Substituir 6+ SelectContent hardcoded por mapeamento dinâmico
+4. Atualizar tipos TypeScript para aceitar strings dinâmicas
+```
