@@ -1,150 +1,120 @@
 
 
-# Correção: Nome do Agente Mostra "Você" ao Invés do Nome Real
+# Correção: Mostrar Todos Usuários do Sistema na Seleção de Operador
 
 ## Problema Identificado
 
-Quando um operador (Paulo, Leonardo, etc.) envia uma mensagem, a interface mostra **"Você"** ao invés do nome real do agente.
+Na aba "Conversas" da página `/admin/ai-agents`, o seletor de operador não mostra Fabio, Paulo e outros usuários do sistema.
 
-A causa raiz é que a função RPC `get_telemarketing_whatsapp_messages` **não retorna** os campos `sender_name`, `sent_by`, `conversation_id` e `delivered_at` do banco de dados.
-
-**Query atual da RPC:**
-```sql
-SELECT 
-  m.id, m.phone_number, m.bitrix_id, m.gupshup_message_id,
-  m.direction, m.message_type, m.content, m.template_name,
-  m.status, m.media_url, m.media_type, m.created_at,
-  m.read_at, m.metadata
-  -- ⚠️ FALTANDO: sender_name, sent_by, conversation_id, delivered_at
-FROM public.whatsapp_messages m
-```
-
-**Dado no banco** (está correto):
-| phone_number | sender_name | sent_by |
-|--------------|-------------|---------|
-| 5511967762633 | Paulo Henrique | tabulador |
-| 5511964329212 | tele-160@maxfama.internal | tabulador |
-
-**Dado chegando na UI** (está null por causa da RPC):
-```
-sender_name: null → fallback para "Você"
-```
-
----
+**Causa raiz**: O componente `ConversationTrainingGenerator` usa o hook `useOperatorsWithConversations()` que busca operadores **apenas da tabela `whatsapp_messages`** (quem já enviou mensagens). Isso significa:
+- Operadores aparecem com nomes de automação (`Automação Bitrix`, `tele-xxx@maxfama.internal`)
+- Usuários que nunca enviaram mensagem não aparecem
+- Não usa a tabela `profiles` como fonte de verdade
 
 ## Solução
 
-Criar uma nova migration SQL para atualizar a função `get_telemarketing_whatsapp_messages`, adicionando os campos que estão faltando.
+Modificar o componente para buscar usuários da tabela `profiles` (todos os usuários do sistema) e depois cruzar com as mensagens para mostrar estatísticas.
 
-**Query corrigida:**
-```sql
-CREATE OR REPLACE FUNCTION get_telemarketing_whatsapp_messages(
-  p_operator_bitrix_id integer DEFAULT NULL,
-  p_phone_number text DEFAULT NULL,
-  p_lead_id integer DEFAULT NULL,
-  p_team_operator_ids integer[] DEFAULT NULL,
-  p_limit integer DEFAULT 200
-)
-RETURNS TABLE (
-  id uuid,
-  phone_number text,
-  bitrix_id text,
-  conversation_id integer,         -- ADICIONADO
-  gupshup_message_id text,
-  direction text,
-  message_type text,
-  content text,
-  template_name text,
-  status text,
-  sent_by text,                    -- ADICIONADO
-  sender_name text,                -- ADICIONADO
-  media_url text,
-  media_type text,
-  created_at timestamptz,
-  delivered_at timestamptz,        -- ADICIONADO
-  read_at timestamptz,
-  metadata jsonb
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_phone text;
-BEGIN
-  v_phone := NULLIF(REGEXP_REPLACE(COALESCE(p_phone_number, ''), '\D', '', 'g'), '');
-
-  RETURN QUERY
-  SELECT 
-    m.id,
-    m.phone_number,
-    m.bitrix_id,
-    m.conversation_id,              -- ADICIONADO
-    m.gupshup_message_id,
-    m.direction,
-    m.message_type,
-    m.content,
-    m.template_name,
-    m.status,
-    m.sent_by,                      -- ADICIONADO
-    m.sender_name,                  -- ADICIONADO
-    m.media_url,
-    m.media_type,
-    m.created_at,
-    m.delivered_at,                 -- ADICIONADO
-    m.read_at,
-    m.metadata
-  FROM public.whatsapp_messages m
-  WHERE 
-    (p_lead_id IS NOT NULL AND m.bitrix_id = p_lead_id::text)
-    OR (v_phone IS NOT NULL AND v_phone != '' AND (
-      m.phone_number = v_phone 
-      OR RIGHT(m.phone_number, 9) = RIGHT(v_phone, 9)
-    ))
-  ORDER BY m.created_at ASC
-  LIMIT p_limit;
-END;
-$$;
-```
-
----
-
-## Arquivos a Modificar
-
-| Recurso | Alteração |
-|---------|-----------|
-| Nova Migration SQL | Atualizar RPC para incluir `sender_name`, `sent_by`, `conversation_id`, `delivered_at` |
-
----
-
-## Fluxo Após Correção
+### Fluxo Proposto
 
 ```text
-┌───────────────────────────────────────────────────────────────┐
-│ ANTES (problema):                                              │
-│                                                                │
-│ Paulo envia mensagem                                          │
-│ ├── DB salva: sender_name = "Paulo Henrique" ✓                │
-│ ├── RPC retorna: sender_name = NULL (campo não incluído)      │
-│ └── UI mostra: "Você" (fallback) ✗                            │
-└───────────────────────────────────────────────────────────────┘
-              ↓
-┌───────────────────────────────────────────────────────────────┐
-│ DEPOIS (corrigido):                                            │
-│                                                                │
-│ Paulo envia mensagem                                          │
-│ ├── DB salva: sender_name = "Paulo Henrique" ✓                │
-│ ├── RPC retorna: sender_name = "Paulo Henrique" ✓             │
-│ └── UI mostra: "Paulo Henrique" ✓                             │
-└───────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ ANTES (problemático):                                        │
+│                                                              │
+│ useOperatorsWithConversations()                             │
+│ └── SELECT sender_name FROM whatsapp_messages               │
+│     └── Retorna: "Automação Bitrix", "tele-xxx", etc.      │
+│     └── Fabio/Paulo só aparecem se mandaram msg com         │
+│         exatamente o mesmo display_name                     │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│ DEPOIS (corrigido):                                          │
+│                                                              │
+│ Novo hook: useSystemUsers()                                 │
+│ └── SELECT id, display_name FROM profiles                   │
+│     └── Retorna: Fabio, Paulo Henrique, Leonardo, etc.     │
+│                                                              │
+│ Após selecionar usuário:                                    │
+│ └── Buscar conversas WHERE sender_name = display_name       │
+│     OU usar profile_id se disponível                        │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Alterações Necessárias
+
+### 1. Criar novo hook `useSystemUsers`
+
+Criar um hook simples que busca todos os usuários da tabela `profiles`:
+
+```typescript
+// src/hooks/useSystemUsers.ts
+export function useSystemUsers() {
+  return useQuery({
+    queryKey: ['system-users'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, display_name, email')
+        .order('display_name', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
+}
+```
+
+### 2. Modificar `ConversationTrainingGenerator.tsx`
+
+- Trocar `useOperatorsWithConversations()` por `useSystemUsers()`
+- Ajustar o seletor para usar `id` ao invés de `sender_name`
+- Atualizar `useOperatorConversations` para aceitar o `display_name` do usuário selecionado
+- Manter compatibilidade com o fluxo existente
+
+```tsx
+// Antes
+const { data: operators } = useOperatorsWithConversations();
+const [selectedOperator, setSelectedOperator] = useState<string | null>(null);
+
+// Depois
+const { data: users } = useSystemUsers();
+const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+const selectedUser = users?.find(u => u.id === selectedUserId);
+```
+
+### 3. Atualizar o hook `useOperatorConversations`
+
+Modificar para aceitar tanto `display_name` quanto uma lista de possíveis nomes do operador (para cobrir variações):
+
+```typescript
+export function useOperatorConversations(
+  operatorDisplayName: string | null,
+  startDate?: Date,
+  endDate?: Date
+) {
+  // Buscar mensagens onde sender_name = display_name
+  // OU sender_name ILIKE display_name (para variações)
+}
+```
+
+---
+
+## Arquivos a Modificar/Criar
+
+| Arquivo | Ação |
+|---------|------|
+| `src/hooks/useSystemUsers.ts` | Criar novo hook |
+| `src/components/admin/ai-agents/ConversationTrainingGenerator.tsx` | Trocar fonte de operadores para `profiles` |
+| `src/hooks/useOperatorConversations.ts` | Ajustar para buscar por `display_name` |
 
 ---
 
 ## Resultado Esperado
 
-1. Quando Paulo enviar uma mensagem, aparece **"Paulo Henrique"** (seu display_name do perfil)
-2. Quando Leonardo enviar, aparece **"Leonardo"**
-3. Automações continuam mostrando **"Automação Bitrix"** ou **"Flow Automático"**
-4. Mensagens do cliente continuam mostrando o nome vindo do WhatsApp ou **"Cliente"**
+1. O seletor "Selecione o Operador" mostrará **todos os usuários do sistema** (Fabio, Paulo Henrique, Leonardo, etc.)
+2. Ao selecionar um usuário, o sistema buscará conversas onde `sender_name` corresponde ao `display_name` do usuário
+3. Automações (`Automação Bitrix`, `Flow Automático`, `tele-xxx`) não aparecem no seletor de operadores humanos
 
