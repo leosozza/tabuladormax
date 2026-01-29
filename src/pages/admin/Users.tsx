@@ -18,28 +18,32 @@ import { TelemarketingSelector } from "@/components/TelemarketingSelector";
 import { CommercialProjectBitrixSelector } from "@/components/CommercialProjectBitrixSelector";
 import { AdminPageLayout } from "@/components/layouts/AdminPageLayout";
 
-type UserRoleType = 'admin' | 'manager' | 'supervisor' | 'supervisor_adjunto' | 'control_desk' | 'agent';
-
-// Roles que existem no banco de dados (enum app_role)
-type DatabaseRoleType = 'admin' | 'manager' | 'supervisor' | 'agent';
+// Tipos dinâmicos - carregados das tabelas departments e custom_roles
+type UserRoleType = string;
+type DatabaseRoleType = string;
 
 // Mapeia roles visuais para roles do banco de dados
-const mapRoleToDatabase = (role: UserRoleType): DatabaseRoleType => {
+const mapRoleToDatabase = (role: string): string => {
+  // Roles especiais que mapeiam para 'supervisor' no banco
   if (role === 'supervisor_adjunto' || role === 'control_desk') {
     return 'supervisor';
   }
-  return role as DatabaseRoleType;
+  return role;
 };
 
-// Labels para exibição
-const ROLE_LABELS: Record<UserRoleType, string> = {
-  admin: 'Admin',
-  manager: 'Manager',
-  supervisor: 'Supervisor',
-  supervisor_adjunto: 'Supervisor Adjunto',
-  control_desk: 'Control Desk',
-  agent: 'Agent',
-};
+// Interface para departamento dinâmico
+interface DynamicDepartment {
+  id: string;
+  name: string;
+  code: string;
+}
+
+// Interface para função dinâmica
+interface DynamicRole {
+  id: string;
+  name: string;
+  label: string;
+}
 
 interface UserWithRole {
   id: string;
@@ -47,7 +51,7 @@ interface UserWithRole {
   display_name: string;
   created_at: string;
   role: UserRoleType;
-  department?: 'administrativo' | 'analise' | 'telemarketing' | 'scouters';
+  department?: string;
   telemarketing_name?: string;
   telemarketing_id?: number;
   project_name?: string;
@@ -80,7 +84,7 @@ export default function Users() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState<UserRoleType>('agent');
-  const [newUserDepartment, setNewUserDepartment] = useState<'administrativo' | 'analise' | 'telemarketing' | 'scouters'>('telemarketing');
+  const [newUserDepartment, setNewUserDepartment] = useState<string>('telemarketing');
   const [newUserProject, setNewUserProject] = useState("");
   const [newUserSupervisor, setNewUserSupervisor] = useState("");
   const [newUserTelemarketing, setNewUserTelemarketing] = useState<number | undefined>();
@@ -118,7 +122,7 @@ export default function Users() {
   // Edit department
   const [editDepartmentDialogOpen, setEditDepartmentDialogOpen] = useState(false);
   const [editingDepartmentUserId, setEditingDepartmentUserId] = useState("");
-  const [newDepartment, setNewDepartment] = useState<'administrativo' | 'analise' | 'telemarketing' | 'scouters'>('telemarketing');
+  const [newDepartment, setNewDepartment] = useState<string>('telemarketing');
   const [updatingDepartment, setUpdatingDepartment] = useState(false);
   
   // Data for dropdowns
@@ -128,7 +132,11 @@ export default function Users() {
   // Filters
   const [filterProject, setFilterProject] = useState("");
   const [filterRole, setFilterRole] = useState("");
-  const [filterDepartment, setFilterDepartment] = useState<'telemarketing' | 'scouters' | 'administrativo'>('telemarketing');
+  const [filterDepartment, setFilterDepartment] = useState<string>('telemarketing');
+  
+  // Departamentos e funções dinâmicas
+  const [dynamicDepartments, setDynamicDepartments] = useState<DynamicDepartment[]>([]);
+  const [dynamicRoles, setDynamicRoles] = useState<DynamicRole[]>([]);
 
   // Batch edit
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -151,7 +159,19 @@ export default function Users() {
   useEffect(() => {
     checkUserRole();
     loadCommercialProjects();
+    loadDynamicOptions();
   }, []);
+
+  // Carrega departamentos e funções dinamicamente das tabelas
+  const loadDynamicOptions = async () => {
+    const [depsResult, rolesResult] = await Promise.all([
+      supabase.from('departments').select('id, name, code').eq('active', true).order('name'),
+      supabase.from('custom_roles').select('id, name, label').order('name')
+    ]);
+    
+    setDynamicDepartments(depsResult.data || []);
+    setDynamicRoles(rolesResult.data || []);
+  };
 
   // Carregar usuários após o role ser definido (para supervisores filtrarem corretamente)
   useEffect(() => {
@@ -744,7 +764,7 @@ export default function Users() {
       
       const { error } = await supabase
         .from('user_roles')
-        .upsert({ user_id: editingUserId, role: dbRole }, { onConflict: 'user_id' });
+        .upsert({ user_id: editingUserId, role: dbRole } as any, { onConflict: 'user_id' });
 
       if (error) throw error;
       toast.success('Role atualizada com sucesso');
@@ -983,7 +1003,7 @@ export default function Users() {
     try {
       const { error } = await supabase
         .from('user_departments')
-        .update({ department: newDepartment })
+        .update({ department: newDepartment } as any)
         .eq('user_id', editingDepartmentUserId);
 
       if (error) throw error;
@@ -1653,19 +1673,19 @@ export default function Users() {
                     <SelectContent>
                       {currentUserRole === 'supervisor' ? (
                         <>
-                          <SelectItem value="supervisor">Supervisor</SelectItem>
-                          <SelectItem value="supervisor_adjunto">Supervisor Adjunto</SelectItem>
-                          <SelectItem value="control_desk">Control Desk</SelectItem>
-                          <SelectItem value="agent">Agente</SelectItem>
+                          {dynamicRoles.filter(r => ['supervisor', 'supervisor_adjunto', 'control_desk', 'agent'].includes(r.name)).map(r => (
+                            <SelectItem key={r.id} value={r.name}>{r.label}</SelectItem>
+                          ))}
                         </>
                       ) : (
                         <>
-                          {currentUserRole === 'admin' && <SelectItem value="admin">Admin</SelectItem>}
-                          {(currentUserRole === 'admin' || currentUserRole === 'manager') && <SelectItem value="manager">Manager</SelectItem>}
-                          <SelectItem value="supervisor">Supervisor</SelectItem>
-                          <SelectItem value="supervisor_adjunto">Supervisor Adjunto</SelectItem>
-                          <SelectItem value="control_desk">Control Desk</SelectItem>
-                          <SelectItem value="agent">Agente</SelectItem>
+                          {dynamicRoles.filter(r => 
+                            currentUserRole === 'admin' ? true : 
+                            currentUserRole === 'manager' ? r.name !== 'admin' : 
+                            !['admin', 'manager'].includes(r.name)
+                          ).map(r => (
+                            <SelectItem key={r.id} value={r.name}>{r.label}</SelectItem>
+                          ))}
                         </>
                       )}
                     </SelectContent>
@@ -1692,10 +1712,9 @@ export default function Users() {
                         <SelectItem value="telemarketing">Telemarketing</SelectItem>
                       ) : (
                         <>
-                          <SelectItem value="administrativo">Administrativo</SelectItem>
-                          <SelectItem value="analise">Análise</SelectItem>
-                          <SelectItem value="telemarketing">Telemarketing</SelectItem>
-                          <SelectItem value="scouters">Scouters</SelectItem>
+                          {dynamicDepartments.map(d => (
+                            <SelectItem key={d.id} value={d.code}>{d.name}</SelectItem>
+                          ))}
                         </>
                       )}
                     </SelectContent>
@@ -1894,12 +1913,9 @@ export default function Users() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="supervisor">Supervisor</SelectItem>
-                    <SelectItem value="supervisor_adjunto">Supervisor Adjunto</SelectItem>
-                    <SelectItem value="control_desk">Control Desk</SelectItem>
-                    <SelectItem value="agent">Agent</SelectItem>
+                    {dynamicRoles.map(r => (
+                      <SelectItem key={r.id} value={r.name}>{r.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -2136,10 +2152,9 @@ export default function Users() {
                       <SelectValue placeholder="Selecione a função" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="supervisor">Supervisor</SelectItem>
-                      <SelectItem value="agent">Agent</SelectItem>
+                      {dynamicRoles.map(r => (
+                        <SelectItem key={r.id} value={r.name}>{r.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}
@@ -2150,10 +2165,9 @@ export default function Users() {
                       <SelectValue placeholder="Selecione o departamento" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="administrativo">Administrativo</SelectItem>
-                      <SelectItem value="analise">Análise</SelectItem>
-                      <SelectItem value="telemarketing">Telemarketing</SelectItem>
-                      <SelectItem value="scouters">Scouters</SelectItem>
+                      {dynamicDepartments.map(d => (
+                        <SelectItem key={d.id} value={d.code}>{d.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}
@@ -2218,10 +2232,9 @@ export default function Users() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="administrativo">Administrativo</SelectItem>
-                    <SelectItem value="analise">Análise</SelectItem>
-                    <SelectItem value="telemarketing">Telemarketing</SelectItem>
-                    <SelectItem value="scouters">Scouters</SelectItem>
+                    {dynamicDepartments.map(d => (
+                      <SelectItem key={d.id} value={d.code}>{d.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

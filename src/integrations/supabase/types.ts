@@ -6727,7 +6727,15 @@ export type Database = {
         | "scouters"
         | "administrativo"
         | "analise"
-      app_role: "admin" | "manager" | "agent" | "supervisor"
+        | "cobranca"
+      app_role:
+        | "admin"
+        | "manager"
+        | "agent"
+        | "supervisor"
+        | "supervisor_adjunto"
+        | "control_desk"
+        | "central_de_atendimento"
       permission_scope: "global" | "department" | "own"
       producer_attendance_status_enum:
         | "DISPONIVEL"
@@ -6866,8 +6874,17 @@ export const Constants = {
         "scouters",
         "administrativo",
         "analise",
+        "cobranca",
       ],
-      app_role: ["admin", "manager", "agent", "supervisor"],
+      app_role: [
+        "admin",
+        "manager",
+        "agent",
+        "supervisor",
+        "supervisor_adjunto",
+        "control_desk",
+        "central_de_atendimento",
+      ],
       permission_scope: ["global", "department", "own"],
       producer_attendance_status_enum: [
         "DISPONIVEL",
