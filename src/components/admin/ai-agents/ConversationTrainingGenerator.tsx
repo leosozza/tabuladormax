@@ -14,10 +14,10 @@ import { format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  useOperatorsWithConversations,
   useOperatorConversations,
   useConversationMessages,
 } from '@/hooks/useOperatorConversations';
+import { useSystemUsers } from '@/hooks/useSystemUsers';
 import { useAIAgents } from '@/hooks/useAIAgents';
 
 interface AIAgent {
@@ -30,7 +30,7 @@ interface ConversationTrainingGeneratorProps {
 }
 
 export function ConversationTrainingGenerator({ agents }: ConversationTrainingGeneratorProps) {
-  const [selectedOperator, setSelectedOperator] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<'7' | '14' | '30' | 'custom'>('7');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -41,7 +41,9 @@ export function ConversationTrainingGenerator({ agents }: ConversationTrainingGe
   const [trainingTitle, setTrainingTitle] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
 
-  const { data: operators, isLoading: loadingOperators } = useOperatorsWithConversations();
+  const { data: users, isLoading: loadingUsers } = useSystemUsers();
+  const selectedUser = useMemo(() => users?.find((u) => u.id === selectedUserId), [users, selectedUserId]);
+  const selectedOperatorName = selectedUser?.display_name || null;
 
   // Calcular datas baseado na seleção
   const { startDate, endDate } = useMemo(() => {
@@ -59,7 +61,7 @@ export function ConversationTrainingGenerator({ agents }: ConversationTrainingGe
   }, [dateRange, customStartDate, customEndDate]);
 
   const { data: conversations, isLoading: loadingConversations } = useOperatorConversations(
-    selectedOperator,
+    selectedOperatorName,
     startDate,
     endDate
   );
@@ -86,7 +88,7 @@ export function ConversationTrainingGenerator({ agents }: ConversationTrainingGe
   };
 
   const handleGenerate = async () => {
-    if (!selectedOperator || selectedPhones.size === 0) {
+    if (!selectedOperatorName || selectedPhones.size === 0) {
       toast.error('Selecione pelo menos uma conversa');
       return;
     }
@@ -116,7 +118,7 @@ export function ConversationTrainingGenerator({ agents }: ConversationTrainingGe
       const { data, error } = await supabase.functions.invoke('generate-training-from-conversations', {
         body: {
           conversations: groupedConversations,
-          operatorName: selectedOperator,
+          operatorName: selectedOperatorName,
         },
       });
 
@@ -124,7 +126,7 @@ export function ConversationTrainingGenerator({ agents }: ConversationTrainingGe
 
       if (data?.training) {
         setGeneratedTraining(data.training);
-        setTrainingTitle(`Padrões de ${selectedOperator} - ${format(new Date(), 'dd/MM/yyyy')}`);
+        setTrainingTitle(`Padrões de ${selectedOperatorName} - ${format(new Date(), 'dd/MM/yyyy')}`);
         toast.success(`Treinamento gerado a partir de ${data.conversations_analyzed} conversas`);
       }
     } catch (err) {
@@ -186,17 +188,17 @@ export function ConversationTrainingGenerator({ agents }: ConversationTrainingGe
               <User className="h-4 w-4" />
               1. Selecione o Operador
             </Label>
-            {loadingOperators ? (
+            {loadingUsers ? (
               <Skeleton className="h-10 w-full" />
             ) : (
-              <Select value={selectedOperator || ''} onValueChange={setSelectedOperator}>
+              <Select value={selectedUserId || ''} onValueChange={setSelectedUserId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Escolha um operador..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {operators?.map((op) => (
-                    <SelectItem key={op.sender_name} value={op.sender_name}>
-                      {op.sender_name} ({op.message_count} mensagens)
+                  {users?.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.display_name || user.email || 'Sem nome'}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -242,7 +244,7 @@ export function ConversationTrainingGenerator({ agents }: ConversationTrainingGe
           </div>
 
           {/* Lista de Conversas */}
-          {selectedOperator && (
+          {selectedOperatorName && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>3. Conversas do Operador</Label>
