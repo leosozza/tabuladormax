@@ -1,50 +1,98 @@
 
-# Plano: Corrigir Erro de Acesso ao WhatsApp dos Agentes
-
-## Problema Identificado
-
-Os agentes estão recebendo erro ao acessar `/portal-telemarketing/whatsapp` porque existe **duas versões** da função `get_telemarketing_whatsapp_messages` no banco de dados:
-
-| OID | Parâmetro p_lead_id | Limite |
-|-----|---------------------|--------|
-| 4373305 | `bigint` | 500 |
-| 5591099 | `integer` | 200 |
-
-**Erro exibido no console:**
-```
-PGRST203: Could not choose the best candidate function between:
-- public.get_telemarketing_whatsapp_messages(...p_lead_id => bigint...)
-- public.get_telemarketing_whatsapp_messages(...p_lead_id => integer...)
-```
-
-Isso causa **ambiguidade** no PostgREST que não sabe qual função chamar.
-
-## Causa Raiz
-
-Uma migration anterior criou a função com `bigint`, e outra migration posterior recriou com `integer`, mas sem dropar a versão antiga primeiro.
-
-## Solução
-
-Executar migration SQL para remover a função duplicada (versão `bigint`):
-
-```sql
--- Dropar a versão antiga com p_lead_id bigint
-DROP FUNCTION IF EXISTS public.get_telemarketing_whatsapp_messages(
-  integer, text, bigint, integer[], integer
-);
-```
-
-Isso manterá apenas a versão correta com `p_lead_id integer`.
-
-## Impacto
-
-- Nenhum código precisa ser alterado
-- Apenas a função duplicada será removida do banco
-- A função restante continuará funcionando normalmente
+# Plano: Integração Click-to-Call com MicroSIP
 
 ## Resumo
 
-| Ação | Descrição |
-|------|-----------|
-| Drop function | Remover versão com `p_lead_id bigint` |
-| Resultado | Agentes poderão acessar WhatsApp novamente |
+Adicionar botão "Ligar" no header da Central de Atendimento que, ao ser clicado, abre o MicroSIP (ou outro softphone SIP instalado) com o número do contato já preenchido, utilizando o protocolo `sip:` URI.
+
+## Como Funciona
+
+O protocolo `sip:` funciona de forma similar ao `mailto:` - quando o navegador encontra um link como `sip:5511999999999@sip.falefacil.com.br`, ele abre o aplicativo de telefone SIP padrão registrado no sistema operacional (no caso, o MicroSIP).
+
+```text
++------------------+     sip: URI      +------------------+
+|  Central de      |------------------>|  MicroSIP        |
+|  Atendimento     |                   |  (Softphone)     |
+|  (Browser)       |                   |                  |
++------------------+                   +------------------+
+                                              |
+                                              | SIP Protocol
+                                              v
+                                       +------------------+
+                                       |  Fale Fácil      |
+                                       |  SIP PBX         |
+                                       +------------------+
+```
+
+## Implementação
+
+### Arquivo: `src/components/whatsapp/WhatsAppHeader.tsx`
+
+Adicionar botão "Ligar" ao lado dos outros botões de ação:
+
+```typescript
+// Nova função para iniciar chamada
+const handleClickToCall = () => {
+  if (!phoneNumber) return;
+  
+  // Formatar número (remover caracteres especiais, manter apenas dígitos)
+  const cleanNumber = phoneNumber.replace(/\D/g, '');
+  
+  // Domínio SIP da Fale Fácil
+  const sipDomain = 'sip.falefacilvoip.com.br';
+  
+  // Construir URI SIP
+  const sipUri = `sip:${cleanNumber}@${sipDomain}`;
+  
+  // Abrir no softphone
+  window.location.href = sipUri;
+  
+  toast.info('Iniciando chamada no MicroSIP...');
+};
+```
+
+**Posição do botão**: Entre as informações do contato e os botões de ação (antes do "Encerrar").
+
+**Estilo**: Botão verde com ícone de telefone para destacar a ação de ligação.
+
+### Alterações no Código
+
+| Local | Alteração |
+|-------|-----------|
+| Linha 4 | Adicionar import `PhoneCall` do lucide-react |
+| Linha 63 | Adicionar função `handleClickToCall` |
+| Linha 104-106 | Inserir novo botão após `rightContent` |
+
+### Visual do Botão
+
+```tsx
+<Button
+  variant="default"
+  size="sm"
+  onClick={handleClickToCall}
+  className="gap-1.5 text-xs bg-green-600 hover:bg-green-700"
+  title="Ligar via MicroSIP"
+>
+  <PhoneCall className="w-3.5 h-3.5" />
+  Ligar
+</Button>
+```
+
+## Requisitos
+
+1. **MicroSIP instalado** no computador do operador
+2. **MicroSIP configurado** como aplicativo padrão para links `sip:`
+3. **Conta SIP configurada** no MicroSIP (já feito conforme screenshot)
+
+## Configuração no MicroSIP
+
+O operador precisa garantir que:
+1. MicroSIP está registrado como handler de URIs `sip:`
+2. A conta SIP da Fale Fácil está configurada e conectada
+3. Headset/microfone funcionando
+
+## Notas Técnicas
+
+- O domínio SIP `sip.falefacilvoip.com.br` será usado como padrão
+- Se necessário, futuramente pode-se adicionar configuração por operador para domínios diferentes
+- Funciona em Windows, Mac e Linux (desde que tenha softphone SIP instalado)
