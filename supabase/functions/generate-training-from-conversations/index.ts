@@ -54,6 +54,13 @@ const AI_PROVIDERS: AIProvider[] = [
     isFree: false,
   },
   {
+    name: 'Google AI Studio',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    apiKeyEnv: 'GOOGLE_AI_STUDIO_API_KEY',
+    model: 'gemini-2.0-flash',
+    isFree: true,
+  },
+  {
     name: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
     apiKeyEnv: 'OPENROUTER_API_KEY',
