@@ -37,6 +37,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   fechamento: 'Fechamento',
   faq: 'FAQ',
   geral: 'Geral',
+  conversas: 'Conversas',
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -46,6 +47,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   fechamento: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
   faq: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300',
   geral: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
+  conversas: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
 };
 
 export function AIAgentTrainingList({

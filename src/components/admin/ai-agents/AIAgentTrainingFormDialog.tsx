@@ -60,6 +60,7 @@ const CATEGORIES = [
   { value: 'fechamento', label: 'Fechamento', description: 'Técnicas de fechamento de venda' },
   { value: 'faq', label: 'FAQ', description: 'Perguntas frequentes' },
   { value: 'geral', label: 'Geral', description: 'Instruções gerais' },
+  { value: 'conversas', label: 'Conversas', description: 'Gerado a partir de conversas de operadores' },
 ];
 
 export function AIAgentTrainingFormDialog({
