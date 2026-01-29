@@ -18,7 +18,7 @@ export interface InvitedConversationFull {
 }
 
 export const useMyInvitedConversationsFull = () => {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['my-invited-conversations-full'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -30,12 +30,21 @@ export const useMyInvitedConversationsFull = () => {
 
       if (error) {
         console.error('Error fetching full invited conversations:', error);
-        return [];
+        throw error; // Throw instead of returning [] so error state is exposed
       }
 
       return (data || []) as InvitedConversationFull[];
     },
     staleTime: 30000,
     refetchOnWindowFocus: false,
+    retry: 2,
   });
+
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
 };

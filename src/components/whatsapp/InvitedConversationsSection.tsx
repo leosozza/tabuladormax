@@ -91,10 +91,9 @@ export function InvitedConversationsSection({
 
   const isSelected = (inv: InvitedConversationFull) => {
     if (!selectedConversation) return false;
-    return (
-      selectedConversation.phone_number === inv.phone_number &&
-      selectedConversation.bitrix_id === inv.bitrix_id
-    );
+    // Use normalized phone comparison for more reliable matching
+    const normalizePhone = (phone: string | null) => (phone || '').replace(/\D/g, '');
+    return normalizePhone(selectedConversation.phone_number) === normalizePhone(inv.phone_number);
   };
 
   const totalUnread = invitedConversations.reduce((sum, c) => sum + c.unread_count, 0);
