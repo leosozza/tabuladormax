@@ -1,79 +1,67 @@
 
-# Correção: Materialized View de Conversas WhatsApp Não Está Atualizando
+# Correção: Central de Atendimento com Mensagens Misturadas e Faltando
 
-## Problema Identificado
+## Problemas Identificados
 
-A materialized view `mv_whatsapp_conversation_stats` está **38 horas desatualizada**, causando:
-- Filtro "Janela Aberta" mostrando 0 conversas
-- Status de resposta incorreto
-- Contagens erradas no dashboard
+### Problema 1: Mensagens de Outros Clientes Aparecendo
+No hook `useWhatsAppMessages.ts`, a subscription realtime tem uma falha crítica:
 
-### Causa Raiz
-
-O cron job `refresh-whatsapp-stats` está falhando a cada 2 minutos com o erro:
-
-```text
-cannot refresh materialized view "public.mv_whatsapp_conversation_stats" concurrently
+```typescript
+filter: bitrixId 
+  ? `bitrix_id=eq.${bitrixId}` 
+  : conversationId 
+    ? `conversation_id=eq.${conversationId}` 
+    : undefined,  // ← PROBLEMA! Sem filtro = recebe TUDO
 ```
 
-Isso ocorre porque o índice único da view (`phone_number, bitrix_id`) não trata corretamente valores NULL em `bitrix_id`. Quando há múltiplas conversas com `bitrix_id = NULL`, o PostgreSQL não consegue garantir unicidade.
+Quando a conversa é identificada apenas por `phoneNumber` (sem `bitrixId` ou `conversationId`), o filtro é `undefined`. Isso faz com que o Supabase Realtime envie **todas** as mensagens de **todas** as conversas para esse cliente.
 
-### Evidências
-
-| Métrica | Valor |
-|---------|-------|
-| Última mensagem na tabela | 2026-01-29 11:14:15 |
-| Última mensagem na view | 2026-01-27 21:20:04 |
-| Diferença | ~38 horas |
-| Conversas com janela aberta (real) | 762 |
-| Conversas com janela aberta (view) | 0 |
+### Problema 2: Mensagens Não Chegando (indireto)
+Como mensagens de outras conversas estão chegando, o operador pode não perceber as mensagens corretas, ou o componente pode estar em estado inconsistente.
 
 ---
 
 ## Solução
 
-### Passo 1: Corrigir o Índice Único
+### Correção do Filtro Realtime
 
-O índice precisa tratar NULL corretamente usando COALESCE:
+Modificar a subscription para **sempre** incluir um filtro por `phone_number`:
 
-```sql
--- Remover índice existente
-DROP INDEX IF EXISTS mv_whatsapp_conversation_stats_phone_number_bitrix_id_idx;
-
--- Recriar com tratamento de NULL
-CREATE UNIQUE INDEX idx_mv_whatsapp_stats_phone_bitrix 
-ON mv_whatsapp_conversation_stats (phone_number, COALESCE(bitrix_id, ''));
+```typescript
+filter: phoneNumber
+  ? `phone_number=eq.${phoneNumber.replace(/\D/g, '')}`
+  : bitrixId 
+    ? `bitrix_id=eq.${bitrixId}` 
+    : conversationId 
+      ? `conversation_id=eq.${conversationId}` 
+      : undefined,
 ```
 
-### Passo 2: Forçar Refresh Imediato
+### Validação Adicional no Handler
 
-Após corrigir o índice, fazer refresh sem CONCURRENTLY (mais lento mas funciona):
+Mesmo com o filtro correto, adicionar validação no handler para garantir que a mensagem pertence à conversa atual:
 
-```sql
-REFRESH MATERIALIZED VIEW mv_whatsapp_conversation_stats;
-```
-
-### Passo 3: Atualizar Função de Refresh
-
-A função `refresh_whatsapp_stats()` deve ter fallback caso o concurrent falhe:
-
-```sql
-CREATE OR REPLACE FUNCTION refresh_whatsapp_stats()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  -- Tentar refresh concurrent primeiro (mais rápido, não bloqueia leitura)
-  BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_whatsapp_conversation_stats;
-  EXCEPTION WHEN OTHERS THEN
-    -- Se falhar, fazer refresh normal (bloqueia mas funciona)
-    RAISE NOTICE 'Concurrent refresh failed, doing full refresh';
-    REFRESH MATERIALIZED VIEW mv_whatsapp_conversation_stats;
-  END;
-END;
-$$;
+```typescript
+if (payload.eventType === 'INSERT') {
+  const newMsg = payload.new as WhatsAppMessage;
+  
+  // Validar que a mensagem pertence à conversa atual
+  const normalizedPhone = phoneNumber?.replace(/\D/g, '');
+  const msgPhone = newMsg.phone_number?.replace(/\D/g, '');
+  
+  if (normalizedPhone && msgPhone !== normalizedPhone) {
+    console.log('⚠️ Mensagem ignorada: telefone diferente', { expected: normalizedPhone, received: msgPhone });
+    return;
+  }
+  
+  // Evitar duplicatas
+  setMessages(prev => {
+    if (prev.some(m => m.id === newMsg.id || m.gupshup_message_id === newMsg.gupshup_message_id)) {
+      return prev;
+    }
+    return [...prev, newMsg];
+  });
+}
 ```
 
 ---
@@ -82,36 +70,47 @@ $$;
 
 | Arquivo | Alteração |
 |---------|-----------|
-| Nova migration SQL | Corrigir índice e função de refresh |
-
-## Resultado Esperado
-
-Após a correção:
-- View será atualizada a cada 2 minutos corretamente
-- Filtro "Janela Aberta" mostrará as 762+ conversas reais
-- Status de resposta refletirá dados atuais
+| `src/hooks/useWhatsAppMessages.ts` | Corrigir filtro realtime + validação de mensagens |
 
 ---
 
 ## Detalhes Técnicos
 
-### Por que CONCURRENTLY falha com NULL?
+### Por que o problema ocorre?
 
-O PostgreSQL requer que todas as linhas tenham valores únicos no índice para refresh concurrent. Com `bitrix_id = NULL`, múltiplas linhas podem ter o mesmo par `(phone_number, NULL)`, violando a unicidade.
+O Supabase Realtime permite filtros simples no formato `coluna=eq.valor`. Quando o filtro é `undefined`, a subscription recebe **todos** os eventos da tabela.
 
-Usar `COALESCE(bitrix_id, '')` converte NULL para string vazia, garantindo unicidade.
+A lógica atual prioriza `bitrixId` > `conversationId` > nada. Mas muitas conversas na Central de Atendimento são identificadas apenas por `phoneNumber`, especialmente conversas que:
+- Vieram de contatos sem lead cadastrado
+- Foram criadas antes da vinculação com Bitrix
+- Têm `bitrix_id` nulo na tabela de mensagens
 
-### Verificação do Índice Atual
+### Fluxo Corrigido
 
-O índice existente é:
-```sql
-CREATE UNIQUE INDEX idx_mv_whatsapp_stats_phone_bitrix 
-ON mv_whatsapp_conversation_stats (phone_number, COALESCE(bitrix_id, ''::text))
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ ANTES (bugado):                                                  │
+│                                                                  │
+│ Operador abre conversa com phone: 5511999998888                  │
+│ ├── bitrixId: undefined                                          │
+│ ├── conversationId: undefined                                    │
+│ └── filter: undefined ← RECEBE TODAS AS MENSAGENS!               │
+└─────────────────────────────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ DEPOIS (corrigido):                                              │
+│                                                                  │
+│ Operador abre conversa com phone: 5511999998888                  │
+│ ├── phoneNumber: 5511999998888                                   │
+│ └── filter: phone_number=eq.5511999998888 ← APENAS ESSA CONVERSA│
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Mas a view foi recriada em `20260127210600_d6099b22-7dfa-4858-a11c-f2fc80a60c83.sql` com:
-```sql
-CREATE UNIQUE INDEX ON mv_whatsapp_conversation_stats (phone_number, bitrix_id);
-```
+---
 
-Isso sobrescreveu o índice correto com um que não trata NULL.
+## Impacto da Correção
+
+1. **Mensagens de outros clientes**: Não aparecerão mais em conversas erradas
+2. **Performance**: Menos dados trafegando via WebSocket
+3. **Segurança**: Operadores só verão mensagens das conversas que abriram
+4. **UX**: Não será mais necessário sair e voltar para "limpar" mensagens incorretas
