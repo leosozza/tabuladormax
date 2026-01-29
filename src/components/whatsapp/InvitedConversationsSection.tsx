@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, ChevronRight } from 'lucide-react';
+import { Bell, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -194,26 +194,34 @@ export function InvitedConversationsSection({
                     </p>
                   )}
 
-                  {/* Badges row */}
-                  <div className="flex flex-wrap items-center gap-1 mt-1">
-                    {/* Priority */}
-                    {inv.priority > 0 && (
-                      <PriorityBadge priority={inv.priority} size="sm" />
-                    )}
-                    
-                    {/* Etapa */}
-                    {inv.lead_etapa && (
-                      <span
-                        className={cn(
-                          "text-[10px] px-1.5 py-0.5 rounded",
-                          getEtapaStyle(inv.lead_etapa).bg,
-                          getEtapaStyle(inv.lead_etapa).text,
+                      {/* Badges row */}
+                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                        {/* URGENT badge - show when priority = 5 */}
+                        {inv.priority === 5 && (
+                          <Badge variant="destructive" className="gap-1 h-5 text-[10px] font-bold animate-pulse">
+                            <AlertTriangle className="h-3 w-3" />
+                            URGENTE
+                          </Badge>
                         )}
-                      >
-                        {getEtapaStyle(inv.lead_etapa).label}
-                      </span>
-                    )}
-                  </div>
+                        
+                        {/* Priority badge - show if priority > 0 but not 5 */}
+                        {inv.priority > 0 && inv.priority < 5 && (
+                          <PriorityBadge priority={inv.priority} size="sm" />
+                        )}
+                        
+                        {/* Etapa */}
+                        {inv.lead_etapa && (
+                          <span
+                            className={cn(
+                              "text-[10px] px-1.5 py-0.5 rounded",
+                              getEtapaStyle(inv.lead_etapa).bg,
+                              getEtapaStyle(inv.lead_etapa).text,
+                            )}
+                          >
+                            {getEtapaStyle(inv.lead_etapa).label}
+                          </span>
+                        )}
+                      </div>
                 </div>
               </button>
             ))}
