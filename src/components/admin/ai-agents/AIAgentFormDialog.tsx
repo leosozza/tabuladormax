@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,22 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { AIAgent } from '@/hooks/useAIAgents';
 import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface AIProviderModel {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+interface AIProvider {
+  id: string;
+  name: string;
+  display_name: string;
+  models: AIProviderModel[];
+  default_model: string | null;
+  is_active: boolean;
+}
 
 const formSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(255),
@@ -62,29 +79,26 @@ const PERSONALITIES = [
   { value: 'atencioso', label: 'Atencioso' },
 ];
 
-const PROVIDERS = [
-  { value: 'groq', label: 'Groq' },
-  { value: 'openrouter', label: 'OpenRouter' },
-  { value: 'lovable', label: 'Lovable AI' },
-];
-
-const MODELS = {
-  groq: [
-    { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile' },
-    { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant' },
-    { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
-  ],
-  openrouter: [
-    { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
-    { value: 'openai/gpt-4o', label: 'GPT-4o' },
-    { value: 'google/gemini-pro', label: 'Gemini Pro' },
-  ],
-  lovable: [
-    { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-    { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-    { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini' },
-  ],
-};
+function useAIProviders() {
+  return useQuery({
+    queryKey: ['ai-providers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ai_providers')
+        .select('id, name, display_name, models, default_model, is_active')
+        .eq('is_active', true)
+        .order('display_name');
+      
+      if (error) throw error;
+      
+      // Parse models from JSON
+      return (data || []).map((provider) => ({
+        ...provider,
+        models: (provider.models as unknown as AIProviderModel[]) || [],
+      })) as AIProvider[];
+    },
+  });
+}
 
 const DEFAULT_PROMPT = `Você é um assistente de atendimento ao cliente via WhatsApp. Seu papel é ajudar agentes de telemarketing a responder mensagens de clientes.
 
@@ -104,6 +118,8 @@ export function AIAgentFormDialog({
   onSave,
   saving,
 }: AIAgentFormDialogProps) {
+  const { data: providers = [] } = useAIProviders();
+  
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -119,6 +135,17 @@ export function AIAgentFormDialog({
   });
 
   const watchProvider = form.watch('ai_provider');
+  
+  // Get current provider and its models
+  const currentProvider = useMemo(() => 
+    providers.find((p) => p.name === watchProvider),
+    [providers, watchProvider]
+  );
+  
+  const models = useMemo(() => 
+    currentProvider?.models || [],
+    [currentProvider]
+  );
 
   useEffect(() => {
     if (agent) {
@@ -149,8 +176,6 @@ export function AIAgentFormDialog({
   const handleSubmit = async (data: FormData) => {
     await onSave(data);
   };
-
-  const models = MODELS[watchProvider as keyof typeof MODELS] || MODELS.groq;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -233,7 +258,8 @@ export function AIAgentFormDialog({
                     <Select
                       onValueChange={(value) => {
                         field.onChange(value);
-                        const defaultModel = MODELS[value as keyof typeof MODELS]?.[0]?.value;
+                        const selectedProvider = providers.find((p) => p.name === value);
+                        const defaultModel = selectedProvider?.default_model || selectedProvider?.models?.[0]?.id;
                         if (defaultModel) {
                           form.setValue('ai_model', defaultModel);
                         }
@@ -246,9 +272,9 @@ export function AIAgentFormDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {PROVIDERS.map((p) => (
-                          <SelectItem key={p.value} value={p.value}>
-                            {p.label}
+                        {providers.map((p) => (
+                          <SelectItem key={p.name} value={p.name}>
+                            {p.display_name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -272,8 +298,8 @@ export function AIAgentFormDialog({
                       </FormControl>
                       <SelectContent>
                         {models.map((m) => (
-                          <SelectItem key={m.value} value={m.value}>
-                            {m.label}
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
