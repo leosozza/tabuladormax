@@ -130,22 +130,20 @@ export function WhatsAppHeader({
         <div className="flex items-center gap-2">
           {rightContent}
           
+          {/* Reconnect Button - next to notification bell */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReconnect}
+            className="gap-1.5 text-xs"
+            title="Reconectar sessão se houver problemas de envio"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Reconectar
+          </Button>
+          
           {/* Call History Popover */}
           <CallHistoryPopover phoneNumber={phoneNumber} />
-          
-          {/* Click-to-Call Button */}
-          {phoneNumber && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleClickToCall}
-              className="gap-1.5 text-xs bg-green-600 hover:bg-green-700"
-              title="Ligar via MicroSIP"
-            >
-              <PhoneCall className="w-3.5 h-3.5" />
-              Ligar
-            </Button>
-          )}
           
           {/* Close/Reopen Conversation Button */}
           {phoneNumber && (
@@ -217,16 +215,19 @@ export function WhatsAppHeader({
             </Button>
           )}
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleReconnect}
-            className="gap-1.5 text-xs"
-            title="Reconectar sessão se houver problemas de envio"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Reconectar
-          </Button>
+          {/* Click-to-Call Button - at the corner */}
+          {phoneNumber && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleClickToCall}
+              className="gap-1.5 text-xs bg-green-600 hover:bg-green-700"
+              title="Ligar via MicroSIP"
+            >
+              <PhoneCall className="w-3.5 h-3.5" />
+              Ligar
+            </Button>
+          )}
           {bitrixId && (
             <Button
               variant="ghost"
