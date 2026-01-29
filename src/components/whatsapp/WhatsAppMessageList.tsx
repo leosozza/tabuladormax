@@ -1,15 +1,26 @@
 import { useRef, useEffect } from 'react';
-import { MessageSquare, Cloud, Info } from 'lucide-react';
+import { MessageSquare, Cloud, Info, ChevronUp, Loader2 } from 'lucide-react';
 import { WhatsAppMessage } from '@/hooks/useWhatsAppMessages';
 import { WhatsAppMessageBubble } from './WhatsAppMessageBubble';
+import { Button } from '@/components/ui/button';
 
 interface WhatsAppMessageListProps {
   messages: WhatsAppMessage[];
   loading?: boolean;
   usingBitrixFallback?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  loadingMore?: boolean;
 }
 
-export function WhatsAppMessageList({ messages, loading, usingBitrixFallback }: WhatsAppMessageListProps) {
+export function WhatsAppMessageList({ 
+  messages, 
+  loading, 
+  usingBitrixFallback,
+  hasMore,
+  onLoadMore,
+  loadingMore 
+}: WhatsAppMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when messages change
@@ -41,6 +52,31 @@ export function WhatsAppMessageList({ messages, loading, usingBitrixFallback }: 
 
   return (
     <div className="space-y-4 p-4" ref={scrollRef}>
+      {/* Botão para carregar mensagens anteriores */}
+      {hasMore && (
+        <div className="flex justify-center py-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Carregando...
+              </>
+            ) : (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                Carregar mensagens anteriores
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+      
       {/* Banner quando usando histórico do Bitrix */}
       {usingBitrixFallback && (
         <div className="flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-700 dark:text-blue-400 text-sm">

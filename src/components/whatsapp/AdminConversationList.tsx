@@ -16,6 +16,7 @@ import {
   ChevronUp,
   Headphones,
   Tag,
+  Users,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ interface SavedFilters {
   dealStatusFilter: DealStatusFilter;
   closedFilter: ClosedFilter;
   tagFilter: string[];
+  operatorFilter: string;
 }
 
 const loadSavedFilters = (): Partial<SavedFilters> => {
@@ -66,6 +68,12 @@ const saveFilters = (filters: SavedFilters) => {
     // Ignore storage errors
   }
 };
+
+// Interface for operator participant options
+interface OperatorOption {
+  id: string;
+  display_name: string;
+}
 
 const loadCollapsedState = (): boolean => {
   try {
@@ -176,6 +184,7 @@ export function AdminConversationList({
   const [dealStatusFilter, setDealStatusFilter] = useState<DealStatusFilter>(savedFilters.dealStatusFilter || "all");
   const [closedFilter, setClosedFilter] = useState<ClosedFilter>(savedFilters.closedFilter || "active");
   const [tagFilter, setTagFilter] = useState<string[]>(savedFilters.tagFilter || []);
+  const [operatorFilter, setOperatorFilter] = useState<string>(savedFilters.operatorFilter || "all");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedForDetails, setSelectedForDetails] = useState<AdminConversation | null>(null);
@@ -183,6 +192,35 @@ export function AdminConversationList({
   
   // Fetch available tags
   const { data: allTags = [] } = useAllTags();
+  
+  // Fetch operators who are participants in conversations
+  const { data: operatorOptions = [] } = useQuery({
+    queryKey: ['operator-participants-options'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('whatsapp_conversation_participants' as any)
+        .select('operator_id, profiles:operator_id(id, display_name)')
+        .is('resolved_at', null);
+      
+      if (error) throw error;
+      
+      // Deduplicate and format
+      const uniqueOperators = new Map<string, OperatorOption>();
+      (data || []).forEach((item: any) => {
+        if (item.profiles && item.operator_id) {
+          uniqueOperators.set(item.operator_id, {
+            id: item.operator_id,
+            display_name: item.profiles.display_name || 'Operador'
+          });
+        }
+      });
+      
+      return Array.from(uniqueOperators.values()).sort((a, b) => 
+        a.display_name.localeCompare(b.display_name)
+      );
+    },
+    staleTime: 60000,
+  });
 
   // When a highlighted phone comes from notification, reset filters to show it
   useEffect(() => {
@@ -194,6 +232,7 @@ export function AdminConversationList({
       setDealStatusFilter("all");
       setClosedFilter("all");
       setTagFilter([]);
+      setOperatorFilter("all");
       setSearch("");
       setDebouncedSearch("");
       // Clear the highlight after resetting filters
@@ -210,8 +249,9 @@ export function AdminConversationList({
       dealStatusFilter,
       closedFilter,
       tagFilter,
+      operatorFilter,
     });
-  }, [windowFilter, responseFilter, etapaFilter, dealStatusFilter, closedFilter, tagFilter]);
+  }, [windowFilter, responseFilter, etapaFilter, dealStatusFilter, closedFilter, tagFilter, operatorFilter]);
 
   // Persist collapsed state
   useEffect(() => {
@@ -220,7 +260,8 @@ export function AdminConversationList({
 
   // Check if any filter is active (not default)
   const hasActiveFilters = windowFilter !== "all" || responseFilter !== "all" || 
-    etapaFilter !== "all" || dealStatusFilter !== "all" || closedFilter !== "active" || tagFilter.length > 0;
+    etapaFilter !== "all" || dealStatusFilter !== "all" || closedFilter !== "active" || 
+    tagFilter.length > 0 || operatorFilter !== "all";
 
   // Fetch closed conversations count
   const { data: closedCount = 0 } = useQuery({
@@ -260,6 +301,7 @@ export function AdminConversationList({
       dealStatusFilter,
       closedFilter,
       tagFilter: tagFilter.length > 0 ? tagFilter : null,
+      operatorFilter: operatorFilter === "all" ? null : operatorFilter,
       limit: 50,
     });
 
@@ -622,6 +664,29 @@ export function AdminConversationList({
                     </div>
                   </PopoverContent>
                 </Popover>
+              </div>
+            )}
+
+            {/* Operator Filter */}
+            {operatorOptions.length > 0 && (
+              <div className="flex items-center justify-between py-2 px-1 rounded-md bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Operador</span>
+                </div>
+                <Select value={operatorFilter} onValueChange={setOperatorFilter}>
+                  <SelectTrigger className="w-40 h-8 text-xs">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {operatorOptions.map((op) => (
+                      <SelectItem key={op.id} value={op.id}>
+                        {op.display_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 

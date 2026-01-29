@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, RotateCw, CheckCircle2, UserPlus, Tag, UserCheck, PhoneCall, Server, RefreshCw } from 'lucide-react';
+import { X, RotateCw, CheckCircle2, UserPlus, Tag, UserCheck, PhoneCall, Server, RefreshCw, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useConversationClosure, useReopenConversation } from '@/hooks/useCloseConversation';
@@ -13,6 +13,7 @@ import { ConversationParticipants } from './ConversationParticipants';
 import { ConversationTagsManager } from './ConversationTagsManager';
 import { useConversationTags } from '@/hooks/useConversationTags';
 import { TagBadge } from './TagBadge';
+import { useResolutionHistory } from '@/hooks/useInternalNotes';
 import { CallResultDialog } from './CallResultDialog';
 import { CallHistoryPopover } from './CallHistoryPopover';
 interface WhatsAppHeaderProps {
@@ -50,6 +51,9 @@ export function WhatsAppHeader({
   const {
     data: conversationTags = []
   } = useConversationTags(phoneNumber);
+  const {
+    data: resolutions = []
+  } = useResolutionHistory(phoneNumber);
   const reopenConversation = useReopenConversation();
   const isClosed = !!closure;
   const handleReopen = () => {
@@ -93,6 +97,12 @@ export function WhatsAppHeader({
                   <CheckCircle2 className="h-3 w-3" />
                   Encerrada
                 </Badge>}
+              {resolutions.length > 0 && (
+                <Badge variant="secondary" className="gap-1 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                  <History className="h-3 w-3" />
+                  {resolutions.length} {resolutions.length === 1 ? 'resolução' : 'resoluções'}
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               {phoneNumber || `Lead #${bitrixId}`}
