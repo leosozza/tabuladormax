@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronUp,
   Headphones,
+  Tag,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ interface SavedFilters {
   etapaFilter: string;
   dealStatusFilter: DealStatusFilter;
   closedFilter: ClosedFilter;
+  tagFilter: string[];
 }
 
 const loadSavedFilters = (): Partial<SavedFilters> => {
@@ -93,6 +95,9 @@ import { PriorityBadge } from "./PrioritySelector";
 import { InvitedBadge } from "./InvitedBadge";
 import { InvitedConversationsSection } from "./InvitedConversationsSection";
 import { AlertTriangle } from "lucide-react";
+import { useAllTags } from "@/hooks/useConversationTags";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Normalize phone for comparisons (remove non-digits)
 const normalizePhone = (phone: string | null): string => {
@@ -170,10 +175,14 @@ export function AdminConversationList({
   const [etapaFilter, setEtapaFilter] = useState<string>(savedFilters.etapaFilter || "all");
   const [dealStatusFilter, setDealStatusFilter] = useState<DealStatusFilter>(savedFilters.dealStatusFilter || "all");
   const [closedFilter, setClosedFilter] = useState<ClosedFilter>(savedFilters.closedFilter || "active");
+  const [tagFilter, setTagFilter] = useState<string[]>(savedFilters.tagFilter || []);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedForDetails, setSelectedForDetails] = useState<AdminConversation | null>(null);
   const [filtersCollapsed, setFiltersCollapsed] = useState(loadCollapsedState());
+  
+  // Fetch available tags
+  const { data: allTags = [] } = useAllTags();
 
   // When a highlighted phone comes from notification, reset filters to show it
   useEffect(() => {
@@ -184,6 +193,7 @@ export function AdminConversationList({
       setEtapaFilter("all");
       setDealStatusFilter("all");
       setClosedFilter("all");
+      setTagFilter([]);
       setSearch("");
       setDebouncedSearch("");
       // Clear the highlight after resetting filters
@@ -199,8 +209,9 @@ export function AdminConversationList({
       etapaFilter,
       dealStatusFilter,
       closedFilter,
+      tagFilter,
     });
-  }, [windowFilter, responseFilter, etapaFilter, dealStatusFilter, closedFilter]);
+  }, [windowFilter, responseFilter, etapaFilter, dealStatusFilter, closedFilter, tagFilter]);
 
   // Persist collapsed state
   useEffect(() => {
@@ -209,7 +220,7 @@ export function AdminConversationList({
 
   // Check if any filter is active (not default)
   const hasActiveFilters = windowFilter !== "all" || responseFilter !== "all" || 
-    etapaFilter !== "all" || dealStatusFilter !== "all" || closedFilter !== "active";
+    etapaFilter !== "all" || dealStatusFilter !== "all" || closedFilter !== "active" || tagFilter.length > 0;
 
   // Fetch closed conversations count
   const { data: closedCount = 0 } = useQuery({
@@ -248,6 +259,7 @@ export function AdminConversationList({
       etapaFilter: etapaFilter === "all" ? null : etapaFilter,
       dealStatusFilter,
       closedFilter,
+      tagFilter: tagFilter.length > 0 ? tagFilter : null,
       limit: 50,
     });
 
@@ -543,6 +555,76 @@ export function AdminConversationList({
               )}
             </div>
 
+            {/* Tag Filter */}
+            {allTags.length > 0 && (
+              <div className="flex items-center justify-between py-2 px-1 rounded-md bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Etiquetas</span>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1">
+                      {tagFilter.length > 0 ? (
+                        <>
+                          <Badge variant="secondary" className="h-5 text-[10px]">
+                            {tagFilter.length}
+                          </Badge>
+                          selecionada{tagFilter.length > 1 ? 's' : ''}
+                        </>
+                      ) : (
+                        'Todas'
+                      )}
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" align="end">
+                    <div className="space-y-1">
+                      {allTags.map((tag) => (
+                        <div
+                          key={tag.id}
+                          className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                          onClick={() => {
+                            if (tagFilter.includes(tag.id)) {
+                              setTagFilter(tagFilter.filter((t) => t !== tag.id));
+                            } else {
+                              setTagFilter([...tagFilter, tag.id]);
+                            }
+                          }}
+                        >
+                          <Checkbox
+                            checked={tagFilter.includes(tag.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setTagFilter([...tagFilter, tag.id]);
+                              } else {
+                                setTagFilter(tagFilter.filter((t) => t !== tag.id));
+                              }
+                            }}
+                          />
+                          <div
+                            className="h-3 w-3 rounded-full shrink-0"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          <span className="text-sm truncate">{tag.name}</span>
+                        </div>
+                      ))}
+                      {tagFilter.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full mt-2 text-xs"
+                          onClick={() => setTagFilter([])}
+                        >
+                          Limpar filtro
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+
             {/* Closed Conversations Filter */}
             <div className="flex items-center justify-between py-2 px-1 rounded-md bg-muted/50">
               <div className="flex items-center gap-2">
@@ -733,8 +815,16 @@ export function AdminConversationList({
 
                     {/* Etapa, Deal Status, and Priority badges */}
                     <div className="flex flex-wrap items-center gap-1 mt-1">
-                      {/* Priority badge - show if invited with priority > 0 */}
-                      {invitedInfo && invitedInfo.priority > 0 && (
+                      {/* URGENT badge - show when priority = 5 */}
+                      {invitedInfo && invitedInfo.priority === 5 && (
+                        <Badge variant="destructive" className="gap-1 h-5 text-[10px] font-bold animate-pulse">
+                          <AlertTriangle className="h-3 w-3" />
+                          URGENTE
+                        </Badge>
+                      )}
+                      
+                      {/* Priority badge - show if invited with priority > 0 but not 5 (already shown as URGENT) */}
+                      {invitedInfo && invitedInfo.priority > 0 && invitedInfo.priority < 5 && (
                         <PriorityBadge priority={invitedInfo.priority} size="sm" />
                       )}
                       

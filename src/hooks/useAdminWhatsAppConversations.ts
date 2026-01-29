@@ -39,6 +39,7 @@ interface UseAdminWhatsAppConversationsParams {
   etapaFilter?: string | null;
   dealStatusFilter?: DealStatusFilter;
   closedFilter?: ClosedFilter;
+  tagFilter?: string[] | null;
   limit?: number;
 }
 
@@ -52,6 +53,7 @@ export const useAdminWhatsAppConversations = ({
   etapaFilter = null,
   dealStatusFilter = 'all',
   closedFilter = 'active',
+  tagFilter = null,
   limit = 30 // Reduced default for faster initial load
 }: UseAdminWhatsAppConversationsParams = {}) => {
   const queryClient = useQueryClient();
@@ -67,7 +69,7 @@ export const useAdminWhatsAppConversations = ({
     hasNextPage,
     isFetchingNextPage
   } = useInfiniteQuery({
-    queryKey: ['admin-whatsapp-conversations', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, closedFilter, limit],
+    queryKey: ['admin-whatsapp-conversations', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, closedFilter, tagFilter, limit],
     queryFn: async ({ pageParam = 0 }) => {
       // Fetch conversations
       const { data: convData, error: convError } = await supabase.rpc('get_admin_whatsapp_conversations', {
@@ -77,7 +79,8 @@ export const useAdminWhatsAppConversations = ({
         p_window_filter: windowFilter,
         p_response_filter: responseFilter,
         p_etapa_filter: etapaFilter || null,
-        p_deal_status_filter: dealStatusFilter
+        p_deal_status_filter: dealStatusFilter,
+        p_tag_filter: tagFilter && tagFilter.length > 0 ? tagFilter : null
       });
 
       if (convError) throw convError;
@@ -167,14 +170,15 @@ export const useAdminWhatsAppConversations = ({
 
   // Use filtered stats RPC - updates based on current filters
   const { data: stats } = useQuery({
-    queryKey: ['admin-whatsapp-stats', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter],
+    queryKey: ['admin-whatsapp-stats', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, tagFilter],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_admin_whatsapp_filtered_stats', {
         p_search: search || null,
         p_window_filter: windowFilter,
         p_response_filter: responseFilter,
         p_etapa_filter: etapaFilter || null,
-        p_deal_status_filter: dealStatusFilter
+        p_deal_status_filter: dealStatusFilter,
+        p_tag_filter: tagFilter && tagFilter.length > 0 ? tagFilter : null
       });
       
       if (error) {
@@ -202,14 +206,15 @@ export const useAdminWhatsAppConversations = ({
 
   // Get total count for display (filtered) - lazy load
   const { data: totalCount } = useQuery({
-    queryKey: ['admin-whatsapp-conversations-count', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter],
+    queryKey: ['admin-whatsapp-conversations-count', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, tagFilter],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('count_admin_whatsapp_conversations', {
         p_search: search || null,
         p_window_filter: windowFilter,
         p_response_filter: responseFilter,
         p_etapa_filter: etapaFilter || null,
-        p_deal_status_filter: dealStatusFilter
+        p_deal_status_filter: dealStatusFilter,
+        p_tag_filter: tagFilter && tagFilter.length > 0 ? tagFilter : null
       });
 
       if (error) throw error;
