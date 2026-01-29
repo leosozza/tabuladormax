@@ -1,127 +1,96 @@
 
-# Plano: Expandir Modelos Gratuitos da OpenRouter no Fallback
+# Plano: Corrigir Salvamento de Treinamentos por Conversa
 
-## Resumo
-Adicionar múltiplos modelos gratuitos da OpenRouter ao sistema de fallback, maximizando as chances de sucesso quando os provedores principais falharem.
+## Problema Identificado
 
-## Modelos Gratuitos Disponíveis na OpenRouter
+Detectei **dois problemas** que impedem a visualização do treinamento gerado:
 
-A OpenRouter oferece **33 modelos gratuitos** atualmente. Os mais relevantes para geração de treinamento (que precisam de bom reasoning e contexto longo) são:
+### 1. Categoria 'conversas' não existe nos mapeamentos da interface
+O `ConversationTrainingGenerator.tsx` salva treinamentos com `category: 'conversas'`, mas essa categoria não existe em:
+- `AIAgentTrainingList.tsx` → `CATEGORY_LABELS` e `CATEGORY_COLORS`
+- `AIAgentTrainingFormDialog.tsx` → `CATEGORIES`
 
-| Modelo | Contexto | Uso (tokens) |
-|--------|----------|--------------|
-| `deepseek/deepseek-r1-0528:free` | 164K | 16.8B |
-| `moonshotai/kimi-k2:free` | 33K | Novo |
-| `meta-llama/llama-3.3-70b-instruct:free` | 131K | 5.09B |
-| `meta-llama/llama-3.1-405b-instruct:free` | 131K | Alto uso |
-| `google/gemma-3-27b-it:free` | 131K | 4.23B |
-| `nousresearch/hermes-3-llama-3.1-405b:free` | 131K | 288M |
-| `mistralai/mistral-small-3.1-24b-instruct:free` | 128K | 190M |
-| `qwen/qwen3-coder:free` | 262K | 3.57B |
-| `nvidia/nemotron-3-nano-30b-a3b:free` | 256K | 7.53B |
-| `tngtech/deepseek-r1t2-chimera:free` | 164K | 106B |
-| `arcee-ai/trinity-large-preview:free` | 131K | 19.4B |
+Isso faz com que treinamentos com essa categoria não exibam a badge corretamente.
 
-## Estratégia de Implementação
+### 2. RLS pode bloquear INSERT para usuários não-admin
+A política `"Admins can manage ai_agents_training"` exige `has_role(auth.uid(), 'admin')`. Se o usuário logado não tiver essa role, o INSERT falha silenciosamente (sem erro visível no frontend).
 
-### Modelos Recomendados para Adicionar (por qualidade/popularidade)
-1. **`deepseek/deepseek-r1-0528:free`** - DeepSeek R1 gratuito via OpenRouter
-2. **`moonshotai/kimi-k2:free`** - Kimi K2 gratuito via OpenRouter  
-3. **`meta-llama/llama-3.3-70b-instruct:free`** - Llama 70B
-4. **`meta-llama/llama-3.1-405b-instruct:free`** - Llama 405B (maior modelo)
-5. **`google/gemma-3-27b-it:free`** - Gemma 3 27B
-6. **`mistralai/mistral-small-3.1-24b-instruct:free`** - Mistral Small
-7. **`qwen/qwen3-coder:free`** - Qwen3 Coder (bom para estrutura)
+**Evidência**: O edge function retornou sucesso (`✅ Treinamento gerado com sucesso usando Cerebras`), mas não há treinamentos com categoria 'conversas' no banco.
 
-## Alterações Técnicas
+## Alterações Necessárias
 
-### Arquivo: `supabase/functions/generate-training-from-conversations/index.ts`
-
-Adicionar múltiplas entradas OpenRouter com modelos diferentes:
+### Arquivo 1: `src/components/admin/ai-agents/AIAgentTrainingList.tsx`
+Adicionar categoria `'conversas'` aos mapeamentos:
 
 ```typescript
-// Adicionar ao array AI_PROVIDERS antes do OpenRouter atual:
+const CATEGORY_LABELS: Record<string, string> = {
+  saudacao: 'Saudação',
+  produtos: 'Produtos',
+  objecoes: 'Objeções',
+  fechamento: 'Fechamento',
+  faq: 'FAQ',
+  geral: 'Geral',
+  conversas: 'Conversas',  // ← NOVO
+};
 
-{
-  name: 'OpenRouter DeepSeek R1',
-  baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-  apiKeyEnv: 'OPENROUTER_API_KEY',
-  model: 'deepseek/deepseek-r1-0528:free',
-  isFree: true,
-},
-{
-  name: 'OpenRouter Kimi K2',
-  baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-  apiKeyEnv: 'OPENROUTER_API_KEY',
-  model: 'moonshotai/kimi-k2:free',
-  isFree: true,
-},
-{
-  name: 'OpenRouter Llama 70B',
-  baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-  apiKeyEnv: 'OPENROUTER_API_KEY',
-  model: 'meta-llama/llama-3.3-70b-instruct:free',
-  isFree: true,
-},
-{
-  name: 'OpenRouter Llama 405B',
-  baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-  apiKeyEnv: 'OPENROUTER_API_KEY',
-  model: 'meta-llama/llama-3.1-405b-instruct:free',
-  isFree: true,
-},
-{
-  name: 'OpenRouter Gemma 27B',
-  baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-  apiKeyEnv: 'OPENROUTER_API_KEY',
-  model: 'google/gemma-3-27b-it:free',
-  isFree: true,
-},
-{
-  name: 'OpenRouter Mistral Small',
-  baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-  apiKeyEnv: 'OPENROUTER_API_KEY',
-  model: 'mistralai/mistral-small-3.1-24b-instruct:free',
-  isFree: true,
-},
-{
-  name: 'OpenRouter Qwen3 Coder',
-  baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-  apiKeyEnv: 'OPENROUTER_API_KEY',
-  model: 'qwen/qwen3-coder:free',
-  isFree: true,
-},
+const CATEGORY_COLORS: Record<string, string> = {
+  // ... existentes ...
+  conversas: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',  // ← NOVO
+};
 ```
 
-### Nova Ordem de Fallback (15 provedores)
+### Arquivo 2: `src/components/admin/ai-agents/AIAgentTrainingFormDialog.tsx`
+Adicionar categoria ao seletor:
 
-1. Lovable AI (Gemini 3 Flash)
-2. Groq (Llama 3.3 70B)
-3. DeepSeek (API direta)
-4. Cerebras (Llama 3.3 70B)
-5. SambaNova (Llama 3.1 70B)
-6. **OpenRouter DeepSeek R1** ← NOVO
-7. **OpenRouter Kimi K2** ← NOVO
-8. **OpenRouter Llama 70B** ← NOVO
-9. **OpenRouter Llama 405B** ← NOVO
-10. **OpenRouter Gemma 27B** ← NOVO
-11. **OpenRouter Mistral Small** ← NOVO
-12. **OpenRouter Qwen3 Coder** ← NOVO
-13. Kimi (API direta)
-14. Google AI Studio
-15. OpenRouter Gemini (modelo atual)
+```typescript
+const CATEGORIES = [
+  // ... existentes ...
+  { value: 'conversas', label: 'Conversas', description: 'Gerado a partir de conversas de operadores' },
+];
+```
 
-## Benefícios
+### Arquivo 3: `src/components/admin/ai-agents/ConversationTrainingGenerator.tsx`
+Melhorar tratamento de erros no `handleSave`:
 
-- **7 novos modelos gratuitos** usando a mesma chave OpenRouter
-- Inclui **DeepSeek R1** e **Kimi K2** que você mencionou
-- Modelos de 24B a 405B parâmetros para diferentes níveis de qualidade
-- Todos usam `OPENROUTER_API_KEY` já configurada
-- Maior resiliência contra rate limits (cada modelo tem quota separada)
+```typescript
+const handleSave = async () => {
+  // ... validações existentes ...
 
-## Próximos Passos
+  try {
+    const { data, error } = await supabase.from('ai_agents_training').insert({...}).select();
 
-1. Atualizar o arquivo `index.ts` com os novos provedores
-2. Fazer deploy da edge function
-3. Testar a geração de treinamento
+    if (error) throw error;
+    
+    if (!data || data.length === 0) {
+      toast.error('Erro ao salvar: verifique suas permissões de administrador');
+      return;
+    }
 
+    toast.success('Treinamento salvo com sucesso!');
+    // ... limpar estado ...
+  } catch (err: any) {
+    console.error('Erro ao salvar treinamento:', err);
+    if (err?.code === '42501') {
+      toast.error('Sem permissão para salvar. Contate um administrador.');
+    } else {
+      toast.error('Erro ao salvar treinamento');
+    }
+  } finally {
+    setIsSaving(false);
+  }
+};
+```
+
+## Resumo das Alterações
+
+| Arquivo | Mudança |
+|---------|---------|
+| `AIAgentTrainingList.tsx` | Adicionar 'conversas' em `CATEGORY_LABELS` e `CATEGORY_COLORS` |
+| `AIAgentTrainingFormDialog.tsx` | Adicionar 'conversas' no array `CATEGORIES` |
+| `ConversationTrainingGenerator.tsx` | Melhorar tratamento de erros + usar `.select()` para detectar falhas de RLS |
+
+## Resultado Esperado
+
+1. Treinamentos salvos com categoria 'conversas' aparecerão com badge amarela
+2. Erros de permissão serão exibidos claramente ao usuário
+3. O usuário saberá se precisa contatar um administrador para obter permissões
