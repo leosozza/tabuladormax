@@ -92,6 +92,13 @@ import { TagBadge } from "./TagBadge";
 import { PriorityBadge } from "./PrioritySelector";
 import { InvitedBadge } from "./InvitedBadge";
 import { InvitedConversationsSection } from "./InvitedConversationsSection";
+import { AlertTriangle } from "lucide-react";
+
+// Normalize phone for comparisons (remove non-digits)
+const normalizePhone = (phone: string | null): string => {
+  if (!phone) return '';
+  return phone.replace(/\D/g, '');
+};
 
 // Deal status display config
 const DEAL_STATUS_CONFIG = {
@@ -248,7 +255,12 @@ export function AdminConversationList({
   const { data: myInvitedConversations = [] } = useMyInvitedConversations();
   
   // Fetch full invited conversations (for dedicated section)
-  const { data: myInvitedConversationsFull = [] } = useMyInvitedConversationsFull();
+  const { 
+    data: myInvitedConversationsFull = [], 
+    isLoading: isLoadingInvited, 
+    isError: isInvitedError, 
+    refetch: refetchInvited 
+  } = useMyInvitedConversationsFull();
   
   // Create a map for quick lookup
   const invitedConversationsMap = useMemo(() => {
@@ -267,14 +279,14 @@ export function AdminConversationList({
     return `${phone}-${bitrix}` || 'unknown';
   };
 
-  // Merge invited conversations into main list (avoiding duplicates)
+  // Merge invited conversations into main list + dedupe by normalized phone + add pinned item
   const mergedConversations = useMemo(() => {
-    // Create a set of existing conversation keys for quick lookup
-    const existingKeys = new Set(conversations.map(c => getConversationKey(c)));
+    // Create a set of existing conversation keys (normalized phone) for quick lookup
+    const existingNormalizedPhones = new Set(conversations.map(c => normalizePhone(c.phone_number)));
     
-    // Convert invited conversations that are NOT already in the main list
+    // Convert invited conversations that are NOT already in the main list (by normalized phone)
     const invitedAsAdmin: AdminConversation[] = myInvitedConversationsFull
-      .filter(inv => !existingKeys.has(`${inv.phone_number}-${inv.bitrix_id || ''}`))
+      .filter(inv => !existingNormalizedPhones.has(normalizePhone(inv.phone_number)))
       .map(inv => ({
         phone_number: inv.phone_number,
         bitrix_id: inv.bitrix_id,
@@ -300,17 +312,51 @@ export function AdminConversationList({
         maxsystem_id: null,
       }));
     
-    // Merge and sort by last_message_at (most recent first)
-    return [...conversations, ...invitedAsAdmin].sort((a, b) => {
+    // Combine all conversations
+    let combined = [...conversations, ...invitedAsAdmin];
+    
+    // Deduplicate by normalized phone - keep the one with most recent last_message_at
+    const phoneToConv = new Map<string, AdminConversation>();
+    combined.forEach(conv => {
+      const normPhone = normalizePhone(conv.phone_number);
+      const existing = phoneToConv.get(normPhone);
+      if (!existing) {
+        phoneToConv.set(normPhone, conv);
+      } else {
+        // Keep the one with more recent last_message_at
+        const existingTime = existing.last_message_at ? new Date(existing.last_message_at).getTime() : 0;
+        const newTime = conv.last_message_at ? new Date(conv.last_message_at).getTime() : 0;
+        if (newTime > existingTime) {
+          phoneToConv.set(normPhone, conv);
+        }
+      }
+    });
+    
+    let dedupedList = Array.from(phoneToConv.values());
+    
+    // Check if selectedConversation is in the list (by normalized phone)
+    // If not, add it as "pinned" at the top
+    if (selectedConversation) {
+      const selectedNormPhone = normalizePhone(selectedConversation.phone_number);
+      const existsInList = dedupedList.some(c => normalizePhone(c.phone_number) === selectedNormPhone);
+      if (!existsInList) {
+        // Add selected as pinned at the beginning
+        dedupedList = [selectedConversation, ...dedupedList];
+      }
+    }
+    
+    // Sort by last_message_at (most recent first)
+    return dedupedList.sort((a, b) => {
       const dateA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
       const dateB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
       return dateB - dateA;
     });
-  }, [conversations, myInvitedConversationsFull]);
+  }, [conversations, myInvitedConversationsFull, selectedConversation]);
 
   const isSelected = (conv: AdminConversation) => {
     if (!selectedConversation) return false;
-    return getConversationKey(conv) === getConversationKey(selectedConversation);
+    // Compare by normalized phone for more reliable matching
+    return normalizePhone(conv.phone_number) === normalizePhone(selectedConversation.phone_number);
   };
 
   const formatShortTime = (dateStr: string | null) => {
@@ -536,11 +582,30 @@ export function AdminConversationList({
       </div>
 
       {/* Invited Conversations Section - Always visible at top */}
-      <InvitedConversationsSection
-        invitedConversations={myInvitedConversationsFull}
-        onSelectConversation={onSelectConversation}
-        selectedConversation={selectedConversation}
-      />
+      {isLoadingInvited ? (
+        <div className="p-3 border-b bg-purple-50 dark:bg-purple-900/20">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-4" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </div>
+      ) : isInvitedError ? (
+        <div className="p-3 border-b bg-red-50 dark:bg-red-900/20 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
+            <AlertTriangle className="h-4 w-4" />
+            <span>Erro ao carregar conversas convidadas</span>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => refetchInvited()}>
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <InvitedConversationsSection
+          invitedConversations={myInvitedConversationsFull}
+          onSelectConversation={onSelectConversation}
+          selectedConversation={selectedConversation}
+        />
+      )}
 
       {/* Conversation List */}
       <ScrollArea className="flex-1 min-h-0">
