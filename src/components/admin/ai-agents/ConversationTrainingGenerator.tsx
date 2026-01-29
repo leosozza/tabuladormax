@@ -14,6 +14,7 @@ import { format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import {
+  useOperatorsWithConversations,
   useOperatorConversations,
   useConversationMessages,
 } from '@/hooks/useOperatorConversations';
@@ -42,6 +43,17 @@ export function ConversationTrainingGenerator({ agents }: ConversationTrainingGe
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
 
   const { data: users, isLoading: loadingUsers } = useSystemUsers();
+  const { data: operatorStats } = useOperatorsWithConversations();
+  
+  // Criar mapa de contagem de mensagens por nome
+  const messageCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    operatorStats?.forEach((op) => {
+      map.set(op.sender_name, op.message_count);
+    });
+    return map;
+  }, [operatorStats]);
+  
   const selectedUser = useMemo(() => users?.find((u) => u.id === selectedUserId), [users, selectedUserId]);
   const selectedOperatorName = selectedUser?.display_name || null;
 
@@ -196,11 +208,15 @@ export function ConversationTrainingGenerator({ agents }: ConversationTrainingGe
                   <SelectValue placeholder="Escolha um operador..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {users?.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.display_name || user.email || 'Sem nome'}
-                    </SelectItem>
-                  ))}
+                  {users?.map((user) => {
+                    const displayName = user.display_name || user.email || 'Sem nome';
+                    const msgCount = messageCountMap.get(user.display_name || '') || 0;
+                    return (
+                      <SelectItem key={user.id} value={user.id}>
+                        {displayName} {msgCount > 0 && <span className="text-muted-foreground">({msgCount} msgs)</span>}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             )}
