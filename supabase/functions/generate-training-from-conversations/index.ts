@@ -47,6 +47,13 @@ const AI_PROVIDERS: AIProvider[] = [
     isFree: true,
   },
   {
+    name: 'Kimi',
+    baseUrl: 'https://api.moonshot.ai/v1/chat/completions',
+    apiKeyEnv: 'KIMI_API_KEY',
+    model: 'moonshot-v1-8k',
+    isFree: false,
+  },
+  {
     name: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
     apiKeyEnv: 'OPENROUTER_API_KEY',
