@@ -1,120 +1,185 @@
 
 
-# Correção: Mostrar Todos Usuários do Sistema na Seleção de Operador
+# Implementar Fallback de Provedores de IA
 
 ## Problema Identificado
 
-Na aba "Conversas" da página `/admin/ai-agents`, o seletor de operador não mostra Fabio, Paulo e outros usuários do sistema.
+A Edge Function `generate-training-from-conversations` usa **apenas Lovable AI** e retorna erro 402 quando os créditos acabam, ao invés de tentar outros provedores disponíveis.
 
-**Causa raiz**: O componente `ConversationTrainingGenerator` usa o hook `useOperatorsWithConversations()` que busca operadores **apenas da tabela `whatsapp_messages`** (quem já enviou mensagens). Isso significa:
-- Operadores aparecem com nomes de automação (`Automação Bitrix`, `tele-xxx@maxfama.internal`)
-- Usuários que nunca enviaram mensagem não aparecem
-- Não usa a tabela `profiles` como fonte de verdade
+**Provedores disponíveis no sistema:**
+| Provedor | API Key Configurada | Gratuito |
+|----------|---------------------|----------|
+| Lovable AI | ✅ LOVABLE_API_KEY | ✅ (com limite) |
+| Groq | ✅ GROQ_API_KEY | ✅ |
+| OpenRouter | ✅ OPENROUTER_API_KEY | ❌ (pago) |
 
 ## Solução
 
-Modificar o componente para buscar usuários da tabela `profiles` (todos os usuários do sistema) e depois cruzar com as mensagens para mostrar estatísticas.
-
-### Fluxo Proposto
+Implementar um sistema de **fallback automático** na Edge Function que tenta provedores alternativos quando o principal falha (402/429):
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ ANTES (problemático):                                        │
+│ FLUXO COM FALLBACK:                                          │
 │                                                              │
-│ useOperatorsWithConversations()                             │
-│ └── SELECT sender_name FROM whatsapp_messages               │
-│     └── Retorna: "Automação Bitrix", "tele-xxx", etc.      │
-│     └── Fabio/Paulo só aparecem se mandaram msg com         │
-│         exatamente o mesmo display_name                     │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ DEPOIS (corrigido):                                          │
+│ 1. Tentar Lovable AI (google/gemini-3-flash-preview)        │
+│    ├── Sucesso → Retornar resposta                          │
+│    └── Erro 402/429 → Tentar próximo                        │
 │                                                              │
-│ Novo hook: useSystemUsers()                                 │
-│ └── SELECT id, display_name FROM profiles                   │
-│     └── Retorna: Fabio, Paulo Henrique, Leonardo, etc.     │
+│ 2. Tentar Groq (llama-3.3-70b-versatile) [GRATUITO]         │
+│    ├── Sucesso → Retornar resposta                          │
+│    └── Erro → Tentar próximo                                │
 │                                                              │
-│ Após selecionar usuário:                                    │
-│ └── Buscar conversas WHERE sender_name = display_name       │
-│     OU usar profile_id se disponível                        │
+│ 3. Tentar OpenRouter (google/gemini-2.0-flash-exp:free)     │
+│    ├── Sucesso → Retornar resposta                          │
+│    └── Erro → Retornar erro final                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Alterações Necessárias
+## Arquivos a Modificar
 
-### 1. Criar novo hook `useSystemUsers`
+| Arquivo | Alteração |
+|---------|-----------|
+| `supabase/functions/generate-training-from-conversations/index.ts` | Adicionar lógica de fallback entre provedores |
 
-Criar um hook simples que busca todos os usuários da tabela `profiles`:
+---
+
+## Implementação Detalhada
+
+### Estrutura de Provedores
 
 ```typescript
-// src/hooks/useSystemUsers.ts
-export function useSystemUsers() {
-  return useQuery({
-    queryKey: ['system-users'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, display_name, email')
-        .order('display_name', { ascending: true });
-      
-      if (error) throw error;
-      return data || [];
+interface AIProvider {
+  name: string;
+  baseUrl: string;
+  apiKeyEnv: string;
+  model: string;
+  isFree: boolean;
+}
+
+const AI_PROVIDERS: AIProvider[] = [
+  {
+    name: 'Lovable AI',
+    baseUrl: 'https://ai.gateway.lovable.dev/v1/chat/completions',
+    apiKeyEnv: 'LOVABLE_API_KEY',
+    model: 'google/gemini-3-flash-preview',
+    isFree: true,
+  },
+  {
+    name: 'Groq',
+    baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
+    apiKeyEnv: 'GROQ_API_KEY',
+    model: 'llama-3.3-70b-versatile',
+    isFree: true,
+  },
+  {
+    name: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    apiKeyEnv: 'OPENROUTER_API_KEY',
+    model: 'google/gemini-2.0-flash-exp:free',
+    isFree: false,
+  },
+];
+```
+
+### Função de Chamada com Retry
+
+```typescript
+async function callAIWithFallback(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number = 4000
+): Promise<{ content: string; provider: string }> {
+  const errors: string[] = [];
+
+  for (const provider of AI_PROVIDERS) {
+    const apiKey = Deno.env.get(provider.apiKeyEnv);
+    if (!apiKey) {
+      console.log(`⏭️ ${provider.name}: API key não configurada, pulando...`);
+      continue;
     }
-  });
+
+    try {
+      console.log(`🤖 Tentando ${provider.name} (${provider.model})...`);
+      
+      const response = await fetch(provider.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: provider.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          max_tokens: maxTokens,
+        }),
+      });
+
+      if (response.status === 402 || response.status === 429) {
+        const errorText = await response.text();
+        console.log(`⚠️ ${provider.name} retornou ${response.status}, tentando próximo...`);
+        errors.push(`${provider.name}: ${response.status}`);
+        continue; // Tentar próximo provedor
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ ${provider.name} erro:`, response.status, errorText);
+        errors.push(`${provider.name}: ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || '';
+      
+      if (content) {
+        console.log(`✅ Sucesso com ${provider.name}`);
+        return { content, provider: provider.name };
+      }
+    } catch (err) {
+      console.error(`❌ Erro ao chamar ${provider.name}:`, err);
+      errors.push(`${provider.name}: ${err.message}`);
+    }
+  }
+
+  throw new Error(`Todos os provedores falharam: ${errors.join(', ')}`);
 }
 ```
 
-### 2. Modificar `ConversationTrainingGenerator.tsx`
-
-- Trocar `useOperatorsWithConversations()` por `useSystemUsers()`
-- Ajustar o seletor para usar `id` ao invés de `sender_name`
-- Atualizar `useOperatorConversations` para aceitar o `display_name` do usuário selecionado
-- Manter compatibilidade com o fluxo existente
-
-```tsx
-// Antes
-const { data: operators } = useOperatorsWithConversations();
-const [selectedOperator, setSelectedOperator] = useState<string | null>(null);
-
-// Depois
-const { data: users } = useSystemUsers();
-const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-const selectedUser = users?.find(u => u.id === selectedUserId);
-```
-
-### 3. Atualizar o hook `useOperatorConversations`
-
-Modificar para aceitar tanto `display_name` quanto uma lista de possíveis nomes do operador (para cobrir variações):
+### Uso na Função Principal
 
 ```typescript
-export function useOperatorConversations(
-  operatorDisplayName: string | null,
-  startDate?: Date,
-  endDate?: Date
-) {
-  // Buscar mensagens onde sender_name = display_name
-  // OU sender_name ILIKE display_name (para variações)
-}
+// Substituir chamada direta por:
+const { content: generatedTraining, provider } = await callAIWithFallback(
+  systemPrompt,
+  userPrompt,
+  4000
+);
+
+console.log(`Treinamento gerado com ${provider}`);
+
+return new Response(
+  JSON.stringify({
+    training: generatedTraining.trim(),
+    conversations_analyzed: conversations.length,
+    operator_name: operatorName,
+    ai_provider_used: provider, // Novo campo
+  }),
+  { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+);
 ```
-
----
-
-## Arquivos a Modificar/Criar
-
-| Arquivo | Ação |
-|---------|------|
-| `src/hooks/useSystemUsers.ts` | Criar novo hook |
-| `src/components/admin/ai-agents/ConversationTrainingGenerator.tsx` | Trocar fonte de operadores para `profiles` |
-| `src/hooks/useOperatorConversations.ts` | Ajustar para buscar por `display_name` |
 
 ---
 
 ## Resultado Esperado
 
-1. O seletor "Selecione o Operador" mostrará **todos os usuários do sistema** (Fabio, Paulo Henrique, Leonardo, etc.)
-2. Ao selecionar um usuário, o sistema buscará conversas onde `sender_name` corresponde ao `display_name` do usuário
-3. Automações (`Automação Bitrix`, `Flow Automático`, `tele-xxx`) não aparecem no seletor de operadores humanos
+1. Se Lovable AI tiver créditos → usa Lovable AI
+2. Se Lovable AI retornar 402/429 → tenta Groq (gratuito)
+3. Se Groq falhar → tenta OpenRouter
+4. Resposta inclui qual provedor foi usado
+5. Logs mostram a tentativa de cada provedor
 
