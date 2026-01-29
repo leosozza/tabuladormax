@@ -1,184 +1,108 @@
 
+## Objetivo (o que você espera ver)
+Quando você clica numa notificação (ex.: Daniele), a tela deve ficar como a “imagem 1”:
+- conversa aberta na direita
+- e a mesma conversa aparecendo/selecionada na lista da esquerda (sem precisar pesquisar)
 
-# Correção: Seção de Conversas Convidadas Não Aparece e Duplicatas
-
-## Problemas Identificados
-
-### Problema 1: RPC Quebrada - Seção "Conversas Convidadas" Nunca Carrega
-A função `get_my_invited_conversations_full` tenta acessar a coluna `s.lead_etapa` que **não existe** na view materializada `mv_whatsapp_conversation_stats`.
-
-**Erro no console:**
-```
-Error fetching full invited conversations: 
-  "column s.lead_etapa does not exist"
-```
-
-**Colunas disponíveis na view:**
-- phone_number, bitrix_id, last_message_at, unread_count, total_messages
-- last_message_preview, last_message_direction, response_status
-- is_window_open, is_closed
-
-**Colunas que a RPC tenta usar mas NÃO existem:**
-- `lead_etapa` ❌
-
-### Problema 2: Duplicatas na Lista de Convidados
-O telefone `5511967762633` tem duas entradas na `mv_whatsapp_conversation_stats`:
-- `bitrix_id: 1028996` (histórico antigo)
-- `bitrix_id: 134546` (lead Daniele - atual)
-
-O convite foi feito para o `bitrix_id: 134546`, portanto apenas UMA entrada deveria aparecer. Contudo, se por algum erro foram criados múltiplos convites, apareceriam duplicatas.
-
-### Problema 3: Notificação Abre Chat Mas Não Seleciona na Lista
-Quando o operador clica na notificação:
-1. `handleNotificationClick` é chamado com `phoneNumber` e `bitrixId`
-2. Abre o chat corretamente ✓
-3. **Mas a seção "Conversas Convidadas" não aparece** porque a RPC está falhando!
+Além disso, você quer parar de ver conversas duplicadas para o mesmo telefone.
 
 ---
 
-## Solução Proposta
+## Diagnóstico (por que “não resolveu”)
+Eu confirmei no backend que a função usada para montar a seção/lista de “Conversas Convidadas” está quebrando com este erro:
 
-### Parte 1: Corrigir a RPC
+- `column l.stage_id does not exist`
 
-Atualizar a função `get_my_invited_conversations_full` para buscar `lead_etapa` da tabela `leads` ao invés da view materializada:
+Isso acontece porque a tabela `leads` **não tem** a coluna `stage_id`. Ela tem `etapa`.
 
-```sql
-CREATE OR REPLACE FUNCTION get_my_invited_conversations_full(p_operator_id uuid)
-RETURNS TABLE (
-  phone_number text,
-  bitrix_id text,
-  priority integer,
-  inviter_name text,
-  invited_at timestamptz,
-  invited_by uuid,
-  lead_name text,
-  last_message_at timestamptz,
-  last_message_preview text,
-  is_window_open boolean,
-  unread_count bigint,
-  lead_etapa text,
-  response_status text
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT 
-    p.phone_number,
-    p.bitrix_id,
-    COALESCE(p.priority, 0)::integer as priority,
-    inviter.display_name as inviter_name,
-    p.invited_at,
-    p.invited_by,
-    COALESCE(l.name, p.phone_number) as lead_name,
-    s.last_message_at,
-    s.last_message_preview,
-    COALESCE(s.is_window_open, false) as is_window_open,
-    COALESCE(s.unread_count, 0) as unread_count,
-    l.stage_id as lead_etapa,  -- ← Vem do leads, não da view!
-    s.response_status::text
-  FROM whatsapp_conversation_participants p
-  LEFT JOIN profiles inviter ON inviter.id = p.invited_by
-  LEFT JOIN mv_whatsapp_conversation_stats s 
-    ON s.phone_number = p.phone_number 
-    AND (s.bitrix_id = p.bitrix_id OR (s.bitrix_id IS NULL AND p.bitrix_id IS NULL))
-  LEFT JOIN leads l ON l.id = CASE 
-    WHEN p.bitrix_id IS NOT NULL AND p.bitrix_id ~ '^[0-9]+$' 
-    THEN p.bitrix_id::bigint 
-    ELSE NULL 
-  END
-  WHERE p.operator_id = p_operator_id
-  ORDER BY p.priority DESC NULLS LAST, s.last_message_at DESC NULLS LAST;
-END;
-$$;
-```
+Enquanto essa função falha:
+- `useMyInvitedConversationsFull()` volta `[]`
+- a seção “Conversas Convidadas” fica vazia
+- o merge que eu fiz para inserir as convidadas na lista principal também não adiciona nada
+- resultado: o chat abre (porque o clique da notificação seta `selectedConversation`), mas **a conversa não aparece na lista** (lado esquerdo)
 
-### Parte 2: Adicionar Constraint de Unicidade (Opcional)
-
-Para evitar convites duplicados no futuro, adicionar constraint na tabela `whatsapp_conversation_participants`:
-
-```sql
--- Evitar convites duplicados para a mesma conversa/operador
-CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_participant 
-ON whatsapp_conversation_participants(phone_number, COALESCE(bitrix_id, ''), operator_id);
-```
-
-### Parte 3: Limpar Dados Duplicados Existentes
-
-```sql
--- Remover participantes duplicados mantendo apenas o mais recente
-DELETE FROM whatsapp_conversation_participants
-WHERE id IN (
-  SELECT id FROM (
-    SELECT id, 
-           ROW_NUMBER() OVER (
-             PARTITION BY phone_number, COALESCE(bitrix_id, ''), operator_id 
-             ORDER BY invited_at DESC
-           ) as rn
-    FROM whatsapp_conversation_participants
-  ) sub
-  WHERE rn > 1
-);
-```
+Eu também confirmei via query que `leads` tem `etapa`:
+- `leads.etapa` existe ✅
+- `leads.stage_id` não existe ❌
 
 ---
 
-## Arquivos a Modificar
+## O que vou implementar (passo a passo)
 
-| Arquivo/Recurso | Alteração |
-|-----------------|-----------|
-| Nova Migration SQL | Corrigir RPC `get_my_invited_conversations_full` |
-| Nova Migration SQL | Adicionar constraint de unicidade |
-| Nova Migration SQL | Limpar dados duplicados |
+### 1) Corrigir a função do backend (causa raiz)
+Criar uma nova migração para **recriar** `get_my_invited_conversations_full(...)` corrigindo:
+- trocar `l.stage_id` → `l.etapa`
+- parar de depender de `profiles` para `inviter_name` (a própria `whatsapp_conversation_participants` já tem `inviter_name`)
+- (importante) **blindar segurança**: hoje a função aceita `p_operator_id` e está `SECURITY DEFINER`; isso permite alguém chamar com outro id. Vou validar dentro da função:
+  - se `p_operator_id != auth.uid()` → erro (“forbidden”)  
+  (assim mantém compatibilidade com o frontend atual, mas fica seguro)
 
----
+Resultado esperado: `useMyInvitedConversationsFull()` volta dados reais e a UI passa a ter informação para renderizar a conversa na lista.
 
-## Fluxo Corrigido
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ ANTES (problema):                                                │
-│                                                                  │
-│ Operador clica em notificação                                   │
-│ ├── Chat abre corretamente ✓                                    │
-│ ├── RPC falha: "column s.lead_etapa does not exist"             │
-│ └── Seção "Conversas Convidadas" fica VAZIA ✗                   │
-│                                                                  │
-│ Resultado: Chat está aberto, mas a conversa não aparece         │
-│ selecionada na lista lateral                                    │
-└─────────────────────────────────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ DEPOIS (corrigido):                                              │
-│                                                                  │
-│ Operador clica em notificação                                   │
-│ ├── Chat abre corretamente ✓                                    │
-│ ├── RPC retorna dados corretamente ✓                            │
-│ ├── Seção "Conversas Convidadas" carrega ✓                      │
-│ └── Conversa aparece selecionada com destaque ✓                 │
-│                                                                  │
-│ Resultado: Layout esperado (Imagem 1 do usuário)                │
-└─────────────────────────────────────────────────────────────────┘
-```
+Checklist técnico do SQL:
+- `SET search_path = public`
+- `lead_etapa` vindo de `l.etapa`
+- joins tolerantes a `bitrix_id` nulo
+- ordenar por prioridade e `last_message_at`
 
 ---
 
-## Impacto Esperado
+### 2) Fazer a lista da esquerda “nunca falhar silenciosamente”
+Hoje, quando a RPC falha, o hook apenas dá `console.error` e retorna `[]`, e visualmente parece que “não existe conversa convidada”.
 
-1. **Seção "Conversas Convidadas" funciona**: RPC retorna dados corretamente
-2. **Sem duplicatas**: Constraint impede convites duplicados
-3. **Seleção visual correta**: Conversa aparece destacada quando clicada
-4. **Performance mantida**: Dados de etapa vêm do leads já existente no JOIN
+Vou ajustar o frontend para:
+- exibir um aviso discreto na lista (ex.: “Não foi possível carregar conversas convidadas. Atualize.”) quando `useMyInvitedConversationsFull` retornar erro
+- mostrar um skeleton/loading para a seção convidada enquanto carrega
+Isso reduz a sensação de “cliquei e sumiu” e ajuda no diagnóstico caso aconteça de novo.
 
 ---
 
-## Teste de Validação
+### 3) Garantir que ao clicar na notificação a conversa apareça na lista imediatamente
+Mesmo com a RPC funcionando, pode existir um intervalo de 0.5–2s até a conversa entrar na lista (carregamento/paginação).
 
-Após implementação:
-1. Paulo convida Vitória para uma conversa
-2. Vitória recebe notificação ✓
-3. Vitória clica na notificação
-4. Chat abre E conversa aparece na seção "Convidadas" com destaque roxo
-5. Apenas UMA entrada para cada conversa (sem duplicatas)
+Vou implementar uma garantia na `AdminConversationList`:
+- se existe `selectedConversation` e ela **não está** em `mergedConversations`, a lista renderiza um item “fixado” no topo (pinned) representando a conversa atual, até os dados reais carregarem.
+Assim: clicou na notificação → imediatamente aparece à esquerda, selecionada.
 
+Também vou normalizar o telefone (remover caracteres não numéricos) nas comparações/chaves, para evitar casos em que um lado tem `+55 (11)...` e o outro `5511...`.
+
+---
+
+### 4) Duplicidade por mesmo telefone (sem quebrar o chat)
+Hoje a duplicidade é “real” na origem porque `mv_whatsapp_conversation_stats` agrupa por `(phone_number, bitrix_id)`.
+
+Implementarei uma deduplicação **na UI** (mais rápida e sem mexer em lógica pesada de estatísticas):
+- na renderização da lista principal, agrupar por `phone_number normalizado`
+- manter apenas a entrada com `last_message_at` mais recente
+- manter `bitrix_id`/lead info da entrada mais recente (é o que você espera ver no dia a dia)
+
+Obs.: isso vai remover as duplicatas visuais. Se no futuro você quiser acessar o “histórico” do telefone com outro lead, a gente pode adicionar um botão “Ver histórico (2)” — mas primeiro vamos cumprir o esperado: “não duplicar”.
+
+---
+
+## Como vou validar (teste de ponta a ponta)
+1) Entrar em `/whatsapp`
+2) Receber uma notificação de convite (ex.: Daniele)
+3) Clicar na notificação:
+   - chat abre à direita
+   - imediatamente aparece item correspondente na lista à esquerda (selecionado)
+4) Confirmar que:
+   - a seção “Conversas Convidadas” aparece com a Daniele
+   - a Daniele também aparece na lista principal (sem precisar pesquisar)
+   - não aparecem duas entradas para o mesmo telefone na lista
+
+---
+
+## Arquivos/partes que serão alteradas
+Backend:
+- Nova migração SQL: corrigir `get_my_invited_conversations_full` (stage_id → etapa) + segurança
+
+Frontend:
+- `src/hooks/useMyInvitedConversationsFull.ts` (expor/propagar estado de erro/loading de forma útil)
+- `src/components/whatsapp/AdminConversationList.tsx` (aviso de erro, pinned item quando aberto por notificação, normalização de telefone, dedupe por telefone)
+- (se necessário) pequenos ajustes em `InvitedConversationsSection.tsx` para normalização/seleção
+
+---
+
+## Resultado esperado
+Depois disso, “clicar na notificação” vai sempre produzir o layout que você quer (lista + conversa) e a conversa convidada vai aparecer na lista sem precisar buscar, além de remover a duplicidade visual por telefone.
