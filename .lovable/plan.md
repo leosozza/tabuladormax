@@ -1,68 +1,60 @@
 
-# Correção: Central de Atendimento com Mensagens Misturadas e Faltando
+# Correção: Operadores Convidados Não Recebem Notificações e Mensagens
 
-## Problemas Identificados
+## Problema Relatado
+O administrador Paulo convidou a supervisora Vitória para uma conversa, mas ela:
+1. **Não recebeu a notificação** de convite
+2. **Não consegue ver a conversa** para a qual foi convidada
 
-### Problema 1: Mensagens de Outros Clientes Aparecendo
-No hook `useWhatsAppMessages.ts`, a subscription realtime tem uma falha crítica:
+## Análise do Problema
 
+### Dados no Banco (Corretos)
+| Verificação | Resultado |
+|-------------|-----------|
+| Convite criado | ✅ `whatsapp_conversation_participants` tem registro |
+| Notificação criada | ✅ 3 notificações para Vitória (operator_id correto) |
+| Mapeamento de usuário | ✅ Vitória autenticada (last_sign_in 12:18) |
+| RLS configurado | ✅ Políticas permitem SELECT por operator_id |
+| Realtime habilitado | ✅ Tabela na publicação supabase_realtime |
+
+### Causa Raiz: Portal Telemarketing Não Suporta Convites
+
+O `PortalTelemarketingWhatsApp.tsx` (usado pela Vitória como supervisora) tem duas limitações críticas:
+
+**1. Notificações dependem de sessão Supabase ativa**
 ```typescript
-filter: bitrixId 
-  ? `bitrix_id=eq.${bitrixId}` 
-  : conversationId 
-    ? `conversation_id=eq.${conversationId}` 
-    : undefined,  // ← PROBLEMA! Sem filtro = recebe TUDO
+// useWhatsAppNotifications.ts linha 23-24
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) return []; // ← Retorna vazio se sessão expirada!
 ```
 
-Quando a conversa é identificada apenas por `phoneNumber` (sem `bitrixId` ou `conversationId`), o filtro é `undefined`. Isso faz com que o Supabase Realtime envie **todas** as mensagens de **todas** as conversas para esse cliente.
+**2. Conversas convidadas não aparecem na lista**
+```typescript
+// useTelemarketingConversations.ts linha 187-188
+.eq('bitrix_telemarketing_id', bitrixTelemarketingId)
+// ← Filtra apenas leads atribuídos, IGNORA convites!
+```
 
-### Problema 2: Mensagens Não Chegando (indireto)
-Como mensagens de outras conversas estão chegando, o operador pode não perceber as mensagens corretas, ou o componente pode estar em estado inconsistente.
+O hook `useMyInvitedConversations` existe mas é usado **apenas** na Central de Atendimento admin (`AdminConversationList.tsx`), não no Portal Telemarketing.
 
 ---
 
-## Solução
+## Solução Proposta
 
-### Correção do Filtro Realtime
+### Parte 1: Mostrar Conversas Convidadas no Portal Telemarketing
 
-Modificar a subscription para **sempre** incluir um filtro por `phone_number`:
+Modificar `PortalTelemarketingWhatsApp.tsx` para:
+1. Importar e usar `useMyInvitedConversations`
+2. Mesclar conversas atribuídas com conversas convidadas
+3. Adicionar indicador visual de "Convidado por [nome]"
+4. Adicionar seção/filtro para conversas convidadas
 
-```typescript
-filter: phoneNumber
-  ? `phone_number=eq.${phoneNumber.replace(/\D/g, '')}`
-  : bitrixId 
-    ? `bitrix_id=eq.${bitrixId}` 
-    : conversationId 
-      ? `conversation_id=eq.${conversationId}` 
-      : undefined,
-```
+### Parte 2: Robustez nas Notificações
 
-### Validação Adicional no Handler
-
-Mesmo com o filtro correto, adicionar validação no handler para garantir que a mensagem pertence à conversa atual:
-
-```typescript
-if (payload.eventType === 'INSERT') {
-  const newMsg = payload.new as WhatsAppMessage;
-  
-  // Validar que a mensagem pertence à conversa atual
-  const normalizedPhone = phoneNumber?.replace(/\D/g, '');
-  const msgPhone = newMsg.phone_number?.replace(/\D/g, '');
-  
-  if (normalizedPhone && msgPhone !== normalizedPhone) {
-    console.log('⚠️ Mensagem ignorada: telefone diferente', { expected: normalizedPhone, received: msgPhone });
-    return;
-  }
-  
-  // Evitar duplicatas
-  setMessages(prev => {
-    if (prev.some(m => m.id === newMsg.id || m.gupshup_message_id === newMsg.gupshup_message_id)) {
-      return prev;
-    }
-    return [...prev, newMsg];
-  });
-}
-```
+Modificar `useWhatsAppNotifications.ts` para:
+1. Tentar recuperar sessão automaticamente se expirada
+2. Log de diagnóstico quando usuário não está autenticado
+3. Fallback para buscar via agent_telemarketing_mapping se sessão falhar
 
 ---
 
@@ -70,47 +62,105 @@ if (payload.eventType === 'INSERT') {
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/hooks/useWhatsAppMessages.ts` | Corrigir filtro realtime + validação de mensagens |
+| `src/pages/portal-telemarketing/PortalTelemarketingWhatsApp.tsx` | Integrar conversas convidadas na lista |
+| `src/hooks/useTelemarketingConversations.ts` | Adicionar parâmetro opcional para incluir convites |
+| `src/hooks/useWhatsAppNotifications.ts` | Adicionar diagnóstico e fallback de sessão |
 
 ---
 
-## Detalhes Técnicos
-
-### Por que o problema ocorre?
-
-O Supabase Realtime permite filtros simples no formato `coluna=eq.valor`. Quando o filtro é `undefined`, a subscription recebe **todos** os eventos da tabela.
-
-A lógica atual prioriza `bitrixId` > `conversationId` > nada. Mas muitas conversas na Central de Atendimento são identificadas apenas por `phoneNumber`, especialmente conversas que:
-- Vieram de contatos sem lead cadastrado
-- Foram criadas antes da vinculação com Bitrix
-- Têm `bitrix_id` nulo na tabela de mensagens
-
-### Fluxo Corrigido
+## Fluxo Corrigido
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│ ANTES (bugado):                                                  │
+│ ANTES (quebrado):                                                │
 │                                                                  │
-│ Operador abre conversa com phone: 5511999998888                  │
-│ ├── bitrixId: undefined                                          │
-│ ├── conversationId: undefined                                    │
-│ └── filter: undefined ← RECEBE TODAS AS MENSAGENS!               │
+│ Paulo convida Vitória → Notificação criada no banco              │
+│                      → Vitória não vê (sessão expirada OU        │
+│                         hook não buscou convites)                │
 └─────────────────────────────────────────────────────────────────┘
               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ DEPOIS (corrigido):                                              │
 │                                                                  │
-│ Operador abre conversa com phone: 5511999998888                  │
-│ ├── phoneNumber: 5511999998888                                   │
-│ └── filter: phone_number=eq.5511999998888 ← APENAS ESSA CONVERSA│
+│ Paulo convida Vitória → Notificação criada + Realtime dispara    │
+│                      → Hook verifica sessão, tenta refresh       │
+│                      → Sino mostra badge com contagem            │
+│                      → Lista de conversas inclui "Convidadas"    │
+│                      → Vitória vê conversa com badge "Convidada" │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Impacto da Correção
+## Detalhes Técnicos
 
-1. **Mensagens de outros clientes**: Não aparecerão mais em conversas erradas
-2. **Performance**: Menos dados trafegando via WebSocket
-3. **Segurança**: Operadores só verão mensagens das conversas que abriram
-4. **UX**: Não será mais necessário sair e voltar para "limpar" mensagens incorretas
+### Integração de Conversas Convidadas
+
+```typescript
+// Em PortalTelemarketingWhatsApp.tsx
+import { useMyInvitedConversations } from '@/hooks/useMyInvitedConversations';
+
+// No componente:
+const { data: invitedConversations = [] } = useMyInvitedConversations();
+
+// Mesclar com a lista principal
+const allConversations = useMemo(() => {
+  const invitedAsConv = invitedConversations.map(inv => ({
+    lead_id: parseInt(inv.bitrix_id || '0', 10),
+    bitrix_id: inv.bitrix_id || '',
+    lead_name: `Conversa ${inv.phone_number}`,
+    phone_number: inv.phone_number,
+    // ... outros campos
+    isInvited: true,
+    inviterName: inv.inviter_name,
+    priority: inv.priority,
+  }));
+  
+  // Evitar duplicatas (já está na lista normal E foi convidado)
+  const existingPhones = new Set(conversations.map(c => c.phone_number));
+  const onlyInvited = invitedAsConv.filter(c => !existingPhones.has(c.phone_number));
+  
+  return [...conversations, ...onlyInvited];
+}, [conversations, invitedConversations]);
+```
+
+### Fallback de Sessão para Notificações
+
+```typescript
+// Em useWhatsAppNotifications.ts
+const { data: { user } } = await supabase.auth.getUser();
+
+if (!user) {
+  console.warn('[Notifications] No authenticated user, attempting session refresh...');
+  
+  // Tentar refresh
+  const { data: refreshData } = await supabase.auth.refreshSession();
+  
+  if (!refreshData?.session?.user) {
+    console.error('[Notifications] Session refresh failed - notifications will not load');
+    return [];
+  }
+  
+  // Usar usuário do refresh
+  return await fetchNotificationsFor(refreshData.session.user.id);
+}
+```
+
+---
+
+## Impacto Esperado
+
+1. **Notificações visíveis**: Vitória verá o sino com badge ao receber convites
+2. **Conversas acessíveis**: Conversas convidadas aparecerão na lista com destaque
+3. **Colaboração funcional**: Sistema de convites funcionará end-to-end no Portal
+4. **Diagnóstico melhorado**: Logs ajudarão a identificar problemas de sessão
+
+---
+
+## Teste de Validação
+
+Após implementação:
+1. Paulo convida Vitória para uma nova conversa
+2. Vitória deve ver badge no sino imediatamente
+3. Ao clicar, conversa deve aparecer na lista
+4. Conversa deve ter indicador "Convidada por Paulo"
