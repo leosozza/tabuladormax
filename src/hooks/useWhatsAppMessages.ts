@@ -1153,38 +1153,80 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   };
 
   // Subscription realtime para novas mensagens
+  // CORREÇÃO: Priorizar filtro por phone_number para evitar receber mensagens de outras conversas
   useEffect(() => {
     if (!bitrixId && !phoneNumber && !conversationId) return;
 
+    // Normalizar telefone para filtro
+    const normalizedPhone = phoneNumber?.replace(/\D/g, '');
+    
+    // IMPORTANTE: Priorizar phoneNumber no filtro para garantir que só recebemos mensagens
+    // da conversa atual. Antes, quando bitrixId e conversationId eram undefined,
+    // o filtro ficava undefined e recebia TODAS as mensagens da tabela!
+    const realtimeFilter = normalizedPhone
+      ? `phone_number=eq.${normalizedPhone}`
+      : bitrixId 
+        ? `bitrix_id=eq.${bitrixId}` 
+        : conversationId 
+          ? `conversation_id=eq.${conversationId}` 
+          : undefined;
+
+    logDebug('Setting up realtime subscription', { 
+      phoneNumber: normalizedPhone, 
+      bitrixId, 
+      conversationId, 
+      filter: realtimeFilter 
+    });
+
     const channel = supabase
-      .channel(`whatsapp-messages-${bitrixId || phoneNumber || conversationId}`)
+      .channel(`whatsapp-messages-${normalizedPhone || bitrixId || conversationId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'whatsapp_messages',
-          filter: bitrixId 
-            ? `bitrix_id=eq.${bitrixId}` 
-            : conversationId 
-              ? `conversation_id=eq.${conversationId}` 
-              : undefined,
+          filter: realtimeFilter,
         },
         (payload) => {
-          console.log('📨 Realtime update:', payload);
+          logDebug('📨 Realtime update received', { eventType: payload.eventType });
           
           if (payload.eventType === 'INSERT') {
             const newMsg = payload.new as WhatsAppMessage;
+            
+            // VALIDAÇÃO ADICIONAL: Verificar se a mensagem pertence à conversa atual
+            // Mesmo com filtro, adicionar validação extra como segurança
+            const msgPhone = newMsg.phone_number?.replace(/\D/g, '');
+            if (normalizedPhone && msgPhone && msgPhone !== normalizedPhone) {
+              logDebug('⚠️ Mensagem ignorada: telefone diferente', { 
+                expected: normalizedPhone, 
+                received: msgPhone 
+              });
+              return;
+            }
+            
             setMessages(prev => {
-              // Evitar duplicatas
-              if (prev.some(m => m.id === newMsg.id || m.gupshup_message_id === newMsg.gupshup_message_id)) {
+              // Evitar duplicatas por id ou gupshup_message_id
+              if (prev.some(m => m.id === newMsg.id || 
+                (newMsg.gupshup_message_id && m.gupshup_message_id === newMsg.gupshup_message_id))) {
+                logDebug('Mensagem duplicada ignorada', { id: newMsg.id });
                 return prev;
               }
+              logDebug('Nova mensagem adicionada', { id: newMsg.id, direction: newMsg.direction });
               return [...prev, newMsg];
             });
           } else if (payload.eventType === 'UPDATE') {
             const updatedMsg = payload.new as WhatsAppMessage;
-            const oldMsg = payload.old as Partial<WhatsAppMessage>;
+            
+            // VALIDAÇÃO: Verificar se a mensagem pertence à conversa atual
+            const msgPhone = updatedMsg.phone_number?.replace(/\D/g, '');
+            if (normalizedPhone && msgPhone && msgPhone !== normalizedPhone) {
+              logDebug('⚠️ Update ignorado: telefone diferente', { 
+                expected: normalizedPhone, 
+                received: msgPhone 
+              });
+              return;
+            }
             
             // Atualizar mensagem na lista
             setMessages(prev =>
@@ -1219,9 +1261,12 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        logDebug('Realtime subscription status', { status });
+      });
 
     return () => {
+      logDebug('Removing realtime channel');
       supabase.removeChannel(channel);
     };
   }, [bitrixId, phoneNumber, conversationId]);
