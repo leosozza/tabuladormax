@@ -1,6 +1,7 @@
 // ============================================
 // Gerar Treinamento de IA a partir de Conversas
 // Analisa padrões de atendimento de operadores
+// Com fallback automático entre provedores de IA
 // ============================================
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -11,8 +12,115 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+// ============================================
+// Configuração de Provedores de IA
+// ============================================
+
+interface AIProvider {
+  name: string;
+  baseUrl: string;
+  apiKeyEnv: string;
+  model: string;
+  isFree: boolean;
+}
+
+const AI_PROVIDERS: AIProvider[] = [
+  {
+    name: 'Lovable AI',
+    baseUrl: 'https://ai.gateway.lovable.dev/v1/chat/completions',
+    apiKeyEnv: 'LOVABLE_API_KEY',
+    model: 'google/gemini-3-flash-preview',
+    isFree: true,
+  },
+  {
+    name: 'Groq',
+    baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
+    apiKeyEnv: 'GROQ_API_KEY',
+    model: 'llama-3.3-70b-versatile',
+    isFree: true,
+  },
+  {
+    name: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    apiKeyEnv: 'OPENROUTER_API_KEY',
+    model: 'google/gemini-2.0-flash-exp:free',
+    isFree: false,
+  },
+];
+
+// ============================================
+// Função de Chamada com Fallback
+// ============================================
+
+async function callAIWithFallback(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number = 4000
+): Promise<{ content: string; provider: string }> {
+  const errors: string[] = [];
+
+  for (const provider of AI_PROVIDERS) {
+    const apiKey = Deno.env.get(provider.apiKeyEnv);
+    if (!apiKey) {
+      console.log(`⏭️ ${provider.name}: API key não configurada, pulando...`);
+      continue;
+    }
+
+    try {
+      console.log(`🤖 Tentando ${provider.name} (${provider.model})...`);
+
+      const response = await fetch(provider.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: provider.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          max_tokens: maxTokens,
+        }),
+      });
+
+      if (response.status === 402 || response.status === 429) {
+        const errorText = await response.text();
+        console.log(`⚠️ ${provider.name} retornou ${response.status}, tentando próximo...`);
+        errors.push(`${provider.name}: ${response.status}`);
+        continue; // Tentar próximo provedor
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ ${provider.name} erro:`, response.status, errorText);
+        errors.push(`${provider.name}: ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || '';
+
+      if (content) {
+        console.log(`✅ Sucesso com ${provider.name}`);
+        return { content, provider: provider.name };
+      } else {
+        console.log(`⚠️ ${provider.name} retornou resposta vazia, tentando próximo...`);
+        errors.push(`${provider.name}: resposta vazia`);
+      }
+    } catch (err) {
+      console.error(`❌ Erro ao chamar ${provider.name}:`, err);
+      errors.push(`${provider.name}: ${err instanceof Error ? err.message : 'erro desconhecido'}`);
+    }
+  }
+
+  throw new Error(`Todos os provedores falharam: ${errors.join(', ')}`);
+}
+
+// ============================================
+// Tipos
+// ============================================
 
 interface Message {
   direction: 'inbound' | 'outbound';
@@ -26,6 +134,10 @@ interface ConversationData {
   messages: Message[];
 }
 
+// ============================================
+// Handler Principal
+// ============================================
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -33,14 +145,6 @@ serve(async (req) => {
 
   try {
     const { conversations, operatorName }: { conversations: ConversationData[]; operatorName: string } = await req.json();
-
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY não configurada');
-      return new Response(
-        JSON.stringify({ error: 'Chave de API não configurada' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     if (!conversations || conversations.length === 0) {
       return new Response(
@@ -94,63 +198,28 @@ ${formattedConversations}
 
 Gere um texto de treinamento completo baseado nos padrões observados nessas conversas.`;
 
-    console.log(`Analisando ${conversations.length} conversas do operador ${operatorName}`);
+    console.log(`📊 Analisando ${conversations.length} conversas do operador ${operatorName}`);
 
-    const response = await fetch(AI_GATEWAY_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 4000,
-      }),
-    });
+    // Usar fallback automático entre provedores
+    const { content: generatedTraining, provider } = await callAIWithFallback(
+      systemPrompt,
+      userPrompt,
+      4000
+    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Erro no Lovable AI:', response.status, errorText);
-
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns segundos.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Créditos insuficientes. Verifique sua conta Lovable.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ error: 'Erro ao processar com IA' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const data = await response.json();
-    const generatedTraining = data.choices?.[0]?.message?.content || '';
-
-    console.log('Treinamento gerado com sucesso');
+    console.log(`✅ Treinamento gerado com sucesso usando ${provider}`);
 
     return new Response(
       JSON.stringify({
         training: generatedTraining.trim(),
         conversations_analyzed: conversations.length,
         operator_name: operatorName,
+        ai_provider_used: provider,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Erro no generate-training-from-conversations:', error);
+    console.error('❌ Erro no generate-training-from-conversations:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
