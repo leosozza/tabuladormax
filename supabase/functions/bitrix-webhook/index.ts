@@ -956,10 +956,23 @@ serve(async (req) => {
       }
     }
 
+    // ============================================
+    // DIAGNÓSTICO: Log de mudança de nome
+    // ============================================
+    const { data: existingLead } = await supabase
+      .from('leads')
+      .select('name')
+      .eq('id', leadData.id)
+      .maybeSingle();
+    
+    if (existingLead && existingLead.name !== validatedData.name) {
+      console.log(`📝 Nome atualizado: "${existingLead.name}" → "${validatedData.name}"`);
+    }
+
     // Tentativa 1: Upsert completo com dados validados
     const { data: upsertedLead, error: upsertError } = await supabase
       .from('leads')
-      .upsert(validatedData, { onConflict: 'id' })
+      .upsert(validatedData, { onConflict: 'id', ignoreDuplicates: false })
       .select()
       .single();
 

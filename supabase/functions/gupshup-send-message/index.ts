@@ -724,6 +724,50 @@ async function handleSendTemplate(
 
     console.log(`✅ Template enviado com sucesso`);
 
+    // ============================================
+    // ENCERRAMENTO AUTOMÁTICO POR TEMPLATE
+    // ============================================
+    // Templates que encerram a conversa automaticamente:
+    // - liberar_acesso_ao_perfil: Cliente já tem perfil liberado
+    const AUTO_CLOSE_TEMPLATE_NAMES = ['liberar_acesso_ao_perfil'];
+    
+    if (AUTO_CLOSE_TEMPLATE_NAMES.includes(template.element_name)) {
+      console.log(`🔒 Template de encerramento automático detectado: ${template.element_name}`);
+      
+      try {
+        // Verificar se já não está encerrada
+        const { data: existingClosure } = await supabase
+          .from('whatsapp_conversation_closures')
+          .select('id')
+          .eq('phone_number', normalizedPhone)
+          .is('reopened_at', null)
+          .maybeSingle();
+        
+        if (!existingClosure) {
+          // Encerrar conversa automaticamente
+          const { error: closeError } = await supabase
+            .from('whatsapp_conversation_closures')
+            .insert({
+              phone_number: normalizedPhone,
+              bitrix_id: bitrix_id || null,
+              closed_by: null, // Auto-encerramento (sem operador específico)
+              closure_reason: 'template',
+              closure_notes: `Encerramento automático: Template "${template.display_name || template.element_name}" enviado`,
+            });
+          
+          if (closeError) {
+            console.error('❌ Erro ao encerrar conversa automaticamente:', closeError);
+          } else {
+            console.log(`✅ Conversa encerrada automaticamente (template: ${template.element_name})`);
+          }
+        } else {
+          console.log(`ℹ️ Conversa já está encerrada, ignorando auto-encerramento`);
+        }
+      } catch (err) {
+        console.error('❌ Erro no auto-encerramento:', err);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
