@@ -5594,46 +5594,19 @@ export type Database = {
         Args: { batch_size?: number; days_to_keep?: number }
         Returns: Json
       }
-      count_admin_whatsapp_conversations:
-        | {
-            Args: {
-              p_closed_filter?: string
-              p_deal_status_filter?: string
-              p_etapa_filter?: string
-              p_operator_filter?: string
-              p_response_filter?: string
-              p_search?: string
-              p_tag_filter?: string[]
-              p_window_filter?: string
-            }
-            Returns: number
-          }
-        | {
-            Args: {
-              p_closed_filter?: string
-              p_deal_status_filter?: string
-              p_etapa_filter?: string
-              p_operator_filter?: string
-              p_response_filter?: string
-              p_search?: string
-              p_tag_filter?: string[]
-              p_window_filter?: string
-            }
-            Returns: number
-          }
-        | {
-            Args: {
-              p_closed_filter?: string
-              p_deal_status_filter?: string
-              p_etapa_filter?: string
-              p_operator_filter?: string
-              p_response_filter?: string
-              p_search?: string
-              p_tag_filter?: string[]
-              p_window_filter?: string
-            }
-            Returns: number
-          }
+      count_admin_whatsapp_conversations: {
+        Args: {
+          p_closed_filter?: string
+          p_deal_status_filter?: string
+          p_etapa_filter?: string
+          p_operator_filter?: string
+          p_response_filter?: string
+          p_search?: string
+          p_tag_filter?: string[]
+          p_window_filter?: string
+        }
+        Returns: number
+      }
       count_leads_to_reprocess: {
         Args: {
           p_date_from?: string
@@ -5805,58 +5778,23 @@ export type Database = {
           unread_count: number
         }[]
       }
-      get_admin_whatsapp_filtered_stats:
-        | {
-            Args: {
-              p_closed_filter?: string
-              p_deal_status_filter?: string
-              p_etapa_filter?: string
-              p_operator_filter?: string
-              p_response_filter?: string
-              p_search?: string
-              p_tag_filter?: string[]
-              p_window_filter?: string
-            }
-            Returns: {
-              open_windows: number
-              total_conversations: number
-              total_unread: number
-            }[]
-          }
-        | {
-            Args: {
-              p_closed_filter?: string
-              p_deal_status_filter?: string
-              p_etapa_filter?: string
-              p_operator_filter?: string
-              p_response_filter?: string
-              p_search?: string
-              p_tag_filter?: string[]
-              p_window_filter?: string
-            }
-            Returns: {
-              open_windows: number
-              total_conversations: number
-              total_unread: number
-            }[]
-          }
-        | {
-            Args: {
-              p_closed_filter?: string
-              p_deal_status_filter?: string
-              p_etapa_filter?: string
-              p_operator_filter?: string
-              p_response_filter?: string
-              p_search?: string
-              p_tag_filter?: string[]
-              p_window_filter?: string
-            }
-            Returns: {
-              open_windows: number
-              total_conversations: number
-              total_unread: number
-            }[]
-          }
+      get_admin_whatsapp_filtered_stats: {
+        Args: {
+          p_closed_filter?: string
+          p_deal_status_filter?: string
+          p_etapa_filter?: string
+          p_operator_filter?: string
+          p_response_filter?: string
+          p_search?: string
+          p_tag_filter?: string[]
+          p_window_filter?: string
+        }
+        Returns: {
+          open_windows: number
+          total_conversations: number
+          total_unread: number
+        }[]
+      }
       get_admin_whatsapp_stats: {
         Args: never
         Returns: {
