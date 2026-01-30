@@ -199,18 +199,25 @@ export function AdminConversationList({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('whatsapp_conversation_participants' as any)
-        .select('operator_id, profiles:operator_id(id, display_name)')
-        .is('resolved_at', null);
+        // Use explicit FK join to profiles (schema cache may not infer relationships)
+        // and avoid filtering by non-existent columns (e.g., resolved_at)
+        .select(`
+          operator_id,
+          operator:profiles!whatsapp_conversation_participants_operator_id_fkey(
+            id,
+            display_name
+          )
+        `);
       
       if (error) throw error;
       
       // Deduplicate and format
       const uniqueOperators = new Map<string, OperatorOption>();
       (data || []).forEach((item: any) => {
-        if (item.profiles && item.operator_id) {
+        if (item.operator && item.operator_id) {
           uniqueOperators.set(item.operator_id, {
             id: item.operator_id,
-            display_name: item.profiles.display_name || 'Operador'
+            display_name: item.operator.display_name || 'Operador'
           });
         }
       });
