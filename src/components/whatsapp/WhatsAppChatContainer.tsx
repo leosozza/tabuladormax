@@ -75,7 +75,11 @@ export function WhatsAppChatContainer({
     usingBitrixFallback,
     lastSendError,
     clearSendError,
-    lastMessageContent
+    lastMessageContent,
+    // Paginação
+    hasMoreMessages,
+    loadMoreMessages,
+    loadingMore,
   } = useWhatsAppMessages({ bitrixId, phoneNumber, conversationId });
 
   // Verificar se usuário é participante convidado (para mostrar notas internas)
@@ -293,7 +297,14 @@ export function WhatsAppChatContainer({
         >
           {/* Message list - scrollable area */}
           <div className="flex-1 overflow-y-auto">
-            <WhatsAppMessageList messages={messages} loading={loading} usingBitrixFallback={usingBitrixFallback} />
+            <WhatsAppMessageList 
+              messages={messages} 
+              loading={loading} 
+              usingBitrixFallback={usingBitrixFallback}
+              hasMore={hasMoreMessages}
+              onLoadMore={loadMoreMessages}
+              loadingMore={loadingMore}
+            />
             
             {/* Histórico de resoluções - mostrado abaixo das mensagens */}
             {phoneNumber && <ResolutionHistory phoneNumber={phoneNumber} />}

@@ -87,9 +87,15 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
   const [bitrixMessages, setBitrixMessages] = useState<WhatsAppMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingBitrix, setLoadingBitrix] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sending, setSending] = useState(false);
   const [usingBitrixFallback, setUsingBitrixFallback] = useState(false);
   const [lastSendError, setLastSendError] = useState<SendErrorDetails | null>(null);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [totalMessages, setTotalMessages] = useState(0);
+  const [currentOffset, setCurrentOffset] = useState(0);
+  
+  const MESSAGES_PER_PAGE = 100;
   
   const lastSendTimeRef = useRef<number>(0);
   const sendCountRef = useRef<number>(0);
@@ -317,10 +323,13 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     }
   }, [bitrixId, phoneNumber]);
 
-  const fetchMessages = useCallback(async () => {
+  const fetchMessages = useCallback(async (reset = true) => {
     if (!bitrixId && !phoneNumber && !conversationId) return;
 
-    setLoading(true);
+    if (reset) {
+      setLoading(true);
+      setCurrentOffset(0);
+    }
     setUsingBitrixFallback(false);
     setBitrixMessages([]);
     
@@ -337,7 +346,8 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         p_phone_number: normalizedPhone || null,
         p_lead_id: !isNaN(leadId as number) ? leadId : null,
         p_team_operator_ids: null,
-        p_limit: 200,
+        p_limit: MESSAGES_PER_PAGE,
+        p_offset: 0,
       });
 
       if (error) {
@@ -366,6 +376,7 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         
         const directMessages = (directData || []) as WhatsAppMessage[];
         setMessages(directMessages);
+        setHasMoreMessages(false);
         
         if (directMessages.length === 0 && conversationId && conversationId < 50000) {
           logDebug('No messages found, trying legacy Bitrix fallback', { conversationId });
@@ -373,6 +384,10 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         }
         return;
       }
+
+      // Extrair total_count da primeira linha (todas têm o mesmo valor)
+      const total = data?.[0]?.total_count || 0;
+      setTotalMessages(Number(total));
 
       // Mapear dados do RPC para o formato WhatsAppMessage
       const supabaseMessages: WhatsAppMessage[] = (data || []).map((msg: any) => ({
@@ -396,8 +411,10 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
         metadata: msg.metadata,
       }));
       
-      logDebug('Messages loaded via RPC', { count: supabaseMessages.length });
+      logDebug('Messages loaded via RPC', { count: supabaseMessages.length, total });
       setMessages(supabaseMessages);
+      setCurrentOffset(MESSAGES_PER_PAGE);
+      setHasMoreMessages(supabaseMessages.length < Number(total));
       
       // Só usar fallback do Bitrix se não há mensagens E tiver conversationId antigo (< 50000)
       if (supabaseMessages.length === 0 && conversationId && conversationId < 50000) {
@@ -411,6 +428,81 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
       setLoading(false);
     }
   }, [bitrixId, phoneNumber, conversationId, fetchBitrixMessages]);
+
+  // Carregar mais mensagens (paginação reversa - mais antigas)
+  const loadMoreMessages = useCallback(async () => {
+    if (!bitrixId && !phoneNumber && !conversationId) return;
+    if (loadingMore || !hasMoreMessages) return;
+
+    setLoadingMore(true);
+    
+    try {
+      const normalizedPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : undefined;
+      const leadId = bitrixId ? parseInt(bitrixId, 10) : undefined;
+      
+      logDebug('Loading more messages', { offset: currentOffset });
+      
+      const { data, error } = await supabase.rpc('get_telemarketing_whatsapp_messages', {
+        p_operator_bitrix_id: null,
+        p_phone_number: normalizedPhone || null,
+        p_lead_id: !isNaN(leadId as number) ? leadId : null,
+        p_team_operator_ids: null,
+        p_limit: MESSAGES_PER_PAGE,
+        p_offset: currentOffset,
+      });
+
+      if (error) {
+        console.error('Erro ao carregar mais mensagens:', error);
+        return;
+      }
+
+      const olderMessages: WhatsAppMessage[] = (data || []).map((msg: any) => ({
+        id: msg.id,
+        phone_number: msg.phone_number || '',
+        bitrix_id: msg.bitrix_id,
+        conversation_id: msg.conversation_id || null,
+        gupshup_message_id: msg.gupshup_message_id || null,
+        direction: msg.direction as 'inbound' | 'outbound',
+        message_type: msg.message_type || 'text',
+        content: msg.content,
+        template_name: msg.template_name || null,
+        status: (msg.status || 'sent') as 'sent' | 'delivered' | 'read' | 'failed' | 'enqueued',
+        sent_by: msg.sent_by || null,
+        sender_name: msg.sender_name || null,
+        media_url: msg.media_url || null,
+        media_type: msg.media_type || null,
+        created_at: msg.created_at,
+        delivered_at: msg.delivered_at || null,
+        read_at: msg.read_at || null,
+        metadata: msg.metadata,
+      }));
+
+      if (olderMessages.length > 0) {
+        // Combinar com mensagens existentes, removendo duplicatas
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const newMessages = olderMessages.filter(m => !existingIds.has(m.id));
+          return [...newMessages, ...prev];
+        });
+        
+        const newOffset = currentOffset + MESSAGES_PER_PAGE;
+        setCurrentOffset(newOffset);
+        setHasMoreMessages(newOffset < totalMessages);
+        
+        logDebug('Loaded more messages', { 
+          count: olderMessages.length, 
+          newOffset, 
+          total: totalMessages 
+        });
+      } else {
+        setHasMoreMessages(false);
+      }
+    } catch (error) {
+      console.error('Error loading more messages:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [bitrixId, phoneNumber, conversationId, currentOffset, hasMoreMessages, loadingMore, totalMessages]);
 
   // Helper para identificar erros de autenticação
   const isAuthError = (error: any): boolean => {
@@ -1331,5 +1423,10 @@ export const useWhatsAppMessages = (options: UseWhatsAppMessagesOptions) => {
     lastSendError,
     clearSendError,
     lastMessageContent: lastMessageContentRef.current,
+    // Paginação
+    hasMoreMessages,
+    loadMoreMessages,
+    loadingMore,
+    totalMessages,
   };
 };

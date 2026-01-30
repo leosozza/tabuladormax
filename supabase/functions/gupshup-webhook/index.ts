@@ -22,39 +22,77 @@ const BITRIX_DOMAIN = Deno.env.get('BITRIX_DOMAIN') || 'maxsystem.bitrix24.com.b
 const BITRIX_WEBHOOK_TOKEN = Deno.env.get('BITRIX_WEBHOOK_TOKEN') || '338m945lx9ifjjnr';
 const BITRIX_USER_ID = Deno.env.get('BITRIX_USER_ID') || '7';
 
-// Normalização consistente
+// Normalização rigorosa de telefones brasileiros
+// Garante que todos os números tenham o formato: 55 + DDD(2) + 9 + número(8) = 13 dígitos
 function normalizePhone(phone: string): string {
-  const digits = (phone || '').replace(/\D/g, '');
+  // Remover tudo que não seja dígito
+  let digits = (phone || '').replace(/\D/g, '');
   if (!digits) return '';
 
-  // Já tem DDI Brasil
+  // Remover prefixos incorretos comuns (ex: IDs que ficaram concatenados)
+  // Padrão: detectar quando há mais de 13 dígitos e termina com número de celular válido
+  if (digits.length > 13) {
+    // Tentar extrair o telefone do final (últimos 13 dígitos que comecem com 55)
+    const last13 = digits.slice(-13);
+    if (last13.startsWith('55')) {
+      console.log(`⚠️ Telefone com prefixo incorreto: "${digits}" → corrigido para: "${last13}"`);
+      digits = last13;
+    } else {
+      // Tentar últimos 11 dígitos (sem DDI)
+      const last11 = digits.slice(-11);
+      if (/^[1-9]{2}9[6-9][0-9]{7}$/.test(last11)) {
+        console.log(`⚠️ Telefone com prefixo incorreto: "${digits}" → corrigido para: "55${last11}"`);
+        digits = `55${last11}`;
+      }
+    }
+  }
+
+  // Já tem DDI Brasil (55)
   if (digits.startsWith('55')) {
     // 55 + DDD + 8 dígitos (celular antigo sem o 9)
     if (digits.length === 12) {
       const ddd = digits.substring(2, 4);
       const local = digits.substring(4); // 8 dígitos
+      // Adicionar 9 na frente se for celular (começa com 6, 7, 8 ou 9)
       if (local.length === 8 && ['6', '7', '8', '9'].includes(local[0])) {
         return `55${ddd}9${local}`;
       }
       return digits;
     }
+    // 13 dígitos é o formato correto
+    if (digits.length === 13) {
+      return digits;
+    }
     return digits;
   }
 
-  // BR sem DDI
+  // Formato 0XX (com zero na frente do DDD)
+  if (digits.startsWith('0') && digits.length >= 10 && digits.length <= 12) {
+    const withoutZero = digits.substring(1);
+    return normalizePhone(`55${withoutZero}`);
+  }
+
+  // BR sem DDI: 10 dígitos (DDD + 8 dígitos)
   if (digits.length === 10) {
     const ddd = digits.substring(0, 2);
     const local = digits.substring(2);
+    // Adicionar 9 na frente se for celular
     if (local.length === 8 && ['6', '7', '8', '9'].includes(local[0])) {
       return `55${ddd}9${local}`;
     }
     return `55${digits}`;
   }
+
+  // BR sem DDI: 11 dígitos (DDD + 9 + 8 dígitos)
   if (digits.length === 11) {
     return `55${digits}`;
   }
 
-  // Outros países / formatos: mantém dígitos
+  // Outros países / formatos: mantém dígitos mas loga aviso
+  if (digits.length >= 8) {
+    console.log(`⚠️ Telefone com formato não-BR: "${digits}" (${digits.length} dígitos)`);
+  }
+  
   return digits;
 }
 
