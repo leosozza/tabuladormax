@@ -77,6 +77,7 @@ export function WhatsAppInput({
   const [uploading, setUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [autoSendAfterStop, setAutoSendAfterStop] = useState(false);
+  const [generatedByAgent, setGeneratedByAgent] = useState<string | null>(null);
   
   // Location state
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -125,6 +126,7 @@ export function WhatsAppInput({
     const result = await generateResponse(chatMessages, undefined, operatorBitrixId, profileId);
     if (result.response) {
       setMessageInput(result.response);
+      setGeneratedByAgent(result.agentName || 'IA');
       const agentInfo = result.agentName ? ` (Agente: ${result.agentName})` : '';
       toast.success(`Resposta gerada!${agentInfo}`);
     }
@@ -139,6 +141,7 @@ export function WhatsAppInput({
     const improved = await improveText(messageInput, undefined, operatorBitrixId, profileId);
     if (improved) {
       setMessageInput(improved);
+      setGeneratedByAgent(assignedAgentName || 'IA');
       toast.success('Texto melhorado!');
     }
   };
@@ -525,15 +528,29 @@ export function WhatsAppInput({
           )}
         </TooltipProvider>
 
-        <Textarea
-          placeholder={inCooldown ? "Aguardando..." : isRecording ? "Gravando..." : mediaPreview ? "Legenda (opcional)" : "Mensagem..."}
-          value={messageInput}
-          onChange={(e) => setMessageInput(e.target.value)}
-          onKeyDown={handleKeyPress}
-          disabled={isDisabled || isRecording}
-          className={`min-h-[48px] max-h-[160px] resize-none flex-1 py-3 text-base leading-relaxed ${isDisabled ? 'opacity-50' : ''}`}
-          rows={2}
-        />
+        <div className="relative flex-1">
+          <Textarea
+            placeholder={inCooldown ? "Aguardando..." : isRecording ? "Gravando..." : mediaPreview ? "Legenda (opcional)" : "Mensagem..."}
+            value={messageInput}
+            onChange={(e) => {
+              setMessageInput(e.target.value);
+              // Limpa a marca d'água se o usuário editar o texto manualmente
+              if (generatedByAgent) {
+                setGeneratedByAgent(null);
+              }
+            }}
+            onKeyDown={handleKeyPress}
+            disabled={isDisabled || isRecording}
+            className={`min-h-[48px] max-h-[160px] resize-none w-full py-3 text-base leading-relaxed ${isDisabled ? 'opacity-50' : ''} ${generatedByAgent ? 'pr-24' : ''}`}
+            rows={2}
+          />
+          {generatedByAgent && messageInput && (
+            <div className="absolute right-2 bottom-2 flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full border border-primary/20">
+              <Sparkles className="h-3 w-3" />
+              <span className="truncate max-w-[80px]">{generatedByAgent}</span>
+            </div>
+          )}
+        </div>
 
         {/* Mic button - only show when NOT recording */}
         {!isRecording && (
