@@ -997,7 +997,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess, openAssistan
                               )}
                             >
                               <CalendarIcon className="mr-2 h-4 w-4" />
-                              {pm.firstDueDate 
+                              {pm.firstDueDate && !isNaN(new Date(pm.firstDueDate).getTime())
                                 ? format(new Date(pm.firstDueDate), 'dd/MM/yyyy')
                                 : 'Selecionar'
                               }
@@ -1006,7 +1006,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess, openAssistan
                           <PopoverContent className="w-auto p-0" align="start">
                             <Calendar
                               mode="single"
-                              selected={pm.firstDueDate ? new Date(pm.firstDueDate) : undefined}
+                              selected={pm.firstDueDate && !isNaN(new Date(pm.firstDueDate).getTime()) ? new Date(pm.firstDueDate) : undefined}
                               onSelect={(date) => {
                                 if (date) {
                                   updatePaymentMethod(pm.id, { firstDueDate: date.toISOString() });
@@ -1036,15 +1036,13 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess, openAssistan
                       <div className="bg-muted/50 rounded-lg p-2">
                         <p className="text-xs font-medium mb-1">Vencimentos:</p>
                         <div className="flex flex-wrap gap-1">
-                          {pm.dueDates.map((date, idx) => {
-                            const parsedDate = new Date(date);
-                            if (isNaN(parsedDate.getTime())) return null;
-                            return (
+                          {pm.dueDates
+                            .filter((date): date is string => !!date && !isNaN(new Date(date).getTime()))
+                            .map((date, idx) => (
                               <Badge key={idx} variant="outline" className="text-xs">
-                                {format(parsedDate, 'dd/MM/yy')}
+                                {format(new Date(date), 'dd/MM/yy')}
                               </Badge>
-                            );
-                          })}
+                            ))}
                         </div>
                         {pm.installments && pm.installments > 1 && (
                           <p className="text-xs text-muted-foreground mt-1">
