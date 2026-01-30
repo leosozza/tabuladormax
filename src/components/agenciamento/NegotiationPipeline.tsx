@@ -6,6 +6,7 @@ import { PipelineColumn } from './PipelineColumn';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ProducerSelectDialog } from './ProducerSelectDialog';
 import { Producer } from '@/hooks/useProducers';
+import { useProducerQueueView } from '@/hooks/useProducerQueueView';
 import { supabase } from '@/integrations/supabase/client';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -43,6 +44,9 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
     newStatus: NegotiationStatus;
   } | null>(null);
   const queryClient = useQueryClient();
+  
+  // Hook da Fila da Vez para obter o próximo produtor
+  const { nextProducer, refetch: refetchQueue } = useProducerQueueView();
 
   // Filter visible statuses based on toggles
   const visibleStatuses = useMemo(() => {
@@ -212,11 +216,20 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
         });
       }
 
+      // Update producer status in queue to EM_ATENDIMENTO
+      await supabase
+        .from('producer_attendance_status')
+        .update({ status: 'EM_ATENDIMENTO', updated_at: new Date().toISOString() })
+        .eq('producer_id', producer.id);
+
       // Then update negotiation status and sync to Bitrix
       await updateStatusMutation.mutateAsync({
         id: pendingTransition.negotiationId,
         status: pendingTransition.newStatus,
       });
+
+      // Refetch queue to update positions
+      refetchQueue();
 
       toast.success(`Negociação atribuída ao produtor ${producer.name}`);
     } catch (error) {
@@ -303,7 +316,8 @@ export function NegotiationPipeline({ negotiations, onCardClick }: NegotiationPi
         open={producerSelectOpen}
         onClose={handleProducerSelectClose}
         onSelect={handleProducerSelect}
-        title="Selecionar Produtor para Atendimento"
+        title="Atribuir Atendimento"
+        suggestedProducer={nextProducer}
       />
     </div>
   );

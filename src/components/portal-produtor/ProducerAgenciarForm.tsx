@@ -472,18 +472,21 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess, openAssistan
     return { valid: true };
   };
 
-  // Finalizar negociação
-  const handleFinalize = async () => {
-    if (remainingValue > 0) {
-      toast.error('O valor total das formas de pagamento não cobre o valor da negociação');
-      return;
-    }
+  // Finalizar negociação com resultado
+  const handleFinalize = async (outcome: 'negocios_fechados' | 'contrato_nao_fechado') => {
+    // Validar formas de pagamento apenas para negócios fechados
+    if (outcome === 'negocios_fechados') {
+      if (remainingValue > 0) {
+        toast.error('O valor total das formas de pagamento não cobre o valor da negociação');
+        return;
+      }
 
-    // Validar data de vencimento para boletos e cheques
-    const dueDateValidation = validatePaymentMethodsDueDate();
-    if (!dueDateValidation.valid) {
-      toast.error(dueDateValidation.error);
-      return;
+      // Validar data de vencimento para boletos e cheques
+      const dueDateValidation = validatePaymentMethodsDueDate();
+      if (!dueDateValidation.valid) {
+        toast.error(dueDateValidation.error);
+        return;
+      }
     }
 
     saveMutation.mutate({
@@ -493,7 +496,7 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess, openAssistan
       total_value: totalValue,
       notes,
       payment_methods: paymentMethods,
-      status: 'negocios_fechados',
+      status: outcome,
       bitrix_product_id: selectedProductId ? parseInt(selectedProductId) : null
     });
   };
@@ -1098,41 +1101,61 @@ export const ProducerAgenciarForm = ({ deal, producerId, onSuccess, openAssistan
       </Card>
 
       {/* Ações - Layout Mobile Otimizado */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <Button 
-          variant="outline" 
-          className="flex-1 h-12 sm:h-10 gap-2"
-          onClick={handleSave}
-          disabled={saveMutation.isPending}
-        >
-          {saveMutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          Salvar Rascunho
-        </Button>
-        <Button 
-          variant="outline"
-          className="flex-1 h-12 sm:h-10 gap-2"
-          onClick={handleGenerateContract}
-          disabled={paymentMethods.length === 0}
-        >
-          <FileText className="h-4 w-4" />
-          Gerar Contrato
-        </Button>
-        <Button 
-          className="flex-1 h-12 sm:h-10 gap-2"
-          onClick={handleFinalize}
-          disabled={saveMutation.isPending || status === 'negocios_fechados'}
-        >
-          {saveMutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <CheckCircle className="h-4 w-4" />
-          )}
-          Finalizar
-        </Button>
+      <div className="flex flex-col gap-2">
+        {/* Linha 1: Ações secundárias */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button 
+            variant="outline" 
+            className="flex-1 h-12 sm:h-10 gap-2"
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+          >
+            {saveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Salvar Rascunho
+          </Button>
+          <Button 
+            variant="outline"
+            className="flex-1 h-12 sm:h-10 gap-2"
+            onClick={handleGenerateContract}
+            disabled={paymentMethods.length === 0}
+          >
+            <FileText className="h-4 w-4" />
+            Gerar Contrato
+          </Button>
+        </div>
+        
+        {/* Linha 2: Botões de Resultado */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button 
+            variant="destructive"
+            className="flex-1 h-12 sm:h-10 gap-2"
+            onClick={() => handleFinalize('contrato_nao_fechado')}
+            disabled={saveMutation.isPending || status === 'contrato_nao_fechado'}
+          >
+            {saveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <X className="h-4 w-4" />
+            )}
+            Não Fechou Negócio
+          </Button>
+          <Button 
+            className="flex-1 h-12 sm:h-10 gap-2 bg-emerald-600 hover:bg-emerald-700"
+            onClick={() => handleFinalize('negocios_fechados')}
+            disabled={saveMutation.isPending || status === 'negocios_fechados'}
+          >
+            {saveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle className="h-4 w-4" />
+            )}
+            Fechou Negócio
+          </Button>
+        </div>
       </div>
     </div>
   );
