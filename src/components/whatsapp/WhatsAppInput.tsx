@@ -126,8 +126,10 @@ export function WhatsAppInput({
     const result = await generateResponse(chatMessages, undefined, operatorBitrixId, profileId);
     if (result.response) {
       setMessageInput(result.response);
-      setGeneratedByAgent(result.agentName || 'IA');
-      const agentInfo = result.agentName ? ` (Agente: ${result.agentName})` : '';
+      // Mostrar o modelo usado (formatado) como marca d'água
+      const modelLabel = formatModelName(result.modelUsed);
+      setGeneratedByAgent(modelLabel);
+      const agentInfo = result.agentName ? ` (${result.agentName})` : '';
       toast.success(`Resposta gerada!${agentInfo}`);
     }
   };
@@ -138,12 +140,42 @@ export function WhatsAppInput({
       return;
     }
     
-    const improved = await improveText(messageInput, undefined, operatorBitrixId, profileId);
-    if (improved) {
-      setMessageInput(improved);
-      setGeneratedByAgent(assignedAgentName || 'IA');
+    const result = await improveText(messageInput, undefined, operatorBitrixId, profileId);
+    if (result.response) {
+      setMessageInput(result.response);
+      // Mostrar o modelo usado (formatado) como marca d'água
+      const modelLabel = formatModelName(result.modelUsed);
+      setGeneratedByAgent(modelLabel);
       toast.success('Texto melhorado!');
     }
+  };
+
+  // Função para formatar nome do modelo de forma amigável
+  const formatModelName = (model: string | null): string => {
+    if (!model) return 'IA';
+    
+    // Mapeamento de modelos para nomes amigáveis
+    const modelNames: Record<string, string> = {
+      'llama-3.3-70b-versatile': 'Llama 3.3',
+      'llama-3.1-70b-versatile': 'Llama 3.1',
+      'llama-3.1-8b-instant': 'Llama 3.1',
+      'gemma2-9b-it': 'Gemma 2',
+      'mixtral-8x7b-32768': 'Mixtral',
+      'gpt-4': 'GPT-4',
+      'gpt-4-turbo': 'GPT-4 Turbo',
+      'gpt-4o': 'GPT-4o',
+      'gpt-4o-mini': 'GPT-4o Mini',
+      'gpt-3.5-turbo': 'GPT-3.5',
+      'claude-3-opus': 'Claude 3 Opus',
+      'claude-3-sonnet': 'Claude 3 Sonnet',
+      'claude-3-haiku': 'Claude 3 Haiku',
+      'gemini-1.5-pro': 'Gemini 1.5 Pro',
+      'gemini-1.5-flash': 'Gemini 1.5 Flash',
+      'gemini-2.5-flash': 'Gemini 2.5 Flash',
+      'gemini-2.5-pro': 'Gemini 2.5 Pro',
+    };
+    
+    return modelNames[model] || model.split('/').pop()?.split('-').slice(0, 2).join(' ') || 'IA';
   };
 
   const {
