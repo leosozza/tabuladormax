@@ -97,12 +97,10 @@ export function WhatsAppHeader({
                   <CheckCircle2 className="h-3 w-3" />
                   Encerrada
                 </Badge>}
-              {resolutions.length > 0 && (
-                <Badge variant="secondary" className="gap-1 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+              {resolutions.length > 0 && <Badge variant="secondary" className="gap-1 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                   <History className="h-3 w-3" />
                   {resolutions.length} {resolutions.length === 1 ? 'resolução' : 'resoluções'}
-                </Badge>
-              )}
+                </Badge>}
             </div>
             <p className="text-xs text-muted-foreground">
               {phoneNumber || `Lead #${bitrixId}`}
@@ -158,9 +156,7 @@ export function WhatsAppHeader({
           {bitrixId && <Button variant="ghost" size="icon" onClick={() => navigate(`/portal-telemarketing/tabulador?lead=${bitrixId}`)} title="Abrir Tabulador">
               <Server className="w-4 h-4" />
             </Button>}
-          {onRefresh && <Button variant="ghost" size="icon" onClick={onRefresh} title="Atualizar">
-              <RefreshCw className="w-4 h-4" />
-            </Button>}
+          {onRefresh}
           {onClose && <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="w-4 h-4" />
             </Button>}
