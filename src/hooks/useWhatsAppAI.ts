@@ -12,13 +12,38 @@ interface GenerateResponseResult {
   response: string | null;
   agentName: string | null;
   modelUsed: string | null;
+  error?: string;
+  errorType?: string;
+}
+
+interface ImproveTextResult {
+  response: string | null;
+  modelUsed: string | null;
+  error?: string;
+  errorType?: string;
 }
 
 interface UseWhatsAppAIReturn {
   generateResponse: (messages: Message[], context?: string, operatorBitrixId?: number, profileId?: string) => Promise<GenerateResponseResult>;
-  improveText: (text: string, context?: string, operatorBitrixId?: number, profileId?: string) => Promise<{ response: string | null; modelUsed: string | null }>;
+  improveText: (text: string, context?: string, operatorBitrixId?: number, profileId?: string) => Promise<ImproveTextResult>;
   isGenerating: boolean;
   isImproving: boolean;
+}
+
+// Traduz tipos de erro para mensagens amigáveis
+function getErrorMessage(error: string, errorType?: string): string {
+  switch (errorType) {
+    case 'rate_limit':
+      return '⏳ Limite de requisições excedido. Aguarde alguns segundos e tente novamente.';
+    case 'credits':
+      return '💳 Créditos insuficientes nos provedores de IA. Contate o administrador.';
+    case 'timeout':
+      return '⏱️ Tempo esgotado ao conectar com IA. Tente novamente.';
+    case 'config':
+      return '⚙️ Provedores de IA não configurados. Contate o administrador.';
+    default:
+      return error || 'Erro ao processar com IA';
+  }
 }
 
 export function useWhatsAppAI(): UseWhatsAppAIReturn {
@@ -33,7 +58,6 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
   ): Promise<GenerateResponseResult> => {
     setIsGenerating(true);
     try {
-      // Enviar mais contexto para a IA entender melhor a conversa
       const MAX_CONTEXT_MESSAGES = 50;
       const { data, error } = await supabase.functions.invoke('whatsapp-ai-assist', {
         body: {
@@ -50,8 +74,28 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
 
       if (error) {
         console.error('Erro ao gerar resposta:', error);
-        toast.error('Erro ao gerar resposta com IA');
-        return { response: null, agentName: null, modelUsed: null };
+        const errorMessage = getErrorMessage(error.message, data?.error_type);
+        toast.error(errorMessage);
+        return { 
+          response: null, 
+          agentName: null, 
+          modelUsed: null,
+          error: errorMessage,
+          errorType: data?.error_type,
+        };
+      }
+
+      // Verifica se a resposta contém erro
+      if (data?.error) {
+        const errorMessage = getErrorMessage(data.error, data.error_type);
+        toast.error(errorMessage);
+        return { 
+          response: null, 
+          agentName: null, 
+          modelUsed: null,
+          error: errorMessage,
+          errorType: data.error_type,
+        };
       }
 
       return { 
@@ -61,8 +105,14 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
       };
     } catch (err) {
       console.error('Erro ao gerar resposta:', err);
-      toast.error('Erro ao conectar com IA');
-      return { response: null, agentName: null, modelUsed: null };
+      const errorMessage = '❌ Erro ao conectar com IA. Verifique sua conexão.';
+      toast.error(errorMessage);
+      return { 
+        response: null, 
+        agentName: null, 
+        modelUsed: null,
+        error: errorMessage,
+      };
     } finally {
       setIsGenerating(false);
     }
@@ -73,7 +123,7 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
     context?: string,
     operatorBitrixId?: number,
     profileId?: string
-  ): Promise<{ response: string | null; modelUsed: string | null }> => {
+  ): Promise<ImproveTextResult> => {
     setIsImproving(true);
     try {
       const { data, error } = await supabase.functions.invoke('whatsapp-ai-assist', {
@@ -88,8 +138,26 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
 
       if (error) {
         console.error('Erro ao melhorar texto:', error);
-        toast.error('Erro ao melhorar texto com IA');
-        return { response: null, modelUsed: null };
+        const errorMessage = getErrorMessage(error.message, data?.error_type);
+        toast.error(errorMessage);
+        return { 
+          response: null, 
+          modelUsed: null,
+          error: errorMessage,
+          errorType: data?.error_type,
+        };
+      }
+
+      // Verifica se a resposta contém erro
+      if (data?.error) {
+        const errorMessage = getErrorMessage(data.error, data.error_type);
+        toast.error(errorMessage);
+        return { 
+          response: null, 
+          modelUsed: null,
+          error: errorMessage,
+          errorType: data.error_type,
+        };
       }
 
       return { 
@@ -98,8 +166,13 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
       };
     } catch (err) {
       console.error('Erro ao melhorar texto:', err);
-      toast.error('Erro ao conectar com IA');
-      return { response: null, modelUsed: null };
+      const errorMessage = '❌ Erro ao conectar com IA. Verifique sua conexão.';
+      toast.error(errorMessage);
+      return { 
+        response: null, 
+        modelUsed: null,
+        error: errorMessage,
+      };
     } finally {
       setIsImproving(false);
     }
