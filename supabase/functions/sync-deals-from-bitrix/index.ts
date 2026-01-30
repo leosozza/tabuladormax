@@ -180,6 +180,69 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Cleanup: remove deals that were deleted in Bitrix
+    if (action === 'cleanup_deleted') {
+      const cleanupLimit = limit || 100
+      
+      // Get deals from local database
+      const { data: localDeals, error: localError } = await supabase
+        .from('deals')
+        .select('id, bitrix_deal_id, title, client_name')
+        .order('last_sync_at', { ascending: true })
+        .limit(cleanupLimit)
+
+      if (localError) throw localError
+
+      const deletedDeals: any[] = []
+      const existingDeals: any[] = []
+
+      // Check each deal in Bitrix
+      for (const localDeal of localDeals || []) {
+        try {
+          const response = await fetch(`${BITRIX_WEBHOOK_URL}/crm.deal.get.json?id=${localDeal.bitrix_deal_id}`)
+          const data = await response.json()
+          
+          // If deal doesn't exist in Bitrix (result is null/undefined or error)
+          if (!data.result || data.error) {
+            // Delete associated negotiation first
+            await supabase
+              .from('negotiations')
+              .delete()
+              .eq('deal_id', localDeal.id)
+            
+            // Then delete the deal
+            await supabase
+              .from('deals')
+              .delete()
+              .eq('id', localDeal.id)
+            
+            deletedDeals.push({
+              id: localDeal.id,
+              bitrix_deal_id: localDeal.bitrix_deal_id,
+              title: localDeal.title,
+              client_name: localDeal.client_name
+            })
+            console.log(`[sync-deals] Deleted deal ${localDeal.id} (Bitrix ID: ${localDeal.bitrix_deal_id}) - not found in Bitrix`)
+          } else {
+            existingDeals.push(localDeal.bitrix_deal_id)
+          }
+        } catch (error) {
+          console.error(`[sync-deals] Error checking deal ${localDeal.bitrix_deal_id}:`, error)
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          checked: localDeals?.length || 0,
+          deleted: deletedDeals.length,
+          deletedDeals,
+          existing: existingDeals.length
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     return new Response(JSON.stringify({ error: 'Invalid action' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -210,3 +210,30 @@ export async function updateDealStage(dealId: string, stageId: string): Promise<
     },
   });
 }
+
+/**
+ * Cleanup deals that were deleted in Bitrix
+ * Checks local deals against Bitrix API and removes orphans
+ */
+export async function cleanupDeletedDeals(limit = 100): Promise<{
+  checked: number;
+  deleted: number;
+  deletedDeals: Array<{ id: string; bitrix_deal_id: number; title: string; client_name: string }>;
+}> {
+  const { data, error } = await supabase.functions.invoke('sync-deals-from-bitrix', {
+    body: {
+      action: 'cleanup_deleted',
+      limit,
+    },
+  });
+
+  if (error) {
+    throw new Error('Erro ao limpar deals deletados');
+  }
+
+  return {
+    checked: data.checked || 0,
+    deleted: data.deleted || 0,
+    deletedDeals: data.deletedDeals || [],
+  };
+}

@@ -139,6 +139,50 @@ Funções que ainda possuem múltiplas versões (podem precisar de limpeza futur
 
 ---
 
+## 🔄 Sincronização de Deals com Bitrix24
+
+### Problema identificado
+Deals deletados no Bitrix permaneciam no sistema local (tabela `deals` e `negotiations`), causando inconsistência de dados.
+
+### Solução implementada
+
+#### 1. Ação `cleanup_deleted` na Edge Function `sync-deals-from-bitrix`
+```typescript
+// Chamada via dealsService.ts
+await cleanupDeletedDeals(100); // Verifica até 100 deals
+
+// Retorno
+{
+  checked: number,      // Quantidade verificada
+  deleted: number,      // Quantidade removida
+  deletedDeals: Array,  // Lista dos deals removidos
+  existing: number      // Quantidade que ainda existe
+}
+```
+
+#### 2. Fluxo de limpeza
+1. Busca deals locais ordenados por `last_sync_at` (mais antigos primeiro)
+2. Para cada deal, verifica se existe no Bitrix via API
+3. Se não existir no Bitrix:
+   - Deleta a negotiation associada
+   - Deleta o deal
+4. Loga cada remoção para auditoria
+
+#### 3. Função de serviço disponível
+```typescript
+import { cleanupDeletedDeals } from '@/services/dealsService';
+
+const result = await cleanupDeletedDeals(50);
+console.log(`Removidos ${result.deleted} deals órfãos`);
+```
+
+### Recomendações de uso
+- Executar periodicamente (diário ou semanal)
+- Pode ser acionado manualmente pelo admin quando necessário
+- Limite recomendado: 50-100 por execução (evita timeout)
+
+---
+
 ## 🔄 Checklist para novas migrações de RPC
 
 - [ ] Listei TODAS as assinaturas existentes da função?
@@ -147,3 +191,23 @@ Funções que ainda possuem múltiplas versões (podem precisar de limpeza futur
 - [ ] Adicionei `SECURITY DEFINER SET search_path = public`?
 - [ ] Incluí `NOTIFY pgrst, 'reload schema'` no final?
 - [ ] Verifiquei com query se há apenas 1 versão após migração?
+
+---
+
+## 📁 Arquivos importantes
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `supabase/functions/sync-deals-from-bitrix/index.ts` | Edge function de sync de deals |
+| `src/services/dealsService.ts` | Serviço de deals (frontend) |
+| `src/services/agenciamentoService.ts` | Serviço de negociações |
+| `src/hooks/useAdminWhatsAppConversations.ts` | Hook do WhatsApp admin |
+
+---
+
+## 📅 Histórico de correções
+
+| Data | Problema | Solução |
+|------|----------|---------|
+| 2026-01-30 | PGRST203 no /whatsapp | Unificação de RPCs do WhatsApp |
+| 2026-01-30 | Deals deletados no Bitrix permanecem | Ação `cleanup_deleted` |
