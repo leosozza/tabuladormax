@@ -1,213 +1,183 @@
-# Documentação: Prevenção de Erros PGRST203 (Overload de Funções RPC)
 
-## Última atualização: 2026-01-30
+# Plano de Ajustes para o Módulo de Agenciamento
+
+## Entendimento do Fluxo Desejado
+
+O usuário descreveu o seguinte fluxo completo:
+
+1. **Lead chega na agência** → se torna um **Deal**
+2. Deal começa na etapa **"Recepção - Cadastro de atendimento"**
+3. Cliente preenche o cadastro → muda para **"Ficha Preenchida"**
+4. Ao mover para **"Atendimento Produtor"** → vincula automaticamente ao produtor da **"Fila da Vez"**
+   - Exibe mensagem: "Atendimento com Produtor X, confirma ou escolher outro produtor"
+5. Ao confirmar → produtor recebe o deal no **`/portal-produtor`**
+6. Produtor escolhe o deal e clica em **"Agenciar"**
+7. Preenche formas de pagamento e clica em **"Concluir"**
+8. Atualiza o deal no Bitrix com:
+   - Formas de pagamento escolhidas
+   - Se fechou negócio ou não
 
 ---
 
-## 📋 Resumo do problema resolvido
+## Análise do Estado Atual
 
-O `/whatsapp` parava de carregar devido a erros **PGRST203** causados por múltiplas versões (overloads) das mesmas funções RPC com assinaturas diferentes. O PostgREST não conseguia determinar qual função usar quando os parâmetros eram compatíveis com mais de uma assinatura.
+### O que já funciona:
+
+| Funcionalidade | Status |
+|----------------|--------|
+| Pipeline Kanban com etapas corretas | ✅ Implementado |
+| Fila da Vez (ProducerQueueHeaderBar) | ✅ Implementado |
+| ProducerSelectDialog para escolher produtor | ✅ Implementado |
+| Portal do Produtor com lista de deals | ✅ Implementado |
+| Formulário de Agenciamento (ProducerAgenciarForm) | ✅ Implementado |
+| Sincronização de status com Bitrix | ✅ Implementado |
+
+### O que precisa ser ajustado:
+
+| Problema Identificado | Ajuste Necessário |
+|-----------------------|-------------------|
+| Ao mover para "Atendimento Produtor", não mostra o produtor da fila como sugestão | Mostrar o próximo da fila automaticamente no diálogo |
+| Não há confirmação com o nome do produtor sugerido | Adicionar diálogo de confirmação com produtor pré-selecionado |
+| Formas de pagamento não são enviadas para o Bitrix | Incluir payment_methods no sync-deal-to-bitrix |
+| Status "negocios_fechados" vs "contrato_nao_fechado" não é claramente escolhido | Adicionar opção de escolher resultado no fluxo de conclusão |
 
 ---
 
-## ✅ Estado atual (CORRIGIDO)
+## Implementação Proposta
 
-### Funções RPC do WhatsApp - Assinatura Canônica Única
+### 1. Melhorar ProducerSelectDialog com Sugestão Automática
 
-Cada função agora possui **UMA ÚNICA VERSÃO** com a seguinte assinatura:
+**Arquivo:** `src/components/agenciamento/ProducerSelectDialog.tsx`
 
-#### 1. `get_admin_whatsapp_conversations`
-```sql
-(
-  p_limit integer DEFAULT 50,
-  p_offset integer DEFAULT 0,
-  p_search text DEFAULT NULL,
-  p_window_filter text DEFAULT 'all',
-  p_response_filter text DEFAULT 'all',
-  p_etapa_filter text DEFAULT NULL,
-  p_deal_status_filter text DEFAULT 'all',
-  p_closed_filter text DEFAULT 'active',
-  p_tag_filter uuid[] DEFAULT NULL,
-  p_operator_filter uuid DEFAULT NULL
-)
+Alterações:
+- Adicionar prop `suggestedProducer` (opcional)
+- Quando fornecido, mostrar mensagem de confirmação
+- Pré-selecionar o produtor sugerido
+- Exibir: "Atendimento com **[Nome do Produtor]**, confirma ou escolher outro"
+
+```text
+┌─────────────────────────────────────────────┐
+│  Atribuir Atendimento                       │
+├─────────────────────────────────────────────┤
+│                                             │
+│  Próximo da Fila:                           │
+│  ┌─────────────────────────────────────┐   │
+│  │ 👤 João Silva                       │   │
+│  │    Posição #1 na fila               │   │
+│  └─────────────────────────────────────┘   │
+│                                             │
+│  [Confirmar João]  [Escolher Outro]         │
+│                                             │
+│  ─────────────────────────────────────────  │
+│  Ou selecione outro produtor:               │
+│  🔍 Buscar produtor...                      │
+│  ┌─────────────────────────────────────┐   │
+│  │ Lista de produtores disponíveis     │   │
+│  └─────────────────────────────────────┘   │
+│                                             │
+└─────────────────────────────────────────────┘
 ```
 
-#### 2. `count_admin_whatsapp_conversations`
-```sql
-(
-  p_search text DEFAULT NULL,
-  p_window_filter text DEFAULT 'all',
-  p_response_filter text DEFAULT 'all',
-  p_etapa_filter text DEFAULT NULL,
-  p_deal_status_filter text DEFAULT 'all',
-  p_closed_filter text DEFAULT 'active',
-  p_tag_filter uuid[] DEFAULT NULL,
-  p_operator_filter uuid DEFAULT NULL
-)
-```
+### 2. Integrar Fila da Vez no Fluxo de Transição
 
-#### 3. `get_admin_whatsapp_filtered_stats`
-```sql
-(
-  p_search text DEFAULT NULL,
-  p_window_filter text DEFAULT 'all',
-  p_response_filter text DEFAULT 'all',
-  p_etapa_filter text DEFAULT NULL,
-  p_deal_status_filter text DEFAULT 'all',
-  p_closed_filter text DEFAULT 'active',
-  p_tag_filter uuid[] DEFAULT NULL,
-  p_operator_filter uuid DEFAULT NULL
-)
-```
+**Arquivo:** `src/components/agenciamento/NegotiationPipeline.tsx`
 
----
+Alterações:
+- Importar `useProducerQueueView` para obter `nextProducer`
+- Passar `suggestedProducer={nextProducer}` para o ProducerSelectDialog
+- Ao confirmar, marcar produtor como "EM_ATENDIMENTO" na fila
 
-## 🚫 Regras para evitar erros futuros
+### 3. Adicionar Escolha de Resultado ao Concluir
 
-### 1. NUNCA criar overloads de funções RPC
-- Ao modificar uma função RPC, sempre use `DROP FUNCTION IF EXISTS` com a assinatura exata ANTES de `CREATE OR REPLACE`
-- PostgreSQL cria uma NOVA função (overload) se a assinatura diferir, mesmo usando `CREATE OR REPLACE`
+**Arquivo:** `src/components/portal-produtor/ProducerAgenciarForm.tsx`
 
-### 2. Tipos canônicos obrigatórios
-- **Tags**: sempre `uuid[]` (nunca `text[]`)
-- **Operador**: sempre `uuid` (nunca `text`)
-- Esses tipos evitam ambiguidade quando o frontend envia `null`
+Alterações:
+- Substituir botão único "Concluir" por dois botões:
+  - "Fechou Negócio" → status `negocios_fechados`
+  - "Não Fechou" → status `contrato_nao_fechado`
+- Ou adicionar um diálogo de confirmação perguntando o resultado
 
-### 3. Template para modificar RPCs
-```sql
--- PASSO 1: Dropar TODAS as versões existentes (listar todas as assinaturas conhecidas)
-DROP FUNCTION IF EXISTS public.nome_funcao(assinatura1);
-DROP FUNCTION IF EXISTS public.nome_funcao(assinatura2);
--- ... dropar TODAS
+### 4. Enviar Formas de Pagamento para o Bitrix
 
--- PASSO 2: Recriar UMA única versão
-CREATE OR REPLACE FUNCTION public.nome_funcao(
-  -- parâmetros com tipos canônicos
-)
-RETURNS ...
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $function$
-...
-$function$;
+**Arquivo:** `supabase/functions/sync-deal-to-bitrix/index.ts`
 
--- PASSO 3: Recarregar schema cache
-NOTIFY pgrst, 'reload schema';
-```
+Alterações:
+- Buscar `payment_methods` da tabela `negotiations`
+- Mapear para campos customizados do Bitrix (se existirem)
+- Ou armazenar como JSON em um campo de observações
 
-### 4. Verificação pós-migração
-Após qualquer migração de RPC, executar:
-```sql
-SELECT proname, pg_get_function_identity_arguments(oid), COUNT(*) OVER (PARTITION BY proname)
-FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname = 'NOME_DA_FUNCAO';
-```
-Se retornar mais de 1 linha → há overload → ERRO
+Campos sugeridos para enviar:
+- `UF_CRM_PAYMENT_METHODS`: JSON com formas de pagamento
+- `UF_CRM_TOTAL_VALUE`: Valor total negociado
+- `UF_CRM_DISCOUNT_PERCENT`: Percentual de desconto aplicado
 
 ---
 
-## 🔧 Correções aplicadas no frontend
+## Detalhes Técnicos
 
-### 1. `useAdminWhatsAppConversations.ts`
-- Tratamento explícito do erro `PGRST203` com mensagem clara
-- Parâmetros enviados apenas quando têm valor (evita ambiguidade com `null`)
+### Mudanças no ProducerSelectDialog
 
-### 2. `AdminConversationList.tsx` (operatorOptions)
-- Busca em 2 passos: primeiro `operator_id`, depois `profiles` separadamente
-- Evita joins com FK que aponta para `auth.users`
-
-### 3. `useConversationParticipants.ts`
-- Mesmo padrão de 2 passos
-- Usa `display_name` (não `full_name` que não existe)
-
----
-
-## 📊 Outras funções com overloads (monitorar)
-
-Funções que ainda possuem múltiplas versões (podem precisar de limpeza futura):
-
-| Função | Overloads | Risco |
-|--------|-----------|-------|
-| `get_scouter_leads_simple` | 3 | Médio |
-| `cleanup_old_rate_limits` | 2 | Baixo |
-| `get_comparecidos_by_date` | 2 | Médio |
-| `get_leads_stats` | 2 | Médio |
-| `get_scouter_leads` | 2 | Médio |
-| `get_telemarketing_conversations` | 2 | Médio |
-| `get_telemarketing_metrics` | 2 | Médio |
-| `get_telemarketing_whatsapp_messages` | 2 | Médio |
-
----
-
-## 🔄 Sincronização de Deals com Bitrix24
-
-### Problema identificado
-Deals deletados no Bitrix permaneciam no sistema local (tabela `deals` e `negotiations`), causando inconsistência de dados.
-
-### Solução implementada
-
-#### 1. Ação `cleanup_deleted` na Edge Function `sync-deals-from-bitrix`
 ```typescript
-// Chamada via dealsService.ts
-await cleanupDeletedDeals(100); // Verifica até 100 deals
-
-// Retorno
-{
-  checked: number,      // Quantidade verificada
-  deleted: number,      // Quantidade removida
-  deletedDeals: Array,  // Lista dos deals removidos
-  existing: number      // Quantidade que ainda existe
+interface ProducerSelectDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (producer: Producer) => void;
+  title?: string;
+  suggestedProducer?: ProducerInQueueView | null; // NOVO
 }
 ```
 
-#### 2. Fluxo de limpeza
-1. Busca deals locais ordenados por `last_sync_at` (mais antigos primeiro)
-2. Para cada deal, verifica se existe no Bitrix via API
-3. Se não existir no Bitrix:
-   - Deleta a negotiation associada
-   - Deleta o deal
-4. Loga cada remoção para auditoria
+### Mudanças no NegotiationPipeline
 
-#### 3. Função de serviço disponível
 ```typescript
-import { cleanupDeletedDeals } from '@/services/dealsService';
+// Importar hook da fila
+import { useProducerQueueView } from '@/hooks/useProducerQueueView';
 
-const result = await cleanupDeletedDeals(50);
-console.log(`Removidos ${result.deleted} deals órfãos`);
+// Dentro do componente
+const { nextProducer } = useProducerQueueView();
+
+// No handleStatusChange para atendimento_produtor
+<ProducerSelectDialog
+  suggestedProducer={nextProducer}
+  // ... outras props
+/>
 ```
 
-### Recomendações de uso
-- Executar periodicamente (diário ou semanal)
-- Pode ser acionado manualmente pelo admin quando necessário
-- Limite recomendado: 50-100 por execução (evita timeout)
+### Mudanças no sync-deal-to-bitrix
+
+```typescript
+// Buscar dados da negociação incluindo payment_methods
+const { data: negotiation } = await supabase
+  .from('negotiations')
+  .select('payment_methods, total_value, discount_percentage')
+  .eq('id', negotiation_id)
+  .single();
+
+// Incluir nos campos do update
+updateFields.UF_CRM_PAYMENT_DATA = JSON.stringify(negotiation.payment_methods);
+updateFields.OPPORTUNITY = negotiation.total_value;
+```
 
 ---
 
-## 🔄 Checklist para novas migrações de RPC
+## Resumo das Tarefas
 
-- [ ] Listei TODAS as assinaturas existentes da função?
-- [ ] Adicionei `DROP FUNCTION IF EXISTS` para CADA assinatura?
-- [ ] Usei tipos canônicos (`uuid[]`, `uuid`)?
-- [ ] Adicionei `SECURITY DEFINER SET search_path = public`?
-- [ ] Incluí `NOTIFY pgrst, 'reload schema'` no final?
-- [ ] Verifiquei com query se há apenas 1 versão após migração?
-
----
-
-## 📁 Arquivos importantes
-
-| Arquivo | Descrição |
-|---------|-----------|
-| `supabase/functions/sync-deals-from-bitrix/index.ts` | Edge function de sync de deals |
-| `src/services/dealsService.ts` | Serviço de deals (frontend) |
-| `src/services/agenciamentoService.ts` | Serviço de negociações |
-| `src/hooks/useAdminWhatsAppConversations.ts` | Hook do WhatsApp admin |
+| # | Tarefa | Arquivo | Prioridade |
+|---|--------|---------|------------|
+| 1 | Adicionar sugestão de produtor da fila no diálogo | ProducerSelectDialog.tsx | Alta |
+| 2 | Integrar nextProducer no NegotiationPipeline | NegotiationPipeline.tsx | Alta |
+| 3 | Adicionar botões de resultado (Fechou/Não Fechou) | ProducerAgenciarForm.tsx | Alta |
+| 4 | Enviar payment_methods para Bitrix | sync-deal-to-bitrix/index.ts | Média |
+| 5 | Atualizar status do produtor na fila ao iniciar atendimento | NegotiationPipeline.tsx | Média |
 
 ---
 
-## 📅 Histórico de correções
+## Resultado Esperado
 
-| Data | Problema | Solução |
-|------|----------|---------|
-| 2026-01-30 | PGRST203 no /whatsapp | Unificação de RPCs do WhatsApp |
-| 2026-01-30 | Deals deletados no Bitrix permanecem | Ação `cleanup_deleted` |
+Após implementação:
+
+1. Usuário move card para "Atendimento Produtor"
+2. Aparece: "Atendimento com **Maria Santos** (próxima da fila). Confirmar ou escolher outro?"
+3. Ao confirmar, deal aparece no portal do produtor Maria
+4. Maria preenche formas de pagamento e escolhe "Fechou Negócio" ou "Não Fechou"
+5. Bitrix é atualizado com status correto e dados de pagamento
