@@ -88,48 +88,78 @@ export function ScouterCard({ scouter, onStatusChange, onEdit, onViewPerformance
     <Card
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className="p-4 hover:shadow-md transition-shadow cursor-move bg-card"
+      className="p-4 hover:shadow-md transition-shadow bg-card"
     >
       <div className="flex items-start gap-3">
-        {/* Avatar */}
-        <Avatar className="h-12 w-12 flex-shrink-0">
-          <AvatarImage src={scouter.photo_url} alt={scouter.name} />
-          <AvatarFallback className="bg-primary/10 text-primary">
-            {getInitials(scouter.name)}
-          </AvatarFallback>
-        </Avatar>
+        {/* Avatar - drag handle */}
+        <div {...attributes} {...listeners} className="cursor-move flex-shrink-0">
+          <Avatar className="h-12 w-12">
+            <AvatarImage src={scouter.photo_url} alt={scouter.name} />
+            <AvatarFallback className="bg-primary/10 text-primary">
+              {getInitials(scouter.name)}
+            </AvatarFallback>
+          </Avatar>
+        </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           {/* Header with name and menu */}
           <div className="flex items-start justify-between gap-2 mb-2">
-            <h3 className="font-semibold text-sm text-foreground truncate">
+            <h3 
+              {...attributes} 
+              {...listeners} 
+              className="font-semibold text-sm text-foreground truncate cursor-move"
+            >
               {scouter.name}
             </h3>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 flex-shrink-0 relative z-50"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onPointerDownOutside={(e) => e.stopPropagation()}>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onViewPerformance(scouter); }}>
+              <DropdownMenuContent 
+                align="end" 
+                className="z-[9999]"
+                onCloseAutoFocus={(e) => e.preventDefault()}
+              >
+                <DropdownMenuItem 
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    onViewPerformance(scouter); 
+                  }}
+                >
                   <TrendingUp className="h-4 w-4 mr-2" />
                   Ver Performance
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(scouter); }}>
+                <DropdownMenuItem 
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    onEdit(scouter); 
+                  }}
+                >
                   Editar Informações
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>Mudar Status</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
+                  <DropdownMenuSubContent className="z-[9999]">
                     {Object.entries(STATUS_CONFIG).map(([status, config]) => (
                       <DropdownMenuItem
                         key={status}
-                        onClick={() => onStatusChange(scouter.id, status)}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onStatusChange(scouter.id, status);
+                        }}
                         disabled={scouter.status === status}
                       >
                         <config.icon className="h-4 w-4 mr-2" />
