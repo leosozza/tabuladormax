@@ -114,12 +114,12 @@ export function ScouterCard({ scouter, onStatusChange, onEdit, onViewPerformance
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onViewPerformance(scouter)}>
+              <DropdownMenuContent align="end" onPointerDownOutside={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onViewPerformance(scouter); }}>
                   <TrendingUp className="h-4 w-4 mr-2" />
                   Ver Performance
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onEdit(scouter)}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(scouter); }}>
                   Editar Informações
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
