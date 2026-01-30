@@ -141,6 +141,38 @@ serve(async (req) => {
     if (event.includes('DELETE')) {
       console.log(`🗑️ Deletando deal ${dealId} do Supabase`);
       
+      // Primeiro deletar negotiations que referenciam este deal
+      const { error: negError } = await supabase
+        .from('negotiations')
+        .delete()
+        .eq('bitrix_deal_id', parseInt(dealId));
+      
+      if (negError) {
+        console.error('⚠️ Erro ao deletar negotiations:', negError);
+        // Continua mesmo com erro para tentar deletar o deal
+      } else {
+        console.log(`✅ Negotiations com bitrix_deal_id ${dealId} deletadas`);
+      }
+
+      // Também deletar pelo deal_id se existir referência
+      const { data: dealRecord } = await supabase
+        .from('deals')
+        .select('id')
+        .eq('bitrix_deal_id', parseInt(dealId))
+        .maybeSingle();
+      
+      if (dealRecord?.id) {
+        const { error: negByDealError } = await supabase
+          .from('negotiations')
+          .delete()
+          .eq('deal_id', dealRecord.id);
+        
+        if (negByDealError) {
+          console.error('⚠️ Erro ao deletar negotiations por deal_id:', negByDealError);
+        }
+      }
+      
+      // Agora deletar o deal
       const { error: deleteError } = await supabase
         .from('deals')
         .delete()
@@ -151,9 +183,9 @@ serve(async (req) => {
         throw deleteError;
       }
 
-      console.log(`✅ Deal ${dealId} deletado com sucesso`);
+      console.log(`✅ Deal ${dealId} e negotiations associadas deletados com sucesso`);
       return new Response(
-        JSON.stringify({ success: true, message: 'Deal deletado', dealId }),
+        JSON.stringify({ success: true, message: 'Deal e negotiations deletados', dealId }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
