@@ -55,7 +55,8 @@ export default function WhatsApp() {
       deal_count: 0,
       deal_title: null,
       contract_number: null,
-      maxsystem_id: null
+      maxsystem_id: null,
+      is_closed: false
     });
   }, []);
 

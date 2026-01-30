@@ -17,7 +17,7 @@ export interface AdminConversation {
   last_operator_name: string | null;
   last_operator_photo_url: string | null;
   lead_etapa: string | null;
-  response_status: 'waiting' | 'never' | 'replied' | null;
+  response_status: 'waiting' | 'never' | 'replied' | 'in_progress' | null;
   deal_stage_id: string | null;
   deal_status: 'won' | 'lost' | 'open' | null;
   deal_category_id: string | null;
@@ -25,6 +25,7 @@ export interface AdminConversation {
   deal_title: string | null;
   contract_number: string | null;
   maxsystem_id: string | null;
+  is_closed: boolean;
 }
 
 export type WindowFilter = 'all' | 'open' | 'closed';
@@ -79,7 +80,8 @@ export const useAdminWhatsAppConversations = ({
         p_offset: pageParam,
         p_window_filter: windowFilter,
         p_response_filter: responseFilter,
-        p_deal_status_filter: dealStatusFilter
+        p_deal_status_filter: dealStatusFilter,
+        p_closed_filter: closedFilter
       };
       
       // Only include optional params when they have values
@@ -88,29 +90,16 @@ export const useAdminWhatsAppConversations = ({
       if (tagFilter && tagFilter.length > 0) rpcParams.p_tag_filter = tagFilter;
       if (operatorFilter) rpcParams.p_operator_filter = operatorFilter;
 
-      // Fetch conversations
+      // Fetch conversations (now with server-side closed filter)
       const { data: convData, error: convError } = await supabase.rpc('get_admin_whatsapp_conversations', rpcParams);
 
       if (convError) throw convError;
-
-      // Fetch active closures if filtering
-      let closedPhoneNumbers = new Set<string>();
-      if (closedFilter !== 'all') {
-        const { data: closuresData } = await supabase
-          .from('whatsapp_conversation_closures' as any)
-          .select('phone_number')
-          .is('reopened_at', null);
-        
-        if (closuresData) {
-          closedPhoneNumbers = new Set((closuresData as any[]).map(c => c.phone_number));
-        }
-      }
 
       // Calculate window status for each conversation
       const now = new Date();
       const windowHours = 24;
 
-      let conversations = (convData || []).map((conv: any): AdminConversation => {
+      const conversations = (convData || []).map((conv: any): AdminConversation => {
         const lastCustomerMessage = conv.last_customer_message_at 
           ? new Date(conv.last_customer_message_at) 
           : null;
@@ -141,16 +130,10 @@ export const useAdminWhatsAppConversations = ({
           deal_count: Number(conv.deal_count) || 0,
           deal_title: conv.deal_title || null,
           contract_number: conv.contract_number || null,
-          maxsystem_id: conv.maxsystem_id || null
+          maxsystem_id: conv.maxsystem_id || null,
+          is_closed: Boolean(conv.is_closed)
         };
       });
-
-      // Apply closed filter
-      if (closedFilter === 'active') {
-        conversations = conversations.filter(c => !c.phone_number || !closedPhoneNumbers.has(c.phone_number));
-      } else if (closedFilter === 'closed') {
-        conversations = conversations.filter(c => c.phone_number && closedPhoneNumbers.has(c.phone_number));
-      }
 
       // Limit to requested size
       const limitedConversations = conversations.slice(0, limit);
@@ -178,13 +161,14 @@ export const useAdminWhatsAppConversations = ({
 
   // Use filtered stats RPC - updates based on current filters
   const { data: stats } = useQuery({
-    queryKey: ['admin-whatsapp-stats', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, tagFilter, operatorFilter],
+    queryKey: ['admin-whatsapp-stats', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, closedFilter, tagFilter, operatorFilter],
     queryFn: async () => {
       // Build params conditionally to avoid null ambiguity
       const statsParams: Record<string, any> = {
         p_window_filter: windowFilter,
         p_response_filter: responseFilter,
-        p_deal_status_filter: dealStatusFilter
+        p_deal_status_filter: dealStatusFilter,
+        p_closed_filter: closedFilter
       };
       
       if (search) statsParams.p_search = search;
@@ -219,13 +203,14 @@ export const useAdminWhatsAppConversations = ({
 
   // Get total count for display (filtered) - lazy load
   const { data: totalCount } = useQuery({
-    queryKey: ['admin-whatsapp-conversations-count', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, tagFilter, operatorFilter],
+    queryKey: ['admin-whatsapp-conversations-count', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, closedFilter, tagFilter, operatorFilter],
     queryFn: async () => {
       // Build params conditionally to avoid null ambiguity
       const countParams: Record<string, any> = {
         p_window_filter: windowFilter,
         p_response_filter: responseFilter,
-        p_deal_status_filter: dealStatusFilter
+        p_deal_status_filter: dealStatusFilter,
+        p_closed_filter: closedFilter
       };
       
       if (search) countParams.p_search = search;

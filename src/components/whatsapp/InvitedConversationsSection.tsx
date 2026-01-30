@@ -79,7 +79,7 @@ export function InvitedConversationsSection({
     last_operator_name: null,
     last_operator_photo_url: null,
     lead_etapa: inv.lead_etapa,
-    response_status: inv.response_status as 'waiting' | 'never' | 'replied' | null,
+    response_status: inv.response_status as 'waiting' | 'never' | 'replied' | 'in_progress' | null,
     deal_stage_id: null,
     deal_status: null,
     deal_category_id: null,
@@ -87,6 +87,7 @@ export function InvitedConversationsSection({
     deal_title: null,
     contract_number: null,
     maxsystem_id: null,
+    is_closed: false,
   });
 
   const isSelected = (inv: InvitedConversationFull) => {
