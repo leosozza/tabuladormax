@@ -5,13 +5,7 @@ import { X, RotateCw, CheckCircle2, UserPlus, Tag, UserCheck, PhoneCall, Server,
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useConversationClosure, useReopenConversation } from '@/hooks/useCloseConversation';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useMyParticipation } from '@/hooks/useMyParticipation';
 import { CloseConversationDialog } from './CloseConversationDialog';
 import { ResolveParticipationDialog } from './ResolveParticipationDialog';
@@ -148,14 +142,11 @@ export function WhatsAppHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {bitrixId && (
-                <DropdownMenuItem onClick={() => navigate(`/portal-telemarketing/tabulador?lead=${bitrixId}`)}>
+              {bitrixId && <DropdownMenuItem onClick={() => navigate(`/portal-telemarketing/tabulador?lead=${bitrixId}`)}>
                   <Server className="w-4 h-4 mr-2" />
                   Tabulador
-                </DropdownMenuItem>
-              )}
-              {phoneNumber && (
-                <>
+                </DropdownMenuItem>}
+              {phoneNumber && <>
                   <DropdownMenuItem onClick={handleClickToCall} className="text-green-600">
                     <PhoneCall className="w-4 h-4 mr-2" />
                     Ligar
@@ -173,14 +164,11 @@ export function WhatsAppHeader({
                     <Tag className="w-4 h-4 mr-2" />
                     Etiquetas
                   </DropdownMenuItem>
-                </>
-              )}
+                </>}
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {onClose && <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="w-4 h-4" />
-            </Button>}
+          {onClose}
         </div>
       </div>
 
