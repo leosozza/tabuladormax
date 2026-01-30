@@ -148,6 +148,20 @@ const RESPONSE_STATUS_CONFIG = {
   },
 };
 
+// Conversation closure status config
+const CLOSURE_STATUS_CONFIG = {
+  closed: {
+    label: "Encerrada",
+    color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
+    icon: CheckCircle2,
+  },
+  reopened: {
+    label: "Reaberta",
+    color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
+    icon: RefreshCw,
+  },
+};
+
 // Common etapa options for filter
 const ETAPA_OPTIONS = [
   { value: "all", label: "Todas as fases" },
@@ -363,7 +377,7 @@ export function AdminConversationList({
         last_operator_name: null,
         last_operator_photo_url: null,
         lead_etapa: inv.lead_etapa,
-        response_status: inv.response_status as 'waiting' | 'never' | 'replied' | null,
+        response_status: inv.response_status as 'waiting' | 'never' | 'replied' | 'in_progress' | null,
         deal_stage_id: null,
         deal_status: null,
         deal_category_id: null,
@@ -371,6 +385,7 @@ export function AdminConversationList({
         deal_title: null,
         contract_number: null,
         maxsystem_id: null,
+        is_closed: false,
       }));
     
     // Combine all conversations
@@ -885,8 +900,30 @@ export function AdminConversationList({
                       <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-full">{conv.phone_number}</p>
                     )}
 
-                    {/* Etapa, Deal Status, and Priority badges */}
+                    {/* Etapa, Deal Status, Closure Status, and Priority badges */}
                     <div className="flex flex-wrap items-center gap-1 mt-1">
+                      {/* Closure status badge - Encerrada */}
+                      {conv.is_closed && (
+                        <span className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5",
+                          CLOSURE_STATUS_CONFIG.closed.color
+                        )}>
+                          <CheckCircle2 className="h-3 w-3" />
+                          {CLOSURE_STATUS_CONFIG.closed.label}
+                        </span>
+                      )}
+
+                      {/* Response status badge - Em Atendimento (only if not closed) */}
+                      {!conv.is_closed && conv.response_status === 'in_progress' && (
+                        <span className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5",
+                          RESPONSE_STATUS_CONFIG.in_progress.color
+                        )}>
+                          <Headphones className="h-3 w-3" />
+                          {RESPONSE_STATUS_CONFIG.in_progress.label}
+                        </span>
+                      )}
+
                       {/* URGENT badge - show when priority = 5 */}
                       {invitedInfo && invitedInfo.priority === 5 && (
                         <Badge variant="destructive" className="gap-1 h-5 text-[10px] font-bold animate-pulse">
