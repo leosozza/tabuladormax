@@ -73,18 +73,23 @@ export const useAdminWhatsAppConversations = ({
   } = useInfiniteQuery({
     queryKey: ['admin-whatsapp-conversations', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, closedFilter, tagFilter, operatorFilter, limit],
     queryFn: async ({ pageParam = 0 }) => {
-      // Fetch conversations
-      const { data: convData, error: convError } = await supabase.rpc('get_admin_whatsapp_conversations', {
-        p_limit: limit + 50, // Fetch more to account for filtering
+      // Build params conditionally to avoid null ambiguity
+      const rpcParams: Record<string, any> = {
+        p_limit: limit + 50,
         p_offset: pageParam,
-        p_search: search || null,
         p_window_filter: windowFilter,
         p_response_filter: responseFilter,
-        p_etapa_filter: etapaFilter || null,
-        p_deal_status_filter: dealStatusFilter,
-        p_tag_filter: tagFilter && tagFilter.length > 0 ? tagFilter : null,
-        p_operator_filter: operatorFilter || null
-      });
+        p_deal_status_filter: dealStatusFilter
+      };
+      
+      // Only include optional params when they have values
+      if (search) rpcParams.p_search = search;
+      if (etapaFilter) rpcParams.p_etapa_filter = etapaFilter;
+      if (tagFilter && tagFilter.length > 0) rpcParams.p_tag_filter = tagFilter;
+      if (operatorFilter) rpcParams.p_operator_filter = operatorFilter;
+
+      // Fetch conversations
+      const { data: convData, error: convError } = await supabase.rpc('get_admin_whatsapp_conversations', rpcParams);
 
       if (convError) throw convError;
 
@@ -175,15 +180,19 @@ export const useAdminWhatsAppConversations = ({
   const { data: stats } = useQuery({
     queryKey: ['admin-whatsapp-stats', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, tagFilter, operatorFilter],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_admin_whatsapp_filtered_stats', {
-        p_search: search || null,
+      // Build params conditionally to avoid null ambiguity
+      const statsParams: Record<string, any> = {
         p_window_filter: windowFilter,
         p_response_filter: responseFilter,
-        p_etapa_filter: etapaFilter || null,
-        p_deal_status_filter: dealStatusFilter,
-        p_tag_filter: tagFilter && tagFilter.length > 0 ? tagFilter : null,
-        p_operator_filter: operatorFilter || null
-      });
+        p_deal_status_filter: dealStatusFilter
+      };
+      
+      if (search) statsParams.p_search = search;
+      if (etapaFilter) statsParams.p_etapa_filter = etapaFilter;
+      if (tagFilter && tagFilter.length > 0) statsParams.p_tag_filter = tagFilter;
+      if (operatorFilter) statsParams.p_operator_filter = operatorFilter;
+
+      const { data, error } = await supabase.rpc('get_admin_whatsapp_filtered_stats', statsParams);
       
       if (error) {
         console.error('Error fetching filtered stats:', error);
@@ -212,15 +221,19 @@ export const useAdminWhatsAppConversations = ({
   const { data: totalCount } = useQuery({
     queryKey: ['admin-whatsapp-conversations-count', search, windowFilter, responseFilter, etapaFilter, dealStatusFilter, tagFilter, operatorFilter],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('count_admin_whatsapp_conversations', {
-        p_search: search || null,
+      // Build params conditionally to avoid null ambiguity
+      const countParams: Record<string, any> = {
         p_window_filter: windowFilter,
         p_response_filter: responseFilter,
-        p_etapa_filter: etapaFilter || null,
-        p_deal_status_filter: dealStatusFilter,
-        p_tag_filter: tagFilter && tagFilter.length > 0 ? tagFilter : null,
-        p_operator_filter: operatorFilter || null
-      });
+        p_deal_status_filter: dealStatusFilter
+      };
+      
+      if (search) countParams.p_search = search;
+      if (etapaFilter) countParams.p_etapa_filter = etapaFilter;
+      if (tagFilter && tagFilter.length > 0) countParams.p_tag_filter = tagFilter;
+      if (operatorFilter) countParams.p_operator_filter = operatorFilter;
+
+      const { data, error } = await supabase.rpc('count_admin_whatsapp_conversations', countParams);
 
       if (error) throw error;
       return Number(data) || 0;
