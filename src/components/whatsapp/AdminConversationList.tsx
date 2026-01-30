@@ -207,38 +207,48 @@ export function AdminConversationList({
   // Fetch available tags
   const { data: allTags = [] } = useAllTags();
   
-  // Fetch operators who are participants in conversations
+  // Fetch operators who are participants in conversations (2-step strategy to avoid FK issues)
   const { data: operatorOptions = [] } = useQuery({
     queryKey: ['operator-participants-options'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Step 1: Get unique operator IDs from participants table (no FK join)
+      const { data: participantsData, error: participantsError } = await supabase
         .from('whatsapp_conversation_participants' as any)
-        // Use explicit FK join to profiles (schema cache may not infer relationships)
-        // and avoid filtering by non-existent columns (e.g., resolved_at)
-        .select(`
-          operator_id,
-          operator:profiles!whatsapp_conversation_participants_operator_id_fkey(
-            id,
-            display_name
-          )
-        `);
+        .select('operator_id');
       
-      if (error) throw error;
+      if (participantsError) {
+        console.error('Error fetching participants:', participantsError);
+        return [];
+      }
       
-      // Deduplicate and format
-      const uniqueOperators = new Map<string, OperatorOption>();
-      (data || []).forEach((item: any) => {
-        if (item.operator && item.operator_id) {
-          uniqueOperators.set(item.operator_id, {
-            id: item.operator_id,
-            display_name: item.operator.display_name || 'Operador'
-          });
-        }
-      });
+      // Deduplicate operator IDs
+      const uniqueOperatorIds = [...new Set(
+        (participantsData || [])
+          .map((p: any) => p.operator_id)
+          .filter((id: string | null): id is string => !!id)
+      )];
       
-      return Array.from(uniqueOperators.values()).sort((a, b) => 
-        a.display_name.localeCompare(b.display_name)
-      );
+      if (uniqueOperatorIds.length === 0) return [];
+      
+      // Step 2: Fetch profiles for these operator IDs
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, display_name')
+        .in('id', uniqueOperatorIds);
+      
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        // Return fallback with just IDs
+        return uniqueOperatorIds.map(id => ({ id, display_name: 'Operador' }));
+      }
+      
+      // Build operator options from profiles
+      const operators: OperatorOption[] = (profilesData || []).map((profile: any) => ({
+        id: profile.id,
+        display_name: profile.display_name || 'Operador'
+      }));
+      
+      return operators.sort((a, b) => a.display_name.localeCompare(b.display_name));
     },
     staleTime: 60000,
   });

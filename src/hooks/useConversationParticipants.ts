@@ -23,20 +23,50 @@ export const useConversationParticipants = (phoneNumber: string | undefined) => 
     queryFn: async () => {
       if (!phoneNumber) return [];
 
-      const { data, error } = await supabase
+      // Step 1: Fetch participants without FK join (avoids schema cache issues)
+      const { data: participantsData, error: participantsError } = await supabase
         .from('whatsapp_conversation_participants' as any)
-        .select(`
-          *,
-          operator:profiles!whatsapp_conversation_participants_operator_id_fkey(
-            id,
-            full_name,
-            photo_url
-          )
-        `)
+        .select('id, phone_number, bitrix_id, operator_id, invited_by, invited_at, role')
         .eq('phone_number', phoneNumber);
 
-      if (error) throw error;
-      return (data || []) as unknown as Participant[];
+      if (participantsError) throw participantsError;
+      if (!participantsData || participantsData.length === 0) return [];
+
+      // Step 2: Get unique operator IDs
+      const operatorIds = [...new Set(
+        participantsData
+          .map((p: any) => p.operator_id)
+          .filter((id: string | null): id is string => !!id)
+      )];
+
+      // Step 3: Fetch profiles for these operators
+      let profilesMap: Record<string, { id: string; display_name: string | null }> = {};
+      if (operatorIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, display_name')
+          .in('id', operatorIds);
+        
+        (profilesData || []).forEach((profile: any) => {
+          profilesMap[profile.id] = profile;
+        });
+      }
+
+      // Step 4: Enrich participants with profile data
+      return participantsData.map((p: any): Participant => ({
+        id: p.id,
+        phone_number: p.phone_number,
+        bitrix_id: p.bitrix_id,
+        operator_id: p.operator_id,
+        invited_by: p.invited_by,
+        invited_at: p.invited_at,
+        role: p.role,
+        operator: p.operator_id && profilesMap[p.operator_id] ? {
+          id: profilesMap[p.operator_id].id,
+          full_name: profilesMap[p.operator_id].display_name, // Map display_name to full_name for compatibility
+          photo_url: null // profiles table doesn't have photo_url
+        } : undefined
+      }));
     },
     enabled: !!phoneNumber,
     staleTime: 30000,
