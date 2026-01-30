@@ -11,11 +11,12 @@ interface Message {
 interface GenerateResponseResult {
   response: string | null;
   agentName: string | null;
+  modelUsed: string | null;
 }
 
 interface UseWhatsAppAIReturn {
   generateResponse: (messages: Message[], context?: string, operatorBitrixId?: number, profileId?: string) => Promise<GenerateResponseResult>;
-  improveText: (text: string, context?: string, operatorBitrixId?: number, profileId?: string) => Promise<string | null>;
+  improveText: (text: string, context?: string, operatorBitrixId?: number, profileId?: string) => Promise<{ response: string | null; modelUsed: string | null }>;
   isGenerating: boolean;
   isImproving: boolean;
 }
@@ -50,17 +51,18 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
       if (error) {
         console.error('Erro ao gerar resposta:', error);
         toast.error('Erro ao gerar resposta com IA');
-        return { response: null, agentName: null };
+        return { response: null, agentName: null, modelUsed: null };
       }
 
       return { 
         response: data?.response || null,
-        agentName: data?.agent_name || null
+        agentName: data?.agent_name || null,
+        modelUsed: data?.model_used || null
       };
     } catch (err) {
       console.error('Erro ao gerar resposta:', err);
       toast.error('Erro ao conectar com IA');
-      return { response: null, agentName: null };
+      return { response: null, agentName: null, modelUsed: null };
     } finally {
       setIsGenerating(false);
     }
@@ -71,7 +73,7 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
     context?: string,
     operatorBitrixId?: number,
     profileId?: string
-  ): Promise<string | null> => {
+  ): Promise<{ response: string | null; modelUsed: string | null }> => {
     setIsImproving(true);
     try {
       const { data, error } = await supabase.functions.invoke('whatsapp-ai-assist', {
@@ -87,14 +89,17 @@ export function useWhatsAppAI(): UseWhatsAppAIReturn {
       if (error) {
         console.error('Erro ao melhorar texto:', error);
         toast.error('Erro ao melhorar texto com IA');
-        return null;
+        return { response: null, modelUsed: null };
       }
 
-      return data?.response || null;
+      return { 
+        response: data?.response || null,
+        modelUsed: data?.model_used || null
+      };
     } catch (err) {
       console.error('Erro ao melhorar texto:', err);
       toast.error('Erro ao conectar com IA');
-      return null;
+      return { response: null, modelUsed: null };
     } finally {
       setIsImproving(false);
     }

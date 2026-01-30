@@ -251,7 +251,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           response: generatedResponse.trim(),
-          agent_name: agent?.name || null
+          agent_name: agent?.name || null,
+          model_used: model
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -323,7 +324,10 @@ Retorne APENAS o texto melhorado, sem explicações.`;
       const improvedText = data.choices?.[0]?.message?.content || text;
 
       return new Response(
-        JSON.stringify({ response: improvedText.trim() }),
+        JSON.stringify({ 
+          response: improvedText.trim(),
+          model_used: model
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
