@@ -15,6 +15,7 @@ export interface InvitedConversationFull {
   unread_count: number;
   lead_etapa: string | null;
   response_status: string | null;
+  is_closed: boolean; // Novo campo para filtrar conversas encerradas
 }
 
 export const useMyInvitedConversationsFull = () => {
