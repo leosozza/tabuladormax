@@ -93,7 +93,14 @@ export const useAdminWhatsAppConversations = ({
       // Fetch conversations (now with server-side closed filter)
       const { data: convData, error: convError } = await supabase.rpc('get_admin_whatsapp_conversations', rpcParams);
 
-      if (convError) throw convError;
+      if (convError) {
+        // Handle schema cache/overload ambiguity error with clear message
+        if (convError.code === 'PGRST203') {
+          console.error('RPC overload ambiguity detected. Schema cache may need refresh.');
+          throw new Error('Erro de configuração do backend (PGRST203). O cache do schema precisa ser recarregado. Tente atualizar a página.');
+        }
+        throw convError;
+      }
 
       // Calculate window status for each conversation
       const now = new Date();
