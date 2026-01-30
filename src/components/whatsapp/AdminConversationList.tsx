@@ -97,7 +97,8 @@ import { ClientDetailsModal } from "./ClientDetailsModal";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMyInvitedConversations, InvitedConversation } from "@/hooks/useMyInvitedConversations";
-import { useMyInvitedConversationsFull } from "@/hooks/useMyInvitedConversationsFull";
+import { useMyInvitedConversationsFull, InvitedConversationFull } from "@/hooks/useMyInvitedConversationsFull";
+import { useResourceScope } from "@/hooks/useResourceScope";
 import { TagBadge } from "./TagBadge";
 import { PriorityBadge } from "./PrioritySelector";
 import { InvitedBadge } from "./InvitedBadge";
@@ -346,6 +347,9 @@ export function AdminConversationList({
     isError: isInvitedError, 
     refetch: refetchInvited 
   } = useMyInvitedConversationsFull();
+
+  // Verificar scope de permissão do usuário para whatsapp.view
+  const { isOwnOnly, loading: loadingScope } = useResourceScope('whatsapp.view');
   
   // Create a map for quick lookup
   const invitedConversationsMap = useMemo(() => {
@@ -364,39 +368,80 @@ export function AdminConversationList({
     return `${phone}-${bitrix}` || 'unknown';
   };
 
+  // Helper function to convert InvitedConversationFull to AdminConversation
+  const convertInvitedToAdmin = (inv: InvitedConversationFull): AdminConversation => ({
+    phone_number: inv.phone_number,
+    bitrix_id: inv.bitrix_id,
+    lead_name: inv.lead_name,
+    lead_id: inv.bitrix_id ? parseInt(inv.bitrix_id, 10) || null : null,
+    last_message_at: inv.last_message_at || '',
+    last_message_preview: inv.last_message_preview,
+    last_message_direction: null,
+    last_customer_message_at: null,
+    unread_count: inv.unread_count,
+    total_messages: 0,
+    is_window_open: inv.is_window_open,
+    last_operator_name: null,
+    last_operator_photo_url: null,
+    lead_etapa: inv.lead_etapa,
+    response_status: inv.response_status as 'waiting' | 'never' | 'replied' | 'in_progress' | null,
+    deal_stage_id: null,
+    deal_status: null,
+    deal_category_id: null,
+    deal_count: 0,
+    deal_title: null,
+    contract_number: null,
+    maxsystem_id: null,
+    is_closed: inv.is_closed, // Usar valor real do is_closed
+  });
+
   // Merge invited conversations into main list + dedupe by normalized phone + add pinned item
   const mergedConversations = useMemo(() => {
+    // Se scope = 'own', usar APENAS conversas convidadas
+    if (isOwnOnly) {
+      // Filtrar pelo closedFilter antes de mapear
+      const filteredInvited = myInvitedConversationsFull.filter(inv => {
+        if (closedFilter === 'active') return !inv.is_closed;
+        if (closedFilter === 'closed') return inv.is_closed;
+        return true; // 'all'
+      });
+      
+      let result = filteredInvited.map(convertInvitedToAdmin);
+      
+      // Include selected conversation if pinned
+      if (selectedConversation) {
+        const selectedNormPhone = normalizePhone(selectedConversation.phone_number);
+        const existsInList = result.some(c => normalizePhone(c.phone_number) === selectedNormPhone);
+        if (!existsInList) {
+          result = [selectedConversation, ...result];
+        }
+      }
+      
+      return result.sort((a, b) => {
+        const dateA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+        const dateB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+        return dateB - dateA;
+      });
+    }
+
+    // Lógica padrão para global/department
     // Create a set of existing conversation keys (normalized phone) for quick lookup
     const existingNormalizedPhones = new Set(conversations.map(c => normalizePhone(c.phone_number)));
     
-    // Convert invited conversations that are NOT already in the main list (by normalized phone)
-    const invitedAsAdmin: AdminConversation[] = myInvitedConversationsFull
-      .filter(inv => !existingNormalizedPhones.has(normalizePhone(inv.phone_number)))
-      .map(inv => ({
-        phone_number: inv.phone_number,
-        bitrix_id: inv.bitrix_id,
-        lead_name: inv.lead_name,
-        lead_id: inv.bitrix_id ? parseInt(inv.bitrix_id, 10) || null : null,
-        last_message_at: inv.last_message_at || '',
-        last_message_preview: inv.last_message_preview,
-        last_message_direction: null,
-        last_customer_message_at: null,
-        unread_count: inv.unread_count,
-        total_messages: 0,
-        is_window_open: inv.is_window_open,
-        last_operator_name: null,
-        last_operator_photo_url: null,
-        lead_etapa: inv.lead_etapa,
-        response_status: inv.response_status as 'waiting' | 'never' | 'replied' | 'in_progress' | null,
-        deal_stage_id: null,
-        deal_status: null,
-        deal_category_id: null,
-        deal_count: 0,
-        deal_title: null,
-        contract_number: null,
-        maxsystem_id: null,
-        is_closed: false,
-      }));
+    // Filtrar conversas convidadas pelo closedFilter antes de mesclar
+    const filteredInvited = myInvitedConversationsFull.filter(inv => {
+      // Primeiro: não incluir se já existe na lista principal
+      if (existingNormalizedPhones.has(normalizePhone(inv.phone_number))) {
+        return false;
+      }
+      // Segundo: aplicar filtro closed
+      if (closedFilter === 'active') return !inv.is_closed;
+      if (closedFilter === 'closed') return inv.is_closed;
+      return true; // 'all'
+    });
+    
+    // Convert invited conversations to AdminConversation format
+    const invitedAsAdmin: AdminConversation[] = filteredInvited.map(convertInvitedToAdmin);
     
     // Combine all conversations
     let combined = [...conversations, ...invitedAsAdmin];
@@ -437,7 +482,7 @@ export function AdminConversationList({
       const dateB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
       return dateB - dateA;
     });
-  }, [conversations, myInvitedConversationsFull, selectedConversation]);
+  }, [conversations, myInvitedConversationsFull, selectedConversation, isOwnOnly, closedFilter]);
 
   const isSelected = (conv: AdminConversation) => {
     if (!selectedConversation) return false;

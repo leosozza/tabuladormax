@@ -6099,6 +6099,7 @@ export type Database = {
           invited_at: string
           invited_by: string
           inviter_name: string
+          is_closed: boolean
           is_window_open: boolean
           last_message_at: string
           last_message_preview: string
@@ -6644,6 +6645,10 @@ export type Database = {
         Returns: {
           commercial_project_id: string
         }[]
+      }
+      get_user_resource_scope: {
+        Args: { _resource_code: string; _user_id: string }
+        Returns: string
       }
       get_whatsapp_conversation_stats: {
         Args: { p_bitrix_ids?: string[]; p_phone_numbers?: string[] }
