@@ -1,183 +1,296 @@
 
-# Plano de Ajustes para o Módulo de Agenciamento
+# Plano: Correção de Filtro de Conversas Encerradas + Permissões por Departamento
 
-## Entendimento do Fluxo Desejado
+## Problema 1: Conversas Encerradas Aparecendo em "Ativas"
 
-O usuário descreveu o seguinte fluxo completo:
-
-1. **Lead chega na agência** → se torna um **Deal**
-2. Deal começa na etapa **"Recepção - Cadastro de atendimento"**
-3. Cliente preenche o cadastro → muda para **"Ficha Preenchida"**
-4. Ao mover para **"Atendimento Produtor"** → vincula automaticamente ao produtor da **"Fila da Vez"**
-   - Exibe mensagem: "Atendimento com Produtor X, confirma ou escolher outro produtor"
-5. Ao confirmar → produtor recebe o deal no **`/portal-produtor`**
-6. Produtor escolhe o deal e clica em **"Agenciar"**
-7. Preenche formas de pagamento e clica em **"Concluir"**
-8. Atualiza o deal no Bitrix com:
-   - Formas de pagamento escolhidas
-   - Se fechou negócio ou não
-
----
-
-## Análise do Estado Atual
-
-### O que já funciona:
-
-| Funcionalidade | Status |
-|----------------|--------|
-| Pipeline Kanban com etapas corretas | ✅ Implementado |
-| Fila da Vez (ProducerQueueHeaderBar) | ✅ Implementado |
-| ProducerSelectDialog para escolher produtor | ✅ Implementado |
-| Portal do Produtor com lista de deals | ✅ Implementado |
-| Formulário de Agenciamento (ProducerAgenciarForm) | ✅ Implementado |
-| Sincronização de status com Bitrix | ✅ Implementado |
-
-### O que precisa ser ajustado:
-
-| Problema Identificado | Ajuste Necessário |
-|-----------------------|-------------------|
-| Ao mover para "Atendimento Produtor", não mostra o produtor da fila como sugestão | Mostrar o próximo da fila automaticamente no diálogo |
-| Não há confirmação com o nome do produtor sugerido | Adicionar diálogo de confirmação com produtor pré-selecionado |
-| Formas de pagamento não são enviadas para o Bitrix | Incluir payment_methods no sync-deal-to-bitrix |
-| Status "negocios_fechados" vs "contrato_nao_fechado" não é claramente escolhido | Adicionar opção de escolher resultado no fluxo de conclusão |
-
----
-
-## Implementação Proposta
-
-### 1. Melhorar ProducerSelectDialog com Sugestão Automática
-
-**Arquivo:** `src/components/agenciamento/ProducerSelectDialog.tsx`
-
-Alterações:
-- Adicionar prop `suggestedProducer` (opcional)
-- Quando fornecido, mostrar mensagem de confirmação
-- Pré-selecionar o produtor sugerido
-- Exibir: "Atendimento com **[Nome do Produtor]**, confirma ou escolher outro"
+### Diagnóstico
+A RPC `get_admin_whatsapp_conversations` filtra corretamente pelo parâmetro `p_closed_filter`, mas no componente `AdminConversationList.tsx`, o código mescla conversas vindas do hook `useMyInvitedConversationsFull` que são sempre adicionadas com `is_closed: false` (hardcoded na linha 398).
 
 ```text
-┌─────────────────────────────────────────────┐
-│  Atribuir Atendimento                       │
-├─────────────────────────────────────────────┤
-│                                             │
-│  Próximo da Fila:                           │
-│  ┌─────────────────────────────────────┐   │
-│  │ 👤 João Silva                       │   │
-│  │    Posição #1 na fila               │   │
-│  └─────────────────────────────────────┘   │
-│                                             │
-│  [Confirmar João]  [Escolher Outro]         │
-│                                             │
-│  ─────────────────────────────────────────  │
-│  Ou selecione outro produtor:               │
-│  🔍 Buscar produtor...                      │
-│  ┌─────────────────────────────────────┐   │
-│  │ Lista de produtores disponíveis     │   │
-│  └─────────────────────────────────────┘   │
-│                                             │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ RPC: get_admin_whatsapp_conversations                           │
+│ → Filtra corretamente: p_closed_filter = 'active'               │
+│ → Retorna apenas is_closed = false                              │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ AdminConversationList - mergedConversations                     │
+│ → Adiciona conversas de myInvitedConversationsFull              │
+│ → SEMPRE com is_closed: false (hardcoded)    ❌ PROBLEMA        │
+│ → NÃO aplica filtro closedFilter nessas conversas               │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Integrar Fila da Vez no Fluxo de Transição
-
-**Arquivo:** `src/components/agenciamento/NegotiationPipeline.tsx`
-
-Alterações:
-- Importar `useProducerQueueView` para obter `nextProducer`
-- Passar `suggestedProducer={nextProducer}` para o ProducerSelectDialog
-- Ao confirmar, marcar produtor como "EM_ATENDIMENTO" na fila
-
-### 3. Adicionar Escolha de Resultado ao Concluir
-
-**Arquivo:** `src/components/portal-produtor/ProducerAgenciarForm.tsx`
-
-Alterações:
-- Substituir botão único "Concluir" por dois botões:
-  - "Fechou Negócio" → status `negocios_fechados`
-  - "Não Fechou" → status `contrato_nao_fechado`
-- Ou adicionar um diálogo de confirmação perguntando o resultado
-
-### 4. Enviar Formas de Pagamento para o Bitrix
-
-**Arquivo:** `supabase/functions/sync-deal-to-bitrix/index.ts`
-
-Alterações:
-- Buscar `payment_methods` da tabela `negotiations`
-- Mapear para campos customizados do Bitrix (se existirem)
-- Ou armazenar como JSON em um campo de observações
-
-Campos sugeridos para enviar:
-- `UF_CRM_PAYMENT_METHODS`: JSON com formas de pagamento
-- `UF_CRM_TOTAL_VALUE`: Valor total negociado
-- `UF_CRM_DISCOUNT_PERCENT`: Percentual de desconto aplicado
+### Solução
+1. Atualizar a RPC `get_my_invited_conversations_full` para retornar o campo `is_closed` da materialized view
+2. Atualizar o tipo `InvitedConversationFull` para incluir `is_closed`
+3. No `mergedConversations`, propagar o valor real de `is_closed` ao invés de sempre usar `false`
+4. Filtrar as conversas convidadas pelo `closedFilter` antes de mesclar
 
 ---
 
-## Detalhes Técnicos
+## Problema 2: Controle de Acesso por Departamento
 
-### Mudanças no ProducerSelectDialog
+### Diagnóstico
+A configuração atual mostra:
+- Departamento "Cobrança" tem `scope: own` para `whatsapp.view` e `whatsapp.send`
+- "own" significa: visualizar apenas conversas próprias (onde é participante)
+- Não existe validação que force esse comportamento no frontend/backend
 
-```typescript
-interface ProducerSelectDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onSelect: (producer: Producer) => void;
-  title?: string;
-  suggestedProducer?: ProducerInQueueView | null; // NOVO
-}
+### Fluxo Desejado
+
+```text
+┌────────────────────────────────────────────────────────────────┐
+│ Usuário do Departamento Cobrança                               │
+│ → Permissão: whatsapp.view = "own"                             │
+└────────────────────────────┬───────────────────────────────────┘
+                             │
+         ┌───────────────────┴───────────────────┐
+         ▼                                       ▼
+┌─────────────────────────┐         ┌─────────────────────────────┐
+│ Não Convidado           │         │ Convidado para Conversa     │
+│ → Não vê a conversa     │         │ → Pode visualizar           │
+│ → Lista vazia           │         │ → Pode interagir            │
+└─────────────────────────┘         │ → Ao resolver, perde acesso │
+                                    └─────────────────────────────┘
 ```
 
-### Mudanças no NegotiationPipeline
+### Solução
+1. Criar hook `useResourceScope` para verificar scope do usuário para um recurso
+2. No `/whatsapp`, verificar scope do recurso `whatsapp.view`:
+   - `global`: acesso total (admin)
+   - `department`: ver conversas do departamento
+   - `own`: ver APENAS conversas onde é participante
+3. Para usuários com scope `own`:
+   - Mostrar somente conversas vindas de `get_my_invited_conversations_full`
+   - Esconder a lista principal de `get_admin_whatsapp_conversations`
+4. Quando marcar "Resolvido", remover da tabela `whatsapp_conversation_participants`
+
+---
+
+## Implementação Técnica
+
+### Arquivos a Modificar
+
+| # | Arquivo | Alteração |
+|---|---------|-----------|
+| 1 | `supabase/migrations/xxx.sql` | Atualizar `get_my_invited_conversations_full` para incluir `is_closed` |
+| 2 | `src/hooks/useMyInvitedConversationsFull.ts` | Adicionar campo `is_closed` ao tipo |
+| 3 | `src/components/whatsapp/AdminConversationList.tsx` | Propagar `is_closed` e filtrar pelo `closedFilter` |
+| 4 | `src/hooks/useResourceScope.ts` | **Novo hook** para verificar scope de permissão |
+| 5 | `supabase/migrations/xxx.sql` | Criar função `get_user_resource_scope` |
+| 6 | `src/pages/WhatsApp.tsx` | Aplicar lógica de scope para controlar lista exibida |
+| 7 | `src/components/whatsapp/InvitedConversationsSection.tsx` | Ajustes visuais para modo "own" |
+
+### 1. Migração: Atualizar RPC `get_my_invited_conversations_full`
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_my_invited_conversations_full(p_operator_id uuid)
+RETURNS TABLE (
+  phone_number text,
+  bitrix_id text,
+  priority integer,
+  inviter_name text,
+  invited_at timestamptz,
+  invited_by uuid,
+  lead_name text,
+  last_message_at timestamptz,
+  last_message_preview text,
+  is_window_open boolean,
+  unread_count bigint,
+  lead_etapa text,
+  response_status text,
+  is_closed boolean  -- NOVO CAMPO
+)
+...
+SELECT 
+  ...
+  COALESCE(s.is_closed, false) as is_closed  -- ADICIONAR
+FROM whatsapp_conversation_participants p
+LEFT JOIN mv_whatsapp_conversation_stats s ON ...
+```
+
+### 2. Migração: Criar função `get_user_resource_scope`
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_user_resource_scope(
+  _user_id uuid,
+  _resource_code text
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_scope text := 'none';
+  v_user_role_id uuid;
+  v_user_department text;
+BEGIN
+  -- 1. Verificar permissão direta do usuário
+  SELECT pa.scope INTO v_scope
+  FROM permission_assignments pa
+  JOIN app_resources ar ON ar.id = pa.resource_id
+  WHERE pa.assign_type = 'user'
+    AND pa.user_id = _user_id
+    AND ar.code = _resource_code
+    AND pa.can_access = true
+  LIMIT 1;
+  
+  IF v_scope IS NOT NULL AND v_scope != 'none' THEN
+    RETURN v_scope;
+  END IF;
+  
+  -- 2. Verificar permissão por departamento
+  SELECT ud.department INTO v_user_department
+  FROM user_departments ud
+  WHERE ud.user_id = _user_id
+  LIMIT 1;
+  
+  IF v_user_department IS NOT NULL THEN
+    SELECT pa.scope INTO v_scope
+    FROM permission_assignments pa
+    JOIN app_resources ar ON ar.id = pa.resource_id
+    JOIN departments d ON d.id = pa.department_id
+    WHERE pa.assign_type = 'department'
+      AND d.code = v_user_department
+      AND ar.code = _resource_code
+      AND pa.can_access = true
+    LIMIT 1;
+    
+    IF v_scope IS NOT NULL AND v_scope != 'none' THEN
+      RETURN v_scope;
+    END IF;
+  END IF;
+  
+  -- 3. Verificar permissão por role
+  SELECT ur.id INTO v_user_role_id
+  FROM user_roles ur
+  WHERE ur.user_id = _user_id
+  LIMIT 1;
+  
+  IF v_user_role_id IS NOT NULL THEN
+    SELECT pa.scope INTO v_scope
+    FROM permission_assignments pa
+    JOIN app_resources ar ON ar.id = pa.resource_id
+    WHERE pa.assign_type = 'role'
+      AND pa.role_id = v_user_role_id
+      AND ar.code = _resource_code
+      AND pa.can_access = true
+    LIMIT 1;
+  END IF;
+  
+  RETURN COALESCE(v_scope, 'none');
+END;
+$$;
+```
+
+### 3. Novo Hook: `useResourceScope`
 
 ```typescript
-// Importar hook da fila
-import { useProducerQueueView } from '@/hooks/useProducerQueueView';
+// src/hooks/useResourceScope.ts
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+type ResourceScope = 'global' | 'department' | 'own' | 'none';
+
+export const useResourceScope = (resourceCode: string) => {
+  const [scope, setScope] = useState<ResourceScope>('none');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkScope = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setScope('none');
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc('get_user_resource_scope', {
+        _user_id: user.id,
+        _resource_code: resourceCode,
+      });
+
+      if (error) {
+        console.error('Error checking resource scope:', error);
+        setScope('none');
+      } else {
+        setScope(data as ResourceScope || 'none');
+      }
+      setLoading(false);
+    };
+
+    checkScope();
+  }, [resourceCode]);
+
+  return { scope, loading, isOwnOnly: scope === 'own' };
+};
+```
+
+### 4. Ajustes no `AdminConversationList.tsx`
+
+```typescript
+// Importar o novo hook
+import { useResourceScope } from '@/hooks/useResourceScope';
 
 // Dentro do componente
-const { nextProducer } = useProducerQueueView();
+const { scope: viewScope, isOwnOnly } = useResourceScope('whatsapp.view');
 
-// No handleStatusChange para atendimento_produtor
-<ProducerSelectDialog
-  suggestedProducer={nextProducer}
-  // ... outras props
-/>
+// Atualizar mergedConversations para:
+// 1. Usar is_closed real das conversas convidadas
+// 2. Filtrar pelo closedFilter
+// 3. Se isOwnOnly, mostrar APENAS conversas convidadas
+
+const mergedConversations = useMemo(() => {
+  // Se scope = 'own', usar apenas conversas convidadas
+  if (isOwnOnly) {
+    return myInvitedConversationsFull
+      .filter(inv => {
+        // Aplicar filtro closed
+        if (closedFilter === 'active') return !inv.is_closed;
+        if (closedFilter === 'closed') return inv.is_closed;
+        return true; // 'all'
+      })
+      .map(inv => ({
+        ...convertInvitedToAdmin(inv),
+        is_closed: inv.is_closed, // Usar valor real
+      }));
+  }
+  
+  // Lógica atual para global/department
+  // ... mas com is_closed correto das conversas convidadas
+}, [conversations, myInvitedConversationsFull, isOwnOnly, closedFilter]);
 ```
 
-### Mudanças no sync-deal-to-bitrix
+### 5. Ajustes no `WhatsApp.tsx`
 
-```typescript
-// Buscar dados da negociação incluindo payment_methods
-const { data: negotiation } = await supabase
-  .from('negotiations')
-  .select('payment_methods, total_value, discount_percentage')
-  .eq('id', negotiation_id)
-  .single();
-
-// Incluir nos campos do update
-updateFields.UF_CRM_PAYMENT_DATA = JSON.stringify(negotiation.payment_methods);
-updateFields.OPPORTUNITY = negotiation.total_value;
-```
-
----
-
-## Resumo das Tarefas
-
-| # | Tarefa | Arquivo | Prioridade |
-|---|--------|---------|------------|
-| 1 | Adicionar sugestão de produtor da fila no diálogo | ProducerSelectDialog.tsx | Alta |
-| 2 | Integrar nextProducer no NegotiationPipeline | NegotiationPipeline.tsx | Alta |
-| 3 | Adicionar botões de resultado (Fechou/Não Fechou) | ProducerAgenciarForm.tsx | Alta |
-| 4 | Enviar payment_methods para Bitrix | sync-deal-to-bitrix/index.ts | Média |
-| 5 | Atualizar status do produtor na fila ao iniciar atendimento | NegotiationPipeline.tsx | Média |
+Para usuários com scope `own`, mostrar interface simplificada focada apenas nas conversas convidadas.
 
 ---
 
 ## Resultado Esperado
 
-Após implementação:
+### Problema 1 Resolvido
+- Conversas encerradas NÃO aparecem mais na aba "Ativas"
+- O filtro `closedFilter` é aplicado corretamente a TODAS as conversas (principais + convidadas)
 
-1. Usuário move card para "Atendimento Produtor"
-2. Aparece: "Atendimento com **Maria Santos** (próxima da fila). Confirmar ou escolher outro?"
-3. Ao confirmar, deal aparece no portal do produtor Maria
-4. Maria preenche formas de pagamento e escolhe "Fechou Negócio" ou "Não Fechou"
-5. Bitrix é atualizado com status correto e dados de pagamento
+### Problema 2 Resolvido
+- Usuário do departamento Cobrança com `whatsapp.view = "own"`:
+  1. Ao acessar `/whatsapp`, vê lista vazia
+  2. Quando é convidado para uma conversa, ela aparece na lista
+  3. Pode visualizar e interagir (se tem `whatsapp.send = "own"`)
+  4. Ao clicar "Resolvido", conversa desaparece da lista
+  5. Não tem mais acesso até ser convidado novamente
+
+---
+
+## Ordem de Implementação
+
+1. **Migração SQL** - Atualizar RPC + criar função de scope
+2. **Hook useResourceScope** - Novo hook para verificar permissões
+3. **useMyInvitedConversationsFull** - Adicionar campo is_closed
+4. **AdminConversationList** - Corrigir merge e aplicar lógica de scope
+5. **WhatsApp.tsx** - Ajustar interface para modo restrito
+6. **Testes** - Verificar comportamento com diferentes scopes
