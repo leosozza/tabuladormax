@@ -5628,6 +5628,18 @@ export type Database = {
             }
             Returns: number
           }
+        | {
+            Args: {
+              p_deal_status_filter?: string
+              p_etapa_filter?: string
+              p_operator_filter?: string
+              p_response_filter?: string
+              p_search?: string
+              p_tag_filter?: string[]
+              p_window_filter?: string
+            }
+            Returns: number
+          }
       count_leads_to_reprocess: {
         Args: {
           p_date_from?: string
@@ -5838,6 +5850,42 @@ export type Database = {
               p_etapa_filter?: string
               p_limit?: number
               p_offset?: number
+              p_operator_filter?: string
+              p_response_filter?: string
+              p_search?: string
+              p_tag_filter?: string[]
+              p_window_filter?: string
+            }
+            Returns: {
+              bitrix_id: string
+              contract_number: string
+              deal_category_id: string
+              deal_count: number
+              deal_stage_id: string
+              deal_status: string
+              deal_title: string
+              last_customer_message_at: string
+              last_message_at: string
+              last_message_direction: string
+              last_message_preview: string
+              last_operator_name: string
+              last_operator_photo_url: string
+              lead_etapa: string
+              lead_id: number
+              lead_name: string
+              maxsystem_id: string
+              phone_number: string
+              response_status: string
+              total_messages: number
+              unread_count: number
+            }[]
+          }
+        | {
+            Args: {
+              p_deal_status_filter?: string
+              p_etapa_filter?: string
+              p_limit?: number
+              p_offset?: number
               p_response_filter?: string
               p_search?: string
               p_tag_filter?: string[]
@@ -5886,6 +5934,22 @@ export type Database = {
             Args: {
               p_deal_status_filter?: string
               p_etapa_filter?: string
+              p_response_filter?: string
+              p_search?: string
+              p_tag_filter?: string[]
+              p_window_filter?: string
+            }
+            Returns: {
+              open_windows: number
+              total_conversations: number
+              total_unread: number
+            }[]
+          }
+        | {
+            Args: {
+              p_deal_status_filter?: string
+              p_etapa_filter?: string
+              p_operator_filter?: string
               p_response_filter?: string
               p_search?: string
               p_tag_filter?: string[]
