@@ -1,6 +1,6 @@
 // ============================================
 // WhatsApp AI Assist - Gerar/Melhorar respostas
-// Usa Groq API com suporte a Agentes personalizados
+// Multi-provider fallback com Groq, Lovable AI, DeepSeek, Cerebras, SambaNova
 // ============================================
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -11,9 +11,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
-
-const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -28,6 +25,67 @@ Regras importantes:
 - NÃO faça promessas que não pode cumprir
 - Se não souber algo, sugira encaminhar para um especialista
 - Use português brasileiro`;
+
+// Configuração de providers com fallback
+interface ProviderConfig {
+  name: string;
+  displayName: string;
+  url: string;
+  getApiKey: () => string | undefined;
+  model: string;
+  timeout: number;
+}
+
+const PROVIDERS: ProviderConfig[] = [
+  {
+    name: 'groq',
+    displayName: 'Groq (Llama 3.3)',
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    getApiKey: () => Deno.env.get('GROQ_API_KEY'),
+    model: 'llama-3.3-70b-versatile',
+    timeout: 15000,
+  },
+  {
+    name: 'lovable',
+    displayName: 'Gemini 3 Flash',
+    url: 'https://ai.gateway.lovable.dev/v1/chat/completions',
+    getApiKey: () => Deno.env.get('LOVABLE_API_KEY'),
+    model: 'google/gemini-3-flash-preview',
+    timeout: 20000,
+  },
+  {
+    name: 'deepseek',
+    displayName: 'DeepSeek Chat',
+    url: 'https://api.deepseek.com/v1/chat/completions',
+    getApiKey: () => Deno.env.get('DEEPSEEK_API_KEY'),
+    model: 'deepseek-chat',
+    timeout: 20000,
+  },
+  {
+    name: 'cerebras',
+    displayName: 'Cerebras (Llama 3.3)',
+    url: 'https://api.cerebras.ai/v1/chat/completions',
+    getApiKey: () => Deno.env.get('CEREBRAS_API_KEY'),
+    model: 'llama-3.3-70b',
+    timeout: 15000,
+  },
+  {
+    name: 'sambanova',
+    displayName: 'SambaNova (Llama 3.1)',
+    url: 'https://api.sambanova.ai/v1/chat/completions',
+    getApiKey: () => Deno.env.get('SAMBANOVA_API_KEY'),
+    model: 'Meta-Llama-3.1-70B-Instruct',
+    timeout: 20000,
+  },
+  {
+    name: 'openrouter',
+    displayName: 'OpenRouter (Gemma 27B)',
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    getApiKey: () => Deno.env.get('OPENROUTER_API_KEY'),
+    model: 'google/gemma-2-27b-it:free',
+    timeout: 25000,
+  },
+];
 
 interface AgentData {
   id: string;
@@ -45,14 +103,162 @@ interface TrainingData {
   priority: number;
 }
 
+interface AICallResult {
+  success: boolean;
+  response?: string;
+  provider?: string;
+  model?: string;
+  error?: string;
+  errorCode?: number;
+  errorType?: 'rate_limit' | 'credits' | 'timeout' | 'api_error' | 'config';
+}
+
+async function callAIProvider(
+  provider: ProviderConfig,
+  messages: Array<{ role: string; content: string }>,
+  maxTokens: number = 300
+): Promise<AICallResult> {
+  const apiKey = provider.getApiKey();
+  
+  if (!apiKey) {
+    return {
+      success: false,
+      error: `API key não configurada para ${provider.displayName}`,
+      errorType: 'config',
+    };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), provider.timeout);
+
+  try {
+    console.log(`🔄 Tentando ${provider.displayName} (${provider.model})...`);
+    
+    const response = await fetch(provider.url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        ...(provider.name === 'openrouter' ? { 'HTTP-Referer': 'https://tabuladormax.lovable.app' } : {}),
+      },
+      body: JSON.stringify({
+        model: provider.model,
+        messages,
+        max_tokens: maxTokens,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      console.error(`❌ ${provider.displayName} erro ${response.status}:`, errorText);
+
+      if (response.status === 429) {
+        return {
+          success: false,
+          error: `Rate limit excedido em ${provider.displayName}`,
+          errorCode: 429,
+          errorType: 'rate_limit',
+        };
+      }
+
+      if (response.status === 402 || response.status === 401) {
+        return {
+          success: false,
+          error: `Créditos/autenticação em ${provider.displayName}`,
+          errorCode: response.status,
+          errorType: 'credits',
+        };
+      }
+
+      return {
+        success: false,
+        error: `Erro ${response.status} em ${provider.displayName}`,
+        errorCode: response.status,
+        errorType: 'api_error',
+      };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return {
+        success: false,
+        error: `Resposta vazia de ${provider.displayName}`,
+        errorType: 'api_error',
+      };
+    }
+
+    console.log(`✅ ${provider.displayName} respondeu com sucesso`);
+    return {
+      success: true,
+      response: content.trim(),
+      provider: provider.name,
+      model: provider.model,
+    };
+
+  } catch (err) {
+    clearTimeout(timeoutId);
+    
+    if (err instanceof Error && err.name === 'AbortError') {
+      console.error(`⏱️ ${provider.displayName} timeout após ${provider.timeout}ms`);
+      return {
+        success: false,
+        error: `Timeout em ${provider.displayName}`,
+        errorType: 'timeout',
+      };
+    }
+
+    console.error(`❌ ${provider.displayName} erro:`, err);
+    return {
+      success: false,
+      error: `Erro de conexão com ${provider.displayName}`,
+      errorType: 'api_error',
+    };
+  }
+}
+
+async function callWithFallback(
+  messages: Array<{ role: string; content: string }>,
+  maxTokens: number = 300
+): Promise<AICallResult> {
+  const errors: string[] = [];
+
+  for (const provider of PROVIDERS) {
+    const result = await callAIProvider(provider, messages, maxTokens);
+    
+    if (result.success) {
+      return result;
+    }
+
+    errors.push(result.error || `Falha em ${provider.displayName}`);
+
+    // Se for erro de configuração, pula para próximo
+    if (result.errorType === 'config') {
+      continue;
+    }
+
+    // Pequeno delay entre tentativas para evitar flood
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+
+  // Todos falharam
+  return {
+    success: false,
+    error: `Todos os provedores falharam:\n${errors.join('\n')}`,
+    errorType: 'api_error',
+  };
+}
+
 async function getAgentAndTraining(operatorBitrixId?: number, profileId?: string): Promise<{ agent: AgentData | null; trainings: TrainingData[] }> {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Buscar agente vinculado ao operador (por bitrix_id ou profile_id)
     let assignment = null;
     
-    // Tentar primeiro por operator_bitrix_id
     if (operatorBitrixId) {
       const { data, error } = await supabase
         .from('agent_operator_assignments')
@@ -69,7 +275,6 @@ async function getAgentAndTraining(operatorBitrixId?: number, profileId?: string
       }
     }
     
-    // Se não encontrou por bitrix_id, tentar por profile_id
     if (!assignment && profileId) {
       const { data, error } = await supabase
         .from('agent_operator_assignments')
@@ -94,7 +299,6 @@ async function getAgentAndTraining(operatorBitrixId?: number, profileId?: string
     const agent = assignment.agent as unknown as AgentData;
     const allTrainings: TrainingData[] = [];
     
-    // Buscar treinamentos específicos do agente (ai_agents_training)
     const { data: agentTrainings, error: trainingError } = await supabase
       .from('ai_agents_training')
       .select('title, content, category, priority')
@@ -108,7 +312,6 @@ async function getAgentAndTraining(operatorBitrixId?: number, profileId?: string
       allTrainings.push(...agentTrainings);
     }
 
-    // Buscar treinamentos vinculados do sistema (agent_training_links -> ai_training_instructions)
     const { data: linkedTrainings, error: linkedError } = await supabase
       .from('agent_training_links')
       .select(`
@@ -132,10 +335,9 @@ async function getAgentAndTraining(operatorBitrixId?: number, profileId?: string
       }
     }
 
-    // Ordenar todos os treinamentos por prioridade
     allTrainings.sort((a, b) => b.priority - a.priority);
 
-    console.log(`Usando agente "${agent.name}" com ${allTrainings.length} treinamentos (${agentTrainings?.length || 0} diretos + ${linkedTrainings?.length || 0} vinculados)`);
+    console.log(`Usando agente "${agent.name}" com ${allTrainings.length} treinamentos`);
     return { agent, trainings: allTrainings };
   } catch (err) {
     console.error('Erro ao buscar dados do agente:', err);
@@ -152,7 +354,7 @@ function buildSystemPrompt(agent: AgentData | null, trainings: TrainingData[], c
 
   if (trainings.length > 0) {
     prompt += '\n\n=== INSTRUÇÕES DE TREINAMENTO ===\n';
-    trainings.forEach((t, i) => {
+    trainings.forEach((t) => {
       prompt += `\n[${t.category.toUpperCase()}] ${t.title}:\n${t.content}\n`;
     });
   }
@@ -164,6 +366,20 @@ function buildSystemPrompt(agent: AgentData | null, trainings: TrainingData[], c
   return prompt;
 }
 
+// Mapeia nome do modelo para exibição amigável
+function formatModelDisplay(model: string): string {
+  const modelNames: Record<string, string> = {
+    'llama-3.3-70b-versatile': 'Llama 3.3',
+    'llama-3.3-70b': 'Llama 3.3',
+    'Meta-Llama-3.1-70B-Instruct': 'Llama 3.1',
+    'google/gemini-3-flash-preview': 'Gemini 3 Flash',
+    'google/gemini-2.5-flash': 'Gemini 2.5 Flash',
+    'deepseek-chat': 'DeepSeek',
+    'google/gemma-2-27b-it:free': 'Gemma 27B',
+  };
+  return modelNames[model] || model;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -172,15 +388,7 @@ serve(async (req) => {
   try {
     const { action, messages, text, context, operatorBitrixId, profileId } = await req.json();
 
-    if (!GROQ_API_KEY) {
-      console.error('GROQ_API_KEY não configurada');
-      return new Response(
-        JSON.stringify({ error: 'API key do Groq não configurada' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Buscar agente e treinamentos se operatorBitrixId ou profileId foi fornecido
+    // Buscar agente e treinamentos
     let agent: AgentData | null = null;
     let trainings: TrainingData[] = [];
     
@@ -190,13 +398,9 @@ serve(async (req) => {
       trainings = agentData.trainings;
     }
 
-    // Usar modelo do agente ou padrão
-    const model = agent?.ai_model || 'llama-3.3-70b-versatile';
-
     if (action === 'generate') {
       const systemPrompt = buildSystemPrompt(agent, trainings, context);
 
-      // Formatar histórico de conversa
       const conversationHistory = messages?.map((m: any) => ({
         role: m.role,
         content: m.content,
@@ -204,55 +408,35 @@ serve(async (req) => {
 
       const userPrompt = 'Baseado na conversa acima, gere uma resposta adequada para o cliente.';
 
-      const response = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...conversationHistory,
-            { role: 'user', content: userPrompt },
-          ],
-          max_tokens: 300,
-        }),
-      });
+      const aiMessages = [
+        { role: 'system', content: systemPrompt },
+        ...conversationHistory,
+        { role: 'user', content: userPrompt },
+      ];
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Erro no Groq API:', response.status, errorText);
-        
-        if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns segundos.' }),
-            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        if (response.status === 402) {
-          return new Response(
-            JSON.stringify({ error: 'Créditos insuficientes no Groq. Verifique sua conta.' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
+      const result = await callWithFallback(aiMessages, 300);
+
+      if (!result.success) {
+        // Determinar código de status baseado no tipo de erro
+        let statusCode = 500;
+        if (result.errorType === 'rate_limit') statusCode = 429;
+        if (result.errorType === 'credits') statusCode = 402;
+
         return new Response(
-          JSON.stringify({ error: 'Erro ao processar com IA' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ 
+            error: result.error,
+            error_type: result.errorType,
+          }),
+          { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const data = await response.json();
-      const generatedResponse = data.choices?.[0]?.message?.content || '';
-
       return new Response(
         JSON.stringify({ 
-          response: generatedResponse.trim(),
+          response: result.response,
           agent_name: agent?.name || null,
-          model_used: model
+          model_used: formatModelDisplay(result.model || ''),
+          provider: result.provider,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -280,53 +464,32 @@ ${context ? `Contexto adicional: ${context}` : ''}
 
 Retorne APENAS o texto melhorado, sem explicações.`;
 
-      const response = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: improvePrompt },
-            { role: 'user', content: `Melhore este texto: "${text}"` },
-          ],
-          max_tokens: 300,
-        }),
-      });
+      const aiMessages = [
+        { role: 'system', content: improvePrompt },
+        { role: 'user', content: `Melhore este texto: "${text}"` },
+      ];
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Erro no Groq API:', response.status, errorText);
-        
-        if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns segundos.' }),
-            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        if (response.status === 402) {
-          return new Response(
-            JSON.stringify({ error: 'Créditos insuficientes no Groq. Verifique sua conta.' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
+      const result = await callWithFallback(aiMessages, 300);
+
+      if (!result.success) {
+        let statusCode = 500;
+        if (result.errorType === 'rate_limit') statusCode = 429;
+        if (result.errorType === 'credits') statusCode = 402;
+
         return new Response(
-          JSON.stringify({ error: 'Erro ao processar com IA' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ 
+            error: result.error,
+            error_type: result.errorType,
+          }),
+          { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const data = await response.json();
-      const improvedText = data.choices?.[0]?.message?.content || text;
-
       return new Response(
         JSON.stringify({ 
-          response: improvedText.trim(),
-          model_used: model
+          response: result.response,
+          model_used: formatModelDisplay(result.model || ''),
+          provider: result.provider,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -341,7 +504,10 @@ Retorne APENAS o texto melhorado, sem explicações.`;
   } catch (error) {
     console.error('Erro no whatsapp-ai-assist:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        error_type: 'api_error',
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
