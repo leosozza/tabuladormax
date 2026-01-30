@@ -167,8 +167,6 @@ export function WhatsAppHeader({
                 </>}
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {onClose}
         </div>
       </div>
 
