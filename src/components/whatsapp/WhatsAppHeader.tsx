@@ -1,10 +1,17 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, RotateCw, CheckCircle2, UserPlus, Tag, UserCheck, PhoneCall, Server, RefreshCw, History } from 'lucide-react';
+import { X, RotateCw, CheckCircle2, UserPlus, Tag, UserCheck, PhoneCall, Server, History, MoreVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useConversationClosure, useReopenConversation } from '@/hooks/useCloseConversation';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useMyParticipation } from '@/hooks/useMyParticipation';
 import { CloseConversationDialog } from './CloseConversationDialog';
 import { ResolveParticipationDialog } from './ResolveParticipationDialog';
@@ -118,9 +125,6 @@ export function WhatsAppHeader({
         <div className="flex items-center gap-2">
           {rightContent}
           
-          {/* Call History Popover */}
-          <CallHistoryPopover phoneNumber={phoneNumber} />
-          
           {/* Close/Reopen Conversation Button */}
           {phoneNumber && (isClosed ? <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopenConversation.isPending} className="gap-1.5 text-xs" title="Reabrir conversa">
                 <RotateCw className="w-3.5 h-3.5" />
@@ -136,27 +140,44 @@ export function WhatsAppHeader({
               Resolvido
             </Button>}
           
-          {/* Tags Button */}
-          {phoneNumber && <Button variant="outline" size="sm" onClick={() => setTagsDialogOpen(true)} className="gap-1.5 text-xs" title="Gerenciar etiquetas">
-              <Tag className="w-3.5 h-3.5" />
-              Etiquetas
-            </Button>}
-          
-          {/* Invite Agent Button */}
-          {phoneNumber && <Button variant="outline" size="sm" onClick={() => setInviteDialogOpen(true)} className="gap-1.5 text-xs" title="Convidar agentes para a conversa">
-              <UserPlus className="w-3.5 h-3.5" />
-              Convidar
-            </Button>}
-          
-          {/* Click-to-Call Button - at the corner */}
-          {phoneNumber && <Button variant="default" size="sm" onClick={handleClickToCall} className="gap-1.5 text-xs bg-green-600 hover:bg-green-700" title="Ligar via MicroSIP">
-              <PhoneCall className="w-3.5 h-3.5" />
-              Ligar
-            </Button>}
-          {bitrixId && <Button variant="ghost" size="icon" onClick={() => navigate(`/portal-telemarketing/tabulador?lead=${bitrixId}`)} title="Abrir Tabulador">
-              <Server className="w-4 h-4" />
-            </Button>}
-          {onRefresh}
+          {/* Actions Dropdown Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" title="Mais ações">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {bitrixId && (
+                <DropdownMenuItem onClick={() => navigate(`/portal-telemarketing/tabulador?lead=${bitrixId}`)}>
+                  <Server className="w-4 h-4 mr-2" />
+                  Tabulador
+                </DropdownMenuItem>
+              )}
+              {phoneNumber && (
+                <>
+                  <DropdownMenuItem onClick={handleClickToCall} className="text-green-600">
+                    <PhoneCall className="w-4 h-4 mr-2" />
+                    Ligar
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setCallResultDialogOpen(true)}>
+                    <History className="w-4 h-4 mr-2" />
+                    Histórico de Chamadas
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setInviteDialogOpen(true)}>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Convidar Agentes
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTagsDialogOpen(true)}>
+                    <Tag className="w-4 h-4 mr-2" />
+                    Etiquetas
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {onClose && <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="w-4 h-4" />
             </Button>}
