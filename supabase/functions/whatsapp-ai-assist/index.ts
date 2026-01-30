@@ -1,6 +1,6 @@
 // ============================================
 // WhatsApp AI Assist - Gerar/Melhorar respostas
-// Multi-provider fallback com Groq, Lovable AI, DeepSeek, Cerebras, SambaNova
+// Multi-provider fallback com vários provedores
 // ============================================
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -26,7 +26,7 @@ Regras importantes:
 - Se não souber algo, sugira encaminhar para um especialista
 - Use português brasileiro`;
 
-// Configuração de providers com fallback
+// Configuração de providers com fallback (mesma lista do generate-training)
 interface ProviderConfig {
   name: string;
   displayName: string;
@@ -38,14 +38,6 @@ interface ProviderConfig {
 
 const PROVIDERS: ProviderConfig[] = [
   {
-    name: 'groq',
-    displayName: 'Groq (Llama 3.3)',
-    url: 'https://api.groq.com/openai/v1/chat/completions',
-    getApiKey: () => Deno.env.get('GROQ_API_KEY'),
-    model: 'llama-3.3-70b-versatile',
-    timeout: 15000,
-  },
-  {
     name: 'lovable',
     displayName: 'Gemini 3 Flash',
     url: 'https://ai.gateway.lovable.dev/v1/chat/completions',
@@ -54,9 +46,17 @@ const PROVIDERS: ProviderConfig[] = [
     timeout: 20000,
   },
   {
+    name: 'groq',
+    displayName: 'Groq (Llama 3.3)',
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    getApiKey: () => Deno.env.get('GROQ_API_KEY'),
+    model: 'llama-3.3-70b-versatile',
+    timeout: 15000,
+  },
+  {
     name: 'deepseek',
     displayName: 'DeepSeek Chat',
-    url: 'https://api.deepseek.com/v1/chat/completions',
+    url: 'https://api.deepseek.com/chat/completions',
     getApiKey: () => Deno.env.get('DEEPSEEK_API_KEY'),
     model: 'deepseek-chat',
     timeout: 20000,
@@ -78,12 +78,44 @@ const PROVIDERS: ProviderConfig[] = [
     timeout: 20000,
   },
   {
-    name: 'openrouter',
-    displayName: 'OpenRouter (Gemma 27B)',
+    name: 'openrouter-deepseek',
+    displayName: 'DeepSeek R1 (OpenRouter)',
     url: 'https://openrouter.ai/api/v1/chat/completions',
     getApiKey: () => Deno.env.get('OPENROUTER_API_KEY'),
-    model: 'google/gemma-2-27b-it:free',
+    model: 'deepseek/deepseek-r1-0528:free',
     timeout: 25000,
+  },
+  {
+    name: 'openrouter-llama',
+    displayName: 'Llama 70B (OpenRouter)',
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    getApiKey: () => Deno.env.get('OPENROUTER_API_KEY'),
+    model: 'meta-llama/llama-3.3-70b-instruct:free',
+    timeout: 25000,
+  },
+  {
+    name: 'openrouter-gemma',
+    displayName: 'Gemma 27B (OpenRouter)',
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    getApiKey: () => Deno.env.get('OPENROUTER_API_KEY'),
+    model: 'google/gemma-3-27b-it:free',
+    timeout: 25000,
+  },
+  {
+    name: 'google-ai-studio',
+    displayName: 'Google AI Studio (Gemini 2.0)',
+    url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    getApiKey: () => Deno.env.get('GOOGLE_AI_STUDIO_API_KEY'),
+    model: 'gemini-2.0-flash',
+    timeout: 20000,
+  },
+  {
+    name: 'kimi',
+    displayName: 'Kimi (Moonshot)',
+    url: 'https://api.moonshot.ai/v1/chat/completions',
+    getApiKey: () => Deno.env.get('KIMI_API_KEY'),
+    model: 'moonshot-v1-8k',
+    timeout: 20000,
   },
 ];
 
@@ -110,7 +142,11 @@ interface AICallResult {
   model?: string;
   error?: string;
   errorCode?: number;
-  errorType?: 'rate_limit' | 'credits' | 'timeout' | 'api_error' | 'config';
+  errorType?: 'rate_limit' | 'credits' | 'timeout' | 'api_error' | 'config' | 'model_not_found';
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function callAIProvider(
@@ -121,6 +157,7 @@ async function callAIProvider(
   const apiKey = provider.getApiKey();
   
   if (!apiKey) {
+    console.log(`⏭️ ${provider.displayName}: API key não configurada, pulando...`);
     return {
       success: false,
       error: `API key não configurada para ${provider.displayName}`,
@@ -139,7 +176,7 @@ async function callAIProvider(
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        ...(provider.name === 'openrouter' ? { 'HTTP-Referer': 'https://tabuladormax.lovable.app' } : {}),
+        ...(provider.name.startsWith('openrouter') ? { 'HTTP-Referer': 'https://tabuladormax.lovable.app' } : {}),
       },
       body: JSON.stringify({
         model: provider.model,
@@ -155,21 +192,43 @@ async function callAIProvider(
       const errorText = await response.text().catch(() => '');
       console.error(`❌ ${provider.displayName} erro ${response.status}:`, errorText);
 
+      // Rate limit
       if (response.status === 429) {
         return {
           success: false,
-          error: `Rate limit excedido em ${provider.displayName}`,
+          error: `⏳ Rate limit excedido em ${provider.displayName}`,
           errorCode: 429,
           errorType: 'rate_limit',
         };
       }
 
-      if (response.status === 402 || response.status === 401) {
+      // Créditos/Pagamento
+      if (response.status === 402) {
         return {
           success: false,
-          error: `Créditos/autenticação em ${provider.displayName}`,
-          errorCode: response.status,
+          error: `💳 Sem créditos em ${provider.displayName}`,
+          errorCode: 402,
           errorType: 'credits',
+        };
+      }
+
+      // Autenticação
+      if (response.status === 401) {
+        return {
+          success: false,
+          error: `🔑 API key inválida em ${provider.displayName}`,
+          errorCode: 401,
+          errorType: 'config',
+        };
+      }
+
+      // Modelo não encontrado
+      if (response.status === 404) {
+        return {
+          success: false,
+          error: `❓ Modelo não encontrado em ${provider.displayName}`,
+          errorCode: 404,
+          errorType: 'model_not_found',
         };
       }
 
@@ -207,12 +266,12 @@ async function callAIProvider(
       console.error(`⏱️ ${provider.displayName} timeout após ${provider.timeout}ms`);
       return {
         success: false,
-        error: `Timeout em ${provider.displayName}`,
+        error: `⏱️ Timeout em ${provider.displayName}`,
         errorType: 'timeout',
       };
     }
 
-    console.error(`❌ ${provider.displayName} erro:`, err);
+    console.error(`❌ ${provider.displayName} erro de conexão:`, err);
     return {
       success: false,
       error: `Erro de conexão com ${provider.displayName}`,
@@ -226,30 +285,49 @@ async function callWithFallback(
   maxTokens: number = 300
 ): Promise<AICallResult> {
   const errors: string[] = [];
+  let attemptCount = 0;
+  const maxRetries = 2; // Retry para rate limit
 
   for (const provider of PROVIDERS) {
-    const result = await callAIProvider(provider, messages, maxTokens);
-    
-    if (result.success) {
-      return result;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const result = await callAIProvider(provider, messages, maxTokens);
+      attemptCount++;
+      
+      if (result.success) {
+        console.log(`📊 Sucesso após ${attemptCount} tentativa(s)`);
+        return result;
+      }
+
+      // Se for rate limit e ainda tem tentativas, aguarda e tenta novamente
+      if (result.errorType === 'rate_limit' && attempt < maxRetries) {
+        const backoffMs = 800 * Math.pow(2, attempt) + Math.floor(Math.random() * 400);
+        console.log(`⏳ Rate limit em ${provider.displayName}. Aguardando ${backoffMs}ms (tentativa ${attempt + 1}/${maxRetries})...`);
+        await sleep(backoffMs);
+        continue;
+      }
+
+      errors.push(result.error || `Falha em ${provider.displayName}`);
+      break; // Próximo provider
     }
 
-    errors.push(result.error || `Falha em ${provider.displayName}`);
-
-    // Se for erro de configuração, pula para próximo
-    if (result.errorType === 'config') {
-      continue;
-    }
-
-    // Pequeno delay entre tentativas para evitar flood
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Pequeno delay entre providers para evitar flood
+    await sleep(300);
   }
 
-  // Todos falharam
+  // Todos falharam - determinar tipo predominante de erro
+  const hasRateLimit = errors.some(e => e.includes('Rate limit') || e.includes('⏳'));
+  const hasCredits = errors.some(e => e.includes('créditos') || e.includes('💳'));
+  
+  let finalErrorType: AICallResult['errorType'] = 'api_error';
+  if (hasCredits) finalErrorType = 'credits';
+  if (hasRateLimit) finalErrorType = 'rate_limit';
+
+  console.error(`❌ Todos os ${PROVIDERS.length} provedores falharam após ${attemptCount} tentativas`);
+  
   return {
     success: false,
-    error: `Todos os provedores falharam:\n${errors.join('\n')}`,
-    errorType: 'api_error',
+    error: `Todos os ${PROVIDERS.length} provedores falharam. Erros:\n${errors.slice(0, 5).join('\n')}`,
+    errorType: finalErrorType,
   };
 }
 
@@ -337,7 +415,9 @@ async function getAgentAndTraining(operatorBitrixId?: number, profileId?: string
 
     allTrainings.sort((a, b) => b.priority - a.priority);
 
-    console.log(`Usando agente "${agent.name}" com ${allTrainings.length} treinamentos`);
+    const directCount = agentTrainings?.length || 0;
+    const linkedCount = allTrainings.length - directCount;
+    console.log(`Usando agente "${agent.name}" com ${allTrainings.length} treinamentos (${directCount} diretos + ${linkedCount} vinculados)`);
     return { agent, trainings: allTrainings };
   } catch (err) {
     console.error('Erro ao buscar dados do agente:', err);
@@ -374,8 +454,12 @@ function formatModelDisplay(model: string): string {
     'Meta-Llama-3.1-70B-Instruct': 'Llama 3.1',
     'google/gemini-3-flash-preview': 'Gemini 3 Flash',
     'google/gemini-2.5-flash': 'Gemini 2.5 Flash',
-    'deepseek-chat': 'DeepSeek',
-    'google/gemma-2-27b-it:free': 'Gemma 27B',
+    'gemini-2.0-flash': 'Gemini 2.0 Flash',
+    'deepseek-chat': 'DeepSeek Chat',
+    'deepseek/deepseek-r1-0528:free': 'DeepSeek R1',
+    'google/gemma-3-27b-it:free': 'Gemma 27B',
+    'meta-llama/llama-3.3-70b-instruct:free': 'Llama 3.3',
+    'moonshot-v1-8k': 'Kimi (Moonshot)',
   };
   return modelNames[model] || model;
 }
@@ -501,11 +585,11 @@ Retorne APENAS o texto melhorado, sem explicações.`;
       );
     }
 
-  } catch (error) {
-    console.error('Erro no whatsapp-ai-assist:', error);
+  } catch (err) {
+    console.error('Erro na função whatsapp-ai-assist:', err);
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        error: err instanceof Error ? err.message : 'Erro interno',
         error_type: 'api_error',
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
