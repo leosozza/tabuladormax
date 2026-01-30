@@ -79,17 +79,33 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!bitrixDealId && negotiation_id) {
+    // Fetch negotiation data for payment methods
+    let negotiationData: {
+      payment_methods: any;
+      total_value: number | null;
+      discount_percentage: number | null;
+      notes: string | null;
+    } | null = null
+
+    if (negotiation_id) {
       const { data: negotiation } = await supabase
         .from('negotiations')
-        .select('bitrix_deal_id, pipeline_id')
+        .select('bitrix_deal_id, pipeline_id, payment_methods, total_value, discount_percentage, notes')
         .eq('id', negotiation_id)
         .single()
 
       if (negotiation) {
-        bitrixDealId = negotiation.bitrix_deal_id
+        if (!bitrixDealId) {
+          bitrixDealId = negotiation.bitrix_deal_id
+        }
         if (!pipelineId && negotiation.pipeline_id) {
           pipelineId = negotiation.pipeline_id
+        }
+        negotiationData = {
+          payment_methods: negotiation.payment_methods,
+          total_value: negotiation.total_value,
+          discount_percentage: negotiation.discount_percentage,
+          notes: negotiation.notes
         }
       }
     }
@@ -112,6 +128,53 @@ Deno.serve(async (req) => {
       updateFields.STAGE_ID = statusToStage[status]
       console.log(`[sync-deal-to-bitrix] Mapping status "${status}" to stage "${statusToStage[status]}" (pipeline: ${pipelineId})`)
     }
+
+    // Add negotiation data to update fields
+    if (negotiationData) {
+      // Set opportunity value
+      if (negotiationData.total_value) {
+        updateFields.OPPORTUNITY = negotiationData.total_value
+      }
+
+      // Format payment methods for Bitrix comments field
+      if (negotiationData.payment_methods && Array.isArray(negotiationData.payment_methods)) {
+        const paymentSummary = (negotiationData.payment_methods as any[])
+          .map((pm: any) => {
+            const methodLabels: Record<string, string> = {
+              pix: 'PIX',
+              cartao_credito: 'Cartão de Crédito',
+              cartao_debito: 'Cartão de Débito',
+              boleto: 'Boleto',
+              cheque: 'Cheque',
+              dinheiro: 'Dinheiro',
+              transferencia: 'Transferência'
+            }
+            const label = methodLabels[pm.method] || pm.method
+            const value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pm.value || 0)
+            if (pm.installments && pm.installments > 1) {
+              return `${label}: ${value} (${pm.installments}x)`
+            }
+            return `${label}: ${value}`
+          })
+          .join(' | ')
+
+        // Update comments with payment info
+        const existingComments = updateFields.COMMENTS || ''
+        const paymentHeader = '=== FORMAS DE PAGAMENTO ==='
+        const paymentBlock = `${paymentHeader}\n${paymentSummary}`
+        
+        // Add discount info if applicable
+        let discountInfo = ''
+        if (negotiationData.discount_percentage && negotiationData.discount_percentage > 0) {
+          discountInfo = `\nDesconto: ${negotiationData.discount_percentage.toFixed(1)}%`
+        }
+        
+        updateFields.COMMENTS = `${paymentBlock}${discountInfo}\n\n${negotiationData.notes || ''}`.trim()
+      }
+
+      console.log(`[sync-deal-to-bitrix] Including payment data: OPPORTUNITY=${updateFields.OPPORTUNITY}`)
+    }
+
     // Update in Bitrix
     const response = await fetch(`${BITRIX_WEBHOOK_URL}/crm.deal.update.json`, {
       method: 'POST',
